@@ -18,14 +18,17 @@ fn plant_serve_exchanges_one_response_per_request_until_eof() {
     )
     .expect("write simulation configuration");
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["plant", "serve", "--project"])
-        .arg(&root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("start stopped-project plant session");
+    let mut child = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["plant", "serve", "--project"])
+    .arg(&root)
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .expect("start stopped-project plant session");
     {
         let stdin = child.stdin.as_mut().expect("plant session stdin");
         writeln!(

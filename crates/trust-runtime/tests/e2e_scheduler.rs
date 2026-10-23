@@ -72,8 +72,8 @@ END_PROGRAM
 
     runner
         .runtime_mut()
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+        .write_global("trigger", Value::Bool(true))
+        .unwrap();
     clock.advance(Duration::from_millis(10));
     runner.tick().unwrap();
 
@@ -94,8 +94,8 @@ END_PROGRAM
 
     runner
         .runtime_mut()
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+        .write_global("trigger", Value::Bool(false))
+        .unwrap();
     clock.advance(Duration::from_millis(10));
     runner.tick().unwrap();
 
@@ -153,8 +153,8 @@ END_PROGRAM
 
     runner
         .runtime_mut()
-        .storage_mut()
-        .set_global("fault_trigger", Value::Bool(true));
+        .write_global("fault_trigger", Value::Bool(true))
+        .unwrap();
     let err = runner.tick().unwrap_err();
     assert!(matches!(err, RuntimeError::DivisionByZero));
     assert!(runner.runtime().faulted());
@@ -292,14 +292,14 @@ END_PROGRAM
         runner.tick().unwrap();
         runner
             .runtime_mut()
-            .storage_mut()
-            .set_global("trigger", Value::Bool(true));
+            .write_global("trigger", Value::Bool(true))
+            .unwrap();
         clock.advance(Duration::from_millis(10));
         runner.tick().unwrap();
         runner
             .runtime_mut()
-            .storage_mut()
-            .set_global("trigger", Value::Bool(false));
+            .write_global("trigger", Value::Bool(false))
+            .unwrap();
         clock.advance(Duration::from_millis(10));
         runner.tick().unwrap();
 

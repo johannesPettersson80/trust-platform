@@ -28,13 +28,16 @@ fn trust_dev_command() -> Command {
 }
 
 fn trust_runtime_command_with_dev_alias() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command.env("TRUST_DEV_BIN", trust_dev_bin());
     command
 }
 
 fn trust_dev_bin() -> PathBuf {
-    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+    if let Some(path) = std::env::var_os("CARGO_BIN_EXE_trust-dev") {
         return path.into();
     }
     if let Ok(path) = std::env::var("TRUST_DEV_BIN") {
@@ -119,7 +122,7 @@ fn filter_zero_message_is_clear_in_human_output() {
 }
 
 #[test]
-fn timeout_flag_reports_error_for_infinite_loop_test() {
+fn infinite_loop_reports_work_exhaustion_without_physical_deadline() {
     let project = unique_temp_dir("timeout-project");
     let sources = project.join("src");
     std::fs::create_dir_all(&sources).expect("create src dir");
@@ -140,10 +143,10 @@ END_TEST_PROGRAM
             "--project",
             project.to_str().expect("project path utf-8"),
             "--timeout",
-            "1",
+            "0",
         ])
         .output()
-        .expect("run trust-dev test --timeout 1");
+        .expect("run trust-dev test --timeout 0");
 
     assert!(
         !output.status.success(),
@@ -153,7 +156,10 @@ END_TEST_PROGRAM
     );
 
     let text = String::from_utf8_lossy(&output.stdout);
-    assert!(text.contains("test timed out after 1 second"));
+    // Disabling wall time must not disable logical fuel. Physical deadline
+    // expiry is tested independently with an already-expired deadline.
+    assert!(text.contains("work limit 1000000"), "{text}");
+    assert!(!text.contains("test timed out after"), "{text}");
 
     let _ = std::fs::remove_dir_all(project);
 }
@@ -320,12 +326,15 @@ END_PROGRAM
     )
     .expect("write regression source");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["build", "--project"])
-        .arg(&project)
-        .args(["--sources", "src", "--ci"])
-        .output()
-        .expect("run trust-runtime build");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["build", "--project"])
+    .arg(&project)
+    .args(["--sources", "src", "--ci"])
+    .output()
+    .expect("run trust-runtime build");
 
     assert!(
         output.status.success(),

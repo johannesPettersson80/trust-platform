@@ -779,7 +779,7 @@ The stable resolver codes are:
 - `[indexing]` cache options: `cache` (default true) enables persistent index caching across sessions; `cache_dir` overrides the cache location. Cache reuse checks file metadata and stored content hashes.
 - `[indexing]` memory budget controls: `memory_budget_mb` caps closed-document index memory (MB) and `evict_to_percent` defines the LRU eviction target; evicted documents are reloaded on demand when accessed.
 - `[indexing]` adaptive throttling: `throttle_idle_ms`, `throttle_active_ms`, `throttle_max_ms`, and `throttle_active_window_ms` pace background indexing based on recent editor activity and observed per-file work.
-- `[runtime]` supports `control_endpoint` and optional `control_auth_token` for debug-assisted inline values.
+- `[runtime]` supports `control_endpoint` and optional `control_auth_token` for debug-assisted inline values; a repository `control_endpoint` is contacted only with the repository `control_auth_token` (never the editor's token), and the editor's `controlAuthToken` setting is sent only to the editor's own `controlEndpoint` setting.
 - `[diagnostics]` toggles warning categories (`warn_unused`, `warn_unreachable`, `warn_missing_else`, `warn_implicit_conversion`, `warn_shadowed`, `warn_deprecated`, `warn_complexity`, `warn_nondeterminism`, `warn_numeric_hazards`) for vendor-dialect alignment (IEC 61131-3 Ed.3 §6.4.2; §7.3.3.3.3). Cyclomatic complexity warnings (W008) use a default threshold of 15; unused warnings (W001/W002/W009) cover variables, parameters, and top-level POUs; numeric hazard warnings (W013/W014) cover floating-point equality and literal zero divisors.
 - `[diagnostics].rule_pack` presets safety-focused defaults (e.g., `iec-safety`, `siemens-safety`, `codesys-safety`, `beckhoff-safety`, `twincat-safety`, `mitsubishi-safety`, `gxworks3-safety`); explicit `warn_*` keys override pack defaults. `[diagnostics].severity_overrides` can promote specific warning codes to error severity (W004 missing ELSE per IEC 61131-3 Ed.3 §7.3.3.3.3; W005 implicit conversion per §6.4.2; W010 TIME/DATE nondeterminism per §6.4.2; W011 direct variables per §6.5.5; W014 literal division/modulo by zero guard).
 - `[diagnostics].external_paths` lists JSON diagnostics payloads from external linters (optional per-diagnostic fix data yields quick-fix actions).
@@ -1026,6 +1026,28 @@ Document state follows these fail-closed rules:
 - configuration-scoped file-ID projection includes path sources under that
   configuration's indexing roots and excludes sources outside them.
 
+Disk deletion and indexing share one source-membership contract (tooling behavior,
+not a change to IEC 61131-3 Ed.3 §6.5.2.2 duplicate-declaration rules):
+
+- watcher subscriptions include directory deletions, not only ST/configuration
+  filenames; a deleted directory removes its indexed descendant sources, including sources
+  whose closed document text was evicted from memory; eviction drops cached text
+  but retains the registered URI and stable file identity until membership is
+  removed. Deletion uses that identity even when the path or its symlink alias
+  no longer exists or has changed target. Directory removal matches registered
+  URI descendants as well as canonical source descendants; sibling sources are
+  unaffected;
+- a workspace reindex reconciles sources proven missing on disk even when the
+  collected file list is empty or the indexing budget truncates the pass; absence
+  from that collected list alone is not evidence of deletion;
+- a reindex preserves open unsaved buffers and sources whose disk state cannot
+  be determined, and never replaces an open buffer with cached disk contents;
+- document and semantic-project membership transitions commit together under a
+  consistent lock order; a close racing deletion cannot leave an orphan source;
+- a disk indexing result cannot reintroduce a file already deleted before that
+  result commits. Reusing a POU name in a new scaffold after deleting its old
+  project therefore does not import the deleted declaration.
+
 Every committed project-text mutation advances the document generation once
 and clears both call-hierarchy caches. No-op lifecycle notifications do neither.
 Call-hierarchy reads return owned snapshots, so caller mutation cannot alter a
@@ -1191,6 +1213,10 @@ struct Diagnostic {
 - Full file parsing
 - Cross-file references
 - LSP protocol compliance + golden handler responses
+- Neovim and Zed editor smoke gates MUST verify that every exact Rust test
+  filter names a discovered `trust-lsp` test before executing it. A missing or
+  stale filter that selects zero tests MUST fail instead of being reported as
+  editor workflow coverage.
 - Performance harness (ignored by default): hover/completion/rename budgets + large workspace indexing (Section 10 targets)
 - VS Code extension integration tests for completion, formatting, and code actions (IEC 61131-3 Ed.3 §6.1-6.3; Tables 4-9; §6.5.2.2)
 - Stdlib coverage check: ensures all IEC standard function/FB names appear in `docs/specs/coverage/standard-functions-coverage.md` (IEC 61131-3 Ed.3, Tables 22–36, 43–46)

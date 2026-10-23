@@ -1,0 +1,262 @@
+{
+  "runs": {
+    "4": {
+      "manifest_sha256": "63138bc047e54224a9ea2edd970cdb323db24d74c4bda12f7c4dddf9fb8f7298",
+      "manifest_records": 1431,
+      "ledger_rows": 42,
+      "ledger_statuses": {
+        "required:PASS": 40,
+        "advisory:PASS": 2
+      },
+      "counts": {
+        "core-all-features": {
+          "harnesses": 29,
+          "passed": 401,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "core-portable": {
+          "harnesses": 29,
+          "passed": 362,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "core-i686": {
+          "harnesses": 8,
+          "passed": 282,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "runtime-unit": {
+          "harnesses": 1,
+          "passed": 3841,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "runtime-integration": {
+          "harnesses": 68,
+          "passed": 542,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "native-tools": {
+          "harnesses": 3,
+          "passed": 91,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "native-bundle": {
+          "harnesses": 1,
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "provenance-helper-tests": {
+          "harnesses": 1,
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "mutation-tooling": {
+          "harnesses": 0,
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": [
+            16
+          ]
+        },
+        "mutation-contracts": {
+          "harnesses": 0,
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": [
+            20
+          ]
+        }
+      },
+      "firmware_sha256": "5c0da1f439ae538b0f44f9bebdeac7d7c128aa5b368aa10899ba6ceac8dc49c4",
+      "upper_span": 442112,
+      "upper_free": 16640,
+      "sector0_free": 224
+    },
+    "5": {
+      "manifest_sha256": "2fb19a24c1d344bf3e991b984a422ba7558314f4eb95ea290a0a77ca263da928",
+      "manifest_records": 1431,
+      "ledger_rows": 13,
+      "ledger_statuses": {
+        "required:PASS": 12,
+        "advisory:PASS": 1
+      },
+      "counts": {},
+      "firmware_sha256": "820b2571053da7dd28caba3d5fafbebc40c82f59211f348926ed71ef895c3871",
+      "upper_span": 440128,
+      "upper_free": 18624,
+      "sector0_free": 224
+    },
+    "6": {
+      "manifest_sha256": "6a8823e1b138ec193157ed08c0935da87548b377eddebeb2a7399c93d5f713b2",
+      "manifest_records": 1431,
+      "ledger_rows": 13,
+      "ledger_statuses": {
+        "required:PASS": 12,
+        "advisory:PASS": 1
+      },
+      "counts": {},
+      "firmware_sha256": "7c5aa689752d2bc199f56f9094b5cd8066a42d6b1a5403a62bf2aca7a41550fb",
+      "upper_span": 440160,
+      "upper_free": 18592,
+      "sector0_free": 224
+    },
+    "7": {
+      "manifest_sha256": "e1213d088ec94eb0767cc4ad88c4f402218f06df91caaed29d0f670909aa3aff",
+      "manifest_records": 1431,
+      "ledger_rows": 42,
+      "ledger_statuses": {
+        "required:PASS": 39,
+        "advisory:PASS": 2,
+        "required:FAIL": 1
+      },
+      "counts": {
+        "core-all-features": {
+          "harnesses": 29,
+          "passed": 401,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "core-portable": {
+          "harnesses": 29,
+          "passed": 362,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "core-i686": {
+          "harnesses": 8,
+          "passed": 282,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "runtime-integration": {
+          "harnesses": 20,
+          "passed": 170,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "native-tools": {
+          "harnesses": 3,
+          "passed": 91,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "native-bundle": {
+          "harnesses": 1,
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "provenance-helper-tests": {
+          "harnesses": 1,
+          "passed": 4,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": []
+        },
+        "mutation-tooling": {
+          "harnesses": 0,
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": [
+            16
+          ]
+        },
+        "mutation-contracts": {
+          "harnesses": 0,
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "python_tests": [
+            20
+          ]
+        }
+      },
+      "firmware_sha256": "f11b73ae4b6138d253df2aeea386c77c4c5e88d6a493b94d581325699e5f7caf",
+      "upper_span": 440160,
+      "upper_free": 18592,
+      "sector0_free": 224
+    }
+  },
+  "manifest_differences": {
+    "4->5": {
+      "crates/trust-runtime-core/src/vm/dispatch/continuation.rs": {
+        "before": "ff6ef48649aebb1a5de1c8a2586d26507f040ed88413c54d78a68aa3d21afa2f",
+        "after": "10e0bb56692f79ec22d17ab6938fa798908ec15ee563a76544367cdbaf8f5423"
+      },
+      "docs/notes/runtime-portability/b-r4-execution.md": {
+        "before": "76e9021fdfbd23c1914579a5165574d73d77302706b3d386e254df365681fba7",
+        "after": "fc658c2093296a95a6b147fe4c8c2454b68d403acd4aca3bb9bf52c5febb2a28"
+      }
+    },
+    "5->6": {
+      "crates/trust-runtime-core/src/vm/engine/mod.rs": {
+        "before": "1ed024bbdd452e2d37361d193dc984c073818eef485f0bc0d7bc57be541d7ffe",
+        "after": "87bb8844776d41fc2a676051e4d5cba077eb5c9e4e68d03944adc2c12cb9fda2"
+      },
+      "docs/notes/runtime-portability/b-r4-execution.md": {
+        "before": "fc658c2093296a95a6b147fe4c8c2454b68d403acd4aca3bb9bf52c5febb2a28",
+        "after": "6fa6d27b819e0901e40c53422a1d443a6725f07c970a1dc41df69556968672d5"
+      }
+    },
+    "6->7": {
+      "crates/trust-runtime-core/src/vm/construction/values.rs": {
+        "before": "7e8a29ff571e9c1fbd24e1dcfcac52fa0a9bae2d9a050c02023340c1a3699a97",
+        "after": "c812f75e93b9420c7ad84ee3e615aa177eafb9635e6226eb5654c2545a7a4468"
+      },
+      "crates/trust-runtime-core/src/vm/engine/initialization/values.rs": {
+        "before": "ae03fdec8d384f3f99f123b6874878a97ff6b5efc5aa737e9132b086e88eba3e",
+        "after": "42cba1208c676b399a5c62b97ea449c76c44b830495cce6d4aaf37b8eb4cb656"
+      },
+      "crates/trust-runtime-core/src/vm/engine/mod.rs": {
+        "before": "87bb8844776d41fc2a676051e4d5cba077eb5c9e4e68d03944adc2c12cb9fda2",
+        "after": "1ed024bbdd452e2d37361d193dc984c073818eef485f0bc0d7bc57be541d7ffe"
+      },
+      "docs/notes/runtime-portability/b-r4-execution.md": {
+        "before": "6fa6d27b819e0901e40c53422a1d443a6725f07c970a1dc41df69556968672d5",
+        "after": "81a5ad3b71052ff779cd526b448275921d7a4ea30263b7277564c3e765bf3762"
+      }
+    },
+    "4->7": {
+      "crates/trust-runtime-core/src/vm/construction/values.rs": {
+        "before": "7e8a29ff571e9c1fbd24e1dcfcac52fa0a9bae2d9a050c02023340c1a3699a97",
+        "after": "c812f75e93b9420c7ad84ee3e615aa177eafb9635e6226eb5654c2545a7a4468"
+      },
+      "crates/trust-runtime-core/src/vm/dispatch/continuation.rs": {
+        "before": "ff6ef48649aebb1a5de1c8a2586d26507f040ed88413c54d78a68aa3d21afa2f",
+        "after": "10e0bb56692f79ec22d17ab6938fa798908ec15ee563a76544367cdbaf8f5423"
+      },
+      "crates/trust-runtime-core/src/vm/engine/initialization/values.rs": {
+        "before": "ae03fdec8d384f3f99f123b6874878a97ff6b5efc5aa737e9132b086e88eba3e",
+        "after": "42cba1208c676b399a5c62b97ea449c76c44b830495cce6d4aaf37b8eb4cb656"
+      },
+      "docs/notes/runtime-portability/b-r4-execution.md": {
+        "before": "76e9021fdfbd23c1914579a5165574d73d77302706b3d386e254df365681fba7",
+        "after": "81a5ad3b71052ff779cd526b448275921d7a4ea30263b7277564c3e765bf3762"
+      }
+    }
+  }
+}

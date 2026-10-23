@@ -219,7 +219,7 @@ function buildTopBar(
 }
 
 /**
- * The simulation the runtime reports on its stream (specification 33, §6.1; specification 39, §8 item 8).
+ * The simulation the runtime reports on its stream (specification 46, §6.1; specification 39, §8 item 8).
  * The runtime decides the speed and its words; the page shows them and translates only the phrase
  * "{achieved} of {configured}".
  */
@@ -329,7 +329,7 @@ function buildLanguage(
     menu.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
   };
-  button.addEventListener("click", () => show(menu.hidden));
+  button.addEventListener("click", () => show(menu.hidden !== false));
   const outside = (event: MouseEvent): void => {
     const target = event.target as Node | null;
     if (!menu.hidden && target && !menu.contains(target) && !button.contains(target)) show(false);

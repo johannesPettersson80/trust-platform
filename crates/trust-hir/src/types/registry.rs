@@ -235,7 +235,7 @@ impl TypeRegistry {
         // Look up in registered names
         self.names
             .iter()
-            .find(|(_, &tid)| tid == id)
+            .find(|&(_, &tid)| tid == id)
             .map(|(name, _)| name.clone())
     }
 

@@ -245,7 +245,9 @@ fn collect_interface_stubs(
 
         if let Some(base) = symbols.extends_reference(current) {
             let base_name = base.name().display();
-            if let Some(base_id) = symbols.resolve_oop_reference_for_owner(current, base_name.as_str()) {
+            if let Some(base_id) =
+                symbols.resolve_oop_reference_for_owner(current, base_name.as_str())
+            {
                 stack.push(base_id);
             }
         }
@@ -674,10 +676,10 @@ fn call_replace_text(
 ) -> String {
     let args = if args.is_empty() { "()" } else { args };
     let mut text = format!("{indent}{name}{args};");
-    if let Some(suffix) = source.get(usize::from(range.end())..) {
-        if suffix.starts_with('\n') || suffix.starts_with("\r\n") {
-            text.push('\n');
-        }
+    if let Some(suffix) = source.get(usize::from(range.end())..)
+        && (suffix.starts_with('\n') || suffix.starts_with("\r\n"))
+    {
+        text.push('\n');
     }
     text
 }

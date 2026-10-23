@@ -302,11 +302,10 @@ fn controller_transfer_rejects_other_targets_overlapping_its_memory_state() {
             .storage()
             .resolved_instance_field_ref(*id, "Alias")
             .unwrap();
-        harness.runtime_mut().io_mut().bind_ref_typed(
-            reference,
-            crate::io::IoAddress::parse(address).unwrap(),
-            trust_hir::TypeId::LREAL,
-        );
+        harness
+            .runtime_mut()
+            .bind_checked_io(reference, crate::io::IoAddress::parse(address).unwrap(), "Main.Alias".into())
+            .expect("bind the alias");
         let before = transfer_status(&state);
         assert!(queue_transfer(&state, &before).ok);
         assert!(harness.cycle().errors.is_empty());
@@ -591,11 +590,10 @@ fn controller_transfer_rejects_an_aliased_output_owner_before_switching_mode() {
         .storage()
         .resolved_instance_field_ref(*id, "Alias")
         .unwrap();
-    harness.runtime_mut().io_mut().bind_ref_typed(
-        reference,
-        crate::io::IoAddress::parse("%QL0").unwrap(),
-        trust_hir::TypeId::LREAL,
-    );
+    harness
+        .runtime_mut()
+        .bind_checked_io(reference, crate::io::IoAddress::parse("%QL0").unwrap(), "Main.Alias".into())
+        .expect("bind the alias");
     let before = transfer_status(&state);
     assert!(queue_transfer(&state, &before).ok);
     assert!(harness.cycle().errors.is_empty());
@@ -1484,7 +1482,7 @@ fn controller_transfer_fault_reverts_the_committed_members_in_the_same_scan() {
     let metadata = harness.runtime().metadata_snapshot();
     state.debug.commit_transfer(
         "$background",
-        harness.runtime_mut().storage_mut(),
+        &mut harness.runtime_mut().boundary_writes(),
         &metadata,
         false,
         &[],
@@ -1496,7 +1494,7 @@ fn controller_transfer_fault_reverts_the_committed_members_in_the_same_scan() {
     );
     state.debug.fail_transfer(
         "runtime fault in the owning task",
-        harness.runtime_mut().storage_mut(),
+        &mut harness.runtime_mut().boundary_writes(),
     );
     assert_eq!(
         harness.get_output("Main.Manual"),

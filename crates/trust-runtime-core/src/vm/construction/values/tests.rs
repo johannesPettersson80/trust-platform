@@ -1,0 +1,653 @@
+//! Callback-recording tests of value construction, not initializer VM execution.
+use super::*;
+use super::{
+    construct_intrinsic_value as construct_intrinsic_value_with_table,
+    construct_value as construct_value_with_table,
+};
+use crate::bytecode::{EnumVariant, TypeKind};
+use crate::memory::{FrameId, InstanceId, MemoryLocation};
+use crate::value::{DateTimeValue, DateValue, ValueRef};
+use alloc::vec;
+
+struct Recorder {
+    types: Arc<TypeTable>,
+    strings: Vec<SmolStr>,
+    type_recipes: Vec<(u32, u32)>,
+    member_recipes: Vec<(u32, u32, u32)>,
+    responses: Vec<Value>,
+    calls: Vec<u32>,
+    checks: Vec<u32>,
+    active: Vec<(u32, ValueOperation)>,
+    remaining_work: usize,
+    remaining_bytes: usize,
+    remaining_values: usize,
+    recurse: Option<(u32, u32)>,
+    reject_references: bool,
+    instances: Vec<(u32, bool)>,
+    profile: DateTimeProfile,
+}
+impl Recorder {
+    fn new(types: Vec<TypeEntry>) -> Self {
+        Self {
+            types: Arc::new(TypeTable {
+                offsets: Vec::new(),
+                entries: types,
+            }),
+            strings: vec![
+                "Record".into(),
+                "A".into(),
+                "B".into(),
+                "Mode".into(),
+                "First".into(),
+                "Second".into(),
+            ],
+            type_recipes: Vec::new(),
+            member_recipes: Vec::new(),
+            responses: Vec::new(),
+            calls: Vec::new(),
+            checks: Vec::new(),
+            active: Vec::new(),
+            remaining_work: 100_000,
+            remaining_bytes: 100_000,
+            remaining_values: 100_000,
+            recurse: None,
+            reject_references: false,
+            instances: Vec::new(),
+            profile: DateTimeProfile::default(),
+        }
+    }
+}
+impl ValueConstructionContext for Recorder {
+    fn charge_value(&mut self) -> Result<(), RuntimeError> {
+        self.remaining_values = self
+            .remaining_values
+            .checked_sub(1)
+            .ok_or(RuntimeError::Overflow)?;
+        Ok(())
+    }
+    fn strings(&self) -> &[SmolStr] {
+        &self.strings
+    }
+    fn profile(&self) -> DateTimeProfile {
+        self.profile
+    }
+    fn type_recipe(&self, id: u32) -> Option<u32> {
+        self.type_recipes.iter().find(|p| p.0 == id).map(|p| p.1)
+    }
+    fn member_recipe(&self, id: u32, member: u32) -> Option<u32> {
+        self.member_recipes
+            .iter()
+            .find(|p| p.0 == id && p.1 == member)
+            .map(|p| p.2)
+    }
+    fn evaluate_recipe(&mut self, id: u32) -> Result<Value, RuntimeError> {
+        self.calls.push(id);
+        if let Some((recipe, ty)) = self.recurse
+            && recipe == id
+        {
+            return construct_value(self, ty, ValueConstructionMode::Default);
+        }
+        self.responses
+            .get(id as usize)
+            .cloned()
+            .ok_or(RuntimeError::TypeMismatch)
+    }
+    fn construct_instance(&mut self, pou: u32, intrinsic: bool) -> Result<Value, RuntimeError> {
+        self.instances.push((pou, intrinsic));
+        Ok(Value::Instance(InstanceId(pou)))
+    }
+    fn charge_work(&mut self, n: usize) -> Result<(), RuntimeError> {
+        self.remaining_work = self
+            .remaining_work
+            .checked_sub(n)
+            .ok_or(RuntimeError::Overflow)?;
+        Ok(())
+    }
+    fn charge_allocation(&mut self, n: usize) -> Result<(), RuntimeError> {
+        self.remaining_bytes = self
+            .remaining_bytes
+            .checked_sub(n)
+            .ok_or(RuntimeError::Overflow)?;
+        Ok(())
+    }
+    fn check_value(&mut self, type_id: u32, value: &Value) -> Result<(), RuntimeError> {
+        self.checks.push(type_id);
+        if self.reject_references && matches!(value, Value::Reference(Some(_))) {
+            return Err(RuntimeError::NullReference);
+        }
+        Ok(())
+    }
+    fn enter_type(&mut self, id: u32, operation: ValueOperation) -> Result<(), RuntimeError> {
+        if self.active.contains(&(id, operation)) {
+            return Err(RuntimeError::TypeMismatch);
+        }
+        self.active.push((id, operation));
+        Ok(())
+    }
+    fn leave_type(&mut self) {
+        self.active.pop().expect("balanced construction entry");
+    }
+}
+fn construct_value(
+    ctx: &mut Recorder,
+    type_id: u32,
+    mode: ValueConstructionMode,
+) -> Result<Value, RuntimeError> {
+    let types = Arc::clone(&ctx.types);
+    construct_value_with_table(&types, ctx, type_id, mode)
+}
+fn construct_intrinsic_value(ctx: &mut Recorder, type_id: u32) -> Result<Value, RuntimeError> {
+    let types = Arc::clone(&ctx.types);
+    construct_intrinsic_value_with_table(&types, ctx, type_id)
+}
+#[test]
+fn struct_type_metadata_is_borrowed_while_output_storage_is_still_charged() {
+    let fields = vec![Field {
+        name_idx: 1,
+        type_id: 0,
+        bit_offset: None,
+    }];
+    let mut ctx = Recorder::new(vec![
+        primitive(7),
+        ty(TypeKind::Struct, TypeData::Struct { fields }),
+    ]);
+    let field_bytes = 2 * (size_of::<Value>() + size_of::<SmolStr>() + 4 * size_of::<usize>())
+        + size_of::<StructValue>()
+        + 2 * size_of::<usize>();
+    // TIME-08: the struct node and its scalar child are constructed nodes (CONSTRUCT).
+    // The field visit and name copy are bookkeeping, but the name still charges its
+    // bytes, and the borrowed Field records add no clone-only work or bytes.
+    ctx.remaining_work = 2;
+    ctx.remaining_bytes = field_bytes + "A".len();
+    ctx.remaining_values = 2;
+    let Value::Struct(value) =
+        construct_value(&mut ctx, 1, ValueConstructionMode::Default).unwrap()
+    else {
+        panic!("struct")
+    };
+    assert_eq!(value.type_name(), "");
+    assert_eq!(value.fields().get("A"), Some(&Value::Int(0)));
+    assert_eq!(ctx.remaining_work, 0);
+    assert_eq!(ctx.remaining_bytes, 0);
+    assert_eq!(ctx.remaining_values, 0);
+    assert!(ctx.active.is_empty());
+}
+fn ty(kind: TypeKind, data: TypeData) -> TypeEntry {
+    TypeEntry {
+        kind,
+        name_idx: None,
+        data,
+    }
+}
+fn primitive(id: u16) -> TypeEntry {
+    ty(
+        TypeKind::Primitive,
+        TypeData::Primitive {
+            prim_id: id,
+            max_length: 0,
+        },
+    )
+}
+fn structure(fields: &[(&str, Value)]) -> Value {
+    let values = fields
+        .iter()
+        .map(|(n, v)| (SmolStr::new(*n), v.clone()))
+        .collect();
+    Value::Struct(Arc::new(StructValue::from_canonical_parts(
+        "Record".into(),
+        values,
+    )))
+}
+fn record_context() -> Recorder {
+    let mut record = ty(
+        TypeKind::Struct,
+        TypeData::Struct {
+            fields: vec![
+                Field {
+                    name_idx: 1,
+                    type_id: 1,
+                    bit_offset: None,
+                },
+                Field {
+                    name_idx: 2,
+                    type_id: 1,
+                    bit_offset: None,
+                },
+            ],
+        },
+    );
+    record.name_idx = Some(0);
+    let mut ctx = Recorder::new(vec![
+        primitive(8),
+        ty(TypeKind::Alias, TypeData::Alias { target_type_id: 0 }),
+        record,
+        ty(TypeKind::Alias, TypeData::Alias { target_type_id: 2 }),
+    ]);
+    ctx.responses = vec![
+        Value::DInt(11),
+        Value::DInt(22),
+        structure(&[("A", Value::DInt(33)), ("B", Value::DInt(44))]),
+    ];
+    ctx.type_recipes = vec![(1, 0), (2, 2)];
+    ctx.member_recipes = vec![(2, 1, 1)];
+    ctx
+}
+
+#[test]
+fn coercion_evaluates_all_member_defaults_then_overrides_without_type_merge() {
+    let mut ctx = record_context();
+    let value = construct_value(
+        &mut ctx,
+        2,
+        ValueConstructionMode::Coerce(structure(&[("b", Value::Int(9))])),
+    )
+    .unwrap();
+    assert_eq!(ctx.calls, vec![0, 1]);
+    assert_eq!(
+        value,
+        structure(&[("A", Value::DInt(11)), ("B", Value::DInt(9))])
+    );
+    assert!(ctx.active.is_empty());
+}
+#[test]
+fn apply_merges_only_exact_type_recipe_and_does_not_recoerce_recipe_return() {
+    let mut ctx = record_context();
+    let value = construct_value(
+        &mut ctx,
+        2,
+        ValueConstructionMode::Apply(structure(&[("A", Value::DInt(7))])),
+    )
+    .unwrap();
+    assert_eq!(ctx.calls, vec![2, 0, 1]);
+    assert_eq!(
+        value,
+        structure(&[("A", Value::DInt(7)), ("B", Value::DInt(44))])
+    );
+    ctx.calls.clear();
+    let value = construct_value(
+        &mut ctx,
+        3,
+        ValueConstructionMode::Apply(structure(&[("A", Value::DInt(7))])),
+    )
+    .unwrap();
+    assert_eq!(
+        ctx.calls,
+        vec![0, 1],
+        "alias without its own default must not merge target default"
+    );
+    assert_eq!(
+        value,
+        structure(&[("A", Value::DInt(7)), ("B", Value::DInt(22))])
+    );
+    ctx.calls.clear();
+    let value = construct_value(&mut ctx, 3, ValueConstructionMode::Default).unwrap();
+    assert_eq!(ctx.calls, vec![2]);
+    assert_eq!(value, ctx.responses[2]);
+    ctx.calls.clear();
+    let value = construct_intrinsic_value(&mut ctx, 3).unwrap();
+    assert!(ctx.calls.is_empty());
+    assert_eq!(
+        value,
+        structure(&[("A", Value::DInt(0)), ("B", Value::DInt(0))])
+    );
+}
+#[test]
+fn array_tails_and_ordinary_defaults_invoke_each_element_recipe_separately() {
+    let mut ctx = record_context();
+    Arc::make_mut(&mut ctx.types).entries.push(ty(
+        TypeKind::Array,
+        TypeData::Array {
+            elem_type_id: 1,
+            dims: vec![(5, 7)],
+        },
+    ));
+    let input = Value::Array(Box::new(ArrayValue::from_canonical_parts(
+        vec![Value::Int(7)],
+        vec![(0, 0)],
+    )));
+    let Value::Array(value) =
+        construct_value(&mut ctx, 4, ValueConstructionMode::Coerce(input)).unwrap()
+    else {
+        panic!("array")
+    };
+    assert_eq!(value.dimensions(), &[(5, 7)]);
+    assert_eq!(
+        value.elements(),
+        &[Value::DInt(7), Value::DInt(11), Value::DInt(11)]
+    );
+    assert_eq!(ctx.calls, vec![0, 0]);
+    ctx.calls.clear();
+    construct_value(&mut ctx, 4, ValueConstructionMode::Default).unwrap();
+    assert_eq!(ctx.calls, vec![0, 0, 0]);
+}
+#[test]
+fn scalar_overrides_skip_alias_default_and_checked_shapes_keep_faults() {
+    let mut ctx = Recorder::new(vec![
+        primitive(7),
+        ty(TypeKind::Alias, TypeData::Alias { target_type_id: 0 }),
+        ty(
+            TypeKind::Subrange,
+            TypeData::Subrange {
+                base_type_id: 0,
+                lower: 3,
+                upper: 5,
+            },
+        ),
+        ty(
+            TypeKind::Primitive,
+            TypeData::Primitive {
+                prim_id: 24,
+                max_length: 2,
+            },
+        ),
+    ]);
+    ctx.type_recipes.push((1, 99)); // Would fail if an overridden scalar default ran.
+    assert_eq!(
+        construct_value(&mut ctx, 1, ValueConstructionMode::Apply(Value::Int(7))),
+        Ok(Value::Int(7))
+    );
+    assert!(ctx.calls.is_empty());
+    assert_eq!(
+        construct_value(&mut ctx, 2, ValueConstructionMode::Default),
+        Ok(Value::Int(3))
+    );
+    assert!(matches!(
+        construct_value(&mut ctx, 2, ValueConstructionMode::Coerce(Value::Int(6))),
+        Err(RuntimeError::SubrangeViolation { .. })
+    ));
+    assert_eq!(
+        construct_value(
+            &mut ctx,
+            0,
+            ValueConstructionMode::Coerce(Value::DInt(32768))
+        ),
+        Err(RuntimeError::TypeMismatch)
+    );
+    assert_eq!(
+        construct_value(
+            &mut ctx,
+            3,
+            ValueConstructionMode::Coerce(Value::String("åβc".into()))
+        ),
+        Ok(Value::String("åβ".into()))
+    );
+}
+#[test]
+fn enum_identity_profile_and_instance_callbacks_are_type_directed() {
+    let mut enumeration = ty(
+        TypeKind::Enum,
+        TypeData::Enum {
+            base_type_id: 0,
+            variants: vec![
+                EnumVariant {
+                    name_idx: 4,
+                    value: 2,
+                },
+                EnumVariant {
+                    name_idx: 5,
+                    value: 3,
+                },
+            ],
+        },
+    );
+    enumeration.name_idx = Some(3);
+    let mut ctx = Recorder::new(vec![
+        primitive(7),
+        enumeration,
+        primitive(18),
+        primitive(22),
+        ty(TypeKind::FunctionBlock, TypeData::Pou { pou_id: 42 }),
+    ]);
+    ctx.profile.epoch = DateValue::new(17);
+    assert_eq!(
+        construct_value(&mut ctx, 1, ValueConstructionMode::Default),
+        Ok(Value::Enum(Box::new(EnumValue::from_canonical_parts(
+            "Mode".into(),
+            "First".into(),
+            2
+        ))))
+    );
+    let forged = Value::Enum(Box::new(EnumValue::from_canonical_parts(
+        "Mode".into(),
+        "First".into(),
+        3,
+    )));
+    assert_eq!(
+        construct_value(&mut ctx, 1, ValueConstructionMode::Coerce(forged)),
+        Err(RuntimeError::TypeMismatch)
+    );
+    assert_eq!(
+        construct_value(&mut ctx, 2, ValueConstructionMode::Default),
+        Ok(Value::Date(DateValue::new(17)))
+    );
+    assert_eq!(
+        construct_value(&mut ctx, 3, ValueConstructionMode::Default),
+        Ok(Value::Dt(DateTimeValue::new(17)))
+    );
+    construct_value(&mut ctx, 4, ValueConstructionMode::Default).unwrap();
+    construct_intrinsic_value(&mut ctx, 4).unwrap();
+    assert_eq!(ctx.instances, vec![(42, false), (42, true)]);
+}
+#[test]
+fn callback_cycles_budget_exhaustion_and_callback_reference_failure_unwind_context() {
+    let mut ctx = Recorder::new(vec![primitive(8)]);
+    ctx.type_recipes.push((0, 0));
+    ctx.recurse = Some((0, 0));
+    assert_eq!(
+        construct_value(&mut ctx, 0, ValueConstructionMode::Default),
+        Err(RuntimeError::TypeMismatch)
+    );
+    assert!(ctx.active.is_empty());
+    assert_eq!(ctx.calls, vec![0]);
+    ctx.recurse = None;
+    ctx.type_recipes.clear();
+    ctx.remaining_work = 0;
+    assert_eq!(
+        construct_value(&mut ctx, 0, ValueConstructionMode::Default),
+        Err(RuntimeError::Overflow)
+    );
+    assert!(ctx.active.is_empty());
+    ctx.remaining_work = 100_000;
+    ctx.remaining_bytes = 0;
+    Arc::make_mut(&mut ctx.types).entries.push(ty(
+        TypeKind::Array,
+        TypeData::Array {
+            elem_type_id: 0,
+            dims: vec![(0, 100)],
+        },
+    ));
+    assert_eq!(
+        construct_value(&mut ctx, 1, ValueConstructionMode::Default),
+        Err(RuntimeError::Overflow)
+    );
+    assert!(ctx.active.is_empty());
+    ctx.remaining_bytes = 100_000;
+    ctx.type_recipes.push((0, 0));
+    ctx.reject_references = true;
+    ctx.responses.push(Value::Reference(Some(ValueRef {
+        location: MemoryLocation::Local(FrameId(7)),
+        offset: 0,
+        path: Vec::new(),
+    })));
+    assert_eq!(
+        construct_value(&mut ctx, 0, ValueConstructionMode::Default),
+        Err(RuntimeError::NullReference)
+    );
+    assert!(ctx.active.is_empty());
+}
+
+#[test]
+fn union_defaults_materialize_all_variants_and_unknown_fields_keep_failure_order() {
+    let mut ctx = record_context();
+    ctx.type_recipes.retain(|(ty, _)| *ty != 2);
+    Arc::make_mut(&mut ctx.types).entries[2].kind = TypeKind::Union;
+    Arc::make_mut(&mut ctx.types).entries[2].data = TypeData::Union {
+        fields: vec![
+            Field {
+                name_idx: 1,
+                type_id: 1,
+                bit_offset: None,
+            },
+            Field {
+                name_idx: 2,
+                type_id: 1,
+                bit_offset: None,
+            },
+        ],
+    };
+    assert_eq!(
+        construct_value(&mut ctx, 2, ValueConstructionMode::Default),
+        Ok(structure(&[("A", Value::DInt(11)), ("B", Value::DInt(22))]))
+    );
+    assert_eq!(ctx.calls, vec![0, 1]);
+    ctx.calls.clear();
+    assert_eq!(
+        construct_value(
+            &mut ctx,
+            2,
+            ValueConstructionMode::Coerce(structure(&[("missing", Value::Int(7))]))
+        ),
+        Err(RuntimeError::TypeMismatch)
+    );
+    assert_eq!(ctx.calls, vec![0, 1]);
+    assert!(ctx.active.is_empty());
+}
+
+#[test]
+fn aliases_do_not_add_nodes_but_array_and_scalar_construction_exhaust_at_exact_bound() {
+    let types = vec![
+        primitive(7),
+        ty(TypeKind::Alias, TypeData::Alias { target_type_id: 0 }),
+        ty(
+            TypeKind::Array,
+            TypeData::Array {
+                elem_type_id: 1,
+                dims: vec![(1, 3)],
+            },
+        ),
+    ];
+    let mut exact = Recorder::new(types.clone());
+    exact.remaining_values = 4;
+    construct_value(&mut exact, 2, ValueConstructionMode::Default).unwrap();
+    assert_eq!(exact.remaining_values, 0);
+    let mut below = Recorder::new(types);
+    below.remaining_values = 3;
+    assert_eq!(
+        construct_value(&mut below, 2, ValueConstructionMode::Default),
+        Err(RuntimeError::Overflow)
+    );
+    assert!(
+        below.active.is_empty(),
+        "failed count still unwinds construction context"
+    );
+}
+
+#[test]
+fn array_branch_preserves_exact_work_allocation_and_validation_order() {
+    let types = vec![
+        primitive(7),
+        ty(
+            TypeKind::Array,
+            TypeData::Array {
+                elem_type_id: 0,
+                dims: vec![(1, 3)],
+            },
+        ),
+    ];
+    // TIME-08: one root node and three element nodes (CONSTRUCT). The copied dimension
+    // bytes and the element count are bookkeeping and charge no work.
+    let work = 1 + 3;
+    let bytes = size_of::<(i64, i64)>() + 3 * size_of::<Value>() + size_of::<ArrayValue>();
+    let mut exact = Recorder::new(types.clone());
+    exact.remaining_work = work;
+    exact.remaining_bytes = bytes;
+    exact.remaining_values = 4;
+    let result = construct_value(&mut exact, 1, ValueConstructionMode::Default).unwrap();
+    assert_eq!(
+        result,
+        Value::Array(Box::new(ArrayValue::from_canonical_parts(
+            vec![Value::Int(0); 3],
+            vec![(1, 3)],
+        )))
+    );
+    assert_eq!(exact.remaining_work, 0);
+    assert_eq!(exact.remaining_bytes, 0);
+    assert_eq!(exact.remaining_values, 0);
+    assert_eq!(exact.checks, vec![0, 0, 0, 1]);
+    assert!(exact.active.is_empty());
+    for below in 0..3 {
+        let mut context = Recorder::new(types.clone());
+        context.remaining_work = work - usize::from(below == 0);
+        context.remaining_bytes = bytes - usize::from(below == 1);
+        context.remaining_values = 4 - usize::from(below == 2);
+        assert_eq!(
+            construct_value(&mut context, 1, ValueConstructionMode::Default),
+            Err(RuntimeError::Overflow)
+        );
+        assert!(
+            context.active.is_empty(),
+            "every branch failure must leave its type context"
+        );
+    }
+}
+
+#[test]
+fn recipe_overlay_branch_preserves_exact_copy_charges_and_checks() {
+    let mut record = ty(TypeKind::Struct, TypeData::Struct { fields: Vec::new() });
+    record.name_idx = Some(0);
+    // The recipe return is shared with responses: copying its empty map costs one
+    // reserve. Overlay capacity and final canonical fields each cost another one.
+    let field_reserve = size_of::<StructValue>() + 2 * size_of::<usize>();
+    let bytes = 3 * field_reserve + "Record".len();
+    // TIME-08: the constructed struct node is the only work; the name copy is bookkeeping.
+    let work = 1;
+    // That node is charged before the recipe runs, so an empty allowance refuses first.
+    let mut starved = Recorder::new(vec![record.clone()]);
+    starved.responses = vec![structure(&[])];
+    starved.type_recipes = vec![(0, 0)];
+    starved.remaining_work = 0;
+    assert_eq!(
+        construct_value(
+            &mut starved,
+            0,
+            ValueConstructionMode::Apply(structure(&[])),
+        ),
+        Err(RuntimeError::Overflow)
+    );
+    assert!(starved.calls.is_empty());
+    assert!(starved.checks.is_empty());
+    assert!(starved.active.is_empty());
+    for below in [None, Some(1), Some(2)] {
+        let mut context = Recorder::new(vec![record.clone()]);
+        context.responses = vec![structure(&[])];
+        context.type_recipes = vec![(0, 0)];
+        context.remaining_work = work;
+        context.remaining_bytes = bytes - usize::from(below == Some(1));
+        context.remaining_values = 1 - usize::from(below == Some(2));
+        let result = construct_value(
+            &mut context,
+            0,
+            ValueConstructionMode::Apply(structure(&[])),
+        );
+        assert_eq!(context.calls, vec![0]);
+        assert!(context.active.is_empty());
+        if below.is_none() {
+            assert_eq!(result, Ok(structure(&[])));
+            assert_eq!(
+                context.checks,
+                vec![0, 0],
+                "recipe value is checked before merging and final value afterwards"
+            );
+            assert_eq!(context.remaining_work, 0);
+            assert_eq!(context.remaining_bytes, 0);
+            assert_eq!(context.remaining_values, 0);
+        } else {
+            assert_eq!(result, Err(RuntimeError::Overflow));
+            assert_eq!(
+                context.checks,
+                vec![0],
+                "a failed merge must not publish a final value"
+            );
+        }
+    }
+}

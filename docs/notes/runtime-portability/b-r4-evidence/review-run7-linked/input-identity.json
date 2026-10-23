@@ -1,0 +1,11 @@
+{
+  "manifest_sha256": "e1213d088ec94eb0767cc4ad88c4f402218f06df91caaed29d0f670909aa3aff",
+  "firmware_sha256": "f11b73ae4b6138d253df2aeea386c77c4c5e88d6a493b94d581325699e5f7caf",
+  "reviewed_source_identity": "92d07b89c7af4237bc0ea2681738bc823151699adfb49ebc6bc9deec4800493b",
+  "files": {
+    "measurement/firmware.map": "d3daf025166784dd2cc4e8f4449dc1dc40a546cf4c361bf09a9e58ddb3c37963",
+    "measurement/footprint.json": "50f6330ba269515620daea388b4ee97543ceae986829bd156f11fc348585b097",
+    "disassembly.txt": "d9ed0b22cfab8d7065d4001603994ddf61daac63b804e6aa890980fbd48bcb0e",
+    "prologues.txt": "3287b178dc8ee6f75fe22060921ae8f24d6fa9cef534c2ea0fdc20879a53f783"
+  }
+}

@@ -24,37 +24,36 @@ pub(super) fn write_name(
         }
         return Err(RuntimeError::NullReference);
     }
-    if let Some(instance_id) = ctx.current_instance {
-        if let Some(reference) = ctx
+    if let Some(instance_id) = ctx.current_instance
+        && let Some(reference) = ctx
             .storage
             .ref_for_instance_recursive(instance_id, name.as_ref())
-        {
-            if ctx.storage.write_by_ref(reference, value.clone()) {
-                return Ok(());
-            }
-            return Err(RuntimeError::NullReference);
+    {
+        if ctx.storage.write_by_ref(reference, value.clone()) {
+            return Ok(());
         }
+        return Err(RuntimeError::NullReference);
     }
-    if let Some(access) = ctx.access {
-        if let Some(binding) = access.get(name.as_ref()) {
-            if let Some(partial) = binding.partial {
-                let current = ctx
-                    .storage
-                    .read_by_ref(binding.reference.clone())
-                    .cloned()
-                    .ok_or(RuntimeError::NullReference)?;
-                let updated = write_partial_access(current, partial, value)
-                    .map_err(partial_access_error_to_runtime)?;
-                if ctx.storage.write_by_ref(binding.reference.clone(), updated) {
-                    return Ok(());
-                }
-                return Err(RuntimeError::NullReference);
-            }
-            if ctx.storage.write_by_ref(binding.reference.clone(), value) {
+    if let Some(access) = ctx.access
+        && let Some(binding) = access.get(name.as_ref())
+    {
+        if let Some(partial) = binding.partial {
+            let current = ctx
+                .storage
+                .read_by_ref(binding.reference.clone())
+                .cloned()
+                .ok_or(RuntimeError::NullReference)?;
+            let updated = write_partial_access(current, partial, value)
+                .map_err(partial_access_error_to_runtime)?;
+            if ctx.storage.write_by_ref(binding.reference.clone(), updated) {
                 return Ok(());
             }
             return Err(RuntimeError::NullReference);
         }
+        if ctx.storage.write_by_ref(binding.reference.clone(), value) {
+            return Ok(());
+        }
+        return Err(RuntimeError::NullReference);
     }
     if ctx.storage.get_global(name.as_ref()).is_some() {
         ctx.storage.set_global(name.clone(), value.clone());
@@ -78,27 +77,25 @@ pub(super) fn read_name(ctx: &EvalContext<'_>, name: &SmolStr) -> Result<Value, 
             .cloned()
             .ok_or(RuntimeError::NullReference);
     }
-    if let Some(instance_id) = ctx.current_instance {
-        if let Some(value) = ctx
+    if let Some(instance_id) = ctx.current_instance
+        && let Some(value) = ctx
             .storage
             .get_instance_var_recursive(instance_id, name.as_ref())
-        {
-            return Ok(value.clone());
-        }
+    {
+        return Ok(value.clone());
     }
-    if let Some(access) = ctx.access {
-        if let Some(binding) = access.get(name.as_ref()) {
-            let value = ctx
-                .storage
-                .read_by_ref(binding.reference.clone())
-                .cloned()
-                .ok_or(RuntimeError::NullReference)?;
-            if let Some(partial) = binding.partial {
-                return read_partial_access(&value, partial)
-                    .map_err(partial_access_error_to_runtime);
-            }
-            return Ok(value);
+    if let Some(access) = ctx.access
+        && let Some(binding) = access.get(name.as_ref())
+    {
+        let value = ctx
+            .storage
+            .read_by_ref(binding.reference.clone())
+            .cloned()
+            .ok_or(RuntimeError::NullReference)?;
+        if let Some(partial) = binding.partial {
+            return read_partial_access(&value, partial).map_err(partial_access_error_to_runtime);
         }
+        return Ok(value);
     }
     if let Some(value) = ctx.storage.get_global(name.as_ref()) {
         return Ok(value.clone());
@@ -116,18 +113,17 @@ pub(super) fn resolve_reference(ctx: &EvalContext<'_>, name: &SmolStr) -> Option
     if let Some(value_ref) = crate::eval::static_storage_value_ref(ctx, name) {
         return Some(value_ref);
     }
-    if let Some(instance_id) = ctx.current_instance {
-        if let Some(value_ref) = ctx
+    if let Some(instance_id) = ctx.current_instance
+        && let Some(value_ref) = ctx
             .storage
             .ref_for_instance_recursive(instance_id, name.as_ref())
-        {
-            return Some(value_ref);
-        }
+    {
+        return Some(value_ref);
     }
-    if let Some(access) = ctx.access {
-        if let Some(binding) = access.get(name.as_ref()) {
-            return Some(binding.reference.clone());
-        }
+    if let Some(access) = ctx.access
+        && let Some(binding) = access.get(name.as_ref())
+    {
+        return Some(binding.reference.clone());
     }
     ctx.storage.ref_for_global(name.as_ref())
 }

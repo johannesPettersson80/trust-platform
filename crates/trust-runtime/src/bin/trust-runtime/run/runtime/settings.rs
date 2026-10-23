@@ -127,6 +127,9 @@ fn build_runtime_settings(
     }
     settings.execution_backend = execution_backend;
     settings.execution_backend_source = execution_backend_source;
+    settings.watchdog_hang_action = bundle
+        .map(|bundle| bundle.runtime.watchdog_hang_action)
+        .unwrap_or_default();
 
     settings
 }

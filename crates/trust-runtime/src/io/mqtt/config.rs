@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct BrokerEndpoint {
     host: SmolStr,
     port: u16,
@@ -7,6 +7,7 @@ struct BrokerEndpoint {
 #[derive(Debug, Clone)]
 struct MqttIoConfig {
     endpoint: BrokerEndpoint,
+    allow_insecure_remote: bool,
     client_id: SmolStr,
     topic_in: SmolStr,
     topic_out: SmolStr,
@@ -15,20 +16,25 @@ struct MqttIoConfig {
     reconnect: StdDuration,
     keep_alive: StdDuration,
     on_error: IoDriverErrorPolicy,
+    input_enabled: bool,
+    output_enabled: bool,
     tls: Option<MqttTlsConfig>,
     input_points: Vec<MqttInputPoint>,
     output_points: Vec<MqttOutputPoint>,
     sparkplug: Option<SparkplugConfig>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct MqttTlsConfig {
+    ca_path: String,
+    client_auth_paths: Option<(String, String)>,
     ca: Vec<u8>,
     client_auth: Option<(Vec<u8>, Vec<u8>)>,
     alpn: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct MqttToml {
     broker: String,
     client_id: Option<String>,
@@ -47,6 +53,7 @@ struct MqttToml {
     allow_insecure_remote: Option<bool>,
     input_points: Option<Vec<MqttPointToml>>,
     output_points: Option<Vec<MqttPointToml>>,
+    mappings: Option<Vec<super::mqtt_tag_mapping::MqttTagMappingToml>>,
     sparkplug: Option<SparkplugToml>,
 }
 
@@ -107,6 +114,7 @@ impl MqttIoConfig {
                 "mqtt keep_alive_s must be <= 65535".into(),
             ));
         }
+        let has_tag_mappings = params.mappings.is_some();
         let input_points = params
             .input_points
             .unwrap_or_default()
@@ -125,6 +133,7 @@ impl MqttIoConfig {
 
         Ok(Self {
             endpoint,
+            allow_insecure_remote,
             client_id,
             topic_in,
             topic_out,
@@ -133,6 +142,8 @@ impl MqttIoConfig {
             reconnect,
             keep_alive: StdDuration::from_secs(keep_alive_s),
             on_error,
+            input_enabled: !has_tag_mappings || !input_points.is_empty(),
+            output_enabled: !has_tag_mappings || !output_points.is_empty(),
             tls,
             input_points,
             output_points,
@@ -141,6 +152,9 @@ impl MqttIoConfig {
     }
 
     fn subscribe_topics(&self) -> Vec<SmolStr> {
+        if !self.input_enabled {
+            return Vec::new();
+        }
         if self.input_points.is_empty() {
             return vec![self.topic_in.clone()];
         }
@@ -214,6 +228,12 @@ fn parse_tls_config(
         .transpose()?;
 
     Ok(Some(MqttTlsConfig {
+        ca_path: ca_path.trim().to_owned(),
+        client_auth_paths: params
+            .tls_client_cert_path
+            .as_deref()
+            .zip(params.tls_client_key_path.as_deref())
+            .map(|(cert, key)| (cert.trim().to_owned(), key.trim().to_owned())),
         ca,
         client_auth,
         alpn,

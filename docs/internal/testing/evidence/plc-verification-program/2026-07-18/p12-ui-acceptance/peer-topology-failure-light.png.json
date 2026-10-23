@@ -1,14 +1,14 @@
 {
-  "sourceRevision": "399e86a8feb1a61324ebeb7d5c0c0649410debd6",
+  "sourceRevision": "fa8b2f00f4809b0208c7399f5d2eb2debeda19fe",
   "runnerSha256": "d0f5a1c04d30a14d68c01267e0a91e5c5bf5b212028460dea37e2a9d6458e608",
   "extensionVersion": "0.24.54",
-  "lspBinary": "/home/johannes/projects/trust-platform-ads-windows-fix/target/debug/trust-lsp",
-  "lspBinarySha256": "516a134009f502faf7eb10f9ca600e1e4a5cbe3aceb8864020db952ef0799e6e",
+  "lspBinary": "/home/johannes/projects/trust-platform/target/debug/trust-lsp",
+  "lspBinarySha256": "ce8f8d60aa9c7e57d1fa460d8ae5236cf6539ca2f21fd6fed8a8c12f78816aad",
   "theme": "light",
   "required": [
     "Peer topology degraded",
     "unknown connector confidence",
     "Simulator stopped"
   ],
-  "rendered_text": "truST\nFilter\n+ Add\nDiscover\nEdit\nPeer topology degraded: peer-a connector status: unknown connector confidence: certainly_healthy\n1 host · 1 runtime · Simulator stopped"
+  "rendered_text": "truST\nFilter\n+ Add\nDiscover\nEdit\nThis computer\nReachable\nSimulator\nStopped\nNo devices yet\nUse + Add to add one, or Discover to scan the network.\nPeer topology degraded: peer-a connector status: unknown connector confidence: certainly_healthy\n1 host · 1 runtime · Simulator stopped"
 }

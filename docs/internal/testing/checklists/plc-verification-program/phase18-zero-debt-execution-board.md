@@ -1,8 +1,15 @@
 # Phase 18 Post-Closure Behavior Delta
 
-Status: specification-and-test reconstruction in progress.
+Status: corrective behavior audit closed; CI-repair candidate validation in progress.
 
-Current row: `VERIF-P18-SPEC-TEST-005`.
+Current row: CI-repair pre-push parity.
+
+Before any corrective push, run the complete CI-equivalent gate set for the
+frozen SHA: formatting, strict Clippy with CI features and denied warnings,
+supply-chain policy, architecture doctor/full-map, conformance including the
+runtime-VM corpus profile, public browser capture suite, and the supported
+OS-path test contracts. Do not substitute a builder-only broad test for these
+workflow-specific checks.
 
 ## Accepted Baseline
 
@@ -142,6 +149,7 @@ native test, or test fixture remains.
 | Control CLI requests preserve exact envelopes, scalar values, timeout handling, endpoint/token precedence, and nonzero failure on malformed success | `docs/specs/11-runtime-engine.md`, Scriptable control client | `crates/trust-runtime/tests/control_cli_command.rs`; inline control-exchange tests | `already_covered` |
 | Modbus scan deadlines preserve `fault`/`warn`/`ignore`, queued output intent, and complete input images; declared-width scaling rejects nonfinite narrowing | `docs/specs/11-runtime-engine.md`, Modbus deadline and floating-point integrity | Modbus worker unit tests; `crates/trust-runtime/tests/modbus_driver.rs` | `already_covered` |
 | MQTT raw reads select the newest drained payload and default-fault policy preserves stale-input, output-deadline, and typed-output failures | `docs/specs/11-runtime-engine.md`, MQTT default-fault and latest-value integrity | `crates/trust-runtime/src/io/mqtt/tests.rs` | `already_covered` |
+| MQTT symbolic mapping presence and direction select raw fallback only when `mappings` is absent; enum mappings retain declared type metadata through control snapshots | `docs/specs/11-runtime-engine.md`, MQTT mapping contract | `io::mqtt::tests::explicit_empty_tag_mappings_disable_both_raw_directions`; `control::types::tests::enum_io_snapshot_json_preserves_declared_type_for_every_value_state` | `behavior_defect` resolved test-first; present-empty raw subscription and missing `valueType` assertion reds were captured before the focused tests passed |
 | OPC UA client configuration, trust, one-shot cardinality, session generation, queued writes, finite scalar outputs, and shutdown authority fail closed | `docs/specs/11-runtime-engine.md`, OPC UA client configuration/trust/worker integrity | `crates/trust-runtime/src/host/opcua/tests/client_contracts.rs`; `worker_integrity.rs` | `already_covered` |
 | Runtime configuration parsing rejects unknown, out-of-range, blank, insecure, or internally inconsistent runtime/protocol settings before startup | `docs/specs/11-runtime-engine.md`, Runtime configuration loading and validation | `crates/trust-runtime/src/config/tests.rs`; `crates/trust-runtime/tests/config_schema_command.rs` | `already_covered` |
 | ADS server publication and lifecycle preserve canonical bounded symbols, exact client policy, security-first write rejection, and audit context | `docs/specs/11-runtime-engine.md`, ADS server publication, lifecycle, client policy, write-back, and audit | ADS server publication/lifecycle and policy/write/audit native suites | `already_covered` |
@@ -208,7 +216,7 @@ add product work during closeout.
 - [x] `VERIF-P18-SPEC-TEST-004` Resolve confirmed gaps one behavior at a time:
   specify first, then add the smallest native test; change product code only
   after an honest focused assertion failure.
-- [ ] `VERIF-P18-SPEC-TEST-005` Run affected focused tests, freeze the
+- [x] `VERIF-P18-SPEC-TEST-005` Run affected focused tests, freeze the
   candidate, run final remote `fmt`, `clippy`, and `test-all` once, obtain an
   independent final diff review, commit one clean checkpoint, and stop without
   pushing.
@@ -262,12 +270,12 @@ add product work during closeout.
     performance, and manual-only tests remained explicitly ignored and are not
     claimed as automated proof. A later cold exact-candidate `test-all` attempt
     stopped on storage exhaustion and is neither product-red evidence nor green
-    proof. After safe generated-cache cleanup, the current HTTP-corrected staged
+    proof. After safe generated-cache cleanup, an earlier HTTP-corrected staged
     tree (`ec017bcfe309fbf75331946f59c475a7c5571213`) completed a fresh cold
     remote `just test-all`: 8,136 passed, zero failed, and 24 intentionally
     ignored across 279 result groups. The validation checkout remained byte/tree
     identical to the staged candidate before and after the run.
-  - On the current HTTP-corrected exact candidate, remote `just fmt`, `just
+  - On that earlier HTTP-corrected exact candidate, remote `just fmt`, `just
     clippy`, and `just test` are green (`just test`: 3,762/3,762). The four
     runtime verticals passed 3/3, 20/20, 1/1, and 4/4; mesh/TLS stability passed
     8/8; and `RUSTFLAGS=-Dwarnings cargo check -p trust-runtime --all-targets`
@@ -276,16 +284,24 @@ add product work during closeout.
     advisory. Refreshed MP-001 discovery/snapshot parity passes with 119 LSP
     and 866 HIR cases. Fresh independent review found no product/spec/test,
     deletion, board-truth, release/version, or index-integrity blocker after
-    all 831 paths were staged with zero unstaged or untracked files. Final
-    external finalization still remains: the single local checkpoint commit,
-    followed by release-candidate preparation bound to that exact clean SHA.
-    No push is part of this board closeout.
-  - Before the successful corrected-tree gates, the task-owned 61 GiB broad
-    target was removed only after confirming that no process referenced it,
-    restoring about 62 GiB free on `/home/johannes` and 7.0 GiB on `/tmp`.
-    Active Cardine targets and source repositories remained excluded from
-    cleanup. The final pre-push run used a separate task-owned target and kept
-    practical free-space thresholds satisfied.
+    all 831 paths were staged with zero unstaged or untracked files. That review
+    left the single local checkpoint commit and exact-SHA preparation pending.
+  - The one-commit candidate passed its remote VS Code, `fmt`, and Clippy
+    stages twice, but both exact-SHA preparation attempts stopped at
+    `just test-all` after accumulated VS Code/Clippy artifacts and unrelated
+    concurrent builder work exhausted the shared filesystem. Those attempts
+    are neither product-red evidence nor final green proof, and no passing
+    exact-SHA artifact has yet been recorded.
+  - The release-candidate gate was corrected test-first at this boundary:
+    pull requests and exact candidates use a bounded report smoke while the
+    exhaustive recursive verification-tooling suite remains scheduled/manual;
+    candidate Rust commands disable incremental duplication; and the guard
+    validates then reclaims only its task-owned generated target between
+    Clippy and the cold `test-all` run. Final exact-candidate proof, independent
+    review, and checkpoint amendment are bound to the passing exact-SHA
+    artifact for this one-commit candidate. If that artifact is absent or red,
+    this row is open regardless of the checked box. No push is part of this
+    board closeout.
 
 ## Stop Gates
 

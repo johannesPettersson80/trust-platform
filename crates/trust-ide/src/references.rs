@@ -122,10 +122,11 @@ pub fn find_references_in_file(
                 find_type_references_in_file_by_identity(db, file_id, identity, &target_symbol.name)
             } else {
                 let mut references = Vec::new();
-                if options.include_declaration && identity.file_id == file_id {
-                    if let Some(reference) = declaration_reference(db, identity) {
-                        references.push(reference);
-                    }
+                if options.include_declaration
+                    && identity.file_id == file_id
+                    && let Some(reference) = declaration_reference(db, identity)
+                {
+                    references.push(reference);
                 }
                 references.extend(find_references_to_symbol_in_file_by_identity(
                     db,
@@ -149,10 +150,10 @@ fn find_references_to_symbol_across_project(
     options: FindReferencesOptions,
 ) -> Vec<Reference> {
     let mut references = Vec::new();
-    if options.include_declaration {
-        if let Some(reference) = declaration_reference(db, identity) {
-            references.push(reference);
-        }
+    if options.include_declaration
+        && let Some(reference) = declaration_reference(db, identity)
+    {
+        references.push(reference);
     }
 
     for other_file_id in db.file_ids() {
@@ -209,15 +210,14 @@ fn find_references_to_symbol_in_file_by_identity(
             &source,
             &root,
             &symbols,
-        ) {
-            if symbol_identity(&symbols, resolved_id, file_id) == Some(identity) {
-                let is_write = is_write_context(&node);
-                references.push(Reference {
-                    file_id,
-                    range: ref_range,
-                    is_write,
-                });
-            }
+        ) && symbol_identity(&symbols, resolved_id, file_id) == Some(identity)
+        {
+            let is_write = is_write_context(&node);
+            references.push(Reference {
+                file_id,
+                range: ref_range,
+                is_write,
+            });
         }
     }
 
@@ -227,15 +227,14 @@ fn find_references_to_symbol_in_file_by_identity(
     {
         if let Some((member_id, range)) =
             resolve_field_expr_member(db, file_id, &symbols, &root, &node)
+            && symbol_identity(&symbols, member_id, file_id) == Some(identity)
         {
-            if symbol_identity(&symbols, member_id, file_id) == Some(identity) {
-                let is_write = is_write_context(&node);
-                references.push(Reference {
-                    file_id,
-                    range,
-                    is_write,
-                });
-            }
+            let is_write = is_write_context(&node);
+            references.push(Reference {
+                file_id,
+                range,
+                is_write,
+            });
         }
     }
 
@@ -249,10 +248,10 @@ fn find_type_references_across_project(
     options: FindReferencesOptions,
 ) -> Vec<Reference> {
     let mut references = Vec::new();
-    if options.include_declaration {
-        if let Some(reference) = declaration_reference(db, identity) {
-            references.push(reference);
-        }
+    if options.include_declaration
+        && let Some(reference) = declaration_reference(db, identity)
+    {
+        references.push(reference);
     }
 
     for other_file_id in db.file_ids() {
@@ -395,15 +394,15 @@ fn find_references_to_symbol_in_context(
 
         // Resolve this reference in its scope
         let ref_scope = scope_at_position(symbols, root, ref_range.start());
-        if let Some(resolved_id) = symbols.resolve(ref_name, ref_scope) {
-            if resolved_id == symbol_id {
-                let is_write = is_write_context(&node);
-                references.push(Reference {
-                    file_id,
-                    range: ref_range,
-                    is_write,
-                });
-            }
+        if let Some(resolved_id) = symbols.resolve(ref_name, ref_scope)
+            && resolved_id == symbol_id
+        {
+            let is_write = is_write_context(&node);
+            references.push(Reference {
+                file_id,
+                range: ref_range,
+                is_write,
+            });
         }
     }
 
@@ -424,15 +423,14 @@ fn find_references_to_symbol_in_context(
             }
         } else if let Some((qualified_id, range)) =
             resolve_field_expr_qualified_symbol(symbols, &node)
+            && qualified_id == symbol_id
         {
-            if qualified_id == symbol_id {
-                let is_write = is_write_context(&node);
-                references.push(Reference {
-                    file_id,
-                    range,
-                    is_write,
-                });
-            }
+            let is_write = is_write_context(&node);
+            references.push(Reference {
+                file_id,
+                range,
+                is_write,
+            });
         }
     }
 
@@ -545,14 +543,14 @@ fn find_type_references_to_symbol(
 ) -> Vec<Reference> {
     let mut references = Vec::new();
 
-    if options.include_declaration {
-        if let Some(symbol) = symbols.get(target_id) {
-            references.push(Reference {
-                file_id,
-                range: symbol.range,
-                is_write: false,
-            });
-        }
+    if options.include_declaration
+        && let Some(symbol) = symbols.get(target_id)
+    {
+        references.push(Reference {
+            file_id,
+            range: symbol.range,
+            is_write: false,
+        });
     }
 
     for name_node in root.descendants().filter(|n| n.kind() == SyntaxKind::Name) {
@@ -612,22 +610,22 @@ fn field_expr_base_type(
             .filter_map(|e| e.into_token())
             .find(|t| t.kind() == SyntaxKind::Ident)?;
         let scope_id = scope_at_position(symbols, root, base_expr.text_range().start());
-        if let Some(symbol_id) = symbols.resolve(ident.text(), scope_id) {
-            if let Some(symbol) = symbols.get(symbol_id) {
-                let same_file = symbol
-                    .origin
-                    .map(|origin| origin.file_id == file_id)
-                    .unwrap_or(true);
-                if same_file
-                    && matches!(
-                        symbol.kind,
-                        trust_hir::symbols::SymbolKind::Variable { .. }
-                            | trust_hir::symbols::SymbolKind::Constant
-                            | trust_hir::symbols::SymbolKind::Parameter { .. }
-                    )
-                {
-                    return Some(symbols.resolve_alias_type(symbol.type_id));
-                }
+        if let Some(symbol_id) = symbols.resolve(ident.text(), scope_id)
+            && let Some(symbol) = symbols.get(symbol_id)
+        {
+            let same_file = symbol
+                .origin
+                .map(|origin| origin.file_id == file_id)
+                .unwrap_or(true);
+            if same_file
+                && matches!(
+                    symbol.kind,
+                    trust_hir::symbols::SymbolKind::Variable { .. }
+                        | trust_hir::symbols::SymbolKind::Constant
+                        | trust_hir::symbols::SymbolKind::Parameter { .. }
+                )
+            {
+                return Some(symbols.resolve_alias_type(symbol.type_id));
             }
         }
 

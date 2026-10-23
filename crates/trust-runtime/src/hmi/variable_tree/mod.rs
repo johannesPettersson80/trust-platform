@@ -221,7 +221,7 @@ impl TreeBuilder<'_> {
             .get_instance(id)
             .ok_or_else(|| format!("the instance {} is not in storage", node.path))?;
         let type_name = instance.type_name.as_str();
-        node.kind = if find(self.metadata.programs(), type_name).is_some() {
+        node.kind = if find(self.metadata.program_templates(), type_name).is_some() {
             VariableKind::Program
         } else {
             VariableKind::FunctionBlock

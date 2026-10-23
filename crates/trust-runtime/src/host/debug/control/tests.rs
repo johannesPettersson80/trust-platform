@@ -4,6 +4,7 @@ use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::time::Duration;
 
+mod event_buffer_bound;
 mod lifecycle_contract;
 mod mutation_contract;
 mod state_stream_contract;
@@ -117,6 +118,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
     {
         let (lock, _) = &*control.state;
         lock.lock().expect("debug state").snapshot = Some(crate::debug::DebugSnapshot {
+            storage_abi: runtime.prepared().storage_abi(),
             storage: runtime.storage().clone(),
             now: crate::value::Duration::from_millis(100),
         });
@@ -161,6 +163,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
         "MainTask",
         &mut task_storage,
         crate::value::Duration::from_millis(200),
+        crate::value::StorageAbi::default(),
     );
     let adopted = control
         .parameter_status(json!({"binding": binding}), &metadata)
@@ -202,6 +205,7 @@ fn nested_control_pid_parameter_transaction_adopts_and_rejects_post_st_write() {
         "MainTask",
         &mut task_storage,
         crate::value::Duration::from_millis(300),
+        crate::value::StorageAbi::default(),
     );
     let rejected = control
         .parameter_status(json!({"binding": binding}), &metadata)
@@ -261,6 +265,7 @@ fn nested_control_pid_transfer_transaction_adopts_state_at_task_boundary() {
     {
         let (lock, _) = &*control.state;
         lock.lock().expect("debug state").snapshot = Some(crate::debug::DebugSnapshot {
+            storage_abi: runtime.prepared().storage_abi(),
             storage: runtime.storage().clone(),
             now: crate::value::Duration::from_millis(100),
         });
@@ -307,7 +312,11 @@ fn nested_control_pid_transfer_transaction_adopts_state_at_task_boundary() {
         crate::value::Value::LReal(initial_process_value)
     );
     control.confirm_transfer_task("MainTask", &mut task_storage);
-    control.finish_transfer_cycle(&task_storage, crate::value::Duration::from_millis(200));
+    control.finish_transfer_cycle(
+        &task_storage,
+        crate::value::Duration::from_millis(200),
+        crate::value::StorageAbi::default(),
+    );
     let confirmed = control
         .transfer_status(json!({"binding": binding}), &metadata)
         .expect("read confirmed nested transfer status");

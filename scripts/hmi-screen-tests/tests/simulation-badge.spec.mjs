@@ -1,4 +1,4 @@
-// The simulation badge of the display's top bar (specification 39, §8 item 8; specification 33,
+// The simulation badge of the display's top bar (specification 39, §8 item 8; specification 46,
 // §6.1), against the tank-level example in simulation: the badge names the simulation, and shows
 // the speed once the running simulation is set to another speed, live and without a reload. The
 // speed is set back to 1 afterwards, so the other screen tests of this server see real time.

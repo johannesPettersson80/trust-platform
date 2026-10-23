@@ -1,0 +1,24 @@
+[gate-progress state=started phase=A2-affected-clippy target=scena-rust-builder pid=43977 elapsed=0.0s timeout=3600s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings']
+    Checking trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-syntax)
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/verification-cases)
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-tcads-native)
+    Checking trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-hir)
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-plcopen)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ide)
+    Checking trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-wasm-analysis)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-server)
+error: unused imports: `SectionData` and `SectionId`
+ --> crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs:9:23
+  |
+9 | use crate::bytecode::{SectionData, SectionId, TypeTable};
+  |                       ^^^^^^^^^^^  ^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+[gate-progress state=running phase=A2-affected-clippy target=scena-rust-builder pid=43977 elapsed=30.0s timeout=3600s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings']
+error: could not compile `trust-runtime` (lib test) due to 1 previous error
+[gate-progress state=finished phase=A2-affected-clippy target=scena-rust-builder pid=43977 elapsed=45.9s timeout=3600s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings' status=101]

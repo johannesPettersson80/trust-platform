@@ -1,0 +1,12 @@
+[gate-progress state=started phase=A2-clippy target=scena-rust-builder pid=1030089 elapsed=0.0s timeout=3600s command='cargo clippy --locked --all-targets --all-features -- -D warnings']
+    Checking xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/xtask)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ide)
+    Checking trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-syntax)
+    Checking trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-hir)
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-plcopen)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-core)
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/verification-cases)
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-tcads-native)
+    Finished `dev` profile [unoptimized] target(s) in 10.70s
+[gate-progress state=finished phase=A2-clippy target=scena-rust-builder pid=1030089 elapsed=11.2s timeout=3600s command='cargo clippy --locked --all-targets --all-features -- -D warnings' status=0]

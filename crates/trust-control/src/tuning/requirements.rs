@@ -164,13 +164,13 @@ impl TuningRequirements {
         }
         self.check_channels()?;
         self.check_task_values()?;
-        if let Some(tolerance) = self.transfer_tolerance {
-            if !tolerance.is_finite() || tolerance < 0.0 {
-                return Err(RequirementRefusal::of(
-                    "transferTolerance",
-                    texts::TRANSFER_TOLERANCE,
-                ));
-            }
+        if let Some(tolerance) = self.transfer_tolerance
+            && (!tolerance.is_finite() || tolerance < 0.0)
+        {
+            return Err(RequirementRefusal::of(
+                "transferTolerance",
+                texts::TRANSFER_TOLERANCE,
+            ));
         }
         self.check_bounds()
     }

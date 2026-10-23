@@ -17,12 +17,18 @@ mod settings_jobs;
 use settings_jobs::PendingSettings;
 pub(crate) use settings_jobs::{SettingChange, SettingsJob, SettingsOutcome};
 
+use crate::debug::RequestQueueFull;
 use crate::hmi::alarms::{read_alarms, AlarmEvent, AlarmSnapshot, OperatorAction, RuntimeAlarms};
 use crate::hmi::commands::write::{write_point, WriteAction, Written};
 use crate::hmi::display_values::{self, HmiRead};
 use crate::hmi::member_paths::MemberPath;
 use crate::runtime::hmi_stale::{silent_age, SilentInput};
 use crate::runtime::Runtime;
+
+/// Most commands, settings jobs and one-off reads waiting for the next call each. A request
+/// past the bound is refused at once with `request queue full` and changes nothing, as for the
+/// runtime's other request queues (specification 11, request queue bounds).
+const MAX_PENDING: usize = 1_024;
 
 /// An open screen, as the exchange knows it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -253,6 +259,10 @@ impl HmiExchange {
         let mut state = self.state();
         state.next_id += 1;
         let id = state.next_id;
+        if state.writes.len() >= MAX_PENDING {
+            let _ = respond_to.send(Err(RequestQueueFull.to_string()));
+            return (id, outcome);
+        }
         state.writes.push(PendingWrite {
             id,
             path,
@@ -335,6 +345,9 @@ impl HmiExchange {
         let (respond_to, outcome) = mpsc::channel();
         let id = {
             let mut state = self.state();
+            if state.settings.len() >= MAX_PENDING {
+                return Some(SettingsOutcome::Refused(RequestQueueFull.to_string()));
+            }
             state.next_id += 1;
             let id = state.next_id;
             state.settings.push(PendingSettings {
@@ -367,6 +380,9 @@ impl HmiExchange {
     pub fn read_next(&self, paths: &[MemberPath], timeout: Duration) -> Option<HmiRead> {
         let deadline = Instant::now() + timeout;
         let mut state = self.state();
+        if state.waiting.len() >= MAX_PENDING {
+            return None;
+        }
         state.next_id += 1;
         let id = state.next_id;
         state.waiting.push((id, paths.to_vec()));
@@ -537,10 +553,10 @@ impl HmiExchange {
         });
         // A value at the inputs of a link without data is stale with the link's age.
         for (path, value) in union.paths.iter().zip(read.values.iter_mut()) {
-            if let Some(wire) = value {
-                if super::remote_values::remote_path(path).is_none() {
-                    wire.stale_ms = silent_age(path, silent);
-                }
+            if let Some(wire) = value
+                && super::remote_values::remote_path(path).is_none()
+            {
+                wire.stale_ms = silent_age(path, silent);
             }
         }
         let statuses = read_alarms(runtime);
@@ -591,6 +607,29 @@ fn number_of(shown: &display_values::Shown) -> Option<f64> {
 
 #[cfg(test)]
 mod pulse_end_tests;
+
+#[cfg(test)]
+mod queue_bound_tests {
+    use super::*;
+
+    /// Commands past the bound are refused at once with `request queue full`, as the runtime's
+    /// other request queues are; the queued ones keep waiting. Catches an unbounded queue that a
+    /// flood of operator requests could grow without limit.
+    #[test]
+    fn a_command_past_the_queue_bound_is_refused_at_once() {
+        let exchange = HmiExchange::new();
+        let path = MemberPath::parse("Main.Start").unwrap();
+        let queued: Vec<_> = (0..MAX_PENDING)
+            .map(|_| exchange.queue_write(path.clone(), WriteAction::Toggle))
+            .collect();
+        let refused = exchange.queue_write(path, WriteAction::Toggle);
+        assert_eq!(
+            refused.try_recv().ok(),
+            Some(Err("request queue full".to_string()))
+        );
+        assert!(queued.iter().all(|outcome| outcome.try_recv().is_err()));
+    }
+}
 
 #[cfg(test)]
 mod remote_pulse_tests {

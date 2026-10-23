@@ -238,7 +238,7 @@ impl Planner<'_> {
             .and_then(|id| {
                 let type_name = runtime.storage().get_instance(id)?.type_name.clone();
                 runtime
-                    .programs()
+                    .program_templates()
                     .keys()
                     .any(|program| program.eq_ignore_ascii_case(&type_name))
                     .then(|| {

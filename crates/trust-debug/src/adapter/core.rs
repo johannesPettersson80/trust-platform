@@ -28,7 +28,7 @@ use crate::protocol::{
 };
 use crate::runtime::DebugRuntime;
 
-use super::io::io_state_from_snapshot;
+use super::io::{append_ads_live_values, io_state_from_snapshot};
 use super::protocol_io::{read_message, write_message_locked, write_protocol_log};
 use super::remote::RemoteStop;
 use super::stop::StopCoordinator;
@@ -81,7 +81,7 @@ fn wall_interval_for_cycle(cycle_time: Duration) -> StdDuration {
 }
 
 /// Runs one simulator cycle. Process time advances by one exact step only after a cycle that succeeds, so a cycle that
-/// the debugger pauses does not advance it (specification 33, §6.1 items 1 and 4).
+/// the debugger pauses does not advance it (specification 46, §6.1 items 1 and 4).
 pub(super) fn execute_simulator_cycle(
     runtime: &mut Runtime,
     simulation: &mut Option<SimulationController>,

@@ -224,10 +224,10 @@ impl WebIdeState {
             let disk_path = self.resolve_source_path(&normalized)?;
             let mut text = std::fs::read_to_string(&disk_path)
                 .map_err(|_| IdeError::new(IdeErrorKind::NotFound, "source file not found"))?;
-            if let Some((override_path, override_text)) = content_override {
-                if normalized == override_path {
-                    text = override_text.to_string();
-                }
+            if let Some((override_path, override_text)) = content_override
+                && normalized == override_path
+            {
+                text = override_text.to_string();
             }
             if text.len() > self.limits.max_file_bytes {
                 return Err(IdeError::new(

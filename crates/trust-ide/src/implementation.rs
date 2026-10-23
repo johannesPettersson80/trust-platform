@@ -68,16 +68,15 @@ fn find_interface_implementations(
                 continue;
             }
 
-            if let Some(range) = symbol_range_for_node(&node, &symbols) {
-                if !results
+            if let Some(range) = symbol_range_for_node(&node, &symbols)
+                && !results
                     .iter()
                     .any(|res| res.file_id == candidate_file && res.range == range)
-                {
-                    results.push(ImplementationResult {
-                        file_id: candidate_file,
-                        range,
-                    });
-                }
+            {
+                results.push(ImplementationResult {
+                    file_id: candidate_file,
+                    range,
+                });
             }
         }
     }

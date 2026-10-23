@@ -1,4 +1,4 @@
-//! Symbolic plant signals (Specification 33 §13.1–§13.3): program variables without an address.
+//! Symbolic plant signals (Specification 46 §13.1–§13.3): program variables without an address.
 use super::*;
 use crate::harness::TestHarness;
 use crate::simulation::SimulationConfig;

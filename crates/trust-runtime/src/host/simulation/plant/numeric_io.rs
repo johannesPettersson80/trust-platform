@@ -3,17 +3,43 @@
 use trust_hir::TypeId;
 
 use crate::error::RuntimeError;
-use crate::io::{IoAddress, IoInterface};
+use crate::io::{InstalledIoView, IoAddress, IoBinding, IoInterface};
 use crate::value::Value;
 
-fn binding_type(io: &IoInterface, address: &IoAddress) -> Option<TypeId> {
+/// A bound process image a plant reads and encodes against.
+pub(super) trait BoundImage {
+    fn bindings(&self) -> &[IoBinding];
+    fn read(&self, address: &IoAddress) -> Result<Value, RuntimeError>;
+}
+
+impl BoundImage for IoInterface {
+    fn bindings(&self) -> &[IoBinding] {
+        IoInterface::bindings(self)
+    }
+
+    fn read(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
+        IoInterface::read(self, address)
+    }
+}
+
+impl BoundImage for InstalledIoView<'_> {
+    fn bindings(&self) -> &[IoBinding] {
+        InstalledIoView::bindings(self)
+    }
+
+    fn read(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
+        InstalledIoView::read(self, address)
+    }
+}
+
+fn binding_type(io: &impl BoundImage, address: &IoAddress) -> Option<TypeId> {
     io.bindings()
         .iter()
         .find(|binding| binding.address == *address)
         .and_then(|binding| binding.value_type)
 }
 
-pub(super) fn read_numeric(io: &IoInterface, address: &IoAddress) -> Result<f64, RuntimeError> {
+pub(super) fn read_numeric(io: &impl BoundImage, address: &IoAddress) -> Result<f64, RuntimeError> {
     let raw = io.read(address)?;
     let value =
         match (binding_type(io, address), raw) {
@@ -43,7 +69,7 @@ pub(super) fn read_numeric(io: &IoInterface, address: &IoAddress) -> Result<f64,
 }
 
 pub(super) fn encode_numeric(
-    io: &IoInterface,
+    io: &impl BoundImage,
     address: &IoAddress,
     value: f64,
 ) -> Result<Value, RuntimeError> {
@@ -91,7 +117,7 @@ pub(super) fn encode_numeric(
     }
 }
 
-/// A program variable's numeric value (Specification 33 §13.1).
+/// A program variable's numeric value (Specification 46 §13.1).
 pub(super) fn decode_storage(value: &Value) -> Result<f64, RuntimeError> {
     let number = match value {
         Value::Real(value) => f64::from(*value),
@@ -114,7 +140,7 @@ pub(super) fn decode_storage(value: &Value) -> Result<f64, RuntimeError> {
 }
 
 /// `value` in the type of the program variable currently holding `current`, by the checked conversion rules
-/// (Specification 33 §13.2).
+/// (Specification 46 §13.2).
 pub(super) fn encode_storage(current: &Value, value: f64) -> Result<Value, RuntimeError> {
     if !value.is_finite() {
         return Err(RuntimeError::Overflow);

@@ -1,3 +1,4 @@
+#[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
 
 use smol_str::SmolStr;
@@ -100,18 +101,33 @@ END_PROGRAM
 "#;
 
     let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
-    runtime.register_task(TaskConfig {
+    let existing_task = TaskConfig {
         name: "ExistingTask".into(),
         interval: Duration::from_millis(10),
         single: None,
         priority: 0,
         programs: vec!["Main".into()],
         fb_instances: Vec::new(),
-    });
-    runtime.io_mut().resize(1, 1, 1);
-    runtime.io_mut().inputs_mut()[0] = 0x11;
-    runtime.io_mut().outputs_mut()[0] = 0x22;
-    runtime.io_mut().memory_mut()[0] = 0x33;
+    };
+    runtime
+        .apply_resource_metadata(&ResourceMetadata {
+            name: "R".into(),
+            process_image: ProcessImageConfig {
+                inputs: 1,
+                outputs: 1,
+                memory: 1,
+            },
+            tasks: vec![existing_task],
+        })
+        .unwrap();
+    for (address, byte) in [("%IB0", 0x11), ("%QB0", 0x22), ("%MB0", 0x33)] {
+        runtime
+            .write_io(
+                &trust_runtime::io::IoAddress::parse(address).unwrap(),
+                Value::Byte(byte),
+            )
+            .unwrap();
+    }
 
     let before_backend = runtime.execution_backend();
     let before_programs = runtime.programs().keys().cloned().collect::<Vec<_>>();
@@ -120,7 +136,7 @@ END_PROGRAM
     let before_outputs = runtime.io().outputs().to_vec();
     let before_memory = runtime.io().memory().to_vec();
     let metadata = BytecodeMetadata {
-        version: BytecodeVersion::new(SUPPORTED_MAJOR_VERSION + 1, 0),
+        version: BytecodeVersion::new(BytecodeVersion::SOURCE_FREE.major + 1, 0),
         resources: Vec::new(),
     };
 
@@ -196,9 +212,13 @@ END_CONFIGURATION
         other => panic!("expected FB instance, got {other:?}"),
     };
 
+    let input_ref = runtime
+        .storage()
+        .ref_for_instance(fb_instance_id, "IN")
+        .unwrap();
     runtime
-        .storage_mut()
-        .set_instance_var(fb_instance_id, "IN", Value::Bool(true));
+        .write_reference(&input_ref, Value::Bool(true))
+        .unwrap();
 
     let task = TaskConfig {
         name: "T".into(),
@@ -218,9 +238,7 @@ END_CONFIGURATION
     };
 
     runtime.apply_bytecode_metadata(&metadata, None).unwrap();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
 
     let out = runtime.storage().get_instance_var(fb_instance_id, "OUT");
@@ -477,12 +495,14 @@ END_CONFIGURATION
         Some(Value::Instance(id)) => *id,
         other => panic!("expected FB instance, got {other:?}"),
     };
+    let input_ref = runtime
+        .storage()
+        .ref_for_instance(fb_instance_id, "IN")
+        .unwrap();
     runtime
-        .storage_mut()
-        .set_instance_var(fb_instance_id, "IN", Value::Bool(true));
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+        .write_reference(&input_ref, Value::Bool(true))
+        .unwrap();
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
 
     let out = runtime.storage().get_instance_var(fb_instance_id, "OUT");

@@ -1088,9 +1088,10 @@ const hwState = {
 };
 
 const HW_CANVAS_DEFAULT_PADDING = 28;
-const HW_CANVAS_RELAYOUT_DELAYS_MS = [0, 90, 260];
+const HW_CANVAS_RELAYOUT_DELAYS_MS = [260];
 const HW_RUNTIME_SELECTION_EVENT = "ide-runtime-selection-changed";
 let hwCanvasRelayoutTimers = [];
+let hwCanvasRelayoutFrame = null;
 
 function hwMinZoomForNodeCount(nodeCount) {
   const count = Number(nodeCount) || 0;
@@ -1102,7 +1103,10 @@ function hwMinZoomForNodeCount(nodeCount) {
 }
 
 function hwClearScheduledRelayouts() {
-  if (hwCanvasRelayoutTimers.length === 0) return;
+  if (hwCanvasRelayoutFrame !== null) {
+    cancelAnimationFrame(hwCanvasRelayoutFrame);
+    hwCanvasRelayoutFrame = null;
+  }
   for (const timer of hwCanvasRelayoutTimers) {
     clearTimeout(timer);
   }
@@ -1144,7 +1148,8 @@ function hwRelayoutCanvas(options = {}) {
 function hwScheduleCanvasRelayout(options = {}) {
   if (!hwState.cy) return;
   hwClearScheduledRelayouts();
-  requestAnimationFrame(() => {
+  hwCanvasRelayoutFrame = requestAnimationFrame(() => {
+    hwCanvasRelayoutFrame = null;
     for (const delay of HW_CANVAS_RELAYOUT_DELAYS_MS) {
       const timer = setTimeout(() => {
         hwRelayoutCanvas(options);
@@ -5855,7 +5860,11 @@ function hwActivate() {
   } else {
     hwStopLivePolling();
   }
-  if (!(typeof state === "object" && state && state.ready)) {
+  // Project I/O configuration is available as soon as the IDE session has
+  // selected a project.  Do not make the hardware surface wait for the
+  // editor's WASM analysis bootstrap: that can be unavailable while the
+  // authenticated configuration endpoint is already usable.
+  if (!(typeof state === "object" && state && state.activeProject)) {
     setTimeout(() => {
       const active = typeof ideGetActiveTab === "function"
         ? ideGetActiveTab()

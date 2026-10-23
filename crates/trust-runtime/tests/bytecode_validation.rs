@@ -1,3 +1,4 @@
+#[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
 
 use bytecode_helpers::{base_module, module_with_debug};
@@ -5,9 +6,8 @@ use trust_runtime::bytecode::{
     BytecodeError, BytecodeModule, ConstEntry, PouKind, RefEntry, RefLocation, Section,
     SectionData, SectionId, TypeData, TypeEntry, TypeKind, VarMeta, VarMetaEntry,
 };
-use trust_runtime::error::{RuntimeError, StableErrorCode};
+use trust_runtime::error::StableErrorCode;
 use trust_runtime::harness::bytecode_module_from_source;
-use trust_runtime::Runtime;
 
 #[test]
 fn opcode_validation() {
@@ -140,6 +140,13 @@ fn jump_target_must_land_on_instruction_boundary() {
 
 #[test]
 fn required_sections_are_rejected_before_runtime_apply() {
+    let baseline = bytecode_module_from_source(
+        "VAR_GLOBAL marker : INT := INT#7; END_VAR PROGRAM Main END_PROGRAM",
+    )
+    .expect("produce source-free baseline");
+    let mut runtime =
+        trust_runtime::Runtime::from_bytes(&baseline.encode().unwrap(), Default::default())
+            .expect("admit source-free baseline");
     let required = [
         SectionId::StringTable,
         SectionId::TypeTable,
@@ -149,32 +156,40 @@ fn required_sections_are_rejected_before_runtime_apply() {
         SectionId::PouBodies,
         SectionId::ResourceMeta,
         SectionId::IoMap,
+        SectionId::StorageLayout,
+        SectionId::ConstructionRoots,
+        SectionId::Initializers,
+        SectionId::AccessBindings,
     ];
-
     for section_id in required {
-        let mut module = base_module();
-        module.flags = 0;
+        let mut module = baseline.clone();
+        // Keep the current format's mandatory CRC flag. Encoding recomputes the
+        // checksum after removal, so admission reaches the missing-section rule.
         module
             .sections
             .retain(|section| section.id != section_id.as_raw());
-        let bytes = module
-            .encode()
-            .expect("encode module missing required section");
-        let decoded = BytecodeModule::decode(&bytes).expect("decode structurally valid module");
+        let bytes = module.encode().expect("encode missing required section");
+        let decoded = BytecodeModule::decode(&bytes).expect("structurally valid container");
         assert!(
             matches!(decoded.validate(), Err(BytecodeError::MissingSection(_))),
             "direct validation accepted module missing {section_id:?}"
         );
-        assert!(
-            matches!(
-                Runtime::new().apply_bytecode_bytes(&bytes, None),
-                Err(RuntimeError::Bytecode {
-                    code: StableErrorCode::BytecodeMissingSection,
-                    ..
-                })
-            ),
-            "product apply accepted module missing {section_id:?}"
+        let error = runtime
+            .apply_bytecode_bytes(&bytes, None)
+            .expect_err("product must reject missing section before replacement");
+        assert_eq!(
+            error.stable_code(),
+            StableErrorCode::BytecodeMissingSection,
+            "wrong rejection for missing {section_id:?}: {error}"
         );
+        assert_eq!(
+            runtime.storage().get_global("marker"),
+            Some(&trust_runtime::value::Value::Int(7))
+        );
+        assert!(!runtime.faulted());
+        runtime
+            .execute_cycle()
+            .expect("previous application remains executable");
     }
 }
 

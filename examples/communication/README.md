@@ -12,6 +12,7 @@ Included protocols:
   to pyads/TwinCAT clients through `[runtime.ads_server]`)
 - `modbus-tcp`
 - `mqtt`
+- `mqtt_traffic_light` (named PLC tags published to MQTT topics)
 - `opcua`
 - `ethercat` (mock-first + hardware handoff)
 - `ethercat_field_validated_es` (field-tested EK1100 + EL2008 profile)
@@ -33,15 +34,17 @@ Most projects start with `simulated` or `loopback`, then fail during integration
    - learn deterministic request/response register mapping and timeout policy.
 4. `mqtt/README.md`
    - learn broker/topic boundaries and reconnect behavior.
-5. `opcua/README.md`
+5. `mqtt_traffic_light/README.md`
+   - publish program-instance variables without manual `VAR_CONFIG` addresses.
+6. `opcua/README.md`
    - learn runtime wire exposure and feature-gated build behavior.
-6. `ethercat/README.md`
+7. `ethercat/README.md`
    - learn mock-first module chain validation, then hardware handoff.
-7. `ethercat_field_validated_es/README.md`
+8. `ethercat_field_validated_es/README.md`
    - apply a previously field-tested real-adapter profile for EK1100 + EL2008 output commissioning.
-8. `gpio/README.md`
+9. `gpio/README.md`
    - learn IEC bit mapping to GPIO lines, debounce, and safe-state defaults.
-9. `multi_driver/README.md`
+10. `multi_driver/README.md`
    - learn composed-driver commissioning and mutual-exclusion rules.
 
 ## Common base layout in each example

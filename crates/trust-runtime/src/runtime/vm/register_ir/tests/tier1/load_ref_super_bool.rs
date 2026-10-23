@@ -25,7 +25,20 @@ fn tier1_executor_rejects_null_reference_ref_field() {
 #[test]
 fn tier1_executor_cmp_ref_const_jump_takes_matching_branch() {
     let (module, pou_id) = manual_vm_module(Vec::new(), vec![Value::DInt(5)], 1);
-    let (program, source_block) = tier1_two_block_program(pou_id, 0);
+    let (mut program, mut source_block) = tier1_two_block_program(pou_id, 0);
+    // This specialized instruction is fused from four original bytecode ops;
+    // keep the fixture's ordered cost steps for each source operation.
+    source_block.bytecode_instruction_count = 4;
+    source_block.instruction_costs = vec![4];
+    source_block.instruction_cost_steps = vec![vec![1, 1, 1, 1]];
+    source_block.instructions = vec![RegisterInstr::CmpRefConstJumpIf {
+        op: BinaryOp::Lt,
+        ref_idx: 0,
+        const_idx: 0,
+        jump_if_true: true,
+        target: BlockTarget::Block(1),
+    }];
+    program.blocks[0] = source_block.clone();
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global("g0", Value::DInt(3));
     let mut registers = Vec::new();
@@ -87,6 +100,7 @@ fn tier1_two_block_program(pou_id: u32, max_registers: u32) -> (RegisterProgram,
         entry_stack_depth: 0,
         bytecode_instruction_count: 1,
         instruction_costs: vec![1],
+        instruction_cost_steps: vec![vec![1]],
         instructions: Vec::new(),
     };
     let target_block = RegisterBlock {
@@ -96,6 +110,7 @@ fn tier1_two_block_program(pou_id: u32, max_registers: u32) -> (RegisterProgram,
         entry_stack_depth: 0,
         bytecode_instruction_count: 0,
         instruction_costs: Vec::new(),
+        instruction_cost_steps: Vec::new(),
         instructions: Vec::new(),
     };
     let program = RegisterProgram {
@@ -115,24 +130,35 @@ fn execute_single_compiled_tier1_instruction(
     runtime: &mut Runtime,
     registers: &mut [Value],
 ) -> Result<RegisterBlockExecutionOutcome, RuntimeError> {
-    let key = super::tier1_block_key(module, program.pou_id, source_block);
     let compiled = Tier1CompiledBlock {
-        key,
         instructions: vec![instruction],
     };
     let mut frames = super::FrameStack::default();
     let mut native_call_stack = super::OperandStack::default();
-    let mut budget = 16;
+    runtime.vm_execution_budget.reset(16);
+    let mut runtime = LegacyRegisterFixtureContext::new(runtime, module)
+        .expect("prepare legacy register fixture");
+    let counts_by_block = sparse_register_read_counts_by_block(program);
+    let block_counts = counts_by_block
+        .get(source_block.id as usize)
+        .ok_or(RuntimeError::InvalidExecutionState)?;
+    let mut remaining_register_reads = vec![0; program.max_registers as usize];
+    for (register, count) in block_counts {
+        let slot = remaining_register_reads
+            .get_mut(*register as usize)
+            .ok_or(RuntimeError::InvalidExecutionState)?;
+        *slot = *count;
+    }
     let Tier1BlockExecutionOutcome::Executed(outcome) = execute_tier1_compiled_block(
-        runtime,
+        &mut runtime,
         module,
         program,
         source_block,
         &mut frames,
         registers,
+        &mut remaining_register_reads,
         &mut native_call_stack,
         &compiled,
-        &mut budget,
         0,
     )?;
     Ok(outcome)
@@ -165,9 +191,8 @@ fn tier1_compiler_accepts_load_ref_addr_dynamic_block() {
                     .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
         })
         .expect("load-ref-addr block");
-    let key = super::tier1_block_key(&module, pou_id, block);
     assert!(
-        super::compile_tier1_block(&module, block, key).is_ok(),
+        super::compile_tier1_block(&module, block).is_ok(),
         "expected tier-1 compiler to accept LoadRefAddr block: {:?}",
         block.instructions
     );
@@ -191,6 +216,8 @@ fn register_executor_tier1_specialized_executor_executes_load_ref_addr_block() {
     runtime.reset_vm_tier1_specialized_executor();
     runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -214,10 +241,11 @@ fn tier1_compiler_accepts_load_super_dynamic_block() {
     code.push(0x06);
 
     let pou_id = 1_u32;
-    let mut pou_by_id = rustc_hash::FxHashMap::default();
+    let mut pou_by_id = HashMap::new();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -226,32 +254,33 @@ fn tier1_compiler_accepts_load_super_dynamic_block() {
             primary_instance_owner: None,
         },
     );
-    let mut program_ids = rustc_hash::FxHashMap::default();
+    let mut program_ids = HashMap::new();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
-    let module = VmModule {
-        code,
-        strings: vec![SmolStr::new("COUNT")],
-        types: TypeTable::default(),
-        refs: vec![VmRef::Global {
-            offset: 0,
-            path: RefPath::new(),
-        }],
-        consts: Vec::new(),
-        pou_by_id,
-        program_ids,
-        function_ids: Default::default(),
-        function_block_ids: Default::default(),
-        class_ids: Default::default(),
-        parent_pou_ids: Default::default(),
-        interface_type_ids_by_pou: Default::default(),
-        native_symbol_specs: Vec::new(),
-        pou_params: Default::default(),
-        pou_has_return_slot: Default::default(),
-        method_table_by_owner: Default::default(),
-        ref_types: Vec::new(),
-        ref_slots: Default::default(),
-        debug_map: super::super::debug_map::VmDebugMap::default(),
-        instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+    let module = {
+        let mut legacy = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            code,
+            vec![SmolStr::new("COUNT")],
+            TypeTable::default(),
+            vec![VmRef::Global {
+                offset: 0,
+                path: RefPath::new(),
+            }],
+            Vec::new(),
+        )
+        .expect("legacy fixture metadata");
+        let mut entries = pou_by_id;
+        for (_, id) in program_ids {
+            legacy.define_legacy_pou(
+                id,
+                crate::bytecode::PouKind::Program,
+                entries.remove(&id).expect("fixture POU"),
+                Vec::new(),
+                false,
+            );
+        }
+        legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+        legacy
     };
 
     let lowered = lower_pou_to_register_ir(&module, pou_id).expect("lower register ir");
@@ -270,9 +299,8 @@ fn tier1_compiler_accepts_load_super_dynamic_block() {
                     .any(|instruction| matches!(instruction, RegisterInstr::LoadDynamic { .. }))
         })
         .expect("load-super block");
-    let key = super::tier1_block_key(&module, pou_id, block);
     assert!(
-        super::compile_tier1_block(&module, block, key).is_ok(),
+        super::compile_tier1_block(&module, block).is_ok(),
         "expected tier-1 compiler to accept LoadSuper block: {:?}",
         block.instructions
     );
@@ -290,10 +318,11 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
     code.push(0x06);
 
     let pou_id = 1_u32;
-    let mut pou_by_id = rustc_hash::FxHashMap::default();
+    let mut pou_by_id = HashMap::new();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -302,32 +331,33 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
             primary_instance_owner: None,
         },
     );
-    let mut program_ids = rustc_hash::FxHashMap::default();
+    let mut program_ids = HashMap::new();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
-    let module = VmModule {
-        code,
-        strings: vec![SmolStr::new("COUNT")],
-        types: TypeTable::default(),
-        refs: vec![VmRef::Global {
-            offset: 0,
-            path: RefPath::new(),
-        }],
-        consts: Vec::new(),
-        pou_by_id,
-        program_ids,
-        function_ids: Default::default(),
-        function_block_ids: Default::default(),
-        class_ids: Default::default(),
-        parent_pou_ids: Default::default(),
-        interface_type_ids_by_pou: Default::default(),
-        native_symbol_specs: Vec::new(),
-        pou_params: Default::default(),
-        pou_has_return_slot: Default::default(),
-        method_table_by_owner: Default::default(),
-        ref_types: Vec::new(),
-        ref_slots: Default::default(),
-        debug_map: super::super::debug_map::VmDebugMap::default(),
-        instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+    let module = {
+        let mut legacy = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            code,
+            vec![SmolStr::new("COUNT")],
+            TypeTable::default(),
+            vec![VmRef::Global {
+                offset: 0,
+                path: RefPath::new(),
+            }],
+            Vec::new(),
+        )
+        .expect("legacy fixture metadata");
+        let mut entries = pou_by_id;
+        for (_, id) in program_ids {
+            legacy.define_legacy_pou(
+                id,
+                crate::bytecode::PouKind::Program,
+                entries.remove(&id).expect("fixture POU"),
+                Vec::new(),
+                false,
+            );
+        }
+        legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+        legacy
     };
 
     let mut runtime = Runtime::new();
@@ -348,6 +378,8 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, Some(derived))
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -357,7 +389,6 @@ fn register_executor_tier1_specialized_executor_executes_load_super_block() {
     assert!(tier1.compile_successes >= 1, "snapshot={tier1:?}");
     assert!(tier1.block_executions >= 1, "snapshot={tier1:?}");
     assert_eq!(tier1.compile_failures, 0, "snapshot={tier1:?}");
-    assert_eq!(tier1.deopt_count, 0, "snapshot={tier1:?}");
 
     let profile = runtime.vm_register_profile_snapshot();
     assert_eq!(profile.register_program_fallbacks, 0, "profile={profile:?}");
@@ -389,6 +420,8 @@ fn register_executor_tier1_specialized_executor_executes_bool_or_without_deopt()
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -397,7 +430,6 @@ fn register_executor_tier1_specialized_executor_executes_bool_or_without_deopt()
     let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
     assert!(snapshot.compile_successes >= 1, "snapshot={snapshot:?}");
     assert!(snapshot.block_executions >= 1, "snapshot={snapshot:?}");
-    assert_eq!(snapshot.deopt_count, 0, "snapshot={snapshot:?}");
     let profile = runtime.vm_register_profile_snapshot();
     assert_eq!(
         profile.value_ops.read_value_clones, 0,

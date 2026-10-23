@@ -8,7 +8,6 @@ use std::thread;
 use std::time::{Duration as StdDuration, Instant};
 
 use serde_json::{json, Value};
-use trust_runtime::Runtime;
 
 use super::simulation_speed_tests::{control_status, source_options, start_control_server};
 use super::tests_part_02::{reserve_loopback_addr, unique_project_root};
@@ -61,7 +60,11 @@ fn loaded_program(label: &str, program: &str) -> (DebugSession, PathBuf) {
     let root = unique_project_root(label);
     let main = root.join("main.st");
     fs::write(&main, program).unwrap();
-    let mut session = DebugSession::new(Runtime::new());
+    let mut session = DebugSession::new(
+        trust_runtime::RuntimeBuilder::new()
+            .build()
+            .expect("admit an empty runtime"),
+    );
     session.update_source_options(source_options(&root));
     session
         .reload_program(Some(main.to_string_lossy().as_ref()))
@@ -124,7 +127,7 @@ fn run_the_runner_for_a_cycle(adapter: &mut DebugAdapter) -> (i64, i64) {
 }
 
 /// Asserts that the cycle in `status` is the step the managed runner takes: each cycle it completes advances process time by
-/// exactly the reported cycle (specification 33, §6.1 item 1).
+/// exactly the reported cycle (specification 46, §6.1 item 1).
 fn assert_the_runner_takes_the_reported_cycle(adapter: &mut DebugAdapter, status: &Value) {
     let reported = status["cycle_interval_ms"]
         .as_i64()

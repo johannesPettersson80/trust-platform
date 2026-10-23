@@ -54,8 +54,8 @@ class FuzzProgramReportTests(unittest.TestCase):
 
     def test_live_report_reconciles_inventory_and_surface_gaps(self) -> None:
         summary = self.payload["summary"]
-        self.assertEqual(16, summary["inventory_targets"])
-        self.assertEqual(10, summary["cargo_fuzz_targets"])
+        self.assertEqual(18, summary["inventory_targets"])
+        self.assertEqual(12, summary["cargo_fuzz_targets"])
         self.assertEqual(6, summary["bounded_rust_smokes"])
         self.assertEqual(7, summary["required_surfaces"])
         self.assertEqual(0, summary["gap_surfaces"])

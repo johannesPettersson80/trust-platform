@@ -1,0 +1,13 @@
+Post-run-3 independent source review: no actionable findings.
+Eight-file sorted path/NUL/raw-content/NUL SHA-256: 875ba0dc0d748ad0b4bb0586d0030f54864e9ef692481f50251a63beb40027a4
+
+crates/trust-runtime/src/bytecode/encoder/construction/metadata.rs
+crates/trust-runtime/src/bytecode/encoder/io.rs
+crates/trust-runtime/src/host/harness/authoring_boundary_tests.rs
+crates/trust-runtime/tests/bytecode_source_free_authoring.rs
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/README.md
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/main.st
+docs/specs/12-bytecode.md
+docs/specs/34-runtime-portability.md
+
+Review confirms canonical local names, bounded STRING capacity without changing hosted tags or relaxing checks, source-admitted fault/reference fixtures, preserved source diagnostics, and hosted module/bytes rejection coverage. Spec34v0.11/spec12/README agree; A4 execution remains required. No edits, tests or validators executed.

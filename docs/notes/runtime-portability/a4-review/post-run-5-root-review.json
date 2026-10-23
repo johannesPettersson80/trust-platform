@@ -1,0 +1,39 @@
+{
+  "aggregate_sha256": "7cb414fc22f7ed5826940ccd0b7ec97e94df7edf81ae83880770fa2f25e75cdc",
+  "framing": "sorted path/NUL/raw bytes/NUL",
+  "scope": "Root-authored grouping, fault classification and new source/initializer regression delta; reviewer-authored budget/IO/assignment portions explicitly excluded from independent correctness approval",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/error.rs",
+      "sha256": "c48778d0873b2b3fb47850c1c1dbf1aabbd5e934ea74f392b7897f1486f19bd7"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/access.rs",
+      "sha256": "a3f01632a35f15562cb6ed517111177609147ebf998377723a483991bcbc2dd4"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/api.rs",
+      "sha256": "1ba97054cececf3d0caf7ff83b86a70537ec0b5009cf5728c1134d62b1d55aaa"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+      "sha256": "281f58da880d9f42602a8af0c1d4bb4b3e9ce1d7f0c51c71db239f1fca232d57"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/mod.rs",
+      "sha256": "aec5a2306cd7aa7f30ec0ee37a0a1093de9d14c43b75672eb9ccc9e24d8c8d65"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/tests.rs",
+      "sha256": "1f6951ab7d3eec2f598f10a33b1e8554e0909dc795fcfc168a894cef8a05368f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/mod.rs",
+      "sha256": "69f21ccb6cdd0d8ae5fc97b9e183ef41cc683267b803d97a9d15c5febe5b8004"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_blocks_and_io.rs",
+      "sha256": "f3e896b936f06c95074336e572b068d9a3cbc81a7597d8bb531c03fa27878b35"
+    }
+  ]
+}

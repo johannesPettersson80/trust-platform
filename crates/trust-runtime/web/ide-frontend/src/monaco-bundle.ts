@@ -1,23 +1,23 @@
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+import * as monaco from "monaco-editor/editor/editor.api";
 
 // Editor contributions required by ide.js
-import "monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution";
-import "monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController";
-import "monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestInlineCompletions";
-import "monaco-editor/esm/vs/editor/contrib/parameterHints/browser/parameterHints";
-import "monaco-editor/esm/vs/editor/contrib/bracketMatching/browser/bracketMatching";
-import "monaco-editor/esm/vs/editor/contrib/find/browser/findController";
-import "monaco-editor/esm/vs/editor/contrib/contextmenu/browser/contextmenu";
-import "monaco-editor/esm/vs/editor/contrib/folding/browser/folding";
-import "monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2";
-import "monaco-editor/esm/vs/editor/contrib/wordOperations/browser/wordOperations";
-import "monaco-editor/esm/vs/editor/contrib/comment/browser/comment";
-import "monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/goToCommands";
-import "monaco-editor/esm/vs/editor/contrib/gotoSymbol/browser/link/goToDefinitionAtPosition";
-import "monaco-editor/esm/vs/editor/contrib/rename/browser/rename";
-import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standaloneReferenceSearch";
+import "monaco-editor/editor/contrib/hover/browser/hoverContribution";
+import "monaco-editor/editor/contrib/suggest/browser/suggestController";
+import "monaco-editor/editor/contrib/suggest/browser/suggestInlineCompletions";
+import "monaco-editor/editor/contrib/parameterHints/browser/parameterHints";
+import "monaco-editor/editor/contrib/bracketMatching/browser/bracketMatching";
+import "monaco-editor/editor/contrib/find/browser/findController";
+import "monaco-editor/editor/contrib/contextmenu/browser/contextmenu";
+import "monaco-editor/editor/contrib/folding/browser/folding";
+import "monaco-editor/editor/contrib/snippet/browser/snippetController2";
+import "monaco-editor/editor/contrib/wordOperations/browser/wordOperations";
+import "monaco-editor/editor/contrib/comment/browser/comment";
+import "monaco-editor/editor/contrib/gotoSymbol/browser/goToCommands";
+import "monaco-editor/editor/contrib/gotoSymbol/browser/link/goToDefinitionAtPosition";
+import "monaco-editor/editor/contrib/rename/browser/rename";
+import "monaco-editor/editor/standalone/browser/referenceSearch/standaloneReferenceSearch";
 
-import editorCss from "monaco-editor/min/vs/editor/editor.main.css?inline";
+import editorCss from "monaco-editor/editor/editor.main.css?inline";
 
 let styleInjected = false;
 

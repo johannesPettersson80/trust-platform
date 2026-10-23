@@ -295,7 +295,7 @@ impl RemoteSession {
                                 .or_else(|| entry.get("value_type"))
                                 .or_else(|| entry.get("type"))
                                 .and_then(|value_type| value_type.as_str())
-                                .map(|value_type| value_type.to_ascii_uppercase());
+                                .map(|value_type| value_type.to_string());
                             let value = entry.get("value")?;
                             let value_str = if let Some(text) = value.as_str() {
                                 text.to_string()
@@ -306,6 +306,7 @@ impl RemoteSession {
                                 .get("forced")
                                 .and_then(|flag| flag.as_bool())
                                 .unwrap_or(false);
+                            let writable = entry.get("writable").and_then(|flag| flag.as_bool());
                             Some(IoStateEntry {
                                 name,
                                 address,
@@ -313,6 +314,7 @@ impl RemoteSession {
                                 value_type,
                                 value: value_str,
                                 forced,
+                                writable,
                             })
                         })
                         .collect::<Vec<_>>()

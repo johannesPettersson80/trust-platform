@@ -40,8 +40,8 @@ pub(super) fn admit_simulated_host(
 
 pub(super) fn digest(value: impl std::fmt::Debug) -> String {
     format!(
-        "sha256:{:x}",
-        Sha256::digest(format!("{value:?}").as_bytes())
+        "sha256:{}",
+        hex::encode(Sha256::digest(format!("{value:?}").as_bytes()))
     )
 }
 pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {

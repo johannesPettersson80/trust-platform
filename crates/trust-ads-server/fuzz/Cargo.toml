@@ -1,18 +1,21 @@
 [package]
 name = "trust-ads-server-fuzz"
 version = "0.0.0"
+license = "MIT OR Apache-2.0"
 publish = false
-edition = "2021"
+edition = "2024"
+rust-version = "1.99"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
+libfuzzer-sys = "0.4.13"
 trust-ads-core = { path = "../../trust-ads-core" }
 trust-ads-server = { path = ".." }
 
 [workspace]
+resolver = "3"
 members = ["."]
 
 [[bin]]

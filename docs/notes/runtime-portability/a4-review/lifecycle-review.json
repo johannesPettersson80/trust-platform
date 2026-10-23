@@ -1,0 +1,96 @@
+{
+  "kind": "source-inspection-only",
+  "branch": "feat/runtime-portability-a4",
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "record_digest_algorithm": "SHA256 of UTF-8 JSON records with sorted keys and separators comma/colon, records sorted by path",
+  "records_sha256": "dbaa58ffe21a6db43b6980a54cd1d5a11525ae7d950cde0b52a1bef6a1b0f323",
+  "records": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/mod.rs",
+      "sha256": "a0a5a30d33d066f10fcd3670c0eea0d93364196e4d9b9988b0609c44a6e2c066"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/context.rs",
+      "sha256": "e909f0490ab8eba0718666338585f81d24b453b0e826ca0d3eb816d95f102e1c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch.rs",
+      "sha256": "e905da00d5fc97225a27b686b50518bf4ff88aef574231f1dc8271614e1e7d80"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/edge.rs",
+      "sha256": "b16310f2ed1c65723db6252e1826d012e4293797caf18f470c67774fc29af52b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/allocation.rs",
+      "sha256": "d58ec415a7eddc00f51f8b3d8ee4e6ad8191863f867fbcc84fbfede5e0ed5b68"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/api.rs",
+      "sha256": "79985b30054533cf20d0da5a807c4bc40d23c459d845faf77151e1c2d8385822"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/context.rs",
+      "sha256": "ff5fae6885ff4970fdcb1faf0beadff8ce15c7d7e48d5c578fb47e1c5939d3fa"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+      "sha256": "bc290646bfdf27f68fd19380a3c9d1b82de07c3bb44e1dcda1f86311b311b74c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/mod.rs",
+      "sha256": "525fdfe6ae6aa4216f72669b04fba392343cc83be17776ea350dc6bfb7ec619b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/staging.rs",
+      "sha256": "1b5c0169176b4c02db20809f64f47b8847c567823ad0874daff3307d767142a6"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io.rs",
+      "sha256": "99357549ec57878f559316f4e649aa63aa9ce6ce79e3f7e3da6e87ecd5b02c82"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/mod.rs",
+      "sha256": "656b742648daa3dd692b8dc2bbe3f69c849a8776000dcf404a02cd55e3c94f4d"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/output_transaction.rs",
+      "sha256": "4e2adb2a23fe8fbc4d9da4d9fe75c10910352348df433ff4fc9ef782543ae44b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/restart.rs",
+      "sha256": "4f4d224b87bd659b48b674f9ef56f743ac1acca1144280fa8973659d361a5a37"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/retained_graph.rs",
+      "sha256": "fa9f6d80dfc0321d4efcbaed68db6f011a3feee077fcdb6b4e9c65c575670a78"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/frames.rs",
+      "sha256": "b80bd2fa39f997d350db370e162d987005943e384b96a4f996e666781ec43eb7"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/context.rs",
+      "sha256": "426562de30aa5560b64c10aa9c37601c799dc5810cdda566b2f0769c8d3fc0cc"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch.rs",
+      "sha256": "3fae5a27196b6a836e9ae0de8c451071d465b35b3a80f1691496be240988adeb"
+    },
+    {
+      "path": "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml",
+      "sha256": "55665f834df136ad4c07c17d8a30f8b477475890c9373a85ad08e6c3b3944951"
+    },
+    {
+      "path": "docs/diagrams/architecture/runtime-execution.puml",
+      "sha256": "a43e4bec6d8f5aa59b5ff2aad5eca1ee626210ab2dd951d17d393f4f679b1e55"
+    }
+  ],
+  "exclusions": [
+    "No build, test, formatter, validator, renderer, or hardware execution.",
+    "Decoder and preparation admission remain under another reviewer.",
+    "Agent-authored assignment, cycle, provenance and path-write accounting are not independently reviewed here.",
+    "Mixed files engine/mod.rs, engine/context.rs, engine/io.rs and vm/context.rs include agent-authored path-write integration: hashes identify current bytes, independent assessment covers root-owned lifecycle sections only.",
+    "This inspection does not certify the entire inherited worktree diff."
+  ]
+}

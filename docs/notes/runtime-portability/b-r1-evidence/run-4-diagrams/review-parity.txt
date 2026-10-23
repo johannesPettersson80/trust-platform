@@ -1,0 +1,1 @@
+docs/diagrams/architecture/runtime-bytecode-vm-execution.puml: OK

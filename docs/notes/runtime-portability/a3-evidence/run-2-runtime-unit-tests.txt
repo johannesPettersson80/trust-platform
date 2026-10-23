@@ -1,0 +1,426 @@
+[gate-progress state=started phase=A3-runtime-unit-tests target=scena-rust-builder pid=512252 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime)
+error[E0364]: `class_type_name` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:5
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |     ^^^^^^^^^^^^^^^
+   |
+note: consider marking `class_type_name` as `pub` in the imported module
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:5
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |     ^^^^^^^^^^^^^^^
+
+error[E0364]: `function_block_type_name` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:22
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: consider marking `function_block_type_name` as `pub` in the imported module
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:22
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0365]: `AccessDecl` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:48
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |                                                ^^^^^^^^^^ re-export of private `AccessDecl`
+   |
+   = note: consider declaring type or module `AccessDecl` with `pub`
+
+error[E0365]: `AccessPart` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:60
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |                                                            ^^^^^^^^^^ re-export of private `AccessPart`
+   |
+   = note: consider declaring type or module `AccessPart` with `pub`
+
+error[E0365]: `AccessPath` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:72
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |                                                                        ^^^^^^^^^^ re-export of private `AccessPath`
+   |
+   = note: consider declaring type or module `AccessPath` with `pub`
+
+error[E0365]: `ConfigInit` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:40:84
+   |
+40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+   |                                                                                    ^^^^^^^^^^ re-export of private `ConfigInit`
+   |
+   = note: consider declaring type or module `ConfigInit` with `pub`
+
+error[E0365]: `GlobalInit` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:41:5
+   |
+41 |     GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+   |     ^^^^^^^^^^ re-export of private `GlobalInit`
+   |
+   = note: consider declaring type or module `GlobalInit` with `pub`
+
+error[E0365]: `ProgramInstanceConfig` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:41:17
+   |
+41 |     GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+   |                 ^^^^^^^^^^^^^^^^^^^^^ re-export of private `ProgramInstanceConfig`
+   |
+   = note: consider declaring type or module `ProgramInstanceConfig` with `pub`
+
+error[E0365]: `ResolvedAccess` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:41:40
+   |
+41 |     GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+   |                                        ^^^^^^^^^^^^^^ re-export of private `ResolvedAccess`
+   |
+   = note: consider declaring type or module `ResolvedAccess` with `pub`
+
+error[E0365]: `WildcardRequirement` is private, and cannot be re-exported
+  --> crates/trust-runtime/src/host/harness/mod.rs:41:56
+   |
+41 |     GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+   |                                                        ^^^^^^^^^^^^^^^^^^^ re-export of private `WildcardRequirement`
+   |
+   = note: consider declaring type or module `WildcardRequirement` with `pub`
+
+error[E0603]: enum import `AccessPart` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/access.rs:4:21
+    |
+  4 | use crate::harness::AccessPart;
+    |                     ^^^^^^^^^^ private enum import
+    |
+note: the enum import `AccessPart` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:60
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                                                            ^^^^^^^^^^
+note: ...and refers to the enum import `AccessPart` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:32:17
+    |
+ 32 |     AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, GlobalInit, LoweringContext,
+    |                 ^^^^^^^^^^
+note: ...and refers to the enum `AccessPart` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/model.rs:106:1
+    |
+106 | pub(crate) enum AccessPart {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0603]: enum import `AccessPart` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/configuration.rs:8:22
+    |
+  8 | use crate::harness::{AccessPart, AccessPath};
+    |                      ^^^^^^^^^^ private enum import
+    |
+note: the enum import `AccessPart` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:60
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                                                            ^^^^^^^^^^
+note: ...and refers to the enum import `AccessPart` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:32:17
+    |
+ 32 |     AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, GlobalInit, LoweringContext,
+    |                 ^^^^^^^^^^
+note: ...and refers to the enum `AccessPart` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/model.rs:106:1
+    |
+106 | pub(crate) enum AccessPart {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0603]: enum import `AccessPath` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/configuration.rs:8:34
+    |
+  8 | use crate::harness::{AccessPart, AccessPath};
+    |                                  ^^^^^^^^^^ private enum import
+    |
+note: the enum import `AccessPath` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:72
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                                                                        ^^^^^^^^^^
+note: ...and refers to the enum import `AccessPath` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:32:29
+    |
+ 32 |     AccessDecl, AccessPart, AccessPath, ConfigInit, ConfigModel, GlobalInit, LoweringContext,
+    |                             ^^^^^^^^^^
+note: ...and refers to the enum `AccessPath` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/model.rs:100:1
+    |
+100 | pub(crate) enum AccessPath {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0603]: struct import `WildcardRequirement` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/io.rs:4:39
+    |
+  4 | use crate::harness::{InstanceBinding, WildcardRequirement};
+    |                                       ^^^^^^^^^^^^^^^^^^^ private struct import
+    |
+note: the struct import `WildcardRequirement` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:41:56
+    |
+ 41 |     GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+    |                                                        ^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the struct import `WildcardRequirement` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:33:60
+    |
+ 33 |     LoweringInputs, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+    |                                                            ^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the struct `WildcardRequirement` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/model.rs:147:1
+    |
+147 | pub(crate) struct WildcardRequirement {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0603]: function import `function_block_type_name` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/actions.rs:56:44
+    |
+ 56 |                         && crate::harness::function_block_type_name(
+    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^ private function import
+    |
+note: the function import `function_block_type_name` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:22
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function import `function_block_type_name` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:39:22
+    |
+ 39 |     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function `function_block_type_name` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/types.rs:527:1
+    |
+527 | / pub(crate) fn function_block_type_name(
+528 | |     type_id: TypeId,
+529 | |     registry: &trust_hir::types::TypeRegistry,
+530 | | ) -> Option<SmolStr> {
+...   |
+537 | | }
+    | |_^
+
+error[E0603]: function import `function_block_type_name` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/actions.rs:256:40
+    |
+256 |                     && crate::harness::function_block_type_name(
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^ private function import
+    |
+note: the function import `function_block_type_name` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:22
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function import `function_block_type_name` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:39:22
+    |
+ 39 |     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function `function_block_type_name` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/types.rs:527:1
+    |
+527 | / pub(crate) fn function_block_type_name(
+528 | |     type_id: TypeId,
+529 | |     registry: &trust_hir::types::TypeRegistry,
+530 | | ) -> Option<SmolStr> {
+...   |
+537 | | }
+    | |_^
+
+error[E0603]: function import `function_block_type_name` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/configuration.rs:53:45
+    |
+ 53 | ...                   crate::harness::function_block_type_name(ty, self.runtime.registry())
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^ private function import
+    |
+note: the function import `function_block_type_name` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:22
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function import `function_block_type_name` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:39:22
+    |
+ 39 |     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function `function_block_type_name` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/types.rs:527:1
+    |
+527 | / pub(crate) fn function_block_type_name(
+528 | |     type_id: TypeId,
+529 | |     registry: &trust_hir::types::TypeRegistry,
+530 | | ) -> Option<SmolStr> {
+...   |
+537 | | }
+    | |_^
+
+error[E0603]: function import `class_type_name` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/declarations.rs:24:33
+    |
+ 24 |                 crate::harness::class_type_name(ty, self.runtime.registry()).is_some()
+    |                                 ^^^^^^^^^^^^^^^ private function import
+    |
+note: the function import `class_type_name` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:5
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |     ^^^^^^^^^^^^^^^
+note: ...and refers to the function import `class_type_name` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:39:5
+    |
+ 39 |     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
+    |     ^^^^^^^^^^^^^^^
+note: ...and refers to the function `class_type_name` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/types.rs:539:1
+    |
+539 | / pub(crate) fn class_type_name(
+540 | |     type_id: TypeId,
+541 | |     registry: &trust_hir::types::TypeRegistry,
+542 | | ) -> Option<SmolStr> {
+...   |
+549 | | }
+    | |_^
+
+error[E0603]: function import `function_block_type_name` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/fb_overrides.rs:18:29
+    |
+ 18 |             crate::harness::function_block_type_name(body.type_id, self.runtime.registry())
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^ private function import
+    |
+note: the function import `function_block_type_name` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:22
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function import `function_block_type_name` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:39:22
+    |
+ 39 |     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function `function_block_type_name` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/types.rs:527:1
+    |
+527 | / pub(crate) fn function_block_type_name(
+528 | |     type_id: TypeId,
+529 | |     registry: &trust_hir::types::TypeRegistry,
+530 | | ) -> Option<SmolStr> {
+...   |
+537 | | }
+    | |_^
+
+error[E0603]: function import `function_block_type_name` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/globals.rs:86:41
+    |
+ 86 |                     && (crate::harness::function_block_type_name(
+    |                                         ^^^^^^^^^^^^^^^^^^^^^^^^ private function import
+    |
+note: the function import `function_block_type_name` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:22
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function import `function_block_type_name` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:39:22
+    |
+ 39 |     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the function `function_block_type_name` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/types.rs:527:1
+    |
+527 | / pub(crate) fn function_block_type_name(
+528 | |     type_id: TypeId,
+529 | |     registry: &trust_hir::types::TypeRegistry,
+530 | | ) -> Option<SmolStr> {
+...   |
+537 | | }
+    | |_^
+
+error[E0603]: function import `class_type_name` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction/globals.rs:91:44
+    |
+ 91 |                         || crate::harness::class_type_name(local.type_id, self.runtime.registry())
+    |                                            ^^^^^^^^^^^^^^^ private function import
+    |
+note: the function import `class_type_name` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:40:5
+    |
+ 40 |     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
+    |     ^^^^^^^^^^^^^^^
+note: ...and refers to the function import `class_type_name` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:39:5
+    |
+ 39 |     class_type_name, function_block_type_name, interface_type_name, lower_type_decls,
+    |     ^^^^^^^^^^^^^^^
+note: ...and refers to the function `class_type_name` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/types.rs:539:1
+    |
+539 | / pub(crate) fn class_type_name(
+540 | |     type_id: TypeId,
+541 | |     registry: &trust_hir::types::TypeRegistry,
+542 | | ) -> Option<SmolStr> {
+...   |
+549 | | }
+    | |_^
+
+error[E0603]: struct import `WildcardRequirement` is private
+   --> crates/trust-runtime/src/bytecode/encoder/construction.rs:40:47
+    |
+ 40 |     pub(super) wildcards: Vec<crate::harness::WildcardRequirement>,
+    |                                               ^^^^^^^^^^^^^^^^^^^ private struct import
+    |
+note: the struct import `WildcardRequirement` is defined here...
+   --> crates/trust-runtime/src/host/harness/mod.rs:41:56
+    |
+ 41 |     GlobalInit, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+    |                                                        ^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the struct import `WildcardRequirement` which is defined here...
+   --> crates/trust-runtime/src/host/harness/compiler/mod.rs:33:60
+    |
+ 33 |     LoweringInputs, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
+    |                                                            ^^^^^^^^^^^^^^^^^^^
+note: ...and refers to the struct `WildcardRequirement` which is defined here
+   --> crates/trust-runtime/src/host/harness/compiler/model.rs:147:1
+    |
+147 | pub(crate) struct WildcardRequirement {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: unused import: `FrameId`
+ --> crates/trust-runtime/src/bytecode/encoder/refs.rs:3:21
+  |
+3 | use crate::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
+  |                     ^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0614]: type `u8` cannot be dereferenced
+  --> crates/trust-runtime/src/bytecode/encoder/construction/access.rs:88:59
+   |
+88 | ...                   PartialAccess::Bit(index) => (*index, 1),
+   |                                                     ^^^^^^ can't be dereferenced
+
+error[E0614]: type `u8` cannot be dereferenced
+  --> crates/trust-runtime/src/bytecode/encoder/construction/access.rs:89:60
+   |
+89 | ...                   PartialAccess::Byte(index) => (*index, 8),
+   |                                                      ^^^^^^ can't be dereferenced
+
+error[E0614]: type `u8` cannot be dereferenced
+  --> crates/trust-runtime/src/bytecode/encoder/construction/access.rs:90:60
+   |
+90 | ...                   PartialAccess::Word(index) => (*index, 16),
+   |                                                      ^^^^^^ can't be dereferenced
+
+error[E0614]: type `u8` cannot be dereferenced
+  --> crates/trust-runtime/src/bytecode/encoder/construction/access.rs:91:61
+   |
+91 | ...                   PartialAccess::DWord(index) => (*index, 32),
+   |                                                       ^^^^^^ can't be dereferenced
+
+Some errors have detailed explanations: E0364, E0365, E0603, E0614.
+For more information about an error, try `rustc --explain E0364`.
+error: could not compile `trust-runtime` (lib test) due to 27 previous errors
+[gate-progress state=finished phase=A3-runtime-unit-tests target=scena-rust-builder pid=512252 elapsed=28.3s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1' status=101]

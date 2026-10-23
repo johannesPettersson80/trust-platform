@@ -1,0 +1,1 @@
+All frozen Rust source/test records remain byte-identical to passing run2. Only firmware memory.x/profile.x are changed production inputs after the run, for independently reviewed immutable-table placement. Documentation/evidence and generated diagram outputs updated separately. No new compiler, test, linker, inspector, formatter or hardware run after run2.

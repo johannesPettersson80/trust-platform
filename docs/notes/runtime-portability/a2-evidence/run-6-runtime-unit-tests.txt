@@ -1,0 +1,13 @@
+[gate-progress state=started phase=A2-runtime-unit-tests target=scena-rust-builder pid=38198 elapsed=0.0s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+error: unused imports: `SectionData` and `SectionId`
+ --> crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs:9:23
+  |
+9 | use crate::bytecode::{SectionData, SectionId, TypeTable};
+  |                       ^^^^^^^^^^^  ^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: could not compile `trust-runtime` (lib test) due to 1 previous error
+[gate-progress state=finished phase=A2-runtime-unit-tests target=scena-rust-builder pid=38198 elapsed=25.6s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1' status=101]

@@ -328,13 +328,13 @@ impl ValidateSection {
                 }
             }
             (None, None) if self.state_candidate.is_some() => {
-                if let Some(design) = &self.state_candidate {
-                    if design.candidate.applied {
-                        return Err(invalid(
+                if let Some(design) = &self.state_candidate
+                    && design.candidate.applied
+                {
+                    return Err(invalid(
                             "its state candidate is marked applied, but Validate never writes to the controller (N8.9)",
                             Cause::Settings,
                         ));
-                    }
                 }
             }
             (None, None) if self.search_candidate.is_some() => {

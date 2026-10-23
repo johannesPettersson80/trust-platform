@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Callable
 
 from .focused_test_suite import NON_TEST_SUFFIX_COLLISIONS, TEST_ROOT
-
 from .metadata_validator.constants import ROOT
+from .test_catalog_scanner import scan_repository
 
 
 TEST_PATH_MARKERS = (
@@ -35,11 +35,17 @@ TEST_FILE_SUFFIXES = (
 DEFAULT_OUTPUT_DIR = Path("target/gate-artifacts/verification")
 ADVISORY_COMMANDS = {
     "verification_focused_tests",
+    "verification_tooling_exhaustive",
     "verification_metadata_gate",
     "phase16_readiness",
     "verification_governance",
     "plan_tests",
 }
+SMOKE_TEST_MODULES = (
+    "scripts.verification.report_gate_tests",
+    "scripts.verification.focused_test_suite_tests",
+    "scripts.verification.governance_tests",
+)
 
 
 @dataclass(frozen=True)
@@ -100,9 +106,34 @@ def build_report(
     command_runner: CommandRunner | None = None,
     run_planner: bool = True,
     enforcing: bool = False,
+    smoke: bool = False,
 ) -> VerificationReport:
     runner = command_runner or default_runner(root)
     normalized = sorted({normalize_changed_file(path) for path in changed_files if path.strip()})
+    if smoke:
+        commands = [
+            runner(["python3", "-m", "unittest", *SMOKE_TEST_MODULES]),
+            runner(
+                [
+                    "python3",
+                    "-m",
+                    "scripts.verification.governance",
+                    "--direct-change-contract-only",
+                    *(f"--changed-file={path}" for path in normalized),
+                ]
+            ),
+        ]
+        return VerificationReport(
+            mode="enforcing" if enforcing else "report-only",
+            intent=intent,
+            baseline=baseline,
+            changed_files=normalized,
+            commands=commands,
+            planner_exit_code=None,
+            planner_json=None,
+            uncataloged_tests=find_uncataloged_tests(root=root, changed_files=normalized),
+        )
+
     commands: list[CommandResult] = [
         runner(["python3", "scripts/run_verification_focused_tests.py"]),
         runner(["scripts/verification_metadata_gate.sh"]),
@@ -177,8 +208,15 @@ def default_runner(root: Path) -> CommandRunner:
 
 
 def command_name(command: list[str]) -> str:
+    if (
+        command[:3] == ["python3", "-m", "scripts.verification.governance"]
+        and "--direct-change-contract-only" in command
+    ):
+        return "direct_change_contract"
     if command[:2] == ["python3", "scripts/run_verification_focused_tests.py"]:
-        return "verification_focused_tests"
+        return "verification_tooling_exhaustive"
+    if command == ["python3", "-m", "unittest", *SMOKE_TEST_MODULES]:
+        return "verification_report_smoke"
     if command[:1] == ["scripts/verification_metadata_gate.sh"]:
         return "verification_metadata_gate"
     if command[:3] == ["python3", "-m", "scripts.verification.phase16_readiness"]:
@@ -234,8 +272,7 @@ def parse_name_status_z(output: str) -> list[str]:
 
 
 def find_uncataloged_tests(*, root: Path, changed_files: list[str]) -> list[str]:
-    catalog_paths = load_catalog_paths(root)
-    missing: list[str] = []
+    candidates: set[str] = set()
     for path in changed_files:
         normalized = normalize_changed_file(path)
         relative = Path(normalized)
@@ -245,30 +282,53 @@ def find_uncataloged_tests(*, root: Path, changed_files: list[str]) -> list[str]
             and relative.name.endswith("_tests.py")
         ):
             continue
-        if is_test_like(normalized) and normalized not in catalog_paths:
-            missing.append(normalized)
-    return sorted(set(missing))
+        if is_test_like(normalized):
+            candidates.add(normalized)
+    if not candidates:
+        return []
+
+    authorized_ids = load_authorized_discovery_ids(root)
+    scan = scan_repository(root)
+    facts_by_path: dict[str, set[str]] = {}
+    for fact in scan.inferred_facts:
+        facts_by_path.setdefault(normalize_changed_file(fact.path), set()).add(
+            fact.stable_id
+        )
+    error_paths = {
+        normalize_changed_file(item.path)
+        for item in scan.diagnostics
+        if item.severity == "error"
+    }
+    return sorted(
+        path
+        for path in candidates
+        if path in error_paths
+        or bool(facts_by_path.get(path, set()) - authorized_ids)
+    )
 
 
-def load_catalog_paths(root: Path) -> set[str]:
-    catalog = root / "verification/test-catalog.toml"
-    if not catalog.exists():
-        return set()
-    try:
-        data = tomllib.loads(catalog.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
-        # Catalog integrity is reported by the advisory metadata command.  The
-        # changed-file report must still complete so maintenance state cannot
-        # prevent native product checks or exact-candidate preparation.
-        return set()
-    records = data.get("tests", [])
-    if not isinstance(records, list):
-        return set()
-    paths: set[str] = set()
-    for record in records:
-        if isinstance(record, dict) and isinstance(record.get("path"), str):
-            paths.add(normalize_changed_file(record["path"]))
-    return paths
+def load_authorized_discovery_ids(root: Path) -> set[str]:
+    authorized: set[str] = set()
+    for path, collection in (
+        (root / "verification/test-catalog.toml", "tests"),
+        (root / "verification/test-catalog-denominator.toml", "reviews"),
+    ):
+        if not path.exists():
+            continue
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+            # Catalog maintenance is advisory. A malformed metadata file must
+            # not prevent the report or native product gates from running.
+            continue
+        records = data.get(collection, [])
+        if not isinstance(records, list):
+            continue
+        for record in records:
+            discovery_id = record.get("discovery_id") if isinstance(record, dict) else None
+            if isinstance(discovery_id, str):
+                authorized.add(discovery_id)
+    return authorized
 
 
 def is_test_like(path: str) -> bool:
@@ -369,6 +429,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--changed", nargs="*", help="Explicit changed-file list")
     parser.add_argument("--out-dir", default=str(DEFAULT_OUTPUT_DIR), help="Report output directory")
     parser.add_argument("--strict", action="store_true", help="Return non-zero on reported failures")
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Run only report-boundary tests; exhaustive maintenance stays scheduled",
+    )
     return parser.parse_args(argv)
 
 
@@ -384,6 +449,7 @@ def main(argv: list[str] | None = None) -> int:
             intent=args.intent,
             baseline=args.base,
             enforcing=args.strict,
+            smoke=args.smoke,
         )
         write_reports(report, ROOT / args.out_dir)
         print(render_markdown(report), end="")

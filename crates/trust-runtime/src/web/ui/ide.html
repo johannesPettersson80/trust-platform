@@ -226,6 +226,13 @@
     </div><!-- /ideTabPanel_code -->
 
     <div class="ide-tab-panel" id="ideTabPanel_hardware" data-tab="hardware" hidden>
+      <section id="hwDriversPanel" class="hw-drivers-panel is-collapsed">
+        <div class="hw-drivers-head">
+          <h3>Driver Surfaces</h3>
+          <button id="hwDriversPanelToggleBtn" type="button" class="btn ghost" aria-expanded="false">Expand</button>
+        </div>
+        <div id="hwDriverCards" class="hw-driver-cards"></div>
+      </section>
       <div id="hwEmptyState" class="ide-hardware-empty">
         <svg width="48" height="48" viewBox="0 0 16 16" fill="none" stroke="var(--muted)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="4" height="4" rx="0.5"/><rect x="9" y="3" width="4" height="4" rx="0.5"/><rect x="3" y="9" width="4" height="4" rx="0.5"/><path d="M9 11h4"/></svg>
         <p>Drag a module here to start, or choose a preset:</p>
@@ -242,13 +249,6 @@
             <div id="hwCanvas" class="hw-canvas" style="display:none"></div>
             <div id="hwAddressTable" class="hw-table-wrap" style="display:none"></div>
           </div>
-          <section id="hwDriversPanel" class="hw-drivers-panel is-collapsed">
-            <div class="hw-drivers-head">
-              <h3>Driver Surfaces</h3>
-              <button id="hwDriversPanelToggleBtn" type="button" class="btn ghost" aria-expanded="false">Expand</button>
-            </div>
-            <div id="hwDriverCards" class="hw-driver-cards"></div>
-          </section>
         </section>
         <aside id="hwPropertyPanel" class="hw-property-panel">
           <p class="muted" style="padding:12px;font-size:12px">Select a module on the canvas to view its properties.</p>

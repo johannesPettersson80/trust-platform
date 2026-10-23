@@ -1,0 +1,4 @@
+[gate-progress state=started phase=B-R1-diagrams target=scena-rust-builder pid=1509314 elapsed=0.0s timeout=7200s command='bash scripts/render_diagrams.sh']
+Error line 289 in file: docs/diagrams/architecture/runtime-bytecode-vm-execution.puml
+Some diagram description contains errors
+[gate-progress state=finished phase=B-R1-diagrams target=scena-rust-builder pid=1509314 elapsed=2.9s timeout=7200s command='bash scripts/render_diagrams.sh' status=200]

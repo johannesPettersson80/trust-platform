@@ -323,12 +323,12 @@ fn copy_source(
         ));
     }
     let mut model = native::page(state, &source.text, source_file)?;
-    if let Some(title) = page.get("title").and_then(Value::as_str) {
-        if title != model.title {
-            model.title = title.to_owned();
-            let text = native::format_page(state, &model)?;
-            return Ok((model, text));
-        }
+    if let Some(title) = page.get("title").and_then(Value::as_str)
+        && title != model.title
+    {
+        model.title = title.to_owned();
+        let text = native::format_page(state, &model)?;
+        return Ok((model, text));
     }
     let text = source.text.clone();
     Ok((model, text))

@@ -1,6 +1,97 @@
 fn type_size_bytes(type_id: TypeId, registry: &TypeRegistry) -> Result<u64, CompileError> {
-    crate::value::size_of_type(type_id, registry)
-        .map_err(|err| CompileError::new(format!("unsupported size for I/O binding: {err:?}")))
+    // Process-image stride follows the selected wire codecs and field locations.
+    // Neither current storage SIZEOF nor the legacy field-sum rule describes it.
+    io_type_extent(type_id, registry, 0)
+        .map_err(|err| CompileError::new(format!("unsupported size for I/O binding: {err}")))
+}
+
+fn io_type_extent(
+    type_id: TypeId,
+    registry: &TypeRegistry,
+    depth: usize,
+) -> Result<u64, CompileError> {
+    if depth >= 128 {
+        return Err(CompileError::new(
+            "recursive or excessively nested I/O type",
+        ));
+    }
+    let ty = registry
+        .get(type_id)
+        .ok_or_else(|| CompileError::new("unknown I/O type"))?;
+    match ty {
+        Type::Alias { target, .. } => io_type_extent(*target, registry, depth + 1),
+        Type::Enum { base, .. } | Type::Subrange { base, .. } => {
+            io_type_extent(*base, registry, depth + 1)
+        }
+        Type::Array {
+            element,
+            dimensions,
+        } => {
+            let count = dimensions
+                .iter()
+                .try_fold(1_u64, |count, &(lower, upper)| {
+                    let length = u64::try_from(i128::from(upper) - i128::from(lower) + 1)
+                        .ok()
+                        .filter(|length| *length != 0)
+                        .ok_or_else(|| CompileError::new("invalid I/O array bounds"))?;
+                    count
+                        .checked_mul(length)
+                        .ok_or_else(|| CompileError::new("I/O array extent overflow"))
+                })?;
+            io_type_extent(*element, registry, depth + 1)?
+                .checked_mul(count)
+                .ok_or_else(|| CompileError::new("I/O array extent overflow"))
+        }
+        Type::Struct { fields, .. } => {
+            let mut end = 0_u64;
+            for field in fields {
+                let start = relative_io_offset(field.address.as_deref(), end)?;
+                let next = start
+                    .checked_add(io_type_extent(field.type_id, registry, depth + 1)?)
+                    .ok_or_else(|| CompileError::new("I/O structure extent overflow"))?;
+                end = end.max(next);
+            }
+            Ok(end)
+        }
+        Type::Union { variants, .. } => {
+            let mut end = 0_u64;
+            for variant in variants {
+                let start = relative_io_offset(variant.address.as_deref(), 0)?;
+                let next = start
+                    .checked_add(io_type_extent(variant.type_id, registry, depth + 1)?)
+                    .ok_or_else(|| CompileError::new("I/O union extent overflow"))?;
+                end = end.max(next);
+            }
+            Ok(end)
+        }
+        _ => {
+            // The existing address owner supplies the exact leaf codec width,
+            // including four-byte short temporals and byte-strided BOOL arrays.
+            let address = IoAddress {
+                area: crate::memory::IoArea::Memory,
+                size: io_size_for_type(type_id, registry)?,
+                byte: 0,
+                bit: 0,
+                path: vec![0],
+                wildcard: false,
+            };
+            address
+                .flat_byte_end()
+                .map_err(|error| CompileError::new(error.to_string()))?
+                .map(u64::from)
+                .ok_or_else(|| CompileError::new("invalid flat I/O extent"))
+        }
+    }
+}
+
+fn relative_io_offset(address: Option<&str>, sequential: u64) -> Result<u64, CompileError> {
+    match address.map(parse_field_address).transpose()? {
+        None => Ok(sequential),
+        Some(FieldAddress::Relative { offset_bytes, .. }) => Ok(offset_bytes),
+        Some(FieldAddress::Absolute(_)) => Err(CompileError::new(
+            "absolute field address cannot define a relative I/O stride",
+        )),
+    }
 }
 
 fn io_size_for_type(
@@ -21,10 +112,18 @@ fn io_size_for_type(
         | Type::UDInt
         | Type::DWord
         | Type::Real
-        | Type::Time
-        | Type::Date
-        | Type::Tod
-        | Type::Dt => Ok(crate::io::IoSize::DWord),
+        | Type::Time => Ok(crate::io::IoSize::DWord),
+        // IEC 61131-3 Table 10 gives DATE, TOD and DT no fixed width, so no direct address can
+        // carry them. The long forms LDATE, LTOD and LDT are the supported direct-address types.
+        Type::Date => Err(CompileError::new(
+            "DATE has no fixed direct-address width (IEC 61131-3 Table 10): bind the long form LDATE, or convert explicitly to a long form",
+        )),
+        Type::Tod => Err(CompileError::new(
+            "TOD has no fixed direct-address width (IEC 61131-3 Table 10): bind the long form LTOD, or convert explicitly to a long form",
+        )),
+        Type::Dt => Err(CompileError::new(
+            "DT has no fixed direct-address width (IEC 61131-3 Table 10): bind the long form LDT, or convert explicitly to a long form",
+        )),
         Type::LInt
         | Type::ULInt
         | Type::LWord

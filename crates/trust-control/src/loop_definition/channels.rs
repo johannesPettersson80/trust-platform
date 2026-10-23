@@ -343,15 +343,14 @@ fn check_input(input: &ChannelInput, loop_definition: &LoopDefinition) -> Result
     {
         return Err(BOOLEAN_LEVELS.to_owned());
     }
-    if let Some(applied) = applied_feedback(input, &signal, loop_definition)? {
-        if applied.unit != signal.unit
+    if let Some(applied) = applied_feedback(input, &signal, loop_definition)?
+        && (applied.unit != signal.unit
             || applied.symbol == signal.symbol
             || !applied
                 .address
-                .is_some_and(|address| address.starts_with("%I"))
-        {
-            return Err(APPLIED_FEEDBACK.to_owned());
-        }
+                .is_some_and(|address| address.starts_with("%I")))
+    {
+        return Err(APPLIED_FEEDBACK.to_owned());
     }
     if input.actuator.minimum < signal.range.minimum
         || input.actuator.maximum > signal.range.maximum
@@ -392,13 +391,13 @@ fn check_output(output: &ChannelOutput, loop_definition: &LoopDefinition) -> Res
             output.model_channel_id
         ));
     }
-    if let Some(id) = &output.setpoint_signal_id {
-        if declared(loop_definition, id)?.unit != signal.unit {
-            return Err(format!(
-                "Setpoint units disagree for {}.",
-                output.model_channel_id
-            ));
-        }
+    if let Some(id) = &output.setpoint_signal_id
+        && declared(loop_definition, id)?.unit != signal.unit
+    {
+        return Err(format!(
+            "Setpoint units disagree for {}.",
+            output.model_channel_id
+        ));
     }
     Ok(())
 }

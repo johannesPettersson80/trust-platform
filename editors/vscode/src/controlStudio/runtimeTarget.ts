@@ -7,7 +7,7 @@ export interface RuntimeTarget {
   /** Simulation is enabled and every attached I/O driver is simulated (A2.4), as the runtime's status states it. */
   simulated: boolean;
   timeScale: number;
-  /** The measured speed of a running simulation (specification 33, §6.1); absent before the first second is measured. */
+  /** The measured speed of a running simulation (specification 46, §6.1); absent before the first second is measured. */
   achievedTimeScale?: number;
   /** The speed words the runtime gives (specification 35, B9.2): "" at 1×, "×N", or "×A of ×N" when the speed is behind. */
   speedText: string;
@@ -38,7 +38,7 @@ export function runtimeTargetFromStatus(report: unknown): RuntimeTarget {
   };
 }
 
-/** A simulation's speed: the configured whole-number speed and, once measured, the achieved speed (specification 33, §6.1). */
+/** A simulation's speed: the configured whole-number speed and, once measured, the achieved speed (specification 46, §6.1). */
 export interface SimulationSpeed { readonly configured: number; readonly achieved?: number }
 
 /** The speed of a simulated target, from its report facts. */

@@ -1,0 +1,1 @@
+Root reconciled initializer production source unchanged by formatting and test delta consisting only of rustfmt layout/commas. Previously reviewed exact finalization order and preserved original forged-store assertion remain. All1011frozenrecords matchlocalbuilder. No native runs beforethisfreeze.

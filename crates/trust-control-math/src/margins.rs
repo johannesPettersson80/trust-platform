@@ -291,18 +291,17 @@ fn phase_crossings(grid: &LoopGrid) -> Result<Crossings, MarginError> {
         timing: Timing::Continuous,
         delay_seconds,
     } = grid.model
+        && *delay_seconds == 0.0
     {
-        if *delay_seconds == 0.0 {
-            let polynomial = imaginary_polynomial(
-                &ascending(&transfer.numerator),
-                &ascending(&transfer.denominator),
-            );
-            if all_zero(&polynomial) {
-                return Err(MarginError::DegenerateLoop);
-            }
-            if sign_variations(&polynomial) == 0 {
-                return Ok(Crossings::WholeAxisAbsent);
-            }
+        let polynomial = imaginary_polynomial(
+            &ascending(&transfer.numerator),
+            &ascending(&transfer.denominator),
+        );
+        if all_zero(&polynomial) {
+            return Err(MarginError::DegenerateLoop);
+        }
+        if sign_variations(&polynomial) == 0 {
+            return Ok(Crossings::WholeAxisAbsent);
         }
     }
     let mut crossings = Vec::new();
@@ -367,18 +366,16 @@ fn closed_loop(model: &FrequencyModel) -> Result<ClosedLoopStability, MarginErro
             reason: ClosedLoopUnavailable::PureDelay,
         });
     }
-    if transfer.numerator.len() == transfer.denominator.len() {
-        if let (Some(leading_denominator), Some(leading_numerator)) =
+    if transfer.numerator.len() == transfer.denominator.len()
+        && let (Some(leading_denominator), Some(leading_numerator)) =
             (transfer.denominator.first(), transfer.numerator.first())
+    {
+        let sum = leading_denominator + leading_numerator;
+        if sum.abs() <= ALGEBRAIC_TOLERANCE * (leading_denominator.abs() + leading_numerator.abs())
         {
-            let sum = leading_denominator + leading_numerator;
-            if sum.abs()
-                <= ALGEBRAIC_TOLERANCE * (leading_denominator.abs() + leading_numerator.abs())
-            {
-                return Ok(ClosedLoopStability::Unavailable {
-                    reason: ClosedLoopUnavailable::AlgebraicLoop,
-                });
-            }
+            return Ok(ClosedLoopStability::Unavailable {
+                reason: ClosedLoopUnavailable::AlgebraicLoop,
+            });
         }
     }
     let Some(characteristic) = trimmed(characteristic_polynomial(
@@ -632,10 +629,10 @@ impl LoopGrid<'_> {
                 )?);
             }
         }
-        if let (Some(last_sample), Some(last_omega)) = (samples.last(), self.omegas.last()) {
-            if *last_sample == 0.0 {
-                found.push(*last_omega);
-            }
+        if let (Some(last_sample), Some(last_omega)) = (samples.last(), self.omegas.last())
+            && *last_sample == 0.0
+        {
+            found.push(*last_omega);
         }
         Ok(found)
     }

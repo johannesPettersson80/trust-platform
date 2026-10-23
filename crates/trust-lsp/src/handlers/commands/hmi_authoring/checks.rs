@@ -139,16 +139,16 @@ pub(in crate::handlers::commands) fn check<C: ServerContext>(
             if binding.direction != HmiBindingDirection::Read && !value.writable {
                 return Err(format!("{} is read-only", binding.path));
             }
-            if let Some(quality) = &binding.quality {
-                if !resolve(quality).is_some_and(|node| {
+            if let Some(quality) = &binding.quality
+                && !resolve(quality).is_some_and(|node| {
                     node.kinds
                         .contains(&trust_runtime::hmi::catalogue::ValueKind::Boolean)
                         || node
                             .kinds
                             .contains(&trust_runtime::hmi::catalogue::ValueKind::Enumeration)
-                }) {
-                    return Err(format!("{quality} must name a BOOL or quality enumeration"));
-                }
+                })
+            {
+                return Err(format!("{quality} must name a BOOL or quality enumeration"));
             }
             Ok(())
         };

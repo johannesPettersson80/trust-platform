@@ -56,10 +56,14 @@ fn project_copy(name: &str) -> (Scratch, String, String) {
 
 /// The command line, run with `arguments`.
 fn run(arguments: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-control-studio"))
-        .args(arguments)
-        .output()
-        .expect("the program runs")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-control-studio").expect(
+            "Cargo must provide trust-control-studio binary while executing integration tests",
+        ),
+    )
+    .args(arguments)
+    .output()
+    .expect("the program runs")
 }
 
 /// The answer that the method gives for `request`, computed in this process.

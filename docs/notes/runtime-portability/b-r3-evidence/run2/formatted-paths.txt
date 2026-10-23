@@ -1,0 +1,7 @@
+crates/trust-runtime-core/src/vm/budget.rs
+crates/trust-runtime-core/src/vm/engine/budget_tests.rs
+crates/trust-runtime-core/src/vm/engine/context.rs
+crates/trust-runtime-core/src/vm/engine/destinations.rs
+crates/trust-runtime-core/src/vm/engine/io/staging.rs
+crates/trust-runtime-core/src/vm/engine/output_transaction.rs
+crates/trust-runtime/tests/source_free_execution_cost.rs

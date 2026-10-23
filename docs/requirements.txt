@@ -1,0 +1,4 @@
+# Documentation build tools; refreshed and qualified in specification 34 Scope U.
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+mkdocs-mermaid2-plugin==1.2.3

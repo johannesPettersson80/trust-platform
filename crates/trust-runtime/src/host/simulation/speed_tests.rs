@@ -1,4 +1,4 @@
-//! Specification 35, A2.4 and B9.2, and specification 33, §6.1: the speed words and the target kind the runtime reports.
+//! Specification 35, A2.4 and B9.2, and specification 46, §6.1: the speed words and the target kind the runtime reports.
 
 use super::*;
 

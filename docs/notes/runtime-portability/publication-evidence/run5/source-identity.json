@@ -1,0 +1,87 @@
+{
+  "captured_at_utc": "2026-10-11T00:07:45.202931+00:00",
+  "checkout": "/home/johannes/projects/trust-platform-portability-release",
+  "branch": "integrate/runtime-portability-stm32",
+  "head": "75b42a6679348830c201f423d41e4751a849804b",
+  "scope": "accepted final prepared 15-path source review; commit and exact-SHA validation still pending",
+  "file_count": 15,
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "a24774e23087697276b36f2ad6933cf23a8aea499167786940eb058dbd50c91c",
+      "bytes": 255778
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/mod.rs",
+      "sha256": "38967a782ff57a87c5f106e1dc2348d366234abaa7396810f16c95c9f570b735",
+      "bytes": 10554
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/restart.rs",
+      "sha256": "8280174c2d474994a87a34fbe880e745bdf12f5be26241b2eee6ca5626739021",
+      "bytes": 5589
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/restart_tests.rs",
+      "sha256": "553b8263329f71149fe247d664b34bc7f7a627eef238e2cba4e0da7531726df4",
+      "bytes": 7042
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_restart_graph.rs",
+      "sha256": "ac60fdb152c70577b0d5e94256314af987484124a68ecda766a0af1da3a4685e",
+      "bytes": 12342
+    },
+    {
+      "path": "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml",
+      "sha256": "9153a84253abc48caef97cdf36b54e30feb745a3edf1fd86e1fec78fae892480",
+      "bytes": 15799
+    },
+    {
+      "path": "docs/internal/testing/checklists/runtime-portability-implementation-checklist.md",
+      "sha256": "ecb2c4c2debd6d97c94c01865be1c49ac6113d685c080586c5fb76c3de66439a",
+      "bytes": 103440
+    },
+    {
+      "path": "docs/notes/runtime-portability/stm32-release-integration.md",
+      "sha256": "3c895e71e464266249cba38e669b5226b0e2dd20c6b57ca8c18ed2dd4c39ba52",
+      "bytes": 15897
+    },
+    {
+      "path": "docs/specs/12-bytecode.md",
+      "sha256": "adb44da2c32e1a0933986ae66fd6d60ac3033bf3f0b4d24f825c820be06a3b5e",
+      "bytes": 114112
+    },
+    {
+      "path": "docs/specs/34-runtime-portability.md",
+      "sha256": "5e7b4187cfc5f76ded4d08f22715ab30b285592bc20ab52a46b2aa2aa2d6ddd9",
+      "bytes": 246962
+    },
+    {
+      "path": "scripts/supply_chain_gate.sh",
+      "sha256": "0f9c0c92bfeefbd187914e93d68f95477f269c27ed984a84e436e723329c036e",
+      "bytes": 1741
+    },
+    {
+      "path": "xtask/src/portability/build.rs",
+      "sha256": "e52c7edf150b9e08bb20ef85e4f31b3b2c7697400b14bd29267a1fd38f6648f2",
+      "bytes": 5038
+    },
+    {
+      "path": "xtask/src/portability/supply_chain_tests.rs",
+      "sha256": "c17039bb19fc2144b58e471483d5aeaa2877cf9d9ead8eca785ce72c7ca27625",
+      "bytes": 3802
+    },
+    {
+      "path": "docs/diagrams/generated/runtime-bytecode-vm-execution.svg",
+      "sha256": "97b366cc5b9171b2cdf9f6c1b05f4c049046f66083d760082eb5bdf4a8fdda0b",
+      "bytes": 140265
+    },
+    {
+      "path": "docs/diagrams/manifest.json",
+      "sha256": "cd7da0f30de98687e564432636039b97f5b3ddf0ad20f3b5123b764475b601b8",
+      "bytes": 2774
+    }
+  ],
+  "digest_manifest_sha256": "c2428ccf841649a9d0db66105f79db93c7547f2fe3622f73580e99b45d85d745",
+  "git_status": "M CHANGELOG.md\n M crates/trust-runtime-core/src/vm/engine/mod.rs\n M crates/trust-runtime-core/src/vm/engine/restart.rs\n M crates/trust-runtime/tests/source_free_restart_graph.rs\n M docs/diagrams/architecture/runtime-bytecode-vm-execution.puml\n M docs/diagrams/generated/runtime-bytecode-vm-execution.svg\n M docs/diagrams/manifest.json\n M docs/internal/testing/checklists/runtime-portability-implementation-checklist.md\n M docs/notes/runtime-portability/stm32-release-integration.md\n M docs/specs/12-bytecode.md\n M docs/specs/34-runtime-portability.md\n M scripts/supply_chain_gate.sh\n M xtask/src/portability/build.rs\n M xtask/src/portability/supply_chain_tests.rs\n?? crates/trust-runtime-core/src/vm/engine/restart_tests.rs"
+}

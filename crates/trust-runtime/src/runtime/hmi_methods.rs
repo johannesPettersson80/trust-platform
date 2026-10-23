@@ -1,5 +1,5 @@
 //! The host HMI's typed, interface-constrained method entry (specification 39, §21.2). No HTTP
-//! handler executes here.
+//! handler executes here: the call runs between scans through the shared engine's method entry.
 use super::Runtime;
 use crate::{
     error::RuntimeError,
@@ -18,7 +18,8 @@ pub(crate) enum InvocationError {
 
 impl Runtime {
     /// Calls `method` of the instance at `path` with typed inputs, when its type implements
-    /// `interface` and the interface declares the method; the instance's body does not run.
+    /// `interface` and the interface declares the method; the instance's body does not run. The
+    /// call draws on `budget` (work units), which it reduces by the work it used.
     pub(crate) fn invoke_hmi_method(
         &mut self,
         path: &MemberPath,
@@ -40,13 +41,13 @@ impl Runtime {
             .get_instance(instance_id)
             .ok_or_else(|| InvocationError::Refused("equipment instance is unavailable".into()))?;
         if !crate::hmi::commands::capability_checks::implements_in(
-            &self.function_blocks,
-            &self.classes,
-            &self.interfaces,
+            self.function_blocks(),
+            self.classes(),
+            self.interfaces(),
             &instance.type_name,
             interface,
         ) || crate::hmi::commands::capability_checks::declared_method_in(
-            &self.interfaces,
+            self.interfaces(),
             interface,
             method,
         )
@@ -56,8 +57,17 @@ impl Runtime {
                 "HMI method is not declared by the required interface".into(),
             ));
         }
-        super::vm::execute_hmi_method(self, instance_id, method, inputs, budget)
-            .map_err(InvocationError::Fault)
+        if *budget == 0 {
+            return Err(InvocationError::Refused(
+                "HMI method budget is exhausted".into(),
+            ));
+        }
+        let (value, used) = self
+            .state
+            .execute_instance_method(instance_id, method, inputs, *budget)
+            .map_err(InvocationError::Fault)?;
+        *budget = budget.saturating_sub(used);
+        Ok(value)
     }
 }
 

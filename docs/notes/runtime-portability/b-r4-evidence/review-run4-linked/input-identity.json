@@ -1,0 +1,7 @@
+{
+  "measurement/firmware.elf": "5c0da1f439ae538b0f44f9bebdeac7d7c128aa5b368aa10899ba6ceac8dc49c4",
+  "measurement/firmware.map": "fd065436e62ede26583a34bceea5bd9a3679c32f14f627c08825d77708522af9",
+  "measurement/footprint.json": "952c614c93c03faaedeb0d7140d5cbafd02642a6fb84d6b9edda0765c6350efb",
+  "disassembly.txt": "c49f158da50078073ecd7e8fc786003d5f1fb4e7136abd0beff6d30a451360e3",
+  "prologues.txt": "c9a7f23ac351c492f4dd482361d1bee6db5d04cd56ebe0956cbeb749b4fc15d3"
+}

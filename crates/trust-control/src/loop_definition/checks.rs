@@ -333,10 +333,10 @@ impl LoopDefinition {
             }
         }
         for (channel, (setpoint, measurement)) in units {
-            if let (Some(setpoint), Some(measurement)) = (setpoint, measurement) {
-                if setpoint != measurement {
-                    return Err(LoopRejection::IncompatibleAuxiliaryUnits(channel.into()));
-                }
+            if let (Some(setpoint), Some(measurement)) = (setpoint, measurement)
+                && setpoint != measurement
+            {
+                return Err(LoopRejection::IncompatibleAuxiliaryUnits(channel.into()));
             }
         }
         Ok(())
@@ -357,13 +357,13 @@ impl LoopDefinition {
         );
         for (index, (name, address)) in bound.iter().enumerate() {
             for (other_name, other_address) in &bound[..index] {
-                if let (Some(address), Some(other_address)) = (address, other_address) {
-                    if addresses_overlap(address, other_address) {
-                        return Err(LoopRejection::AmbiguousSignalAddress(
-                            (*other_name).into(),
-                            (*name).into(),
-                        ));
-                    }
+                if let (Some(address), Some(other_address)) = (address, other_address)
+                    && addresses_overlap(address, other_address)
+                {
+                    return Err(LoopRejection::AmbiguousSignalAddress(
+                        (*other_name).into(),
+                        (*name).into(),
+                    ));
                 }
             }
         }
@@ -607,12 +607,11 @@ fn check_law(law: &ControllerLaw, binding: &ParameterBinding) -> Result<(), Stri
             for symbol in &symbols {
                 parameter(symbol).ok_or_else(|| format!("{symbol} is not a bound parameter"))?;
             }
-            if let Some(anti_windup) = &pid.anti_windup {
-                if parameter(&anti_windup.tracking_gain_symbol)
+            if let Some(anti_windup) = &pid.anti_windup
+                && parameter(&anti_windup.tracking_gain_symbol)
                     .is_none_or(|parameter| parameter.unit != "1/s")
-                {
-                    return Err("the tracking gain is in 1/s".into());
-                }
+            {
+                return Err("the tracking gain is in 1/s".into());
             }
             for symbol in [
                 &pid.proportional_setpoint_weight_symbol,
@@ -627,12 +626,11 @@ fn check_law(law: &ControllerLaw, binding: &ParameterBinding) -> Result<(), Stri
                     return Err(format!("{symbol} is a weight in [0, 1]"));
                 }
             }
-            if let Some(symbol) = &pid.measurement_filter_time_symbol {
-                if parameter(symbol)
+            if let Some(symbol) = &pid.measurement_filter_time_symbol
+                && parameter(symbol)
                     .is_none_or(|parameter| parameter.unit != "s" || parameter.minimum < 0.0)
-                {
-                    return Err(format!("{symbol} is a nonnegative time in s"));
-                }
+            {
+                return Err(format!("{symbol} is a nonnegative time in s"));
             }
             Ok(())
         }
@@ -648,20 +646,18 @@ fn check_experiment(experiment: &Experiment) -> Result<(), String> {
     {
         return Err("the experiment needs a finite amplitude, a duration of 1 s to 24 h and a seed of 1 to 2^32 - 1".into());
     }
-    if let Some(baseline) = experiment.baseline_seconds {
-        if experiment.execution != Execution::ProjectScripted
+    if let Some(baseline) = experiment.baseline_seconds
+        && (experiment.execution != Execution::ProjectScripted
             || experiment.activation.is_none()
             || !(baseline.is_finite()
                 && baseline >= 0.0
                 && experiment
                     .duration_seconds
-                    .is_none_or(|duration| baseline < duration))
-        {
-            return Err(
-                "a baseline belongs to an activated project experiment and is shorter than it"
-                    .into(),
-            );
-        }
+                    .is_none_or(|duration| baseline < duration)))
+    {
+        return Err(
+            "a baseline belongs to an activated project experiment and is shorter than it".into(),
+        );
     }
     for activation in [&experiment.activation, &experiment.abort]
         .into_iter()
@@ -725,12 +721,12 @@ fn check_signal(
 ) -> Result<(), String> {
     nonempty(name, symbol)?;
     nonempty(name, iec_type)?;
-    if let Some(address) = address {
-        if parse_address(address).is_none() {
-            return Err(format!(
-                "{name}'s address {address} is not a direct address"
-            ));
-        }
+    if let Some(address) = address
+        && parse_address(address).is_none()
+    {
+        return Err(format!(
+            "{name}'s address {address} is not a direct address"
+        ));
     }
     if !(range.minimum.is_finite() && range.maximum.is_finite() && range.minimum < range.maximum) {
         return Err(format!("{name} needs a range"));

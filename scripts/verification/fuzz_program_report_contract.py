@@ -46,7 +46,7 @@ ROOT_FIELDS = {
     "limitations",
 }
 REPORT_SCHEMA_SEMANTIC_DIGEST = (
-    "5228df137d79cef37b4dffd7fff24fbceb2b2c28ebd5216167bf1cf37277e078"
+    "56bf664145d8e3fae92aa0fa388fe0944c19c207add3c3e198c3d97f7aec7578"
 )
 OUTPUT_PATH_FIELDS = {"json", "markdown"}
 TARGET_REQUIRED_FIELDS = {
@@ -140,8 +140,8 @@ def validate_schema_contract(schema: object) -> list[str]:
         "targets": {
             "type": "array",
             "items": {"$ref": "#/$defs/target"},
-            "minItems": 16,
-            "maxItems": 16,
+            "minItems": 18,
+            "maxItems": 18,
         },
         "surfaces": {
             "type": "array",
@@ -370,8 +370,8 @@ def validate_schema_contract(schema: object) -> list[str]:
     summary = definitions.get("summary")
     summary_properties = summary.get("properties") if isinstance(summary, Mapping) else None
     expected_summary_consts = {
-        "inventory_targets": 16,
-        "cargo_fuzz_targets": 10,
+        "inventory_targets": 18,
+        "cargo_fuzz_targets": 12,
         "bounded_rust_smokes": 6,
         "required_surfaces": 7,
         "gap_surfaces": 0,

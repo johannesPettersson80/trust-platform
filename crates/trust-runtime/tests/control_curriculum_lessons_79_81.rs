@@ -293,11 +293,9 @@ fn lesson80_run(
     let (mut runtime, mut simulation) = setup(LESSON80);
     let debug = runtime.enable_debug();
     let p1 = program(&runtime);
-    assert!(runtime.storage_mut().set_instance_var(
-        p1,
-        "AcknowledgementTime",
-        Value::LReal(acknowledge_s)
-    ));
+    assert!(runtime
+        .write_instance(p1, "AcknowledgementTime", Value::LReal(acknowledge_s))
+        .is_ok());
     let mut record = Vec::new();
     let mut now = 0;
     for (step, period) in std::iter::once(&100).chain(periods_ms.iter()).enumerate() {
@@ -790,11 +788,9 @@ fn lesson81_run(auto_request_s: f64, periods_ms: &[u64]) -> Vec<Sensed> {
     let (mut runtime, mut simulation) = setup(LESSON81);
     let debug = runtime.enable_debug();
     let p1 = program(&runtime);
-    assert!(runtime.storage_mut().set_instance_var(
-        p1,
-        "AutoRequestTime",
-        Value::LReal(auto_request_s)
-    ));
+    assert!(runtime
+        .write_instance(p1, "AutoRequestTime", Value::LReal(auto_request_s))
+        .is_ok());
     let mut record = Vec::new();
     let mut now = 0;
     for (step, period) in std::iter::once(&100).chain(periods_ms.iter()).enumerate() {

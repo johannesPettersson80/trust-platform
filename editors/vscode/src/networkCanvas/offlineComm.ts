@@ -1,5 +1,6 @@
 import { execFile } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 
@@ -9,12 +10,20 @@ import type {
   CommSchemaResponse,
 } from "../communication/schemaForm";
 import type { FleetTopologyResponse } from "./fleetTopology";
+import {
+  buildAdsGeneratedImportArgs,
+  buildOfflineAdsImportArgs,
+  buildOfflineBrowseSymbolsArgs,
+  classifyAdsBrowseCommandFailure,
+} from "./adsBrowseContract";
+import { adsConnectionNameForTarget } from "./adsDiscoveryPorts";
+import { removeAdsTagFromToml } from "./adsTagConfigMutation";
 
 // File-based comm config via the trust-runtime CLI — NO running runtime required. These shell
 // out to `trust-runtime comm {schema,topology,apply}` so the canvas can show + edit settings
-// on a stopped/offline project (config is just files on disk). Every call returns undefined on
-// ANY failure (missing subcommand on an older binary, bad JSON, spawn error) so callers fall
-// back to the live-control path and the UI never breaks before the CLIs ship.
+// on a stopped/offline project (config is just files on disk). Most legacy queries return
+// undefined on command/JSON failure; ADS browse preserves a structured failure so an unavailable
+// port is never misreported as an empty symbol table.
 
 function runtimeBinary(context: vscode.ExtensionContext): string {
   return getBinaryPath(context, "trust-runtime", "runtime.cli.path");
@@ -130,16 +139,20 @@ export function ensureAdsRuntimeEnabled(
   const sectionHeader = "[runtime.ads]";
   let after = before;
   const escapedHeader = sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const sectionRe = new RegExp(`(^${escapedHeader}\\s*$)([\\s\\S]*?)(?=^\\[|\\s*$)`, "m");
+  const sectionRe = new RegExp(`^${escapedHeader}\\s*$`, "m");
   const match = sectionRe.exec(before);
   if (match) {
-    let section = `${match[1]}${match[2]}`;
+    const nextSectionRe = /^\s*\[[^\]\r\n]+\]\s*$/gm;
+    nextSectionRe.lastIndex = match.index + match[0].length;
+    const nextSection = nextSectionRe.exec(before);
+    const sectionEnd = nextSection?.index ?? before.length;
+    let section = before.slice(match.index, sectionEnd);
     section = upsertTomlKey(section, "enabled", "true");
     section = upsertTomlKey(section, "config_path", JSON.stringify(configPath));
     if (!/^worker_tick_interval_ms\s*=/m.test(section)) {
       section = upsertTomlKey(section, "worker_tick_interval_ms", "20");
     }
-    after = `${before.slice(0, match.index)}${section}${before.slice(match.index + match[0].length)}`;
+    after = `${before.slice(0, match.index)}${section}${before.slice(sectionEnd)}`;
   } else {
     const suffix = before.endsWith("\n") ? "\n" : "\n\n";
     after = `${before.trimEnd()}${suffix}${sectionHeader}\nenabled = true\nconfig_path = ${JSON.stringify(configPath)}\nworker_tick_interval_ms = 20\n`;
@@ -226,6 +239,7 @@ export interface DiscoverCandidate {
   source: string; // scan | mdns | ads_broadcast | ethercat_bus | opcua_endpoint
   confidence: string; // confirmed | likely | port_reachable | unavailable
   protocol: string;
+  originRuntimeId?: string;
   params: Record<string, unknown>;
   warnings?: string[];
 }
@@ -263,6 +277,15 @@ export interface RouteArtifact {
 
 export interface RoutePlan {
   route_name?: string;
+  target?: {
+    ip?: string;
+    ams_net_id?: string;
+    ams_port?: number;
+  };
+  local?: {
+    chosen_ip?: string;
+    ams_net_id?: string;
+  };
   artifacts?: RouteArtifact[];
 }
 
@@ -271,8 +294,8 @@ export interface BrowseSymbolsResponse {
   protocol: string;
   // ADS route status on a LIVE browse; `status:"missing"` → offer "Create route" (carries route_plan).
   route?: { status?: string; route_plan?: RoutePlan };
-  // Structured browse failure (opcua_client): code ∈ cert_untrusted | auth_required |
-  // endpoint_unreachable | browse_denied | unsupported_security_profile. Drives the recovery action.
+  // Structured protocol browse failure. OPC UA and ADS use protocol-specific codes so the canvas
+  // can offer honest recovery instead of collapsing every failure into an empty tree.
   error?: { code: string; message: string };
   tree: SymbolNode[];
 }
@@ -302,6 +325,103 @@ export interface OfflineAdsImportSymbolsResult {
   report?: AdsImportSymbolsReport;
 }
 
+export interface OfflineAdsTagRemovalResult {
+  applied: boolean;
+  removed_count: number;
+  restart_required: boolean;
+  message: string;
+}
+
+export async function offlineAdsRemoveTag(
+  context: vscode.ExtensionContext,
+  projectDir: string,
+  target: Record<string, unknown>,
+  port: number,
+  symbolPath: string,
+): Promise<OfflineAdsTagRemovalResult> {
+  const configPath = stringField(target, "config_path") ?? "ads.toml";
+  const adsTomlPath = path.join(projectDir, configPath);
+  let before: string;
+  try {
+    before = fs.readFileSync(adsTomlPath, "utf8");
+  } catch (error) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+  const mutation = removeAdsTagFromToml(before, {
+    host: stringField(target, "host", "ip"),
+    targetNetId: stringField(target, "target_net_id", "ams_net_id"),
+    port,
+    path: symbolPath,
+  });
+  if (mutation.removedCount === 0) {
+    return {
+      applied: true,
+      removed_count: 0,
+      restart_required: false,
+      message: "The ADS tag was already absent from ads.toml.",
+    };
+  }
+
+  const snapshots = existingAdsSnapshotPaths(projectDir);
+  if (snapshots.length === 0) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: "Could not regenerate ADS ST because no cached ADS symbol snapshots were found.",
+    };
+  }
+  const generatedPath = path.join(projectDir, "src", "generated", "ads_generated.st");
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "trust-ads-tag-remove-"));
+  const tempConfigPath = path.join(tempDir, "ads.toml");
+  const tempGeneratedPath = path.join(tempDir, "ads_generated.st");
+  try {
+    fs.writeFileSync(tempConfigPath, mutation.text);
+    const regenerated = await runJsonCommand<Record<string, unknown>>(
+      runtimeBinary(context),
+      buildAdsGeneratedImportArgs(tempConfigPath, snapshots, tempGeneratedPath),
+      projectDir,
+    );
+    if (!regenerated.ok || !fs.existsSync(tempGeneratedPath)) {
+      return {
+        applied: false,
+        removed_count: 0,
+        restart_required: false,
+        message: regenerated.message ?? "Could not regenerate ADS ST after removing the tag.",
+      };
+    }
+    const generated = fs.readFileSync(tempGeneratedPath);
+    fs.mkdirSync(path.dirname(generatedPath), { recursive: true });
+    fs.writeFileSync(adsTomlPath, mutation.text);
+    fs.writeFileSync(generatedPath, generated);
+    try {
+      await vscode.workspace.openTextDocument(vscode.Uri.file(generatedPath));
+    } catch {
+      // The files were saved; opening the generated document only accelerates LSP refresh.
+    }
+    return {
+      applied: true,
+      removed_count: mutation.removedCount,
+      restart_required: true,
+      message: `Removed ${mutation.removedCount} ADS tag${mutation.removedCount === 1 ? "" : "s"}.`,
+    };
+  } catch (error) {
+    return {
+      applied: false,
+      removed_count: 0,
+      restart_required: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function adsSymbolName(selectionKey: string): string {
   return selectionKey.startsWith("ads:symbol:")
     ? selectionKey.slice("ads:symbol:".length)
@@ -313,7 +433,8 @@ export async function offlineAdsImportSymbols(
   projectDir: string,
   target: Record<string, unknown>,
   symbols: string[],
-  writable: boolean
+  writable: boolean,
+  connectionNameOverride?: string,
 ): Promise<OfflineAdsImportSymbolsResult> {
   const host = stringField(target, "host", "ip");
   if (!host) {
@@ -337,32 +458,16 @@ export async function offlineAdsImportSymbols(
     };
   }
 
-  const connectionName = stringField(target, "name") ?? "ads_import";
-  const args = [
-    "ads",
-    "import-symbols",
-    "--target",
-    host,
-    "--connection",
+  const connectionName = connectionNameOverride ??
+    adsConnectionNameForTarget(target, "ads_import");
+  const existingSnapshots = existingAdsSnapshotPaths(projectDir);
+  const args = buildOfflineAdsImportArgs(
+    projectDir,
+    target,
     connectionName,
-    "--out",
-    path.join(projectDir, "ads.toml"),
-    "--gen",
-    path.join(projectDir, "src", "generated", "ads_generated.st"),
-    "--force",
-    "--json",
-  ];
-  const targetNetId = stringField(target, "target_net_id", "ams_net_id");
-  if (targetNetId) {
-    args.push("--target-net-id", targetNetId);
-  }
-  const amsPort = numberField(target, "ams_port");
-  if (amsPort) {
-    args.push("--ams-port", String(amsPort));
-  }
-  for (const symbol of normalizedSymbols) {
-    args.push("--include", symbol);
-  }
+    normalizedSymbols,
+    existingSnapshots,
+  );
 
   const result = await runJsonCommand<AdsImportSymbolsReport>(
     runtimeBinary(context),
@@ -396,6 +501,19 @@ export async function offlineAdsImportSymbols(
   };
 }
 
+export function existingAdsSnapshotPaths(projectDir: string): string[] {
+  const directory = path.join(projectDir, "ads", "snapshots");
+  try {
+    return fs
+      .readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".symbols.json"))
+      .map((entry) => path.join(directory, entry.name))
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
 export async function offlineBrowseSymbols(
   context: vscode.ExtensionContext,
   protocol: string,
@@ -404,24 +522,35 @@ export async function offlineBrowseSymbols(
   connectionName?: string,
   projectDir?: string
 ): Promise<BrowseSymbolsResponse | undefined> {
-  const args = ["comm", "browse-symbols", "--protocol", protocol, "--kind", kind, "--json"];
-  // Local expose (truST's own globals) + EtherCAT channels read from project files offline.
-  if (projectDir) {
-    args.push("--project", projectDir);
+  const args = buildOfflineBrowseSymbolsArgs(
+    protocol,
+    target,
+    kind,
+    connectionName,
+    projectDir
+  );
+  const result = await runJsonCommand<BrowseSymbolsResponse>(
+    runtimeBinary(context),
+    args,
+    projectDir
+  );
+  if (result.ok) {
+    return result.value;
   }
-  // A remote target (ADS) carries connection params; local/project browses pass none.
-  if (target && Object.keys(target).length > 0) {
-    args.push("--target", JSON.stringify(target));
+  if (protocol !== "ads") {
+    return undefined;
   }
-  if (connectionName) {
-    args.push("--connection-name", connectionName);
-  }
-  return runJson<BrowseSymbolsResponse>(runtimeBinary(context), args, projectDir);
+  const message = result.message ?? "ADS symbol browse failed.";
+  return {
+    protocol,
+    tree: [],
+    error: {
+      code: classifyAdsBrowseCommandFailure(message),
+      message,
+    },
+  };
 }
 
-// §0.5.3 `comm.discover` — find devices/endpoints. `origin` = where the scan runs (this_host =
-// the dev machine via CLI; runtime = the runtime's network/hardware). Returns undefined on any
-// failure (older binary without the verb, spawn error) so the UI degrades gracefully.
 export async function offlineCommDiscover(
   context: vscode.ExtensionContext,
   protocol: string,

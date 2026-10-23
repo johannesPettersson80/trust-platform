@@ -21,14 +21,61 @@ fn initialize_adapter_for_launch(adapter: &mut DebugAdapter, seq: u32) {
 }
 
 #[test]
+fn ads_globals_are_appended_as_ordinary_live_value_rows() {
+    let mut state = IoStateEventBody {
+        scan: Some(7),
+        inputs: Vec::new(),
+        outputs: Vec::new(),
+        memory: Vec::new(),
+    };
+
+    super::super::io::append_ads_live_values(
+        &mut state,
+        vec![
+            trust_runtime::ads::AdsLiveValue {
+                connection_name: "plc_port_301".to_string(),
+                ams_port: 301,
+                point_name: "plc_input".to_string(),
+                input: true,
+                writable: false,
+                value: RuntimeValue::Bool(true),
+                forced: true,
+            },
+            trust_runtime::ads::AdsLiveValue {
+                connection_name: "plc_port_851".to_string(),
+                ams_port: 851,
+                point_name: "plc_output".to_string(),
+                input: false,
+                writable: true,
+                value: RuntimeValue::DInt(12),
+                forced: false,
+            },
+        ],
+    );
+
+    assert_eq!(state.inputs[0].name.as_deref(), Some("plc_input"));
+    assert_eq!(state.inputs[0].address, "global:plc_input");
+    assert_eq!(
+        state.inputs[0].source.as_deref(),
+        Some("ADS plc_port_301 · port 301")
+    );
+    assert_eq!(state.inputs[0].value, "TRUE");
+    assert!(state.inputs[0].forced);
+    assert_eq!(state.inputs[0].writable, Some(false));
+    assert_eq!(state.outputs[0].address, "global:plc_output");
+    assert_eq!(state.outputs[0].value, "12");
+    assert_eq!(state.outputs[0].writable, Some(true));
+}
+
+#[test]
 fn dispatch_set_expression_force_supports_output_and_memory_io() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let output_addr = IoAddress::parse("%QX0.0").unwrap();
     let memory_addr = IoAddress::parse("%MX0.0").unwrap();
     runtime.io_mut().bind("OUT0", output_addr.clone());
     runtime.io_mut().bind("MEM0", memory_addr.clone());
 
-    let session = DebugSession::new(runtime);
+    let session = DebugSession::new(install_io_fixture(runtime));
     let mut adapter = DebugAdapter::new(session);
 
     let force_output = Request {
@@ -134,11 +181,11 @@ fn dispatch_set_expression_force_supports_output_and_memory_io() {
 
 #[test]
 fn dispatch_set_expression_write_once_rejects_output_io() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let output_addr = IoAddress::parse("%QX0.1").unwrap();
     runtime.io_mut().bind("OUT1", output_addr);
 
-    let session = DebugSession::new(runtime);
+    let session = DebugSession::new(install_io_fixture(runtime));
     let mut adapter = DebugAdapter::new(session);
 
     let request = Request {
@@ -168,8 +215,8 @@ fn dispatch_set_expression_write_once_rejects_output_io() {
 #[test]
 fn attach_set_expression_forwards_remote_io_force_and_release() {
     let (addr, requests, server) = spawn_remote_io_force_server();
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     adapter.remote_session = Some(
         super::super::remote::RemoteSession::connect(
             super::super::remote::RemoteEndpoint::Tcp(addr),
@@ -260,8 +307,8 @@ fn attach_set_expression_forwards_remote_io_force_and_release() {
 #[test]
 fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
     let (addr, requests, server) = spawn_remote_io_force_server();
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     adapter.remote_session = Some(
         super::super::remote::RemoteSession::connect(
             super::super::remote::RemoteEndpoint::Tcp(addr),
@@ -372,14 +419,14 @@ fn attach_st_io_force_and_release_forward_remote_io_force_and_release() {
 
 #[test]
 fn dispatch_set_expression_force_supports_direct_instance_field_live() {
-    let mut runtime = Runtime::new();
-    let instance_id = runtime.storage_mut().create_instance("MAIN_T");
-    runtime
-        .storage_mut()
-        .set_instance_var(instance_id, "count", RuntimeValue::Int(1));
-    runtime
-        .storage_mut()
-        .set_global("Main", RuntimeValue::Instance(instance_id));
+    let runtime =
+        TestHarness::from_source("PROGRAM Main VAR count : INT := 1; END_VAR END_PROGRAM")
+            .unwrap()
+            .into_runtime();
+    let Some(RuntimeValue::Instance(instance_id)) = runtime.storage().get_global("Main") else {
+        panic!("admitted program instance");
+    };
+    let instance_id = *instance_id;
 
     let session = DebugSession::new(runtime);
     let mut adapter = DebugAdapter::new(session);
@@ -416,17 +463,21 @@ fn dispatch_set_expression_force_supports_direct_instance_field_live() {
 
 #[test]
 fn dispatch_set_expression_force_supports_direct_instance_field_paused() {
-    let mut runtime = Runtime::new();
-    let instance_id = runtime.storage_mut().create_instance("MAIN_T");
-    runtime
-        .storage_mut()
-        .set_instance_var(instance_id, "count", RuntimeValue::Int(1));
-    runtime
-        .storage_mut()
-        .set_global("Main", RuntimeValue::Instance(instance_id));
+    let runtime =
+        TestHarness::from_source("PROGRAM Main VAR count : INT := 1; END_VAR END_PROGRAM")
+            .unwrap()
+            .into_runtime();
+    let Some(RuntimeValue::Instance(instance_id)) = runtime.storage().get_global("Main") else {
+        panic!("admitted program instance");
+    };
+    let instance_id = *instance_id;
 
     let control = DebugControl::new();
-    control.refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
+    control.refresh_snapshot_from_storage_with_abi(
+        runtime.storage(),
+        runtime.current_time(),
+        runtime.prepared().storage_abi(),
+    );
 
     let session = DebugSession::with_control(runtime, control);
     let mut adapter = DebugAdapter::new(session);
@@ -464,8 +515,8 @@ fn dispatch_set_expression_force_supports_direct_instance_field_paused() {
 
 #[test]
 fn dispatch_initialize_emits_initialized_event() {
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     let request = Request {
         seq: 1,
         message_type: MessageType::Request,
@@ -525,8 +576,8 @@ fn dispatch_initialize_emits_initialized_event() {
 
 #[test]
 fn dispatch_launch_does_not_emit_initialized_event_without_initialize() {
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
 
     let mut additional = BTreeMap::new();
     additional.insert(
@@ -592,7 +643,9 @@ params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_star
     )
     .unwrap();
 
-    let mut adapter = DebugAdapter::new(DebugSession::new(Runtime::new()));
+    let mut adapter = DebugAdapter::new(DebugSession::new(
+        trust_runtime::RuntimeBuilder::new().build().unwrap(),
+    ));
     initialize_adapter_for_launch(&mut adapter, 9);
     let mut additional = BTreeMap::new();
     additional.insert(
@@ -671,8 +724,8 @@ fn debug_control_server_uses_launch_project_root_for_comm_apply() {
     let endpoint = format!("tcp://{addr}");
     let auth = "debug-control-token";
 
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     launch_debug_control_session(&mut adapter, &project_root, &endpoint, auth);
 
     let schema = send_control_request(
@@ -790,8 +843,8 @@ fn launch_fails_when_control_server_endpoint_is_already_in_use() {
     let occupied = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = format!("tcp://{}", occupied.local_addr().unwrap());
 
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     initialize_adapter_for_launch(&mut adapter, 19);
     let mut additional = BTreeMap::new();
     additional.insert(
@@ -891,7 +944,11 @@ fn debug_control_server_experiment_keeps_the_typed_pid_loop_running() {
     )
     .unwrap();
 
-    let mut session = DebugSession::new(Runtime::new());
+    let mut session = DebugSession::new(
+        trust_runtime::RuntimeBuilder::new()
+            .build()
+            .expect("admit an empty runtime"),
+    );
     session.update_source_options(crate::session::SourceOptionsUpdate {
         root: Some(project_root.to_string_lossy().into_owned()),
         include_globs: Some(vec!["**/*.st".to_string()]),
@@ -1173,8 +1230,8 @@ pub(super) fn control_result(response: &serde_json::Value) -> &serde_json::Value
 
 #[test]
 fn dispatch_run_controls_update_debug_mode() {
-    let runtime = Runtime::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     let control = adapter.session().debug_control();
 
     let pause_req = Request {

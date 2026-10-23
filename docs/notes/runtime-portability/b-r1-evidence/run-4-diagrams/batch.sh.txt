@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -uo pipefail
+cd /home/johannes/projects/trust-platform-portability-b || exit 1
+export PYTHONDONTWRITEBYTECODE=1
+out=/home/johannes/.cache/trust-portability-b-evidence/run-4-diagrams
+mkdir "$out" || exit 91
+hostname > "$out/environment.txt"
+pwd >> "$out/environment.txt"
+git rev-parse HEAD >> "$out/environment.txt"
+date -u +%FT%TZ > "$out/started.txt"
+printf 'step\tstatus\texit\tstart\tend\n' > "$out/ledger.tsv"
+sha256sum docs/diagrams/architecture/runtime-bytecode-vm-execution.puml scripts/render_diagrams.sh scripts/check_diagram_drift.py AGENTS.md > "$out/source-sha256.txt"
+# These are the reviewed source bytes; no new implementation or architecture change.
+printf '%s  %s\n' 391fce298f7bded002205d9030adf9d9c2a7877389486b2da22c85549662cb2a docs/diagrams/architecture/runtime-bytecode-vm-execution.puml | sha256sum --check > "$out/review-parity.txt" || exit 92
+cat AGENTS.md .codex/skills/st-lsp-solid/SKILL.md .codex/skills/trust-remote-builder/SKILL.md > /dev/null
+step() {
+ local name=$1 start rc state=PASS
+ shift
+ start=$(date -u +%FT%TZ)
+ printf '%q ' "$@" > "$out/$name.command.txt"
+ printf '\n' >> "$out/$name.command.txt"
+ "$@" > "$out/$name.txt" 2>&1
+ rc=$?
+ (( rc == 0 )) || state=FAIL
+ printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$state" "$rc" "$start" "$(date -u +%FT%TZ)" >> "$out/ledger.tsv"
+ cat "$out/$name.txt"
+ return "$rc"
+}
+step diagrams bash scripts/render_diagrams.sh
+if (( $? == 0 )); then
+ step diagram-drift python3 scripts/check_diagram_drift.py
+else
+ printf 'diagram-drift\tUNRUN\tprerequisite\t-\t-\n' >> "$out/ledger.tsv"
+fi
+step diff-check git diff --check
+find docs/diagrams/generated -type f -name '*.svg' -print0 | sort -z | xargs -0 sha256sum > "$out/generated-sha256.txt"
+sha256sum docs/diagrams/manifest.json >> "$out/generated-sha256.txt"
+date -u +%FT%TZ > "$out/finished.txt"
+cat "$out/ledger.tsv"
+failed=$(awk -F '\t' 'NR>1 && $2!="PASS" {n++} END {print n+0}' "$out/ledger.tsv")
+printf 'failed_or_unrun=%s\n' "$failed" > "$out/result.txt"
+(( failed == 0 ))

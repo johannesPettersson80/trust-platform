@@ -476,19 +476,19 @@ fn preflight_apply(
             "the PLC program changed since this draft was created; create a new proposal from current context.",
         ));
     }
-    if let Some(reviewed) = current.reviewed_assets.as_ref() {
-        if !reviewed.is_empty() {
-            let files: Vec<String> = reviewed.keys().cloned().collect();
-            let now = image_revisions(argument, &files)?;
-            if reviewed
-                .iter()
-                .any(|(file, revision)| now.get(file) != Some(revision))
-            {
-                return Err(AgentError::new(
-                    CONFLICT,
-                    "a project image changed since review; review the current assets before applying.",
-                ));
-            }
+    if let Some(reviewed) = current.reviewed_assets.as_ref()
+        && !reviewed.is_empty()
+    {
+        let files: Vec<String> = reviewed.keys().cloned().collect();
+        let now = image_revisions(argument, &files)?;
+        if reviewed
+            .iter()
+            .any(|(file, revision)| now.get(file) != Some(revision))
+        {
+            return Err(AgentError::new(
+                CONFLICT,
+                "a project image changed since review; review the current assets before applying.",
+            ));
         }
     }
     let result = validate_draft(state, argument, &workspace, current, None)?;

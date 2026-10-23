@@ -73,10 +73,13 @@ END_PROGRAM
 }
 
 fn run_registry_command(args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(args)
-        .output()
-        .expect("run trust-runtime registry command")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(args)
+    .output()
+    .expect("run trust-runtime registry command")
 }
 
 #[test]
@@ -135,63 +138,75 @@ fn registry_publish_download_verify_round_trip() {
     let download = unique_temp_dir("registry-download-target");
     write_project_fixture(&project, "pkg_alpha");
 
-    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("init")
-        .arg("--root")
-        .arg(&registry)
-        .arg("--visibility")
-        .arg("public")
-        .output()
-        .expect("init registry");
+    let init = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("init")
+    .arg("--root")
+    .arg(&registry)
+    .arg("--visibility")
+    .arg("public")
+    .output()
+    .expect("init registry");
     assert!(
         init.status.success(),
         "expected init success, stderr was:\n{}",
         String::from_utf8_lossy(&init.stderr)
     );
 
-    let publish = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("publish")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--project")
-        .arg(&project)
-        .arg("--version")
-        .arg("1.0.0")
-        .output()
-        .expect("publish package");
+    let publish = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("publish")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--project")
+    .arg(&project)
+    .arg("--version")
+    .arg("1.0.0")
+    .output()
+    .expect("publish package");
     assert!(
         publish.status.success(),
         "expected publish success, stderr was:\n{}",
         String::from_utf8_lossy(&publish.stderr)
     );
 
-    let verify = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("verify")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--name")
-        .arg("pkg_alpha")
-        .arg("--version")
-        .arg("1.0.0")
-        .output()
-        .expect("verify package");
+    let verify = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("verify")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--name")
+    .arg("pkg_alpha")
+    .arg("--version")
+    .arg("1.0.0")
+    .output()
+    .expect("verify package");
     assert!(
         verify.status.success(),
         "expected verify success, stderr was:\n{}",
         String::from_utf8_lossy(&verify.stderr)
     );
 
-    let list = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("list")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--json")
-        .output()
-        .expect("list packages");
+    let list = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("list")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--json")
+    .output()
+    .expect("list packages");
     assert!(
         list.status.success(),
         "expected list success, stderr was:\n{}",
@@ -214,20 +229,23 @@ fn registry_publish_download_verify_round_trip() {
         .expect("package sha");
     assert_eq!(package_sha.len(), 64);
 
-    let download_result = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("download")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--name")
-        .arg("pkg_alpha")
-        .arg("--version")
-        .arg("1.0.0")
-        .arg("--output")
-        .arg(&download)
-        .arg("--verify")
-        .output()
-        .expect("download package");
+    let download_result = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("download")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--name")
+    .arg("pkg_alpha")
+    .arg("--version")
+    .arg("1.0.0")
+    .arg("--output")
+    .arg(&download)
+    .arg("--verify")
+    .output()
+    .expect("download package");
     assert!(
         download_result.status.success(),
         "expected download success, stderr was:\n{}",
@@ -254,34 +272,40 @@ fn registry_private_access_control_requires_token() {
     let registry = unique_temp_dir("registry-private-root");
     write_project_fixture(&project, "pkg_private");
 
-    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("init")
-        .arg("--root")
-        .arg(&registry)
-        .arg("--visibility")
-        .arg("private")
-        .arg("--token")
-        .arg("secret-token")
-        .output()
-        .expect("init private registry");
+    let init = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("init")
+    .arg("--root")
+    .arg(&registry)
+    .arg("--visibility")
+    .arg("private")
+    .arg("--token")
+    .arg("secret-token")
+    .output()
+    .expect("init private registry");
     assert!(
         init.status.success(),
         "expected private init success, stderr was:\n{}",
         String::from_utf8_lossy(&init.stderr)
     );
 
-    let publish_without_token = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("publish")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--project")
-        .arg(&project)
-        .arg("--version")
-        .arg("2.0.0")
-        .output()
-        .expect("publish without token");
+    let publish_without_token = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("publish")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--project")
+    .arg(&project)
+    .arg("--version")
+    .arg("2.0.0")
+    .output()
+    .expect("publish without token");
     assert!(
         !publish_without_token.status.success(),
         "expected publish failure without token"
@@ -292,52 +316,61 @@ fn registry_private_access_control_requires_token() {
         "expected unauthorized failure, stderr was:\n{unauthorized}"
     );
 
-    let publish_with_token = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("publish")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--project")
-        .arg(&project)
-        .arg("--version")
-        .arg("2.0.0")
-        .arg("--token")
-        .arg("secret-token")
-        .output()
-        .expect("publish with token");
+    let publish_with_token = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("publish")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--project")
+    .arg(&project)
+    .arg("--version")
+    .arg("2.0.0")
+    .arg("--token")
+    .arg("secret-token")
+    .output()
+    .expect("publish with token");
     assert!(
         publish_with_token.status.success(),
         "expected publish success with token, stderr was:\n{}",
         String::from_utf8_lossy(&publish_with_token.stderr)
     );
 
-    let list_wrong_token = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("list")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--token")
-        .arg("wrong-token")
-        .output()
-        .expect("list with wrong token");
+    let list_wrong_token = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("list")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--token")
+    .arg("wrong-token")
+    .output()
+    .expect("list with wrong token");
     assert!(
         !list_wrong_token.status.success(),
         "expected list failure with wrong token"
     );
 
-    let verify_with_token = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("registry")
-        .arg("verify")
-        .arg("--registry")
-        .arg(&registry)
-        .arg("--name")
-        .arg("pkg_private")
-        .arg("--version")
-        .arg("2.0.0")
-        .arg("--token")
-        .arg("secret-token")
-        .output()
-        .expect("verify with token");
+    let verify_with_token = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("registry")
+    .arg("verify")
+    .arg("--registry")
+    .arg(&registry)
+    .arg("--name")
+    .arg("pkg_private")
+    .arg("--version")
+    .arg("2.0.0")
+    .arg("--token")
+    .arg("secret-token")
+    .output()
+    .expect("verify with token");
     assert!(
         verify_with_token.status.success(),
         "expected verify success with token, stderr was:\n{}",
@@ -352,21 +385,27 @@ fn registry_private_access_control_requires_token() {
 fn registry_publish_without_project_preserves_detection_failure() {
     let working = unique_temp_dir("registry-missing-project");
     let registry = unique_temp_dir("registry-missing-project-root");
-    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["registry", "init", "--root"])
-        .arg(&registry)
-        .args(["--visibility", "public"])
-        .output()
-        .expect("initialize registry");
+    let init = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["registry", "init", "--root"])
+    .arg(&registry)
+    .args(["--visibility", "public"])
+    .output()
+    .expect("initialize registry");
     assert!(init.status.success());
 
-    let publish = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .current_dir(&working)
-        .args(["registry", "publish", "--registry"])
-        .arg(&registry)
-        .args(["--version", "1.0.0"])
-        .output()
-        .expect("publish without a project");
+    let publish = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .current_dir(&working)
+    .args(["registry", "publish", "--registry"])
+    .arg(&registry)
+    .args(["--version", "1.0.0"])
+    .output()
+    .expect("publish without a project");
 
     assert!(!publish.status.success());
     let error = String::from_utf8_lossy(&publish.stderr);
@@ -390,33 +429,42 @@ fn registry_publish_without_explicit_project_uses_detected_bundle() {
     let registry = unique_temp_dir("registry-detected-project-root");
     write_project_fixture(&project, "pkg_detected");
 
-    let init = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["registry", "init", "--root"])
-        .arg(&registry)
-        .args(["--visibility", "public"])
-        .output()
-        .expect("initialize registry");
+    let init = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["registry", "init", "--root"])
+    .arg(&registry)
+    .args(["--visibility", "public"])
+    .output()
+    .expect("initialize registry");
     assert!(init.status.success());
 
-    let publish = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .current_dir(&working)
-        .args(["registry", "publish", "--registry"])
-        .arg(&registry)
-        .args(["--version", "3.0.0"])
-        .output()
-        .expect("publish detected project");
+    let publish = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .current_dir(&working)
+    .args(["registry", "publish", "--registry"])
+    .arg(&registry)
+    .args(["--version", "3.0.0"])
+    .output()
+    .expect("publish detected project");
     assert!(
         publish.status.success(),
         "expected detected-project publish success, stderr was:\n{}",
         String::from_utf8_lossy(&publish.stderr)
     );
 
-    let list = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["registry", "list", "--registry"])
-        .arg(&registry)
-        .arg("--json")
-        .output()
-        .expect("list detected package");
+    let list = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["registry", "list", "--registry"])
+    .arg(&registry)
+    .arg("--json")
+    .output()
+    .expect("list detected package");
     assert!(list.status.success());
     let packages: serde_json::Value =
         serde_json::from_slice(&list.stdout).expect("parse list payload");

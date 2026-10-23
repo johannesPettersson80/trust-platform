@@ -307,7 +307,7 @@ fn read_controller(state: &ControlState, path: &str) -> Result<(InstanceId, Valu
         .next()
         .filter(|value| !value.is_empty())
         .ok_or("instance path is empty")?;
-    let Value::Instance(mut instance_id) = snapshot
+    let &Value::Instance(mut instance_id) = snapshot
         .storage
         .get_global(root)
         .ok_or("program instance was not found")?
@@ -456,8 +456,8 @@ fn replace_parameters(
 }
 fn revision(value: &Value) -> String {
     format!(
-        "sha256:{:x}",
-        Sha256::digest(format!("{value:?}").as_bytes())
+        "sha256:{}",
+        hex::encode(Sha256::digest(format!("{value:?}").as_bytes()))
     )
 }
 fn parameter_json(value: &Value) -> JsonValue {

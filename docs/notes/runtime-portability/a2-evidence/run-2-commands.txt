@@ -1,0 +1,10 @@
+cargo fmt --all -- --check 
+python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-evidence-2.py 
+cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_verification_cases --test vm_resource_limit_cases --test phase11_seam_contract -- --nocapture --test-threads=1 
+python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.metadata_validator.case_trace_contract_tests 
+cargo clippy --locked --all-targets --all-features -- -D warnings 
+cargo run --locked -p xtask -- architecture-doctor --full-map 
+bash scripts/render_diagrams.sh 
+python3 scripts/check_diagram_drift.py 
+git diff --check 
+python3 scripts/validate_verification_metadata.py 

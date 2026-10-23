@@ -7,7 +7,11 @@ fn debug_mesh_catalogue_returns_an_explicit_unavailable_result() {
     let drain = spawn_command_drain(
         receiver,
         DebugControl::new(),
-        Arc::new(Mutex::new(trust_runtime::Runtime::new())),
+        Arc::new(Mutex::new(
+            trust_runtime::RuntimeBuilder::new()
+                .build()
+                .expect("admit an empty runtime"),
+        )),
         Arc::new(Mutex::new(None)),
     );
     let (reply, response) = std::sync::mpsc::channel();

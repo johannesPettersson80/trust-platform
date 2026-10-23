@@ -1,0 +1,58 @@
+[gate-progress state=started phase=A2-portable-i686-tests target=scena-rust-builder pid=1190309 elapsed=0.0s timeout=3600s command='env '"'"'RUSTFLAGS=-Dwarnings -C linker=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld -C link-self-contained=yes'"'"' cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --target i686-unknown-linux-musl --lib --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load --test bytecode_validation_budget -- --nocapture --test-threads=1']
+   Compiling serde_core v1.0.228
+   Compiling generic-array v0.14.7
+   Compiling typenum v1.20.0
+   Compiling thiserror v2.0.18
+   Compiling cfg-if v1.0.4
+   Compiling zmij v1.0.21
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling winnow v1.0.2
+   Compiling serde_json v1.0.149
+   Compiling serde v1.0.228
+   Compiling libm v0.2.16
+   Compiling crc32fast v1.5.0
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling digest v0.10.7
+   Compiling serde_derive v1.0.228
+   Compiling hashbrown v0.17.0
+   Compiling cpufeatures v0.2.17
+   Compiling itoa v1.0.18
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling equivalent v1.0.2
+   Compiling memchr v2.8.0
+   Compiling indexmap v2.14.0
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling sha2 v0.10.9
+   Compiling rustc-hash v2.1.2
+   Compiling smol_str v0.2.2
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/verification-cases)
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+error[E0599]: no method named `to_string` found for enum `bytecode::BytecodeError` in the current scope
+    --> crates/trust-runtime-core/src/error.rs:557:36
+     |
+ 557 |         let source_detail = source.to_string();
+     |                                    ^^^^^^^^^ method not found in `bytecode::BytecodeError`
+     |
+    ::: /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/string.rs:2880:8
+     |
+2880 |     fn to_string(&self) -> String;
+     |        --------- the method is available for `bytecode::BytecodeError` here
+     |
+    ::: crates/trust-runtime-core/src/bytecode/mod.rs:49:1
+     |
+  49 | pub enum BytecodeError {
+     | ---------------------- method `to_string` not found for this enum
+     |
+     = help: items from traits can only be used if the trait is in scope
+help: trait `ToString` which provides `to_string` is implemented but not in scope; perhaps you want to import it
+     |
+ 326 +     use crate::alloc::string::ToString;
+     |
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `trust-runtime-core` (lib test) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=finished phase=A2-portable-i686-tests target=scena-rust-builder pid=1190309 elapsed=9.7s timeout=3600s command='env '"'"'RUSTFLAGS=-Dwarnings -C linker=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld -C link-self-contained=yes'"'"' cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --target i686-unknown-linux-musl --lib --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load --test bytecode_validation_budget -- --nocapture --test-threads=1' status=101]

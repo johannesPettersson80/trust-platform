@@ -1,5 +1,5 @@
 CONFIGURATION WaterBoosterClassicConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE WaterBoosterClassic ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Station WITH MainTask : Main;
 END_RESOURCE

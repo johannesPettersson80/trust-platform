@@ -1,4 +1,6 @@
-fn apply_bundle_runtime_overrides(
+// Executable installation precedes service configuration in load_runtime.
+// This operation never reloads code or executes initialization a second time.
+fn apply_bundle_runtime_services(
     runtime: &mut Runtime,
     bundle: &RuntimeBundle,
 ) -> anyhow::Result<()> {
@@ -15,17 +17,25 @@ fn apply_bundle_runtime_overrides(
     runtime.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
 
     let registry = IoDriverRegistry::default_registry();
+    let mut resolved_drivers = Vec::with_capacity(bundle.io.drivers.len());
     for (position, driver) in bundle.io.drivers.iter().enumerate() {
         // Each driver's link is named as Devices & Connections names it (specification 42, §2).
         let link = trust_runtime::io::io_link_name(driver.name.as_str(), position);
+        let mut resolved_driver = driver.clone();
         if !driver.enabled {
             if let Some(link) = link {
                 runtime.add_disabled_link(link);
             }
+            resolved_drivers.push(resolved_driver);
             continue;
         }
+        if driver.name.eq_ignore_ascii_case("mqtt") || driver.name.eq_ignore_ascii_case("mqtt-tcp")
+        {
+            resolved_driver.params =
+                trust_runtime::io::resolve_mqtt_tag_mappings(runtime, &resolved_driver.params)?;
+        }
         if let Some(spec) = registry
-            .build(driver.name.as_str(), &driver.params)
+            .build(resolved_driver.name.as_str(), &resolved_driver.params)
             .map_err(anyhow::Error::from)?
         {
             match link {
@@ -33,6 +43,7 @@ fn apply_bundle_runtime_overrides(
                 None => runtime.add_io_driver(spec.name, spec.driver),
             }
         }
+        resolved_drivers.push(resolved_driver);
     }
 
     match bundle.runtime.retain_mode {
@@ -52,24 +63,24 @@ fn apply_bundle_runtime_overrides(
         }
     }
 
-    if let Err(err) =
-        runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))
-    {
-        anyhow::bail!(
-            "failed to apply bytecode metadata: {err} (project folder may require sources)"
-        );
-    }
-    trust_runtime::io::annotate_io_binding_sources(runtime.io_mut(), &bundle.io.drivers);
+    runtime.annotate_io_binding_sources(&resolved_drivers);
     start_ads_runtime(runtime, bundle)?;
     start_opcua_client_runtime(runtime, bundle)?;
 
     Ok(())
 }
 
+fn start_openot_persistence_service(
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<Option<OpenOtPersistenceService>> {
+    OpenOtPersistenceService::start(&bundle.runtime.openot, &bundle.root)
+        .map_err(|error| anyhow::anyhow!("start OpenOT persistence: {error:?}"))
+}
+
 #[cfg(feature = "ads-wire")]
 fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
     start_ads_runtime_with_factory(runtime, bundle, |connection| {
-        Ok(trust_runtime::ads::AdsRsTransport::new(
+        Ok(trust_runtime::ads::HostAdsClient::new(
             connection.route.clone(),
         ))
     })

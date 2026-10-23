@@ -1,11 +1,12 @@
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+static COMMAND_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 fn temp_dir() -> PathBuf {
     let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
@@ -26,14 +27,52 @@ fn free_loopback_port() -> u16 {
 }
 
 fn run_fleet(root: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+    let sequence = COMMAND_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let capture_dir = root.join(".test-command-output");
+    std::fs::create_dir_all(&capture_dir).expect("create fleet command capture directory");
+    let stdout_path = capture_dir.join(format!("{sequence}.stdout"));
+    let stderr_path = capture_dir.join(format!("{sequence}.stderr"));
+    let stdout = std::fs::File::create(&stdout_path).expect("create fleet command stdout capture");
+    let stderr = std::fs::File::create(&stderr_path).expect("create fleet command stderr capture");
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
+    command
         .arg("fleet")
         .args(args)
         .args(["--fleet-root"])
         .arg(root)
         .arg("--json")
-        .output()
-        .expect("run fleet command")
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr));
+    let rendered = format!("{command:?}");
+    let mut child = command.spawn().expect("spawn fleet command");
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        if let Some(status) = child.try_wait().expect("inspect fleet command") {
+            return Output {
+                status,
+                stdout: std::fs::read(&stdout_path).expect("read fleet command stdout capture"),
+                stderr: std::fs::read(&stderr_path).expect("read fleet command stderr capture"),
+            };
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let status = child.wait().expect("reap timed-out fleet command");
+            let output = Output {
+                status,
+                stdout: std::fs::read(&stdout_path).expect("read timed-out fleet stdout capture"),
+                stderr: std::fs::read(&stderr_path).expect("read timed-out fleet stderr capture"),
+            };
+            panic!(
+                "fleet command exceeded 15 seconds: {rendered}\nstdout:\n{}\nstderr:\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+            );
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
 }
 
 fn assert_success(output: &Output, operation: &str) {

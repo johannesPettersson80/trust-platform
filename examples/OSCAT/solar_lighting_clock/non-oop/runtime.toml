@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "Cpu0"
+name = "SolarLightingClockClassic"
 cycle_interval_ms = 1000
 
 [runtime.control]

@@ -1,0 +1,174 @@
+{
+  "reviewer": "/root/b_independent_review",
+  "review_type": "independent source inspection; not execution",
+  "utc": "2026-10-10T11:52:54.160931+00:00",
+  "root": "/home/johannes/projects/trust-platform-portability-b",
+  "head": "df427259cc387a7a79fb81132be23e48ea1493d4",
+  "branch": "feat/runtime-portability-b",
+  "files": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "22618108254b8a73cd3cf648357f2aea8959e7259c8dc8999a214ced6b4912a7"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "97f3d0deef4c9604823459ea30c6544db93e7d14e89f371c8c7507aa196e16ff"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/Cargo.toml",
+      "sha256": "ce51349d4e923b36543161d2b0eeb0a03ce07559f2dae04b53de81fdf98d4ec4"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/README.md",
+      "sha256": "601dfdfdf04f4ec663495d9f5d0ac020c3f1453844d9fa887bdf89be2f534bf1"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/clock.rs",
+      "sha256": "12380cbb368f8a317fe8acd6851a021e2ad8e62ce562837c57f39a3b44137586"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/console.rs",
+      "sha256": "81db5055f653f307ec72f4f85c6795d1f41914461950a1181747dd8e4ef2467d"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/emergency.rs",
+      "sha256": "cabb33aa2607673d44b713818ed03476b6ef64ca317551bf350f43bd94a0facb"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/io.rs",
+      "sha256": "ef1ec2b63ee86620d41021f34d874ba30e3940eba5f13e444a4a7baeb88582a9"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/mod.rs",
+      "sha256": "2af7a2d3184e17d727a682d7a8c88a1bedc5f428b0910f1937fbf959f97459f9"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/hardware/reset.rs",
+      "sha256": "7b15b3c03a2b6c03353754e1e37b4bd8d4ac29602ae1fcc08bec37c437aab96b"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/lib.rs",
+      "sha256": "fac45b40fc9aaaba1ed07953fe5164c2dc4902e132d7c5571602439f97ed2c69"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/profile.rs",
+      "sha256": "e43507ac4d747680143c807ea556e8d8b91da82f0df6e6c8e817af76fbe37c92"
+    },
+    {
+      "path": "crates/trust-platform-stm32f4/src/time.rs",
+      "sha256": "a8752837c30db685845a2e4cbced6f13d423e8eee7346956a4d17cb4c886798e"
+    },
+    {
+      "path": "crates/trust-runtime/examples/portability_gpio_fixture.rs",
+      "sha256": "c1ce6102965df09acf7bdcb1a9c1efd4685987417229aa66abdb78c5b23bc438"
+    },
+    {
+      "path": "crates/trust-runtime/tests/fixtures/portability/f401/gpio.st",
+      "sha256": "e97c2a4e5259e4e21b221edcf4f83abec5b1f65a11b6e73ddc05c1c766f47e8c"
+    },
+    {
+      "path": "crates/trust-runtime/tests/portability_f401_gpio.rs",
+      "sha256": "9c213e8b8509665a59c59f88b7dd4bdb32b914c8f00cb12471c9eefa168974e8"
+    },
+    {
+      "path": "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml",
+      "sha256": "37b6dbf484d6d7fc84f0053efbf1171c60fe73a75a788fddb753963596e11a36"
+    },
+    {
+      "path": "docs/specs/34-runtime-portability.md",
+      "sha256": "c5862548b77392fdf6734f69f4900e80e953ffda08224437cb9ff3adb7faa197"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/.cargo/config.toml",
+      "sha256": "b431db176599634348f24db3e16fb01635745b63acdd581cae3097624ab1c28e"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/Cargo.lock",
+      "sha256": "3655950dfbe96f5a677d8c1839e2103b58b0b98af8624a3753ae7ca0cc3a7f3b"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/Cargo.toml",
+      "sha256": "5e63fdd176972565eb2f8003791881674d5f098dd07bbeec073891f9a87e6420"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/README.md",
+      "sha256": "e006292dc859a1e5c56a059105f1e944cbb2d9d2b7899e34f5e6994ea0d3c703"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/build.rs",
+      "sha256": "e41e2a07e6ac27363481f19e39b19f96a74c7aadfe9e4117e5e4cc90fac0489f"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/memory.x",
+      "sha256": "359270e6e2a30957b4df953bc3f5b74227005f21aa1d95de4af81398f75878c8"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/profile.x",
+      "sha256": "b54e61e14a6a91ee28444e276a59cb1537e2c2031327973204a90668315aa19a"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/rust-toolchain.toml",
+      "sha256": "c5e772cb0daddc24628fe1b82a37dd71971bd15874d6b8b4dab216aa2fe4cc1f"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/application.rs",
+      "sha256": "25c7e9433fad20fe299ba704bfedabc4f42928c22e6f7792cb9451e6c159d6e8"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/lib.rs",
+      "sha256": "56c9e82031d1233ff6021406b182a67e23cecce9739b9bf12822379ef2ebe423"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/main.rs",
+      "sha256": "ab800e76983aa8cc282ceaaf4bf7e6fc963d5d71a6921a9d9e5b29035a56e67b"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/memory.rs",
+      "sha256": "735074515c0a8d8e8013de6d514fe67e746f43c9f09f3beeaaa1522664426a97"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/profile.rs",
+      "sha256": "70e5dc419ffd462b0c9fbfb9632ecb27caf1db1fea6534a452731deec39fbe14"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/runner.rs",
+      "sha256": "c9feed521109a6581108e181c1cbb9c880486b7947f82d90a1919e8fdcf2a425"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/trace.rs",
+      "sha256": "381441c0df6916a7d6b6e785b40a09b338a8fc5ce8ab89f75fa3a69395aa9973"
+    },
+    {
+      "path": "xtask/Cargo.toml",
+      "sha256": "e8c9da5f2ff134bb809f17af0eacfff6fe8e37d6b4daba6b87292d89d1559af7"
+    },
+    {
+      "path": "xtask/config/full_map_policy.json",
+      "sha256": "fb905de5ba558b215e125977b271e30a6628d9bd8254a6ffa616223c875c552a"
+    },
+    {
+      "path": "xtask/src/full_map.rs",
+      "sha256": "042d5418555e8be907a4967caa77c22efa65a5dbf1bea801e10cbbc933739d29"
+    },
+    {
+      "path": "xtask/src/main.rs",
+      "sha256": "ca96103656c8851c9c0ad4ca56ec72f83378d7bd8c506db3957ba90de16ea58d"
+    },
+    {
+      "path": "xtask/src/portability/bundle.rs",
+      "sha256": "4c57e6efd20028fa92789625ca99569709a70df799552b290983390aadc3451e"
+    },
+    {
+      "path": "xtask/src/portability/elf.rs",
+      "sha256": "4bc730e4fb97adee15fe1be0d001c02e14d669ebf695b9342c65adb5bcf06141"
+    },
+    {
+      "path": "xtask/src/portability/mod.rs",
+      "sha256": "d3980b66c0b38bf461e2f87db9197e533d1078f0a76154ece5c2b396045efddd"
+    },
+    {
+      "path": "xtask/src/portability/trace.rs",
+      "sha256": "40d350a23f7660c107cb9fb4bd1a7de66f9d33f6a5fa8e5db69d540330c01d5f"
+    }
+  ]
+}

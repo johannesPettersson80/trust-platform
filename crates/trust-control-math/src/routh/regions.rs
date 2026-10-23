@@ -126,10 +126,10 @@ pub fn hurwitz_region(coefficients: &[Affine]) -> Result<HurwitzRegion, ExactErr
     for index in 0..=roots.len() {
         let left = index.checked_sub(1).map(|previous| &roots[previous]);
         let right = roots.get(index);
-        if let (Some(left), Some(right)) = (left, right) {
-            if left.exact_upper.compare(&right.exact_lower) != Ordering::Less {
-                return Err(ExactError::EnclosureOverlap);
-            }
+        if let (Some(left), Some(right)) = (left, right)
+            && left.exact_upper.compare(&right.exact_lower) != Ordering::Less
+        {
+            return Err(ExactError::EnclosureOverlap);
         }
         let probe = probe_between(left, right)?;
         let mut stable = true;

@@ -154,10 +154,9 @@ impl PlantDesign {
             .keys()
             .find(|path| path.eq_ignore_ascii_case(from))
             .cloned()
+            && let Some(entry) = self.equipment.remove(&key)
         {
-            if let Some(entry) = self.equipment.remove(&key) {
-                self.equipment.insert(to.to_string(), entry);
-            }
+            self.equipment.insert(to.to_string(), entry);
         }
         for entry in self.equipment.values_mut() {
             for value in entry

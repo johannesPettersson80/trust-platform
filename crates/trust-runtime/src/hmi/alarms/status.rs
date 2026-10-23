@@ -94,7 +94,7 @@ pub fn read_alarms(runtime: &Runtime) -> Vec<AlarmStatus> {
         return Vec::new();
     }
     let storage = runtime.storage();
-    let programs = runtime.programs();
+    let programs = runtime.program_templates();
     let is_program = |type_name: &str| find_ignoring_case(programs, type_name).is_some();
     let holdings = super::discover::holdings_of(runtime);
     alarm_instances(storage, &holdings, &is_program)
@@ -128,13 +128,12 @@ fn read_alarm(storage: &VariableStorage, found: Found) -> Option<AlarmStatus> {
         _ => 0,
     };
     let mut reading = reading(storage, id);
-    if let (Some(reading), Some(equipment)) = (reading.as_mut(), equipment.as_deref()) {
-        if let Some((source, unit)) =
+    if let (Some(reading), Some(equipment)) = (reading.as_mut(), equipment.as_deref())
+        && let Some((source, unit)) =
             crate::hmi::presentation::alarm_value_format(storage, equipment, &path)
-        {
-            reading.source = Some(source);
-            reading.unit = unit;
-        }
+    {
+        reading.source = Some(source);
+        reading.unit = unit;
     }
     Some(AlarmStatus {
         message: text("Message"),

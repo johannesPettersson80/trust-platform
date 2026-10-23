@@ -160,13 +160,16 @@ impl<'a> BytecodeEncoder<'a> {
                 ParamDirection::Out => 1,
                 ParamDirection::InOut => 2,
             };
-            let execution_control_default =
-                (param.direction == ParamDirection::In
-                    && param.name.eq_ignore_ascii_case("EN"))
-                    || (param.direction == ParamDirection::Out
-                        && param.name.eq_ignore_ascii_case("ENO"));
+            let execution_control_default = (param.direction == ParamDirection::In
+                && param.name.eq_ignore_ascii_case("EN"))
+                || (param.direction == ParamDirection::Out
+                    && param.name.eq_ignore_ascii_case("ENO"));
             let default_const_idx = if execution_control_default {
                 Some(self.const_index_for(&crate::value::Value::Bool(true))?)
+            } else if self.authoring.is_some() {
+                // Source-free defaults are executable plans, never evaluated to
+                // capture a mutable runtime value while authoring the artifact.
+                None
             } else {
                 match (default_policy, &param.default, param.direction) {
                     (
@@ -174,9 +177,10 @@ impl<'a> BytecodeEncoder<'a> {
                         Some(expr),
                         ParamDirection::In | ParamDirection::Out,
                     ) => {
-                        let value = crate::harness::initializer::evaluate_initializer(
+                        let value = crate::harness::initializer::evaluate_initializer_with_abi(
                             self.runtime.storage(),
                             self.runtime.registry(),
+                            self.runtime.storage_abi(),
                             self.runtime.initializer_catalog(),
                             &self.runtime.profile(),
                             None,
@@ -184,9 +188,7 @@ impl<'a> BytecodeEncoder<'a> {
                             expr,
                             param.type_id,
                         )
-                        .map_err(|error| {
-                            BytecodeError::InvalidSection(error.to_string().into())
-                        })?;
+                        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))?;
                         Some(self.const_index_for_type(&value, param.type_id)?)
                     }
                     (
@@ -194,16 +196,20 @@ impl<'a> BytecodeEncoder<'a> {
                         None,
                         ParamDirection::In | ParamDirection::Out,
                     ) if self.call_local_implicit_default_is_portable(param.type_id, 0)? => {
-                        let value = crate::harness::initializer::default_value_for_type_id(
-                            self.runtime.storage(),
-                            self.runtime.registry(),
-                            self.runtime.initializer_catalog(),
-                            &self.runtime.profile(),
-                            None,
-                            self.runtime.stdlib(),
-                            param.type_id,
-                        )
-                        .map_err(|error| BytecodeError::InvalidSection(error.to_string().into()))?;
+                        let value =
+                            crate::harness::initializer::default_value_for_type_id_with_abi(
+                                self.runtime.storage(),
+                                self.runtime.registry(),
+                                self.runtime.storage_abi(),
+                                self.runtime.initializer_catalog(),
+                                &self.runtime.profile(),
+                                None,
+                                self.runtime.stdlib(),
+                                param.type_id,
+                            )
+                            .map_err(|error| {
+                                BytecodeError::InvalidSection(error.to_string().into())
+                            })?;
                         Some(self.const_index_for_type(&value, param.type_id)?)
                     }
                     _ => None,

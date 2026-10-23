@@ -70,7 +70,7 @@ fn incremental_vectors_match_the_published_values() {
 #[test]
 fn back_calculation_with_a_tracking_time_of_one_cycle_clamps_to_the_limit() {
     // Kp = Ki = 1, b = 1, Δt = Tt = 0.1 and a maximum of 1: the nominal output 1.1 is pulled to the
-    // saturated candidate 1 (spec 32 §3.13, control-signal clamping). The combined method gives the same.
+    // saturated candidate 1 (spec 45 §3.13, control-signal clamping). The combined method gives the same.
     let clamped = ControlPidParameters {
         proportional_gain: 1.0,
         integral_gain: 1.0,

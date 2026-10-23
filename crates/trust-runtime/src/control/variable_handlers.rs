@@ -24,11 +24,18 @@ pub(super) fn handle_eval(
         None => return ControlResponse::error(id, "no snapshot available".into()),
     };
     let name = params.expr.trim();
-    let value = snapshot
-        .storage
-        .get_global(name)
-        .cloned()
-        .or_else(|| snapshot.storage.get_retain(name).cloned());
+    let value = if let Some(value) = snapshot.storage.get_global(name) {
+        Some(value.clone())
+    } else {
+        let metadata = match state.metadata.lock() {
+            Ok(metadata) => metadata,
+            Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
+        };
+        metadata
+            .retained_reference_exact(&snapshot.storage, name)
+            .and_then(|reference| snapshot.storage.materialize_by_ref_ref(&reference))
+            .or_else(|| snapshot.storage.get_retain(name).cloned())
+    };
     match value {
         Some(value) => ControlResponse::ok(id, json!({ "value": format!("{value:?}") })),
         None => ControlResponse::error(id, "unknown identifier".into()),
@@ -51,9 +58,9 @@ pub(super) fn handle_set(
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
-    match parse_var_target(&params.target) {
-        Ok(VarTarget::Global(name)) => state.debug.enqueue_global_write(name, value),
-        Ok(VarTarget::Retain(name)) => state.debug.enqueue_retain_write(name, value),
+    let queued = match parse_var_target(&params.target) {
+        Ok(VarTarget::Global(name)) => state.debug.try_enqueue_global_write(name, value),
+        Ok(VarTarget::Retain(name)) => state.debug.try_enqueue_retain_write(name, value),
         Ok(VarTarget::Instance(_, _)) => {
             return ControlResponse::error(id, "unsupported target".into())
         }
@@ -63,6 +70,9 @@ pub(super) fn handle_set(
             return ControlResponse::error(id, error)
         }
         Err(_) => return ControlResponse::error(id, "unsupported target".into()),
+    };
+    if let Err(error) = queued {
+        return ControlResponse::error(id, error.to_string());
     }
     ControlResponse::ok(id, json!({"status": "queued"}))
 }
@@ -87,14 +97,17 @@ pub(super) fn handle_var_force(
         Ok(value) => value,
         Err(err) => return ControlResponse::error(id, err.to_string()),
     };
-    match target {
-        VarTarget::Global(name) => state.debug.force_global(name, value),
-        VarTarget::Retain(name) => state.debug.force_retain(name, value),
+    let forced = match target {
+        VarTarget::Global(name) => state.debug.try_force_global(name, value),
+        VarTarget::Retain(name) => state.debug.try_force_retain(name, value),
         VarTarget::Instance(id, name) => {
             state
                 .debug
-                .force_instance(crate::memory::InstanceId(id), name, value)
+                .try_force_instance(crate::memory::InstanceId(id), name, value)
         }
+    };
+    if let Err(error) = forced {
+        return ControlResponse::error(id, error.to_string());
     }
     ControlResponse::ok(id, json!({ "status": "forced" }))
 }

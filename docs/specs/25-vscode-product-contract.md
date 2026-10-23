@@ -13,7 +13,7 @@ Reviewed choices that resolve earlier product-plan conflicts are recorded in
 
 The behavior for creating, configuring, and observing simulated plants inside
 Devices & Connections is owned by
-[`34-vscode-plant-simulation-ui.md`](34-vscode-plant-simulation-ui.md).
+[`47-vscode-plant-simulation-ui.md`](47-vscode-plant-simulation-ui.md).
 The loop-specific monitoring, experiment, identification, tuning, and
 validation behavior of Control Studio is owned by
 [`35-vscode-control-studio.md`](35-vscode-control-studio.md).
@@ -204,7 +204,10 @@ package, or end-to-end evidence.
 ### 3.4 VSIX and acceptance evidence
 
 - Every Unix and Windows release VSIX MUST bundle `trust-lsp`, `trust-debug`,
-  and `trust-runtime` under `editors/vscode/bin`; Windows artifacts use `.exe`.
+  `trust-runtime`, and `trust-dev` under `editors/vscode/bin`; Windows artifacts
+  use `.exe`. The bundled `trust-runtime` and `trust-dev` MUST come from the
+  same target and release build so native Testing cannot fall back to a stale
+  workbench binary from `PATH`.
 - The acceptance-journey batch MUST remove helper-produced PNG files,
   including diagnostic `runner-output` copies, before validating the retained
   evidence tree.

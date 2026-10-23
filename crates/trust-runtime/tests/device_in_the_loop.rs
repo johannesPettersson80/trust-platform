@@ -486,10 +486,13 @@ struct CliReport {
 }
 
 fn run_runtime_cli(args: &[String]) -> CliReport {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(args)
-        .output()
-        .unwrap_or_else(|error| panic!("run trust-runtime {}: {error}", args.join(" ")));
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(args)
+    .output()
+    .unwrap_or_else(|error| panic!("run trust-runtime {}: {error}", args.join(" ")));
     CliReport {
         command: std::iter::once("trust-runtime".to_string())
             .chain(args.iter().cloned())

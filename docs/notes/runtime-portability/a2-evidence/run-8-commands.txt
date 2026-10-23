@@ -1,0 +1,9 @@
+rustfmt --edition 2021 crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs 
+rustfmt --check --edition 2021 crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs 
+cargo fmt --all -- --check 
+python3 /home/johannes/.cache/trust-portability-a2-setup/freeze-source-8.py 
+cargo test --locked -p trust-runtime --test bytecode_vm_core -- --nocapture --test-threads=1 
+cargo clippy --locked -p trust-runtime --test bytecode_vm_core --all-features -- -D warnings 
+bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+python3 /home/johannes/.cache/trust-portability-a2-setup/check-retained-evidence-8.py 
+git diff --check 

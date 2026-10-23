@@ -62,12 +62,11 @@ pub fn checked_grid(
     if let Timing::Discrete {
         sample_time_seconds,
     } = model.timing()
+        && grid.maximum_frequency >= PI / sample_time_seconds
     {
-        if grid.maximum_frequency >= PI / sample_time_seconds {
-            return Err(input_failure(
+        return Err(input_failure(
                 "The grid's maximum must be below π/Ts, the Nyquist frequency of this discrete model (N4.3).",
             ));
-        }
     }
     let total = u64::from(grid.points)
         .saturating_mul(u64::try_from(channel_count(model)).unwrap_or(u64::MAX));

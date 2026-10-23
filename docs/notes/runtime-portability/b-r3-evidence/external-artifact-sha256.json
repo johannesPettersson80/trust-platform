@@ -1,0 +1,21 @@
+{
+  "final-board/application.bin": "71cb8c62f8b13462455046cec44e58857cfe82bd33de8ba5c5f996e9258edb61",
+  "final-board/checkpoint-after-install.bin": "2d864c0b789a43214eee8524d3182075125e5ca2cd527f3582ec87ffd94076bc",
+  "final-board/checkpoint-before-install.bin": "2d864c0b789a43214eee8524d3182075125e5ca2cd527f3582ec87ffd94076bc",
+  "final-board/firmware-sector0-after-app.bin": "f0c7f40c1d8f17f745420826332d47c93744c77975d58b28f4f28d72a9ece737",
+  "final-board/firmware-sector0-before-app.bin": "f0c7f40c1d8f17f745420826332d47c93744c77975d58b28f4f28d72a9ece737",
+  "final-board/firmware-upper-after-app.bin": "2698313e15b2bc700bea7f30ce792452583a6ff63a1918b9494155561a73efb8",
+  "final-board/firmware-upper-before-app.bin": "2698313e15b2bc700bea7f30ce792452583a6ff63a1918b9494155561a73efb8",
+  "final-board/firmware.elf": "87d622c71fa6f6dab01d13caef9db2671a174f9ccb575b0398d76389b8f61c5b",
+  "final-board/installed-application-sector.bin": "06ce285f568d6c0aa7061074bd11d8b6758e3cfc15ad51488747af0b5937067b",
+  "final-board/preflash-full.bin": "df5df0142671f5a96b7b371afef66d595f3b2358cafed651449500e6175b838f",
+  "m1/measurement/firmware.elf": "f9563acca93a647fa4e7fa90074d7bf8625be0b7fb057a4d0f0a632c9d65dfef",
+  "m1/measurement/firmware.map": "481b2f8413858795e15ca2496822db757cff297140261f6d8a0303c35314478a",
+  "m2/measurement/firmware.elf": "8eeb3b96893c1c0d116d1d6de8c5ea07970e68563659bbeb259e346de62f3176",
+  "m2/measurement/firmware.map": "912363b559ff1300f7a41d28a1b2b85365b1182c5fa1290039e859d6ec5bf9be",
+  "review-hardware-stack/disassembly.txt": "63b5d9a489b39f7fb5105cee93d776a02dffc00265c391f7864fcf7197bb061b",
+  "run2/measurement/firmware.elf": "e7dfca7cc576d0234c2b077f926365778cb140438850c435aea926043f28ed7c",
+  "run2/measurement/firmware.map": "86082ecdaa9393d6faa04f9b3b252f95ef207dbf7d53ceeb394a58adddfb0d74",
+  "run3/measurement/firmware.elf": "87d622c71fa6f6dab01d13caef9db2671a174f9ccb575b0398d76389b8f61c5b",
+  "run3/measurement/firmware.map": "83f976f1c22c399a5ece0d1ce59249fb5781ccc8b554a64d740c0c2674dfc48b"
+}

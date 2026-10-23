@@ -1,0 +1,7 @@
+{
+  "run8/formatted-source-manifest.json": "a95bcff98b5d4a51e70acf7e29cf0113b585ac69bcfc39c4cc5fbac6b1e8337c",
+  "run8/measurement/firmware.elf": "a0e6ed2d7f725fd17746d30c229d02e5b0125c00c494015f3be40322e293ec1e",
+  "run8/measurement/firmware.map": "29e0f9c96d025f71af88fde5eb1aad3c54cda3828a780aada69b9d5d475d9e4f",
+  "run8/measurement/footprint.json": "315b1b906e5a7b0eb414d44b3e746d041549db3d5af76aa6d55e03a6526e4acf",
+  "run8/measurement/disassembly-review.txt": "fe5a7e0ac257030e92f5934ce3fbe62e4b4744acd72e2df9b3111e0c37b4d9f0"
+}

@@ -1,0 +1,122 @@
+use super::*;
+
+impl BytecodeModule {
+    /// Decode container framing and typed section payloads. Call `validated` before preparation.
+    pub fn decode(bytes: &[u8]) -> Result<Self, BytecodeError> {
+        Self::decode_with_limits(bytes, usize::MAX, usize::MAX).map(|(module, _)| module)
+    }
+
+    /// Decode using caller-selected payload allocation/work limits before reservation.
+    pub fn decode_with_limits(
+        bytes: &[u8],
+        max_allocation_bytes: usize,
+        max_work: usize,
+    ) -> Result<(Self, DecodeStats), BytecodeError> {
+        // Spec 12 §4.6: the fixed container bound precedes every decode charge.
+        if bytes.len() > BYTECODE_MAX_CONTAINER_BYTES {
+            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                "encoded container exceeds fixed resource limit",
+            )));
+        }
+        let mut accounting = DecodeBudget::new(max_allocation_bytes, max_work);
+        let budget = &mut accounting;
+        budget.charge(0, bytes.len())?;
+        let mut reader = BytecodeReader::new(bytes);
+        let magic = reader.read_bytes(4)?;
+        if magic != MAGIC {
+            return Err(BytecodeError::InvalidMagic);
+        }
+        let major = reader.read_u16()?;
+        let minor = reader.read_u16()?;
+        let flags = reader.read_u32()?;
+        let header_size = reader.read_u16()?;
+        let section_count = reader.read_u16()? as usize;
+        let section_table_off = reader.read_u32()? as usize;
+        let checksum = reader.read_u32()?;
+
+        if header_size < HEADER_SIZE {
+            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                "header size too small",
+            )));
+        }
+        if !header_size.is_multiple_of(4) {
+            return Err(BytecodeError::SectionAlignment);
+        }
+        if section_table_off < header_size as usize {
+            return Err(BytecodeError::InvalidHeader(smol_str::SmolStr::new_static(
+                "section table before header",
+            )));
+        }
+        if !section_table_off.is_multiple_of(4) {
+            return Err(BytecodeError::SectionAlignment);
+        }
+
+        let table_len = section_count
+            .checked_mul(SECTION_ENTRY_SIZE)
+            .ok_or_else(|| {
+                BytecodeError::InvalidSectionTable(smol_str::SmolStr::new_static(
+                    "section table overflow",
+                ))
+            })?;
+        let table_end = section_table_off.checked_add(table_len).ok_or_else(|| {
+            BytecodeError::InvalidSectionTable(smol_str::SmolStr::new_static(
+                "section table overflow",
+            ))
+        })?;
+        if table_end > bytes.len() {
+            return Err(BytecodeError::InvalidSectionTable(
+                smol_str::SmolStr::new_static("section table out of bounds"),
+            ));
+        }
+
+        let version = BytecodeVersion::new(major, minor);
+        super::super::module::storage_abi_for_header(version, flags)?;
+        if flags & HEADER_FLAG_CRC32 != 0 {
+            let actual = super::super::header_checksum(version, bytes, section_table_off);
+            if actual != checksum {
+                return Err(BytecodeError::InvalidChecksum {
+                    expected: checksum,
+                    actual,
+                });
+            }
+        }
+
+        let mut entries = budget.vector(section_count)?;
+        let mut table_reader = BytecodeReader::new(&bytes[section_table_off..table_end]);
+        for _ in 0..section_count {
+            let record = Record::<12>::read(&mut table_reader)?;
+            let id = record.half::<0>();
+            let flags = record.half::<2>();
+            let offset = record.word::<4>();
+            let length = record.word::<8>();
+            entries.push(SectionEntry {
+                id,
+                flags,
+                offset,
+                length,
+            });
+        }
+
+        validate_section_entries(bytes.len(), table_end, &entries, version, budget)?;
+
+        let mut sections = budget.vector(section_count)?;
+        for entry in entries {
+            let start = entry.offset as usize;
+            let end = start + entry.length as usize;
+            let payload = &bytes[start..end];
+            let data = decode_section_data(version, entry.id, payload, budget)?;
+            sections.push(Section {
+                id: entry.id,
+                flags: entry.flags,
+                data,
+            });
+        }
+
+        let module = Self {
+            version,
+            flags,
+            sections,
+        };
+        Ok((module, budget.stats()))
+    }
+}

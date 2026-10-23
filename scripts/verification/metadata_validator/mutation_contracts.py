@@ -12,7 +12,7 @@ from .constants import ROOT
 
 
 CASE_SEMANTICS = "association_only_case_ids_not_executed_by_mutation_runner"
-SOURCE_PREFIX = "crates/trust-runtime/src/bytecode/validate/"
+SOURCE_PREFIX = "crates/trust-runtime-core/src/bytecode/validate/"
 
 
 class MutationContractError(RuntimeError):

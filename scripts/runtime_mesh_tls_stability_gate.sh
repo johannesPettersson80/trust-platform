@@ -48,7 +48,7 @@ for i in $(seq 1 "${ITERATIONS}"); do
   ok=0
   for attempt in $(seq 1 "${ATTEMPTS_PER_RUN}"); do
     if run_observed "runtime-mesh-tls-stability" "run-${i}-attempt-${attempt}" "${GATE_TEST_TIMEOUT_SECONDS:-600}" "${OUT_DIR}/run-${i}-attempt-${attempt}.log" \
-      cargo test -p trust-runtime --lib mesh::tests::mesh_tls_publish_applies_updates -- --nocapture; then
+      "${ROOT_DIR}/scripts/cargo_test_fast_link.sh" test -p trust-runtime --lib mesh::tests::mesh_tls_publish_applies_updates -- --nocapture; then
       ok=1
       break
     fi

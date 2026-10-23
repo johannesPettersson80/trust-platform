@@ -26,8 +26,8 @@ replace physical-hardware evidence.
 
 Product authority:
 
-- `docs/specs/33-simulation-plant-models.md`
-- `docs/specs/34-vscode-plant-simulation-ui.md`
+- `docs/specs/46-simulation-plant-models.md`
+- `docs/specs/47-vscode-plant-simulation-ui.md`
 - `docs/specs/35-vscode-control-studio.md`
 
 ## Internal journey authority

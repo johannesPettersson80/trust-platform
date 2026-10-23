@@ -13,8 +13,15 @@ use super::transport::{
     AdsTransportError, AdsWriteRequest,
 };
 
+mod connection;
+mod source_policy;
+
+use connection::connect_ads_client;
+use source_policy::ads_source_for_route;
+#[cfg(test)]
+use source_policy::DEFAULT_SOURCE_PORT;
+
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
-const DEFAULT_SOURCE_PORT: u16 = 58_913;
 const DEFAULT_NOTIFICATION_CYCLE: Duration = Duration::from_millis(100);
 
 // Names mirror Beckhoff AdsDef.h; ads-rs exposes these as raw fields only.
@@ -168,27 +175,11 @@ impl AdsRsTransport {
         ))
     }
 
-    fn connection_source(&self) -> Result<ads::Source, AdsTransportError> {
-        let Some(local_net_id) = self.route.local_net_id.as_ref() else {
-            return Ok(ads::Source::Auto);
-        };
-        let [a, b, c, d, e, f] = parse_canonical_ams_net_id(&local_net_id.0).ok_or_else(|| {
-            AdsTransportError::new(format!(
-                "invalid local AMS Net ID '{}'; expected six decimal octets in canonical form",
-                local_net_id.0
-            ))
-        })?;
-        Ok(ads::Source::Addr(ads::AmsAddr::new(
-            ads::AmsNetId::new(a, b, c, d, e, f),
-            DEFAULT_SOURCE_PORT,
-        )))
-    }
-
     fn connect_with<F>(&mut self, connector: F) -> Result<(), AdsTransportError>
     where
         F: FnOnce(
             (&str, u16),
-            ads::Timeouts,
+            AdsRsTimeouts,
             ads::Source,
         ) -> Result<ads::Client, AdsTransportError>,
     {
@@ -204,18 +195,14 @@ impl AdsRsTransport {
         }
 
         let _target = self.target_addr()?;
-        let source = self.connection_source()?;
+        let source = ads_source_for_route(&self.route)?;
 
         self.release_notifications();
         self.release_symbol_handles();
         self.notification_receiver = None;
         self.client = None;
 
-        let client = connector(
-            (self.route.host.as_str(), ads::PORT),
-            self.timeouts.into_ads(),
-            source,
-        )?;
+        let client = connector((self.route.host.as_str(), ads::PORT), self.timeouts, source)?;
         self.notification_receiver = Some(client.get_notification_channel());
         self.client = Some(client);
         Ok(())
@@ -265,8 +252,9 @@ impl Drop for AdsRsTransport {
 
 impl AdsTransport for AdsRsTransport {
     fn connect(&mut self) -> Result<(), AdsTransportError> {
-        self.connect_with(|address, timeouts, source| {
-            ads::Client::new(address, timeouts, source).map_err(map_ads_error)
+        let route = self.route.clone();
+        self.connect_with(move |address, timeouts, _source| {
+            connect_ads_client(address, timeouts, &route)
         })
     }
 
@@ -556,7 +544,7 @@ fn request_symbol_handle(
     Ok(u32::from_le_bytes(handle_bytes))
 }
 
-fn validate_requested_size(request: &AdsHandleRequest) -> Result<(), AdsTransportError> {
+pub(super) fn validate_requested_size(request: &AdsHandleRequest) -> Result<(), AdsTransportError> {
     let expected = checked_byte_len(&request.data_type)?;
     if let AdsPointAddress::Index { size, .. } = request.address {
         let actual = usize::try_from(size).map_err(|_| {
@@ -575,7 +563,7 @@ fn validate_requested_size(request: &AdsHandleRequest) -> Result<(), AdsTranspor
     Ok(())
 }
 
-fn read_write_address(handle: &AdsResolvedHandle) -> (u32, u32) {
+pub(super) fn read_write_address(handle: &AdsResolvedHandle) -> (u32, u32) {
     match handle.address {
         AdsPointAddress::Symbol(_) => (ads::index::RW_SYMVAL_BYHANDLE, handle.handle),
         AdsPointAddress::Index {
@@ -586,7 +574,7 @@ fn read_write_address(handle: &AdsResolvedHandle) -> (u32, u32) {
     }
 }
 
-fn symbol_descriptor_from_ads(
+pub(super) fn symbol_descriptor_from_ads(
     symbol: &ads::symbol::Symbol,
     types: &ads::symbol::TypeMap,
 ) -> Result<Option<SymbolDescriptor>, AdsTransportError> {
@@ -738,14 +726,16 @@ fn string_capacity(
     })
 }
 
-fn checked_byte_len(descriptor: &AdsDataTypeDescriptor) -> Result<usize, AdsTransportError> {
+pub(super) fn checked_byte_len(
+    descriptor: &AdsDataTypeDescriptor,
+) -> Result<usize, AdsTransportError> {
     let byte_len = descriptor.byte_len().map_err(map_mapping_error)?;
     u32::try_from(byte_len)
         .map_err(|_| AdsTransportError::new("ADS point byte length exceeds u32"))?;
     Ok(byte_len)
 }
 
-fn now_ms() -> u64 {
+pub(super) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
@@ -756,7 +746,19 @@ fn map_ads_error(error: ads::Error) -> AdsTransportError {
     AdsTransportError::new(error.to_string())
 }
 
-fn map_mapping_error(error: impl std::fmt::Display) -> AdsTransportError {
+fn parse_local_ams_net_id(
+    value: &trust_ads_core::AmsNetId,
+) -> Result<ads::AmsNetId, AdsTransportError> {
+    let [a, b, c, d, e, f] = parse_canonical_ams_net_id(&value.0).ok_or_else(|| {
+        AdsTransportError::new(format!(
+            "invalid local AMS Net ID '{}'; expected six decimal octets in canonical form",
+            value.0
+        ))
+    })?;
+    Ok(ads::AmsNetId::new(a, b, c, d, e, f))
+}
+
+pub(super) fn map_mapping_error(error: impl std::fmt::Display) -> AdsTransportError {
     AdsTransportError::new(error.to_string())
 }
 

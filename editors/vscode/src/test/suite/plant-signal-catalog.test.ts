@@ -35,6 +35,7 @@ suite("Plant signal catalog", () => {
           },
         ],
         memory: [],
+        ads: [],
       }),
       {
         status: "ready",
@@ -63,7 +64,7 @@ suite("Plant signal catalog", () => {
     );
   });
 
-  test("a memory value is a command source too, as a disturbance the HMI sets (spec 33, §13.1)", () => {
+  test("a memory value is a command source too, as a disturbance the HMI sets (spec 46, §13.1)", () => {
     const compiled = {
       ok: true,
       processImage: {
@@ -72,7 +73,7 @@ suite("Plant signal catalog", () => {
         memory: [{ symbol: "Simulation.WindowOpening", address: "%ML0", type: "LREAL" }],
       },
     };
-    const catalog = plantSignals.buildPlantSignalCatalog(compiled, { inputs: [], outputs: [], memory: [] });
+    const catalog = plantSignals.buildPlantSignalCatalog(compiled, { inputs: [], outputs: [], memory: [], ads: [] });
     assert.deepStrictEqual(
       catalog.commands.map((candidate) => candidate.address),
       ["%QL8", "%ML0"],
@@ -96,6 +97,7 @@ suite("Plant signal catalog", () => {
           outputs: [{ address: "%QL0", value: "99", valueType: "LREAL" }],
           inputs: [],
           memory: [],
+          ads: [],
         },
       ),
       {

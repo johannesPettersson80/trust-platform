@@ -152,8 +152,8 @@ fn proportional_heater_output_is_owned_by_the_actual_control_pid_instance() {
         .field_mut("OutputMaximum")
         .unwrap() = Value::LReal(10.0);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", parameters));
+        .write_instance(program, "Parameters", parameters)
+        .is_ok());
     debug.enqueue_io_write(IoAddress::parse("%MX24.1").unwrap(), Value::Bool(true));
     runtime.advance_time(Duration::from_millis(100));
     runtime.execute_cycle().unwrap();
@@ -389,8 +389,8 @@ fn integral_action_uses_actual_control_pid_and_retains_its_output_state() {
         .field_mut("OutputMaximum")
         .unwrap() = Value::LReal(10.0);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", parameters));
+        .write_instance(program, "Parameters", parameters)
+        .is_ok());
     debug.enqueue_io_write(
         IoAddress::parse("%IL0").unwrap(),
         Value::LWord(20.0_f64.to_bits()),
@@ -655,8 +655,8 @@ fn response_trial_is_owned_by_actual_control_pid_and_preserves_accepted_limits()
         .field_mut("OutputMaximum")
         .unwrap() = Value::LReal(10.0);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", accepted.clone()));
+        .write_instance(program, "Parameters", accepted.clone())
+        .is_ok());
     for _ in 0..3 {
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();

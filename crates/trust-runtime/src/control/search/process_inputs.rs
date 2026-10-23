@@ -62,8 +62,7 @@ pub(super) fn apply(runtime: &mut Runtime, inputs: &[ProcessInput]) -> Result<()
             None => value,
         };
         runtime
-            .io_mut()
-            .write(&address, stored)
+            .write_io(&address, stored)
             .map_err(|error| format!("live input {}: {error}", input.address))?;
     }
     Ok(())

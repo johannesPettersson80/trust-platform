@@ -1,13 +1,22 @@
 //! Bytecode container format records shared by host and core bytecode paths.
 
-#![allow(missing_docs)]
-
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-include!("format/header.rs");
-include!("format/types.rs");
-include!("format/refs_consts.rs");
-include!("format/pou.rs");
-include!("format/resource_io_debug.rs");
+mod header;
+pub use header::*;
+mod types;
+pub use types::*;
+mod refs_consts;
+pub use refs_consts::*;
+mod pou;
+pub use pou::*;
+mod resource_io_debug;
+pub use resource_io_debug::*;
+
+mod construction;
+pub use construction::*;
+
+/// Named opcodes shared by portable validation and the source producer.
+pub mod opcodes;

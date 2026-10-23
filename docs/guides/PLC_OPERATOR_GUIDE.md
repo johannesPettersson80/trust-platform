@@ -35,11 +35,16 @@ trust-runtime ctl --project <project-folder> shutdown
 trust-runtime ctl --project <project-folder> status
 ```
 
-You should see:
+You should see one line such as:
 
-- state: `running`
-- PLC name
-- cycle timing
+```
+state=running fault=none rt_profile=disabled rt_active=false
+```
+
+For cycle timing per task:
+```
+trust-runtime ctl --project <project-folder> stats
+```
 
 Or use the hybrid console:
 ```
@@ -79,7 +84,7 @@ If a fault occurs, the runtime:
 
 Clear the fault by restarting:
 ```
-trust-runtime ctl --project <project-folder> restart --mode cold
+trust-runtime ctl --project <project-folder> restart cold
 ```
 
 In the Web UI:
@@ -210,8 +215,13 @@ If debug mode is enabled in `runtime.toml`, you can:
 
 - Check power and wiring.
 - Check I/O status in the UI.
-- Check recent events:
+- Check the PLC state and fault:
   ```
   trust-runtime ctl --project <project-folder> status
   ```
+- Check recent faults:
+  ```
+  trust-runtime ctl --project <project-folder> faults
+  ```
+  Or open **Logs → Faults** in the Web UI.
 - Restart cold if needed.

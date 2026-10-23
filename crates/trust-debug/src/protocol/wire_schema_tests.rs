@@ -127,6 +127,7 @@ fn custom_state_payloads_preserve_force_scan_frame_and_instance_identity() {
         value_type: Some("BOOL".to_string()),
         value: "TRUE".to_string(),
         forced: false,
+        writable: Some(false),
     };
     assert_wire(
         IoStateEventBody {
@@ -143,7 +144,8 @@ fn custom_state_payloads_preserve_force_scan_frame_and_instance_identity() {
                 "source": "main.st",
                 "valueType": "BOOL",
                 "value": "TRUE",
-                "forced": false
+                "forced": false,
+                "writable": false
             }],
             "outputs": [],
             "memory": []

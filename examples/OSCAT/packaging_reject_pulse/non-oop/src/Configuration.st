@@ -1,5 +1,5 @@
 CONFIGURATION PackagingRejectPulseClassicConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE PackagingRejectPulseClassic ON PLC
     TASK MainTask (INTERVAL := T#50ms, PRIORITY := 1);
     PROGRAM Main WITH MainTask : Main;
 END_RESOURCE

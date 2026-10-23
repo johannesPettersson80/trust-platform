@@ -87,7 +87,7 @@ pub fn pairing_by_relative_gain(relative_gains: &DenseMatrix) -> Vec<usize> {
 }
 
 /// The steady-state gain `G` of a state-space model: `C·(I − A)⁻¹·B + D` for a discrete model, and `−C·A⁻¹·B + D` for a
-/// continuous one (C7). The states of each input are solved by [`solve_linear`].
+/// continuous one (C7). The states of each input are solved by Gaussian elimination with partial pivoting.
 ///
 /// Returns `None` when a state equation has no solution, that is when an elimination pivot is not above `10⁻¹²`.
 #[must_use]

@@ -14,7 +14,24 @@ fn vm_harness(source: &str, force_stack_via_debug: bool) -> TestHarness {
     if force_stack_via_debug {
         let _ = runtime.enable_debug();
     }
+    if !force_stack_via_debug {
+        assert_register_arm_interprets(&harness);
+    }
     harness
+}
+
+/// The register arm must interpret: Tier-1 disabled and no Tier-1 block run. An environment
+/// variable such as TRUST_VM_TIER1_SPECIALIZED_EXECUTOR must not silently change this arm.
+fn assert_register_arm_interprets(harness: &TestHarness) {
+    let tier1 = harness.runtime().vm_tier1_specialized_executor_snapshot();
+    assert!(
+        !tier1.enabled,
+        "register arm must not run Tier-1: {tier1:?}"
+    );
+    assert_eq!(
+        tier1.block_executions, 0,
+        "register arm must run zero Tier-1 blocks: {tier1:?}"
+    );
 }
 
 fn assert_register_path(profile: &VmRegisterProfileSnapshot) {
@@ -100,6 +117,7 @@ END_PROGRAM
     assert_eq!(register.get_output("total"), Some(Value::DInt(6)));
     assert_eq!(register.get_output("second"), Some(Value::Char(b'B')));
 
+    assert_register_arm_interprets(&register);
     assert_register_path(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
@@ -153,6 +171,7 @@ END_PROGRAM
     assert_eq!(register.get_output("outv"), stack.get_output("outv"));
     assert_eq!(register.get_output("outv"), Some(Value::DInt(42)));
 
+    assert_register_arm_interprets(&register);
     assert_register_path(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
@@ -205,6 +224,7 @@ END_PROGRAM
         }]
     );
 
+    assert_register_arm_interprets(&register);
     assert_register_started_without_fallback(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
@@ -267,6 +287,7 @@ END_PROGRAM
         Some(Value::WChar(b'Z' as u16))
     );
 
+    assert_register_arm_interprets(&register);
     assert_register_path(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
@@ -320,6 +341,7 @@ END_PROGRAM
         assert_eq!(register_cycle.errors, stack_cycle.errors);
         assert_eq!(register_cycle.errors, vec![expected]);
 
+        assert_register_arm_interprets(&register);
         assert_register_started_without_fallback(
             &register.runtime().vm_register_profile_snapshot(),
         );
@@ -352,6 +374,7 @@ END_PROGRAM
         vec![trust_runtime::error::RuntimeError::ModuloByZero]
     );
 
+    assert_register_arm_interprets(&register);
     assert_register_started_without_fallback(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
@@ -420,6 +443,7 @@ END_PROGRAM
     );
     assert_eq!(register.get_output("outv"), stack.get_output("outv"));
 
+    assert_register_arm_interprets(&register);
     assert_register_path(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }
@@ -463,6 +487,7 @@ END_PROGRAM
     assert_eq!(register.get_output("outv"), stack.get_output("outv"));
     assert_eq!(register.get_output("outv"), Some(Value::DInt(2)));
 
+    assert_register_arm_interprets(&register);
     assert_register_path(&register.runtime().vm_register_profile_snapshot());
     assert_stack_fallback(&stack.runtime().vm_register_profile_snapshot());
 }

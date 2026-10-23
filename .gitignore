@@ -3,6 +3,12 @@
 **/*.rs.bk
 **/Cargo.lock
 !/Cargo.lock
+!/firmware/trust-nucleo-f401re/Cargo.lock
+!/firmware/trust-esp32c6-reference/Cargo.lock
+!/fuzz/Cargo.lock
+!/crates/trust-ads-server/fuzz/Cargo.lock
+/firmware/trust-nucleo-f401re/target/
+/firmware/trust-nucleo-f401re/*.map
 /.mapping-transaction.lock
 /site/
 /.venv-docs/
@@ -36,7 +42,6 @@ scripts/captures/playwright-report/
 
 # Local tooling caches
 .claude/
-.codex/skills/
 .venv/
 __pycache__/
 .claude-plugin/
@@ -110,6 +115,7 @@ docs/internal/architecture/*
 docs/internal/testing/*
 !docs/internal/testing/checklists/
 docs/internal/testing/checklists/*
+!docs/internal/testing/checklists/runtime-portability-implementation-checklist.md
 !docs/internal/testing/checklists/hmi-complete-implementation-checklist.md
 !docs/internal/testing/checklists/web-ide-full-implementation-checklist.md
 !docs/internal/testing/checklists/ld-specification-detailed-checklist.md
@@ -137,6 +143,9 @@ docs/internal/testing/checklists/*
 !docs/internal/testing/checklists/runtime-host-module-collapse-execution-checklist.md
 !docs/internal/testing/checklists/architecture-external-safety-dependency-follow-up-checklist.md
 !docs/internal/testing/checklists/runtime-safety-fail-closed-checklist.md
+!docs/internal/testing/checklists/openot-database-persistence-implementation-checklist.md
+!docs/internal/testing/checklists/openot-typed-database-read-model-checklist.md
+!docs/internal/architecture/openot-database-persistence-contract.md
 !docs/internal/testing/checklists/docs-ia-visual-polish-checklist.md
 !docs/internal/testing/checklists/docs-ia-strategy.md
 !docs/internal/testing/evidence/
@@ -182,8 +191,9 @@ docs/internal/testing/evidence/vscode-ui-ux-acceptance/*
 !docs/internal/references/PLCopenMotion/
 conformance/reports/*
 !conformance/reports/.gitkeep
-AGENTS.md
-CLAUDE.md
+
+# Task-owned raw validation artifacts live outside the source tree.
+/.artifacts/
 
 # The CJK fonts, copied into the extension by editors/vscode/scripts/build-hmi-builder-webview.js
 # from crates/trust-runtime/src/web/ui/assets/fonts (specification 39, §14.5 item 2).

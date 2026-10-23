@@ -31,6 +31,7 @@ fn snapshot_entry(
         name: name.map(SmolStr::new),
         address: IoAddress::parse(address).expect("valid I/O address"),
         value_type: None,
+        value_type_name: None,
         value,
         source: None,
     }

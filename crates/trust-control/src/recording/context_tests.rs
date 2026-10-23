@@ -274,7 +274,7 @@ fn saved_plant() -> Value {
     })
 }
 
-/// The `plant.read` answer of a project that saves two plants and an event of each (specification 34, §20.2).
+/// The `plant.read` answer of a project that saves two plants and an event of each (specification 47, §20.2).
 fn plant_read(revision: &str) -> Value {
     json!({
         "contract": "trust.plant", "schema_version": 1, "operation": "plant.read", "project_id": "project:sha256:abc",
@@ -291,7 +291,7 @@ fn plant_read(revision: &str) -> Value {
     })
 }
 
-/// The `plant.status` answer of a runtime that runs the saved configuration `revision` with the seed 77 (specification 34, §20.4).
+/// The `plant.status` answer of a runtime that runs the saved configuration `revision` with the seed 77 (specification 47, §20.4).
 fn plant_status(revision: &str, plant_ids: &[&str]) -> Value {
     let plants: Vec<Value> = plant_ids
         .iter()

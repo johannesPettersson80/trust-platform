@@ -559,7 +559,7 @@ export async function startDisplay(
         redraw();
         return;
       }
-      // The simulation the header shows, as the stream reports it (specification 33, §6.1).
+      // The simulation the header shows, as the stream reports it (specification 46, §6.1).
       if ("simulation" in message) {
         showSimulation(frame.simulation, message.simulation as SimulationStatus | null | undefined);
         return;

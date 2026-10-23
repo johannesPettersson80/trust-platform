@@ -1,0 +1,76 @@
+[gate-progress state=started phase=A2-affected-case-tests target=scena-rust-builder pid=1029262 elapsed=0.0s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_verification_cases --test vm_resource_limit_cases --test phase11_seam_contract -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+    Finished `test` profile [unoptimized] target(s) in 2.37s
+     Running tests/bytecode_verification_cases.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/bytecode_verification_cases-7cd35dc114a90d8e)
+
+running 2 tests
+test bytecode_validator_cases_reject_before_partial_apply ... ok
+test committed_transform_seed_is_a_complete_applicable_module ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/phase11_seam_contract.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/phase11_seam_contract-23301a74a5850bd5)
+
+running 24 tests
+test computed_subrange_assignment_fails_visibly_without_committing_out_of_range_value ... ok
+test computed_subrange_fb_input_binding_fails_visibly_without_committing_out_of_range_value ... ok
+test computed_subrange_ref_write_fails_visibly_without_committing_out_of_range_value ... ok
+test crafted_frame_local_ref_cannot_persist_to_global_storage ... ok
+test crafted_multi_owner_instance_refs_are_rejected_before_execution ... ok
+test declared_dint_conversion_matches_iec_on_stack_register_and_tier1_paths ... ok
+test declared_dint_keeps_dint_width_after_int_assignment ... ok
+test declared_real_conversion_matches_iec_on_stack_register_and_tier1_paths ... ok
+test declared_real_keeps_real_semantics_after_integer_assignment ... ok
+test literal_context_coercions_stay_declared_width_and_type ... ok
+test parameter_copy_in_materializes_declared_numeric_widening ... ok
+test ref_return_name_is_rejected_before_runtime_lowering ... ok
+test unsupported_array_initializer_assignment_fails_build_instead_of_nop ... ok
+test validator_rejects_bool_operands_for_arithmetic_opcode ... ok
+test validator_rejects_const_type_incompatible_with_store_ref_target ... ok
+test validator_rejects_inout_parameter_bound_to_literal_argument ... ok
+test validator_rejects_invalid_parameter_direction_metadata ... ok
+test validator_rejects_leftover_stack_at_pou_return ... ok
+test validator_rejects_legacy_call_opcode_even_when_target_exists ... ok
+test validator_rejects_multi_owner_instance_ref_contract ... ok
+test validator_rejects_persistent_frame_local_ref_escape ... ok
+test validator_rejects_stack_underflow_store_ref ... ok
+
+thread 'vm_seam_case_support::vm_owner_trace_cases' (1029885) panicked at crates/trust-runtime/tests/phase11_seam_contract/vm_seam_case_support.rs:58:33:
+TEST_VM_OWNER_TRACE_001 artifact must be written: case file digest mismatch: expected sha256:96b44cff96659e58bdad83bdf7f47fffb1d49eb5cf85addf0cf83b240f562484, actual sha256:bb58e2d2c0a3e913431e16ceee2cc103bf04c6d4ea7d3371baccd17dd4d515b2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test vm_seam_case_support::vm_owner_trace_cases ... FAILED
+
+thread 'vm_seam_case_support::vm_ref_escape_trace_cases' (1029886) panicked at crates/trust-runtime/tests/phase11_seam_contract/vm_seam_case_support.rs:58:33:
+TEST_VM_REF_ESCAPE_TRACE_001 artifact must be written: case file digest mismatch: expected sha256:7b3611fd7f35176dc7690518ad5d118cb617afc4b2545ec309ecbb847fce29cb, actual sha256:4fc9474818b7aa1d72c6d65b0534417a6d1d3159b97851bc9f42ea2deec89a68
+test vm_seam_case_support::vm_ref_escape_trace_cases ... FAILED
+
+failures:
+
+failures:
+    vm_seam_case_support::vm_owner_trace_cases
+    vm_seam_case_support::vm_ref_escape_trace_cases
+
+test result: FAILED. 22 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.84s
+
+error: test failed, to rerun pass `-p trust-runtime --test phase11_seam_contract`
+     Running tests/vm_resource_limit_cases.rs (/home/johannes/.cache/codex-targets/trust-platform-gate/debug/deps/vm_resource_limit_cases-15e28976153586b3)
+
+running 1 test
+
+thread 'vm_resource_limit_trace_cases' (1029888) panicked at crates/trust-runtime/tests/vm_resource_limit_cases.rs:62:27:
+resource-limit case artifact must be written: DigestMismatch { expected: "sha256:b1b2e994813b9b089d6386964ddf6134949d623bb1b60064075b2a5f38d24289", actual: "sha256:43b9709939e005fcc9b13203f5ffdd1134f47d7ff4ce2e225fa5374b006184f2" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test vm_resource_limit_trace_cases ... FAILED
+
+failures:
+
+failures:
+    vm_resource_limit_trace_cases
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p trust-runtime --test vm_resource_limit_cases`
+error: 2 targets failed:
+    `-p trust-runtime --test phase11_seam_contract`
+    `-p trust-runtime --test vm_resource_limit_cases`
+[gate-progress state=finished phase=A2-affected-case-tests target=scena-rust-builder pid=1029262 elapsed=3.4s timeout=3600s command='cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_verification_cases --test vm_resource_limit_cases --test phase11_seam_contract -- --nocapture --test-threads=1' status=101]

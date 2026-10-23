@@ -9,7 +9,7 @@ skinparam ranksep 35
 title truST Control PID Library: Public Surface And Conformance Flow
 
 package "Normative Inputs" {
-  artifact "Control PID Specification\ndocs/specs/32-control-pid.md" as spec
+  artifact "Control PID Specification\ndocs/specs/45-control-pid.md" as spec
   artifact "Paper Listings 3-5\nand released examples" as paper
 }
 

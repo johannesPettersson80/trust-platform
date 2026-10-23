@@ -99,6 +99,7 @@ fn control_state(
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };
@@ -183,6 +184,7 @@ fn control_state(
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         historian,
+        openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),

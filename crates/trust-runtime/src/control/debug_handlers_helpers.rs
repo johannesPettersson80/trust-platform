@@ -2,36 +2,30 @@ fn debug_stop_to_json(
     stop: crate::debug::DebugStop,
     state: &ControlState,
 ) -> Option<serde_json::Value> {
-    let reason = match stop.reason {
-        crate::debug::DebugStopReason::Breakpoint => "breakpoint",
-        crate::debug::DebugStopReason::Step => "step",
-        crate::debug::DebugStopReason::Pause => "pause",
-        crate::debug::DebugStopReason::Entry => "entry",
-    };
+    let reason = super::types::debug_stop_reason_label(stop.reason);
     let mut payload = json!({
         "reason": reason,
         "thread_id": stop.thread_id,
         "breakpoint_generation": stop.breakpoint_generation,
     });
-    if let Some(location) = stop.location {
-        if let Some(text) = state.sources.source_text(location.file_id) {
-            let (line, column) = location_to_line_col(&text, &location);
-            if let Some(source) = state
-                .sources
-                .files()
-                .iter()
-                .find(|file| file.id == location.file_id)
-            {
-                if let Some(obj) = payload.as_object_mut() {
-                    obj.insert("file_id".to_string(), json!(location.file_id));
-                    obj.insert("line".to_string(), json!(line));
-                    obj.insert("column".to_string(), json!(column));
-                    obj.insert(
-                        "path".to_string(),
-                        json!(source.path.to_string_lossy().to_string()),
-                    );
-                }
-            }
+    if let Some(location) = stop.location
+        && let Some(text) = state.sources.source_text(location.file_id)
+    {
+        let (line, column) = location_to_line_col(&text, &location);
+        if let Some(source) = state
+            .sources
+            .files()
+            .iter()
+            .find(|file| file.id == location.file_id)
+            && let Some(obj) = payload.as_object_mut()
+        {
+            obj.insert("file_id".to_string(), json!(location.file_id));
+            obj.insert("line".to_string(), json!(line));
+            obj.insert("column".to_string(), json!(column));
+            obj.insert(
+                "path".to_string(),
+                json!(source.path.to_string_lossy().to_string()),
+            );
         }
     }
     Some(payload)
@@ -87,9 +81,10 @@ fn evaluate_with_snapshot(
     let eval = |storage: &mut crate::memory::VariableStorage,
                 instance_id: Option<crate::memory::InstanceId>|
      -> Result<Value, RuntimeError> {
-        crate::helper_eval::eval_storage_expr_with_stdlib(
+        crate::helper_eval::eval_storage_expr_with_abi(
             storage,
             registry,
+            snapshot.storage_abi,
             &profile,
             instance_id,
             Some(metadata.stdlib()),

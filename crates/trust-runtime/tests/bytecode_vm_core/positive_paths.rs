@@ -37,33 +37,37 @@ fn vm_opcode_positive_path_covers_arith_logical_branch_jump_load_store_ref() {
         END_WHILE;
         END_PROGRAM
     "#;
-    let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
-    assert!(body.contains(&0x02), "expected JUMP opcode in main body");
-    assert!(
-        body.contains(&0x03) || body.contains(&0x04),
-        "expected JUMP_IF_TRUE/FALSE opcode in main body"
-    );
-    assert!(
-        body.contains(&0x20),
-        "expected LOAD_REF opcode in main body"
-    );
-    assert!(
-        body.contains(&0x21),
-        "expected STORE_REF opcode in main body"
-    );
-    assert!(body.contains(&0x40), "expected ADD opcode in main body");
-    assert!(body.contains(&0x46), "expected AND opcode in main body");
-
-    let mut harness = vm_harness(source);
-    let cycle = harness.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "opcode positive-path execution failed: {:?}",
-        cycle.errors
-    );
-    harness.assert_eq("i", 4i32);
-    harness.assert_eq("acc", 1i32);
+    for version in [
+        trust_runtime::bytecode::BytecodeVersion::LEGACY,
+        trust_runtime::bytecode::BytecodeVersion::SOURCE_FREE,
+    ] {
+        let module = trust_runtime::harness::CompileSession::from_source(source)
+            .build_bytecode_module_for_version(version)
+            .expect("compile bytecode module");
+        let opcodes = main_body_opcodes(&module);
+        assert!(opcodes.contains(&0x02), "expected JUMP opcode: {version:?}");
+        assert!(opcodes.contains(&0x03) || opcodes.contains(&0x04));
+        let (load, store) = if version == trust_runtime::bytecode::BytecodeVersion::LEGACY {
+            (0x20, 0x21)
+        } else {
+            (0x32, 0x33)
+        };
+        assert!(
+            opcodes.contains(&load),
+            "missing reference load: {version:?}"
+        );
+        assert!(
+            opcodes.contains(&store),
+            "missing reference store: {version:?}"
+        );
+        assert!(opcodes.contains(&0x40), "missing ADD: {version:?}");
+        assert!(opcodes.contains(&0x46), "missing AND: {version:?}");
+        let mut harness = vm_harness_from_module(source, &module);
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{version:?}: {:?}", cycle.errors);
+        harness.assert_eq("i", 4i32);
+        harness.assert_eq("acc", 1i32);
+    }
 }
 
 #[test]
@@ -77,7 +81,7 @@ fn vm_opcode_positive_path_covers_call_native_stdlib_dispatch() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x09),
         "expected CALL_NATIVE opcode in main body"
@@ -109,7 +113,7 @@ fn vm_call_native_builtin_function_block_executes_body_and_copies_outputs() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x09),
         "expected CALL_NATIVE opcode in main body"
@@ -202,7 +206,7 @@ fn vm_opcode_positive_path_covers_call_native_oop_dispatch() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x09),
         "expected CALL_NATIVE opcode in main body"
@@ -277,7 +281,7 @@ fn vm_call_native_method_polymorphic_receiver_dispatch_remains_correct() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x09),
         "expected CALL_NATIVE opcode in main body"
@@ -366,7 +370,7 @@ fn vm_call_native_direct_binding_preserves_named_default_out_and_inout_contracts
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x09),
         "expected CALL_NATIVE opcode in main body"
@@ -481,7 +485,7 @@ fn vm_opcode_positive_path_covers_string_and_wstring_literals() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x10),
         "expected LOAD_CONST opcode for string/wstring literals"
@@ -530,7 +534,7 @@ fn vm_opcode_positive_path_covers_dynamic_reference_and_nested_chains() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x30),
         "expected REF_FIELD opcode in main body"
@@ -577,7 +581,7 @@ fn vm_opcode_positive_path_covers_nested_field_chain_assignments() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x30),
         "expected REF_FIELD opcode in main body"
@@ -624,7 +628,7 @@ fn vm_opcode_positive_path_covers_nested_field_index_assignments() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x30),
         "expected REF_FIELD opcode in main body"
@@ -670,7 +674,7 @@ fn vm_opcode_positive_path_covers_string_and_wstring_index_reads() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x31),
         "expected REF_INDEX opcode in main body"
@@ -736,7 +740,7 @@ fn vm_opcode_positive_path_covers_sizeof_type_and_storage_operands() {
         END_PROGRAM
     "#;
     let module = bytecode_module_from_source(source).expect("compile bytecode module");
-    let body = main_body_bytes(&module);
+    let body = main_body_opcodes(&module);
     assert!(
         body.contains(&0x60),
         "expected SIZEOF_TYPE opcode in main body"
@@ -755,4 +759,41 @@ fn vm_opcode_positive_path_covers_sizeof_type_and_storage_operands() {
     );
     harness.assert_eq("out_size_type_int", 2i32);
     harness.assert_eq("out_size_var_s", 5i32);
+}
+
+#[test]
+fn vm_null_literal_preserves_function_block_instance_owner() {
+    let source = r#"
+        FUNCTION_BLOCK NullCounter
+        VAR_INPUT
+            seed : DINT;
+        END_VAR
+        VAR_OUTPUT
+            count : DINT;
+        END_VAR
+        VAR
+            null_ref : REF_TO DINT;
+        END_VAR
+        null_ref := NULL;
+        count := seed + 1;
+        END_FUNCTION_BLOCK
+
+        PROGRAM Main
+        VAR
+            first : NullCounter;
+            second : NullCounter;
+            first_count : DINT;
+            second_count : DINT;
+        END_VAR
+        first(seed := 10);
+        second(seed := 100);
+        first_count := first.count;
+        second_count := second.count;
+        END_PROGRAM
+    "#;
+    let mut harness = vm_harness(source);
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    harness.assert_eq("first_count", 11i32);
+    harness.assert_eq("second_count", 101i32);
 }

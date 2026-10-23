@@ -67,4 +67,3 @@ container, instruction, stack, local, reference, call-depth, and execution
 budgets remain open under
 `SPEC_GAP_VM_DETERMINISM_RESOURCE_LIMITS_001`. No proof level, CI enforcement,
 suite producer, skill, or agent instruction changes in this closeout.
-

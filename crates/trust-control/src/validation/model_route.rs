@@ -368,7 +368,7 @@ fn applied_signal<'a>(
 
 /// Where the simulated plant reads or writes a variable: the address of the loop signal with this symbol, or the symbol itself when the
 /// signal has no address (`TypeScript` `input.signal.address ?? input.signal.symbol`). A symbol the loop does not declare is the program
-/// variable itself (specification 33, §13.1).
+/// variable itself (specification 46, §13.1).
 fn command_source_of(loop_definition: &LoopDefinition, symbol: &str) -> String {
     let signals = &loop_definition.signals;
     let primary = [

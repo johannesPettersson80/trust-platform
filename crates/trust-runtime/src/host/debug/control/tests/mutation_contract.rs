@@ -147,6 +147,39 @@ fn lvalue_writes_preserve_duplicates_frame_and_arrival_order() {
 }
 
 #[test]
+fn lvalue_write_queue_refuses_the_write_past_1024_and_queues_nothing() {
+    let control = DebugControl::new();
+    let target = LValue::Name("value".into());
+    for index in 0..1_024 {
+        let queued = control.try_write_lvalue(None, target.clone(), Value::LInt(index), |_| {
+            Ok::<(), crate::error::RuntimeError>(())
+        });
+        assert!(matches!(queued, Ok(Ok(()))), "write {index} fits the bound");
+    }
+
+    let refused = control.try_write_lvalue(None, target.clone(), Value::LInt(1_024), |_| {
+        Ok::<(), crate::error::RuntimeError>(())
+    });
+    assert!(matches!(refused, Err(RequestQueueFull)));
+    control.enqueue_lvalue_write(None, target, Value::LInt(1_025));
+
+    let writes = control.drain_lvalue_writes();
+    assert_eq!(writes.len(), 1_024, "the refused writes must not be queued");
+    assert_eq!(writes[1_023].value, Value::LInt(1_023));
+    let rejections = control
+        .drain_runtime_events()
+        .into_iter()
+        .filter(|event| {
+            matches!(event, RuntimeEvent::WriteRejected { error, .. } if error == "request queue full")
+        })
+        .count();
+    assert_eq!(
+        rejections, 1,
+        "the unchecked enqueue reports its refusal as write_rejected"
+    );
+}
+
+#[test]
 fn variable_forces_preserve_distinct_target_kinds_and_order() {
     let control = DebugControl::new();
     control.force_global("same", Value::LInt(1));

@@ -205,15 +205,14 @@ fn apply_preferences(next: &mut InputsSection, value: &Value) -> Result<(), Fail
     };
     if let (Some(TuneMethod::StateSpace), Some(draft)) =
         (method, preferences.get("stateDesignDraft"))
+        && draft.is_object()
     {
-        if draft.is_object() {
-            let draft = serde_json::from_value::<StateDesignDraft>(draft.clone())
-                .map_err(|_| refusal(DRAFT_NOT_TEXT))?;
-            next.state_design = Some(StateDesignInput {
-                draft: Some(draft),
-                ..next.state_design.clone().unwrap_or_default()
-            });
-        }
+        let draft = serde_json::from_value::<StateDesignDraft>(draft.clone())
+            .map_err(|_| refusal(DRAFT_NOT_TEXT))?;
+        next.state_design = Some(StateDesignInput {
+            draft: Some(draft),
+            ..next.state_design.clone().unwrap_or_default()
+        });
     }
     Ok(())
 }
@@ -373,10 +372,10 @@ fn read_numbers(rows: &mut Map<String, Value>) {
 
 /// A text value as the finite number it names; any other value, and a text that no number reads, as it is.
 fn read_number(value: &mut Value) {
-    if value.is_string() {
-        if let Some(number) = Number::from_f64(number_or_text(value)) {
-            *value = Value::Number(number);
-        }
+    if value.is_string()
+        && let Some(number) = Number::from_f64(number_or_text(value))
+    {
+        *value = Value::Number(number);
     }
 }
 

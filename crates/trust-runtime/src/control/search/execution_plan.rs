@@ -75,8 +75,8 @@ impl ExecutionPlan {
                     selected.model_revision.clone(),
                     Some(selected.model_provenance.clone()),
                     Some(format!(
-                        "sha256:{:x}",
-                        sha2::Sha256::digest(selected.simulation_toml.as_bytes())
+                        "sha256:{}",
+                        hex::encode(sha2::Sha256::digest(selected.simulation_toml.as_bytes()))
                     )),
                 ),
                 None => (

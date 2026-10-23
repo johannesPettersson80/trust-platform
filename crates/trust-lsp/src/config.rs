@@ -645,10 +645,10 @@ pub(crate) fn find_config_file(root: &Path) -> Option<PathBuf> {
 fn resolve_paths(root: &Path, entries: &[String]) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     for entry in entries {
-        if let Some(path) = resolve_optional_path(root, entry) {
-            if !paths.contains(&path) {
-                paths.push(path);
-            }
+        if let Some(path) = resolve_optional_path(root, entry)
+            && !paths.contains(&path)
+        {
+            paths.push(path);
         }
     }
     paths

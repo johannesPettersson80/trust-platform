@@ -1,9 +1,11 @@
+#[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
 
 use bytecode_helpers::base_module;
 use trust_runtime::bytecode::{
-    BytecodeError, BytecodeModule, BytecodeVersion, Section, SectionData, SectionId,
-    BYTECODE_MAX_PARAMETERS_PER_POU,
+    BytecodeError, BytecodeModule, BytecodeVersion, RejectionReason, Section, SectionData,
+    SectionId, BYTECODE_MAX_CONSTRUCTION_RECORDS, BYTECODE_MAX_LOCALS_PER_POU,
+    BYTECODE_MAX_PARAMETERS_PER_POU, BYTECODE_MAX_REFERENCES,
 };
 
 fn section_payload_offset(bytes: &[u8], section_id: SectionId) -> usize {
@@ -84,6 +86,49 @@ fn resource_with_task_prefix(program_count: u32) -> Vec<u8> {
     append_u32(&mut payload, u32::MAX);
     append_u32(&mut payload, program_count);
     payload
+}
+
+// Overwrites the little-endian u32 at this word index of a raw payload.
+fn set_word(payload: &mut [u8], word: usize, value: u32) {
+    payload[word * 4..word * 4 + 4].copy_from_slice(&value.to_le_bytes());
+}
+
+fn decode_section_at(
+    version: BytecodeVersion,
+    section_id: SectionId,
+    payload: Vec<u8>,
+) -> Result<BytecodeModule, BytecodeError> {
+    let mut module = BytecodeModule::new(version);
+    module.sections = vec![Section {
+        id: section_id.as_raw(),
+        flags: 0,
+        data: SectionData::Raw(payload),
+    }];
+    let bytes = module.encode().expect("encode raw section");
+    BytecodeModule::decode(&bytes)
+}
+
+fn record_count(section: Option<&SectionData>) -> Option<usize> {
+    match section? {
+        SectionData::StorageLayout(layout) => Some(layout.entries.len()),
+        SectionData::ConstructionRoots(roots) => Some(roots.entries.len()),
+        SectionData::Initializers(index) => Some(index.entries.len()),
+        SectionData::AccessBindings(bindings) => Some(bindings.entries.len()),
+        _ => None,
+    }
+}
+
+fn assert_rejected_at(
+    version: BytecodeVersion,
+    section_id: SectionId,
+    payload: Vec<u8>,
+    expected: &str,
+) {
+    let err = decode_section_at(version, section_id, payload).unwrap_err();
+    assert!(
+        matches!(err, BytecodeError::InvalidSection(ref message) if message == expected),
+        "unexpected decoder result for {section_id:?}: {err:?}"
+    );
 }
 
 #[test]
@@ -314,4 +359,103 @@ fn nested_resource_counts_must_fit_before_allocation() {
         fb_refs,
         "RESOURCE_META function-block reference count exceeds section bounds",
     );
+}
+
+#[test]
+fn ref_table_count_admits_the_exact_limit_and_refuses_one_more() {
+    // Site: decode/section_decode.rs `read_ref_table_count`, then decode.rs `read_bounded_count`.
+    // A 16-byte record is location, flags, reserved, owner, offset and a zero segment count.
+    let mut payload = vec![0u8; 4 + 16 * BYTECODE_MAX_REFERENCES];
+    set_word(&mut payload, 0, BYTECODE_MAX_REFERENCES as u32);
+    let decoded = decode_section_at(BytecodeVersion::new(1, 1), SectionId::RefTable, payload)
+        .expect("65,536 references are admitted");
+    let Some(SectionData::RefTable(table)) = decoded.section(SectionId::RefTable) else {
+        panic!("REF_TABLE missing from decoded module");
+    };
+    assert_eq!(table.entries.len(), BYTECODE_MAX_REFERENCES);
+
+    // The count limit is checked before the byte bound, so no records follow.
+    assert_count_rejected(
+        SectionId::RefTable,
+        65_537u32.to_le_bytes().to_vec(),
+        "REF_TABLE entries exceed fixed resource limit",
+    );
+}
+
+#[test]
+fn pou_local_and_parameter_counts_admit_the_exact_limit_and_refuse_one_more() {
+    // Sites: decode/section_decode.rs:145-146 (local count), :157-162 (parameter count,
+    // limit checked before the byte bound). Word 0 is the section count; word 7 of the
+    // one-entry payload is local_ref_count.
+    let mut locals = pou_index_entry(0, 0);
+    set_word(&mut locals, 7, BYTECODE_MAX_LOCALS_PER_POU as u32);
+    let decoded = decode_section_at(BytecodeVersion::new(1, 1), SectionId::PouIndex, locals)
+        .expect("65,536 POU local references are admitted");
+    let Some(SectionData::PouIndex(index)) = decoded.section(SectionId::PouIndex) else {
+        panic!("POU_INDEX missing from decoded module");
+    };
+    assert_eq!(
+        index.entries[0].local_ref_count,
+        BYTECODE_MAX_LOCALS_PER_POU as u32
+    );
+
+    let mut over_locals = pou_index_entry(0, 0);
+    set_word(&mut over_locals, 7, BYTECODE_MAX_LOCALS_PER_POU as u32 + 1);
+    assert_eq!(
+        decode_section_at(BytecodeVersion::new(1, 1), SectionId::PouIndex, over_locals)
+            .unwrap_err(),
+        BytecodeError::from(RejectionReason::PouIndexLocalReferenceCountExceedsFixedResourceLimit,)
+    );
+
+    // A 1.1 parameter record is 16 bytes: name, type, direction, flags, reserved, default.
+    let mut params = pou_index_entry(0, BYTECODE_MAX_PARAMETERS_PER_POU as u32);
+    params.extend(std::iter::repeat_n(
+        0u8,
+        16 * BYTECODE_MAX_PARAMETERS_PER_POU,
+    ));
+    let decoded = decode_section_at(BytecodeVersion::new(1, 1), SectionId::PouIndex, params)
+        .expect("1,024 POU parameters are admitted");
+    let Some(SectionData::PouIndex(index)) = decoded.section(SectionId::PouIndex) else {
+        panic!("POU_INDEX missing from decoded module");
+    };
+    assert_eq!(
+        index.entries[0].params.len(),
+        BYTECODE_MAX_PARAMETERS_PER_POU
+    );
+
+    // The parameter limit is checked before the byte bound, so no records follow.
+    assert_count_rejected(
+        SectionId::PouIndex,
+        pou_index_entry(0, BYTECODE_MAX_PARAMETERS_PER_POU as u32 + 1),
+        "POU_INDEX parameter count exceeds fixed resource limit",
+    );
+}
+
+#[test]
+fn construction_record_counts_admit_the_exact_limit_and_refuse_one_more() {
+    // Site: decode/construction.rs:24 (limit, then byte bound). Zero is a valid
+    // discriminant for every enumerated field of these four records, so the admitted
+    // payload decodes completely.
+    for (section_id, width) in [
+        (SectionId::StorageLayout, 40),
+        (SectionId::ConstructionRoots, 24),
+        (SectionId::Initializers, 60),
+        (SectionId::AccessBindings, 20),
+    ] {
+        let mut payload = vec![0u8; 4 + width * BYTECODE_MAX_CONSTRUCTION_RECORDS];
+        set_word(&mut payload, 0, BYTECODE_MAX_CONSTRUCTION_RECORDS as u32);
+        let decoded = decode_section_at(BytecodeVersion::SOURCE_FREE, section_id, payload)
+            .expect("65,536 construction records are admitted");
+        assert_eq!(
+            record_count(decoded.section(section_id)),
+            Some(BYTECODE_MAX_CONSTRUCTION_RECORDS)
+        );
+
+        assert_rejected_at(
+            BytecodeVersion::SOURCE_FREE,
+            section_id,
+            65_537u32.to_le_bytes().to_vec(),
+            "construction metadata count exceeds fixed resource limit",
+        );
+    }
 }

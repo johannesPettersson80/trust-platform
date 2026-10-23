@@ -22,7 +22,7 @@ import {
   type SelectedRuntime,
 } from "./trustHomeModel";
 
-/** The speeds the chooser offers (specification 33, §6.1: a whole number from 1 to 100). */
+/** The speeds the chooser offers (specification 46, §6.1: a whole number from 1 to 100). */
 export const SIMULATION_SPEEDS: readonly number[] = [1, 2, 5, 10, 20, 50, 100];
 
 /** The status bar's refresh while a simulator runs: the Devices & Connections canvas cadence, never faster. */
@@ -179,7 +179,7 @@ export function isRunningSimulator(selected: Pick<SelectedRuntime, "kind" | "sta
 }
 
 /**
- * Applies a speed to the running simulator with `config.set` (specification 33, §6.1 item 5). Returns "saved-only" when
+ * Applies a speed to the running simulator with `config.set` (specification 46, §6.1 item 5). Returns "saved-only" when
  * the selected target is not a running simulator. A refusal by the runtime throws its RuntimeControlError.
  */
 export async function applyLiveSimulationSpeed(

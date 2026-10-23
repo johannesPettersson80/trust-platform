@@ -262,7 +262,7 @@ fn project_asset(request: Request, path: &str, ctx: &HmiRouteContext<'_>) {
     let bytes = match (safe, kind) {
         (true, Some(_)) => ctx
             .store
-            .read(|root| std::fs::read(root.join("hmi").join("assets").join(path)).ok()),
+            .read(|root| crate::hmi::bundle::read_hmi_file(root, &format!("hmi/assets/{path}"))),
         _ => None,
     };
     match (bytes, kind) {
@@ -385,7 +385,7 @@ fn open_stream(request: Request, url: &str, ctx: &HmiRouteContext<'_>) {
     let token = super::hmi_operate::session_token(&request);
     let socket = request.upgrade("websocket", response);
     Stream {
-        resource: ctx.control_state.resource.clone(),
+        resource: crate::control::hmi_ports::resource(ctx.control_state),
         period,
         paths,
         slot,

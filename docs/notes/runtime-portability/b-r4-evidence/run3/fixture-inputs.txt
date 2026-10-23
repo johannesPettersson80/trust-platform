@@ -1,0 +1,5 @@
+[gate-progress state=started phase=B-R4-fixture-inputs target=scena-rust-builder pid=1741071 elapsed=0.0s timeout=7200s command='sha256sum --check /home/johannes/.cache/trust-portability-br4-setup-run3/fixture-sha256.txt']
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc: OK
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc: OK
+crates/trust-runtime/tests/fixtures/portability/f401/gpio.stbc: OK
+[gate-progress state=finished phase=B-R4-fixture-inputs target=scena-rust-builder pid=1741071 elapsed=0.1s timeout=7200s command='sha256sum --check /home/johannes/.cache/trust-portability-br4-setup-run3/fixture-sha256.txt' status=0]

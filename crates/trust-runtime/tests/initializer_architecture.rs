@@ -20,6 +20,7 @@ fn read_workspace_file(relative: &str) -> String {
             "crates/trust-hir/src",
             "crates/trust-lsp/src",
             "crates/trust-runtime/src",
+            "crates/trust-runtime-core/src",
         ],
         extension = "rs",
     )
@@ -168,10 +169,10 @@ fn vm_local_init_does_not_create_runtime_storage_frames() {
 
 #[test]
 fn dynamic_ref_partial_index_does_not_clone_entire_value_ref() {
-    let source = read_workspace_file("crates/trust-runtime/src/runtime/vm/dispatch_refs.rs");
+    let source = read_workspace_file("crates/trust-runtime-core/src/vm/dispatch_refs.rs");
     let body = source
-        .split_once("pub(super) fn dynamic_ref_index(")
-        .and_then(|(_, rest)| rest.split_once("pub(super) fn peek_dynamic_ref"))
+        .split_once("fn dynamic_ref_index(")
+        .and_then(|(_, rest)| rest.split_once("fn peek_dynamic_ref"))
         .map(|(body, _)| body)
         .expect("dynamic_ref_index body");
 
@@ -203,7 +204,7 @@ fn vm_function_block_ref_execution_reads_reference_without_clone() {
 #[test]
 fn tier1_dynamic_ref_field_borrows_reference_registers() {
     let source =
-        read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs");
+        read_workspace_file("crates/trust-runtime-core/src/vm/register_ir/tier1/execute.rs");
     let body = source
         .split_once("Tier1CompiledInstr::RefField { base, field, dest } => {")
         .and_then(|(_, rest)| rest.split_once("Tier1CompiledInstr::RefIndex"))
@@ -223,10 +224,10 @@ fn tier1_dynamic_ref_field_borrows_reference_registers() {
 #[test]
 fn register_ir_decode_uses_inline_operand_storage() {
     let source =
-        read_workspace_file("crates/trust-runtime/src/runtime/vm/register_ir/lower/decode.rs");
+        read_workspace_file("crates/trust-runtime-core/src/vm/register_ir/lower/decode.rs");
     let decode_body = source
         .split_once("fn decode_pou(")
-        .and_then(|(_, rest)| rest.split_once("fn opcode_operand_len_for_lowering"))
+        .and_then(|(_, rest)| rest.split_once("fn collect_block_leaders"))
         .map(|(body, _)| body)
         .expect("decode_pou body");
 

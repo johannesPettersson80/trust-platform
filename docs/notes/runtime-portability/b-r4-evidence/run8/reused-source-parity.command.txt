@@ -1,0 +1,1 @@
+sha256sum --check /home/johannes/.cache/trust-portability-br4-setup-run8/reused-source.sha256 

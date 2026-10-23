@@ -178,7 +178,7 @@ fn trace_definition_digest(cases: &[CaseRecord]) -> Result<String, CaseRunError>
         .collect::<Vec<_>>();
     let bytes = serde_json::to_vec(&rows)?;
     let digest = Sha256::digest(bytes);
-    Ok(format!("sha256:{digest:x}"))
+    Ok(format!("sha256:{}", hex::encode(digest)))
 }
 
 #[cfg(test)]

@@ -16,10 +16,10 @@ trap cleanup EXIT
 
 capture_test_discovery() {
   local tag="$1"
-  cargo test -p trust-lsp handlers::tests:: -- --list > "${TMP_DIR}/lsp-${tag}.raw"
+  "${ROOT_DIR}/scripts/cargo_test_fast_link.sh" test -p trust-lsp handlers::tests:: -- --list > "${TMP_DIR}/lsp-${tag}.raw"
   grep ': test$' "${TMP_DIR}/lsp-${tag}.raw" | sed 's/\r$//' | sort > "${TMP_DIR}/lsp-${tag}.list"
 
-  cargo test -p trust-hir --test semantic_type_checking -- --list > "${TMP_DIR}/hir-${tag}.raw"
+  "${ROOT_DIR}/scripts/cargo_test_fast_link.sh" test -p trust-hir --test semantic_type_checking -- --list > "${TMP_DIR}/hir-${tag}.raw"
   grep ': test$' "${TMP_DIR}/hir-${tag}.raw" | sed 's/\r$//' | sort > "${TMP_DIR}/hir-${tag}.list"
 }
 

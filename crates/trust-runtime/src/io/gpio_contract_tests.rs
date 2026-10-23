@@ -256,13 +256,13 @@ fn gpio_contract_rejects_duplicate_process_image_bits_per_direction() {
 #[test]
 fn gpio_contract_validate_params_has_no_backend_side_effects() {
     let root = TempTree::new("trust-gpio-validate");
+    let escaped_path = toml::Value::String(root.path().to_string_lossy().into_owned()).to_string();
     let params = gpio_params(&format!(
         r#"
 backend = "sysfs"
-sysfs_base = "{}"
+sysfs_base = {escaped_path}
 inputs = [{{ address = "%IX0.0", line = 17 }}]
-"#,
-        root.path().display()
+"#
     ));
 
     GpioDriver::validate_params(&params).unwrap();

@@ -361,6 +361,13 @@ class GateInventoryTests(unittest.TestCase):
         )
         self.assertEqual(failures, [])
 
+        self.assertIn("schedule:", baseline)
+        self.assertIn("--smoke", baseline)
+        self.assertIn("scripts/check_verification_tooling_selftests.py", baseline)
+        self.assertIn("github.event_name == 'pull_request'", baseline)
+        self.assertIn("github.event_name != 'pull_request'", baseline)
+        self.assertEqual(baseline.count("python3 scripts/verification_report_gate.py"), 2)
+
         cases = (
             (
                 enforcing.replace("            --strict \\\n", ""),
@@ -631,8 +638,9 @@ def reviewed_veryquick_recipe() -> str:
     return (
         "verification-veryquick:\n"
         "\tmkdir -p target/gate-artifacts/veryquick\n"
-        "\tpython3 scripts/run_verification_focused_tests.py || "
-        "echo \"advisory: verification tooling tests reported findings\" >&2\n"
+        "\tpython3 -m unittest scripts.verification.report_gate_tests "
+        "scripts.verification.focused_test_suite_tests || "
+        "echo \"advisory: verification report smoke reported findings\" >&2\n"
         "\tscripts/verification_metadata_gate.sh || "
         "echo \"advisory: verification metadata reported findings\" >&2\n"
         "\tjust test-hir-fast\n"

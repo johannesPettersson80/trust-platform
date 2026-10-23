@@ -65,10 +65,10 @@ fn configured_mesh_authentication_rejects_wrong_and_missing_peer_tokens() {
                 .timeout(Duration::from_millis(250))
                 .wait()
                 .unwrap();
-            if let Ok(Some(reply)) = replies.recv_timeout(Duration::from_millis(350)) {
-                if reply.result().is_ok() {
-                    return true;
-                }
+            if let Ok(Some(reply)) = replies.recv_timeout(Duration::from_millis(350))
+                && reply.result().is_ok()
+            {
+                return true;
             }
         }
         false

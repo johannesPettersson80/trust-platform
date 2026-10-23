@@ -1,0 +1,6 @@
+{
+  "crates/trust-runtime-core/src/vm/budget.rs": "b0d4a8b7dc8d241d8f9675e6f35abb78021f55ebd18ee38283324cd1d83b400c",
+  "crates/trust-runtime-core/src/vm/engine/policy.rs": "b30969c519f34115caae3312be76306a1498d83ca8a53a1d74b9874b8b3e4325",
+  "crates/trust-runtime-core/src/vm/engine/context.rs": "7841d6abc9633d9fd317837f5c989a9aefd6b41e9b46f5d30b9a067471938f65",
+  "crates/trust-runtime-core/src/vm/engine/budget_tests.rs": "8ef1445b8c8a0e61c844e39fa1d5fa724befec0f85e18727aa45eabae40975fa"
+}

@@ -36,14 +36,13 @@ pub(super) fn collect_using_directives(node: &SyntaxNode) -> Vec<SmolStr> {
     let mut explicit_usings = Vec::new();
     let mut namespace_parts = Vec::new();
     for ancestor in ancestors {
-        if ancestor.kind() == SyntaxKind::Namespace {
-            if let Some(namespace_name) = ancestor
+        if ancestor.kind() == SyntaxKind::Namespace
+            && let Some(namespace_name) = ancestor
                 .children()
                 .find(|child| matches!(child.kind(), SyntaxKind::QualifiedName | SyntaxKind::Name))
-            {
-                namespace_parts.push(node_text(&namespace_name));
-                implicit_namespaces.push(SmolStr::new(namespace_parts.join(".")));
-            }
+        {
+            namespace_parts.push(node_text(&namespace_name));
+            implicit_namespaces.push(SmolStr::new(namespace_parts.join(".")));
         }
         for using in ancestor
             .children()

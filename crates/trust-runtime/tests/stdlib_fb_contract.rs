@@ -351,9 +351,14 @@ fn tp_falling_input_does_not_cancel_pulse_and_low_rearms_next_edge() {
     let still_active = timer.step(false, preset, Duration::from_millis(3));
     assert!(still_active.q);
     assert_eq!(still_active.et, Duration::from_millis(6));
+    // Spec 08 section 5: ET stops at PT on the call that ends the pulse, and the first later call
+    // that samples IN as FALSE resets it.
     let expired_low = timer.step(false, preset, Duration::from_millis(4));
     assert!(!expired_low.q);
-    assert_eq!(expired_low.et, Duration::ZERO);
+    assert_eq!(expired_low.et, preset);
+    let low_again = timer.step(false, preset, Duration::from_millis(1));
+    assert!(!low_again.q);
+    assert_eq!(low_again.et, Duration::ZERO);
     let restarted = timer.step(true, preset, Duration::from_millis(2));
     assert!(restarted.q);
     assert_eq!(restarted.et, Duration::from_millis(2));

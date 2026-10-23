@@ -1,9 +1,12 @@
 use std::fmt;
 
+use super::storage_context::EvaluationTypes;
 use crate::error::RuntimeError;
 use crate::program_model::ops::{apply_binary, apply_unary};
 use crate::program_model::Expr;
-use crate::value::{size_of_type, ArrayValue, DateTimeProfile, SizeOfError, Value};
+use crate::value::{
+    size_of_type_with_abi, ArrayValue, DateTimeProfile, SizeOfError, StorageAbi, Value,
+};
 use trust_hir::types::TypeRegistry;
 
 #[derive(Debug)]
@@ -37,6 +40,7 @@ pub(crate) fn eval_const_expr(
     eval_const_expr_with_resolver(expr, profile, &|_| None)
 }
 
+#[cfg(test)]
 pub(crate) fn eval_const_expr_with_resolver(
     expr: &Expr,
     profile: &DateTimeProfile,
@@ -46,16 +50,40 @@ pub(crate) fn eval_const_expr_with_resolver(
     eval_const_expr_with_resolver_and_registry(expr, profile, &registry, resolve_name)
 }
 
+#[cfg(test)]
 pub(crate) fn eval_const_expr_with_resolver_and_registry(
     expr: &Expr,
     profile: &DateTimeProfile,
     registry: &TypeRegistry,
     resolve_name: &impl Fn(&str) -> Option<Value>,
 ) -> Result<Value, ConstExprError> {
-    if let Some(name) = qualified_const_name(expr) {
-        if let Some(value) = resolve_name(&name) {
-            return Ok(value);
-        }
+    eval_const_expr_with_abi(expr, profile, registry, StorageAbi::default(), resolve_name)
+}
+pub(crate) fn eval_const_expr_with_abi(
+    expr: &Expr,
+    profile: &DateTimeProfile,
+    registry: &TypeRegistry,
+    abi: StorageAbi,
+    resolve_name: &impl Fn(&str) -> Option<Value>,
+) -> Result<Value, ConstExprError> {
+    eval_const_expr_with_types(
+        expr,
+        profile,
+        &EvaluationTypes { registry, abi },
+        resolve_name,
+    )
+}
+
+fn eval_const_expr_with_types(
+    expr: &Expr,
+    profile: &DateTimeProfile,
+    registry: &EvaluationTypes<'_>,
+    resolve_name: &impl Fn(&str) -> Option<Value>,
+) -> Result<Value, ConstExprError> {
+    if let Some(name) = qualified_const_name(expr)
+        && let Some(value) = resolve_name(&name)
+    {
+        return Ok(value);
     }
 
     match expr {
@@ -69,18 +97,17 @@ pub(crate) fn eval_const_expr_with_resolver_and_registry(
                 .map_err(|_| RuntimeError::TypeMismatch.into())
         }
         Expr::Unary { op, expr } => {
-            let value = eval_const_expr_with_resolver(expr, profile, resolve_name)?;
+            let value = eval_const_expr_with_types(expr, profile, registry, resolve_name)?;
             Ok(apply_unary(*op, value)?)
         }
         Expr::Binary { op, left, right } => {
-            let left =
-                eval_const_expr_with_resolver_and_registry(left, profile, registry, resolve_name)?;
-            let right =
-                eval_const_expr_with_resolver_and_registry(right, profile, registry, resolve_name)?;
+            let left = eval_const_expr_with_types(left, profile, registry, resolve_name)?;
+            let right = eval_const_expr_with_types(right, profile, registry, resolve_name)?;
             Ok(apply_binary(*op, left, right, profile)?)
         }
         Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)) => {
-            let size = size_of_type(*type_id, registry).map_err(size_error_to_const)?;
+            let size = size_of_type_with_abi(*type_id, registry, registry.abi)
+                .map_err(size_error_to_const)?;
             let size =
                 i32::try_from(size).map_err(|_| ConstExprError::Runtime(RuntimeError::Overflow))?;
             Ok(Value::DInt(size))
@@ -92,7 +119,7 @@ pub(crate) fn eval_const_expr_with_resolver_and_registry(
 fn eval_array_initializer_elements(
     elements: &[Expr],
     profile: &DateTimeProfile,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     resolve_name: &impl Fn(&str) -> Option<Value>,
 ) -> Result<Vec<Value>, ConstExprError> {
     let mut values = Vec::new();
@@ -104,7 +131,7 @@ fn eval_array_initializer_elements(
 
 fn eval_array_initializer_element(
     profile: &DateTimeProfile,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     resolve_name: &impl Fn(&str) -> Option<Value>,
     expr: &Expr,
     values: &mut Vec<Value>,
@@ -131,7 +158,7 @@ fn eval_array_initializer_element(
         }
         return Ok(());
     }
-    values.push(eval_const_expr_with_resolver_and_registry(
+    values.push(eval_const_expr_with_types(
         expr,
         profile,
         registry,

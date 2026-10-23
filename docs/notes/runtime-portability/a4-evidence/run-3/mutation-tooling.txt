@@ -1,0 +1,8 @@
+[gate-progress state=started phase=A4-mutation-tooling target=scena-rust-builder pid=2614637 elapsed=0.0s timeout=5400s command='env -u GIT_INDEX_FILE python3 -m unittest scripts.verification.focused_mutation_runner_tests']
+.........focused mutation shard failed: preflight sentinel
+.......
+----------------------------------------------------------------------
+Ran 16 tests in 0.065s
+
+OK
+[gate-progress state=finished phase=A4-mutation-tooling target=scena-rust-builder pid=2614637 elapsed=0.2s timeout=5400s command='env -u GIT_INDEX_FILE python3 -m unittest scripts.verification.focused_mutation_runner_tests' status=0]

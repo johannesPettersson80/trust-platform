@@ -350,7 +350,7 @@ mod tests {
             .expect("stamp");
 
         assert_eq!(stamp.samples[0].handle, 9);
-        assert_eq!(stamp.samples[0].data, [] as [u8; 0]);
+        assert_eq!(stamp.samples[0].data, Vec::<u8>::new());
     }
 
     #[test]

@@ -35,13 +35,16 @@ fn write_file(path: &Path, contents: &str) {
 }
 
 fn run_build(project: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("build")
-        .arg("--project")
-        .arg(project)
-        .args(args)
-        .output()
-        .expect("run trust-runtime build")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("build")
+    .arg("--project")
+    .arg(project)
+    .args(args)
+    .output()
+    .expect("run trust-runtime build")
 }
 
 fn json_stdout(output: &Output) -> JsonValue {
@@ -52,6 +55,10 @@ fn json_stdout(output: &Output) -> JsonValue {
             String::from_utf8_lossy(&output.stderr)
         )
     })
+}
+
+fn reported_path_ends_with(path: &str, suffix: &str) -> bool {
+    path.replace('\\', "/").ends_with(suffix)
 }
 
 #[test]
@@ -107,11 +114,11 @@ END_FUNCTION
     let sources = payload["sources"].as_array().expect("source array");
     assert!(sources.iter().any(|path| {
         path.as_str()
-            .is_some_and(|path| path.ends_with("custom_sources/main.st"))
+            .is_some_and(|path| reported_path_ends_with(path, "custom_sources/main.st"))
     }));
     assert!(sources.iter().any(|path| {
         path.as_str()
-            .is_some_and(|path| path.ends_with("deps/lib-a/src/lib.st"))
+            .is_some_and(|path| reported_path_ends_with(path, "deps/lib-a/src/lib.st"))
     }));
     assert_eq!(
         payload["resolved_dependencies"],
@@ -170,11 +177,14 @@ fn build_human_mode_discovers_current_project_and_summarizes_sources() {
         );
     }
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("build")
-        .current_dir(&project)
-        .output()
-        .expect("run trust-runtime build from project directory");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("build")
+    .current_dir(&project)
+    .output()
+    .expect("run trust-runtime build from project directory");
     assert!(
         output.status.success(),
         "expected successful human build; stderr:\n{}",

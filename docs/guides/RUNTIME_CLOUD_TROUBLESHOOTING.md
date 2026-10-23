@@ -6,7 +6,7 @@ Use this runbook when runtime cloud behavior is not as expected.
 
 ```bash
 trust-runtime ctl --project <project> status
-trust-runtime ctl --project <project> config.get
+trust-runtime ctl --project <project> config-get
 curl -s http://<host>:<port>/api/runtime-cloud/state | jq
 ```
 

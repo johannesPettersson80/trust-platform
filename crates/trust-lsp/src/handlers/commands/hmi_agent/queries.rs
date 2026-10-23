@@ -592,10 +592,8 @@ fn keep_members(node: &mut Value, declared: &[VariableNode]) {
         }
         None => false,
     };
-    if emptied {
-        if let Some(fields) = node.as_object_mut() {
-            fields.remove("children");
-        }
+    if emptied && let Some(fields) = node.as_object_mut() {
+        fields.remove("children");
     }
 }
 

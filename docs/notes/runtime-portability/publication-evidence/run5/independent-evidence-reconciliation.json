@@ -1,0 +1,659 @@
+{
+  "captured_at_utc": "2026-10-11T00:44:52.766743+00:00",
+  "source_head": "a8937a07c12042fa655297a53338fa787c1a978c",
+  "branch": "integrate/runtime-portability-stm32",
+  "review_class": "read-only retained-evidence reconciliation, no new validation or hardware execution",
+  "artifact_hashes": [
+    {
+      "path": "README.md",
+      "expected": "b33cce6533e4d7c0e61d7323e22c44029ff2716a1170120008d2565ae7458cd9",
+      "actual": "b33cce6533e4d7c0e61d7323e22c44029ff2716a1170120008d2565ae7458cd9",
+      "matches": true
+    },
+    {
+      "path": "capture-exit.txt",
+      "expected": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff",
+      "actual": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff",
+      "matches": true
+    },
+    {
+      "path": "elf-report.json",
+      "expected": "7fdc970d6cf5c207363fd6e9d4cbbc190722d59778ec5216b084761a2394787f",
+      "actual": "7fdc970d6cf5c207363fd6e9d4cbbc190722d59778ec5216b084761a2394787f",
+      "matches": true
+    },
+    {
+      "path": "final-build-config.json",
+      "expected": "f5fc5cb0c133c441639d1161e023df9dc790b0388c1b68b2b9fa0839180adf08",
+      "actual": "f5fc5cb0c133c441639d1161e023df9dc790b0388c1b68b2b9fa0839180adf08",
+      "matches": true
+    },
+    {
+      "path": "final-image-ledger.tsv",
+      "expected": "fdb8e66b22fa97d5d9834286fc9dbac47595452f2e11f91b25d76d64738c09e7",
+      "actual": "fdb8e66b22fa97d5d9834286fc9dbac47595452f2e11f91b25d76d64738c09e7",
+      "matches": true
+    },
+    {
+      "path": "guard-artifact-ca205132e.json",
+      "expected": "98c5283c6f5c72c573564c76287b1d6f90e273420c8558c91833b77b10f53b1c",
+      "actual": "98c5283c6f5c72c573564c76287b1d6f90e273420c8558c91833b77b10f53b1c",
+      "matches": true
+    },
+    {
+      "path": "installed-sha256.txt",
+      "expected": "5da8830dc34a5bbfde0c6db86ccfb1d47f2c8f1b5fede2576986ffe9a10a16e6",
+      "actual": "5da8830dc34a5bbfde0c6db86ccfb1d47f2c8f1b5fede2576986ffe9a10a16e6",
+      "matches": true
+    },
+    {
+      "path": "missing-map-observation.md",
+      "expected": "f2305be343bed78708fa86531e20e7d42951644dea7c92fcf1abdfc7ccc5674a",
+      "actual": "f2305be343bed78708fa86531e20e7d42951644dea7c92fcf1abdfc7ccc5674a",
+      "matches": true
+    },
+    {
+      "path": "mp001-parity.txt",
+      "expected": "5880053e789f5dac9a94e2f9f9750a4250f90466ab440ba2bfa6cef5cdcddc03",
+      "actual": "5880053e789f5dac9a94e2f9f9750a4250f90466ab440ba2bfa6cef5cdcddc03",
+      "matches": true
+    },
+    {
+      "path": "native-test-all.txt",
+      "expected": "96de13ba3aaa26ced8fc4dc4df96f5773274c11c68b08f71b6f58ef712846283",
+      "actual": "96de13ba3aaa26ced8fc4dc4df96f5773274c11c68b08f71b6f58ef712846283",
+      "matches": true
+    },
+    {
+      "path": "pack-application.txt",
+      "expected": "78f1a8d62eddd0ea1c1ba6025cb2b73d940534b7683299b3b5bfc6b7f0b2e032",
+      "actual": "78f1a8d62eddd0ea1c1ba6025cb2b73d940534b7683299b3b5bfc6b7f0b2e032",
+      "matches": true
+    },
+    {
+      "path": "physical-report.json",
+      "expected": "e4cc8c537dbc0a09052659d2ff0345d7e63c5548c4bbdd98caa25c46ca0f7826",
+      "actual": "e4cc8c537dbc0a09052659d2ff0345d7e63c5548c4bbdd98caa25c46ca0f7826",
+      "matches": true
+    },
+    {
+      "path": "portable-supplement-run1.tsv",
+      "expected": "0f4ca4397e23e2de1f55cf9071f65cbf2da97190a6a0d8e997d691672ace23e7",
+      "actual": "0f4ca4397e23e2de1f55cf9071f65cbf2da97190a6a0d8e997d691672ace23e7",
+      "matches": true
+    },
+    {
+      "path": "public-docs-run1.tsv",
+      "expected": "37eb3574eeb78421629c42a892b9333e1d700722096af35a7e039412c4571640",
+      "actual": "37eb3574eeb78421629c42a892b9333e1d700722096af35a7e039412c4571640",
+      "matches": true
+    },
+    {
+      "path": "run1-failure-ledger.md",
+      "expected": "2100ad9b0c019ddf7bdc39ede74e94086928c6cdfa5e3f425cfadc25508f9dc7",
+      "actual": "2100ad9b0c019ddf7bdc39ede74e94086928c6cdfa5e3f425cfadc25508f9dc7",
+      "matches": true
+    },
+    {
+      "path": "run2-failure-ledger.md",
+      "expected": "0857ea14212665309543a8db369a7b955de34c3ee67902ff08596954c1c015ab",
+      "actual": "0857ea14212665309543a8db369a7b955de34c3ee67902ff08596954c1c015ab",
+      "matches": true
+    },
+    {
+      "path": "run5/capture-exit.txt",
+      "expected": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff",
+      "actual": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff",
+      "matches": true
+    },
+    {
+      "path": "run5/elf-report.json",
+      "expected": "a26e79c32b74566fb74693986f93520ff19166a009e99f5270493f8fd878b4f0",
+      "actual": "a26e79c32b74566fb74693986f93520ff19166a009e99f5270493f8fd878b4f0",
+      "matches": true
+    },
+    {
+      "path": "run5/final-build-config.json",
+      "expected": "f5fc5cb0c133c441639d1161e023df9dc790b0388c1b68b2b9fa0839180adf08",
+      "actual": "f5fc5cb0c133c441639d1161e023df9dc790b0388c1b68b2b9fa0839180adf08",
+      "matches": true
+    },
+    {
+      "path": "run5/final-image.tsv",
+      "expected": "fdb8e66b22fa97d5d9834286fc9dbac47595452f2e11f91b25d76d64738c09e7",
+      "actual": "fdb8e66b22fa97d5d9834286fc9dbac47595452f2e11f91b25d76d64738c09e7",
+      "matches": true
+    },
+    {
+      "path": "run5/first-ci-failure-ledger.json",
+      "expected": "d0d0d43128d5f9f29d1d0c267708312e7b9e437996a753a086b2b628dca81ee2",
+      "actual": "d0d0d43128d5f9f29d1d0c267708312e7b9e437996a753a086b2b628dca81ee2",
+      "matches": true
+    },
+    {
+      "path": "run5/guard-artifact-a8937a07c.json",
+      "expected": "7dd95f75fbb379471b04054429162f456570ddf318fd3cca25516a504ca2f726",
+      "actual": "7dd95f75fbb379471b04054429162f456570ddf318fd3cca25516a504ca2f726",
+      "matches": true
+    },
+    {
+      "path": "run5/installed-sha256.txt",
+      "expected": "3191b5a844c13e71170d824d04862badec20b9164835259798e8fcb86164e551",
+      "actual": "3191b5a844c13e71170d824d04862badec20b9164835259798e8fcb86164e551",
+      "matches": true
+    },
+    {
+      "path": "run5/native-tests.txt",
+      "expected": "dede44bc3b2bda4d71b24c3bee44b21cf7d190f260b82080d847ae6ece0540ae",
+      "actual": "dede44bc3b2bda4d71b24c3bee44b21cf7d190f260b82080d847ae6ece0540ae",
+      "matches": true
+    },
+    {
+      "path": "run5/pack-application.txt",
+      "expected": "78f1a8d62eddd0ea1c1ba6025cb2b73d940534b7683299b3b5bfc6b7f0b2e032",
+      "actual": "78f1a8d62eddd0ea1c1ba6025cb2b73d940534b7683299b3b5bfc6b7f0b2e032",
+      "matches": true
+    },
+    {
+      "path": "run5/physical-report.json",
+      "expected": "e4cc8c537dbc0a09052659d2ff0345d7e63c5548c4bbdd98caa25c46ca0f7826",
+      "actual": "e4cc8c537dbc0a09052659d2ff0345d7e63c5548c4bbdd98caa25c46ca0f7826",
+      "matches": true
+    },
+    {
+      "path": "run5/portable-i686-selected.txt",
+      "expected": "70ed671a7403c217c16c6b3986113f34db9dc6a9d601b1e0ef6fbb8d6e7abb82",
+      "actual": "70ed671a7403c217c16c6b3986113f34db9dc6a9d601b1e0ef6fbb8d6e7abb82",
+      "matches": true
+    },
+    {
+      "path": "run5/portable-native.txt",
+      "expected": "128832142bb74284302daf760913aceb287231c0f01687f9bba421455b671a1c",
+      "actual": "128832142bb74284302daf760913aceb287231c0f01687f9bba421455b671a1c",
+      "matches": true
+    },
+    {
+      "path": "run5/portable-supplement.tsv",
+      "expected": "b036bd5580beec2624d522d4aeb01c19bcb53e6a82e1f990039757c3c2577ffa",
+      "actual": "b036bd5580beec2624d522d4aeb01c19bcb53e6a82e1f990039757c3c2577ffa",
+      "matches": true
+    },
+    {
+      "path": "run5/preparation.tsv",
+      "expected": "02b1c6e6a3fb847ad02b439e3bed4815b87c6891b8e2d822fda2c8affb98ae29",
+      "actual": "02b1c6e6a3fb847ad02b439e3bed4815b87c6891b8e2d822fda2c8affb98ae29",
+      "matches": true
+    },
+    {
+      "path": "run5/protocol-review.md",
+      "expected": "012458b55598de8c0cf44c5dff273bee8731170006ec3151483248a667dd5f6c",
+      "actual": "012458b55598de8c0cf44c5dff273bee8731170006ec3151483248a667dd5f6c",
+      "matches": true
+    },
+    {
+      "path": "run5/public-docs.tsv",
+      "expected": "37eb3574eeb78421629c42a892b9333e1d700722096af35a7e039412c4571640",
+      "actual": "37eb3574eeb78421629c42a892b9333e1d700722096af35a7e039412c4571640",
+      "matches": true
+    },
+    {
+      "path": "run5/source-identity.json",
+      "expected": "9ba23848cead1933d3ed482aaa2003fc0496bdfc77325e4e0419fa0b63273e93",
+      "actual": "9ba23848cead1933d3ed482aaa2003fc0496bdfc77325e4e0419fa0b63273e93",
+      "matches": true
+    },
+    {
+      "path": "run5/source-review.md",
+      "expected": "65ca4c41e523fc28f51151d4fce084a3ecb0665f9294ab2c0c8365b7782e7625",
+      "actual": "65ca4c41e523fc28f51151d4fce084a3ecb0665f9294ab2c0c8365b7782e7625",
+      "matches": true
+    },
+    {
+      "path": "run5/uart.txt",
+      "expected": "1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b",
+      "actual": "1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b",
+      "matches": true
+    },
+    {
+      "path": "run5/vscode-tests.txt",
+      "expected": "3549dd5dff2c950d8235d01c50ea44fffb3a81a1b6de1de0da92adff5561466a",
+      "actual": "3549dd5dff2c950d8235d01c50ea44fffb3a81a1b6de1de0da92adff5561466a",
+      "matches": true
+    },
+    {
+      "path": "uart.txt",
+      "expected": "1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b",
+      "actual": "1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b",
+      "matches": true
+    },
+    {
+      "path": "vscode-tests.txt",
+      "expected": "0054018b57f7c3e114a4871fec65935eab3070402a022904262225e4689e9beb",
+      "actual": "0054018b57f7c3e114a4871fec65935eab3070402a022904262225e4689e9beb",
+      "matches": true
+    }
+  ],
+  "guard": {
+    "head": "a8937a07c12042fa655297a53338fa787c1a978c",
+    "base_sha": "3bed89b47b4e0ed8ecc11410b592228fff5f0112",
+    "status": "pass",
+    "commands": [
+      {
+        "id": "bootstrap",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": null
+      },
+      {
+        "id": "clean",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": null
+      },
+      {
+        "id": "base_ancestor",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": null
+      },
+      {
+        "id": "diff_check",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "planner",
+        "exit_status": 4,
+        "required": false,
+        "output_matches": true
+      },
+      {
+        "id": "catalog_staleness",
+        "exit_status": 1,
+        "required": false,
+        "output_matches": true
+      },
+      {
+        "id": "strict_gate",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_exact_head",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_disk_preflight",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_prepare_target",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_docs_capture_lifecycle",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_vscode",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_fmt",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_cross_target_warnings",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_supply_chain",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_architecture_safety",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_clippy",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_reclaim_before_test_all",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_test_all",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_mp001_parity",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      },
+      {
+        "id": "remote_clean_after",
+        "exit_status": 0,
+        "required": true,
+        "output_matches": true
+      }
+    ]
+  },
+  "native_counts": {
+    "native-tests.txt": {
+      "result_blocks": 315,
+      "passed": 8690,
+      "failed": 0,
+      "ignored": 24,
+      "restart_case_ok": true
+    },
+    "portable-native.txt": {
+      "result_blocks": 29,
+      "passed": 363,
+      "failed": 0,
+      "ignored": 0,
+      "restart_case_ok": true
+    },
+    "portable-i686-selected.txt": {
+      "result_blocks": 6,
+      "passed": 271,
+      "failed": 0,
+      "ignored": 0,
+      "restart_case_ok": true
+    }
+  },
+  "ledgers": {
+    "preparation.tsv": [
+      "environment\t0",
+      "formatter\t0",
+      "fragment-formatter\t0",
+      "mutation-selector-refresh\t0",
+      "architecture\t0",
+      "diagrams\t0",
+      "source-preparation-diff\t0"
+    ],
+    "portable-supplement.tsv": [
+      "portable-native\trequired\t0",
+      "portable-i686\trequired\t0",
+      "f401-core\trequired\t0",
+      "f401-features\trequired\t0",
+      "c6-core\trequired\t0",
+      "c6-features\trequired\t0",
+      "firmware-tests\trequired\t0",
+      "f401-adapter\trequired\t0",
+      "firmware-clippy\trequired\t0",
+      "msrv\trequired\t0",
+      "rust-docs\trequired\t0",
+      "gate-tooling\trequired\t0",
+      "path-hygiene\trequired\t0",
+      "iec-paths\trequired\t0",
+      "xtask-windows\trequired\t0",
+      "lsp-windows\trequired\t0",
+      "fragment-format\trequired\t0",
+      "diagram-drift\trequired\t0",
+      "retained-evidence\trequired\t0",
+      "metadata\tadvisory\t0",
+      "final-clean\trequired\t0"
+    ],
+    "public-docs.tsv": [
+      "docs-python\t0",
+      "docs-packages\t0",
+      "docs-media\t0",
+      "docs-ia\t0",
+      "docs-links\t0",
+      "docs-example-links\t0",
+      "docs-openot\t0",
+      "docs-build\t0",
+      "docs-assets\t0",
+      "docs-search\t0",
+      "docs-entrypoints\t0",
+      "docs-final-clean\t0"
+    ],
+    "final-image.tsv": [
+      "force-link\t0",
+      "final-relink\t0",
+      "retain-map\t0",
+      "final-inspection\t0",
+      "pack-application\t0",
+      "source-preservation\t0",
+      "final-clean\t0"
+    ]
+  },
+  "physical_trace": {
+    "samples": 101,
+    "oracle_rows": 101,
+    "logical_columns_equal": true,
+    "last_activations": 40,
+    "misses": 0,
+    "watchdog_arm": true,
+    "watchdog_reset": true,
+    "done": true
+  },
+  "physical_report_status": "passed",
+  "memory": {
+    "heap_peak": 28272,
+    "msp_peak": 13596,
+    "msp_free": 2788,
+    "upper_flash_free": 18720
+  },
+  "image_and_preservation": {
+    "firmware_sha256": "4761d2bc5153b3892da352ca1f0be1f7041f421457158bfc2a9682ddbbb39a61",
+    "application_sha256": "71cb8c62f8b13462455046cec44e58857cfe82bd33de8ba5c5f996e9258edb61",
+    "uart_sha256": "1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b",
+    "board_builder_elf_equal": true,
+    "board_builder_application_equal": true,
+    "uart_copy_equal": true,
+    "report_elf_sha_equal": true,
+    "report_uart_sha_equal": true,
+    "sector0_before_after_equal": true,
+    "upper_before_after_equal": true,
+    "checkpoint_before_after_equal": true,
+    "checkpoint_matches_backup": true,
+    "installed_application_prefix_equal": true,
+    "application_tail_erased": true
+  },
+  "elf_vs_board_load_segments": [
+    {
+      "address": 134217728,
+      "bytes": 16160,
+      "board_flash_equals_elf": true
+    },
+    {
+      "address": 134283264,
+      "bytes": 401704,
+      "board_flash_equals_elf": true
+    },
+    {
+      "address": 134684968,
+      "bytes": 38304,
+      "board_flash_equals_elf": true
+    }
+  ],
+  "first_ci_ledger": {
+    "head": "75b42a6679348830c201f423d41e4751a849804b",
+    "complete": true,
+    "check_count": 26,
+    "failed_records": [
+      {
+        "name": "Release Gate Report",
+        "job_url": "https://github.com/johannesPettersson80/trust-platform/actions/runs/38094132142/job/114343878897",
+        "official_path": "/home/johannes/projects/trust-platform/.git/trust-release-candidates/failures/75b42a6679348830c201f423d41e4751a849804b/logs/Release_Gate_Report.log",
+        "sha256": "f68c918601e5f0a9463a76388617a9e893dfbdfd1257e660dd0d14b1910de665",
+        "official_matches": true,
+        "external_matches": true,
+        "bytes": 51222
+      },
+      {
+        "name": "Test (macos-latest)",
+        "job_url": "https://github.com/johannesPettersson80/trust-platform/actions/runs/38094132142/job/114336405550",
+        "official_path": "/home/johannes/projects/trust-platform/.git/trust-release-candidates/failures/75b42a6679348830c201f423d41e4751a849804b/logs/Test_macos-latest.log",
+        "sha256": "69c605d1b448f096c676167f4ec1ef6ca1faa020acb5521c37dd5443251f75e6",
+        "official_matches": true,
+        "external_matches": true,
+        "bytes": 3594408
+      },
+      {
+        "name": "Test (windows-latest)",
+        "job_url": "https://github.com/johannesPettersson80/trust-platform/actions/runs/38094132142/job/114336405435",
+        "official_path": "/home/johannes/projects/trust-platform/.git/trust-release-candidates/failures/75b42a6679348830c201f423d41e4751a849804b/logs/Test_windows-latest.log",
+        "sha256": "7e9f87ae7bbaeab961dc7f1b2b5b3c1ca901f12aaa95a6c9af9530ecca3ba4cc",
+        "official_matches": true,
+        "external_matches": true,
+        "bytes": 74249891
+      }
+    ]
+  },
+  "tracked_closeout_paths": [
+    "docs/internal/testing/checklists/runtime-portability-implementation-checklist.md",
+    "docs/notes/runtime-portability/publication-evidence/README.md",
+    "docs/notes/runtime-portability/publication-evidence/artifact-sha256.json",
+    "docs/notes/runtime-portability/stm32-release-integration.md"
+  ],
+  "new_evidence_paths": [
+    "docs/notes/runtime-portability/publication-evidence/run5/capture-exit.txt",
+    "docs/notes/runtime-portability/publication-evidence/run5/elf-report.json",
+    "docs/notes/runtime-portability/publication-evidence/run5/final-build-config.json",
+    "docs/notes/runtime-portability/publication-evidence/run5/final-image.tsv",
+    "docs/notes/runtime-portability/publication-evidence/run5/first-ci-failure-ledger.json",
+    "docs/notes/runtime-portability/publication-evidence/run5/guard-artifact-a8937a07c.json",
+    "docs/notes/runtime-portability/publication-evidence/run5/installed-sha256.txt",
+    "docs/notes/runtime-portability/publication-evidence/run5/native-tests.txt",
+    "docs/notes/runtime-portability/publication-evidence/run5/pack-application.txt",
+    "docs/notes/runtime-portability/publication-evidence/run5/physical-report.json",
+    "docs/notes/runtime-portability/publication-evidence/run5/portable-i686-selected.txt",
+    "docs/notes/runtime-portability/publication-evidence/run5/portable-native.txt",
+    "docs/notes/runtime-portability/publication-evidence/run5/portable-supplement.tsv",
+    "docs/notes/runtime-portability/publication-evidence/run5/preparation.tsv",
+    "docs/notes/runtime-portability/publication-evidence/run5/protocol-review.md",
+    "docs/notes/runtime-portability/publication-evidence/run5/public-docs.tsv",
+    "docs/notes/runtime-portability/publication-evidence/run5/source-identity.json",
+    "docs/notes/runtime-portability/publication-evidence/run5/source-review.md",
+    "docs/notes/runtime-portability/publication-evidence/run5/uart.txt",
+    "docs/notes/runtime-portability/publication-evidence/run5/vscode-tests.txt"
+  ],
+  "closeout_identity": [
+    {
+      "path": "docs/internal/testing/checklists/runtime-portability-implementation-checklist.md",
+      "sha256": "ce5f607d0135bd2eeeaa3d43995e0e034ce5164a659a0786cb7ec7dba1334c3e"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/README.md",
+      "sha256": "b33cce6533e4d7c0e61d7323e22c44029ff2716a1170120008d2565ae7458cd9"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/artifact-sha256.json",
+      "sha256": "92b4fdf75bcbd1b804abf65ae9070e79c83ea2224a0c7955a64fbc610ce94f84"
+    },
+    {
+      "path": "docs/notes/runtime-portability/stm32-release-integration.md",
+      "sha256": "8bf256ad6ebc156fd414c45ccb09d2a79afb3175bc81db00bac3d2e20a769ec8"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/capture-exit.txt",
+      "sha256": "ca2ebdf97d7469496b1f4b78958f9dc8447efdcb623953fee7b6996b762f6fff"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/elf-report.json",
+      "sha256": "a26e79c32b74566fb74693986f93520ff19166a009e99f5270493f8fd878b4f0"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/final-build-config.json",
+      "sha256": "f5fc5cb0c133c441639d1161e023df9dc790b0388c1b68b2b9fa0839180adf08"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/final-image.tsv",
+      "sha256": "fdb8e66b22fa97d5d9834286fc9dbac47595452f2e11f91b25d76d64738c09e7"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/first-ci-failure-ledger.json",
+      "sha256": "d0d0d43128d5f9f29d1d0c267708312e7b9e437996a753a086b2b628dca81ee2"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/guard-artifact-a8937a07c.json",
+      "sha256": "7dd95f75fbb379471b04054429162f456570ddf318fd3cca25516a504ca2f726"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/installed-sha256.txt",
+      "sha256": "3191b5a844c13e71170d824d04862badec20b9164835259798e8fcb86164e551"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/native-tests.txt",
+      "sha256": "dede44bc3b2bda4d71b24c3bee44b21cf7d190f260b82080d847ae6ece0540ae"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/pack-application.txt",
+      "sha256": "78f1a8d62eddd0ea1c1ba6025cb2b73d940534b7683299b3b5bfc6b7f0b2e032"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/physical-report.json",
+      "sha256": "e4cc8c537dbc0a09052659d2ff0345d7e63c5548c4bbdd98caa25c46ca0f7826"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/portable-i686-selected.txt",
+      "sha256": "70ed671a7403c217c16c6b3986113f34db9dc6a9d601b1e0ef6fbb8d6e7abb82"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/portable-native.txt",
+      "sha256": "128832142bb74284302daf760913aceb287231c0f01687f9bba421455b671a1c"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/portable-supplement.tsv",
+      "sha256": "b036bd5580beec2624d522d4aeb01c19bcb53e6a82e1f990039757c3c2577ffa"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/preparation.tsv",
+      "sha256": "02b1c6e6a3fb847ad02b439e3bed4815b87c6891b8e2d822fda2c8affb98ae29"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/protocol-review.md",
+      "sha256": "012458b55598de8c0cf44c5dff273bee8731170006ec3151483248a667dd5f6c"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/public-docs.tsv",
+      "sha256": "37eb3574eeb78421629c42a892b9333e1d700722096af35a7e039412c4571640"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/source-identity.json",
+      "sha256": "9ba23848cead1933d3ed482aaa2003fc0496bdfc77325e4e0419fa0b63273e93"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/source-review.md",
+      "sha256": "65ca4c41e523fc28f51151d4fce084a3ecb0665f9294ab2c0c8365b7782e7625"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/uart.txt",
+      "sha256": "1a15c7b9c615e6893699addc04988f836f6dbc84e7a0135eb1c64df5bd18171b"
+    },
+    {
+      "path": "docs/notes/runtime-portability/publication-evidence/run5/vscode-tests.txt",
+      "sha256": "3549dd5dff2c950d8235d01c50ea44fffb3a81a1b6de1de0da92adff5561466a"
+    }
+  ]
+}

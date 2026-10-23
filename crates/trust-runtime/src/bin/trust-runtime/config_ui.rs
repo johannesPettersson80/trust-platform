@@ -142,6 +142,7 @@ fn build_config_mode_control_state(
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };
@@ -260,6 +261,7 @@ fn build_config_mode_control_state(
         debug_enabled: Arc::new(AtomicBool::new(false)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         historian: None,
+        openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
         ads_client_config: Arc::new(Mutex::new(None)),

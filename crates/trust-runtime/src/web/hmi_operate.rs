@@ -288,10 +288,10 @@ fn respond(request: Request, status: u16, body: &Value, cookie: Option<String>) 
             Header::from_bytes("Content-Type", "application/json").expect("a valid header"),
         )
         .with_header(Header::from_bytes("Cache-Control", "no-store").expect("a valid header"));
-    if let Some(cookie) = cookie {
-        if let Ok(header) = Header::from_bytes("Set-Cookie", cookie) {
-            response = response.with_header(header);
-        }
+    if let Some(cookie) = cookie
+        && let Ok(header) = Header::from_bytes("Set-Cookie", cookie)
+    {
+        response = response.with_header(header);
     }
     let _ = request.respond(response);
 }

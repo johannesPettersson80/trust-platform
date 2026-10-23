@@ -145,7 +145,7 @@ function lifecycle(runtimeState: "running" | "stopped"): RuntimeLifecycleSnapsho
       endpointEnabled: true,
       endpointReachable: runtimeState === "running",
     },
-    ioState: { inputs: [], outputs: [], memory: [] },
+    ioState: { inputs: [], outputs: [], memory: [], ads: [] },
     starting: false,
   };
 }

@@ -10,8 +10,14 @@ fn validate_bundle(bundle: &RuntimeBundle) -> anyhow::Result<()> {
             .validate(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?;
     }
-    let mut runtime = trust_runtime::Runtime::new();
-    runtime.apply_bytecode_bytes(&bundle.bytecode, Some(&bundle.runtime.resource_name))?;
+    let sources = if bundle.root.join("src").is_dir() {
+        trust_runtime::bundle_builder::collect_project_source_files(&bundle.root, None)?
+    } else {
+        Vec::new()
+    };
+    let module = trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode)?;
+    trust_runtime::harness::CompileSession::from_sources(sources)
+        .build_runtime_from_bytecode(&module, Some(&bundle.runtime.resource_name))?;
     Ok(())
 }
 
@@ -323,12 +329,10 @@ fn replace_symlink(link: &Path, target: &Path) -> anyhow::Result<()> {
     {
         let backup = scratch_path(link, "old");
         let had_link = matches!(pointer_state(link)?, PointerState::Link(_));
-        if had_link {
-            if let Err(error) = fs::rename(link, &backup) {
-                let _ = fs::remove_file(&staged);
-                return Err(error)
-                    .with_context(|| format!("backup deployment pointer '{}'", link.display()));
-            }
+        if had_link && let Err(error) = fs::rename(link, &backup) {
+            let _ = fs::remove_file(&staged);
+            return Err(error)
+                .with_context(|| format!("backup deployment pointer '{}'", link.display()));
         }
         if let Err(error) = fs::rename(&staged, link) {
             let restore = if had_link {
@@ -347,7 +351,7 @@ fn replace_symlink(link: &Path, target: &Path) -> anyhow::Result<()> {
                 .with_context(|| format!("publish deployment pointer '{}'", link.display()));
         }
         if had_link {
-            fs::remove_file(&backup).with_context(|| {
+            fs::remove_dir(&backup).with_context(|| {
                 format!("remove deployment pointer backup '{}'", backup.display())
             })?;
         }

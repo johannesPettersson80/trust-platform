@@ -31,12 +31,11 @@ pub(crate) fn rename_edits_with_context<C: ServerContext>(
             new_text: new_name.to_string(),
         });
     }
-    if let Some(root) = project_root(context, document) {
-        if let Some((uri, edit)) =
+    if let Some(root) = project_root(context, document)
+        && let Some((uri, edit)) =
             super::hmi_plant_project::rename_edit(context, &root, identity, new_name)?
-        {
-            changes.entry(uri).or_default().push(edit);
-        }
+    {
+        changes.entry(uri).or_default().push(edit);
     }
     Ok(changes)
 }
@@ -122,12 +121,13 @@ fn found_parts<C: ServerContext>(
             let line = object_key_line(&file.text, &object.id, "instance").saturating_sub(1);
             found.extend(parts_at(&file, line, instance, &matched));
             let own = named_parts(instance).pop();
-            if let (true, Some(own), Some(tag)) = (tags, own, object.tag.as_deref()) {
-                if matched.contains(&own) && tag.eq_ignore_ascii_case(&instance[own]) {
-                    let line = object_key_line(&file.text, &object.id, "tag").saturating_sub(1);
-                    let whole = 0..tag.len();
-                    found.extend(parts_at(&file, line, tag, std::slice::from_ref(&whole)));
-                }
+            if let (true, Some(own), Some(tag)) = (tags, own, object.tag.as_deref())
+                && matched.contains(&own)
+                && tag.eq_ignore_ascii_case(&instance[own])
+            {
+                let line = object_key_line(&file.text, &object.id, "tag").saturating_sub(1);
+                let whole = 0..tag.len();
+                found.extend(parts_at(&file, line, tag, std::slice::from_ref(&whole)));
             }
         }
     }

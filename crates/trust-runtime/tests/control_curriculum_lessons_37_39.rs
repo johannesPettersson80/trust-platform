@@ -304,8 +304,8 @@ fn lesson39_verification(
     for (name, value) in [("Initialized", true), ("AutoMode", auto)] {
         assert!(
             runtime
-                .storage_mut()
-                .set_instance_var(program, name, Value::Bool(value)),
+                .write_instance(program, name, Value::Bool(value))
+                .is_ok(),
             "{name}"
         );
     }

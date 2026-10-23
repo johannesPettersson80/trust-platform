@@ -1,0 +1,9 @@
+[gate-progress state=started phase=A4-affected-clippy target=scena-rust-builder pid=2656743 elapsed=0.0s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime)
+[gate-progress state=running phase=A4-affected-clippy target=scena-rust-builder pid=2656743 elapsed=30.0s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings']
+    Finished `dev` profile [unoptimized] target(s) in 37.12s
+[gate-progress state=finished phase=A4-affected-clippy target=scena-rust-builder pid=2656743 elapsed=37.7s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings' status=0]

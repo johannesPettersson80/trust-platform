@@ -56,7 +56,10 @@ fn run_check(project: &std::path::Path) -> Output {
 }
 
 fn run_check_with_args(project: &std::path::Path, args: &[&str]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command
         .arg("check")
         .arg("--project")
@@ -73,6 +76,10 @@ fn json_stdout(output: &Output) -> JsonValue {
             String::from_utf8_lossy(&output.stderr)
         )
     })
+}
+
+fn reported_path_ends_with(path: &str, suffix: &str) -> bool {
+    path.replace('\\', "/").ends_with(suffix)
 }
 
 #[test]
@@ -356,10 +363,10 @@ END_FUNCTION
     let sources = payload["sources"].as_array().expect("sources");
     assert!(sources.iter().any(|path| path
         .as_str()
-        .is_some_and(|path| path.ends_with("custom_sources/main.st"))));
+        .is_some_and(|path| reported_path_ends_with(path, "custom_sources/main.st"))));
     assert!(sources.iter().any(|path| path
         .as_str()
-        .is_some_and(|path| path.ends_with("deps/lib-a/src/lib.st"))));
+        .is_some_and(|path| reported_path_ends_with(path, "deps/lib-a/src/lib.st"))));
     assert!(!project.join("program.stbc").exists());
 
     let _ = std::fs::remove_dir_all(project);

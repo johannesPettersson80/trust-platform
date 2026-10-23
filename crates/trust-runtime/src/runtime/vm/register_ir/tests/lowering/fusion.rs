@@ -419,11 +419,10 @@ fn register_ir_fuse_instruction_read_detection_covers_all_operands() {
         },
         target,
     ));
-    assert!(!instruction_reads_register(
-        &RegisterInstr::Move {
-            src: target,
-            dest: other,
-        },
-        target,
-    ));
+    let move_instruction = RegisterInstr::Move {
+        src: target,
+        dest: other,
+    };
+    assert!(instruction_reads_register(&move_instruction, target));
+    assert!(!instruction_reads_register(&move_instruction, other));
 }

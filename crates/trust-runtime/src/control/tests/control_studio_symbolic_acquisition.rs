@@ -138,14 +138,31 @@ fn symbolic_recording_retains_scan_values_and_channel_quality_separately() {
 }
 #[test]
 fn symbolic_recording_bad_type_is_not_reused_or_marked_good() {
-    let (mut harness, state, bindings, revision) = symbolic_fixture();
+    let (harness, state, bindings, revision) = symbolic_fixture();
     assert!(start_symbolic_recording(&state, bindings, revision).ok);
     let Value::Instance(id) = harness.runtime().storage().get_global("Main").unwrap() else {
         panic!("program")
     };
-    state.debug.force_instance(*id, "Gate", Value::LReal(1.0));
-    harness.advance_time(crate::value::Duration::from_millis(20));
-    assert!(harness.cycle().errors.is_empty());
+    // The engine refuses a force or write of the wrong type, so a wrongly typed value can reach
+    // the recorder only in a corrupt scan: the recorder marks it bad, never good or reused.
+    let mut storage = harness.runtime().storage().clone();
+    assert!(storage.set_instance_var(*id, "Gate", Value::LReal(1.0)));
+    // The cycle stamps each published scan with its number; this one follows the last real scan.
+    let last_scan = state
+        .debug
+        .latest_io_snapshot()
+        .and_then(|snapshot| snapshot.scan)
+        .expect("the fixture published scans");
+    let mut io = harness.runtime().io().snapshot();
+    io.scan = Some(last_scan + 1);
+    state.debug.push_control_snapshot_at(
+        io,
+        20_000_000,
+        &storage,
+        &[],
+        true,
+        true,
+    );
     let stop = handle_request_value(
         json!({"id":8714,"type":"control.recording.stop","params":{"recording_id":"symbol-record","loop_revision":"symbol-loop"}}),
         &state,

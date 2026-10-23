@@ -1,14 +1,24 @@
+/// The scheduler's copies of the watchdog, fault and retain-save policies, which `config.set`
+/// changes. They travel in one command, so a full queue refuses the whole set and the scan thread
+/// applies the whole set as one step (specification 11 section 6.8.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SchedulerPolicies {
+    pub watchdog: crate::watchdog::WatchdogPolicy,
+    pub fault_policy: crate::watchdog::FaultPolicy,
+    pub retain_save_interval: Option<Duration>,
+}
+
 /// Commands applied to a running resource.
 #[derive(Debug, Clone)]
 pub enum ResourceCommand {
     Pause,
     Resume,
-    UpdateWatchdog(crate::watchdog::WatchdogPolicy),
-    UpdateFaultPolicy(crate::watchdog::FaultPolicy),
-    UpdateRetainSaveInterval(Option<Duration>),
+    UpdateSchedulerPolicies(SchedulerPolicies),
     UpdateIoSafeState(crate::io::IoSafeState),
     ReloadBytecode {
         bytes: Vec<u8>,
+        /// Shared with the waiting request, which withdraws the reload if it times out first.
+        claim: ReloadClaim,
         respond_to: std::sync::mpsc::Sender<Result<RuntimeMetadata, RuntimeError>>,
     },
     MeshSnapshot {

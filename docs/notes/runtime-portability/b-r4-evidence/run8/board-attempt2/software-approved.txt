@@ -1,0 +1,4 @@
+Run8 parent measurement and reviewed frozen source; first validation precheck failed metadata pin and remains retained. Corrected validation2 required gates all PASS. Run7 core/host proof reused for 169 identical source/lock records; current policy rechecked by architecture.
+Source a95bcff98b5d4a51e70acf7e29cf0113b585ac69bcfc39c4cc5fbac6b1e8337c
+ELF a0e6ed2d7f725fd17746d30c229d02e5b0125c00c494015f3be40322e293ec1e
+Validation2 ledger sha256 dfab36ffbd2613e27ff47ed62016338bfaa40386cc6b130a1510c78dd2ba0239

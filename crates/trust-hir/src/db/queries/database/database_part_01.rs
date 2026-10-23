@@ -55,7 +55,11 @@ impl Database {
         }
 
         let text = self.sources.get(&file_id)?;
-        let source = salsa_backend::SourceInput::new(&state.db, text.as_ref().clone());
+        let source = salsa_backend::SourceInput::new(
+            &state.db,
+            text.as_ref().clone(),
+            self.temporal_storage,
+        );
         state.sources.insert(file_id, source);
         salsa_backend::sync_project_inputs(state);
         Some(source)
@@ -221,7 +225,11 @@ impl Database {
                 }
                 continue;
             }
-            let source = salsa_backend::SourceInput::new(&state.db, text.as_ref().clone());
+            let source = salsa_backend::SourceInput::new(
+                &state.db,
+                text.as_ref().clone(),
+                self.temporal_storage,
+            );
             state.sources.insert(known_file_id, source);
             project_changed = true;
         }

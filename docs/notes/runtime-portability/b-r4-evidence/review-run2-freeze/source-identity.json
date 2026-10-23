@@ -1,0 +1,13 @@
+{
+  "frozen_manifest_sha256": "a44d0a232571559bd0815df7ef6c4acce29d0649003edf5af2da49e9004052d5",
+  "prior_correction_identity": "17368e7a40975f4adce55cd69e5755a217fd2d65d3c389a55966ab1db6dcf03f",
+  "files": {
+    "crates/trust-runtime-core/src/vm/dispatch.rs": "fdbd972babf1440a7960150ee5788717712c47ae08f3da373fc601a917267cba",
+    "crates/trust-runtime-core/src/vm/dispatch/continuation.rs": "ff6ef48649aebb1a5de1c8a2586d26507f040ed88413c54d78a68aa3d21afa2f",
+    "crates/trust-runtime-core/src/vm/frames.rs": "9edb24c7fb3bc8dc1ddad7a3458bf5adde8a52f7d1529bc115115a5d3fb4066e",
+    "crates/trust-runtime/tests/source_free_execution_cost.rs": "a645784550775a16124163ca3028f18c2098298824bc2d935e9bf66828dcb428",
+    "firmware/trust-nucleo-f401re/src/main.rs": "2ce8405fc48edcaa17fb9e2de04371f522ecda0f62127ae9dd0c25e298d265a8",
+    "firmware/trust-nucleo-f401re/src/runner.rs": "01806c2ef8f9a41f0fa7a8ac17f0e012f1c4fc946e627d79b14cd1547bba55f3",
+    "firmware/trust-nucleo-f401re/src/trace.rs": "c5f546320221b24c8f195c2dd3a67f60780ca45f5522de40355e6aa0ab79c291"
+  }
+}

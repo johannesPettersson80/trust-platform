@@ -13,6 +13,7 @@ fn context<'a>(
     now_ms: i64,
 ) -> DebugRuntimeContext<'a> {
     DebugRuntimeContext {
+        storage_abi: Default::default(),
         storage,
         registry,
         stdlib: None,
@@ -69,12 +70,7 @@ fn live_stop_receiver_gets_one_owned_copy_and_buffer_is_retained() {
         let (lock, _) = &*control.state;
         let mut state = lock.lock().expect("state");
         state.stop_tx = Some(tx);
-        emit_stop(
-            &mut state,
-            DebugStopReason::Pause,
-            Some(location),
-            None,
-        );
+        emit_stop(&mut state, DebugStopReason::Pause, Some(location), None);
     }
 
     let delivered = rx.try_recv().expect("delivered stop");
@@ -126,6 +122,71 @@ fn snapshot_captures_owned_storage_and_exact_runtime_time() {
 }
 
 #[test]
+fn detached_statement_snapshot_moves_owned_buffers_and_evaluates_watches_once() {
+    let mut control = DebugControl::new();
+    let registry = TypeRegistry::new();
+    let mut storage = VariableStorage::new();
+    let buffer = "A".repeat(80);
+    let original = buffer.as_ptr();
+    storage.set_global("text", Value::WString(buffer));
+    control.register_watch_expression(Expr::Literal(Value::DInt(7)));
+    let mut ctx = context(&mut storage, &registry, 42);
+    control.on_statement_with_owned_context(&mut ctx, None, 0);
+    assert!(ctx.storage.get_global("text").is_none());
+    assert!(control.take_watch_changed());
+
+    let (lock, _) = &*control.state;
+    let state = lock.lock().unwrap();
+    let snapshot = state.snapshot.as_ref().unwrap();
+    assert_eq!(snapshot.now, Duration::from_millis(42));
+    let Some(Value::WString(retained)) = snapshot.storage.get_global("text") else {
+        panic!("detached owned string was not published")
+    };
+    assert_eq!(
+        retained.as_ptr(),
+        original,
+        "snapshot must move rather than clone the projection"
+    );
+    assert_eq!(state.watches[0].last, Some(Value::DInt(7)));
+}
+
+#[test]
+fn schema_observation_retirement_preserves_pause_and_clears_old_frame_handles() {
+    let control = DebugControl::new();
+    let registry = TypeRegistry::new();
+    let mut storage = VariableStorage::new();
+    let frame = storage.push_frame("retired");
+    let location = SourceLocation::new(1, 4, 9);
+    let mut ctx = context(&mut storage, &registry, 42);
+    {
+        let (lock, _) = &*control.state;
+        let mut state = lock.lock().unwrap();
+        state.mode = DebugMode::Paused;
+        state.frame_locations.insert(frame, location);
+        state.last_location = Some(location);
+        update_snapshot(&mut state, &mut ctx);
+        emit_stop(
+            &mut state,
+            DebugStopReason::Breakpoint,
+            Some(location),
+            None,
+        );
+    }
+    control.register_watch_expression(Expr::Literal(Value::DInt(7)));
+    control.invalidate_schema_observations();
+    assert_eq!(control.mode(), DebugMode::Paused);
+    assert!(control.snapshot().is_none());
+    assert!(control.last_location().is_none());
+    assert!(control.last_stop().is_none());
+    assert!(control.frame_locations().is_empty());
+    assert!(control.drain_stops().is_empty());
+    let (lock, _) = &*control.state;
+    let state = lock.lock().unwrap();
+    assert!(state.watches.is_empty());
+    assert_eq!(state.pending_stop, Some(DebugStopReason::Pause));
+}
+
+#[test]
 fn first_watch_evaluation_sets_value_and_change_edge() {
     let control = DebugControl::new();
     let registry = TypeRegistry::new();
@@ -135,6 +196,7 @@ fn first_watch_evaluation_sets_value_and_change_edge() {
     let mut state = lock.lock().expect("state");
     state.watches.push(WatchEntry {
         expr: Expr::Literal(Value::DInt(7)),
+        registry: Some(std::sync::Arc::new(registry.clone())),
         last: None,
     });
 
@@ -153,6 +215,7 @@ fn unchanged_watch_value_does_not_create_new_change_edge() {
     let mut state = lock.lock().expect("state");
     state.watches.push(WatchEntry {
         expr: Expr::Literal(Value::DInt(7)),
+        registry: Some(std::sync::Arc::new(registry.clone())),
         last: Some(Value::DInt(7)),
     });
     state.watch_changed = false;
@@ -171,6 +234,7 @@ fn watch_evaluation_failure_transitions_prior_value_to_none() {
     let mut state = lock.lock().expect("state");
     state.watches.push(WatchEntry {
         expr: Expr::Name("missing".into()),
+        registry: Some(std::sync::Arc::new(registry.clone())),
         last: Some(Value::DInt(7)),
     });
 
@@ -239,11 +303,7 @@ fn running_context_hook_does_not_invent_paused_snapshot() {
     let mut storage = VariableStorage::new();
     let mut ctx = context(&mut storage, &registry, 0);
     let mut hook = control.clone();
-    hook.on_statement_with_context(
-        &mut ctx,
-        Some(&SourceLocation::new(1, 0, 1)),
-        0,
-    );
+    hook.on_statement_with_context(&mut ctx, Some(&SourceLocation::new(1, 0, 1)), 0);
     assert!(control.snapshot().is_none());
 }
 

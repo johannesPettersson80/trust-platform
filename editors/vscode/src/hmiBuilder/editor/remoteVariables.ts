@@ -15,7 +15,8 @@ export async function remoteVariableContext(
   try {
     const connection =
       connections.get(root.toString()) ??
-      (await import("./liveOperatorRuntime")).runtimeLiveOperatorDeps(root.fsPath).session;
+      (require("./liveOperatorRuntime") as typeof import("./liveOperatorRuntime")).runtimeLiveOperatorDeps(root.fsPath)
+        .session;
     const target = await connection.target();
     if (!target) return { catalogue: {}, variables: [] };
     let reply = await connection.request(target, "GET", "/api/hmi/remote", undefined);

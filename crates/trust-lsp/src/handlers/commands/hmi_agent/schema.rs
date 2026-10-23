@@ -314,43 +314,43 @@ fn check_object(
             )));
         }
     }
-    if let Some(id) = &object.id {
-        if !is_object_id(id) {
-            return Err(AgentError::invalid(format!(
-                "{field}.id must start with a letter and hold letters, digits, '_' or '-'."
-            )));
-        }
+    if let Some(id) = &object.id
+        && !is_object_id(id)
+    {
+        return Err(AgentError::invalid(format!(
+            "{field}.id must start with a letter and hold letters, digits, '_' or '-'."
+        )));
     }
-    if let Some([width, height]) = object.size {
-        if width < MIN_SIZE || height < MIN_SIZE {
-            return Err(AgentError::invalid(format!(
-                "{field}.size must be at least {MIN_SIZE} pixels per side."
-            )));
-        }
+    if let Some([width, height]) = object.size
+        && (width < MIN_SIZE || height < MIN_SIZE)
+    {
+        return Err(AgentError::invalid(format!(
+            "{field}.size must be at least {MIN_SIZE} pixels per side."
+        )));
     }
-    if let Some(rotation) = object.rotation {
-        if ![0, 90, 180, 270].contains(&rotation) {
-            return Err(AgentError::invalid(format!(
-                "{field}.rotation must be 0, 90, 180 or 270."
-            )));
-        }
+    if let Some(rotation) = object.rotation
+        && ![0, 90, 180, 270].contains(&rotation)
+    {
+        return Err(AgentError::invalid(format!(
+            "{field}.rotation must be 0, 90, 180 or 270."
+        )));
     }
     if let Some([x, y]) = object.pinned_at {
         grid_position(&format!("{field}.pinnedAt"), x, y)?;
     }
-    if let Some(at) = object.at {
-        if at.iter().any(|value| *value < -MAX_DESIGN) {
-            return Err(AgentError::invalid(format!(
-                "{field}.at is outside the design."
-            )));
-        }
+    if let Some(at) = object.at
+        && at.iter().any(|value| *value < -MAX_DESIGN)
+    {
+        return Err(AgentError::invalid(format!(
+            "{field}.at is outside the design."
+        )));
     }
-    if let Some(decimals) = object.decimals {
-        if decimals > 8 {
-            return Err(AgentError::invalid(format!(
-                "{field}.decimals must be at most 8."
-            )));
-        }
+    if let Some(decimals) = object.decimals
+        && decimals > 8
+    {
+        return Err(AgentError::invalid(format!(
+            "{field}.decimals must be at most 8."
+        )));
     }
     Ok(())
 }

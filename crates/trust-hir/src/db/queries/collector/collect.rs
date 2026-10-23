@@ -15,21 +15,19 @@ impl SymbolCollector<'_> {
                 .get_scope(current_scope)
                 .and_then(|scope| scope.lookup_local(name.as_str()));
 
-            if let Some(existing_id) = existing_local {
-                if let Some(existing_symbol) = self.table.get(existing_id) {
-                    if matches!(existing_symbol.kind, SymbolKind::Namespace) {
-                        let previous_scope = self.table.current_scope();
-                        let scope_id =
-                            self.table.scope_for_owner(existing_id).unwrap_or_else(|| {
-                                self.table
-                                    .push_scope(ScopeKind::Namespace, Some(existing_id))
-                            });
-                        self.table.set_current_scope(scope_id);
-                        self.parent_stack.push(existing_id);
-                        entries.push(NamespaceEntry::Reused { previous_scope });
-                        continue;
-                    }
-                }
+            if let Some(existing_id) = existing_local
+                && let Some(existing_symbol) = self.table.get(existing_id)
+                && matches!(existing_symbol.kind, SymbolKind::Namespace)
+            {
+                let previous_scope = self.table.current_scope();
+                let scope_id = self.table.scope_for_owner(existing_id).unwrap_or_else(|| {
+                    self.table
+                        .push_scope(ScopeKind::Namespace, Some(existing_id))
+                });
+                self.table.set_current_scope(scope_id);
+                self.parent_stack.push(existing_id);
+                entries.push(NamespaceEntry::Reused { previous_scope });
+                continue;
             }
 
             let mut symbol = Symbol::new(
@@ -528,33 +526,31 @@ impl SymbolCollector<'_> {
                 });
             // Only report duplicate if it's in the same scope (not from parent)
             let current_scope = self.table.current_scope();
-            if !distinct_enum_values {
-                if let Some(scope) = self.table.get_scope(current_scope) {
-                    if scope.lookup_local(&name).is_some() {
-                        let existing_symbol = self.table.get(existing);
-                        // A standard function block (`TON`, ...) has no source location.
-                        let standard = existing_symbol.is_some_and(|existing| {
-                            existing.range.is_empty()
-                                && existing.origin.is_none()
-                                && matches!(existing.kind, SymbolKind::FunctionBlock)
-                        });
-                        let message = if standard {
-                            format!(
-                                "duplicate declaration of '{}', the name of a standard function block",
-                                name
-                            )
-                        } else {
-                            format!("duplicate declaration of '{}'", name)
-                        };
-                        let mut diag =
-                            Diagnostic::error(DiagnosticCode::DuplicateDeclaration, range, message);
-                        if let Some(existing_symbol) = existing_symbol.filter(|_| !standard) {
-                            diag = diag
-                                .with_related(existing_symbol.range, "previously declared here");
-                        }
-                        self.diagnostics.add(diag);
-                    }
+            if !distinct_enum_values
+                && let Some(scope) = self.table.get_scope(current_scope)
+                && scope.lookup_local(&name).is_some()
+            {
+                let existing_symbol = self.table.get(existing);
+                // A standard function block (`TON`, ...) has no source location.
+                let standard = existing_symbol.is_some_and(|existing| {
+                    existing.range.is_empty()
+                        && existing.origin.is_none()
+                        && matches!(existing.kind, SymbolKind::FunctionBlock)
+                });
+                let message = if standard {
+                    format!(
+                        "duplicate declaration of '{}', the name of a standard function block",
+                        name
+                    )
+                } else {
+                    format!("duplicate declaration of '{}'", name)
+                };
+                let mut diag =
+                    Diagnostic::error(DiagnosticCode::DuplicateDeclaration, range, message);
+                if let Some(existing_symbol) = existing_symbol.filter(|_| !standard) {
+                    diag = diag.with_related(existing_symbol.range, "previously declared here");
                 }
+                self.diagnostics.add(diag);
             }
         }
 

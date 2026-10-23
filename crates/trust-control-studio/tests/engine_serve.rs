@@ -77,13 +77,17 @@ fn serve_answers_each_message_and_ends_when_its_input_closes() {
     let journal = scratch.0.join("journal");
 
     let mut engine = Engine(
-        Command::new(env!("CARGO_BIN_EXE_trust-control-studio"))
-            .arg("serve")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("the engine starts"),
+        Command::new(
+            std::env::var_os("CARGO_BIN_EXE_trust-control-studio").expect(
+                "Cargo must provide trust-control-studio binary while executing integration tests",
+            ),
+        )
+        .arg("serve")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("the engine starts"),
     );
     let mut input = engine.0.stdin.take().expect("standard input");
     let mut output = BufReader::new(engine.0.stdout.take().expect("standard output"));

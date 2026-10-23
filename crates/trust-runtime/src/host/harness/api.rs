@@ -84,6 +84,19 @@ impl CompileSession {
         &self.sources
     }
 
+    /// Build an isolated historical baseline for private native parity fixtures.
+    #[cfg(test)]
+    pub(crate) fn build_legacy_fixture(
+        &self,
+    ) -> Result<crate::runtime::LegacyRuntimeFixture, CompileError> {
+        self.ensure_instrumented()?;
+        build::build_legacy_fixture(
+            &self.sources,
+            self.label_errors,
+            &self.extra_program_instances,
+        )
+    }
+
     /// Compile sources into a runtime.
     pub fn build_runtime(&self) -> Result<Runtime, CompileError> {
         let _trace =
@@ -97,15 +110,60 @@ impl CompileSession {
         )
     }
 
-    /// Compile sources into a bytecode module.
-    pub fn build_bytecode_module(&self) -> Result<crate::bytecode::BytecodeModule, CompileError> {
+    /// Install supplied bytecode once. Legacy 1.1 requires these sources as
+    /// matching construction context; 2.0/3.0 may use an empty source list. Ordinary
+    /// instruction bytes are never replaced by recompiled source bodies.
+    pub fn build_runtime_from_bytecode(
+        &self,
+        supplied: &crate::bytecode::BytecodeModule,
+        resource_name: Option<&str>,
+    ) -> Result<Runtime, CompileError> {
         self.ensure_instrumented()?;
-        build::build_bytecode_module_from_source_files(
+        super::artifact::build_runtime(
+            supplied,
+            resource_name,
             &self.sources,
             self.label_errors,
             &self.extra_program_instances,
             self.conversion_profile,
         )
+    }
+
+    /// Compile sources into a bytecode module.
+    pub fn build_bytecode_module(&self) -> Result<crate::bytecode::BytecodeModule, CompileError> {
+        self.build_bytecode_module_for_version(crate::bytecode::BytecodeVersion::SOURCE_FREE)
+    }
+
+    /// Select a wire contract explicitly. Hosted adoption defaults to STBC 3.0;
+    /// the temporary 1.1 writer remains an explicit compatibility choice.
+    /// Source-free STBC preserves declarations and executable initializers without running them.
+    pub fn build_bytecode_module_for_version(
+        &self,
+        version: crate::bytecode::BytecodeVersion,
+    ) -> Result<crate::bytecode::BytecodeModule, CompileError> {
+        self.ensure_instrumented()?;
+        if version == crate::bytecode::BytecodeVersion::LEGACY {
+            return build::build_bytecode_module_from_source_files(
+                &self.sources,
+                self.label_errors,
+                &self.extra_program_instances,
+            );
+        }
+        if !matches!(
+            version,
+            crate::bytecode::BytecodeVersion::SOURCE_FREE
+                | crate::bytecode::BytecodeVersion::SOURCE_FREE_V2
+        ) {
+            return Err(CompileError::new("unsupported bytecode producer version"));
+        }
+        let abi = version
+            .storage_abi()
+            .map_err(|error| CompileError::new(error.to_string()))?;
+        let input = build::lower_application_with_abi(&self.sources, self.label_errors, abi)?
+            .prepare_authoring(&self.extra_program_instances)?;
+        crate::bytecode::build_module_with_type_projection_for_version(&input, version)
+            .map(|projected| projected.module)
+            .map_err(|error| CompileError::new(error.to_string()))
     }
 
     /// Compile sources into bytecode bytes.

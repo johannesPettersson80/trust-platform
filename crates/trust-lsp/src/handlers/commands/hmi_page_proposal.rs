@@ -94,7 +94,7 @@ pub(super) fn propose_settings_page_value<C: ServerContext>(
             };
             let type_name = runtime.storage().get_instance(*id)?.type_name.clone();
             let program = runtime
-                .programs()
+                .program_templates()
                 .iter()
                 .find(|(key, _)| key.eq_ignore_ascii_case(&type_name))?
                 .1;

@@ -220,11 +220,11 @@ fn detect_vendor_ecosystem(root: roxmltree::Node<'_, '_>, xml_text: &str) -> Str
             hints.push_str(attribute.value());
             hints.push(' ');
         }
-        if is_element_named_ci(node, "data") {
-            if let Some(name) = attribute_ci(node, "name") {
-                hints.push_str(&name);
-                hints.push(' ');
-            }
+        if is_element_named_ci(node, "data")
+            && let Some(name) = attribute_ci(node, "name")
+        {
+            hints.push_str(&name);
+            hints.push(' ');
         }
     }
     hints.push_str(xml_text);

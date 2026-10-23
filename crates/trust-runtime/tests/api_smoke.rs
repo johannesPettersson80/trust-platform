@@ -3,11 +3,13 @@ use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::CompileSession;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 #[test]
 fn loads_runtime() {
-    let runtime = Runtime::new();
+    let runtime = RuntimeBuilder::new()
+        .build()
+        .expect("admit empty application");
     let profile = runtime.profile();
     assert_eq!(runtime.execution_backend(), ExecutionBackend::BytecodeVm);
     assert_eq!(runtime.current_time(), Duration::ZERO);
@@ -17,12 +19,14 @@ fn loads_runtime() {
 }
 
 #[test]
-fn runtime_execution_backend_defaults_and_lazy_vm_materialization() {
-    let mut runtime = Runtime::new();
+fn runtime_execution_backend_uses_the_already_prepared_shared_module() {
+    let mut runtime = RuntimeBuilder::new()
+        .build()
+        .expect("admit empty application");
     assert_eq!(runtime.execution_backend(), ExecutionBackend::BytecodeVm);
     runtime
         .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("vm backend selection should not require preloaded bytecode");
+        .expect("vm backend selection accepts the admitted empty application");
 
     let source = r#"
         PROGRAM Main
@@ -40,7 +44,7 @@ fn runtime_execution_backend_defaults_and_lazy_vm_materialization() {
         .expect("select vm backend");
     runtime
         .execute_cycle()
-        .expect("vm backend should lazy materialize bytecode module");
+        .expect("vm backend executes the already prepared shared module");
     let main_id = match runtime.storage().get_global("Main") {
         Some(Value::Instance(id)) => *id,
         other => panic!("expected Main instance global, got {other:?}"),

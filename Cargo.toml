@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
     "xtask",
     "crates/trust-debug",
@@ -13,93 +13,104 @@ members = [
     "crates/trust-ads-server",
     "crates/verification-cases",
     "crates/trust-runtime-core",
+    "crates/trust-platform-stm32f4",
+    "crates/trust-platform-esp32",
+    "crates/trust-board-fixture",
     "crates/trust-runtime",
     "crates/trust-control-math",
     "crates/trust-control",
     "crates/trust-runtime-client",
     "crates/trust-control-studio",
+    "crates/trust-tcads-native",
     "crates/trust-wasm-analysis",
 ]
 exclude = [
     "third_party/tiverse-mmap",
+    "firmware/trust-nucleo-f401re",
+    "firmware/trust-esp32c6-reference",
 ]
 
 [workspace.package]
-version = "0.24.66"
-edition = "2021"
+version = "0.24.75"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/johannesPettersson80/trust-platform"
-rust-version = "1.95"
+rust-version = "1.99"
 authors = ["Johannes Pettersson <johannes_salomon@hotmail.com>"]
 keywords = ["lsp", "plc", "iec61131", "structured-text", "automation"]
 categories = ["development-tools", "text-editors"]
 
 [workspace.dependencies]
 # Syntax
-logos = "0.16"
-rowan = "0.16"
-text-size = "1.1"
+logos = "0.16.1"
+rowan = "0.17.0"
+text-size = "1.1.1"
 
 # Semantic analysis
-salsa = "0.28"
+salsa = "0.28.5"
 
 # LSP
-tower-lsp = "0.20"
-lsp-types = "0.97"
-tower = "0.4"
+tower-lsp = "0.20.0"
+lsp-types = "0.97.0"
+tower = "0.4.13"
 
 # Async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.53.2", features = ["full"] }
 
 # Serialization
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-schemars = "1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.152"
+schemars = "1.2.1"
 num-bigint = "0.4.6"
-toml = "1.0"
-toml_edit = { version = "0.25", features = ["serde"] }
-sha2 = "0.10"
-clap = { version = "4", features = ["derive"] }
-clap_complete = "4"
-qrcode = { version = "0.14", default-features = false, features = ["svg"] }
-urlencoding = "2"
-percent-encoding = "2"
-roxmltree = "0.21"
-wasm-bindgen = "0.2"
+toml = "1.1.8"
+toml_edit = { version = "0.25.17", features = ["serde"] }
+sha2 = "0.11.0"
+hex = "0.4.3"
+clap = { version = "4.6.7", features = ["derive"] }
+clap_complete = "4.6.11"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+urlencoding = "2.1.3"
+percent-encoding = "2.3.2"
+roxmltree = "0.21.1"
+wasm-bindgen = "0.2.129"
 
 # Control-system mathematics (crates/trust-control-math)
-nalgebra = "0.34"
+nalgebra = "0.34.2"
 
 # Error handling
-thiserror = "2"
-anyhow = "1"
+thiserror = { version = "2.0.21", default-features = false }
+anyhow = "1.0.104"
 
 # Testing
-expect-test = "1.5"
-insta = { version = "1", features = ["glob"] }
-futures-util = "0.3"
+expect-test = "1.5.1"
+insta = { version = "1.49.0", features = ["glob"] }
+proptest = { version = "1.12.0", default-features = false, features = ["std"] }
+futures-util = "0.3.34"
 
 # Utilities
-smol_str = "0.2.2"
-rustc-hash = "2.1"
-indexmap = "2"
-drop_bomb = "0.1"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-once_cell = "1.21"
-parking_lot = "0.12"
-crossbeam-channel = "0.5"
-glob = "0.3"
-crc32fast = "1"
-ratatui = "0.30"
-crossterm = "0.29"
-dialoguer = "0.12"
-indicatif = "0.18"
-owo-colors = "4"
-rumqttc = { version = "0.25", default-features = false, features = ["use-native-tls"] }
+smol_str = { version = "0.3.6", default-features = false }
+rustc-hash = { version = "2.1.3", default-features = false }
+indexmap = { version = "2.14.2", default-features = false }
+libm = "=0.2.16"
+lexical-parse-float = { version = "=1.0.6", default-features = false, features = ["compact"] }
+ryu = { version = "=1.0.23", default-features = false, features = ["small"] }
+drop_bomb = "0.1.5"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+once_cell = "1.21.4"
+parking_lot = "0.12.5"
+crossbeam-channel = "0.5.17"
+glob = "0.3.4"
+crc32fast = { version = "=1.5.2", default-features = false }
+ratatui = "0.30.2"
+crossterm = "0.29.0"
+dialoguer = "0.12.0"
+indicatif = "0.18.6"
+owo-colors = "4.4.0"
+rumqttc = { version = "0.25.1", default-features = false, features = ["use-native-tls"] }
 native-tls = { version = "0.2.18", features = ["alpn", "vendored"] }
-time = "0.3.47"
-rapier3d = { version = "0.32.0", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
+time = "0.3.55"
+rapier3d = { version = "0.36.1", default-features = false, features = ["dim3", "f32", "enhanced-determinism"] }
 
 # Internal crates
 trust-syntax = { path = "crates/trust-syntax" }
@@ -110,12 +121,13 @@ trust-plcopen = { path = "crates/trust-plcopen" }
 trust-ads-core = { path = "crates/trust-ads-core" }
 trust-ads-server = { path = "crates/trust-ads-server" }
 verification-cases = { path = "crates/verification-cases" }
-trust-runtime-core = { path = "crates/trust-runtime-core" }
+trust-runtime-core = { path = "crates/trust-runtime-core", default-features = false }
 trust-runtime = { path = "crates/trust-runtime" }
 trust-control-math = { path = "crates/trust-control-math" }
 trust-control = { path = "crates/trust-control" }
 trust-runtime-client = { path = "crates/trust-runtime-client" }
 trust-control-studio = { path = "crates/trust-control-studio" }
+trust-tcads-native = { path = "crates/trust-tcads-native" }
 trust-wasm-analysis = { path = "crates/trust-wasm-analysis" }
 
 [workspace.lints.rust]

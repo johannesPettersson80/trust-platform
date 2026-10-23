@@ -136,8 +136,8 @@ impl Default for ParameterRegistry {
 }
 fn hash(value: impl std::fmt::Debug) -> String {
     format!(
-        "sha256:{:x}",
-        Sha256::digest(format!("{value:?}").as_bytes())
+        "sha256:{}",
+        hex::encode(Sha256::digest(format!("{value:?}").as_bytes()))
     )
 }
 fn check_binding(binding: &Binding, metadata: &RuntimeMetadata) -> Result<(), String> {
@@ -425,11 +425,11 @@ impl ParameterRegistry {
         self.used_operations.clear();
         self.cancelled_operations.clear();
         self.reviews.clear();
-        if let Some(pending) = self.pending.take() {
-            if let Some(record) = self.records.get_mut(&pending.request.binding.loop_id) {
-                record.status = "rejected".into();
-                record.reason = Some("runtime interrupted before parameter confirmation".into());
-            }
+        if let Some(pending) = self.pending.take()
+            && let Some(record) = self.records.get_mut(&pending.request.binding.loop_id)
+        {
+            record.status = "rejected".into();
+            record.reason = Some("runtime interrupted before parameter confirmation".into());
         }
         for record in self.records.values_mut() {
             record.previous = None;
@@ -675,7 +675,7 @@ impl DebugControl {
     pub(crate) fn commit_parameters(
         &self,
         task: &str,
-        storage: &mut VariableStorage,
+        writes: &mut dyn super::ScanWrites,
         metadata: &RuntimeMetadata,
         physical_target: bool,
         io_bindings: &[crate::io::IoBinding],
@@ -689,7 +689,8 @@ impl DebugControl {
             return;
         }
         let request = &pending.request;
-        let validate = (|| -> Result<(VariableStorage, Vec<(ValueRef, Value)>), String> {
+        let storage = writes.storage();
+        let validate = (|| -> Result<Vec<(ValueRef, Value, Value)>, String> {
             if request.expected_program_revision
                 != hash((
                     state.parameters.session,
@@ -730,31 +731,41 @@ impl DebugControl {
                 ));
             }
             validate_candidate(&request.binding, &pending.candidate)?;
-            let mut staged = storage.clone();
-            let mut restore_points = Vec::new();
+            let mut planned = Vec::with_capacity(request.binding.parameters.len());
             for parameter in &request.binding.parameters {
                 let ResolvedSymbol {
                     reference,
                     value: previous,
-                } = resolve_path(&staged, &parameter.symbol)?;
-                restore_points.push((reference.clone(), previous));
+                } = resolve_path(storage, &parameter.symbol)?;
                 let value = pending.candidate[&parameter.symbol];
-                if !staged.write_by_ref(
-                    reference,
-                    if parameter.iec_type == "REAL" {
-                        Value::Real(value as f32)
-                    } else {
-                        Value::LReal(value)
-                    },
-                ) {
+                let value = if parameter.iec_type == "REAL" {
+                    Value::Real(value as f32)
+                } else {
+                    Value::LReal(value)
+                };
+                planned.push((reference, previous, value));
+            }
+            Ok(planned)
+        })();
+        // The set is written together: a member the runtime refuses puts back the members
+        // already written, so the task runs with the whole set or none of it.
+        let committed = validate.and_then(|planned| {
+            let mut restore_points: Vec<(ValueRef, Value)> = Vec::with_capacity(planned.len());
+            for ((reference, previous, value), parameter) in
+                planned.into_iter().zip(&request.binding.parameters)
+            {
+                if !writes.write(&reference, value) {
+                    for (reference, previous) in restore_points.iter().rev() {
+                        writes.write(reference, previous.clone());
+                    }
                     return Err(format!("parameter {} is not writable", parameter.symbol));
                 }
+                restore_points.push((reference, previous));
             }
-            Ok((staged, restore_points))
-        })();
-        match validate {
-            Ok((staged, restore_points)) => {
-                *storage = staged;
+            Ok(restore_points)
+        });
+        match committed {
+            Ok(restore_points) => {
                 pending.restore_points = restore_points;
                 pending.committed = true;
                 state.parameters.pending = Some(pending);
@@ -773,8 +784,9 @@ impl DebugControl {
     pub(crate) fn confirm_parameters(
         &self,
         task: &str,
-        storage: &mut VariableStorage,
+        writes: &mut dyn super::ScanWrites,
         now: crate::value::Duration,
+        storage_abi: crate::value::StorageAbi,
     ) {
         let mut state = self.state.0.lock().expect("debug state poisoned");
         let Some(pending) = state.parameters.pending.take() else {
@@ -786,7 +798,9 @@ impl DebugControl {
         }
         let mut program_changed = Vec::new();
         for parameter in &pending.request.binding.parameters {
-            if parameter_number(storage, parameter) != Ok(pending.candidate[&parameter.symbol]) {
+            if parameter_number(writes.storage(), parameter)
+                != Ok(pending.candidate[&parameter.symbol])
+            {
                 program_changed.push(parameter.symbol.as_str());
             }
         }
@@ -813,9 +827,10 @@ impl DebugControl {
                 .iter()
                 .zip(&pending.restore_points)
             {
-                if parameter_number(storage, parameter) == Ok(pending.candidate[&parameter.symbol])
+                if parameter_number(writes.storage(), parameter)
+                    == Ok(pending.candidate[&parameter.symbol])
                 {
-                    storage.write_by_ref_ref(reference, previous.clone());
+                    writes.write(reference, previous.clone());
                 }
             }
             if let Some(record) = state
@@ -832,7 +847,8 @@ impl DebugControl {
             }
         }
         state.snapshot = Some(crate::debug::DebugSnapshot {
-            storage: storage.clone(),
+            storage_abi,
+            storage: writes.storage().clone(),
             now,
         });
     }

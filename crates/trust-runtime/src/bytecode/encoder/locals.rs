@@ -44,13 +44,21 @@ impl<'a> BytecodeEncoder<'a> {
             names.push(local.name.clone());
             typed_names.push((local.name.clone(), local.type_id));
         }
-        let for_loop_count = count_for_loops(body);
+        let for_loop_count = if self.legacy.is_some() {
+            0
+        } else {
+            count_for_loops(body)
+        };
         let for_temp_pairs = self.alloc_for_temp_pairs(&names, for_loop_count);
         for (end, step) in &for_temp_pairs {
             names.push(end.clone());
             names.push(step.clone());
         }
-        let scope = self.build_local_scope(names, for_temp_pairs)?;
+        let scope = if self.legacy.is_some() {
+            self.legacy_local_scope(pou_id, names)?
+        } else {
+            self.build_local_scope(names, for_temp_pairs)?
+        };
         for (name, type_id) in typed_names {
             let reference = scope.locals.get(&normalize_name(&name)).ok_or_else(|| {
                 BytecodeError::InvalidSection("declared local reference missing".into())
@@ -58,11 +66,20 @@ impl<'a> BytecodeEncoder<'a> {
             let ref_idx = self.ref_map.get(reference).copied().ok_or_else(|| {
                 BytecodeError::InvalidSection("declared local ref index missing".into())
             })?;
+            if self.authoring.is_some() {
+                self.construction
+                    .bindings
+                    .types
+                    .insert(reference.clone(), type_id);
+            }
             self.local_var_meta.push(super::PendingLocalVarMeta {
                 name: SmolStr::new(format!("@local/{pou_id}/{}/{name}", reference.offset)),
                 type_id,
                 ref_idx,
             });
+        }
+        if self.authoring.is_some() {
+            self.collect_frame_declarations(pou_id, &scope, return_slot, params, locals)?;
         }
         Ok(scope)
     }

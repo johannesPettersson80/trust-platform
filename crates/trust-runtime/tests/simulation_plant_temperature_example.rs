@@ -4,7 +4,6 @@ use trust_hir::TypeId;
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController, SimulationTraceRow};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
 
 static CASE_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -61,20 +60,17 @@ initial_applied = 0.0
     let config = SimulationConfig::load(&path).expect("temperature example is runtime-valid");
     std::fs::remove_file(path).unwrap();
     let mut simulation = SimulationController::new(config);
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", IoAddress::parse("%IL0").unwrap(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (IoAddress::parse("%IL0").unwrap(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
     runtime
-        .io_mut()
-        .write(&command, Value::LWord(50.0_f64.to_bits()))
+        .write_io(&command, Value::LWord(50.0_f64.to_bits()))
         .unwrap();
     let end = Duration::from_secs(if reset { 66 } else { 32 });
     simulation.apply_post_cycle(end, &runtime).unwrap();
@@ -84,7 +80,7 @@ initial_applied = 0.0
 
 #[test]
 fn temperature_example_uses_absolute_temperature_and_exact_delayed_response() {
-    // Specifications 33 §7.3 and 34 §7.1: 50% power, 2 s delay, 30 s time constant.
+    // Specifications 46 §7.3 and 47 §7.1: 50% power, 2 s delay, 30 s time constant.
     for gain in [1.0, -2.0] {
         let trace = temperature_trace(gain, 20.0, false);
         assert_eq!(trace.len(), 320);
@@ -113,7 +109,7 @@ fn temperature_example_reset_restores_state_and_delay_history() {
         .unwrap();
     let reset = &trace[reset_index];
     assert_eq!(reset.state, [20.0]);
-    // Spec 33 §3.6: due events run before integration for their step. The reset
+    // Spec 46 §3.6: due events run before integration for their step. The reset
     // row is already the first post-reset step, not a new zero-duration sample.
     let original = temperature_trace(1.0, 20.0, false);
     for (before, after) in original.iter().zip(&trace[reset_index..]) {

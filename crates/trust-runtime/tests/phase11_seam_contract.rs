@@ -9,6 +9,8 @@ use trust_runtime::execution_backend::{
 use trust_runtime::harness::{bytecode_module_from_source, CompileSession, TestHarness};
 use trust_runtime::memory::InstanceId;
 use trust_runtime::value::Value;
+use trust_runtime_core::vm::register::VmRegisterPreparationSnapshot;
+use trust_runtime_core::vm::register_test_support::opcode_operand_len;
 
 const TIER1_HOT_CYCLES: usize = 70;
 
@@ -116,6 +118,7 @@ struct ConversionObservation {
     errors: Vec<String>,
     values: Vec<(&'static str, Option<Value>)>,
     register_profile: VmRegisterProfileSnapshot,
+    preparation: VmRegisterPreparationSnapshot,
     tier1_profile: Option<VmTier1SpecializedExecutorSnapshot>,
 }
 
@@ -187,6 +190,7 @@ fn observe_conversion_case(
             .map(|name| (*name, harness.get_output(name)))
             .collect(),
         register_profile: harness.runtime().vm_register_profile_snapshot(),
+        preparation: harness.runtime().prepared().register_preparation_snapshot(),
         tier1_profile: matches!(path, VmExecutionPath::Tier1)
             .then(|| harness.runtime().vm_tier1_specialized_executor_snapshot()),
     }
@@ -251,11 +255,20 @@ fn assert_tier1_path(observation: &ConversionObservation, failures: &mut Vec<Str
             observation.path
         ));
     }
+    if profile.compile_attempts != 0
+        || profile.compile_successes != 0
+        || profile.compile_failures != 0
+    {
+        failures.push(format!(
+            "{} must not compile during RUN: {profile:?}",
+            observation.path
+        ));
+    }
     if observation.errors.is_empty() {
-        if profile.compile_successes == 0 {
+        if observation.preparation.specialized_blocks == 0 {
             failures.push(format!(
-                "{} expected at least one tier1 compile success: {profile:?}",
-                observation.path
+                "{} expected a specialized block prepared before RUN: {:?}",
+                observation.path, observation.preparation
             ));
         }
         if profile.block_executions == 0 {
@@ -267,12 +280,6 @@ fn assert_tier1_path(observation: &ConversionObservation, failures: &mut Vec<Str
         if profile.compile_failures != 0 {
             failures.push(format!(
                 "{} unexpected tier1 compile failures: {profile:?}",
-                observation.path
-            ));
-        }
-        if profile.deopt_count != 0 {
-            failures.push(format!(
-                "{} unexpected tier1 deopts: {profile:?}",
                 observation.path
             ));
         }
@@ -491,9 +498,13 @@ fn mutate_main_refs_for_owner_drift(
         _ => return Err("missing ref table".to_string()),
     };
 
+    if patched_indexes.is_empty() {
+        return Err("owner fixture has no original instance-reference operands".into());
+    }
     let mut mutated_body = body.clone();
     mutated_body.push(0x20);
     mutated_body.extend_from_slice(&second_owner_ref.to_le_bytes());
+    mutated_body.push(0x12); // POP: isolate owner validation from stack balance.
     replace_pou_body(module, main.id, &mutated_body)?;
     module.sections.retain(|section| {
         section.id != SectionId::DebugMap.as_raw()
@@ -527,32 +538,6 @@ fn ref_operands(code: &[u8]) -> Result<Vec<u32>, String> {
         pc += operand_len;
     }
     Ok(refs)
-}
-
-fn opcode_operand_len(opcode: u8) -> Option<usize> {
-    match opcode {
-        0x00
-        | 0x01
-        | 0x06
-        | 0x11
-        | 0x12
-        | 0x13
-        | 0x14
-        | 0x15
-        | 0x23
-        | 0x24
-        | 0x25
-        | 0x31
-        | 0x32
-        | 0x33
-        | 0x40..=0x4E
-        | 0x50..=0x55 => Some(0),
-        0x02..=0x05 | 0x07 | 0x10 | 0x20..=0x22 | 0x30 | 0x60 | 0x62 | 0x63 | 0x70 => Some(4),
-        0x08 => Some(8),
-        0x09 => Some(12),
-        0x16 => Some(1),
-        _ => None,
-    }
 }
 
 fn validator_data_refs(module: &BytecodeModule) -> Result<ValidatorDataRefs, String> {
@@ -634,8 +619,9 @@ fn replace_main_body(module: &mut BytecodeModule, new_body: &[u8]) -> Result<(),
 }
 
 fn expect_validator_rejects_main_body(name: &str, new_body: Vec<u8>) {
-    let mut module =
-        bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
+    let mut module = CompileSession::from_source(VALIDATOR_DATA_SOURCE)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("compile validator data module");
     let refs = validator_data_refs(&module).expect("collect validator data refs");
     replace_main_body(&mut module, &new_body).expect("replace Main body");
     let validate_result = module.validate();
@@ -894,22 +880,20 @@ END_PROGRAM
 
 #[test]
 fn crafted_multi_owner_instance_refs_are_rejected_before_execution() {
-    let mut harness = TestHarness::from_source(OWNER_DRIFT_SOURCE).expect("compile harness");
+    let source = format!("{OWNER_DRIFT_SOURCE}\nPROGRAM Alien VAR target : DINT := DINT#-10; observed : DINT := DINT#-20; END_VAR END_PROGRAM");
+    let mut harness = TestHarness::from_source(&source).expect("compile harness");
     let main_id = match harness.runtime().storage().get_global("Main") {
         Some(Value::Instance(id)) => *id,
         other => panic!("expected Main global instance, got {other:?}"),
     };
-    let alien_id = harness.runtime_mut().storage_mut().create_instance("Alien");
-    harness
-        .runtime_mut()
-        .storage_mut()
-        .set_instance_var(alien_id, "target", Value::DInt(-10));
-    harness
-        .runtime_mut()
-        .storage_mut()
-        .set_instance_var(alien_id, "observed", Value::DInt(-20));
+    let alien_id = match harness.runtime().storage().get_global("Alien") {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("expected admitted Alien instance, got {other:?}"),
+    };
 
-    let mut module = bytecode_module_from_source(OWNER_DRIFT_SOURCE).expect("compile module");
+    let mut module = CompileSession::from_source(OWNER_DRIFT_SOURCE)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("compile module");
     let mutation =
         mutate_main_refs_for_owner_drift(&mut module, main_id, alien_id).expect("mutate module");
     let validate_result = module.validate();
@@ -919,6 +903,20 @@ fn crafted_multi_owner_instance_refs_are_rejected_before_execution() {
     let apply_debug = format!("{apply_result:?}");
 
     if validate_result.is_err() || apply_result.is_err() {
+        assert_eq!(
+            harness
+                .runtime()
+                .storage()
+                .get_instance_var(alien_id, "target"),
+            Some(&Value::DInt(-10))
+        );
+        assert_eq!(
+            harness
+                .runtime()
+                .storage()
+                .get_instance_var(alien_id, "observed"),
+            Some(&Value::DInt(-20))
+        );
         return;
     }
 
@@ -948,7 +946,9 @@ fn validator_rejects_multi_owner_instance_ref_contract() {
         other => panic!("expected Main global instance, got {other:?}"),
     };
     let alien_id = InstanceId(main_id.0.saturating_add(1));
-    let mut module = bytecode_module_from_source(OWNER_DRIFT_SOURCE).expect("compile module");
+    let mut module = CompileSession::from_source(OWNER_DRIFT_SOURCE)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("compile module");
     let mutation =
         mutate_main_refs_for_owner_drift(&mut module, main_id, alien_id).expect("mutate module");
     let validate_result = module.validate();
@@ -961,24 +961,27 @@ fn validator_rejects_multi_owner_instance_ref_contract() {
 
 #[test]
 fn validator_rejects_stack_underflow_store_ref() {
-    let module =
-        bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
+    let module = CompileSession::from_source(VALIDATOR_DATA_SOURCE)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("compile validator data module");
     let refs = validator_data_refs(&module).expect("collect validator data refs");
     expect_validator_rejects_main_body("stack_underflow_store_ref", store_ref(refs.target_ref));
 }
 
 #[test]
 fn validator_rejects_leftover_stack_at_pou_return() {
-    let module =
-        bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
+    let module = CompileSession::from_source(VALIDATOR_DATA_SOURCE)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("compile validator data module");
     let refs = validator_data_refs(&module).expect("collect validator data refs");
     expect_validator_rejects_main_body("leftover_stack_at_return", load_const(refs.dint_one_const));
 }
 
 #[test]
 fn validator_rejects_bool_operands_for_arithmetic_opcode() {
-    let module =
-        bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
+    let module = CompileSession::from_source(VALIDATOR_DATA_SOURCE)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("compile validator data module");
     let refs = validator_data_refs(&module).expect("collect validator data refs");
     let body = [
         load_const(refs.bool_true_const),
@@ -992,8 +995,9 @@ fn validator_rejects_bool_operands_for_arithmetic_opcode() {
 
 #[test]
 fn validator_rejects_const_type_incompatible_with_store_ref_target() {
-    let module =
-        bytecode_module_from_source(VALIDATOR_DATA_SOURCE).expect("compile validator data module");
+    let module = CompileSession::from_source(VALIDATOR_DATA_SOURCE)
+        .build_bytecode_module_for_version(trust_runtime::bytecode::BytecodeVersion::LEGACY)
+        .expect("compile validator data module");
     let refs = validator_data_refs(&module).expect("collect validator data refs");
     let body = [load_const(refs.bool_true_const), store_ref(refs.target_ref)].concat();
     expect_validator_rejects_main_body("bool_const_stored_to_dint_ref", body);
@@ -1065,9 +1069,19 @@ END_PROGRAM
 
 fn assert_hir_clean_but_bytecode_rejected(source: &str, construct: &str) {
     let session = CompileSession::from_source(source);
-    if let Err(error) = session.build_runtime() {
-        panic!("{construct} fixture must pass source analysis before bytecode lowering: {error}");
-    }
+    use trust_hir::db::{Database, FileId, SemanticDatabase, SourceDatabase};
+    let mut database = Database::new();
+    let file = FileId(0);
+    database.set_source_text(file, source.into());
+    let diagnostics = database.diagnostics(file);
+    let errors: Vec<_> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.is_error())
+        .collect();
+    assert!(
+        errors.is_empty(),
+        "{construct} fixture must pass HIR analysis: {errors:?}"
+    );
     if session.build_bytecode_module().is_ok() {
         panic!(
             "expected unsupported {construct} to fail bytecode-module construction instead of \

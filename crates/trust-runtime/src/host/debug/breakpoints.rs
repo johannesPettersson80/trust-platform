@@ -41,22 +41,30 @@ pub(crate) fn matches_breakpoint(
             continue;
         }
         breakpoint.hits = breakpoint.hits.saturating_add(1);
-        if let Some(hit_condition) = breakpoint.hit_condition {
-            if !hit_condition.is_met(breakpoint.hits) {
-                continue;
-            }
+        if let Some(hit_condition) = breakpoint.hit_condition
+            && !hit_condition.is_met(breakpoint.hits)
+        {
+            continue;
         }
         if let Some(condition) = &breakpoint.condition {
             let Some(eval_ctx) = ctx.as_deref_mut() else {
                 continue;
             };
-            if !condition_matches(eval_ctx, condition) {
+            if !condition_matches_with_registry(
+                eval_ctx,
+                breakpoint.type_registry.as_deref(),
+                condition,
+            ) {
                 continue;
             }
         }
         if let Some(message) = &breakpoint.log_message {
             if let Some(eval_ctx) = ctx.as_deref_mut() {
-                let formatted = format_log_message(eval_ctx, message);
+                let formatted = format_log_message_with_registry(
+                    eval_ctx,
+                    breakpoint.type_registry.as_deref(),
+                    message,
+                );
                 let log = DebugLog {
                     message: formatted,
                     location: Some(*location),
@@ -80,9 +88,10 @@ fn condition_matches(
     ctx: &mut DebugRuntimeContext<'_>,
     condition: &crate::program_model::Expr,
 ) -> bool {
-    match crate::helper_eval::eval_storage_expr_with_stdlib(
+    match crate::helper_eval::eval_storage_expr_with_abi(
         ctx.storage,
         ctx.registry,
+        ctx.storage_abi,
         &ctx.profile,
         ctx.current_instance,
         ctx.stdlib,
@@ -95,14 +104,24 @@ fn condition_matches(
     }
 }
 
+fn condition_matches_with_registry(
+    ctx: &mut DebugRuntimeContext<'_>,
+    registry: Option<&trust_hir::types::TypeRegistry>,
+    condition: &crate::program_model::Expr,
+) -> bool {
+    let mut scoped = scoped_context(ctx, registry);
+    condition_matches(&mut scoped, condition)
+}
+
 fn format_log_message(ctx: &mut DebugRuntimeContext<'_>, fragments: &[LogFragment]) -> String {
     let mut output = String::new();
     for fragment in fragments {
         match fragment {
             LogFragment::Text(text) => output.push_str(text),
-            LogFragment::Expr(expr) => match crate::helper_eval::eval_storage_expr_with_stdlib(
+            LogFragment::Expr(expr) => match crate::helper_eval::eval_storage_expr_with_abi(
                 ctx.storage,
                 ctx.registry,
+                ctx.storage_abi,
                 &ctx.profile,
                 ctx.current_instance,
                 ctx.stdlib,
@@ -114,6 +133,30 @@ fn format_log_message(ctx: &mut DebugRuntimeContext<'_>, fragments: &[LogFragmen
         }
     }
     output
+}
+
+fn format_log_message_with_registry(
+    ctx: &mut DebugRuntimeContext<'_>,
+    registry: Option<&trust_hir::types::TypeRegistry>,
+    fragments: &[LogFragment],
+) -> String {
+    let mut scoped = scoped_context(ctx, registry);
+    format_log_message(&mut scoped, fragments)
+}
+
+fn scoped_context<'a>(
+    ctx: &'a mut DebugRuntimeContext<'_>,
+    registry: Option<&'a trust_hir::types::TypeRegistry>,
+) -> DebugRuntimeContext<'a> {
+    DebugRuntimeContext {
+        storage: &mut *ctx.storage,
+        registry: registry.unwrap_or(ctx.registry),
+        stdlib: ctx.stdlib,
+        profile: ctx.profile,
+        current_instance: ctx.current_instance,
+        storage_abi: ctx.storage_abi,
+        now: ctx.now,
+    }
 }
 
 fn format_log_value(value: &Value) -> String {

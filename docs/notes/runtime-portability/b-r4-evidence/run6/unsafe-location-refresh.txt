@@ -1,0 +1,3 @@
+[gate-progress state=started phase=B-R4-unsafe-location-refresh target=scena-rust-builder pid=1776485 elapsed=0.0s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run6/refresh-unsafe-location.py']
+Existing HardFault unsafe-site location rebound to formatted line 133
+[gate-progress state=finished phase=B-R4-unsafe-location-refresh target=scena-rust-builder pid=1776485 elapsed=0.1s timeout=7200s command='python3 /home/johannes/.cache/trust-portability-br4-setup-run6/refresh-unsafe-location.py' status=0]

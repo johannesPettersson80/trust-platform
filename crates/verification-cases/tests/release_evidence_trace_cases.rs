@@ -7,6 +7,9 @@ use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
 };
 
+#[path = "release_evidence_trace_cases/vsix_command.rs"]
+mod vsix_command;
+
 #[test]
 fn release_platform_matrix_trace_cases() {
     run_release_trace(
@@ -57,7 +60,7 @@ fn runtime_behavior_lock_trace_cases() {
     run_release_trace(
         "TEST_RUNTIME_BEHAVIOR_LOCK_TRACE_001",
         "verification/cases/release/RUNTIME_BEHAVIOR_LOCKED_001.toml",
-        "sha256:a9191accaa6526929c3bc9d9a504787a42fbff514c694baf9a8f84fb357c3040",
+        "sha256:9960eb9b354b7ed68f7d26b8ce3a8e90128c451132bfb6cf8829fe7634de9413",
     );
 }
 
@@ -66,7 +69,7 @@ fn debug_behavior_lock_trace_cases() {
     run_release_trace(
         "TEST_DEBUG_BEHAVIOR_LOCK_TRACE_001",
         "verification/cases/editor_safety/DEBUG_BEHAVIOR_LOCKED_001.toml",
-        "sha256:a4629fce647fc2a1c0badfac29b009a8188857737308bb9f428203fd394dfc34",
+        "sha256:fc2e4ba9d4f3a73dbb5b7f85f6255f7d5e7a5715096ad707c64d45f2b0e412b2",
     );
 }
 
@@ -137,7 +140,7 @@ fn run_release_case(case: &CaseRecord, probe: &mut ReleaseProbe) -> Result<CaseE
         .get("scenario")
         .and_then(toml::Value::as_str)
         .ok_or_else(|| format!("{} scenario must be a string", case.id))?;
-    let output = Command::new("python3")
+    let output = Command::new(python_program())
         .args(["scripts/release_claim_contract.py", "--scenario", scenario])
         .env("TRUST_RELEASE_EVIDENCE_DATE", "2026-07-17")
         .current_dir(workspace_root())
@@ -169,6 +172,14 @@ fn run_release_case(case: &CaseRecord, probe: &mut ReleaseProbe) -> Result<CaseE
         observed_error,
         observed_status: Some("release_contract_checked".to_string()),
     })
+}
+
+fn python_program() -> &'static str {
+    if cfg!(windows) {
+        "python"
+    } else {
+        "python3"
+    }
 }
 
 fn workspace_root() -> PathBuf {

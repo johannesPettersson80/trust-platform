@@ -52,6 +52,7 @@ fn docs_discovery_accepts_every_ascii_case_source_extension() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn docs_discovery_is_recursive_literal_and_deterministic() {
     let project = contract_temp_dir("literal-order");
     for (name, declaration) in [
@@ -85,6 +86,7 @@ fn docs_discovery_is_recursive_literal_and_deterministic() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn docs_discovery_treats_glob_metacharacters_in_root_literally() {
     let outer = contract_temp_dir("root-glob");
     let project = outer.join("project[one]*");

@@ -152,7 +152,7 @@ pub trait IdentifyRuntime {
     /// A client of the runtime's experiment, for a campaign's baseline and hold or a confirmation of a restoration.
     fn experiment(&self) -> Self::Experiment;
 
-    /// The simulated plant that `loop_definition` is tuned against, as the runtime proves it runs it (B10.2; specification 34, §20.2
+    /// The simulated plant that `loop_definition` is tuned against, as the runtime proves it runs it (B10.2; specification 47, §20.2
     /// to §20.4). `None` where the loop names no plant or the runtime cannot prove its configuration: the run then states no plant
     /// and is not refused for it. The default states none.
     fn plant_context(&self, _loop_definition: &LoopDefinition) -> Option<PlantContext> {

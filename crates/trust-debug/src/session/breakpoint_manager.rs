@@ -44,12 +44,12 @@ impl BreakpointManager {
             report_lines.push("[trust-debug] breakpoint resolve: <unknown source>".to_string());
         }
         if requested.is_empty() {
-            if let Some(key) = source_key.as_ref() {
-                if let Some(source_file) = context.sources.get(key) {
-                    context
-                        .control
-                        .set_breakpoints_for_file(source_file.file_id, Vec::new());
-                }
+            if let Some(key) = source_key.as_ref()
+                && let Some(source_file) = context.sources.get(key)
+            {
+                context
+                    .control
+                    .set_breakpoints_for_file(source_file.file_id, Vec::new());
             }
             report_lines.push("  cleared".to_string());
             self.last_report = Some(report_lines.join("\n"));
@@ -173,10 +173,10 @@ impl BreakpointManager {
                         .unwrap_or("")
                         .trim();
                     let mut column_note = String::new();
-                    if let Some(override_col) = column_override {
-                        if override_col != requested_column {
-                            column_note = format!(" (snapped col {override_col})");
-                        }
+                    if let Some(override_col) = column_override
+                        && override_col != requested_column
+                    {
+                        column_note = format!(" (snapped col {override_col})");
                     }
                     report_lines.push(format!(
                         "  req {requested_line}:{requested_column} -> resolved {}:{} range {}..{}{} text='{}'",
@@ -189,8 +189,13 @@ impl BreakpointManager {
                     ));
                     let condition = match requested_bp.condition.as_deref() {
                         Some(condition) => {
-                            match parse_debug_expression(condition, &mut registry, profile, &using)
-                            {
+                            match trust_runtime::harness::parse_debug_expression_with_abi(
+                                condition,
+                                &mut registry,
+                                profile,
+                                &using,
+                                context.metadata.storage_abi(),
+                            ) {
                                 Ok(expr) => Some(expr),
                                 Err(err) => {
                                     breakpoints.push(Breakpoint::unverified(
@@ -224,7 +229,13 @@ impl BreakpointManager {
 
                     let log_message = match requested_bp.log_message.as_deref() {
                         Some(template) => {
-                            match parse_log_message(template, &mut registry, profile, &using) {
+                            match parse_log_message_with_abi(
+                                template,
+                                &mut registry,
+                                profile,
+                                &using,
+                                context.metadata.storage_abi(),
+                            ) {
                                 Ok(fragments) => Some(fragments),
                                 Err(err) => {
                                     breakpoints.push(Breakpoint::unverified(
@@ -243,6 +254,7 @@ impl BreakpointManager {
                     resolved_breakpoints.push(DebugBreakpoint {
                         location,
                         condition,
+                        type_registry: Some(Arc::new(registry.clone())),
                         hit_condition,
                         log_message,
                         hits: 0,

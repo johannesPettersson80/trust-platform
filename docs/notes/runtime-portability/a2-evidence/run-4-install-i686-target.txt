@@ -1,0 +1,3 @@
+[gate-progress state=started phase=A2-install-i686-target target=scena-rust-builder pid=1190176 elapsed=0.0s timeout=3600s command='rustup target add --toolchain 1.95.0 i686-unknown-linux-musl']
+info: downloading component rust-std
+[gate-progress state=finished phase=A2-install-i686-target target=scena-rust-builder pid=1190176 elapsed=8.5s timeout=3600s command='rustup target add --toolchain 1.95.0 i686-unknown-linux-musl' status=0]

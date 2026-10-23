@@ -1,0 +1,7 @@
+The post-run-1/2/3 reviews are historical source-inspection reports. Their recorded
+aggregate digests must not be treated as a current-tree identity. The frozen run
+archives preserve formatted tested source; their bytes are not necessarily the
+reviewed pre-format bytes. This correction does not invent or replace missing
+pre-format review inputs. Current acceptance uses a newly reviewed source set with
+an explicit path/digest manifest and retained original-byte archive (run 5).
+All prior run ledgers/manifests remain unchanged and independently attributable.

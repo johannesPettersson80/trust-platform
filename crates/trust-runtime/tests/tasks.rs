@@ -3,7 +3,7 @@ use trust_runtime::eval::ops::BinaryOp;
 use trust_runtime::eval::stmt::Stmt;
 use trust_runtime::task::{ProgramDef, TaskConfig};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 fn inc_program(name: &str, var: &str) -> ProgramDef {
     ProgramDef {
@@ -25,9 +25,24 @@ fn inc_program(name: &str, var: &str) -> ProgramDef {
 
 #[test]
 fn periodic_interval() {
-    let mut runtime = Runtime::new();
-    runtime.storage_mut().set_global("count", Value::Int(0));
-    runtime.register_program(inc_program("P", "count")).unwrap();
+    let mut runtime = RuntimeBuilder::new();
+    {
+        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
 
     runtime.register_task(TaskConfig {
         name: "T".into(),
@@ -37,33 +52,40 @@ fn periodic_interval() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
 
     runtime.advance_time(Duration::from_millis(5));
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
 
     runtime.advance_time(Duration::from_millis(5));
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
 }
 
 #[test]
 fn interval_zero_disables_periodic() {
-    let mut runtime = Runtime::new();
-    runtime.storage_mut().set_global("count", Value::Int(0));
-    runtime.register_program(inc_program("P", "count")).unwrap();
+    let mut runtime = RuntimeBuilder::new();
+    {
+        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
 
     runtime.register_task(TaskConfig {
         name: "T".into(),
@@ -73,23 +95,35 @@ fn interval_zero_disables_periodic() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
     runtime.advance_time(Duration::from_millis(20));
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
 }
 
 #[test]
 fn event_single_rise() {
-    let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
-    runtime.storage_mut().set_global("count", Value::Int(0));
-    runtime.register_program(inc_program("P", "count")).unwrap();
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("count", trust_hir::TypeId::INT, Value::Int(0)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
 
     runtime.register_task(TaskConfig {
         name: "T".into(),
@@ -99,50 +133,47 @@ fn event_single_rise() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
 
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+    runtime.write_global("trigger", Value::Bool(false)).unwrap();
     runtime.execute_cycle().unwrap();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(2))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(2)));
 }
 
 #[test]
 fn single_blocks_periodic() {
-    let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
-    runtime.storage_mut().set_global("count", Value::Int(0));
-    runtime.register_program(inc_program("P", "count")).unwrap();
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(true)),
+        ("count", trust_hir::TypeId::INT, Value::Int(0)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
 
     runtime.register_task(TaskConfig {
         name: "T".into(),
@@ -152,33 +183,40 @@ fn single_blocks_periodic() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
     runtime.advance_time(Duration::from_millis(10));
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+    runtime.write_global("trigger", Value::Bool(false)).unwrap();
     runtime.advance_time(Duration::from_millis(10));
     runtime.execute_cycle().unwrap();
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
 }
 
 #[test]
 fn event_edge_coalescing_between_samples() {
-    let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
-    runtime.storage_mut().set_global("count", Value::Int(0));
-    runtime.register_program(inc_program("P", "count")).unwrap();
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("count", trust_hir::TypeId::INT, Value::Int(0)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
 
     runtime.register_task(TaskConfig {
         name: "T".into(),
@@ -188,32 +226,38 @@ fn event_edge_coalescing_between_samples() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
+    runtime.write_global("trigger", Value::Bool(false)).unwrap();
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
 
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
 }
 
 #[test]
 fn priority_order() {
-    let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
-    runtime.storage_mut().set_global("x", Value::Int(0));
-    runtime.storage_mut().set_global("y", Value::Int(0));
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("x", trust_hir::TypeId::INT, Value::Int(0)),
+        ("y", trust_hir::TypeId::INT, Value::Int(0)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
 
     let prog_a = ProgramDef {
         name: "A".into(),
@@ -242,8 +286,8 @@ fn priority_order() {
         }],
     };
 
-    runtime.register_program(prog_a).unwrap();
-    runtime.register_program(prog_b).unwrap();
+    runtime.register_program(prog_a);
+    runtime.register_program(prog_b);
 
     runtime.register_task(TaskConfig {
         name: "TaskA".into(),
@@ -261,29 +305,38 @@ fn priority_order() {
         programs: vec!["B".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage_mut().get_global("y"), Some(&Value::Int(2)));
+    assert_eq!(runtime.storage().get_global("y"), Some(&Value::Int(2)));
 }
 
 #[test]
 fn background_programs() {
-    let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
-    runtime.storage_mut().set_global("count", Value::Int(0));
-    runtime.storage_mut().set_global("bg", Value::Int(0));
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("count", trust_hir::TypeId::INT, Value::Int(0)),
+        ("bg", trust_hir::TypeId::INT, Value::Int(0)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
 
-    runtime
-        .register_program(inc_program("TaskProg", "count"))
-        .unwrap();
-    runtime
-        .register_program(inc_program("BgProg", "bg"))
-        .unwrap();
+    runtime.register_program(inc_program("TaskProg", "count"));
+    runtime.register_program(inc_program("BgProg", "bg"));
 
     runtime.register_task(TaskConfig {
         name: "T".into(),
@@ -293,33 +346,40 @@ fn background_programs() {
         programs: vec!["TaskProg".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
     runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage_mut().get_global("bg"), Some(&Value::Int(1)));
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(0))
-    );
+    assert_eq!(runtime.storage().get_global("bg"), Some(&Value::Int(1)));
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(0)));
 
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
-    assert_eq!(runtime.storage_mut().get_global("bg"), Some(&Value::Int(2)));
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("bg"), Some(&Value::Int(2)));
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
 }
 
 #[test]
 fn fifo_order_by_due_time_within_priority() {
-    let mut runtime = Runtime::new();
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
-    runtime.storage_mut().set_global("x", Value::Int(0));
-    runtime.storage_mut().set_global("y", Value::Int(0));
+    let mut runtime = RuntimeBuilder::new();
+    for (name, type_id, value) in [
+        ("trigger", trust_hir::TypeId::BOOL, Value::Bool(false)),
+        ("x", trust_hir::TypeId::INT, Value::Int(0)),
+        ("y", trust_hir::TypeId::INT, Value::Int(0)),
+    ] {
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
 
     let prog_a = ProgramDef {
         name: "A".into(),
@@ -347,8 +407,8 @@ fn fifo_order_by_due_time_within_priority() {
             location: None,
         }],
     };
-    runtime.register_program(prog_a).unwrap();
-    runtime.register_program(prog_b).unwrap();
+    runtime.register_program(prog_a);
+    runtime.register_program(prog_b);
 
     runtime.register_task(TaskConfig {
         name: "Periodic".into(),
@@ -366,21 +426,35 @@ fn fifo_order_by_due_time_within_priority() {
         programs: vec!["B".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
     runtime.advance_time(Duration::from_millis(20));
-    runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+    runtime.write_global("trigger", Value::Bool(true)).unwrap();
     runtime.execute_cycle().unwrap();
 
-    assert_eq!(runtime.storage_mut().get_global("y"), Some(&Value::Int(2)));
+    assert_eq!(runtime.storage().get_global("y"), Some(&Value::Int(2)));
 }
 
 #[test]
 fn task_overrun_drops_missed_intervals() {
-    let mut runtime = Runtime::new();
-    runtime.storage_mut().set_global("count", Value::Int(0));
-    runtime.register_program(inc_program("P", "count")).unwrap();
+    let mut runtime = RuntimeBuilder::new();
+    {
+        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
 
     runtime.register_task(TaskConfig {
         name: "T".into(),
@@ -390,20 +464,116 @@ fn task_overrun_drops_missed_intervals() {
         programs: vec!["P".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().unwrap();
 
     runtime.advance_time(Duration::from_millis(35));
     runtime.execute_cycle().unwrap();
 
-    assert_eq!(
-        runtime.storage_mut().get_global("count"),
-        Some(&Value::Int(1))
-    );
+    assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(1)));
     assert_eq!(runtime.task_overrun_count("T"), Some(2));
+}
+
+/// Injected logical samples exercise IEC 61131-3 Ed.3 section 6.8.2 b.
+/// These varying offsets are a manual-clock trace, not measured hosted wakeups.
+#[test]
+fn periodic_task_keeps_its_interval_when_cycles_start_late() {
+    let mut runtime = RuntimeBuilder::new();
+    {
+        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
+    runtime.register_task(TaskConfig {
+        name: "T".into(),
+        interval: Duration::from_millis(100),
+        single: None,
+        priority: 1,
+        programs: vec!["P".into()],
+        fb_instances: Vec::new(),
+    });
+    let mut runtime = runtime.build().unwrap();
+
+    // Ten seconds of 50 ms slots, each cycle starting 70 µs or 20 µs after its slot.
+    for slot in 1..=200_i64 {
+        let late_us = if slot % 4 < 2 { 70 } else { 20 };
+        runtime.set_current_time(Duration::from_nanos(slot * 50_000_000 + late_us * 1_000));
+        runtime.execute_cycle().unwrap();
+    }
+
+    assert_eq!(
+        runtime.storage().get_global("count"),
+        Some(&Value::Int(100)),
+        "one run per 100 ms"
+    );
+    assert_eq!(runtime.task_overrun_count("T"), Some(0));
+}
+
+#[test]
+fn periodic_task_non_multiple_interval_preserves_nominal_deadlines() {
+    let mut runtime = RuntimeBuilder::new();
+    {
+        let (name, type_id, value) = ("count", trust_hir::TypeId::INT, Value::Int(0));
+        runtime
+            .register_global(trust_runtime::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(Expr::Literal(value)),
+                retain: trust_runtime::RetainPolicy::Unspecified,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .unwrap();
+    }
+    runtime.register_program(inc_program("P", "count"));
+    runtime.register_task(TaskConfig {
+        name: "T".into(),
+        interval: Duration::from_millis(25),
+        single: None,
+        priority: 1,
+        programs: vec!["P".into()],
+        fb_instances: Vec::new(),
+    });
+    let mut runtime = runtime.build().unwrap();
+
+    let mut activations = Vec::new();
+    let mut previous = 0;
+    for sample in (10..=1000).step_by(10) {
+        runtime.set_current_time(Duration::from_millis(sample));
+        runtime.execute_cycle().unwrap();
+        let Some(Value::Int(count)) = runtime.storage().get_global("count") else {
+            panic!("expected an INT counter");
+        };
+        if *count != previous {
+            assert_eq!(*count, previous + 1, "never replay missed activations");
+            activations.push(sample);
+            previous = *count;
+        }
+        assert_eq!(runtime.task_overrun_count("T"), Some(0));
+    }
+    assert_eq!(&activations[..4], &[30, 50, 80, 100]);
+    assert_eq!(activations.len(), 40);
+    assert_eq!(previous, 40);
+    assert_eq!(activations.last(), Some(&1000));
 }
 
 #[test]
 fn simulation_time_advance_saturates_at_duration_limit() {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new().build().unwrap();
     runtime.set_current_time(Duration::from_nanos(i64::MAX - 5));
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

@@ -1,0 +1,18 @@
+scena-rust-builder
+/home/johannes/projects/trust-platform-portability-a2
+2026-10-09T13:21:12Z
+78d4e641f589734a55b9b3b25981a722d8396e62
+rustc 1.95.0 (59807616e 2026-04-14)
+binary: rustc
+commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860
+commit-date: 2026-04-14
+host: x86_64-unknown-linux-gnu
+release: 1.95.0
+LLVM version: 22.1.2
+cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+riscv32imac-unknown-none-elf
+thumbv7em-none-eabihf
+x86_64-pc-windows-gnu
+x86_64-unknown-linux-gnu
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       301G  227G   61G  79% /

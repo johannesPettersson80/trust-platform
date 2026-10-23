@@ -52,5 +52,5 @@ trust_runtime_build_release_binary() {
 }
 
 trust_runtime_release_binary_path() {
-  printf 'target/release/trust-runtime\n'
+  printf '%s/release/trust-runtime\n' "${CARGO_TARGET_DIR:-target}"
 }

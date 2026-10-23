@@ -179,13 +179,12 @@ fn check_definition_members(
             .unit
             .as_deref()
             .and_then(|unit| unit.strip_prefix('$'))
+            && kind(unit) != Some(Some(ValueKind::Text))
         {
-            if kind(unit) != Some(Some(ValueKind::Text)) {
-                problems.push(problem(format!(
+            problems.push(problem(format!(
                     "the unit of the setting `{}` names `{unit}`, which is not a text member of `{block}`",
                     setting.member
                 )));
-            }
         }
     }
     for terminal in &pair.io {
@@ -200,13 +199,13 @@ fn check_definition_members(
                 terminal.member
             ))),
         }
-        if let Some(condition) = &terminal.required_when {
-            if kind(condition) != Some(Some(ValueKind::Boolean)) {
-                problems.push(problem(format!(
+        if let Some(condition) = &terminal.required_when
+            && kind(condition) != Some(Some(ValueKind::Boolean))
+        {
+            problems.push(problem(format!(
                     "`required_when` of `{}` names `{condition}`, which is not a BOOL member of `{block}`",
                     terminal.member
                 )));
-            }
         }
     }
     for dependency in pair
@@ -270,8 +269,11 @@ impl PairProgram for RuntimeMetadata {
             }
             return Some(members);
         }
-        let found = block_named(self.programs().keys().map(|key| key.as_str()), name)?;
-        let program = self.programs().get(found)?;
+        let found = block_named(
+            self.program_templates().keys().map(|key| key.as_str()),
+            name,
+        )?;
+        let program = self.program_templates().get(found)?;
         Some(
             program
                 .vars

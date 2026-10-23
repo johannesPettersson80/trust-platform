@@ -4,7 +4,10 @@ use crate::db::queries::collector::const_utils::{
     qualified_const_parts, scope_chain_for_node, ConstEvalError,
 };
 use crate::symbols::{EnumValueResolution, UsingResolution};
-use crate::type_check::{is_standard_function_name, TypeChecker};
+use crate::type_check::{
+    exact_int_literal_value, integer_type_range_fits, is_standard_function_name,
+    untyped_literal_out_of_range_message, TypeChecker,
+};
 
 impl SymbolCollector<'_> {
     pub(super) fn check_variable_initializer_constant_expressions(&mut self, root: &SyntaxNode) {
@@ -111,7 +114,35 @@ impl SymbolCollector<'_> {
             return;
         }
 
+        // An untyped integer literal outside the declared type's base integer range is a range
+        // error, as in an assignment. It is a literal, so it is not reported as a non-constant
+        // expression. A subrange's own bounds are checked by the initializer bound check below,
+        // so only its base type counts here.
+        let base_id = match target {
+            Type::Subrange { base, .. } => self.table.resolve_alias_type(*base),
+            _ => resolved,
+        };
+        let Some(base_type) = self.table.type_by_id(base_id) else {
+            return;
+        };
+        let type_name = self.table.type_name(base_id).unwrap_or_else(|| "?".into());
+        if let Some(message) =
+            untyped_literal_out_of_range_message(expr, base_type, type_name.as_str())
+        {
+            self.diagnostics
+                .error(DiagnosticCode::OutOfRange, expr.text_range(), message);
+            return;
+        }
+
         if is_constant_block {
+            return;
+        }
+
+        // A literal whose exact value fits the declared integer type is a valid constant; the
+        // lowering then takes the value at that type.
+        if let Some(value) = exact_int_literal_value(expr)
+            && self.integer_literal_fits_type(type_id, value)
+        {
             return;
         }
 
@@ -139,6 +170,19 @@ impl SymbolCollector<'_> {
             }
             Err(err) => self.report_default_const_eval_error(err, expr.text_range()),
         }
+    }
+
+    /// Whether `value` fits the integer type `type_id`. A subrange is checked against its base
+    /// type; its bounds are checked by `check_subrange_initializer`.
+    fn integer_literal_fits_type(&self, type_id: TypeId, value: i128) -> bool {
+        let resolved = self.table.resolve_alias_type(type_id);
+        let base = match self.table.type_by_id(resolved) {
+            Some(Type::Subrange { base, .. }) => self.table.resolve_alias_type(*base),
+            _ => resolved,
+        };
+        self.table
+            .type_by_id(base)
+            .is_some_and(|ty| integer_type_range_fits(ty, value))
     }
 
     fn check_reference_variable_initializer(
@@ -278,21 +322,19 @@ impl SymbolCollector<'_> {
                     .then_some(InitializerConstViolation::Ambiguous(name));
             }
             InitializerReferenceResolution::NotFound => {
-                if parts.len() > 1 {
-                    if let InitializerReferenceResolution::Found(base_id) =
+                if parts.len() > 1
+                    && let InitializerReferenceResolution::Found(base_id) =
                         self.resolve_initializer_reference(&parts[..1], scope)
-                    {
-                        if self.table.get(base_id).is_some_and(|symbol| {
-                            matches!(
-                                symbol.kind,
-                                SymbolKind::Variable { .. }
-                                    | SymbolKind::Parameter { .. }
-                                    | SymbolKind::Property { .. }
-                            )
-                        }) {
-                            return Some(InitializerConstViolation::Mutable(parts[0].clone()));
-                        }
-                    }
+                    && self.table.get(base_id).is_some_and(|symbol| {
+                        matches!(
+                            symbol.kind,
+                            SymbolKind::Variable { .. }
+                                | SymbolKind::Parameter { .. }
+                                | SymbolKind::Property { .. }
+                        )
+                    })
+                {
+                    return Some(InitializerConstViolation::Mutable(parts[0].clone()));
                 }
                 return report_resolution_failure
                     .then_some(InitializerConstViolation::Undefined(name));
@@ -357,13 +399,13 @@ impl SymbolCollector<'_> {
             if let Some(symbol_id) = self.table.lookup_in_scope(current, name.as_str()) {
                 return InitializerReferenceResolution::Found(symbol_id);
             }
-            if matches!(scope_data.kind, ScopeKind::Class | ScopeKind::FunctionBlock) {
-                if let Some(symbol_id) = scope_data.owner.and_then(|owner| {
+            if matches!(scope_data.kind, ScopeKind::Class | ScopeKind::FunctionBlock)
+                && let Some(symbol_id) = scope_data.owner.and_then(|owner| {
                     self.table
                         .resolve_member_symbol_in_hierarchy(owner, name.as_str())
-                }) {
-                    return InitializerReferenceResolution::Found(symbol_id);
-                }
+                })
+            {
+                return InitializerReferenceResolution::Found(symbol_id);
             }
             match self.table.resolve_using_in_scope(scope_data, name.as_str()) {
                 UsingResolution::Single(symbol_id) => {

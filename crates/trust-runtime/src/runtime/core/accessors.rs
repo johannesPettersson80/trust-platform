@@ -8,14 +8,6 @@ type InstanceInitContext<'a> = (
 );
 
 impl Runtime {
-    /// Publishes the alarm service's records to the OpenOT ring when it is enabled (specification
-    /// 40, §5.2).
-    pub fn publish_alarm_records(&mut self, records: &[crate::hmi::alarms::AlarmEvent]) {
-        if !records.is_empty() {
-            self.openot_telemetry.publish_alarm_records(records);
-        }
-    }
-
     pub(crate) fn resource_name(&self) -> &SmolStr {
         &self.resource_name
     }
@@ -89,18 +81,6 @@ impl Runtime {
         &self.programs
     }
 
-    /// The program type of a program instance a configuration names, ignoring case.
-    #[must_use]
-    pub fn program_type(&self, instance: &str) -> Option<&SmolStr> {
-        self.program_types.get(instance.to_ascii_uppercase().as_str())
-    }
-
-    /// Records the program type of a program instance a configuration names.
-    pub(crate) fn set_program_type(&mut self, instance: &str, program_type: SmolStr) {
-        self.program_types
-            .insert(SmolStr::new(instance.to_ascii_uppercase()), program_type);
-    }
-
     pub(crate) fn globals(&self) -> &IndexMap<SmolStr, GlobalVarMeta> {
         &self.globals
     }
@@ -109,12 +89,6 @@ impl Runtime {
     #[must_use]
     pub fn stdlib(&self) -> &StandardLibrary {
         &self.stdlib
-    }
-
-    /// Set the rules of the type conversion functions (before compiling sources: the
-    /// initializers are evaluated with them).
-    pub fn set_conversion_profile(&mut self, profile: crate::stdlib::conversions::ConversionProfile) {
-        self.stdlib = std::mem::take(&mut self.stdlib).with_conversion_profile(profile);
     }
 
     pub(crate) fn instance_init_context(&mut self) -> InstanceInitContext<'_> {
@@ -261,49 +235,9 @@ impl Runtime {
         self.io.interface_mut()
     }
 
-    /// Commits every marker binding from program storage, so that the next cycle starts from the
-    /// variables' initialized or retained values (Specification 11 §6.5).
-    pub fn commit_memory_bindings(&mut self) -> Result<(), crate::error::RuntimeError> {
-        self.io.interface_mut().commit_memory(&self.storage)
-    }
-
     /// Register an I/O driver invoked at cycle boundaries.
-    /// True when native I/O and active protocol clients are simulation-only.
-    pub fn simulation_only_io(&self)->bool {
-        self.io.all_drivers_simulated() && self.ads_connection_count()==0 && self.opcua_client_connection_count()==0
-    }
-
-    /// Enables or disables simulation for this resource. The runtime binary calls it at startup in simulation mode, and
-    /// the debug adapter when its launch asks for simulation (Specification 35, A2.4).
-    pub fn set_simulation_enabled(&mut self, enabled: bool) {
-        self.simulation_enabled = enabled;
-    }
-
-    /// True when the target is simulated: simulation is enabled and all attached I/O is simulation-only (Specification 35,
-    /// A2.4). Every write the runtime receives is decided by this fact, never by a label in the request.
-    #[must_use]
-    pub fn simulated_target(&self) -> bool {
-        self.simulation_enabled && self.simulation_only_io()
-    }
-
     pub fn add_io_driver(&mut self, name: impl Into<SmolStr>, driver: Box<dyn IoDriver>) {
         self.io.add_driver(name, driver);
-    }
-
-    /// Register one I/O driver with the name of its link, for example `modbus_tcp:0`
-    /// (specification 42, §2).
-    pub fn add_io_driver_with_link(
-        &mut self,
-        name: impl Into<SmolStr>,
-        link: impl Into<SmolStr>,
-        driver: Box<dyn IoDriver>,
-    ) {
-        self.io.add_driver_with_link(name, link, driver);
-    }
-
-    /// Note a configured link that is switched off (specification 42, §3 item 1).
-    pub fn add_disabled_link(&mut self, link: impl Into<SmolStr>) {
-        self.links.add_disabled(link.into());
     }
 
     /// Clear all registered I/O drivers.
@@ -321,37 +255,6 @@ impl Runtime {
 
     pub(super) fn update_io_health(&self) {
         self.io.update_health();
-    }
-
-    /// Register and start one ADS client connection.
-    pub fn start_ads_connection<T>(
-        &mut self,
-        connection: &crate::ads::AdsConnectionConfig,
-        transport: T,
-        worker_tick_interval: std::time::Duration,
-    ) -> Result<(), error::RuntimeError>
-    where
-        T: crate::ads::AdsTransport + Send + 'static,
-    {
-        let bindings = crate::ads::resolve_declared_bindings(self, connection).map_err(|err| {
-            error::RuntimeError::InvalidConfig(
-                format!("ADS connection '{}': {err}", connection.route.name).into(),
-            )
-        })?;
-        let (bridge, worker) = crate::ads::AdsConnectionBridge::with_transport(transport, bindings)
-            .map_err(|err| {
-                error::RuntimeError::IoTransport(
-                    format!("ADS connection '{}': {err}", connection.route.name).into(),
-                )
-            })?;
-        let worker = worker.spawn(worker_tick_interval).map_err(|err| {
-            error::RuntimeError::IoTransport(
-                format!("ADS connection '{}': {err}", connection.route.name).into(),
-            )
-        })?;
-        self.ads
-            .add_connection(connection.route.clone(), bridge, worker);
-        Ok(())
     }
 
     /// Stop all active ADS client workers.
@@ -374,48 +277,6 @@ impl Runtime {
     #[must_use]
     pub fn ads_status_report(&self) -> crate::ads::diagnostics::AdsStatusReport {
         self.ads.status_report()
-    }
-
-    /// Configure OPC UA client connections for this runtime.
-    pub fn configure_opcua_client(
-        &mut self,
-        config: &crate::opcua::OpcUaClientConfig,
-    ) -> Result<(), error::RuntimeError> {
-        let mut subsystem = super::opcua_client_subsystem::OpcUaClientSubsystem::new();
-        subsystem.configure(self, config)?;
-        self.opcua_client = subsystem;
-        Ok(())
-    }
-
-    /// Register and start one OPC UA client connection.
-    pub fn start_opcua_client_connection<T>(
-        &mut self,
-        connection: &crate::opcua::OpcUaClientConnectionConfig,
-        transport: T,
-        worker_tick_interval: std::time::Duration,
-    ) -> Result<(), error::RuntimeError>
-    where
-        T: crate::opcua::OpcUaClientTransport + Send + 'static,
-    {
-        let bindings = crate::opcua::resolve_opcua_client_bindings(self, connection)?;
-        let (bridge, worker) = crate::opcua::OpcUaClientBridge::with_transport(
-            connection.clone(),
-            transport,
-            bindings,
-        )
-        .map_err(|err| {
-            error::RuntimeError::IoTransport(
-                format!("OPC UA client connection '{}': {err}", connection.name).into(),
-            )
-        })?;
-        let worker = worker.spawn(worker_tick_interval).map_err(|err| {
-            error::RuntimeError::IoTransport(
-                format!("OPC UA client connection '{}': {err}", connection.name).into(),
-            )
-        })?;
-        self.opcua_client
-            .add_connection(connection.clone(), bridge, Some(worker));
-        Ok(())
     }
 
     /// Clear and stop active OPC UA client workers.

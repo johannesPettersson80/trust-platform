@@ -1,0 +1,5 @@
+[gate-progress state=started phase=B-R4-firmware-clippy target=scena-rust-builder pid=1703915 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u RUSTFLAGS bash -c '"'"'cd firmware/trust-nucleo-f401re && cargo clippy --locked --release -- -D warnings'"'"'']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re)
+    Finished `release` profile [optimized + debuginfo] target(s) in 2.42s
+[gate-progress state=finished phase=B-R4-firmware-clippy target=scena-rust-builder pid=1703915 elapsed=2.5s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u RUSTFLAGS bash -c '"'"'cd firmware/trust-nucleo-f401re && cargo clippy --locked --release -- -D warnings'"'"'' status=0]

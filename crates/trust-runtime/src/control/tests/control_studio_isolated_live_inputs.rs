@@ -7,6 +7,7 @@ fn live_input(name: &str, address: &str, value: f64) -> crate::io::IoSnapshotEnt
         name: Some(SmolStr::new(name)),
         address: crate::io::IoAddress::parse(address).expect("an input address"),
         value_type: Some(trust_hir::TypeId::LREAL),
+        value_type_name: None,
         value: crate::io::IoSnapshotValue::Value(Value::LReal(value)),
         source: None,
     }

@@ -136,11 +136,9 @@ pub fn set_controller_state(runtime: &mut Runtime, program: InstanceId, values: 
             "Control.PID state {field}"
         );
     }
-    assert!(runtime.storage_mut().set_instance_var(
-        controller,
-        "StateValue",
-        Value::Struct(Arc::new(state))
-    ));
+    assert!(runtime
+        .write_instance(controller, "StateValue", Value::Struct(Arc::new(state)))
+        .is_ok());
 }
 
 pub fn input_cycle_time(runtime: &Runtime, program: InstanceId) -> f64 {
@@ -172,8 +170,8 @@ pub fn set_program_record(
         );
     }
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, record, Value::Struct(Arc::new(next))));
+        .write_instance(program, record, Value::Struct(Arc::new(next)))
+        .is_ok());
 }
 
 pub fn program_dint(runtime: &Runtime, program: InstanceId, name: &str) -> i64 {

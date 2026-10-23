@@ -34,8 +34,8 @@ Control Studio.
 
 Product authority:
 
-- `docs/specs/32-control-pid.md`
-- `docs/specs/33-simulation-plant-models.md`
+- `docs/specs/45-control-pid.md`
+- `docs/specs/46-simulation-plant-models.md`
 - `docs/specs/35-vscode-control-studio.md`
 - `docs/specs/36-control-pid-performance-evaluation.md`
 - `docs/guides/CONTROL_PID_ENGINEERING_REPORT.md`

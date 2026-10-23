@@ -1,0 +1,7 @@
+{
+  "firmware/trust-nucleo-f401re/src/main.rs": "20923a633c149fe795c77a95999834a686f4adc2f355c1b1aceb9fae7e802250",
+  "firmware/trust-nucleo-f401re/src/runner.rs": "3867236f1a2daa6a1361bd5315c82bb649b59d99f6a304864ad8811cf2c64bd1",
+  "firmware/trust-nucleo-f401re/README.md": "d74f9f0df4c647c4148b24be83f9804f81486531c0c4e7c0ec26e1d1de5a8c01",
+  "docs/specs/34-runtime-portability.md": "c26ddd3b2e31db4290c9dd89e7154e4c25350ff05055ff1f3c2352175197845d",
+  "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "56ec4a408eb951ced6c84489cac97b4730616e54b79675bf712a35957ac571b3"
+}

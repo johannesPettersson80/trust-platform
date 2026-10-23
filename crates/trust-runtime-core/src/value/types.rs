@@ -1,8 +1,8 @@
 #![allow(missing_docs)]
 
+use crate::collections::OrderedMap as IndexMap;
 use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use core::fmt;
-use indexmap::IndexMap;
 use smol_str::SmolStr;
 #[cfg(feature = "hir")]
 use trust_hir::types::TypeRegistry;
@@ -24,10 +24,17 @@ pub struct ArrayValue {
 }
 
 /// Struct value with named fields.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct StructValue {
     pub(crate) type_name: SmolStr,
     pub(crate) fields: IndexMap<SmolStr, Value>,
+    pub(crate) physical: Option<super::overlap::PhysicalValue>,
+}
+
+impl PartialEq for StructValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_name == other.type_name && self.fields == other.fields
+    }
 }
 
 /// Error produced when constructing a compound runtime value from raw data.
@@ -302,7 +309,7 @@ impl StructValue {
         fields: IndexMap<SmolStr, Value>,
     ) -> Result<Self, ValueConstructionError> {
         let struct_type = struct_type_parts(registry, type_id)?;
-        let mut canonical_fields = IndexMap::new();
+        let mut canonical_fields = IndexMap::default();
         for field in &struct_type.fields {
             let Some((_, value)) = fields
                 .iter()
@@ -358,7 +365,16 @@ impl StructValue {
     }
 
     pub fn from_canonical_parts(type_name: SmolStr, fields: IndexMap<SmolStr, Value>) -> Self {
-        Self { type_name, fields }
+        Self {
+            type_name,
+            fields,
+            physical: None,
+        }
+    }
+
+    /// Consume an owned aggregate without cloning its member values.
+    pub fn into_canonical_parts(self) -> (SmolStr, IndexMap<SmolStr, Value>) {
+        (self.type_name, self.fields)
     }
 
     #[must_use]
@@ -377,6 +393,8 @@ impl StructValue {
     }
 
     pub fn field_mut(&mut self, name: &str) -> Option<&mut Value> {
+        // Raw edits are construction-only inputs; never certify stale backing.
+        self.physical = None;
         self.fields.get_mut(name)
     }
 
@@ -389,8 +407,26 @@ impl StructValue {
         let Some(slot) = self.fields.get_mut(name.as_str()) else {
             return false;
         };
+        self.physical = None;
         *slot = value;
         true
+    }
+
+    /// Remap retained object identities without changing any scalar storage bits.
+    ///
+    /// This is deliberately narrower than a field write: the retained-graph
+    /// transfer replaces references and instance ids in an isolated candidate.
+    /// Its mapper must preserve all scalar leaves, so physical gap bits remain
+    /// valid. Ordinary writes must continue through the checked path writer.
+    pub(crate) fn remap_retained_identities<E>(
+        &mut self,
+        mut remap: impl FnMut(&SmolStr, Value) -> Result<Value, E>,
+    ) -> Result<(), E> {
+        for (name, value) in &mut self.fields {
+            let original = core::mem::replace(value, Value::Null);
+            *value = remap(name, original)?;
+        }
+        Ok(())
     }
 }
 

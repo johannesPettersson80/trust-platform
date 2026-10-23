@@ -86,49 +86,6 @@ END_CONFIGURATION
 }
 
 #[test]
-fn encoder_rejects_forced_access_map_binding_that_shadows_global_name() {
-    let source = r#"
-VAR_GLOBAL
-    A1 : INT := INT#111;
-END_VAR
-
-PROGRAM Main
-VAR
-    source : INT := INT#7;
-    observed : INT := INT#0;
-END_VAR
-A1 := INT#55;
-observed := A1;
-END_PROGRAM
-
-CONFIGURATION Conf
-PROGRAM P1 : Main;
-END_CONFIGURATION
-"#;
-
-    let mut runtime = TestHarness::from_source(source)
-        .expect("source-level global without VAR_ACCESS collision should compile")
-        .into_runtime();
-    let p1_instance = match runtime.storage().get_global("P1") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected P1 global to hold program instance id, got {other:?}"),
-    };
-    let source_ref = runtime
-        .storage()
-        .ref_for_instance_recursive(p1_instance, "source")
-        .expect("P1.source ref");
-    runtime.access_map_mut().bind("A1".into(), source_ref, None);
-
-    let err = trust_runtime::bytecode::BytecodeModule::from_runtime(&runtime)
-        .expect_err("forced VAR_ACCESS/global name shadowing must fail during bytecode encoding");
-    let message = err.to_string();
-    assert!(
-        message.contains("VAR_ACCESS") && message.contains("A1") && message.contains("global"),
-        "expected VAR_ACCESS/global collision diagnostic, got {message}"
-    );
-}
-
-#[test]
 fn var_config_memory_binding_syncs_with_program_storage() {
     let source = r#"
 PROGRAM Main

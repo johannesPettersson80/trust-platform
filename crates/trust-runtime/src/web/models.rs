@@ -42,7 +42,7 @@ pub(super) struct IoDriverConfigRequest {
     pub(super) params: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(super) struct IoConfigResponse {
     pub(super) driver: String,
     pub(super) params: serde_json::Value,
@@ -53,7 +53,7 @@ pub(super) struct IoConfigResponse {
     pub(super) use_system_io: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct IoDriverConfigResponse {
     pub(super) name: String,
     pub(super) params: serde_json::Value,

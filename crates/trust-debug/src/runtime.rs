@@ -29,6 +29,6 @@ pub trait DebugRuntime: Send {
     fn control_sources(&self) -> Vec<ControlSourceFile>;
     /// Whether the loaded program is simulated, and its configured speed (specification 35, A2.4).
     fn simulation_facts(&self) -> SimulationFacts;
-    /// The speed of the simulator loop, which `config.set` changes (specification 33, §6.1 item 5).
+    /// The speed of the simulator loop, which `config.set` changes (specification 46, §6.1 item 5).
     fn simulation_speed(&self) -> SimulationSpeed;
 }

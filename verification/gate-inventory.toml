@@ -678,7 +678,7 @@ artifact_paths = []
 artifact_retention = "none"
 enforcement = "report_only"
 required_env = []
-rationale = "This maintenance report still runs in veryquick, but its findings are advisory and cannot prevent the following native product tests from executing."
+rationale = "This metadata maintenance report still runs in veryquick, but its findings are advisory and cannot prevent the following native product tests from executing."
 
 [[surfaces]]
 schema_version = 1
@@ -688,7 +688,7 @@ source_kind = "gate_script"
 path = "scripts/verification_report_gate.py"
 name = "verification_report_gate"
 command = "python3 scripts/verification_report_gate.py"
-variant = "changed-file verification report"
+variant = "changed-file verification smoke or scheduled exhaustive report"
 command_role = "helper"
 disposition = "report_only"
 suite_ids = ["pr"]
@@ -700,7 +700,7 @@ artifact_paths = ["target/gate-artifacts/verification/"]
 artifact_retention = "machine_local"
 enforcement = "report_only"
 required_env = []
-rationale = "The helper renders the changed-file report; every current maintenance command is advisory, while --strict retains fail-closed handling for runner failure or an explicitly non-advisory future command."
+rationale = "The helper renders the changed-file report; --smoke runs only report-boundary tests for PR and exact-candidate latency, while scheduled/manual runs retain exhaustive advisory maintenance."
 
 [[surfaces]]
 schema_version = 1
@@ -832,7 +832,7 @@ artifact_paths = ["gate-msrv"]
 artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
-rationale = "Required PR job checks all targets on Rust 1.95."
+rationale = "Required PR job checks all targets on the pinned Rust 1.99 baseline."
 
 [[surfaces]]
 schema_version = 1
@@ -1100,6 +1100,28 @@ rationale = "Capture refresh automation does not establish accepted UI journey p
 
 [[surfaces]]
 schema_version = 1
+id = "GATE_JOB_DOCS_CAPTURES_CREATE_REFRESH_PR"
+discovery_id = "DISC_B3662117177505DC5D51"
+source_kind = "github_workflow_job"
+path = ".github/workflows/docs-captures.yml"
+name = "Docs Captures / create-refresh-pr"
+command = "workflow job .github/workflows/docs-captures.yml#create-refresh-pr"
+variant = "capture refresh branch and pull-request publication"
+command_role = "reference"
+disposition = "excluded"
+suite_ids = []
+owner = "docs"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "excluded"
+required_env = []
+rationale = "Opening an automated capture-refresh pull request is a publishing action, not verification evidence."
+
+[[surfaces]]
+schema_version = 1
 id = "GATE_JOB_NIGHTLY_RELIABILITY"
 discovery_id = "DISC_59726B8C5AB103FE2332"
 source_kind = "github_workflow_job"
@@ -1326,19 +1348,19 @@ source_kind = "github_workflow_job"
 path = ".github/workflows/verification-gate.yml"
 name = "Verification Gate / verification-report"
 command = "workflow job .github/workflows/verification-gate.yml#verification-report"
-variant = "PR strict advisory verification report"
+variant = "PR smoke and scheduled exhaustive advisory verification report"
 command_role = "entrypoint"
 disposition = "assigned"
-suite_ids = ["pr"]
+suite_ids = ["nightly", "pr"]
 owner = "verification"
-duration_class = "fast"
+duration_class = "slow"
 environment = "github_ubuntu"
 artifact_kind = "ci_artifact"
 artifact_paths = ["verification-gate-report"]
 artifact_retention = "repository_default"
 enforcement = "required"
 required_env = []
-rationale = "The read-only workflow runs and uploads the strict advisory report; current maintenance findings cannot reject product work, while runner failure or an explicitly non-advisory future command remains fail-closed."
+rationale = "The read-only workflow runs a blocking report-boundary smoke on pull requests and exact candidates, retains exhaustive advisory verification tooling on schedule/manual dispatch, and uploads either report."
 
 [[surfaces]]
 schema_version = 1
@@ -1360,3 +1382,135 @@ artifact_retention = "none"
 enforcement = "non_executable"
 required_env = []
 rationale = "Nested workflow templates are not executed by GitHub Actions in this repository."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_CI_PORTABLE_CORE"
+discovery_id = "DISC_4B45D9EF64B6AD3DB610"
+source_kind = "github_workflow_job"
+path = ".github/workflows/ci.yml"
+name = "CI / portable-core"
+command = "workflow job .github/workflows/ci.yml#portable-core"
+variant = "isolated F401 and C6 no-default core checks"
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "trust-runtime"
+duration_class = "fast"
+environment = "github_ubuntu"
+artifact_kind = "ci_artifact"
+artifact_paths = ["gate-portable-core-${{ matrix.target }}"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "Both matrix markers are required by the CI gate report. A1 has builder cross-target evidence; this entry does not claim a GitHub execution."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_SCRIPT_OPENOT_REAL_DATABASE"
+discovery_id = "DISC_A8A2891F6E41A9FC5813"
+source_kind = "gate_script"
+path = "scripts/openot_real_database_gate.sh"
+name = "openot_real_database_gate"
+command = "scripts/openot_real_database_gate.sh"
+variant = "Required real-product matrix helper; environment is provisioned by the calling workflow."
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "verification"
+duration_class = "long"
+environment = "github_self_hosted_linux"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "required"
+required_env = []
+rationale = "Required real-product matrix helper; environment is provisioned by the calling workflow."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_SCRIPT_SUPPLY_CHAIN"
+discovery_id = "DISC_AA1BB3D48730FBC3E7F8"
+source_kind = "gate_script"
+path = "scripts/supply_chain_gate.sh"
+name = "supply_chain_gate"
+command = "scripts/supply_chain_gate.sh"
+variant = "CI supply-chain helper runs dependency policy and release-guard contract checks."
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "verification"
+duration_class = "medium"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "required"
+required_env = []
+rationale = "CI supply-chain helper runs dependency policy and release-guard contract checks."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_SCRIPT_ARCHITECTURE_SAFETY"
+discovery_id = "DISC_FE08B50A7CAE0DA0D32B"
+source_kind = "gate_script"
+path = "scripts/architecture_safety_gate.sh"
+name = "architecture_safety_gate"
+command = "scripts/architecture_safety_gate.sh"
+variant = "CI architecture helper runs structural safety gates and the full architecture map."
+command_role = "helper"
+disposition = "assigned"
+suite_ids = ["pr"]
+owner = "verification"
+duration_class = "medium"
+environment = "github_ubuntu"
+artifact_kind = "none"
+artifact_paths = []
+artifact_retention = "none"
+enforcement = "required"
+required_env = []
+rationale = "CI architecture helper runs structural safety gates and the full architecture map."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_OPENOT_EXACT_PRODUCTS"
+discovery_id = "DISC_AC946DF7E9314615FACC"
+source_kind = "github_workflow_job"
+path = ".github/workflows/openot-real-databases.yml"
+name = "OpenOT real databases / exact-product-matrix"
+command = "workflow job .github/workflows/openot-real-databases.yml#exact-product-matrix"
+variant = "Scheduled and reusable real-product matrix; registration is not a claim that the matrix ran."
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["nightly"]
+owner = "verification"
+duration_class = "long"
+environment = "github_self_hosted_linux"
+artifact_kind = "ci_job_result"
+artifact_paths = ["OpenOT real databases / exact-product-matrix"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "Scheduled and reusable real-product matrix; registration is not a claim that the matrix ran."
+
+[[surfaces]]
+schema_version = 1
+id = "GATE_JOB_RELEASE_OPENOT"
+discovery_id = "DISC_AF0D11C20AA129227402"
+source_kind = "github_workflow_job"
+path = ".github/workflows/release.yml"
+name = "Release / openot-real-databases"
+command = "workflow job .github/workflows/release.yml#openot-real-databases"
+variant = "Required reusable real-database job in the release workflow."
+command_role = "entrypoint"
+disposition = "assigned"
+suite_ids = ["release"]
+owner = "verification"
+duration_class = "long"
+environment = "github_release"
+artifact_kind = "ci_job_result"
+artifact_paths = ["Release / openot-real-databases"]
+artifact_retention = "repository_default"
+enforcement = "required"
+required_env = []
+rationale = "Required reusable real-database job in the release workflow."

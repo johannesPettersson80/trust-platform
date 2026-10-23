@@ -154,10 +154,11 @@ impl CommandRegistry {
             .users
             .get_mut(&ticket.principal)
             .and_then(|records| records.get_mut(&ticket.id));
-        if let Some(record) = record {
-            if record.ticket == ticket.number && record.answer.is_none() {
-                record.answer = Some(answer);
-            }
+        if let Some(record) = record
+            && record.ticket == ticket.number
+            && record.answer.is_none()
+        {
+            record.answer = Some(answer);
         }
     }
 }

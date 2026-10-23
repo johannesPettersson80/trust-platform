@@ -121,8 +121,8 @@ Studio reads these facts from the `status` operation (A2.3). It never takes them
 | `simulation_enabled` | boolean | Whether simulation is enabled. |
 | `simulation_only_io` | boolean | True when every registered I/O driver reports itself as simulated and no ADS or OPC UA client connection is configured. False until the first scan has published its I/O snapshot. |
 | `simulated` | boolean | The target's kind (A2.4): true when simulation is enabled and `simulation_only_io` is true, otherwise false. The runtime states it; Studio shows it and does not derive it from the other fields. |
-| `simulation_time_scale` | integer | The configured speed `time_scale`, a whole number from 1 to 100, and 1 without simulation (spec 33 §6.1, items 2 and 5). |
-| `simulation_achieved_time_scale` | number or null | The achieved speed: simulation time advanced divided by wall time elapsed over the last 5 s of wall time, the lowest of the resources; `null` until one second of wall time has been measured (spec 33 §6.1, item 3). |
+| `simulation_time_scale` | integer | The configured speed `time_scale`, a whole number from 1 to 100, and 1 without simulation (spec 46 §6.1, items 2 and 5). |
+| `simulation_achieved_time_scale` | number or null | The achieved speed: simulation time advanced divided by wall time elapsed over the last 5 s of wall time, the lowest of the resources; `null` until one second of wall time has been measured (spec 46 §6.1, item 3). |
 | `simulation_speed_text` | string | The speed words after the simulation's name (spec 35, B9.2): `""` at 1×; `"×N"` above 1×; `"×A of ×N"` when the achieved speed A is below 0.95 N, with A rounded down to one decimal. `""` without simulation. The runtime computes the words once, and every surface shows them as given; the runtime's HMI display translates the phrase for its page language and keeps the runtime's decision. |
 | `simulation_speed_behind` | boolean | True when the achieved speed is behind the configured one: above 1×, and below 0.95 times N (spec 35, B9.2). False without simulation or before the speed is measured. |
 | `program_revision` | string | The revision of the loaded program, the same value each family operation returns (A2.2, A2.3). |
@@ -139,7 +139,7 @@ The runtime MUST decide whether a target is simulated or physical by the rule of
 
 ### E1.4 Simulation clock and speed
 
-Specification 33 §6.1 defines the simulation clock and the speed. Its rules, as this annex uses them, are these.
+Specification 46 §6.1 defines the simulation clock and the speed. Its rules, as this annex uses them, are these.
 
 1. Simulation time is the runtime's process time while simulation is enabled (A3.1). It advances by exactly one resource cycle interval for each executed cycle. It MUST NOT be read from the wall clock. Without simulation, process time follows the wall clock, and a cycle that starts late counts as an overrun.
 2. The runtime paces cycles against the wall clock at the configured speed `time_scale`, a whole number from 1 to 100. At speed `s`, a cycle is due every resource cycle interval divided by `s` of wall time. The runtime MUST NOT run extra cycles to recover lost wall time.

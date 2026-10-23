@@ -2,6 +2,7 @@ import { EquipmentConnections } from "./EquipmentConnections";
 import React from "react";
 
 import { AddDevicePanel } from "./AddDevicePanel";
+import { AdsMultiPortTagBrowser } from "./AdsMultiPortTagBrowser";
 import { AddHostPanel } from "./AddHostPanel";
 import { AddPane } from "./AddPane";
 import { AddRuntimePanel } from "./AddRuntimePanel";
@@ -18,6 +19,7 @@ export interface CanvasDrawerRoutes {
   plantDraft?: React.ComponentProps<typeof PlantDraftPanel>;
   inspectNode?: React.ComponentProps<typeof NodeInspector>;
   browseTags?: React.ComponentProps<typeof BrowseTagsPanel>;
+  adsBrowse?: React.ComponentProps<typeof AdsMultiPortTagBrowser>;
   discover?: React.ComponentProps<typeof DiscoverPane>;
   setupRuntime?: React.ComponentProps<typeof SetUpRuntimePanel>;
   addHost?: React.ComponentProps<typeof AddHostPanel>;
@@ -36,6 +38,7 @@ export function activeDrawerWidth(routes: CanvasDrawerRoutes): number {
   if (routes.addDevice) return 360;
   if (routes.inspectNode) return 340;
   if (routes.browseTags) return 340;
+  if (routes.adsBrowse) return 390;
   if (routes.discover) return 290;
   if (routes.setupRuntime) return 252;
   if (routes.addHost) return 300;
@@ -59,6 +62,7 @@ export function CanvasDrawerRouter({ routes }: { routes: CanvasDrawerRoutes }) {
       {routes.plantDraft && <PlantDraftPanel {...routes.plantDraft} />}
       {routes.inspectNode && <NodeInspector {...routes.inspectNode} />}
       {routes.browseTags && <BrowseTagsPanel {...routes.browseTags} />}
+      {routes.adsBrowse && <AdsMultiPortTagBrowser {...routes.adsBrowse} />}
     </>
   );
 }

@@ -46,6 +46,7 @@
   flex-direction: column;
   gap: 10px;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .hw-summary-grid {
@@ -593,6 +594,8 @@ body[data-theme="dark"] .hw-canvas {
 }
 
 .hw-drivers-panel {
+  position: relative;
+  z-index: 1;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--panel);

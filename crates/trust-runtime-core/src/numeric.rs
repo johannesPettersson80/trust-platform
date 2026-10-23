@@ -3,6 +3,7 @@
 #![allow(missing_docs)]
 
 mod kind;
+pub mod math;
 
 #[cfg(test)]
 use kind::is_accuracy_preserving_widening;

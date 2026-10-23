@@ -1,4 +1,8 @@
+#[cfg(test)]
+use super::storage_api::{eval_storage_expr, eval_storage_expr_with_stdlib};
+use super::storage_context::EvaluationTypes;
 use smol_str::SmolStr;
+#[cfg(test)]
 use trust_hir::types::TypeRegistry;
 
 use indexmap::IndexMap;
@@ -11,25 +15,15 @@ use crate::program_model::{
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
     checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
-    ref_indices_from_iter, size_of_type, ArrayValue, DateTimeProfile, PartialAccessError,
+    ref_indices_from_iter, size_of_type_with_abi, ArrayValue, DateTimeProfile, PartialAccessError,
     RefSegment, SizeOfError, StructValue, Value, ValueRef,
 };
 
-use super::storage_lvalue::read_storage_lvalue;
+use super::storage_lvalue::read_storage_lvalue_with_types;
 
-pub(crate) fn eval_storage_expr(
+pub(super) fn eval_storage_expr_with_types(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
-    profile: &DateTimeProfile,
-    current_instance: Option<InstanceId>,
-    expr: &Expr,
-) -> Result<Value, RuntimeError> {
-    eval_storage_expr_with_stdlib(storage, registry, profile, current_instance, None, expr)
-}
-
-pub(crate) fn eval_storage_expr_with_stdlib(
-    storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: Option<&StandardLibrary>,
@@ -81,7 +75,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             args,
         ),
         Expr::Unary { op, expr } => {
-            let value = eval_storage_expr_with_stdlib(
+            let value = eval_storage_expr_with_types(
                 storage,
                 registry,
                 profile,
@@ -93,7 +87,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
         }
         Expr::Binary { op, left, right } => {
             if matches!(op, BinaryOp::And | BinaryOp::AndThen) {
-                let left_value = eval_storage_expr_with_stdlib(
+                let left_value = eval_storage_expr_with_types(
                     storage,
                     registry,
                     profile,
@@ -104,7 +98,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 if matches!(left_value, Value::Bool(false)) {
                     return Ok(Value::Bool(false));
                 }
-                let right_value = eval_storage_expr_with_stdlib(
+                let right_value = eval_storage_expr_with_types(
                     storage,
                     registry,
                     profile,
@@ -115,7 +109,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 return apply_binary(*op, left_value, right_value, profile);
             }
             if matches!(op, BinaryOp::Or | BinaryOp::OrElse) {
-                let left_value = eval_storage_expr_with_stdlib(
+                let left_value = eval_storage_expr_with_types(
                     storage,
                     registry,
                     profile,
@@ -126,7 +120,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 if matches!(left_value, Value::Bool(true)) {
                     return Ok(Value::Bool(true));
                 }
-                let right_value = eval_storage_expr_with_stdlib(
+                let right_value = eval_storage_expr_with_types(
                     storage,
                     registry,
                     profile,
@@ -136,7 +130,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 )?;
                 return apply_binary(*op, left_value, right_value, profile);
             }
-            let left_value = eval_storage_expr_with_stdlib(
+            let left_value = eval_storage_expr_with_types(
                 storage,
                 registry,
                 profile,
@@ -144,7 +138,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 stdlib,
                 left,
             )?;
-            let right_value = eval_storage_expr_with_stdlib(
+            let right_value = eval_storage_expr_with_types(
                 storage,
                 registry,
                 profile,
@@ -155,7 +149,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             apply_binary(*op, left_value, right_value, profile)
         }
         Expr::Index { target, indices } => {
-            let target_value = eval_storage_expr_with_stdlib(
+            let target_value = eval_storage_expr_with_types(
                 storage,
                 registry,
                 profile,
@@ -166,7 +160,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             let index_values = indices
                 .iter()
                 .map(|index| {
-                    eval_storage_expr_with_stdlib(
+                    eval_storage_expr_with_types(
                         storage,
                         registry,
                         profile,
@@ -179,12 +173,12 @@ pub(crate) fn eval_storage_expr_with_stdlib(
             read_indices(target_value, &index_values)
         }
         Expr::Field { target, field } => {
-            if let Some(qualified) = qualified_field_expr_name(expr) {
-                if let Ok(value) = read_name(storage, current_instance, &qualified) {
-                    return Ok(value);
-                }
+            if let Some(qualified) = qualified_field_expr_name(expr)
+                && let Ok(value) = read_name(storage, current_instance, &qualified)
+            {
+                return Ok(value);
             }
-            let target_value = eval_storage_expr_with_stdlib(
+            let target_value = eval_storage_expr_with_types(
                 storage,
                 registry,
                 profile,
@@ -199,7 +193,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
                 .map(|reference| Value::Reference(Some(reference)))
         }
         Expr::Deref(expr) => {
-            let value = eval_storage_expr_with_stdlib(
+            let value = eval_storage_expr_with_types(
                 storage,
                 registry,
                 profile,
@@ -220,7 +214,7 @@ pub(crate) fn eval_storage_expr_with_stdlib(
 
 fn resolve_lvalue_reference(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: Option<&StandardLibrary>,
@@ -240,15 +234,20 @@ fn resolve_lvalue_reference(
                 stdlib,
                 target,
             )?;
-            let array_value =
-                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            let array_value = read_storage_lvalue_with_types(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                target,
+            )?;
             let Value::Array(array) = &array_value else {
                 return Err(RuntimeError::TypeMismatch);
             };
             let index_values = indices
                 .iter()
                 .map(|expr| {
-                    eval_storage_expr_with_stdlib(
+                    eval_storage_expr_with_types(
                         storage,
                         registry,
                         profile,
@@ -279,15 +278,18 @@ fn resolve_lvalue_reference(
             if let Some(qualified) = target
                 .qualified_name()
                 .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
-            {
-                if let Some(reference) =
+                && let Some(reference) =
                     resolve_name_reference(storage, current_instance, &qualified)
-                {
-                    return Ok(reference);
-                }
+            {
+                return Ok(reference);
             }
-            let base_value =
-                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            let base_value = read_storage_lvalue_with_types(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                target,
+            )?;
             match base_value {
                 Value::Instance(id) => storage
                     .ref_for_instance_recursive(id, field.as_str())
@@ -310,7 +312,7 @@ fn resolve_lvalue_reference(
                 _ => Err(RuntimeError::TypeMismatch),
             }
         }
-        crate::program_model::LValue::Deref(expr) => match eval_storage_expr_with_stdlib(
+        crate::program_model::LValue::Deref(expr) => match eval_storage_expr_with_types(
             storage,
             registry,
             profile,
@@ -333,17 +335,17 @@ fn resolve_name_reference(
     if let Some(reference) = storage.ref_for_local(name.as_str()) {
         return Some(reference);
     }
-    if let Some(instance_id) = current_instance {
-        if let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str()) {
-            return Some(reference);
-        }
+    if let Some(instance_id) = current_instance
+        && let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str())
+    {
+        return Some(reference);
     }
     storage.ref_for_global(name.as_str())
 }
 
 fn eval_struct_initializer(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: Option<&StandardLibrary>,
@@ -357,7 +359,7 @@ fn eval_struct_initializer(
         {
             return Err(RuntimeError::TypeMismatch);
         }
-        let value = eval_storage_expr_with_stdlib(
+        let value = eval_storage_expr_with_types(
             storage,
             registry,
             profile,
@@ -374,7 +376,7 @@ fn eval_struct_initializer(
 
 fn eval_array_initializer_elements(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: Option<&StandardLibrary>,
@@ -399,7 +401,7 @@ fn eval_array_initializer_elements(
 #[allow(clippy::too_many_arguments)]
 fn eval_array_initializer_element(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: Option<&StandardLibrary>,
@@ -430,7 +432,7 @@ fn eval_array_initializer_element(
         }
         return Ok(());
     }
-    values.push(eval_storage_expr_with_stdlib(
+    values.push(eval_storage_expr_with_types(
         storage,
         registry,
         profile,
@@ -470,7 +472,7 @@ pub(crate) fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg
 
 fn eval_call(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: Option<&StandardLibrary>,
@@ -494,7 +496,7 @@ fn eval_call(
                 profile,
                 current_instance,
                 stdlib,
-                &entry.params,
+                entry.params,
                 args,
             )?
         } else {
@@ -504,7 +506,7 @@ fn eval_call(
     }
 
     if conversions::is_conversion_name(key.as_str()) {
-        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
+        let params = StdParams::Fixed(vec![SmolStr::new("IN")].into());
         let values = if has_named {
             bind_stdlib_named_args(
                 storage,
@@ -541,7 +543,7 @@ fn call_target_name(expr: &Expr) -> Option<SmolStr> {
 
 fn eval_positional_args(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: &StandardLibrary,
@@ -554,14 +556,14 @@ fn eval_positional_args(
 
 fn read_arg_value(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: &StandardLibrary,
     arg: &CallArg,
 ) -> Result<Value, RuntimeError> {
     match &arg.value {
-        ArgValue::Expr(expr) => eval_storage_expr_with_stdlib(
+        ArgValue::Expr(expr) => eval_storage_expr_with_types(
             storage,
             registry,
             profile,
@@ -570,14 +572,14 @@ fn read_arg_value(
             expr,
         ),
         ArgValue::Target(target) => {
-            read_storage_lvalue(storage, registry, profile, current_instance, target)
+            read_storage_lvalue_with_types(storage, registry, profile, current_instance, target)
         }
     }
 }
 
 fn bind_stdlib_named_args(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: &StandardLibrary,
@@ -619,7 +621,7 @@ fn bind_stdlib_named_args(
 
 fn bind_stdlib_named_args_fixed(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: &StandardLibrary,
@@ -666,7 +668,7 @@ fn bind_stdlib_named_args_fixed(
 #[allow(clippy::too_many_arguments)]
 fn bind_stdlib_named_args_variadic(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     stdlib: &StandardLibrary,
@@ -775,16 +777,15 @@ fn bind_stdlib_named_args_variadic(
 
 fn eval_size_of(
     _storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     _profile: &DateTimeProfile,
     _current_instance: Option<InstanceId>,
     _stdlib: Option<&StandardLibrary>,
     target: &SizeOfTarget,
 ) -> Result<Value, RuntimeError> {
     let size = match target {
-        SizeOfTarget::Type(type_id) => {
-            size_of_type(*type_id, registry).map_err(size_error_to_runtime)?
-        }
+        SizeOfTarget::Type(type_id) => size_of_type_with_abi(*type_id, registry, registry.abi)
+            .map_err(size_error_to_runtime)?,
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
     Ok(Value::DInt(size))
@@ -798,10 +799,10 @@ fn read_name(
     if let Some(value) = storage.get_local(name.as_ref()) {
         return Ok(value.clone());
     }
-    if let Some(instance_id) = current_instance {
-        if let Some(value) = storage.get_instance_var_recursive(instance_id, name.as_ref()) {
-            return Ok(value.clone());
-        }
+    if let Some(instance_id) = current_instance
+        && let Some(value) = storage.get_instance_var_recursive(instance_id, name.as_ref())
+    {
+        return Ok(value.clone());
     }
     if let Some(value) = storage.get_global(name.as_ref()) {
         return Ok(value.clone());

@@ -1,0 +1,4 @@
+[gate-progress state=started phase=A2-c6-core target=scena-rust-builder pid=1188855 elapsed=0.0s timeout=3600s command='cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+    Finished `dev` profile [unoptimized] target(s) in 1.27s
+[gate-progress state=finished phase=A2-c6-core target=scena-rust-builder pid=1188855 elapsed=1.4s timeout=3600s command='cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf' status=0]

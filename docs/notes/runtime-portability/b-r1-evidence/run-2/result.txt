@@ -1,0 +1,3 @@
+software_required_failures=5
+required_failed_or_unrun=7
+hardware_size_prerequisite=FAIL-retained-evidence

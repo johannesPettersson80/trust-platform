@@ -1,0 +1,1 @@
+/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/xtask portability inspect /home/johannes/.cache/trust-portability-b-evidence/b-r3-run3/measurement/firmware.elf /home/johannes/.cache/trust-portability-b-evidence/b-r3-run3/elf-report.json 

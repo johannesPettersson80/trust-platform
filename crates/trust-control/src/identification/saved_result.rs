@@ -475,13 +475,12 @@ fn recording_matches_result(file: &SavedResultFile) -> bool {
         {
             return false;
         }
-        if let Some(before) = previous {
-            if sample.elapsed_seconds <= before.elapsed_seconds
+        if let Some(before) = previous
+            && (sample.elapsed_seconds <= before.elapsed_seconds
                 || (!runtime_ordering && sample.observed_at_ms <= before.observed_at_ms)
-                || sample.scan <= before.scan
-            {
-                return false;
-            }
+                || sample.scan <= before.scan)
+        {
+            return false;
         }
         previous = Some(sample);
     }

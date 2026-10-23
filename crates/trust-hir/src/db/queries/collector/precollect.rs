@@ -10,11 +10,11 @@ impl SymbolCollector<'_> {
             return;
         }
         let mut current_ns: Vec<SmolStr> = namespace.to_vec();
-        if node.kind() == SyntaxKind::Namespace {
-            if let Some((parts, _)) = qualified_name_parts(node) {
-                for (name, _) in parts {
-                    current_ns.push(name);
-                }
+        if node.kind() == SyntaxKind::Namespace
+            && let Some((parts, _)) = qualified_name_parts(node)
+        {
+            for (name, _) in parts {
+                current_ns.push(name);
             }
         }
 
@@ -56,11 +56,11 @@ impl SymbolCollector<'_> {
             return;
         }
         let mut current_ns: Vec<SmolStr> = namespace.to_vec();
-        if node.kind() == SyntaxKind::Namespace {
-            if let Some((parts, _)) = qualified_name_parts(node) {
-                for (name, _) in parts {
-                    current_ns.push(name);
-                }
+        if node.kind() == SyntaxKind::Namespace
+            && let Some((parts, _)) = qualified_name_parts(node)
+        {
+            for (name, _) in parts {
+                current_ns.push(name);
             }
         }
 

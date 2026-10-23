@@ -289,5 +289,5 @@ time_constant_s = 0.1
     )
     .expect("simulation configuration");
     crate::simulation::SimulationController::new(config)
-        .runtime_snapshot_for(&crate::Runtime::new())
+        .runtime_snapshot_for(&crate::runtime::empty_runtime())
 }

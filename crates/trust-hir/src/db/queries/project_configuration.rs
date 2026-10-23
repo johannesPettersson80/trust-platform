@@ -33,7 +33,11 @@ mod tests {
     #[test]
     fn configuration_root_selection_follows_added_moved_and_removed_bindings() {
         let mut db = SalsaDatabase::default();
-        let source = SourceInput::new(&db, "PROGRAM Main END_PROGRAM".to_owned());
+        let source = SourceInput::new(
+            &db,
+            "PROGRAM Main END_PROGRAM".to_owned(),
+            TemporalStorage::default(),
+        );
         let files = [(FileId(0), source)];
         assert!(project_config_roots(&db, &files).is_empty());
         let config =

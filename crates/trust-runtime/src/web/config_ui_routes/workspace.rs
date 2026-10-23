@@ -69,10 +69,10 @@ pub(super) fn resolve_runtime_target<'a>(
 
     let connected_via =
         crate::control::runtime_resource_name_port(control_state.as_ref()).to_string();
-    if !connected_via.is_empty() {
-        if let Ok(runtime) = resolve_runtime_by_id(workspace, connected_via.as_str()) {
-            return Ok(runtime);
-        }
+    if !connected_via.is_empty()
+        && let Ok(runtime) = resolve_runtime_by_id(workspace, connected_via.as_str())
+    {
+        return Ok(runtime);
     }
 
     workspace
@@ -296,7 +296,7 @@ pub(super) fn text_revision(text: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(text.as_bytes());
     let digest = hasher.finalize();
-    format!("{:x}", digest)
+    hex::encode(digest)
 }
 
 pub(super) fn atomic_write_text(path: &Path, text: &str) -> Result<(), RuntimeError> {
@@ -335,6 +335,16 @@ pub(super) fn atomic_write_text(path: &Path, text: &str) -> Result<(), RuntimeEr
     })
 }
 
+pub(super) fn write_io_config_file(
+    path: &Path,
+    text: &str,
+    expected_revision: Option<&str>,
+) -> Result<String, RuntimeError> {
+    let stored = fs::read_to_string(path).unwrap_or_default();
+    let restored = io_secrets::restore(text, &stored)?;
+    write_config_file(path, &restored, expected_revision, |_| Ok(()))
+}
+
 pub(super) fn write_config_file(
     path: &Path,
     text: &str,
@@ -346,12 +356,11 @@ pub(super) fn write_config_file(
     if let Some(expected) = expected_revision
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        && expected != current_revision
     {
-        if expected != current_revision {
-            return Err(RuntimeError::ControlError(
-                format!("conflict: {current_revision}").into(),
-            ));
-        }
+        return Err(RuntimeError::ControlError(
+            format!("conflict: {current_revision}").into(),
+        ));
     }
     validator(text)?;
     atomic_write_text(path, text)?;
@@ -397,7 +406,7 @@ pub(super) fn load_project_io_config_response(
 ) -> Result<IoConfigResponse, RuntimeError> {
     let io_path = runtime_root.join("io.toml");
     if io_path.is_file() {
-        let config = IoConfig::load(&io_path)?;
+        let config = IoConfig::load(&io_path).map_err(|_| io_secrets::invalid_io_config())?;
         return Ok(io_config_to_response(config, "project", false));
     }
     Ok(IoConfigResponse {
@@ -448,7 +457,7 @@ pub(super) fn config_project_state(
         "api_version": RUNTIME_CLOUD_API_VERSION,
         "mode": "config",
         "project_root": workspace.root.display().to_string(),
-        "revision": format!("{:x}", hasher.finalize()),
+        "revision": hex::encode(hasher.finalize()),
         "runtimes": runtimes,
     }))
 }

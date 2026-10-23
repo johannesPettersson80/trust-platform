@@ -39,6 +39,9 @@ test("capture code-server structured text command palette", async ({ page }) => 
   const input = quickInput.locator("input");
   await input.fill(">truST:");
   await expect(input).toHaveValue(">truST:");
+  await expect(quickInput).toContainText("truST: Compile", {
+    timeout: 30_000
+  });
   await expect(quickInput).toContainText("truST: Create Project", {
     timeout: 30_000
   });

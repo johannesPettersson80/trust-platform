@@ -85,7 +85,8 @@ pub fn hash_password(password: &str, iterations: u32, salt: &[u8]) -> String {
 
 /// PBKDF2 with HMAC-SHA256 (RFC 8018, section 5.2).
 pub fn pbkdf2_sha256(password: &[u8], salt: &[u8], iterations: u32, length: usize) -> Vec<u8> {
-    let keyed = Hmac::<Sha256>::new_from_slice(password).expect("HMAC takes a key of any length");
+    let keyed = <Hmac<Sha256> as hmac::KeyInit>::new_from_slice(password)
+        .expect("HMAC takes a key of any length");
     let mut derived = Vec::with_capacity(length);
     let mut block: u32 = 1;
     while derived.len() < length {

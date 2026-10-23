@@ -1,17 +1,17 @@
-//! Simulation speed and achieved speed of a resource (specification 33, §6.1 items 2, 3 and 5).
+//! Simulation speed and achieved speed of a resource (specification 46, §6.1 items 2, 3 and 5).
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-/// Lowest permitted simulation speed (specification 33, §6.1 item 2).
+/// Lowest permitted simulation speed (specification 46, §6.1 item 2).
 pub const SIMULATION_TIME_SCALE_MIN: u32 = 1;
-/// Highest permitted simulation speed (specification 33, §6.1 item 2).
+/// Highest permitted simulation speed (specification 46, §6.1 item 2).
 pub const SIMULATION_TIME_SCALE_MAX: u32 = 100;
 
-/// Wall time over which the achieved speed is measured (specification 33, §6.1 item 3).
+/// Wall time over which the achieved speed is measured (specification 46, §6.1 item 3).
 const ACHIEVED_SPEED_WINDOW_NANOS: i64 = 5_000_000_000;
-/// Wall time that must be measured before an achieved speed is reported (specification 33, §6.1 item 3).
+/// Wall time that must be measured before an achieved speed is reported (specification 46, §6.1 item 3).
 const ACHIEVED_SPEED_MIN_SPAN_NANOS: i64 = 1_000_000_000;
 
 /// Checks a simulation speed against the permitted range. The message names the range.
@@ -70,7 +70,7 @@ impl SimulationSpeed {
     }
 }
 
-/// Simulation time advanced per unit of wall time over the recent cycles (specification 33, §6.1 item 3).
+/// Simulation time advanced per unit of wall time over the recent cycles (specification 46, §6.1 item 3).
 ///
 /// Each executed cycle records its wall-clock start and its simulation time. The window keeps the last five
 /// seconds of wall time, or everything since the last [`clear`](Self::clear) when that is shorter.

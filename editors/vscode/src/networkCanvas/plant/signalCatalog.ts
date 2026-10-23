@@ -181,7 +181,7 @@ export function buildPlantSignalCatalog(
       : undefined;
 
   // A command reads a PLC output or a memory value, such as a disturbance the program or the HMI
-  // sets (specification 33, §13.1).
+  // sets (specification 46, §13.1).
   const catalog: PlantSignalCatalog = {
     status: "ready",
     commands: [

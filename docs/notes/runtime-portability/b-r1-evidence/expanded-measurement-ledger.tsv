@@ -1,0 +1,8 @@
+step	exit
+ordinary-link	101
+ordinary-object-inspection	1
+ordinary-report	UNRUN-no-map
+safe-icf-link	UNRUN-no-compiled-image
+safe-icf-link-second-attempt	101
+safe-icf-object-inspection	1
+safe-icf-report	0

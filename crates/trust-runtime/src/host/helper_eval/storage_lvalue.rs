@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
+#[cfg(test)]
+use super::storage_api::{read_storage_lvalue, write_storage_lvalue};
+use super::storage_context::EvaluationTypes;
 use smol_str::SmolStr;
+#[cfg(test)]
 use trust_hir::types::TypeRegistry;
 
 use crate::error::RuntimeError;
@@ -11,17 +15,17 @@ use crate::value::{
     DateTimeProfile, PartialAccessError, RefSegment, Value, ValueRef,
 };
 
-use super::storage_expr::eval_storage_expr;
+use super::storage_expr::eval_storage_expr_with_types;
 
-pub(crate) fn read_storage_lvalue(
+pub(super) fn read_storage_lvalue_with_types(
     storage: &VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     target: &LValue,
 ) -> Result<Value, RuntimeError> {
     let expr = expr_from_lvalue(target);
-    eval_storage_expr(storage, registry, profile, current_instance, &expr)
+    eval_storage_expr_with_types(storage, registry, profile, current_instance, None, &expr)
 }
 
 fn expr_from_lvalue(target: &LValue) -> Expr {
@@ -39,9 +43,9 @@ fn expr_from_lvalue(target: &LValue) -> Expr {
     }
 }
 
-pub(crate) fn write_storage_lvalue(
+pub(super) fn write_storage_lvalue_with_types(
     storage: &mut VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     target: &LValue,
@@ -50,14 +54,28 @@ pub(crate) fn write_storage_lvalue(
     match target {
         LValue::Name(name) => write_name(storage, current_instance, name, value),
         LValue::Index { target, indices } => {
-            let array_value =
-                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            let array_value = read_storage_lvalue_with_types(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                target,
+            )?;
             let index_values = indices
                 .iter()
-                .map(|expr| eval_storage_expr(storage, registry, profile, current_instance, expr))
+                .map(|expr| {
+                    eval_storage_expr_with_types(
+                        storage,
+                        registry,
+                        profile,
+                        current_instance,
+                        None,
+                        expr,
+                    )
+                })
                 .collect::<Result<Vec<_>, _>>()?;
             let updated = write_indices(array_value, &index_values, value)?;
-            write_storage_lvalue(
+            write_storage_lvalue_with_types(
                 storage,
                 registry,
                 profile,
@@ -77,8 +95,13 @@ pub(crate) fn write_storage_lvalue(
                     Err(error) => return Err(error),
                 }
             }
-            let base_value =
-                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            let base_value = read_storage_lvalue_with_types(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                target,
+            )?;
             match base_value {
                 Value::Instance(id) => {
                     let Some(reference) = storage.ref_for_instance_recursive(id, field.as_str())
@@ -93,7 +116,7 @@ pub(crate) fn write_storage_lvalue(
                 }
                 other => {
                     let updated = write_field(other, field, value)?;
-                    write_storage_lvalue(
+                    write_storage_lvalue_with_types(
                         storage,
                         registry,
                         profile,
@@ -126,13 +149,13 @@ fn write_name(
         storage.set_local(name.clone(), value);
         return Ok(());
     }
-    if let Some(instance_id) = current_instance {
-        if let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str()) {
-            if storage.write_by_ref(reference, value) {
-                return Ok(());
-            }
-            return Err(RuntimeError::NullReference);
+    if let Some(instance_id) = current_instance
+        && let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str())
+    {
+        if storage.write_by_ref(reference, value) {
+            return Ok(());
         }
+        return Err(RuntimeError::NullReference);
     }
     if storage.get_global(name.as_str()).is_some() {
         storage.set_global(name.clone(), value);
@@ -180,7 +203,7 @@ fn write_field(target: Value, field: &SmolStr, value: Value) -> Result<Value, Ru
 
 fn resolve_reference_expr(
     storage: &mut VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     expr: &Expr,
@@ -189,7 +212,14 @@ fn resolve_reference_expr(
         Expr::Ref(target) => {
             resolve_lvalue_reference(storage, registry, profile, current_instance, target)
         }
-        _ => match eval_storage_expr(storage, registry, profile, current_instance, expr)? {
+        _ => match eval_storage_expr_with_types(
+            storage,
+            registry,
+            profile,
+            current_instance,
+            None,
+            expr,
+        )? {
             Value::Reference(Some(reference)) => Ok(reference),
             Value::Reference(None) => Err(RuntimeError::NullReference),
             _ => Err(RuntimeError::TypeMismatch),
@@ -199,7 +229,7 @@ fn resolve_reference_expr(
 
 fn resolve_lvalue_reference(
     storage: &mut VariableStorage,
-    registry: &TypeRegistry,
+    registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
     target: &LValue,
@@ -210,14 +240,28 @@ fn resolve_lvalue_reference(
         LValue::Index { target, indices } => {
             let base =
                 resolve_lvalue_reference(storage, registry, profile, current_instance, target)?;
-            let array_value =
-                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            let array_value = read_storage_lvalue_with_types(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                target,
+            )?;
             let Value::Array(array) = &array_value else {
                 return Err(RuntimeError::TypeMismatch);
             };
             let index_values = indices
                 .iter()
-                .map(|expr| eval_storage_expr(storage, registry, profile, current_instance, expr))
+                .map(|expr| {
+                    eval_storage_expr_with_types(
+                        storage,
+                        registry,
+                        profile,
+                        current_instance,
+                        None,
+                        expr,
+                    )
+                })
                 .collect::<Result<Vec<_>, _>>()?;
             array_offset(array.dimensions(), &index_values)?;
             let mut index_path = Vec::with_capacity(index_values.len());
@@ -234,15 +278,18 @@ fn resolve_lvalue_reference(
             if let Some(qualified) = target
                 .qualified_name()
                 .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
-            {
-                if let Some(reference) =
+                && let Some(reference) =
                     resolve_name_reference(storage, current_instance, &qualified)
-                {
-                    return Ok(reference);
-                }
+            {
+                return Ok(reference);
             }
-            let base_value =
-                read_storage_lvalue(storage, registry, profile, current_instance, target)?;
+            let base_value = read_storage_lvalue_with_types(
+                storage,
+                registry,
+                profile,
+                current_instance,
+                target,
+            )?;
             match base_value {
                 Value::Instance(id) => storage
                     .ref_for_instance_recursive(id, field.as_str())
@@ -278,10 +325,10 @@ fn resolve_name_reference(
     if let Some(reference) = storage.ref_for_local(name.as_str()) {
         return Some(reference);
     }
-    if let Some(instance_id) = current_instance {
-        if let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str()) {
-            return Some(reference);
-        }
+    if let Some(instance_id) = current_instance
+        && let Some(reference) = storage.ref_for_instance_recursive(instance_id, name.as_str())
+    {
+        return Some(reference);
     }
     storage.ref_for_global(name.as_str())
 }

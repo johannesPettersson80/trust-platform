@@ -11,6 +11,16 @@ use crate::Runtime;
 #[cfg(test)]
 #[path = "plant/cascade_tests.rs"]
 mod cascade_tests;
+
+/// A runtime whose program declares an LREAL at each `(name, address)`: a plant test's bindings.
+#[cfg(test)]
+fn lreal_bound_runtime(bindings: &[(&str, &str)]) -> Runtime {
+    let typed: Vec<(&str, &str)> = bindings
+        .iter()
+        .map(|(_, address)| (*address, "LREAL"))
+        .collect();
+    crate::runtime::bound_runtime(&typed)
+}
 #[path = "plant/effects.rs"]
 mod effects;
 #[path = "plant/events.rs"]
@@ -342,13 +352,12 @@ pub(super) fn build_config(
             action: PlantEventAction::SetParameter { parameter, .. },
             ..
         }) = plant.events.last()
+            && !model_supports_parameter(&plant.model, parameter)
         {
-            if !model_supports_parameter(&plant.model, parameter) {
-                return invalid(format!(
-                    "plant '{}' has no parameter '{parameter}'",
-                    plant.id
-                ));
-            }
+            return invalid(format!(
+                "plant '{}' has no parameter '{parameter}'",
+                plant.id
+            ));
         }
     }
     for plant in &mut plants {
@@ -420,7 +429,7 @@ impl PlantSection {
             return invalid("plant command_sources and feedback_targets must not be empty");
         }
         self.parameters.validate_for_model(&self.model)?;
-        // Specification 33 §13.1–§13.2: outputs, program variables in memory, or unaddressed program variables.
+        // Specification 46 §13.1–§13.2: outputs, program variables in memory, or unaddressed program variables.
         let command_sources = self
             .command_sources
             .iter()

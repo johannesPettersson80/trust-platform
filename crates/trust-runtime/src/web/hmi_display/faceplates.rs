@@ -56,14 +56,13 @@ impl HmiFiles {
         let file = format!("{FACEPLATES_FOLDER}/{name}.toml");
         std::iter::once(self.root().to_path_buf())
             .chain(self.library_roots())
-            .map(|root| root.join(&file))
-            .find(|path| path.is_file())
-            .map(|path| match std::fs::read_to_string(&path) {
+            .find_map(|root| crate::hmi::bundle::read_hmi_file(&root, &file))
+            .map(|bytes| match String::from_utf8(bytes) {
                 Ok(text) => parse_faceplate(&file, &text),
-                Err(error) => Err(vec![PageFileError {
+                Err(_) => Err(vec![PageFileError {
                     file: file.clone(),
                     line: 1,
-                    message: format!("cannot be read: {error}"),
+                    message: "cannot be read: the file is not UTF-8 text".to_string(),
                 }]),
             })
     }
@@ -94,13 +93,16 @@ impl HmiFiles {
                 if !seen.insert(name.clone()) {
                     continue;
                 }
-                let Ok(text) = std::fs::read_to_string(&path) else {
+                let Some(text) =
+                    crate::hmi::bundle::read_hmi_file(&root, &format!("{PAIRS_FOLDER}/{name}"))
+                        .and_then(|bytes| String::from_utf8(bytes).ok())
+                else {
                     continue;
                 };
-                if let Ok(pair) = parse_pair(&format!("{PAIRS_FOLDER}/{name}"), &text) {
-                    if pair.faceplate == faceplate {
-                        pairs.push(pair);
-                    }
+                if let Ok(pair) = parse_pair(&format!("{PAIRS_FOLDER}/{name}"), &text)
+                    && pair.faceplate == faceplate
+                {
+                    pairs.push(pair);
                 }
             }
         }

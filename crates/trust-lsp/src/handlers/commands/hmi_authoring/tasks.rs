@@ -41,10 +41,10 @@ pub(super) fn task_intervals(sources: &[super::super::LoadedSource]) -> Vec<(Str
                     .filter(|n| n.kind() == K::Name)
                     .map(|n| n.text().to_string().trim().to_string())
                     .collect();
-                if names.len() == 2 {
-                    if let Some(interval) = tasks.get(&names[1].to_ascii_uppercase()) {
-                        result.push((names[0].clone(), interval.clone()));
-                    }
+                if names.len() == 2
+                    && let Some(interval) = tasks.get(&names[1].to_ascii_uppercase())
+                {
+                    result.push((names[0].clone(), interval.clone()));
                 }
             }
         }

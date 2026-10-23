@@ -1,0 +1,15 @@
+[gate-progress state=started phase=A3-authoring-boundary-tests target=scena-rust-builder pid=786838 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib authoring_boundary_tests -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime)
+[gate-progress state=running phase=A3-authoring-boundary-tests target=scena-rust-builder pid=786838 elapsed=30.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib authoring_boundary_tests -- --nocapture --test-threads=1']
+    Finished `test` profile [unoptimized] target(s) in 42.04s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/trust_runtime-786e4df97cab93e0)
+
+running 4 tests
+test harness::build::authoring_boundary_tests::direct_startup_action_extents_are_declared_and_enforced ... ok
+test harness::build::authoring_boundary_tests::lowered_partial_configuration_preserves_selection_and_rejects_overflow ... ok
+test harness::build::authoring_boundary_tests::lowering_preserves_program_template_identity_and_ordered_instance_overrides ... ok
+test harness::build::authoring_boundary_tests::lowering_retains_faulting_runtime_initializer_without_materializing_storage ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 3860 filtered out; finished in 0.02s
+
+[gate-progress state=finished phase=A3-authoring-boundary-tests target=scena-rust-builder pid=786838 elapsed=42.2s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --lib authoring_boundary_tests -- --nocapture --test-threads=1' status=0]

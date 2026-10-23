@@ -2,6 +2,7 @@
 
 use std::net::TcpListener;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -11,19 +12,36 @@ use trust_runtime::opcua::{
     start_wire_server, OpcUaClientIdentity, OpcUaClientOptions, OpcUaDataType, OpcUaVariant,
 };
 
+/// A free loopback port this process has not handed out before. The fixture servers bind their
+/// port only after the reservation is released, so two tests running in parallel must never get
+/// the same released port.
 fn reserve_loopback_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
-    let port = listener.local_addr().expect("local addr").port();
-    drop(listener);
-    port
+    static RESERVED: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+    let mut reserved = RESERVED.lock().expect("reserved ports");
+    loop {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local port");
+        let port = listener.local_addr().expect("local addr").port();
+        if !reserved.contains(&port) {
+            reserved.push(port);
+            return port;
+        }
+    }
 }
 
+/// A fresh directory for each call. Clock resolution alone is not enough: macOS reports
+/// microseconds, so two tests writing the same fixture in parallel could share a directory and one
+/// could read the other's half-written `runtime.toml`.
 fn temp_runtime_root(name: &str) -> PathBuf {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("trust-runtime-opcua-{name}-{stamp}"));
+    let root = std::env::temp_dir().join(format!(
+        "trust-runtime-opcua-{name}-{}-{sequence}-{stamp}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&root).expect("create temp runtime root");
     root
 }
@@ -50,6 +68,7 @@ fn snapshot_provider() -> Arc<dyn Fn() -> Option<trust_runtime::debug::DebugSnap
     let _ = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };
@@ -62,6 +81,7 @@ fn fixture_snapshot() -> trust_runtime::debug::DebugSnapshot {
     let _ = harness.runtime_mut().enable_debug();
     harness.cycle();
     trust_runtime::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     }
@@ -117,6 +137,34 @@ fn opcua_interop_reads_exposed_scalars_with_reference_client() {
             | OpcUaVariant::String(_)
     ));
     server.stop();
+}
+
+#[test]
+fn opcua_server_start_refuses_a_listen_address_in_use() {
+    let port = reserve_loopback_port();
+    let occupant = TcpListener::bind(("127.0.0.1", port)).expect("occupy the fixture port");
+    let runtime = load_runtime_fixture("interop", port);
+    let runtime_root = temp_runtime_root("in-use");
+
+    let error = match start_wire_server(
+        runtime.resource_name.as_str(),
+        &runtime.opcua,
+        snapshot_provider(),
+        Some(runtime_root.as_path()),
+    ) {
+        Ok(_) => panic!("a listen address in use must not start a server"),
+        Err(error) => error.to_string(),
+    };
+
+    assert!(
+        error.contains("OPC UA listen address") && error.contains("is unavailable"),
+        "unexpected error: {error}"
+    );
+    assert_eq!(
+        occupant.local_addr().expect("occupant address").port(),
+        port,
+        "the occupying listener keeps its port"
+    );
 }
 
 #[test]

@@ -26,13 +26,25 @@ pub fn days_from_civil(year: i64, month: i64, day: i64) -> Result<i64, DateTimeC
     if day > days_in_month(year, month)? {
         return Err(DateTimeCalcError::InvalidDate);
     }
-    let y = i128::from(year) - if month <= 2 { 1 } else { 0 };
-    let era = if y >= 0 { y } else { y - 399 } / 400;
-    let yoe = y - era * 400;
-    let m = i128::from(month) + if month > 2 { -3 } else { 9 };
-    let doy = (153 * m + 2) / 5 + i128::from(day) - 1;
+    // Split before subtracting January/February's year: even i64::MIN is valid
+    // input. The era is about 1/400 of the year, so borrowing cannot overflow.
+    let mut era = year.div_euclid(400);
+    let mut yoe = year.rem_euclid(400);
+    if month <= 2 {
+        if yoe == 0 {
+            era -= 1;
+            yoe = 399;
+        } else {
+            yoe -= 1;
+        }
+    }
+    let m = month + if month > 2 { -3 } else { 9 };
+    let doy = (153 * m + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    i64::try_from(era * 146097 + doe - 719468).map_err(|_| DateTimeCalcError::Overflow)
+    // Keep the final expression wide: the epoch offset can bring an overflowing
+    // intermediate back into the i64 day range.
+    i64::try_from(i128::from(era) * 146097 + i128::from(doe) - 719468)
+        .map_err(|_| DateTimeCalcError::Overflow)
 }
 
 pub fn ticks_per_day(profile: DateTimeProfile) -> Result<i64, DateTimeCalcError> {
@@ -220,6 +232,59 @@ mod tests {
             nanos_to_ticks(1, profile(0, 0), DivisionMode::Trunc),
             Err(DateTimeCalcError::InvalidResolution)
         );
+    }
+
+    fn wide_days_from_civil(year: i64, month: i64, day: i64) -> Result<i64, DateTimeCalcError> {
+        if !(1..=12).contains(&month)
+            || !(1..=31).contains(&day)
+            || day > super::days_in_month(year, month)?
+        {
+            return Err(DateTimeCalcError::InvalidDate);
+        }
+        let y = i128::from(year) - if month <= 2 { 1 } else { 0 };
+        let era = if y >= 0 { y } else { y - 399 } / 400;
+        let yoe = y - era * 400;
+        let m = i128::from(month) + if month > 2 { -3 } else { 9 };
+        let doy = (153 * m + 2) / 5 + i128::from(day) - 1;
+        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        i64::try_from(era * 146097 + doe - 719468).map_err(|_| DateTimeCalcError::Overflow)
+    }
+
+    #[test]
+    fn narrow_calendar_eras_match_wide_formula_at_day_and_year_extremes() {
+        let check_year = |year| {
+            for month in 0..=13 {
+                for day in [0, 1, 28, 29, 30, 31, 32] {
+                    assert_eq!(
+                        days_from_civil(year, month, day),
+                        wide_days_from_civil(year, month, day),
+                        "year={year}, month={month}, day={day}"
+                    );
+                }
+            }
+        };
+        for year in -401..=401 {
+            check_year(year);
+        }
+        for year in [i64::MIN, i64::MIN + 1, i64::MAX - 1, i64::MAX] {
+            check_year(year);
+        }
+        // Cover the full Gregorian eras surrounding both representable day
+        // boundaries, including valid results rescued by the epoch subtraction.
+        for boundary in [i64::MIN, i64::MAX] {
+            let era = (i128::from(boundary) + 719468).div_euclid(146097);
+            for adjacent in -1..=1 {
+                for year_of_era in 0..400 {
+                    let year = i64::try_from((era + adjacent) * 400 + year_of_era).unwrap();
+                    check_year(year);
+                }
+            }
+        }
+        let mut sample = 0x93ad_174b_fa57_2031u64;
+        for _ in 0..128 {
+            sample = sample.wrapping_mul(6364136223846793005).wrapping_add(1);
+            check_year(sample as i64);
+        }
     }
 
     fn profile(epoch_ticks: i64, resolution_nanos: i64) -> DateTimeProfile {

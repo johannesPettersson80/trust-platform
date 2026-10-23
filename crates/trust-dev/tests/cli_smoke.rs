@@ -1,7 +1,10 @@
 use std::process::Command;
 
 fn trust_dev() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_trust-dev"))
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-dev")
+            .expect("Cargo must provide trust-dev binary while executing integration tests"),
+    )
 }
 
 #[test]
@@ -66,7 +69,8 @@ fn oscat_replaced_upstream_name_remains_absent() {
         "{}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
-    );
+    )
+    .replace('\\', "/");
     assert!(diagnostics.contains("src/main.st: expected expression"));
     assert!(diagnostics.contains("src/tests.st: expected expression"));
 }

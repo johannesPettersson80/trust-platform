@@ -40,7 +40,7 @@ pub(super) fn access_path_display(path: &AccessPath) -> SmolStr {
 }
 
 pub(super) fn resolve_access_path(
-    runtime: &Runtime,
+    runtime: &RuntimeBuilder,
     path: &AccessPath,
 ) -> Result<ResolvedAccess, CompileError> {
     match path {
@@ -50,13 +50,16 @@ pub(super) fn resolve_access_path(
 }
 
 #[derive(Clone, Copy)]
-enum AccessTargetPolicy {
+pub(crate) enum AccessTargetPolicy {
     Writable,
     ReadOnly(&'static str),
     Forbidden(&'static str),
 }
 
-fn access_target_policy(runtime: &Runtime, path: &AccessPath) -> AccessTargetPolicy {
+pub(crate) fn access_target_policy(
+    runtime: &RuntimeBuilder,
+    path: &AccessPath,
+) -> AccessTargetPolicy {
     let AccessPath::Parts(parts) = path else {
         return AccessTargetPolicy::Writable;
     };
@@ -78,17 +81,24 @@ fn access_target_policy(runtime: &Runtime, path: &AccessPath) -> AccessTargetPol
         return AccessTargetPolicy::Writable;
     };
 
+    program_access_target_policy(program, variable_name)
+}
+
+pub(crate) fn program_access_target_policy(
+    program: &ProgramDef,
+    variable_name: &str,
+) -> AccessTargetPolicy {
     if program
         .temps
         .iter()
-        .any(|variable| variable.name.eq_ignore_ascii_case(variable_name.as_str()))
+        .any(|variable| variable.name.eq_ignore_ascii_case(variable_name))
     {
         return AccessTargetPolicy::Forbidden("VAR_TEMP");
     }
     let Some(variable) = program
         .vars
         .iter()
-        .find(|variable| variable.name.eq_ignore_ascii_case(variable_name.as_str()))
+        .find(|variable| variable.name.eq_ignore_ascii_case(variable_name))
     else {
         return AccessTargetPolicy::Writable;
     };
@@ -104,7 +114,7 @@ fn access_target_policy(runtime: &Runtime, path: &AccessPath) -> AccessTargetPol
 }
 
 fn resolve_access_parts(
-    runtime: &Runtime,
+    runtime: &RuntimeBuilder,
     parts: &[AccessPart],
 ) -> Result<ResolvedAccess, CompileError> {
     let name_positions: Vec<(usize, &SmolStr)> = parts
@@ -151,11 +161,9 @@ fn resolve_access_parts(
         for part in &parts[pos + 1..] {
             match part {
                 AccessPart::Index(indices) => {
-                    value_ref
-                        .path
-                        .push(crate::value::RefSegment::Index(
-                            crate::value::ref_indices_from_iter(indices.iter().copied()),
-                        ));
+                    value_ref.path.push(crate::value::RefSegment::Index(
+                        crate::value::ref_indices_from_iter(indices.iter().copied()),
+                    ));
                     current_value = runtime
                         .storage()
                         .read_by_ref(value_ref.clone())

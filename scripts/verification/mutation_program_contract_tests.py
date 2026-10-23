@@ -5,12 +5,14 @@ from __future__ import annotations
 import copy
 import datetime
 import json
+import re
 import unittest
 from types import SimpleNamespace
 from unittest import mock
 
 from . import mutation_program_contract as contract_module
 from .metadata_validator.constants import ROOT
+from .mutation_execution import source_offset
 from .mutation_program_contract import (
     MUTATION_PROGRAM_PATH,
     MUTATION_PROGRAM_SCHEMA_PATH,
@@ -33,7 +35,7 @@ class MutationProgramContractTests(unittest.TestCase):
         )
         self.assertEqual(6, len(self.program["shards"]))
         self.assertEqual(
-            ["measured", "measured", "measured", "measured", "measured", "planned"],
+            ["planned"] * 6,
             [row["execution_status"] for row in self.program["shards"]],
         )
         self.assertEqual(
@@ -59,7 +61,7 @@ class MutationProgramContractTests(unittest.TestCase):
 
     def test_exact_source_mutant_and_test_bindings_are_required(self) -> None:
         self.assertEqual(
-            "crates/trust-runtime/src/runtime/retain_snapshot.rs",
+            "crates/trust-runtime-core/src/retain.rs",
             self.program["shards"][4]["mutations"][0]["source_file"],
         )
         for mutation in (
@@ -82,10 +84,10 @@ class MutationProgramContractTests(unittest.TestCase):
     def test_source_shards_reserve_exact_durable_artifact_paths(self) -> None:
         self.assertEqual(
             [
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-runtime-value-conversion-mutation.json",
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-hir-subrange-diagnostics-mutation.json",
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-parser-recovery-mutation.json",
-                "docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-retain-restart-mutation.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/value-conversion.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/hir-diagnostics.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/parser-recovery.json",
+                "docs/internal/testing/evidence/2026-10-09/runtime-portability-mutation-requalification/retain-restart.json",
             ],
             [row["result_artifact_path"] for row in self.program["shards"][1:5]],
         )
@@ -98,6 +100,9 @@ class MutationProgramContractTests(unittest.TestCase):
 
     def test_measured_source_shard_requires_its_bound_artifact(self) -> None:
         shards = copy.deepcopy(self.program["shards"])
+        # Exercise strict measured-evidence handling explicitly; live rows are planned.
+        shards[1]["execution_status"] = "measured"
+        shards[4]["execution_status"] = "measured"
         retain_shard_id = "MUTATION_SHARD_RETAIN_RESTART_001"
         shards[4]["result_artifact_path"] = (
             "docs/internal/testing/evidence/plc-verification-program/2026-07-16/"
@@ -171,6 +176,14 @@ class MutationProgramContractTests(unittest.TestCase):
             preexecution_failures,
         )
 
+    def test_historical_focused_records_are_preserved_without_current_results(self) -> None:
+        failures: list[str] = []
+        with mock.patch.dict(contract_module.HISTORICAL_FOCUSED_ARTIFACTS,
+                             {next(iter(contract_module.HISTORICAL_FOCUSED_ARTIFACTS)): "0" * 64}):
+            survivors = contract_module._validate_focused_shards(ROOT, self.program["shards"], failures)
+        self.assertEqual(set(), survivors)
+        self.assertTrue(any("historical mutation record digest mismatch" in item for item in failures), failures)
+
     def test_shard_execution_preflight_does_not_require_old_execution_artifacts(self) -> None:
         with (
             mock.patch.object(
@@ -238,15 +251,29 @@ class MutationProgramContractTests(unittest.TestCase):
                 "function": "convert_value",
                 "genre": "BinaryOperator",
                 "replacement": "!=",
-                "selector_name": (
-                    "dispatch.rs:78:16: replace == with != in convert_value"
-                ),
             },
             {
                 field: mutation[field]
-                for field in ("id", "function", "genre", "replacement", "selector_name")
+                for field in ("id", "function", "genre", "replacement")
             },
         )
+
+        selector = re.fullmatch(
+            r"dispatch\.rs:(?P<line>[1-9]\d*):(?P<column>[1-9]\d*): replace == with != in convert_value",
+            mutation["selector_name"],
+        )
+        self.assertIsNotNone(selector, mutation["selector_name"])
+        source = (ROOT / mutation["source_file"]).read_text()
+        position = {key: int(selector.group(key)) for key in ("line", "column")}
+        offset = source_offset(source, position)
+        self.assertEqual("==", source[offset : offset + 2])
+        self.assertEqual("if src == dst {", source.splitlines()[position["line"] - 1].strip())
+        # Bind the selected operator to this function, not a similarly spelled
+        # comparison elsewhere; formatting may move its line without changing it.
+        function_start = source.index("fn convert_value(")
+        function_end = source.find("\nfn ", function_start + 1)
+        self.assertGreaterEqual(offset, function_start)
+        self.assertLess(offset, len(source) if function_end == -1 else function_end)
 
     def test_survivor_resolution_registry_cannot_invent_or_omit_outcomes(self) -> None:
         self.assertEqual([], self.program["survivor_resolutions"])
@@ -340,6 +367,18 @@ class MutationProgramContractTests(unittest.TestCase):
         ):
             contract_module._scan_reviewed_facts(ROOT, failures)
         self.assertTrue(any("duplicate discovery ID" in item for item in failures), failures)
+
+    def test_changed_bytecode_selectors_cannot_claim_the_historical_measurement(self) -> None:
+        corrupted = copy.deepcopy(self.program)
+        corrupted["shards"][0]["execution_status"] = "measured"
+        failures = validate_mutation_program_contract(ROOT, corrupted)
+        self.assertTrue(any("execution_status" in failure for failure in failures), failures)
+
+    def test_historical_bytecode_report_is_content_bound_for_planned_selectors(self) -> None:
+        failures: list[str] = []
+        with mock.patch.object(contract_module, "LEGACY_REPORT_SHA256", "0" * 64):
+            contract_module._validate_legacy_shard(ROOT, self.program["shards"], failures)
+        self.assertTrue(any("historical bytecode mutation report digest mismatch" in item for item in failures), failures)
 
     def test_hostile_legacy_report_shapes_fail_without_traceback(self) -> None:
         for report in ([], {"summary": []}):

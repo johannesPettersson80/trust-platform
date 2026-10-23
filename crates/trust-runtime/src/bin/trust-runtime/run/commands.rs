@@ -102,12 +102,8 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
     let module = BytecodeModule::decode(&bundle.bytecode)?;
     module.validate()?;
     let metadata = module.metadata()?;
-    // The same resource the runtime would run, so a project that validates also starts.
-    let name = bundle.runtime.resource_name.as_str();
-    if metadata.runtime_resource(name).is_none() {
-        let declared: Vec<&str> = metadata.resources.iter().map(|resource| resource.name.as_str()).collect();
-        anyhow::bail!("{}", resource_mismatch(name, &declared));
-    }
+    // Launch's own rule and error (spec 11 §6.7.1); never the primary resource.
+    trust_runtime::harness::configured_resource(&metadata, bundle.runtime.resource_name.as_str())?;
     let io_drivers = enabled_io_driver_names(&bundle);
     Ok(json!({
         "version": 1,

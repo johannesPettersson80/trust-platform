@@ -359,6 +359,8 @@ Important control subcommands:
 - `status`
 - `health`
 - `stats`
+- `events [--limit N]`
+- `faults [--limit N]`
 - `io-read`
 - `io-write`
 - `io-force`

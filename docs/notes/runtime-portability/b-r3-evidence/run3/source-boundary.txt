@@ -1,0 +1,3 @@
+Run2 production inputs unchanged except the two independently reviewed linker scripts. Rust/tests/features/locks/toolchain unchanged.
+firmware/trust-nucleo-f401re/memory.x
+firmware/trust-nucleo-f401re/profile.x

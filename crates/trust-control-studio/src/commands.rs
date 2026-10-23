@@ -104,7 +104,7 @@ pub const EXPORT: &str = "controlStudio/export";
 /// The loop's sample for the page (B2, A3.4) and, when it changed, the target's label (B9.2): one coherent scan of the open loop, or
 /// the reason it is not current. The engine decides availability and staleness; it reads the runtime and writes nothing.
 pub const MONITOR: &str = "controlStudio/monitor";
-/// The plant summary of a plant handoff (B1.2, specification 34, §20.4): the runtime's `plant.status`, decided by the engine. It reads
+/// The plant summary of a plant handoff (B1.2, specification 47, §20.4): the runtime's `plant.status`, decided by the engine. It reads
 /// the runtime and writes nothing.
 pub const PLANT_MONITOR: &str = "controlStudio/plantMonitor";
 /// Decides a Start simulator request (A2.8): the extension starts the local simulator, joins a start in flight, or shows the reply

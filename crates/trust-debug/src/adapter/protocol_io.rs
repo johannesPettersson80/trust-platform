@@ -22,12 +22,11 @@ pub(super) fn read_message<R: BufRead>(reader: &mut R) -> io::Result<Option<Stri
         if trimmed.is_empty() {
             break;
         }
-        if let Some((name, value)) = trimmed.split_once(':') {
-            if name.trim().eq_ignore_ascii_case(CONTENT_LENGTH) {
-                if let Ok(length) = value.trim().parse::<usize>() {
-                    content_length = Some(length);
-                }
-            }
+        if let Some((name, value)) = trimmed.split_once(':')
+            && name.trim().eq_ignore_ascii_case(CONTENT_LENGTH)
+            && let Ok(length) = value.trim().parse::<usize>()
+        {
+            content_length = Some(length);
         }
     }
 

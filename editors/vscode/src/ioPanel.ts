@@ -1,6 +1,8 @@
-import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
-import * as vscode from "vscode";
 import * as net from "net";
+import * as vscode from "vscode";
+
+import { affectsTrustConfiguration, getTrustConfiguration } from "./configuration";
+import { liveValueActionTarget } from "./liveValueActionTarget";
 
 import {
   summarizeAdsStatus,
@@ -22,6 +24,7 @@ type IoEntry = {
   source?: string;
   value: string;
   forced?: boolean;
+  writable?: boolean;
 };
 
 type IoState = {
@@ -29,6 +32,7 @@ type IoState = {
   inputs: IoEntry[];
   outputs: IoEntry[];
   memory: IoEntry[];
+  ads: IoEntry[];
 };
 
 type CompileIssue = {
@@ -457,7 +461,7 @@ function isIoStateTransportFailureMessage(message: string): boolean {
 function postEmptyIoState(): void {
   panel?.webview.postMessage({
     type: "ioState",
-    payload: { inputs: [], outputs: [], memory: [] },
+    payload: { inputs: [], outputs: [], memory: [], ads: [] },
   });
 }
 
@@ -736,10 +740,7 @@ async function writeInput(address: string, value: string): Promise<void> {
 
   try {
     const previousScan = await currentIoScan();
-    await vscode.commands.executeCommand("trust-lsp.debug.io.write", {
-      address,
-      value,
-    });
+    await executeLiveValueAction("write", address, value);
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O write queued for ${address}.`,
@@ -767,10 +768,7 @@ async function forceInput(address: string, value: string): Promise<void> {
   // authorizes by role and surfaces any error, which the catch below reports).
   try {
     const previousScan = await currentIoScan();
-    await vscode.commands.executeCommand("trust-lsp.debug.io.force", {
-      address,
-      value,
-    });
+    await executeLiveValueAction("force", address, value);
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O force active at ${address}.`,
@@ -796,9 +794,7 @@ async function releaseInput(address: string): Promise<void> {
 
   try {
     const previousScan = await currentIoScan();
-    await vscode.commands.executeCommand("trust-lsp.debug.io.release", {
-      address,
-    });
+    await executeLiveValueAction("release", address);
     panel?.webview.postMessage({
       type: "status",
       payload: `I/O force released at ${address}.`,
@@ -823,9 +819,7 @@ async function releaseAllForces(addresses: string[]): Promise<void> {
       continue;
     }
     try {
-      await vscode.commands.executeCommand("trust-lsp.debug.io.release", {
-        address,
-      });
+      await executeLiveValueAction("release", address);
       released += 1;
     } catch {
       // Release the rest even if one fails.
@@ -839,6 +833,39 @@ async function releaseAllForces(addresses: string[]): Promise<void> {
         : "No forces to release.",
   });
   void requestIoStateAfterScan(previousScan);
+}
+
+async function executeLiveValueAction(
+  action: "write" | "force" | "release",
+  address: string,
+  value?: string,
+): Promise<void> {
+  const target = liveValueActionTarget(address);
+  const commands = {
+    write: {
+      global: "trust-lsp.debug.expr.write",
+      io: "trust-lsp.debug.io.write",
+    },
+    force: {
+      global: "trust-lsp.debug.expr.force",
+      io: "trust-lsp.debug.io.force",
+    },
+    release: {
+      global: "trust-lsp.debug.expr.release",
+      io: "trust-lsp.debug.io.release",
+    },
+  } as const;
+  if (target.kind === "global") {
+    await vscode.commands.executeCommand(commands[action].global, {
+      expression: target.name,
+      value,
+    });
+    return;
+  }
+  await vscode.commands.executeCommand(commands[action].io, {
+    address: target.address,
+    value,
+  });
 }
 
 
@@ -1753,6 +1780,10 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         padding-left: 32px;
       }
 
+      .rows.aligned-root-rows {
+        margin-left: 22px;
+      }
+
       .write-hint {
         margin: 2px 4px 6px 10px;
         color: var(--trust-text-muted);
@@ -1826,7 +1857,8 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         text-align: right;
       }
 
-      .row:hover {
+      .row:hover,
+      .row.pointer-hover {
         background: var(--trust-selected-bg);
       }
 
@@ -1952,13 +1984,6 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
         cursor: not-allowed;
       }
 
-      /* Invisible placeholder that reserves the write-box slot on rows without an editable
-         field, so every section's actions column keeps the same width and the headers align. */
-      .value-input-spacer {
-	        flex: 0 0 46px;
-        height: 24px;
-      }
-
       .value-input.bool-toggle {
         cursor: pointer;
         font-weight: 700;
@@ -2035,7 +2060,13 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       }
 
       .status {
-        display: none;
+        display: block;
+        box-sizing: border-box;
+        height: 27px;
+        overflow: hidden;
+        visibility: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
         color: var(--trust-text);
         font-size: 12px;
         line-height: 1.35;
@@ -2046,7 +2077,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
       }
 
       .status:not(:empty) {
-        display: block;
+        visibility: visible;
       }
 
       .status.status-ok {

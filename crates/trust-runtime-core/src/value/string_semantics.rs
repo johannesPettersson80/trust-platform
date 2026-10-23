@@ -28,16 +28,16 @@ pub fn string_element_position(text: &str, index: i64) -> Result<usize, RuntimeE
             upper: i64::MAX,
         });
     }
-    let position = usize::try_from(index - 1).map_err(|_| RuntimeError::Overflow)?;
     let upper = i64::try_from(string_element_count(text)).map_err(|_| RuntimeError::Overflow)?;
-    if position >= upper as usize {
+    if index > upper {
         return Err(RuntimeError::IndexOutOfBounds {
             index,
             lower: 1,
             upper,
         });
     }
-    Ok(position)
+    // `index` is in 1..=upper here, so the zero-based position fits `usize` on every target.
+    Ok((index - 1) as usize)
 }
 
 pub fn read_string_element(text: &str, index: i64, wide: bool) -> Result<Value, RuntimeError> {
@@ -92,17 +92,28 @@ pub fn string_right(text: &str, count: i64) -> String {
     chars.into_iter().skip(start).collect()
 }
 
+// Zero-based index of the element at one-based `position`, or `None` when that
+// element is past the end. Positions below one clamp to the first element. The
+// conversion is checked and a value that does not fit `usize` is past the end, so
+// a 32-bit build gives the same answer as a 64-bit one.
+fn start_index(position: i64, element_count: usize) -> Option<usize> {
+    let start = if position <= 1 { 0 } else { position - 1 };
+    usize::try_from(start)
+        .ok()
+        .filter(|&start| start < element_count)
+}
+
 pub fn string_mid(text: &str, length: i64, position: i64) -> String {
     let chars: Vec<char> = text.chars().collect();
-    let start = if position <= 1 {
-        0
-    } else {
-        position as usize - 1
+    let Some(start) = start_index(position, chars.len()) else {
+        return String::new();
     };
-    if start >= chars.len() || length <= 0 {
+    if length <= 0 {
         return String::new();
     }
-    let end = (start as i64 + length).min(chars.len() as i64) as usize;
+    let end = (start as i64)
+        .saturating_add(length)
+        .min(chars.len() as i64) as usize;
     chars.into_iter().skip(start).take(end - start).collect()
 }
 
@@ -110,7 +121,7 @@ pub fn string_insert(input: &str, insert: &str, position: i64) -> String {
     let chars: Vec<char> = input.chars().collect();
     let idx = if position <= 0 {
         0
-    } else if position as usize >= chars.len() {
+    } else if position >= chars.len() as i64 {
         chars.len()
     } else {
         position as usize
@@ -127,15 +138,12 @@ pub fn string_delete(input: &str, length: i64, position: i64) -> String {
         return input.to_string();
     }
     let chars: Vec<char> = input.chars().collect();
-    let start = if position <= 1 {
-        0
-    } else {
-        position as usize - 1
-    };
-    if start >= chars.len() {
+    let Some(start) = start_index(position, chars.len()) else {
         return input.to_string();
-    }
-    let end = (start as i64 + length).min(chars.len() as i64) as usize;
+    };
+    let end = (start as i64)
+        .saturating_add(length)
+        .min(chars.len() as i64) as usize;
     let mut result = String::new();
     result.extend(chars.iter().take(start));
     result.extend(chars.iter().skip(end));
@@ -144,18 +152,15 @@ pub fn string_delete(input: &str, length: i64, position: i64) -> String {
 
 pub fn string_replace(input: &str, repl: &str, length: i64, position: i64) -> String {
     let chars: Vec<char> = input.chars().collect();
-    let start = if position <= 1 {
-        0
-    } else {
-        position as usize - 1
-    };
-    if start >= chars.len() {
+    let Some(start) = start_index(position, chars.len()) else {
         return input.to_string();
-    }
+    };
     let end = if length <= 0 {
         start
     } else {
-        (start as i64 + length).min(chars.len() as i64) as usize
+        (start as i64)
+            .saturating_add(length)
+            .min(chars.len() as i64) as usize
     };
     let mut result = String::new();
     result.extend(chars.iter().take(start));
@@ -208,8 +213,8 @@ fn value_to_char(value: Value, wide: bool) -> Result<char, RuntimeError> {
 #[cfg(test)]
 mod tests {
     use super::{
-        read_string_element, string_element_count, string_find, string_left, string_mid,
-        write_string_element,
+        read_string_element, string_delete, string_element_count, string_find, string_insert,
+        string_left, string_mid, string_replace, string_right, write_string_element,
     };
     use crate::error::RuntimeError;
     use crate::value::Value;
@@ -299,5 +304,55 @@ mod tests {
             write_string_element("ÄB", 2, Value::WChar(0xD800), true),
             Err(RuntimeError::TypeMismatch)
         );
+    }
+
+    #[test]
+    fn positions_and_lengths_past_u32_max_match_the_64_bit_results() {
+        // 2^32 + 1 truncates to 1 in a 32-bit `usize`. Each call must still read the
+        // position as past the end, or the length as past the end and clamped.
+        let above_u32: i64 = (1 << 32) + 1;
+        let max = i64::MAX;
+        assert_eq!(string_mid("ABC", 1, above_u32), "");
+        assert_eq!(string_mid("ABC", 1, max), "");
+        assert_eq!(string_mid("ABC", above_u32, 2), "BC");
+        assert_eq!(string_mid("ABC", max, 2), "BC");
+        assert_eq!(string_left("ABC", above_u32), "ABC");
+        assert_eq!(string_left("ABC", max), "ABC");
+        assert_eq!(string_right("ABC", above_u32), "ABC");
+        assert_eq!(string_right("ABC", max), "ABC");
+        assert_eq!(string_delete("ABC", 1, above_u32), "ABC");
+        assert_eq!(string_delete("ABC", 1, max), "ABC");
+        assert_eq!(string_delete("ABC", above_u32, 2), "A");
+        assert_eq!(string_delete("ABC", max, 2), "A");
+        assert_eq!(string_insert("ABC", "X", above_u32), "ABCX");
+        assert_eq!(string_insert("ABC", "X", max), "ABCX");
+        assert_eq!(string_replace("ABC", "XY", 1, above_u32), "ABC");
+        assert_eq!(string_replace("ABC", "XY", 1, max), "ABC");
+        assert_eq!(string_replace("ABC", "XY", above_u32, 2), "AXY");
+        assert_eq!(string_replace("ABC", "XY", max, 2), "AXY");
+    }
+
+    #[test]
+    fn element_index_past_u32_max_is_out_of_bounds_on_every_target() {
+        let above_u32: i64 = (1 << 32) + 1;
+        let out_of_bounds = RuntimeError::IndexOutOfBounds {
+            index: above_u32,
+            lower: 1,
+            upper: 2,
+        };
+        assert_eq!(
+            read_string_element("AB", above_u32, false),
+            Err(out_of_bounds.clone())
+        );
+        assert_eq!(
+            write_string_element("AB", above_u32, Value::Char(b'X'), false),
+            Err(out_of_bounds)
+        );
+        let last = RuntimeError::IndexOutOfBounds {
+            index: i64::MAX,
+            lower: 1,
+            upper: 2,
+        };
+        assert_eq!(read_string_element("AB", i64::MAX, false), Err(last));
     }
 }

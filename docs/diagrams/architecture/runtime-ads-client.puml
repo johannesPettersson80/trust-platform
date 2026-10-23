@@ -11,6 +11,7 @@ title truST Runtime: Beckhoff ADS Client Architecture
 
 package "Onboarding Surfaces" as onboardingSurfaces #Lavender {
     component "VS Code ADS Panel\n(runtime-child webview)" as vscodeAdsPanel
+    component "Devices & Connections\nAMS Net ID + ADS port chooser" as networkCanvasAds
     component "Runtime Pane\nsingle selected runtime context" as runtimePane
     component "Setup Web Wizard\n/setup/ads on runtime host" as setupAds
     component "CLI Backend\ntrust-runtime ads ..." as adsCli
@@ -20,6 +21,7 @@ package "Runtime Control / Web API" as runtimeApi #MistyRose {
     component "runtimeTarget.ts\nendpoint + mode + reachability" as runtimeTarget
     component "runtimeControlClient.ts\nshared JSON-line client" as runtimeControlClient
     component "control/ads_handlers/*\nads.identity / doctor / status / route" as adsControl
+    component "control/comm_handlers/browse_symbols.rs\nport-aware Symbol Upload + structured errors" as commBrowse
     component "web/ads_routes.rs\n/api/ads/* wrappers" as adsWebRoutes
     component "host/ads/diagnostics.rs + diagnostics/*\nversioned JSON schema" as diagnosticsSchema
     component "host/ads/onboarding/*\ndiscover / identity / doctor / route" as onboardingEngine
@@ -48,9 +50,12 @@ package "trust-runtime::host::ads" as hostAds #LightCyan {
     component "client/worker.rs\ncorrelated transport owner\nstable candidate publication" as worker
     component "client/cache.rs\nshared Value + Quality cache\ngeneration-tagged write queue" as cache
     component "transport.rs\nAdsTransport trait\n(domain types only)" as transport
+    component "backend_host.rs\nhost transport selector" as hostBackend
+    component "backend_ads_rs.rs\ndirect ADS/TCP backend" as backend
+    component "backend_windows.rs\nTwinCAT native-router backend" as windowsBackend
+    component "trust-tcads-native\nowned TcAdsDll port API" as tcadsNative
     component "identity.rs\ncanonical AMS Net ID owner\ncanonicalize + strict parse" as adsIdentity
-    component "backend_ads_rs.rs\nads crate backend\n(feature = ads-wire)" as backend
-    component "backend_ads_rs::connect_with\nprivate client-construction seam" as backendConnector
+    component "backend_ads_rs/connection.rs\nprivate source/router negotiation seam" as backendConnector
     component "mock.rs\nCI transport" as mock
 }
 
@@ -69,6 +74,9 @@ component "Control/Debug + Historian" as surfaces #Wheat
 
 runtimePane --> runtimeTarget : owns runtime selection
 vscodeAdsPanel --> runtimeTarget : reads selected runtime\n(no second chooser)
+networkCanvasAds --> runtimeTarget : reads selected runtime
+networkCanvasAds --> commBrowse : comm.browse_symbols\ntarget AMS Net ID + ADS port
+networkCanvasAds --> onboardingEngine : selected symbols + same port\nimport into ads.toml
 vscodeAdsPanel --> runtimeControlClient : calls selected endpoint
 runtimeControlClient --> adsControl : JSON-line commands
 setupAds --> adsWebRoutes : HTTP calls on runtime host
@@ -80,6 +88,7 @@ adsControl --> onboardingEngine : discover / identity /\ndoctor / route plan
 onboardingEngine --> doctorTargetValidation : Doctor target admission
 adsCli --> onboardingEngine : scriptable backend
 onboardingEngine --> twincat : ADS UDP identify/discover\nand route-add
+commBrowse --> twincat : Symbol Upload on exactly\none selected ADS server port
 onboardingEngine --> adsToml : import-symbols writes\nor dry-run previews
 onboardingEngine --> adsSnapshot : live symbol snapshot
 onboardingEngine --> generatedSt : generated ST preview/write
@@ -121,11 +130,15 @@ adsSubsystem --> bridge : owns bridges
 adsSubsystem --> worker : owns worker threads
 worker --> cache : exact correlated reads/notifications\n+ generation-conditional write results
 worker --> transport : owns network calls
-backend ..|> transport
+hostBackend ..|> transport
+hostBackend --> backend : remote target or\nnon-Windows host
+hostBackend --> windowsBackend : same-computer target\non Windows
+windowsBackend --> tcadsNative : safe owned port calls
 mock ..|> transport
 backend --> backendConnector : validated connect request
 backendConnector --> twincat : ads::Client::new only
 backend --> twincat : ADS/AMS sum-up read/write\nnotifications + symbol version
+tcadsNative --> twincat : installed TwinCAT router\nstate, symbols, reads + writes
 
 scan --> adsSubsystem : apply_inputs / capture_outputs
 adsSubsystem --> cache : copy input values / queue output writes\n(no socket calls)
@@ -157,13 +170,20 @@ note right of vscodeAdsPanel
     imports never earn that badge.
 end note
 
+note right of hostBackend
+    Linux behavior and remote Windows targets
+    keep the direct backend. Same-computer
+    Windows targets use the installed TwinCAT
+    router for the complete AdsTransport flow.
+end note
+
 note right of backend
     External ads crate is confined to
     backend_ads_rs.rs behind ads-wire.
     AdsTransport signatures expose only
-    trust-owned domain types. connect_with
-    is a private construction seam, not
-    another transport adapter.
+    trust-owned domain types. connection.rs
+    owns bounded router/direct negotiation,
+    not another transport adapter.
 end note
 
 note right of adsIdentity

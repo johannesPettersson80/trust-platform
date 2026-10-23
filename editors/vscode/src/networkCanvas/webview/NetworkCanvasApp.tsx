@@ -11,25 +11,15 @@ import "@xyflow/react/dist/style.css";
 import "../../webview/theme.css";
 import { buildGraph } from "./layout";
 import { visibleFaultsForValidationState } from "./faults";
-import type { NCGraph } from "./types";
 import type { InspectorNode } from "./NodeInspector";
-import {
-  type DiscoverOrigin,
-  type DiscoverRequest,
-  type DiscoverProgressRow,
-} from "./DiscoverPane";
-import { browseAction } from "./browseActions";
 import { useEquipmentConnections } from "./EquipmentConnections";
-import type { DiscoverCandidate, RoutePlan, SymbolNode } from "../offlineComm";
-import {
-  buildOpcuaConnection,
-  classifyOpcuaBrowseError,
-  selectedLeaves,
-  type OpcuaErrorView,
-} from "./opcuaClientModel";
+import { useBrowseSession } from "./useBrowseSession";
+import { useCanvasHostState } from "./useCanvasHostState";
+import { useDiscoverActions, useDiscoverPaneLifecycle } from "./useDiscoverPane";
+import type { DeviceDraft } from "./discoverPaneModel";
 import type { AddSlotRequest } from "./editMode";
 import { applyFilter, filterReport, protocolsInGraph } from "./filter";
-import type { CommApplyResponse, CommSchemaResponse } from "../../communication/schemaForm";
+import type { CommApplyResponse } from "../../communication/schemaForm";
 import { LOCAL_RUNTIME_NODE_ID } from "./types";
 import { CanvasToolbar } from "./CanvasToolbar";
 import { CanvasGraphShell } from "./CanvasGraphShell";
@@ -68,21 +58,23 @@ const vscode: VsCodeApi =
     ? acquireVsCodeApi()
     : { postMessage() {}, getState: () => undefined, setState() {} };
 
-const EMPTY: NCGraph = {
-  kind: "graph",
-  title: "Devices & Connections",
-  summary: "",
-  hosts: [],
-  links: [],
-  external: [],
-  faults: [],
-};
-
 function Canvas() {
-  const equipment = useEquipmentConnections((message) => vscode.postMessage(message));
-  const [graph, setGraph] = useState<NCGraph>(
-    () => (typeof window !== "undefined" && (window as { __NC__?: NCGraph }).__NC__) || EMPTY
-  );
+  const post = useCallback((message: unknown) => vscode.postMessage(message), []);
+  const equipment = useEquipmentConnections(post);
+  const {
+    open: discoverOpen,
+    show: openDiscoverPane,
+    close: closeDiscoverPane,
+    toggle: toggleDiscoverPane,
+    scanning: discoverScanning,
+    progress: discoverProgress,
+    results: discoverResults,
+    error: discoverError,
+    sessionCurrent: discoverSessionCurrent,
+    prepareReady: prepareDiscoveryReady,
+    handleMessage: handleDiscoveryMessage,
+    startScan: onDiscoverScan,
+  } = useDiscoverPaneLifecycle(post);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [editMode, setEditMode] = useState(false);
@@ -94,20 +86,9 @@ function Canvas() {
     | undefined
   >(undefined);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [discoverOpen, setDiscoverOpen] = useState(false);
-  const [discoverScanning, setDiscoverScanning] = useState(false);
-  const [discoverProgress, setDiscoverProgress] = useState<DiscoverProgressRow[]>([]);
-  const [discoverResults, setDiscoverResults] = useState<DiscoverCandidate[]>([]);
-  const [browseTags, setBrowseTags] = useState<{ label: string; protocol: string; target: Record<string, unknown>; title: string; actionLabel: string; mode: "tags" | "expose" } | undefined>(undefined);
-  const [browseTree, setBrowseTree] = useState<SymbolNode[] | undefined>(undefined);
-  const [browseRouteMissing, setBrowseRouteMissing] = useState(false);
-  const [browseRoutePlan, setBrowseRoutePlan] = useState<RoutePlan | undefined>(undefined);
-  // opcua_client: a structured browse failure mapped to one recovery action (esp. cert-trust).
-  const [browseError, setBrowseError] = useState<OpcuaErrorView | undefined>(undefined);
-  const [browseLoading, setBrowseLoading] = useState(false);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [searchDraft, setSearchDraft] = useState("");
-  const [draft, setDraft] = useState<{ runtimeId: string; runtimeName: string; protocol: string; prefillParams?: Record<string, unknown> } | undefined>(undefined);
+  const [draft, setDraft] = useState<DeviceDraft | undefined>(undefined);
   const [plantDraft, setPlantDraft] = useState<PlantDraft | undefined>(undefined);
   const [plantSaving, setPlantSaving] = useState(false);
   const [plantSaveError, setPlantSaveError] = useState<string | undefined>(undefined);
@@ -122,7 +103,6 @@ function Canvas() {
   const [focusTargetId, setFocusTargetId] = useState<string | undefined>(undefined);
   const [keyboardFocusTargetId, setKeyboardFocusTargetId] = useState<string | undefined>(undefined);
   const clearFocusTarget = useCallback(() => setFocusTargetId(undefined), []);
-  const [schema, setSchema] = useState<CommSchemaResponse | undefined>(undefined);
   const [applyResult, setApplyResult] = useState<CommApplyResponse | undefined>(undefined);
   const applyResultSignature = useMemo(
     () =>
@@ -137,8 +117,6 @@ function Canvas() {
     [applyResult]
   );
   const [applyResultLocallyStale, setApplyResultLocallyStale] = useState(false);
-  const [reachable, setReachable] = useState(false);
-  const [setupMessage, setSetupMessage] = useState<string | undefined>(undefined);
   const [plantSignals, setPlantSignals] = useState<PlantSignalCatalog>({
     status: "compile_error",
     commands: [],
@@ -149,15 +127,103 @@ function Canvas() {
   const clearApplyResult = useCallback(() => {
     setApplyResult(undefined);
     setApplyResultLocallyStale(false);
-    vscode.postMessage({ type: "clearApplyResult" });
+    post({ type: "clearApplyResult" });
+  }, [post]);
+  const {
+    panel: browseTags,
+    tree: browseTree,
+    routeMissing: browseRouteMissing,
+    routePlan: browseRoutePlan,
+    error: browseError,
+    loading: browseLoading,
+    adsImportLoading,
+    adsImportResult,
+    open: openBrowse,
+    openNode: onBrowse,
+    handleMessage: handleBrowseMessage,
+    browseTarget: onBrowseTarget,
+    trustCertificate: onTrustCertificate,
+    createRoute: onCreateRoute,
+    copy: onCopy,
+    addTags: onAddTags,
+    addAdsTags: onAddAdsTags,
+    removeAdsTag: onRemoveAdsTag,
+    close: closeBrowse,
+  } = useBrowseSession(post, clearApplyResult);
+  const onHostFocusNode = useCallback((nodeId: string) => {
+    setSelectedId(nodeId);
+    setFocusTargetId(nodeId);
   }, []);
+  // The simulated plants' messages (specification 47): the compiled signal catalog rides on
+  // `meta`, and a save or removal answers the panel that asked for it.
+  const handlePlantMessage = useCallback((message: unknown) => {
+    const msg = message as Record<string, unknown> | null | undefined;
+    if (!msg) {
+      return false;
+    }
+    if (msg.type === "meta") {
+      if (msg.plantSignals) setPlantSignals(msg.plantSignals as PlantSignalCatalog);
+      return false;
+    }
+    if (msg.type === "plantSaveResult") {
+      setPlantSaving(false);
+      if (msg.ok === true && typeof msg.nodeId === "string") {
+        setPlantDraft(undefined);
+        setPlantSaveError(undefined);
+        setPlantSaveConflict(undefined);
+        setSelectedId(msg.nodeId);
+        setFocusTargetId(msg.nodeId);
+        plantDraftOriginRef.current = {};
+      } else {
+        setPlantSaveError(typeof msg.message === "string" ? msg.message : "The simulated plant was not saved.");
+        setPlantSaveConflict(
+          msg.code === "revision_conflict" && typeof msg.currentRevision === "string"
+            ? {
+                currentRevision: msg.currentRevision,
+                currentPlant:
+                  msg.currentPlant && typeof msg.currentPlant === "object" && !Array.isArray(msg.currentPlant)
+                    ? msg.currentPlant as Record<string, unknown>
+                    : null,
+              }
+            : undefined
+        );
+      }
+      return true;
+    }
+    if (msg.type === "plantRemoveResult") {
+      setPlantSaving(false);
+      if (msg.ok === true && typeof msg.runtimeId === "string") {
+        setPlantDraft(undefined);
+        setPlantSaveError(undefined);
+        setPlantSaveConflict(undefined);
+        setSelectedId(msg.runtimeId);
+        setFocusTargetId(msg.runtimeId);
+        setKeyboardFocusTargetId(msg.runtimeId);
+        plantDraftOriginRef.current = {};
+      } else {
+        setPlantSaveError(
+          typeof msg.message === "string" ? msg.message : "The simulated plant was not removed."
+        );
+      }
+      return true;
+    }
+    return false;
+  }, []);
+  const { graph, schema, reachable, setupMessage } = useCanvasHostState({
+    handleDiscoveryMessage,
+    handleBrowseMessage,
+    handleMessage: handlePlantMessage,
+    prepareDiscoveryReady,
+    onFocusNode: onHostFocusNode,
+    onApplyResult: setApplyResult,
+  });
 
   const focusNode = useCallback(
     (nodeId: string) => {
-      vscode.postMessage({ type: "focus", nodeId });
+      post({ type: "focus", nodeId });
       void fitView({ duration: 500, padding: 0.2, maxZoom: 1.2 });
     },
-    [fitView]
+    [fitView, post]
   );
 
   // §6.1: drop a palette item onto a runtime → that runtime owns the new endpoint.
@@ -266,94 +332,6 @@ function Canvas() {
   useEffect(() => {
     setApplyResultLocallyStale(false);
   }, [applyResultSignature]);
-
-  useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const msg = event.data;
-      if (msg && msg.type === "graph" && msg.graph) {
-        setGraph(msg.graph as NCGraph);
-      }
-      if (msg && msg.type === "meta") {
-        setSchema(msg.schema as CommSchemaResponse | undefined);
-        setApplyResult(msg.applyResult as CommApplyResponse | undefined);
-        setReachable(Boolean(msg.reachable));
-        setSetupMessage(typeof msg.setupMessage === "string" ? msg.setupMessage : undefined);
-        if (msg.plantSignals) setPlantSignals(msg.plantSignals as PlantSignalCatalog);
-      }
-      if (msg && msg.type === "discoverProgress") {
-        const status: "scanning" | "done" = msg.status === "done" ? "done" : "scanning";
-        const row: DiscoverProgressRow = {
-          protocol: String(msg.protocol ?? ""),
-          label: String(msg.label ?? ""),
-          status,
-          count: typeof msg.count === "number" ? msg.count : undefined,
-        };
-        setDiscoverProgress((prev) => [...prev.filter((p) => p.label !== row.label), row]);
-      }
-      if (msg && msg.type === "discoverResults") {
-        setDiscoverResults(Array.isArray(msg.candidates) ? (msg.candidates as DiscoverCandidate[]) : []);
-        setDiscoverScanning(false);
-      }
-      if (msg && msg.type === "symbolTree") {
-        setBrowseTree(Array.isArray(msg.tree) ? (msg.tree as SymbolNode[]) : []);
-        setBrowseRouteMissing(Boolean(msg.routeMissing));
-        setBrowseRoutePlan(msg.routePlan as RoutePlan | undefined);
-        setBrowseError(
-          msg.error
-            ? classifyOpcuaBrowseError(msg.error as { code?: string; message?: string })
-            : undefined
-        );
-        setBrowseLoading(false);
-      }
-      if (msg && msg.type === "focusNode" && typeof msg.nodeId === "string") {
-        setSelectedId(msg.nodeId);
-        setFocusTargetId(msg.nodeId);
-      }
-      if (msg && msg.type === "plantSaveResult") {
-        setPlantSaving(false);
-        if (msg.ok === true && typeof msg.nodeId === "string") {
-          setPlantDraft(undefined);
-          setPlantSaveError(undefined);
-          setPlantSaveConflict(undefined);
-          setSelectedId(msg.nodeId);
-          setFocusTargetId(msg.nodeId);
-          plantDraftOriginRef.current = {};
-        } else {
-          setPlantSaveError(typeof msg.message === "string" ? msg.message : "The simulated plant was not saved.");
-          setPlantSaveConflict(
-            msg.code === "revision_conflict" && typeof msg.currentRevision === "string"
-              ? {
-                  currentRevision: msg.currentRevision,
-                  currentPlant:
-                    msg.currentPlant && typeof msg.currentPlant === "object" && !Array.isArray(msg.currentPlant)
-                      ? msg.currentPlant as Record<string, unknown>
-                      : null,
-                }
-              : undefined
-          );
-        }
-      }
-      if (msg && msg.type === "plantRemoveResult") {
-        setPlantSaving(false);
-        if (msg.ok === true && typeof msg.runtimeId === "string") {
-          setPlantDraft(undefined);
-          setPlantSaveError(undefined);
-          setPlantSaveConflict(undefined);
-          setSelectedId(msg.runtimeId);
-          setFocusTargetId(msg.runtimeId);
-          setKeyboardFocusTargetId(msg.runtimeId);
-          plantDraftOriginRef.current = {};
-        } else {
-          setPlantSaveError(
-            typeof msg.message === "string" ? msg.message : "The simulated plant was not removed."
-          );
-        }
-      }
-    };
-    window.addEventListener("message", onMessage);
-    vscode.postMessage({ type: "ready" });
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
 
   const protocols = useMemo(() => protocolsInGraph(graph), [graph]);
   const report = useMemo(() => filterReport(graph, hidden), [graph, hidden]);
@@ -480,14 +458,14 @@ function Canvas() {
       return;
     }
     setFilterOpen(false);
-    setDiscoverOpen(false);
+    closeDiscoverPane();
     plantDraftOriginRef.current = { selectedId };
     setSelectedId(undefined);
     setDraft(undefined);
     setEditMode(false);
     clearApplyResult();
     setAddSlot({ kind: "device", targetId: toolbarAddTarget.id });
-  }, [toolbarAddTarget, clearApplyResult, selectedId]);
+  }, [toolbarAddTarget, clearApplyResult, selectedId, closeDiscoverPane]);
 
   const toggleHidden = useCallback((protocol: string) => {
     setHidden((prev) => {
@@ -506,8 +484,6 @@ function Canvas() {
     setSearchDraft(graph.searchQuery ?? "");
   }, [graph.searchQuery]);
 
-  const post = useCallback((message: unknown) => vscode.postMessage(message), []);
-
   const onSearch = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setSearchDraft(e.target.value);
@@ -520,166 +496,29 @@ function Canvas() {
     post({ type: "search", query: "" });
   }, [post]);
 
-  const discoverOrigins = useMemo(() => {
-    const runtimes = built.nodes
-      .filter((n) => n.type === "runtime")
-      .map((n): DiscoverOrigin => {
-        const data = n.data as { label?: string; health?: string; attached?: boolean };
-        const label = String(data.label ?? n.id);
-        const health = String(data.health ?? "");
-        const runtimeDiscoveryReady =
-          data.attached === true ||
-          health === "connected" ||
-          health === "running" ||
-          health === "online";
-        return {
-          id: n.id,
-          label,
-          runtimeDiscoveryReady,
-          runtimeDiscoveryDisabledReason: runtimeDiscoveryReady
-            ? undefined
-            : `Start or connect ${label} before scanning from it.`,
-        };
-      });
-    return [
-      {
-        id: "this_host",
-        label: "This computer",
-        runtimeDiscoveryReady: false,
-        runtimeDiscoveryDisabledReason: "Choose a running runtime for EtherCAT or GPIO scans.",
-      },
-      ...runtimes,
-    ];
-  }, [built.nodes]);
-
-  // Discover-capable protocols come straight from the contract: comm.schema marks a protocol's
-  // actions with "discover". The Discover pane offers exactly this set — so EtherCAT/GPIO appear the
-  // moment the runtime advertises them, and nothing is ever offered that the backend can't scan.
-  const discoverProtocols = useMemo(
-    () =>
-      new Set(
-        (schema?.protocols ?? [])
-          .filter((p) => p.actions.includes("discover"))
-          .map((p) => p.id)
-      ),
-    [schema]
-  );
-
-  const onDiscoverScan = useCallback(
-    (req: DiscoverRequest) => {
-      setDiscoverScanning(true);
-      setDiscoverProgress([]);
-      setDiscoverResults([]);
-      post({ type: "discover", request: req });
-    },
-    [post]
-  );
-  // Open the Browse-tags/channels flow for a protocol+target (shared by the inspector button and
-  // discovery "+Add" — ADS is configured by picking its tags, not via a generic form).
-  const openBrowse = useCallback(
-    (protocol: string, target: Record<string, unknown>, label: string) => {
-      const action = browseAction(protocol);
-      if (!action) {
-        return;
-      }
-      clearApplyResult();
-      const tgt = action.local ? { local: true } : target;
-      setBrowseTags({
-        label,
-        protocol,
-        target: tgt,
-        title: action.title,
-        actionLabel: action.actionLabel,
-        mode: action.mode,
-      });
-      setBrowseTree(undefined);
-      setBrowseRouteMissing(false);
-      setBrowseRoutePlan(undefined);
-      setBrowseError(undefined);
-      setBrowseLoading(true);
-      post({ type: "browseSymbols", protocol, target: tgt, kind: action.kind });
-    },
-    [post, clearApplyResult]
-  );
-  const onDiscoverAdd = useCallback(
-    (c: DiscoverCandidate) => {
-      clearApplyResult();
-      setDiscoverOpen(false);
-      setSelectedId(undefined);
-      // §0.5: a discovered ADS PLC is set up by picking its tags (browse → add tags), not via the
-      // generic device form — route straight to Browse tags with the discovered connection.
-      if (browseAction(c.protocol)?.mode === "tags") {
-        openBrowse(c.protocol, c.params, c.label || c.protocol);
-        return;
-      }
-      const rt = built.nodes.find((n) => n.type === "runtime");
-      setDraft({
-        runtimeId: rt?.id ?? "",
-        runtimeName: String((rt?.data as { label?: string } | undefined)?.label ?? "runtime"),
-        protocol: c.protocol,
-        prefillParams: c.params,
-      });
-    },
-    [built.nodes, openBrowse, clearApplyResult]
-  );
-  const onDiscoverAdopt = useCallback(
-    (c: DiscoverCandidate) => {
-      const endpoint = typeof c.params.control_endpoint === "string" ? c.params.control_endpoint : "";
-      const label =
-        typeof c.label === "string" && c.label.trim().length > 0
-          ? c.label.trim()
-          : typeof c.params.name === "string"
-            ? c.params.name.trim()
-            : "";
-      if (endpoint) {
-        post({ type: "addHost", endpoint, label });
-      }
-      setDiscoverOpen(false);
-      setEditMode(false); // success state: show the adopted runtime, not the next edit-mode placeholders
-    },
-    [post]
-  );
-  const onBrowse = useCallback(
-    (node: InspectorNode) => {
-      const protocol = String(node.data.protocol ?? "");
-      const params = (node.data.params as Record<string, unknown> | undefined) ?? {};
-      // The opcua_client endpoint node carries the whole section ({ connections: [...] }), but the
-      // remote browse needs ONE connection's endpoint settings (endpoint_url + security) as the
-      // target — passing the section verbatim makes the backend reject it ("requires target endpoint
-      // settings") and the tree comes back empty. Use the sole connection. (Multi-connection
-      // disambiguation via a picker is a follow-up.)
-      const connections = params.connections;
-      const target =
-        (protocol === "opcua_client" || protocol === "ads") && Array.isArray(connections) && connections.length > 0
-          ? ((connections[0] as Record<string, unknown> | undefined) ?? params)
-          : params;
-      openBrowse(
-        protocol,
-        target,
-        String(node.data.name ?? node.data.label ?? protocol)
-      );
-    },
-    [openBrowse]
-  );
-  // opcua_client: explicit cert-trust path — re-browse the same endpoint with trust_server_certificate
-  // set, and carry it into the saved connection. Never auto-trusts; only on the user's click.
-  const onTrustCertificate = useCallback(() => {
-    if (!browseTags) {
-      return;
-    }
-    const target = { ...browseTags.target, trust_server_certificate: true };
-    setBrowseTags({ ...browseTags, target });
-    setBrowseTree(undefined);
-    setBrowseError(undefined);
-    setBrowseLoading(true);
-    post({ type: "browseSymbols", protocol: browseTags.protocol, target, kind: "nodes" });
-  }, [post, browseTags]);
+  const {
+    origins: discoverOrigins,
+    protocols: discoverProtocols,
+    add: onDiscoverAdd,
+    isOnCanvas: isDiscoveredDeviceOnCanvas,
+    adopt: onDiscoverAdopt,
+  } = useDiscoverActions({
+    nodes: built.nodes,
+    schema,
+    post,
+    openBrowse,
+    clearApplyResult,
+    close: closeDiscoverPane,
+    setSelectedId,
+    setDraft,
+    setEditMode,
+  });
   const onEditBrowseCredentials = useCallback(() => {
     if (!browseTags) {
       return;
     }
     clearApplyResult();
-    setBrowseTags(undefined);
+    closeBrowse();
     setSelectedId(undefined);
     const runtime = selectedOwningRuntime;
     setDraft({
@@ -688,44 +527,7 @@ function Canvas() {
       protocol: browseTags.protocol,
       prefillParams: browseTags.target,
     });
-  }, [browseTags, clearApplyResult, selectedOwningRuntime]);
-  const onCreateRoute = useCallback(() => {
-    if (browseTags) {
-      post({ type: "createRoute", protocol: browseTags.protocol, target: browseTags.target });
-    }
-  }, [post, browseTags]);
-  const onCopy = useCallback((text: string) => post({ type: "copyText", text }), [post]);
-  const onAddTags = useCallback(
-    (keys: string[], writable: boolean) => {
-      if (browseTags && keys.length > 0) {
-        // Resolve the stable selection keys back to leaves by node identity (not display path).
-        const nodes = selectedLeaves(browseTree, new Set(keys));
-        if (browseTags.protocol === "opcua_client") {
-          // Map the selected leaves → a connection with points (var/node_id/type/access),
-          // carrying the endpoint + chosen security/auth/trust from the browse target.
-          const connection = buildOpcuaConnection(
-            browseTags.target,
-            browseTags.label,
-            nodes,
-            writable
-          );
-          if (connection) {
-            post({ type: "addOpcuaConnection", connection });
-          }
-        } else if (browseTags.protocol === "ethercat") {
-          const paths = nodes.map((n) => n.path);
-          post({ type: "addEthercatChannels", target: browseTags.target, paths });
-        } else {
-          // ADS tags / expose globals are keyed by their symbol path.
-          const type = browseTags.mode === "expose" ? "addExpose" : "addTags";
-          const paths = nodes.map((n) => n.path);
-          post({ type, protocol: browseTags.protocol, target: browseTags.target, paths, writable });
-        }
-      }
-      setBrowseTags(undefined);
-    },
-    [post, browseTags, browseTree]
-  );
+  }, [browseTags, clearApplyResult, closeBrowse, selectedOwningRuntime]);
 
   const visibleFaults = visibleFaultsForValidationState(
     graph.faults,
@@ -737,7 +539,7 @@ function Canvas() {
       editMode,
       onPickSlot: (slot: AddSlotRequest) => {
         setFilterOpen(false);
-        setDiscoverOpen(false);
+        closeDiscoverPane();
         if (slot.add === "device") {
           plantDraftOriginRef.current = { selectedId };
         }
@@ -754,7 +556,7 @@ function Canvas() {
         }
       },
     }),
-    [editMode, clearApplyResult, selectedId]
+    [editMode, clearApplyResult, selectedId, closeDiscoverPane]
   );
 
   const drawerRoutes: CanvasDrawerRoutes = {};
@@ -825,7 +627,7 @@ function Canvas() {
       onDiscover: () => {
         clearApplyResult();
         setAddSlot(undefined);
-        setDiscoverOpen(true);
+        openDiscoverPane();
       },
       onClose: () => {
         clearApplyResult();
@@ -869,10 +671,14 @@ function Canvas() {
       scanning: discoverScanning,
       progress: discoverProgress,
       results: discoverResults,
+      error: discoverError,
+      sessionCurrent: discoverSessionCurrent,
       onScan: onDiscoverScan,
       onAdd: onDiscoverAdd,
+      isOnCanvas: isDiscoveredDeviceOnCanvas,
       onAdopt: onDiscoverAdopt,
-      onClose: () => setDiscoverOpen(false),
+      onOpenAdsPortSettings: () => post({ type: "openAdsDiscoverySettings" }),
+      onClose: closeDiscoverPane,
     };
   }
   if (draft) {
@@ -1003,11 +809,32 @@ function Canvas() {
       },
     };
   }
-  if (browseTags) {
+  if (browseTags?.protocol === "ads") {
+    // An ADS PLC's tags are picked per AMS port (main 3abbbb6c3).
+    drawerRoutes.adsBrowse = {
+      targetLabel: browseTags.label,
+      target: browseTags.target,
+      tree: browseTree,
+      routeMissing: browseRouteMissing,
+      routePlan: browseRoutePlan,
+      error: browseError,
+      loading: browseLoading,
+      importLoading: adsImportLoading,
+      importResult: adsImportResult,
+      onCreateRoute,
+      onCopy,
+      onBrowseTarget,
+      onAddTags: onAddAdsTags,
+      onRemoveTag: onRemoveAdsTag,
+      onClose: closeBrowse,
+    };
+  } else if (browseTags) {
     drawerRoutes.browseTags = {
       title: browseTags.title,
       actionLabel: browseTags.actionLabel,
       targetLabel: browseTags.label,
+      protocol: browseTags.protocol,
+      target: browseTags.target,
       tree: browseTree,
       routeMissing: browseRouteMissing,
       routePlan: browseRoutePlan,
@@ -1017,8 +844,9 @@ function Canvas() {
       onTrustCertificate,
       onEditCredentials: onEditBrowseCredentials,
       onCopy,
+      onBrowseTarget,
       onAddTags,
-      onClose: () => setBrowseTags(undefined),
+      onClose: closeBrowse,
     };
   }
 
@@ -1083,7 +911,7 @@ function Canvas() {
         onToggleFilter={() => {
           setFilterOpen((value) => !value);
           setAddSlot(undefined);
-          setDiscoverOpen(false);
+          closeDiscoverPane();
           clearApplyResult();
         }}
         addTargetLabel={
@@ -1098,7 +926,7 @@ function Canvas() {
         }}
         discoverOpen={discoverOpen}
         onToggleDiscover={() => {
-          setDiscoverOpen((value) => !value);
+          toggleDiscoverPane();
           setFilterOpen(false);
           setAddSlot(undefined);
           clearApplyResult();

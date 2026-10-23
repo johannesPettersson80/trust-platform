@@ -1,0 +1,38 @@
+name: OpenOT real databases
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  exact-product-matrix:
+    runs-on: [self-hosted, Linux, X64, openot-databases]
+    timeout-minutes: 120
+    env:
+      TRUST_OPENOT_EVIDENCE_DIR: ${{ github.workspace }}/openot-real-database-evidence
+    steps:
+      - uses: actions/checkout@v7
+      - name: Provision pinned real products and CA files
+        shell: bash
+        run: |
+          environment_file="$RUNNER_TEMP/openot-generated-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          (umask 077; : >"$environment_file")
+          GITHUB_ENV="$environment_file" scripts/openot_database_runner_prepare.sh
+      - name: Run exact product matrix
+        run: cargo run --locked -p xtask -- portability database-gate "$RUNNER_TEMP/openot-generated-environment-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+      - name: Tear down disposable products
+        if: always()
+        run: scripts/openot_database_runner_teardown.sh
+      - name: Retain redacted evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: openot-real-databases-${{ github.sha }}
+          path: openot-real-database-evidence/
+          if-no-files-found: error
+          retention-days: 30

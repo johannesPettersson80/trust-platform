@@ -20,7 +20,7 @@ IEC standard function blocks and do not create IEC deviations. Their
 declarations use IEC 61131-3 Edition 3 Table 11 derived data types, Table 40
 function blocks, and Tables 64 through 66 namespaces.
 
-`Control.PID` remains defined solely by Specification 32. None of the types or
+`Control.PID` remains defined solely by Specification 45. None of the types or
 function blocks in this specification duplicates, subclasses, wraps, or
 changes that controller. An application composes only the structure required
 by its plant.
@@ -217,7 +217,7 @@ record so scheduling cannot silently change actuator protection.
 Active points shall be strictly increasing by `OperatingPoint`. Every point
 with nonzero integral gain shall have positive `TrackingTime`.
 `CommonParameters` shall satisfy the parameter-domain inequalities from
-Specification 32. `Configure` returns `FALSE` and retains the previous valid
+Specification 45. `Configure` returns `FALSE` and retains the previous valid
 schedule if any condition fails; otherwise it atomically installs the complete
 schedule and returns `TRUE`.
 
@@ -256,7 +256,7 @@ The caller passes `Output.Parameters` to `PID.Configure` and then calls
 `PID.Update`. Reconfiguration does not reset PID history. With integral action,
 the existing incremental controller therefore avoids an artificial output
 step solely from replacing a gain record. Positional P/PD control may change
-output immediately, as already defined by Specification 32.
+output immediately, as already defined by Specification 45.
 
 ### 3.3 Limitations
 
@@ -455,7 +455,7 @@ the effective process gain and time constant differ at low, middle, and high
 levels.
 
 The simulator shall use a declared nonlinear/state-space approximation or
-bounded operating-region model supported by Specification 33; the README shall
+bounded operating-region model supported by Specification 46; the README shall
 state the approximation. The comparison shall use one fixed PI tuning and a
 three-or-more-point validated schedule across low, middle, and high setpoints,
 including transitions and a demand/outlet disturbance. It shall record the

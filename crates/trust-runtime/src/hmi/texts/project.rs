@@ -53,9 +53,10 @@ pub struct ProjectTexts {
 /// unsaved, by project-relative path.
 pub fn read_project_texts(root: &Path, open: &BTreeMap<String, String>) -> ProjectTexts {
     let read = |file: &str| {
-        open.get(file)
-            .cloned()
-            .or_else(|| std::fs::read_to_string(root.join(file)).ok())
+        open.get(file).cloned().or_else(|| {
+            crate::hmi::bundle::read_hmi_file(root, file)
+                .and_then(|bytes| String::from_utf8(bytes).ok())
+        })
     };
     let mut errors = Vec::new();
     let screen = match read(SCREEN_FILE).map(|text| parse_screen(SCREEN_FILE, &text)) {

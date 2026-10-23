@@ -4,18 +4,11 @@ pub struct IoInterface {
     outputs: Vec<u8>,
     memory: Vec<u8>,
     bindings: Vec<IoBinding>,
+    binding_codecs: Vec<IoBindingCodec>,
     hierarchical: std::collections::HashMap<IoAddressKey, Value>,
 }
 
-/// Output and memory areas staged from program storage, applied together or not at all.
-#[derive(Debug)]
-pub(crate) struct StagedImage {
-    outputs: Vec<u8>,
-    memory: Vec<u8>,
-    hierarchical: std::collections::HashMap<IoAddressKey, Value>,
-}
-
-pub const PROCESS_IMAGE_AREA_LIMIT: usize = 16 * 1024 * 1024;
+pub use trust_runtime_core::io_address::PROCESS_IMAGE_AREA_LIMIT;
 
 impl IoInterface {
     #[must_use]
@@ -26,6 +19,26 @@ impl IoInterface {
     #[must_use]
     pub fn bindings(&self) -> &[IoBinding] {
         &self.bindings
+    }
+
+    /// Inspect authoring-only hierarchical seed values for artifact production.
+    /// Order is unspecified; the producer must choose its deterministic record
+    /// order. Installed views cannot expose or modify this construction store.
+    pub(crate) fn hierarchical_seeds(
+        &self,
+    ) -> impl Iterator<Item = Result<(IoAddress, &Value), RuntimeError>> {
+        self.hierarchical
+            .iter()
+            .map(|(key, value)| key.address().map(|address| (address, value)))
+    }
+
+    /// Transfer only the immutable presentation schema to installed composition.
+    /// Its live process images are owned by the shared engine.
+    pub(crate) fn clear_authoring_images(&mut self) {
+        self.inputs = Vec::new();
+        self.outputs = Vec::new();
+        self.memory = Vec::new();
+        self.hierarchical = Default::default();
     }
 
     /// Resize the process image buffers.
@@ -85,8 +98,28 @@ impl IoInterface {
 
     #[must_use]
     pub fn snapshot(&self) -> IoSnapshot {
+        self.snapshot_with(|address| self.read(address))
+    }
+
+    /// Render the same immutable binding schema against authoritative installed
+    /// images; authoring buffers are never consulted by this path.
+    pub(crate) fn snapshot_with(
+        &self,
+        mut read: impl FnMut(&IoAddress) -> Result<Value, RuntimeError>,
+    ) -> IoSnapshot {
+        self.snapshot_with_fallible(&mut read, |_| false)
+            .expect("snapshot renderer does not propagate read errors")
+    }
+
+    /// Render a bound snapshot, optionally propagating errors that belong to
+    /// the enclosing operation while retaining local failures as display data.
+    pub(crate) fn snapshot_with_fallible(
+        &self,
+        mut read: impl FnMut(&IoAddress) -> Result<Value, RuntimeError>,
+        mut propagate: impl FnMut(&RuntimeError) -> bool,
+    ) -> Result<IoSnapshot, RuntimeError> {
         let mut snapshot = IoSnapshot::default();
-        for binding in &self.bindings {
+        for (binding, codec) in self.bindings.iter().zip(&self.binding_codecs) {
             let name = binding
                 .display_name
                 .clone()
@@ -97,18 +130,15 @@ impl IoInterface {
             let value = if binding.address.wildcard {
                 IoSnapshotValue::Unresolved
             } else {
-                match self.read(&binding.address) {
+                match read(&binding.address) {
                     Ok(value) => {
-                        let value = if let Some(value_type) = binding.value_type {
-                            coerce_from_io(value, value_type)
-                        } else {
-                            Ok(value)
-                        };
+                        let value = coerce_binding_from_io(value, binding, codec);
                         match value {
                             Ok(value) => IoSnapshotValue::Value(value),
                             Err(err) => IoSnapshotValue::Error(err.to_string()),
                         }
                     }
+                    Err(err) if propagate(&err) => return Err(err),
                     Err(err) => IoSnapshotValue::Error(err.to_string()),
                 }
             };
@@ -116,6 +146,12 @@ impl IoInterface {
                 name,
                 address: binding.address.clone(),
                 value_type: binding.value_type,
+                value_type_name: codec
+                    .prepared
+                    .as_ref()
+                    .and_then(|prepared| prepared.enum_type.as_ref())
+                    .or(codec.enum_type.as_ref())
+                    .map(|enum_type| enum_type.type_name.clone()),
                 value,
                 source: binding.source.clone(),
             };
@@ -125,49 +161,95 @@ impl IoInterface {
                 IoArea::Memory => snapshot.memory.push(entry),
             }
         }
-        snapshot
+        Ok(snapshot)
+    }
+
+    /// Attach an admitted source-free wire codec to immutable hosted presentation
+    /// metadata. `value_type` is a separately resolved optional authoring identity,
+    /// never the artifact's numeric TYPE_TABLE index.
+    pub(crate) fn bind_prepared_ref(
+        &mut self,
+        reference: ValueRef,
+        address: IoAddress,
+        codec: trust_runtime_core::io_image::IoValueCodec,
+        value_type: Option<TypeId>,
+        display_name: Option<SmolStr>,
+    ) {
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type,
+                display_name,
+                source: None,
+            },
+            IoBindingCodec {
+                prepared: Some(codec),
+                ..IoBindingCodec::default()
+            },
+        );
     }
 
     pub fn bind(&mut self, name: impl Into<SmolStr>, address: IoAddress) {
         let name = name.into();
-        self.bindings.push(IoBinding {
-            target: IoTarget::Name(name.clone()),
-            address,
-            value_type: None,
-            display_name: Some(name),
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Name(name.clone()),
+                address,
+                value_type: None,
+                display_name: Some(name),
+                source: None,
+            },
+            IoBindingCodec::default(),
+        );
     }
 
     pub fn bind_ref(&mut self, reference: ValueRef, address: IoAddress) {
-        self.bindings.push(IoBinding {
-            target: IoTarget::Reference(reference),
-            address,
-            value_type: None,
-            display_name: None,
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: None,
+                display_name: None,
+                source: None,
+            },
+            IoBindingCodec::default(),
+        );
     }
 
     pub fn bind_typed(&mut self, name: impl Into<SmolStr>, address: IoAddress, value_type: TypeId) {
         let name = name.into();
-        self.bindings.push(IoBinding {
-            target: IoTarget::Name(name.clone()),
-            address,
-            value_type: Some(value_type),
-            display_name: Some(name),
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Name(name.clone()),
+                address,
+                value_type: Some(value_type),
+                display_name: Some(name),
+                source: None,
+            },
+            IoBindingCodec {
+                prepared: None,
+                wire_type: Some(value_type),
+                enum_type: None,
+            },
+        );
     }
 
     pub fn bind_ref_typed(&mut self, reference: ValueRef, address: IoAddress, value_type: TypeId) {
-        self.bindings.push(IoBinding {
-            target: IoTarget::Reference(reference),
-            address,
-            value_type: Some(value_type),
-            display_name: None,
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: Some(value_type),
+                display_name: None,
+                source: None,
+            },
+            IoBindingCodec {
+                prepared: None,
+                wire_type: Some(value_type),
+                enum_type: None,
+            },
+        );
     }
 
     pub fn bind_ref_named_typed(
@@ -177,13 +259,56 @@ impl IoInterface {
         value_type: TypeId,
         name: impl Into<SmolStr>,
     ) {
-        self.bindings.push(IoBinding {
-            target: IoTarget::Reference(reference),
-            address,
-            value_type: Some(value_type),
-            display_name: Some(name.into()),
-            source: None,
-        });
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: Some(value_type),
+                display_name: Some(name.into()),
+                source: None,
+            },
+            IoBindingCodec {
+                prepared: None,
+                wire_type: Some(value_type),
+                enum_type: None,
+            },
+        );
+    }
+
+    #[cfg(test)]
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn bind_ref_named_enum(
+        &mut self,
+        reference: ValueRef,
+        address: IoAddress,
+        enum_type: TypeId,
+        wire_type: TypeId,
+        type_name: SmolStr,
+        variants: Vec<(SmolStr, i64)>,
+        name: impl Into<SmolStr>,
+    ) {
+        self.push_binding(
+            IoBinding {
+                target: IoTarget::Reference(reference),
+                address,
+                value_type: Some(enum_type),
+                display_name: Some(name.into()),
+                source: None,
+            },
+            IoBindingCodec {
+                prepared: None,
+                wire_type: Some(wire_type),
+                enum_type: Some(IoEnumBinding {
+                    type_name,
+                    variants,
+                }),
+            },
+        );
+    }
+
+    fn push_binding(&mut self, binding: IoBinding, codec: IoBindingCodec) {
+        self.bindings.push(binding);
+        self.binding_codecs.push(codec);
     }
 
     pub fn set_binding_sources<F>(&mut self, mut source_for: F)
@@ -197,16 +322,12 @@ impl IoInterface {
 
     pub fn read_inputs(&self, storage: &mut VariableStorage) -> Result<(), RuntimeError> {
         let mut staged = storage.clone();
-        for binding in &self.bindings {
+        for (binding, codec) in self.bindings.iter().zip(&self.binding_codecs) {
             if !matches!(binding.address.area, IoArea::Input | IoArea::Memory) {
                 continue;
             }
             let value = self.read(&binding.address)?;
-            let value = if let Some(value_type) = binding.value_type {
-                coerce_from_io(value, value_type)?
-            } else {
-                value
-            };
+            let value = coerce_binding_from_io(value, binding, codec)?;
             match &binding.target {
                 IoTarget::Name(name) => staged.set_global(name.clone(), value),
                 IoTarget::Reference(reference) => {
@@ -221,34 +342,11 @@ impl IoInterface {
     }
 
     pub fn write_outputs(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
-        let staged = self.stage_bound_values(storage, &[IoArea::Output, IoArea::Memory])?;
-        self.apply_staged(staged);
-        Ok(())
-    }
-
-    /// Commits every marker binding from its bound variable, so that the next start-of-cycle latch
-    /// reads the variable's initialized or retained value (Specification 11 §6.5).
-    pub fn commit_memory(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
-        let staged = self.stage_memory(storage)?;
-        self.apply_staged(staged);
-        Ok(())
-    }
-
-    /// The image with every marker binding written from `storage`; nothing changes until it is applied.
-    pub(crate) fn stage_memory(&self, storage: &VariableStorage) -> Result<StagedImage, RuntimeError> {
-        self.stage_bound_values(storage, &[IoArea::Memory])
-    }
-
-    pub(crate) fn apply_staged(&mut self, staged: StagedImage) {
-        self.outputs = staged.outputs;
-        self.memory = staged.memory;
-        self.hierarchical = staged.hierarchical;
-    }
-
-    fn stage_bound_values(&self, storage: &VariableStorage, areas: &[IoArea]) -> Result<StagedImage, RuntimeError> {
+        let bindings = self.bindings.clone();
+        let codecs = self.binding_codecs.clone();
         let mut pending = Vec::new();
-        for binding in &self.bindings {
-            if !areas.contains(&binding.address.area) {
+        for (binding, codec) in bindings.into_iter().zip(codecs) {
+            if !matches!(binding.address.area, IoArea::Output | IoArea::Memory) {
                 continue;
             }
             let value = match &binding.target {
@@ -259,12 +357,8 @@ impl IoInterface {
                     .read_by_ref(reference.clone())
                     .ok_or(RuntimeError::NullReference)?,
             };
-            let value = if let Some(value_type) = binding.value_type {
-                coerce_to_io(value.clone(), value_type, binding.address.size)?
-            } else {
-                value.clone()
-            };
-            pending.push((binding.address.clone(), value));
+            let value = coerce_binding_to_io(value.clone(), &binding, &codec)?;
+            pending.push((binding.address, value));
         }
 
         let mut staged = Self {
@@ -272,12 +366,16 @@ impl IoInterface {
             outputs: self.outputs.clone(),
             memory: self.memory.clone(),
             bindings: Vec::new(),
+            binding_codecs: Vec::new(),
             hierarchical: self.hierarchical.clone(),
         };
         for (address, value) in pending {
             staged.write(&address, value)?;
         }
-        Ok(StagedImage { outputs: staged.outputs, memory: staged.memory, hierarchical: staged.hierarchical })
+        self.outputs = staged.outputs;
+        self.memory = staged.memory;
+        self.hierarchical = staged.hierarchical;
+        Ok(())
     }
 
     pub fn read(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
@@ -289,57 +387,7 @@ impl IoInterface {
             });
         }
         let buffer = self.area(address.area);
-        match address.size {
-            IoSize::Bit => {
-                let byte = buffer.get(address.byte as usize).copied().unwrap_or(0);
-                let bit = (byte >> address.bit) & 1;
-                Ok(Value::Bool(bit == 1))
-            }
-            IoSize::Byte => Ok(Value::Byte(
-                buffer.get(address.byte as usize).copied().unwrap_or(0),
-            )),
-            IoSize::Word => {
-                let lo = buffer.get(address.byte as usize).copied().unwrap_or(0);
-                let hi = buffer.get(address.byte as usize + 1).copied().unwrap_or(0);
-                Ok(Value::Word(u16::from_le_bytes([lo, hi])))
-            }
-            IoSize::DWord => {
-                let mut bytes = [0u8; 4];
-                for (idx, byte) in bytes.iter_mut().enumerate() {
-                    *byte = buffer
-                        .get(address.byte as usize + idx)
-                        .copied()
-                        .unwrap_or(0);
-                }
-                Ok(Value::DWord(u32::from_le_bytes(bytes)))
-            }
-            IoSize::LWord => {
-                let mut bytes = [0u8; 8];
-                for (idx, byte) in bytes.iter_mut().enumerate() {
-                    *byte = buffer
-                        .get(address.byte as usize + idx)
-                        .copied()
-                        .unwrap_or(0);
-                }
-                Ok(Value::LWord(u64::from_le_bytes(bytes)))
-            }
-            IoSize::Bytes(len) => {
-                let start = address.byte as usize;
-                let end = start.saturating_add(len as usize);
-                let bytes = if start < buffer.len() {
-                    &buffer[start..buffer.len().min(end)]
-                } else {
-                    &[]
-                };
-                let nul = bytes
-                    .iter()
-                    .position(|byte| *byte == 0)
-                    .unwrap_or(bytes.len());
-                let text =
-                    std::str::from_utf8(&bytes[..nul]).map_err(|_| RuntimeError::TypeMismatch)?;
-                Ok(Value::String(SmolStr::new(text)))
-            }
-        }
+        trust_runtime_core::io_image::read_flat_image(buffer, address)
     }
 
     pub fn write(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
@@ -350,100 +398,7 @@ impl IoInterface {
             return Ok(());
         }
         let buffer = self.area_mut(address.area);
-        match address.size {
-            IoSize::Bit => match value {
-                Value::Bool(flag) => {
-                    ensure_len(buffer, address.byte as usize)?;
-                    let byte = &mut buffer[address.byte as usize];
-                    if flag {
-                        *byte |= 1 << address.bit;
-                    } else {
-                        *byte &= !(1 << address.bit);
-                    }
-                    Ok(())
-                }
-                _ => Err(RuntimeError::TypeMismatch),
-            },
-            IoSize::Byte => match value {
-                Value::Byte(byte) => {
-                    ensure_len(buffer, address.byte as usize)?;
-                    buffer[address.byte as usize] = byte;
-                    Ok(())
-                }
-                _ => Err(RuntimeError::TypeMismatch),
-            },
-            IoSize::Word => match value {
-                Value::Word(word) => {
-                    ensure_len(buffer, address.byte as usize + 1)?;
-                    let [lo, hi] = word.to_le_bytes();
-                    buffer[address.byte as usize] = lo;
-                    buffer[address.byte as usize + 1] = hi;
-                    Ok(())
-                }
-                _ => Err(RuntimeError::TypeMismatch),
-            },
-            IoSize::DWord => match value {
-                Value::DWord(word) => {
-                    ensure_len(buffer, address.byte as usize + 3)?;
-                    let bytes = word.to_le_bytes();
-                    for (idx, byte) in bytes.iter().enumerate() {
-                        buffer[address.byte as usize + idx] = *byte;
-                    }
-                    Ok(())
-                }
-                _ => Err(RuntimeError::TypeMismatch),
-            },
-            IoSize::LWord => match value {
-                Value::LWord(word) => {
-                    ensure_len(buffer, address.byte as usize + 7)?;
-                    let bytes = word.to_le_bytes();
-                    for (idx, byte) in bytes.iter().enumerate() {
-                        buffer[address.byte as usize + idx] = *byte;
-                    }
-                    Ok(())
-                }
-                _ => Err(RuntimeError::TypeMismatch),
-            },
-            IoSize::Bytes(len) => match value {
-                Value::String(text) => {
-                    let bytes = text.as_bytes();
-                    if bytes.len() > len as usize {
-                        return Err(RuntimeError::Overflow);
-                    }
-                    let start = address.byte as usize;
-                    let end = start.checked_add(len as usize).ok_or_else(|| {
-                        RuntimeError::InvalidIoAddress("process image address overflow".into())
-                    })?;
-                    ensure_len(buffer, end.saturating_sub(1))?;
-                    buffer[start..end].fill(0);
-                    buffer[start..start + bytes.len()].copy_from_slice(bytes);
-                    Ok(())
-                }
-                _ => Err(RuntimeError::TypeMismatch),
-            },
-        }
-    }
-
-    /// Apply a set of process-image writes as one visible update.
-    pub(crate) fn write_batch(
-        &mut self,
-        pending: &[(IoAddress, Value)],
-    ) -> Result<(), RuntimeError> {
-        let mut staged = Self {
-            inputs: self.inputs.clone(),
-            outputs: self.outputs.clone(),
-            memory: self.memory.clone(),
-            bindings: Vec::new(),
-            hierarchical: self.hierarchical.clone(),
-        };
-        for (address, value) in pending {
-            staged.write(address, value.clone())?;
-        }
-        self.inputs = staged.inputs;
-        self.outputs = staged.outputs;
-        self.memory = staged.memory;
-        self.hierarchical = staged.hierarchical;
-        Ok(())
+        trust_runtime_core::io_image::write_flat_image(buffer, address, value)
     }
 
     fn area(&self, area: IoArea) -> &Vec<u8> {
@@ -463,84 +418,8 @@ impl IoInterface {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct IoAddressKey {
-    area: IoArea,
-    size: IoSize,
-    path: Vec<u32>,
-    bit: u8,
-}
-
-impl From<&IoAddress> for IoAddressKey {
-    fn from(address: &IoAddress) -> Self {
-        Self {
-            area: address.area,
-            size: address.size,
-            path: address.path.clone(),
-            bit: address.bit,
-        }
-    }
-}
-
-fn ensure_len(buffer: &mut Vec<u8>, index: usize) -> Result<(), RuntimeError> {
-    if index >= PROCESS_IMAGE_AREA_LIMIT {
-        return process_image_area_limit_error("process image address");
-    }
-    if buffer.len() <= index {
-        buffer.resize(index + 1, 0);
-    }
-    Ok(())
-}
-
-pub fn validate_process_image_address(address: &IoAddress) -> Result<(), RuntimeError> {
-    if address.wildcard {
-        return Err(RuntimeError::InvalidIoAddress(
-            "wildcard process image address is not concrete".into(),
-        ));
-    }
-    if address.path.len() > 1 {
-        return Ok(());
-    }
-    let byte = address.byte as usize;
-    let extra = match address.size {
-        IoSize::Bit | IoSize::Byte => 0,
-        IoSize::Word => 1,
-        IoSize::DWord => 3,
-        IoSize::LWord => 7,
-        IoSize::Bytes(0) => {
-            return Err(RuntimeError::InvalidIoAddress(
-                "zero-length process image byte window".into(),
-            ));
-        }
-        IoSize::Bytes(len) => usize::try_from(len - 1).map_err(|_| {
-            RuntimeError::InvalidIoAddress("process image byte window is too large".into())
-        })?,
-    };
-    let last_byte = byte
-        .checked_add(extra)
-        .ok_or_else(|| RuntimeError::InvalidIoAddress("process image address overflow".into()))?;
-    if last_byte >= PROCESS_IMAGE_AREA_LIMIT {
-        return process_image_area_limit_error("process image address");
-    }
-    Ok(())
-}
-
-fn validate_process_image_area_len(area: &str, len: usize) -> Result<(), RuntimeError> {
-    if len > PROCESS_IMAGE_AREA_LIMIT {
-        return process_image_area_limit_error(area);
-    }
-    Ok(())
-}
-
-fn process_image_area_limit_error(area: &str) -> Result<(), RuntimeError> {
-    Err(RuntimeError::InvalidIoAddress(
-        format!(
-            "{area} exceeds {} byte process image area limit",
-            PROCESS_IMAGE_AREA_LIMIT
-        )
-        .into(),
-    ))
-}
+pub use trust_runtime_core::io_image::validate_process_image_address;
+use trust_runtime_core::io_image::{validate_process_image_area_len, IoAddressKey};
 
 #[cfg(test)]
 #[path = "interface_contract_tests.rs"]
@@ -549,6 +428,25 @@ mod interface_contract_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn authoring_hierarchical_seeds_keep_values_and_release_on_binding_freeze() {
+        let mut interface = IoInterface::new();
+        let address = IoAddress::parse("%IX2.4.7").unwrap();
+        interface.write(&address, Value::Bool(true)).unwrap();
+        {
+            let seeds = interface
+                .hierarchical_seeds()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            assert_eq!(seeds.len(), 1);
+            assert_eq!(seeds[0].0, address);
+            assert_eq!(seeds[0].1, &Value::Bool(true));
+            assert_eq!(interface.read(&address), Ok(Value::Bool(true)));
+        }
+        interface.clear_authoring_images();
+        assert_eq!(interface.hierarchical_seeds().count(), 0);
+    }
 
     #[test]
     fn snapshot_carries_optional_binding_source() {
@@ -568,6 +466,37 @@ mod tests {
             snapshot.inputs[0].source.as_deref(),
             Some("Modbus 127.0.0.1:1502 · input reg 0")
         );
+    }
+
+    #[test]
+    fn fallible_snapshot_propagates_cycle_exhaustion_but_displays_local_read_errors() {
+        let mut interface = IoInterface::new();
+        interface.bind("Input0", IoAddress::parse("%IX0.0").expect("address"));
+        let exhausted = RuntimeError::ExecutionLimit {
+            kind: trust_runtime_core::error::ExecutionLimitKind::AllocationBytes,
+            used: 8,
+            requested: 2,
+            limit: 9,
+        };
+        let result = interface.snapshot_with_fallible(
+            |_| Err(exhausted.clone()),
+            |error| matches!(error, RuntimeError::ExecutionLimit { .. }),
+        );
+        assert!(
+            matches!(result, Err(error) if error == exhausted),
+            "cycle budget exhaustion must abort snapshot capture"
+        );
+
+        let snapshot = interface
+            .snapshot_with_fallible(
+                |_| Err(RuntimeError::InvalidIoAddress("bad path".into())),
+                |_| false,
+            )
+            .expect("local read failures remain display data");
+        assert!(matches!(
+            &snapshot.inputs[0].value,
+            IoSnapshotValue::Error(message) if message.contains("bad path")
+        ));
     }
 
     #[test]

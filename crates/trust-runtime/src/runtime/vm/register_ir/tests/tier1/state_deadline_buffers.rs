@@ -12,17 +12,14 @@ fn register_executor_tier1_state_from_env_reads_threshold_and_cache() {
     const THRESHOLD: &str = "TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_HOT_THRESHOLD";
     const CACHE_CAP: &str = "TRUST_VM_TIER1_SPECIALIZED_EXECUTOR_CACHE_CAP";
 
-    let saved = [
-        (ENABLED, std::env::var_os(ENABLED)),
-        (THRESHOLD, std::env::var_os(THRESHOLD)),
-        (CACHE_CAP, std::env::var_os(CACHE_CAP)),
-    ];
-    std::env::set_var(ENABLED, "false");
-    std::env::set_var(THRESHOLD, "7");
-    std::env::set_var(CACHE_CAP, "9");
-
-    let snapshot = super::RegisterTier1SpecializedExecutorState::from_env().snapshot();
-    restore_env_vars(saved);
+    let values = [(ENABLED, "false"), (THRESHOLD, "7"), (CACHE_CAP, "9")];
+    let snapshot = super::RegisterTier1SpecializedExecutorState::from_environment(|name| {
+        values
+            .iter()
+            .find(|(key, _)| *key == name)
+            .map(|(_, value)| (*value).to_owned())
+    })
+    .snapshot();
 
     assert!(!snapshot.enabled);
     assert_eq!(snapshot.hot_block_threshold, 7);
@@ -31,38 +28,47 @@ fn register_executor_tier1_state_from_env_reads_threshold_and_cache() {
 
 #[test]
 fn register_executor_tier1_env_parsers_accept_tokens_and_defaults() {
-    let bool_key = "TRUST_TEST_TIER1_ENV_BOOL";
-    std::env::remove_var(bool_key);
-    assert!(parse_tier1_env_bool(bool_key, true));
-    assert!(!parse_tier1_env_bool(bool_key, false));
-
+    assert!(parse_bool(None, true));
+    assert!(!parse_bool(None, false));
     for value in ["1", "true", "YES", " on "] {
-        std::env::set_var(bool_key, value);
         assert!(
-            parse_tier1_env_bool(bool_key, false),
+            parse_bool(Some(value), false),
             "expected true for {value:?}"
         );
     }
     for value in ["0", "false", "NO", " off "] {
-        std::env::set_var(bool_key, value);
         assert!(
-            !parse_tier1_env_bool(bool_key, true),
+            !parse_bool(Some(value), true),
             "expected false for {value:?}"
         );
     }
-    std::env::set_var(bool_key, "maybe");
-    assert!(parse_tier1_env_bool(bool_key, true));
-    assert!(!parse_tier1_env_bool(bool_key, false));
-    std::env::remove_var(bool_key);
+    assert!(parse_bool(Some("maybe"), true));
+    assert!(!parse_bool(Some("maybe"), false));
+    assert_eq!(parse_number(None, 128_usize), 128);
+    assert_eq!(parse_number(Some("9"), 128_usize), 9);
+    assert_eq!(parse_number(Some("bad"), 128_usize), 128);
+}
 
-    let usize_key = "TRUST_TEST_TIER1_ENV_USIZE";
-    std::env::remove_var(usize_key);
-    assert_eq!(parse_tier1_env_usize(usize_key, 128), 128);
-    std::env::set_var(usize_key, "9");
-    assert_eq!(parse_tier1_env_usize(usize_key, 128), 9);
-    std::env::set_var(usize_key, "bad");
-    assert_eq!(parse_tier1_env_usize(usize_key, 128), 128);
-    std::env::remove_var(usize_key);
+#[test]
+fn register_executor_tier1_environment_defaults_and_capacity_clamp() {
+    let state = super::RegisterTier1SpecializedExecutorState::from_environment(|_| None).snapshot();
+    assert!(!state.enabled);
+    assert_eq!(state.hot_block_threshold, 64);
+    assert_eq!(state.cache_capacity, 128);
+    let state = super::RegisterTier1SpecializedExecutorState::from_environment(|name| {
+        Some(
+            if name.ends_with("CACHE_CAP") {
+                "0"
+            } else {
+                "invalid"
+            }
+            .to_owned(),
+        )
+    })
+    .snapshot();
+    assert!(!state.enabled);
+    assert_eq!(state.hot_block_threshold, 64);
+    assert_eq!(state.cache_capacity, 1);
 }
 
 #[test]
@@ -83,6 +89,8 @@ fn register_executor_tier1_state_reset_clears_cache_and_counters() {
     runtime.vm_tier1_specialized_executor.set_enabled(true);
     runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -103,42 +111,32 @@ fn register_executor_tier1_state_reset_clears_cache_and_counters() {
     assert_eq!(after.compile_failures, 0, "snapshot={after:?}");
     assert_eq!(after.cache_evictions, 0, "snapshot={after:?}");
     assert_eq!(after.block_executions, 0, "snapshot={after:?}");
-    assert!(after.compile_failure_reasons.is_empty(), "snapshot={after:?}");
-}
-
-fn restore_env_vars<const N: usize>(saved: [(&'static str, Option<std::ffi::OsString>); N]) {
-    for (key, value) in saved {
-        match value {
-            Some(value) => std::env::set_var(key, value),
-            None => std::env::remove_var(key),
-        }
-    }
+    assert!(
+        after.compile_failure_reasons.is_empty(),
+        "snapshot={after:?}"
+    );
 }
 
 #[test]
-fn register_deadline_stride_checks_first_and_stride_boundaries() {
-    assert!(super::should_check_register_deadline(0));
-    assert!(!super::should_check_register_deadline(1));
-    assert!(super::should_check_register_deadline(
-        super::REGISTER_DEADLINE_CHECK_STRIDE
-    ));
-    assert!(super::should_check_register_deadline(
-        super::REGISTER_DEADLINE_CHECK_STRIDE * 2
-    ));
+fn register_deadline_stride_carries_remaining_work_between_blocks() {
+    let budget = trust_runtime_core::vm::hosted::budget::ExecutionBudget::new(64);
+    assert!(!budget.charge(17).unwrap());
+    assert!(!budget.charge(14).unwrap());
+    assert!(budget.charge(1).unwrap());
+    assert_eq!(budget.remaining(), 32);
 }
 
 #[test]
 fn register_execution_buffers_reuse_clears_frames_and_register_files() {
-    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow_mut().clear());
-
+    let mut buffers =
+        super::RegisterExecutionBuffers::reserve(3, 0).expect("reserve owned scratch");
     {
-        let mut buffers = super::RegisterExecutionBuffers::acquire(3);
         let (frames, registers, remaining_reads, _) = buffers.buffers_mut();
         frames
             .push(super::super::frames::VmFrame {
-                pou_id: 1,
+                parameter_values_present: Vec::new(),
+                activation: None,
+                pou_id: Some(1),
                 return_pc: 2,
                 code_start: 3,
                 code_end: 4,
@@ -153,7 +151,7 @@ fn register_execution_buffers_reuse_clears_frames_and_register_files() {
         remaining_reads[0] = 11;
     }
 
-    let mut buffers = super::RegisterExecutionBuffers::acquire(3);
+    buffers.select(3).expect("reuse admitted scratch");
     let (frames, registers, remaining_reads, _) = buffers.buffers_mut();
     assert!(frames.is_empty());
     assert!(registers.iter().all(|value| matches!(value, Value::Null)));

@@ -8,6 +8,16 @@ fn validate_series_lengths(case: &CaseDefinition, cycles: u32) -> anyhow::Result
             cycles
         );
     }
+    for (index, advance) in case.manifest.advance_ms.iter().enumerate() {
+        if Duration::checked_from_millis(*advance).is_none() {
+            bail!(
+                "case '{}' advance_ms[{}] {} is outside the millisecond time range",
+                case.id,
+                index,
+                advance
+            );
+        }
+    }
     for (name, series) in &case.manifest.input_series {
         if series.len() != expected_len {
             bail!(
@@ -100,9 +110,10 @@ fn parse_bool(raw: &str) -> anyhow::Result<bool> {
 
 fn parse_duration(raw: &str) -> anyhow::Result<Duration> {
     let text = raw.trim().to_ascii_lowercase().replace('_', "");
+    let out_of_range = || anyhow!("TIME value '{raw}' is outside the signed nanosecond range");
     if let Some(millis) = text.strip_suffix("ms") {
         let value = millis.parse::<i64>().context("parse TIME milliseconds")?;
-        return Ok(Duration::from_millis(value));
+        return Duration::checked_from_millis(value).ok_or_else(out_of_range);
     }
     if let Some(nanos) = text.strip_suffix("ns") {
         let value = nanos.parse::<i64>().context("parse TIME nanoseconds")?;
@@ -110,10 +121,10 @@ fn parse_duration(raw: &str) -> anyhow::Result<Duration> {
     }
     if let Some(seconds) = text.strip_suffix('s') {
         let value = seconds.parse::<i64>().context("parse TIME seconds")?;
-        return Ok(Duration::from_secs(value));
+        return Duration::checked_from_secs(value).ok_or_else(out_of_range);
     }
     let value = text.parse::<i64>().context("parse TIME as milliseconds")?;
-    Ok(Duration::from_millis(value))
+    Duration::checked_from_millis(value).ok_or_else(out_of_range)
 }
 
 fn encode_value(value: &Value) -> serde_json::Value {

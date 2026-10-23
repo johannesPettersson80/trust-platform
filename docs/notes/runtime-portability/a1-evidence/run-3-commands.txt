@@ -1,0 +1,24 @@
+cargo fmt --all -- --check 
+cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf 
+cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf 
+cargo tree --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf -e features 
+cargo tree --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf -e features 
+cargo test --locked -p trust-runtime-core --all-features -- --nocapture --test-threads=1 
+cargo test --locked -p trust-runtime-core --no-default-features --test portable_foundations -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-hir -p trust-ide -p trust-wasm-analysis -- --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime --test tasks --test scheduler_resource --test runtime_core_behavior_lock --test bytecode_vm_core --test bytecode_vm_differential --test portable_numeric_contract --test stdlib_numeric --test stdlib_numeric_full --test stdlib_helper_contract --test api_smoke --test debug_control --test complete_program --test runtime_reliability --test web_tls_integration -- --nocapture --test-threads=1 
+cargo test --locked -p trust-runtime --lib mesh::tests -- --nocapture --test-threads=1 
+cargo test --locked -p trust-runtime --lib security::contract_tests -- --nocapture --test-threads=1 
+cargo test --locked -p trust-lsp --bin trust-lsp handlers::runtime_values::contract_tests -- --nocapture --test-threads=1 
+python3 -m unittest scripts.verification.runtime_anomaly_contract_tests.RuntimeAnomalyContractTests.test_allocation_review_rejects_obsolete_unqualified_contract scripts.verification.runtime_anomaly_contract_tests.RuntimeAnomalyContractTests.test_known_good_contract_validates scripts.verification.runtime_anomaly_contract_tests.RuntimeAnomalyContractTests.test_spec_reviews_bind_active_source_open_gap_and_required_prose scripts.verification.runtime_anomaly_contract_tests.RuntimeAnomalyContractTests.test_schema_contract_pins_closed_fields_consts_and_enums 
+python3 -c import\ json\,pathlib\;\ from\ scripts.verification.runtime_anomaly_report_contract\ import\ validate_schema_contract\;\ errors=validate_schema_contract\(json.loads\(pathlib.Path\(\"verification/schemas/runtime-anomaly-audit-report.schema.json\"\).read_text\(\)\)\)\;\ print\(\"\\n\".join\(errors\)\ if\ errors\ else\ \"report\ schema:\ valid\"\)\;\ raise\ SystemExit\(bool\(errors\)\) 
+cargo clippy --locked --all-targets --all-features -- -D warnings 
+bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+bash scripts/supply_chain_gate.sh 
+cargo run --locked -p xtask -- architecture-doctor --full-map 
+bash scripts/render_diagrams.sh 
+python3 scripts/check_diagram_drift.py 
+python3 scripts/check_gate_observability.py 
+python3 -c import\ pathlib\,tomllib\;\ from\ scripts.verification.runtime_anomaly_contract\ import\ validate_runtime_anomaly_contract\;\ p=pathlib.Path.cwd\(\)\;\ errors=validate_runtime_anomaly_contract\(p\,tomllib.loads\(\(p/\"verification/runtime-anomaly-taxonomy.toml\"\).read_text\(\)\)\)\;\ print\(\"\\n\".join\(errors\)\ if\ errors\ else\ \"anomaly\ metadata:\ valid\"\)\;\ raise\ SystemExit\(bool\(errors\)\) 
+cargo rustc --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf --release -- --emit=asm 
+cargo rustc --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf --release -- --emit=asm 

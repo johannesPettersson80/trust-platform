@@ -74,7 +74,7 @@ impl Commands {
         request: &CommandRequest,
         session: &SessionInfo,
     ) -> Result<Authorized, String> {
-        let exchange = self.control_state.resource.hmi_exchange();
+        let exchange = crate::control::hmi_ports::hmi_exchange(&self.control_state);
         let state = self.control_state.clone();
         let type_of = move |path: &str| instance_type(&state, path);
         let (version, page, generation) = self.store.read(|root| {
@@ -112,10 +112,10 @@ impl Commands {
             command_role(&self.access.write, &path, &object),
             session.role,
         )?;
-        if let Some((permit, reason)) = interlock(&object)? {
-            if let Some(refusal) = self.interlocked(&permit, reason.as_ref()) {
-                return Err(refusal);
-            }
+        if let Some((permit, reason)) = interlock(&object)?
+            && let Some(refusal) = self.interlocked(&permit, reason.as_ref())
+        {
+            return Err(refusal);
         }
         let block = instance_type(&self.control_state, &command.instance)
             .ok_or("the equipment is not available")?;
@@ -179,17 +179,19 @@ impl Commands {
         reason
             .segments
             .push(PathSegment::Field(SmolStr::new(REFUSAL_TEXT)));
-        let queued = self.control_state.resource.hmi_exchange().methods.enqueue(
-            Invocation {
-                path: authorized.path.clone(),
-                interface: authorized.command.interface.clone(),
-                method: authorized.command.method.clone(),
-                inputs: authorized.inputs.clone(),
-                reason: Some(reason),
-            },
-            authorized.generation,
-            Instant::now() + WRITE_TIMEOUT,
-        );
+        let queued = crate::control::hmi_ports::hmi_exchange(&self.control_state)
+            .methods
+            .enqueue(
+                Invocation {
+                    path: authorized.path.clone(),
+                    interface: authorized.command.interface.clone(),
+                    method: authorized.command.method.clone(),
+                    inputs: authorized.inputs.clone(),
+                    reason: Some(reason),
+                },
+                authorized.generation,
+                Instant::now() + WRITE_TIMEOUT,
+            );
         // Losing the response cannot establish that the call did not start.
         let reply = match queued {
             Ok(receiver) => receiver.recv_timeout(WRITE_TIMEOUT).unwrap_or_else(|_| {
@@ -318,7 +320,7 @@ impl Commands {
             };
             loop {
                 thread::sleep(POLL);
-                let exchange = commands.control_state.resource.hmi_exchange();
+                let exchange = crate::control::hmi_ports::hmi_exchange(&commands.control_state);
                 if exchange.methods.generation() != generation {
                     answer = CommandAnswer {
                         reason: Some(

@@ -105,7 +105,7 @@ class PlannerAreaRoutingTests(unittest.TestCase):
             next(
                 row
                 for row in catalog
-                if row["id"] == "TEST_VERIFICATION_METADATA_GATE_001"
+                if row["id"] == "TEST_CASE_TABLE_VM_SEAM_VALID_001"
             )
         ]
 
@@ -157,6 +157,40 @@ class PlannerAreaRoutingTests(unittest.TestCase):
         payload = json.loads(result_to_json(result))
         self.assertEqual(payload["required_suites"], ["pr"])
         self.assertEqual(payload["conditional_suites"], ["nightly"])
+
+    def test_missing_test_classes_remain_attributed_to_their_owning_area(self) -> None:
+        bytecode_classes = {
+            "metadata_validation",
+            "negative_malformed_input",
+            "failing_regression",
+            "iec_conformance",
+            "mutation",
+        }
+        self.planner.tests = [
+            {
+                "id": f"TEST_{test_class.upper()}",
+                "area": "bytecode_vm",
+                "status": "mapped",
+                "test_class": test_class,
+            }
+            for test_class in bytecode_classes
+        ]
+
+        result = self.planner.plan(
+            "bugfix",
+            [
+                "crates/trust-runtime/src/bytecode/format.rs",
+                "crates/trust-runtime/src/runtime/cycle.rs",
+            ],
+            None,
+            None,
+        )
+
+        self.assertNotIn("bytecode_vm", result.missing_test_classes_by_area)
+        self.assertIn("runtime_safety", result.missing_test_classes_by_area)
+        payload = json.loads(result_to_json(result))
+        self.assertNotIn("bytecode_vm", payload["missing_test_classes_by_area"])
+        self.assertIn("runtime_safety", payload["missing_test_classes_by_area"])
 
     def test_risk_downgrade_requires_a_valid_reviewed_decision(self) -> None:
         baseline = {

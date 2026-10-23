@@ -37,7 +37,7 @@ functions follow CODESYS when the project runs: `REAL_TO_INT(2.5)` is 3,
 `trust-runtime build`/`check`/`run`, `trust-dev test`, debug sessions and
 `trust-harness --project` apply it; `siemens`, `mitsubishi`, `gxworks3`, `iec` and a
 missing `vendor_profile` keep the IEC rules. Some of these CODESYS
-rules conflict with IEC 61131-3 (`docs/IEC_DEVIATIONS.md`, DEV-023 to DEV-025); see the
+rules conflict with IEC 61131-3 (`docs/IEC_DEVIATIONS.md`, DEV-024 to DEV-026); see the
 [standard functions specification](../specifications/07-standard-functions.md), section 2.10.
 
 A `vendor_profile` that is not listed above stops these tools from running the project,

@@ -272,7 +272,10 @@ fn the_revision_is_the_sha256_of_the_canonical_loop_without_its_revision() {
         .expect("a loop is an object")
         .remove("revision");
     let digest = Sha256::digest(canonical_json(&value).as_bytes());
-    assert_eq!(loop_definition.revision, format!("sha256:{digest:x}"));
+    assert_eq!(
+        loop_definition.revision,
+        format!("sha256:{}", hex::encode(digest))
+    );
     assert_eq!(loop_definition.revision.len(), "sha256:".len() + 64);
     let mut other = loop_definition.clone();
     other.revision = "sha256:0".to_string();

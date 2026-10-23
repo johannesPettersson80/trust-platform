@@ -208,6 +208,7 @@ pub(super) fn project_inputs(state: &SalsaState) -> ProjectInputs {
 pub(super) struct SourceInput {
     #[returns(ref)]
     pub(super) text: String,
+    pub(super) temporal_storage: TemporalStorage,
 }
 
 #[salsa::input]
@@ -219,7 +220,7 @@ pub(super) struct ProjectInputs {
 #[salsa::tracked(returns(ref))]
 pub(super) fn parse_green(db: &dyn salsa::Database, input: SourceInput) -> GreenNode {
     let parsed = parse(input.text(db));
-    parsed.syntax().green().into_owned()
+    parsed.syntax().green().to_owned()
 }
 
 #[salsa::tracked(returns(ref))]
@@ -295,7 +296,9 @@ pub(super) fn file_symbols_query(
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let (symbols, _) = SymbolCollector::with_project_types(&provider).collect(&root);
+    let (symbols, _) = SymbolCollector::with_project_types(&provider)
+        .with_temporal_storage(*input.temporal_storage(db))
+        .collect(&root);
     Arc::new(symbols)
 }
 
@@ -318,6 +321,7 @@ pub(super) fn project_symbol_tables_query(
         cancellation_checkpoint(db);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
+            .with_temporal_storage(*input.temporal_storage(db))
             .collect_with_project_constants(&root, &constants);
         project_tables.insert(file_id, Arc::new(symbols));
     }
@@ -397,6 +401,7 @@ pub(super) fn analyze_query(
     let constants = project_constant_expressions(db, project_files);
     let (mut symbols, mut diagnostics, pending_types, deferred_initializers) =
         SymbolCollector::with_project_types(&provider)
+            .with_temporal_storage(*target_input.temporal_storage(db))
             .collect_for_project_with_constants(&root, &constants);
     // The merge is a deterministic function of the local table and the other files'
     // tables. When this file's table equals the one merged_project_symbols_query started
@@ -417,6 +422,7 @@ pub(super) fn analyze_query(
             &root,
             &config_inits,
             deferred_initializers,
+            *target_input.temporal_storage(db),
         );
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);

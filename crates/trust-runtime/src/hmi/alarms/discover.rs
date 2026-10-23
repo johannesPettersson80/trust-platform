@@ -28,7 +28,7 @@ pub(super) fn holdings_of(runtime: &crate::Runtime) -> Holdings<'_> {
     Holdings::new(
         runtime.function_blocks(),
         runtime.classes(),
-        runtime.programs(),
+        runtime.program_templates(),
         runtime.registry(),
     )
 }

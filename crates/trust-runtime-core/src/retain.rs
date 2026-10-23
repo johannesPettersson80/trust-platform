@@ -1,6 +1,6 @@
 //! Portable retain and restart policy records.
 
-use indexmap::IndexMap;
+use crate::collections::OrderedMap as IndexMap;
 use smol_str::SmolStr;
 
 use crate::value::Value;
@@ -59,6 +59,21 @@ impl RetainSnapshot {
     }
 }
 
+/// Whether a policy preserves a value across a warm restart.
+pub fn retain_on_warm(policy: RetainPolicy) -> bool {
+    matches!(policy, RetainPolicy::Retain | RetainPolicy::Persistent)
+}
+
+/// Durable snapshots never serialize live references or instance handles.
+pub fn value_is_retainable(value: &Value) -> bool {
+    match value {
+        Value::Array(array) => array.elements().iter().all(value_is_retainable),
+        Value::Struct(value) => value.fields().values().all(value_is_retainable),
+        Value::Reference(_) | Value::Instance(_) => false,
+        _ => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{RestartMode, RetainPolicy, RetainSnapshot};
@@ -112,7 +127,7 @@ mod tests {
 
     #[test]
     fn retain_snapshot_map_round_trip_preserves_order_keys_and_value_tags() {
-        let values: indexmap::IndexMap<SmolStr, Value> = [
+        let values: crate::collections::OrderedMap<SmolStr, Value> = [
             ("Motor".into(), Value::DInt(-7)),
             ("motor".into(), Value::Bool(true)),
             ("Nested".into(), Value::String("exact".into())),

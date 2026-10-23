@@ -175,7 +175,7 @@ def render_markdown(payload: Mapping[str, Any], *, json_digest: str) -> str:
     ]
     for row in payload["proof_origins"]:
         lines.append(f"| `{row['origin']}` | {row['evidence_count']} | `{row['status']}` | {row['limitation']} |")
-    lines.extend(["", "## Platform Matrix", "", "| Platform | Tier | Required proof | Public assets present |", "| --- | --- | --- | --- |"]) 
+    lines.extend(["", "## Platform Matrix", "", "| Platform | Tier | Required proof | Public assets present |", "| --- | --- | --- | --- |"])
     for row in payload["platforms"]:
         lines.append(
             f"| `{row['id']}` | `{row['support_tier']}` | "

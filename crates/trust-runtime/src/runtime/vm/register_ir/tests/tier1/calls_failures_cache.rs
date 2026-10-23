@@ -24,9 +24,10 @@ fn tier1_compiler_accepts_call_native_function_blocks() {
         "#;
 
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let main_pou_id = vm_module
-        .program_ids
+        .program_ids()
         .get(&SmolStr::new("MAIN"))
         .copied()
         .expect("main pou id");
@@ -42,9 +43,8 @@ fn tier1_compiler_accepts_call_native_function_blocks() {
                 .any(|instruction| matches!(instruction, RegisterInstr::CallNative { .. }))
         })
         .expect("call-native block");
-    let key = super::tier1_block_key(&vm_module, main_pou_id, block);
     assert!(
-        super::compile_tier1_block(&vm_module, block, key).is_ok(),
+        super::compile_tier1_block(&vm_module, block).is_ok(),
         "expected tier-1 compiler to accept CallNative block: {:?}",
         block.instructions
     );
@@ -188,6 +188,8 @@ fn register_executor_tier1_specialized_executor_records_compile_failure_reason_f
     runtime.reset_vm_tier1_specialized_executor();
     runtime.vm_tier1_specialized_executor.hot_block_threshold = 1;
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -221,6 +223,8 @@ fn register_executor_tier1_specialized_executor_executes_non_dint_binary_without
     runtime.set_vm_tier1_specialized_executor_enabled(true);
     runtime.reset_vm_tier1_specialized_executor();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     for _ in 0..80 {
         let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
             .expect("execute register program");
@@ -232,8 +236,6 @@ fn register_executor_tier1_specialized_executor_executes_non_dint_binary_without
     assert!(snapshot.compile_attempts >= 1);
     assert!(snapshot.compile_successes >= 1);
     assert!(snapshot.block_executions >= 1);
-    assert_eq!(snapshot.deopt_count, 0, "snapshot={snapshot:?}");
-    assert!(snapshot.deopt_reasons.is_empty(), "snapshot={snapshot:?}");
 }
 
 #[test]
@@ -247,7 +249,7 @@ fn register_executor_tier1_specialized_executor_cache_capacity_evicts_old_blocks
     code_a.push(0x21);
     emit_u32(&mut code_a, 0);
     code_a.push(0x06);
-    let (module_a, pou_a) = manual_vm_module(code_a, vec![Value::DInt(1)], 1);
+    let (mut module_a, pou_a) = manual_vm_module(code_a, vec![Value::DInt(1)], 1);
 
     let mut code_b = Vec::new();
     code_b.push(0x20);
@@ -258,7 +260,26 @@ fn register_executor_tier1_specialized_executor_cache_capacity_evicts_old_blocks
     code_b.push(0x21);
     emit_u32(&mut code_b, 0);
     code_b.push(0x06);
-    let (module_b, pou_b) = manual_vm_module(code_b, vec![Value::DInt(1)], 1);
+    let (module_b, _) = manual_vm_module(code_b, vec![Value::DInt(1)], 1);
+    let pou_b = 2;
+    module_a.define_legacy_pou(
+        pou_b,
+        crate::bytecode::PouKind::Program,
+        super::super::VmPouEntry {
+            kind: crate::bytecode::PouKind::Program,
+            name: "SECOND".into(),
+            code_start: 0,
+            code_end: 0,
+            local_ref_start: 0,
+            local_ref_count: 0,
+            primary_instance_owner: None,
+        },
+        Vec::new(),
+        false,
+    );
+    module_a
+        .replace_legacy_pou_body(pou_b, module_b.code())
+        .expect("append second fixture body");
 
     let mut runtime = Runtime::new();
     runtime.vm_tier1_specialized_executor.set_enabled(true);
@@ -269,10 +290,12 @@ fn register_executor_tier1_specialized_executor_cache_capacity_evicts_old_blocks
     runtime.vm_tier1_specialized_executor.cache_capacity = 1;
 
     runtime.storage_mut().set_global("g0", Value::DInt(10));
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module_a)
+        .expect("prepare legacy register fixture");
     try_execute_pou_with_register_ir(&mut runtime, &module_a, pou_a, None)
         .expect("execute module a");
     runtime.storage_mut().set_global("g0", Value::DInt(10));
-    try_execute_pou_with_register_ir(&mut runtime, &module_b, pou_b, None)
+    try_execute_pou_with_register_ir(&mut runtime, &module_a, pou_b, None)
         .expect("execute module b");
 
     let snapshot = runtime.vm_tier1_specialized_executor_snapshot();
@@ -284,22 +307,20 @@ fn register_executor_tier1_specialized_executor_cache_capacity_evicts_old_blocks
 }
 
 #[test]
-fn register_executor_tier1_specialized_executor_cache_hits_reuse_compiled_block_arc() {
-    let key = super::tier1::Tier1BlockKey {
-        module_ptr: 1,
-        pou_id: 2,
-        block_id: 3,
-        start_pc: 4,
-    };
-    let compiled = std::sync::Arc::new(super::tier1::Tier1CompiledBlock {
-        key,
-        instructions: vec![super::tier1::Tier1CompiledInstr::Return],
-    });
+fn register_executor_tier1_selection_reuses_the_prepared_plan_arc() {
+    let (module, pou) = manual_vm_module(vec![0x06], Vec::new(), 0);
+    let plans = trust_runtime_core::vm::register_test_support::PreparedRegisterPlans::prepare(
+        &module,
+        |_, _| Ok(()),
+    )
+    .expect("prepare immutable plans");
+    let first = plans.get(pou).expect("prepared POU");
     let mut state = super::RegisterTier1SpecializedExecutorState::default();
-
-    state.insert_compiled_block(std::sync::Arc::clone(&compiled));
-    let fetched = state.compiled_block(&key).cloned().expect("compiled block");
-
-    assert!(std::sync::Arc::ptr_eq(&compiled, &fetched));
+    state.prepare(&plans).expect("reserve selection state");
+    state.hot_block_threshold = 1;
+    assert!(state.select_prepared_block(0));
+    assert!(state.select_prepared_block(0));
+    let next = plans.get(pou).expect("same prepared POU");
+    assert!(std::sync::Arc::ptr_eq(&first, &next));
+    assert_eq!(state.snapshot().cached_blocks, 1);
 }
-

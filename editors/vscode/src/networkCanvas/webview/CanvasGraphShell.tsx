@@ -7,6 +7,7 @@ import {
   type Node,
   type NodeMouseHandler,
   type OnEdgesChange,
+  type OnNodeDrag,
   type OnNodesChange,
   ReactFlow,
 } from "@xyflow/react";
@@ -25,7 +26,7 @@ interface CanvasGraphShellProps {
   edges: Edge[];
   onNodesChange: OnNodesChange<Node>;
   onEdgesChange: OnEdgesChange<Edge>;
-  onNodeDragStop: NodeMouseHandler<Node>;
+  onNodeDragStop: OnNodeDrag<Node>;
   onDrop: React.DragEventHandler;
   onDragOver: React.DragEventHandler;
   plantDropMessage?: string;

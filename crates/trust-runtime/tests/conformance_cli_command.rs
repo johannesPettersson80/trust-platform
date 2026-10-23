@@ -73,13 +73,16 @@ kind = "compile_error"
     )
     .expect("write compile-error manifest");
 
-    let update = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["conformance", "--suite-root"])
-        .arg(&root)
-        .args(["--update-expected", "--output"])
-        .arg(root.join("reports/update.json"))
-        .output()
-        .expect("run conformance update");
+    let update = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["conformance", "--suite-root"])
+    .arg(&root)
+    .args(["--update-expected", "--output"])
+    .arg(root.join("reports/update.json"))
+    .output()
+    .expect("run conformance update");
     assert!(
         update.status.success(),
         "update mode should pass\nstdout:\n{}\nstderr:\n{}",
@@ -87,13 +90,16 @@ kind = "compile_error"
         String::from_utf8_lossy(&update.stderr)
     );
 
-    let verify = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["conformance", "--suite-root"])
-        .arg(&root)
-        .args(["--output"])
-        .arg(root.join("reports/verify.json"))
-        .output()
-        .expect("run conformance verify");
+    let verify = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["conformance", "--suite-root"])
+    .arg(&root)
+    .args(["--output"])
+    .arg(root.join("reports/verify.json"))
+    .output()
+    .expect("run conformance verify");
     assert!(
         verify.status.success(),
         "verify mode should pass\nstdout:\n{}\nstderr:\n{}",
@@ -114,13 +120,16 @@ kind = "compile_error"
     )
     .expect("mutate expected for mismatch");
 
-    let mismatch = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["conformance", "--suite-root"])
-        .arg(&root)
-        .args(["--output"])
-        .arg(root.join("reports/mismatch.json"))
-        .output()
-        .expect("run conformance mismatch");
+    let mismatch = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["conformance", "--suite-root"])
+    .arg(&root)
+    .args(["--output"])
+    .arg(root.join("reports/mismatch.json"))
+    .output()
+    .expect("run conformance mismatch");
     assert!(
         !mismatch.status.success(),
         "mismatch run should fail\nstdout:\n{}\nstderr:\n{}",

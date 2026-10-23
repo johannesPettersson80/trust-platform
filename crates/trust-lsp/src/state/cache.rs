@@ -36,10 +36,11 @@ pub(super) fn store_diagnostics(
     if state.semantic_request_cancelled(request_ticket) {
         return None;
     }
-    if let Some(existing) = cache.get(&uri) {
-        if existing.content_hash == content_hash && existing.diagnostic_hash == diagnostic_hash {
-            return Some(existing.result_id.clone());
-        }
+    if let Some(existing) = cache.get(&uri)
+        && existing.content_hash == content_hash
+        && existing.diagnostic_hash == diagnostic_hash
+    {
+        return Some(existing.result_id.clone());
     }
     let result_id = next_diagnostic_id(state);
     cache.insert(

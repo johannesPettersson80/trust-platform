@@ -88,12 +88,12 @@ pub fn project_loops(project_root: &Path, runtime_id: &str) -> Result<Vec<Projec
         })
         .collect();
     for (entry, id) in loops.iter_mut().zip(&ids) {
-        if let Some(id) = id {
-            if ids.iter().flatten().filter(|other| *other == id).count() > 1 {
-                entry.loop_definition = Err(format!(
-                    "Duplicate control loop ID {id} in this project. Give each loop a unique ID."
-                ));
-            }
+        if let Some(id) = id
+            && ids.iter().flatten().filter(|other| *other == id).count() > 1
+        {
+            entry.loop_definition = Err(format!(
+                "Duplicate control loop ID {id} in this project. Give each loop a unique ID."
+            ));
         }
     }
     Ok(loops)

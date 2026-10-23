@@ -3,7 +3,7 @@ use crate::io::IoSize;
 use crate::memory::IoArea;
 use crate::program_model::{Expr, VarDef};
 use crate::value::Value;
-use crate::{GlobalInitValue, RetainPolicy, Runtime};
+use crate::{RetainPolicy, Runtime};
 use trust_hir::symbols::ParamDirection;
 use trust_hir::{Type, TypeId};
 
@@ -553,23 +553,29 @@ END_PROGRAM
 
 #[test]
 fn variable_contract_program_global_is_lifted_with_retain_metadata() {
-    let runtime = runtime(
-        r#"
+    let source = r#"
 PROGRAM Main
 VAR_GLOBAL RETAIN
     ProgramGlobal : DINT := DINT#8;
 END_VAR
 END_PROGRAM
-"#,
-    );
+"#;
+    let lowered =
+        crate::harness::lower_application(&[crate::harness::SourceFile::new(source)], false)
+            .expect("lower lifted global declaration");
+    let runtime = runtime(source);
     let program = runtime.programs().values().next().expect("Main program");
     assert!(program.vars.iter().all(|var| var.name != "ProgramGlobal"));
-    let global = &runtime.globals()["ProgramGlobal"];
+    let global = lowered
+        .globals
+        .iter()
+        .find(|global| global.name == "ProgramGlobal")
+        .expect("lifted global declaration");
     assert_eq!(global.type_id, TypeId::DINT);
     assert_eq!(global.retain, RetainPolicy::Retain);
     assert!(matches!(
-        &global.init,
-        GlobalInitValue::Value(Value::DInt(8))
+        &global.initializer,
+        Some(Expr::Literal(Value::DInt(8)))
     ));
     assert_eq!(
         runtime.storage().get_global("ProgramGlobal"),

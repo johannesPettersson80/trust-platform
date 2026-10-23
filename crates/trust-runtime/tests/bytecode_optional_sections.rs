@@ -1,5 +1,4 @@
 use trust_runtime::bytecode::{BytecodeModule, Section, SectionData};
-use trust_runtime::Runtime;
 
 #[test]
 fn unknown_optional_section_is_preserved_and_ignored_by_runtime_apply() {
@@ -26,7 +25,9 @@ fn unknown_optional_section_is_preserved_and_ignored_by_runtime_apply() {
             && matches!(&section.data, SectionData::Raw(raw) if raw == PAYLOAD)
     }));
 
-    Runtime::new()
+    trust_runtime::RuntimeBuilder::new()
+        .build()
+        .expect("admit empty application")
         .apply_bytecode_bytes(&bytes, None)
         .expect("runtime apply must ignore an unknown optional section");
 }

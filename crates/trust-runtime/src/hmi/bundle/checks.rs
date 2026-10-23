@@ -76,17 +76,16 @@ pub fn check_bundle_with_remote(
         Some(bytes) => match parse_screen(SCREEN, &String::from_utf8_lossy(bytes)) {
             Err(errors) => problems.extend(errors.into_iter().map(from_file_error)),
             Ok(screen) => {
-                if let Some(start) = screen.start_page {
-                    if !bundle
+                if let Some(start) = screen.start_page
+                    && !bundle
                         .files
                         .contains_key(&format!("hmi/pages/{start}.toml"))
-                    {
-                        problems.push(BundleProblem {
-                            file: SCREEN.into(),
-                            line: 1,
-                            message: format!("start page {start} is missing"),
-                        });
-                    }
+                {
+                    problems.push(BundleProblem {
+                        file: SCREEN.into(),
+                        line: 1,
+                        message: format!("start page {start} is missing"),
+                    });
                 }
             }
         },

@@ -53,6 +53,7 @@ QUERY_EXPECTATIONS: list[tuple[str, str]] = [
     ("%ix0.0", "connect/devices-and-fieldbus/io-binding/"),
     ("simulation toml", "reference/config/simulation-toml/"),
     ("trust lsp toml", "reference/config/trust-lsp-toml/"),
+    ("runtime portability", "reference/specifications/34-runtime-portability/"),
     ("ctu timer", "reference/specifications/08-standard-function-blocks/"),
     ("structured text new project", "start/create-new-project/"),
     ("pid loop", "examples/tutorials/"),
@@ -180,6 +181,8 @@ def score_doc(query_tokens: list[str], query: str, doc: dict[str, str]) -> int:
     if base_location.startswith("start/program-in-vscode/") and (
         "vscode" in query_tokens or ("vs" in query_tokens and "code" in query_tokens)
     ):
+        score += 35
+    if base_location == "start/installation/" and "install" in query_tokens:
         score += 35
     if base_location.startswith("operate/debugging-and-runtime-panel/") and (
         query.lower() == "debug" or ("runtime" in query_tokens and "panel" in query_tokens)

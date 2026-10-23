@@ -424,3 +424,27 @@ fn setup_apply_system_selection_removes_existing_project_io() {
     assert!(!fixture.root.join("io.toml").exists());
     assert!(fixture.root.join("runtime.toml").is_file());
 }
+
+#[test]
+fn legacy_source_route_cannot_read_an_io_configuration() {
+    let fixture = TempProject::new("io-source-boundary");
+    fixture.write(
+        "src/io.toml",
+        "[io]\ndriver = 'mqtt'\n[io.params]\npassword = 'stored-secret'\n",
+    );
+    assert!(read_source_file(&fixture.root, "io.toml").is_err());
+}
+
+// The legacy HMI's SVG asset route is removed (specification 39, decision 12); the source route keeps
+// refusing an alias of the I/O configuration.
+#[cfg(unix)]
+#[test]
+fn a_source_alias_cannot_read_io_configuration() {
+    let fixture = TempProject::new("io-source-alias");
+    fixture.write(
+        "src/io.toml",
+        "[io]\ndriver = 'mqtt'\n[io.params]\npassword = 'stored-secret'\n",
+    );
+    std::os::unix::fs::symlink("io.toml", fixture.root.join("src/alias.st")).unwrap();
+    assert!(read_source_file(&fixture.root, "alias.st").is_err());
+}

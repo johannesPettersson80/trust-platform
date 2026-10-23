@@ -1,0 +1,27 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "acceptance": "Complete four-file formatted delta reviewed: whitespace, commas and import ordering only; all before-format and frozen-manifest identities reconcile. Accepted for authorized batch; no execution claim.",
+  "formatted_source_manifest_sha256": "8b68c8dc3978de9049405e1ecf001d581558319cf739c0e8bfbde9483cb4d25d",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/destinations.rs",
+      "before_format_sha256": "233e076761f5f0c3f92e5d244bfb2feeffc090937af899f4df0112f986b72fbb",
+      "formatted_sha256": "a0b24b71966c9c834e48319531cb60f68252aab525989d782bbaf22f269cad36"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/output_transaction.rs",
+      "before_format_sha256": "8a571c1acf56e1a545bd283f32e3eeab7a7272bc5c7a90047ace271e0ddd56d5",
+      "formatted_sha256": "0e799f9bae72638c0658350e9aa469716b95c5e81e0b99d836a2367893ffb3da"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io/staging.rs",
+      "before_format_sha256": "aeb9ce071258e5b34c27da975026b560c44dac13af3ba07af8c5712d6dcd5f4a",
+      "formatted_sha256": "30c6b6e20054a8b6f2c143fe7343a206d56cb10116252b77748e446710681a1d"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_execution_cost.rs",
+      "before_format_sha256": "97843856241f3c390e26dd863e7877c5c48bb9cf04f2c638b20222622b1c4b44",
+      "formatted_sha256": "c6a6e38aec29bcb497fdb61b7275542ee30428b8ffc5f66ff8714694483c719e"
+    }
+  ]
+}

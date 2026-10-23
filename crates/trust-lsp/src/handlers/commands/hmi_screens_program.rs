@@ -122,10 +122,9 @@ pub(super) fn prepare(arguments: Vec<Value>) -> Value {
                 if matches!(
                     node.kind(),
                     SyntaxKind::Program | SyntaxKind::TaskConfig | SyntaxKind::ProgramConfig
-                ) {
-                    if let Some(name) = name(&node) {
-                        names.insert(name.to_ascii_uppercase());
-                    }
+                ) && let Some(name) = name(&node)
+                {
+                    names.insert(name.to_ascii_uppercase());
                 }
                 if node.kind() == SyntaxKind::TaskConfig
                     && node
@@ -141,25 +140,22 @@ pub(super) fn prepare(arguments: Vec<Value>) -> Value {
                                         .eq_ignore_ascii_case("INTERVAL")
                             })
                         })
-                {
-                    if let (Some(task), Some(resource)) = (
+                    && let (Some(task), Some(resource)) = (
                         name(&node),
                         node.parent()
                             .filter(|parent| parent.kind() == SyntaxKind::Resource),
-                    ) {
-                        if let Some(end) = resource
-                            .children_with_tokens()
-                            .filter_map(|element| element.into_token())
-                            .find(|token| token.kind() == SyntaxKind::KwEndResource)
-                        {
-                            existing_tasks.push((
-                                &source.file,
-                                &source.text,
-                                usize::from(end.text_range().start()),
-                                task,
-                            ));
-                        }
-                    }
+                    )
+                    && let Some(end) = resource
+                        .children_with_tokens()
+                        .filter_map(|element| element.into_token())
+                        .find(|token| token.kind() == SyntaxKind::KwEndResource)
+                {
+                    existing_tasks.push((
+                        &source.file,
+                        &source.text,
+                        usize::from(end.text_range().start()),
+                        task,
+                    ));
                 }
                 if node.kind() == SyntaxKind::Resource {
                     let end = node

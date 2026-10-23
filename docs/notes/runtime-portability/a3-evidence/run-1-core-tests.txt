@@ -1,0 +1,296 @@
+[gate-progress state=started phase=A3-core-tests target=scena-rust-builder pid=450461 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1']
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.45
+   Compiling crossbeam-utils v0.8.21
+   Compiling memchr v2.8.0
+   Compiling serde_core v1.0.228
+   Compiling crossbeam-epoch v0.9.20
+   Compiling version_check v0.9.5
+   Compiling cfg-if v1.0.4
+   Compiling regex-syntax v0.8.10
+   Compiling libc v0.2.186
+   Compiling generic-array v0.14.7
+   Compiling aho-corasick v1.1.4
+   Compiling allocator-api2 v0.2.21
+   Compiling fnv v1.0.7
+   Compiling typenum v1.20.0
+   Compiling foldhash v0.2.0
+   Compiling syn v2.0.117
+   Compiling rayon-core v1.13.0
+   Compiling parking_lot_core v0.9.12
+   Compiling equivalent v1.0.2
+   Compiling hashbrown v0.17.0
+   Compiling regex-automata v0.4.14
+   Compiling crossbeam-deque v0.8.6
+   Compiling typeid v1.0.3
+   Compiling smallvec v1.15.1
+   Compiling once_cell v1.21.4
+   Compiling scopeguard v1.2.0
+   Compiling portable-atomic v1.13.1
+   Compiling lock_api v0.4.14
+   Compiling tracing-core v0.1.36
+   Compiling syn v3.0.6
+   Compiling zmij v1.0.21
+   Compiling countme v3.0.1
+   Compiling text-size v1.1.1
+   Compiling rustc-hash v1.1.0
+   Compiling pin-project-lite v0.2.17
+   Compiling hashbrown v0.14.5
+   Compiling either v1.15.0
+   Compiling thiserror v2.0.18
+   Compiling rayon v1.12.0
+   Compiling parking_lot v0.12.5
+   Compiling rowan v0.16.1
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling logos-codegen v0.16.1
+   Compiling indexmap v2.14.0
+   Compiling tracing-attributes v0.1.31
+   Compiling thiserror-impl v2.0.18
+   Compiling hashlink v0.12.1
+   Compiling crossbeam-queue v0.3.12
+   Compiling serde_json v1.0.149
+   Compiling libm v0.2.16
+   Compiling boxcar v0.2.14
+   Compiling logos-derive v0.16.1
+   Compiling thin-vec v0.2.16
+   Compiling winnow v1.0.2
+   Compiling tracing v0.1.44
+   Compiling logos v0.16.1
+   Compiling crc32fast v1.5.0
+   Compiling rustc-hash v2.1.2
+   Compiling inventory v0.3.24
+   Compiling serde v1.0.228
+   Compiling salsa-macro-rules v0.28.5
+   Compiling intrusive-collections v0.10.3
+   Compiling drop_bomb v0.1.5
+   Compiling toml_parser v1.1.2+spec-1.1.0
+   Compiling trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-syntax)
+   Compiling serde_derive v1.0.228
+   Compiling digest v0.10.7
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling smol_str v0.2.2
+   Compiling cpufeatures v0.2.17
+   Compiling salsa-macros v0.28.5
+   Compiling itoa v1.0.18
+   Compiling toml_writer v1.1.1+spec-1.1.0
+   Compiling sha2 v0.10.9
+   Compiling toml v1.1.2+spec-1.1.0
+   Compiling salsa v0.28.5
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/verification-cases)
+   Compiling trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-hir)
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime-core)
+error[E0425]: cannot find value `version` in this scope
+  --> crates/trust-runtime-core/src/bytecode/decode/module_decode.rs:85:68
+   |
+85 |         validate_section_entries(bytes.len(), table_end, &entries, version)?;
+   |                                                                    ^^^^^^^
+   |
+  ::: crates/trust-runtime-core/src/bytecode/module.rs:13:9
+   |
+13 |     pub version: BytecodeVersion,
+   |         ------- a field by that name exists in `Self`
+
+error[E0425]: cannot find type `RefEntry` in this scope
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/lookups.rs:159:21
+    |
+159 |         reference: &RefEntry,
+    |                     ^^^^^^^^ not found in this scope
+    |
+help: consider importing this struct through its public re-export
+    |
+  3 + use crate::bytecode::RefEntry;
+    |
+
+error[E0425]: cannot find type `RefEntry` in this scope
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/lookups.rs:174:21
+    |
+174 |         reference: &RefEntry,
+    |                     ^^^^^^^^ not found in this scope
+    |
+help: consider importing this struct through its public re-export
+    |
+  3 + use crate::bytecode::RefEntry;
+    |
+
+error[E0425]: cannot find type `RefEntry` in this scope
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/roots.rs:184:17
+    |
+184 |     reference: &RefEntry,
+    |                 ^^^^^^^^ not found in this scope
+    |
+help: consider importing this struct through its public re-export
+    |
+  1 + use crate::bytecode::RefEntry;
+    |
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:157:23
+    |
+157 |             return Ok(None);
+    |                    -- ^^^^ expected `()`, found `Option<_>`
+    |                    |
+    |                    arguments to this enum variant are incorrect
+    |
+    = note: expected unit type `()`
+                    found enum `Option<_>`
+help: the type constructed contains `Option<_>` due to the type of the argument passed
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:157:20
+    |
+157 |             return Ok(None);
+    |                    ^^^----^
+    |                       |
+    |                       this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:561:5
+    |
+561 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     ^^
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:169:31
+    |
+169 |             IoSize::Bit => Ok(Some(1)),
+    |                            -- ^^^^^^^ expected `()`, found `Option<{integer}>`
+    |                            |
+    |                            arguments to this enum variant are incorrect
+    |
+    = note: expected unit type `()`
+                    found enum `Option<{integer}>`
+help: the type constructed contains `Option<{integer}>` due to the type of the argument passed
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:169:28
+    |
+169 |             IoSize::Bit => Ok(Some(1)),
+    |                            ^^^-------^
+    |                               |
+    |                               this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:561:5
+    |
+561 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     ^^
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:170:32
+    |
+170 |             IoSize::Byte => Ok(Some(2)),
+    |                             -- ^^^^^^^ expected `()`, found `Option<{integer}>`
+    |                             |
+    |                             arguments to this enum variant are incorrect
+    |
+    = note: expected unit type `()`
+                    found enum `Option<{integer}>`
+help: the type constructed contains `Option<{integer}>` due to the type of the argument passed
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:170:29
+    |
+170 |             IoSize::Byte => Ok(Some(2)),
+    |                             ^^^-------^
+    |                                |
+    |                                this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:561:5
+    |
+561 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     ^^
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:171:32
+    |
+171 |             IoSize::Word => Ok(Some(3)),
+    |                             -- ^^^^^^^ expected `()`, found `Option<{integer}>`
+    |                             |
+    |                             arguments to this enum variant are incorrect
+    |
+    = note: expected unit type `()`
+                    found enum `Option<{integer}>`
+help: the type constructed contains `Option<{integer}>` due to the type of the argument passed
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:171:29
+    |
+171 |             IoSize::Word => Ok(Some(3)),
+    |                             ^^^-------^
+    |                                |
+    |                                this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:561:5
+    |
+561 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     ^^
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:172:33
+    |
+172 |             IoSize::DWord => Ok(Some(4)),
+    |                              -- ^^^^^^^ expected `()`, found `Option<{integer}>`
+    |                              |
+    |                              arguments to this enum variant are incorrect
+    |
+    = note: expected unit type `()`
+                    found enum `Option<{integer}>`
+help: the type constructed contains `Option<{integer}>` due to the type of the argument passed
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:172:30
+    |
+172 |             IoSize::DWord => Ok(Some(4)),
+    |                              ^^^-------^
+    |                                 |
+    |                                 this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:561:5
+    |
+561 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     ^^
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:173:33
+    |
+173 |             IoSize::LWord => Ok(Some(5)),
+    |                              -- ^^^^^^^ expected `()`, found `Option<{integer}>`
+    |                              |
+    |                              arguments to this enum variant are incorrect
+    |
+    = note: expected unit type `()`
+                    found enum `Option<{integer}>`
+help: the type constructed contains `Option<{integer}>` due to the type of the argument passed
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:173:30
+    |
+173 |             IoSize::LWord => Ok(Some(5)),
+    |                              ^^^-------^
+    |                                 |
+    |                                 this argument influences the type of `Ok`
+note: tuple variant defined here
+   --> /home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:561:5
+    |
+561 |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+    |     ^^
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/construction/initializers/configuration.rs:177:12
+    |
+177 |     if let Some(expected) = expected_primitive {
+    |            ^^^^^^^^^^^^^^   ------------------ this expression has type `()`
+    |            |
+    |            expected `()`, found `Option<_>`
+    |
+    = note: expected unit type `()`
+                    found enum `Option<_>`
+
+error[E0308]: mismatched types
+   --> crates/trust-runtime-core/src/bytecode/validate/pou_and_instr.rs:267:43
+    |
+267 |                     if operand as usize > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>
+    |                        ----------------   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `usize`, found `u32`
+    |                        |
+    |                        expected because this is `usize`
+    |
+help: you can convert a `u32` to a `usize` and panic if the converted value doesn't fit
+    |
+267 |                     if operand as usize > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES.try_into().unwrap() =>
+    |                                                                                           ++++++++++++++++++++
+
+Some errors have detailed explanations: E0308, E0425.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `trust-runtime-core` (lib) due to 12 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `trust-runtime-core` (lib test) due to 12 previous errors
+[gate-progress state=finished phase=A3-core-tests target=scena-rust-builder pid=450461 elapsed=12.3s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1' status=101]

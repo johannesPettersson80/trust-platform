@@ -3,10 +3,10 @@ use super::*;
 
 /// Writes back every member that the commit wrote, and every output at its task-boundary value, in the same scan. An
 /// output keeps its IEC type, so a BOOL output is restored as BOOL. Returns whether every write succeeded.
-pub(super) fn restore(pending: &Pending, storage: &mut VariableStorage) -> bool {
+pub(super) fn restore(pending: &Pending, writes: &mut dyn super::super::ScanWrites) -> bool {
     let mut restored = true;
     for (reference, previous) in &pending.restore_points {
-        restored &= storage.write_by_ref_ref(reference, previous.clone());
+        restored &= writes.write(reference, previous.clone());
     }
     for member in std::iter::once(&pending.request.binding.output)
         .chain(pending.request.binding.additional_outputs.iter())
@@ -14,8 +14,8 @@ pub(super) fn restore(pending: &Pending, storage: &mut VariableStorage) -> bool 
         let Some(&value) = pending.boundary_outputs.get(&member.symbol) else {
             continue;
         };
-        restored &= match parameters::resolve_path(storage, &member.symbol) {
-            Ok(resolved) => storage.write_by_ref(resolved.reference, output_value(member, value)),
+        restored &= match parameters::resolve_path(writes.storage(), &member.symbol) {
+            Ok(resolved) => writes.write(&resolved.reference, output_value(member, value)),
             Err(_) => false,
         };
     }

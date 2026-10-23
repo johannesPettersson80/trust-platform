@@ -1,4 +1,4 @@
-//! Wall-clock pacing of the simulator's cycle loop, and the achieved speed it reports (specification 33, §6.1).
+//! Wall-clock pacing of the simulator's cycle loop, and the achieved speed it reports (specification 46, §6.1).
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -9,7 +9,7 @@ use trust_runtime::scheduler::AchievedSpeedWindow;
 /// Identifies the simulated resource of a debug session in the achieved-speed report of its metrics.
 const SIMULATOR_SOURCE: u64 = 1;
 
-/// The wall interval between simulator cycles at `speed`: the cycle interval divided by the speed (specification 33,
+/// The wall interval between simulator cycles at `speed`: the cycle interval divided by the speed (specification 46,
 /// §6.1 item 2).
 pub(super) fn paced_interval(cycle_interval: Duration, speed: u32) -> Duration {
     let nanos = cycle_interval.as_nanos() / u128::from(speed.max(1));
@@ -44,7 +44,7 @@ impl CyclePacer {
     }
 
     /// Moves the grid to `interval` and starts its schedule at `now`, so that a speed change never starts a burst
-    /// (specification 33, §6.1 item 5).
+    /// (specification 46, §6.1 item 5).
     pub(super) fn retarget(&mut self, interval: Duration, now: Instant) {
         self.interval = interval;
         self.scheduled = now;
@@ -57,7 +57,7 @@ impl CyclePacer {
     }
 }
 
-/// Paces the simulator's cycles at the speed in force and measures the achieved speed (specification 33, §6.1
+/// Paces the simulator's cycles at the speed in force and measures the achieved speed (specification 46, §6.1
 /// items 2 to 5). A change of speed, a pause or a late resume restarts the schedule and the measurement.
 pub(super) struct SimulatorClock {
     pacer: CyclePacer,
@@ -94,7 +94,7 @@ impl SimulatorClock {
 
     /// Prepares the cycle that starts at `now`. A change of speed re-targets the schedule. A paused debugger or a stall
     /// longer than a second restarts the measurement, so a pause never counts as simulated time. A merely late cycle
-    /// does not: a host that cannot keep the pace is exactly what the achieved speed reports (spec 33, §6.1 item 3).
+    /// does not: a host that cannot keep the pace is exactly what the achieved speed reports (spec 46, §6.1 item 3).
     pub(super) fn begin(&mut self, now: Instant, speed: u32, paused: bool) {
         if speed != self.scheduled_speed {
             self.scheduled_speed = speed;

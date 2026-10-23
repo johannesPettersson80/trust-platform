@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "Cpu0"
+name = "RoboticPalletizerCommandStateOop"
 cycle_interval_ms = 20
 
 [runtime.control]

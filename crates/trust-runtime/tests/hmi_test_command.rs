@@ -53,7 +53,10 @@ fn chromium() -> Option<PathBuf> {
 }
 
 fn hmi_test(root: &Path, update: bool) -> (Option<i32>, String) {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command.args(["hmi", "test", "--project"]).arg(root);
     if update {
         command.arg("--update");

@@ -50,16 +50,16 @@ pub(super) fn handle_control_command(
             state.prompt.activate_with("");
         }
         "break" => {
-            if let Some(loc) = args.get(1) {
-                if let Some((file, line)) = loc.split_once(':') {
-                    let line_num = line.parse::<u32>().unwrap_or(1);
-                    let response = client.request(json!({
-                        "id": 1,
-                        "type": "breakpoints.set",
-                        "params": { "source": file, "lines": [line_num] }
-                    }));
-                    set_simple_response(state, response, "Breakpoint set.");
-                }
+            if let Some(loc) = args.get(1)
+                && let Some((file, line)) = loc.split_once(':')
+            {
+                let line_num = line.parse::<u32>().unwrap_or(1);
+                let response = client.request(json!({
+                    "id": 1,
+                    "type": "breakpoints.set",
+                    "params": { "source": file, "lines": [line_num] }
+                }));
+                set_simple_response(state, response, "Breakpoint set.");
             }
         }
         "breaks" => {
@@ -332,10 +332,10 @@ pub(super) fn handle_layout_command(args: Vec<&str>, state: &mut UiState) -> any
     }
     let mut panels = Vec::new();
     for arg in args.iter().take(4) {
-        if let Some(panel) = PanelKind::parse(arg) {
-            if !panels.contains(&panel) {
-                panels.push(panel);
-            }
+        if let Some(panel) = PanelKind::parse(arg)
+            && !panels.contains(&panel)
+        {
+            panels.push(panel);
         }
     }
     if !panels.is_empty() {
@@ -353,14 +353,14 @@ pub(super) fn handle_layout_command(args: Vec<&str>, state: &mut UiState) -> any
 }
 
 pub(super) fn handle_focus_command(args: Vec<&str>, state: &mut UiState) -> anyhow::Result<()> {
-    if let Some(name) = args.first() {
-        if let Some(panel) = PanelKind::parse(name) {
-            state.focus = Some(panel);
-            state.prompt.set_output(vec![PromptLine::plain(
-                format!("Focused {name}."),
-                Style::default().fg(COLOR_INFO),
-            )]);
-        }
+    if let Some(name) = args.first()
+        && let Some(panel) = PanelKind::parse(name)
+    {
+        state.focus = Some(panel);
+        state.prompt.set_output(vec![PromptLine::plain(
+            format!("Focused {name}."),
+            Style::default().fg(COLOR_INFO),
+        )]);
     }
     Ok(())
 }

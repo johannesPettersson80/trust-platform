@@ -1,0 +1,13 @@
+{
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "run9_manifest_sha256": "0b37c8fbaacd6f101e916f793cc549f3c211b8beebd2062a04a44a72eaf162f2",
+  "artifact_index_sha256": "c92467f45981427281c5dc466489a713eab1f0e82fed343d12e4236637cacfff",
+  "review": "Independent read-only preserved evidence and source review; no executions",
+  "files": [
+    {
+      "path": "crates/trust-runtime/tests/vm_resource_limit_cases.rs",
+      "failed_candidate_sha256": "6f06f3fc342a5f66e2715b22d6a4bc1ec1b53cad2d64924278d17a2bc071edf5",
+      "corrected_sha256": "f660a7f510a4c615f31241bd2c8c38e8002c87bf3f137529959808cd4eb2dcc4"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# B-R3 layout and trace source review
+
+Accepted for source preparation with one explicitly pending metadata refresh: firmware HardFault currently appears at line 133 while full_map_policy retains line 144. Root notified; the existing once-only preparation refresher must bind the final formatted location before freeze. No other blocker found. Scripts are a subsequent review, not included in this identity.
+
+The four reverted firmware source files (main, runner, trace and lib) are byte-identical to isolated B-R2 M1 originals. trace_wire.rs is absent and no Rust references remain in firmware, adapter or tooling. Original B1 format strings, argument ordering, numeric formatting and panic metrics are restored. WATCHDOG_RESET plus DONE remains one writeln! and therefore one Console::write_fmt transaction. The corrected Console owner retains a single RecordBudget/start/512-byte allowance/final flush, with production budget arithmetic covered by its native tests. Removing the custom renderer removes its tests but does not remove the shared Console budget tests or the saved board trace oracle. Actual hardware transport remains unrun.
+
+The memory.x edit replaces only the merged-string selector with `.rodata.*dec2flt*POWER_OF_FIVE_128*`. The retained M2 map contains the matching POWER_OF_FIVE_128 input section at 10,416 bytes and 8-byte alignment. Other selected constant families, 32-byte output alignment, true vector-end placement, ALIGNOF assertion, sector-0 bounds and upper-load assertions remain unchanged. A different future input layout must still pass those bounds and the independent ELF inspector. This source review establishes neither fit nor additive size savings.
+
+README documents table selection and explicit sector erases preserving checkpoint gaps. The diagram remains a multiline note and accurately describes the selected live-storage/cache/journal ownership; rendering and architecture checks remain deferred to the authorized batch. No new unsafe code or exception ownership was introduced by this slice.
+
+No repository source edits, builds, formatters, validators, renderers, tests or hardware commands were run. Identity covers twelve existing paths and one deliberate deletion.

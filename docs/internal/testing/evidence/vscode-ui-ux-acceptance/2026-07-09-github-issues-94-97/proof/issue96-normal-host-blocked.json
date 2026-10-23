@@ -1,0 +1,31 @@
+{
+  "issue": 96,
+  "timestampStarted": "2026-07-09T21:45:34.543Z",
+  "timestampCompleted": "2026-07-09T21:46:07.231Z",
+  "result": "INFEASIBLE",
+  "hostMode": "normal Extension Development Host",
+  "extensionTestsPathUsed": false,
+  "command": [
+    "/home/johannes/projects/trust-platform/editors/vscode/.vscode-test/vscode-linux-arm64-1.127.0/code",
+    "/tmp/issue96-normal-host-20260709T233441+0200/project",
+    "--new-window",
+    "--remote-debugging-port=21996",
+    "--ozone-platform=x11",
+    "--disable-gpu",
+    "--use-gl=angle",
+    "--use-angle=swiftshader",
+    "--in-process-gpu",
+    "--no-sandbox",
+    "--user-data-dir",
+    "/tmp/issue96-normal-host-20260709T233441+0200/user-data",
+    "--extensions-dir",
+    "/tmp/issue96-normal-host-20260709T233441+0200/extensions",
+    "--disable-workspace-trust",
+    "--skip-welcome",
+    "--extensionDevelopmentPath=/home/johannes/projects/trust-platform-github-issues-94-97/editors/vscode"
+  ],
+  "cdpPort": 21996,
+  "modalObserved": false,
+  "modalText": "",
+  "hostLog": "/tmp/issue96-normal-host-20260709T233441+0200/normal-host.log"
+}

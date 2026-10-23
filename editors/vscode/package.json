@@ -1,9 +1,9 @@
 {
   "name": "trust-lsp",
   "displayName": "truST",
-  "description": "truST — IEC 61131-3 Structured Text language support",
+  "description": "truST \u2014 IEC 61131-3 Structured Text language support",
   "icon": "icon.png",
-  "version": "0.24.66",
+  "version": "0.24.75",
   "publisher": "trust-platform",
   "license": "MIT OR Apache-2.0",
   "engines": {
@@ -239,6 +239,26 @@
           "default": [],
           "title": "Additional runtime endpoints",
           "description": "Additional runtime control endpoints to aggregate in Devices & Connections (e.g. tcp://10.0.0.2:9901). Each is queried for fleet.topology and merged with the primary runtime so a host appears once.",
+          "scope": "resource"
+        },
+        "trust.ads.discoveryPorts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "uniqueItems": true,
+          "default": [
+            301,
+            501,
+            851,
+            852,
+            853,
+            854
+          ],
+          "title": "ADS discovery ports",
+          "description": "Logical ADS ports tested after an ADS device is discovered. Responding ports are shown on the device and in Browse Tags.",
           "scope": "resource"
         },
         "trust.runtime.authTokenFallback": {
@@ -5124,8 +5144,9 @@
     "clean:out": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",
     "typecheck:webview": "tsc -p ./tsconfig.webview.json",
     "generate:control-studio-types": "node ./scripts/generate-control-studio-types.js",
+    "build:test-tools": "cargo build --locked --manifest-path ../../Cargo.toml -p xtask",
     "generate:symbol-geometry": "node ./scripts/generate-symbol-geometry.js",
-    "check:canvas-geometry": "node ./scripts/network-canvas-overlap-check.js --require-browser",
+    "check:canvas-geometry": "npm run build:test-tools && node ./scripts/network-canvas-overlap-check.js --require-browser",
     "compile": "npm run build:libraries && npm run build:examples && npm run build:panel && npm run build:statechart && npm run build:blockly && npm run build:ladder && npm run build:sfc && npm run build:network-canvas && npm run build:control-studio && npm run build:hmi-builder && npm run clean:out && tsc -p ./ && npm run typecheck:webview",
     "watch": "concurrently \"node ./scripts/watch-io-panel.js\" \"node ./scripts/build-statechart-webview.js --watch\" \"node ./scripts/build-blockly-webview.js --watch\" \"node ./scripts/build-ladder-webview.js --watch\" \"node ./scripts/build-sfc-webview.js --watch\"",
     "lint": "eslint src --ext ts,tsx",
@@ -5134,43 +5155,39 @@
     "test": "npm run compile && npm run check:canvas-geometry && node ./out/test/runTest.js"
   },
   "dependencies": {
-    "@vscode/codicons": "^0.0.44",
-    "@xyflow/react": "^12.10.1",
+    "@vscode/codicons": "0.0.45",
+    "@xyflow/react": "12.12.0",
     "ajv": "6.14.0",
-    "blockly": "^11.1.1",
-    "clsx": "^2.1.1",
+    "blockly": "13.3.0",
+    "clsx": "2.1.1",
     "echarts": "6.1.0",
     "katex": "0.18.7",
-    "konva": "^9.3.22",
-    "lucide-react": "^0.575.0",
-    "markdown-it": "15.0.2",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "vscode-jsonrpc": "8.2.0",
-    "vscode-languageclient": "^9.0.1",
+    "konva": "10.7.1",
+    "lucide-react": "1.55.0",
+    "markdown-it": "15.0.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "vscode-jsonrpc": "9.0.3",
+    "vscode-languageclient": "10.1.2",
     "ws": "8.21.1"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^25.3.0",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@types/vscode": "^1.109.0",
-    "@typescript-eslint/eslint-plugin": "^8.56.0",
-    "@typescript-eslint/parser": "^8.56.0",
-    "@vscode/test-electron": "^2.5.2",
-    "concurrently": "^9.2.4",
-    "esbuild": "^0.28.1",
-    "eslint": "^10.0.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
+    "@types/mocha": "10.0.10",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/vscode": "1.109.0",
+    "@typescript-eslint/eslint-plugin": "8.71.1",
+    "@typescript-eslint/parser": "8.71.1",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "concurrently": "10.0.6",
+    "esbuild": "0.28.2",
+    "eslint": "10.12.0",
+    "eslint-plugin-react-hooks": "7.1.1",
     "json-schema-to-typescript": "15.0.4",
-    "mocha": "^11.7.6",
-    "prettier": "^3.9.9",
-    "typescript": "^5.9.3"
-  },
-  "overrides": {
-    "diff": "8.0.3",
-    "serialize-javascript": "7.0.5",
-    "shell-quote": "1.11.0"
+    "mocha": "12.0.3",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3"
   }
 }

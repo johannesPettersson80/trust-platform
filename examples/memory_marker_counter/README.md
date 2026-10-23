@@ -48,13 +48,13 @@ Bindings (`src/Configuration.st`):
 
 Procedure:
 
-1. Write `%MW0 = Word(41)`.
+1. Queue the write: `trust-runtime ctl --project examples/memory_marker_counter io-write %MW0 41`.
 2. Wait one cycle.
 
 Expected after first cycle:
 
-- `%QW0 = Word(41)` (latched cycle-start value)
-- `%MW0 = Word(42)` (incremented writeback at cycle end)
+- `%QW0 = Int(41)` (latched cycle-start value)
+- `%MW0 = Int(42)` (incremented writeback at cycle end)
 
 Expected after more cycles:
 

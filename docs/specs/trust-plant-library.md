@@ -16,9 +16,9 @@ section R. HMI integration: [specification 39](39-hmi-builder.md) and the
    library. There is one supported equipment library; the `Equipment` namespace and its
    compatibility copy are removed.
 3. Blocks read normal PLC inputs and write normal PLC outputs. Whether the I/O comes from a
-   driver or the simulator is runtime configuration ([specification 33](33-simulation-plant-models.md));
+   driver or the simulator is runtime configuration ([specification 46](46-simulation-plant-models.md));
    the library has no simulation branches, flags or models.
-4. PID loops are ordinary code around the existing `Control.PID` (specification 32, §8.1), with
+4. PID loops are ordinary code around the existing `Control.PID` (specification 45, §8.1), with
    no block around the PID; filters use `Control.LowPass`; alarms are `Alarm` library instances
    (specification 40). The library adds no second control law, alarm engine or historian.
 5. These blocks are ordinary process control. They are not certified safety functions; a
@@ -395,7 +395,7 @@ its level instrument owns them.
 ### 8.1 PID loop
 
 A PID loop is no block of this library. It is ordinary ST around the Control library's
-`Control.PID` (specification 32), executed through `Configure`, `Initialize` and `Update` as the
+`Control.PID` (specification 45), executed through `Configure`, `Initialize` and `Update` as the
 control course does: Create PLC code writes it ([spec 39 §10.5](39-hmi-builder.md)), and an
 engineer may write the same code by hand. A block around the PID, holding its own copy of the
 gains, would hide the PID's parameter record from Control Studio; the user decided on
@@ -414,7 +414,7 @@ gains, would hide the PID's parameter record from Control Studio; the user decid
    good measurement initialises the PID from it and from the present output, so the loop
    continues without a bump. A restart initialises it the same way.
 3. In Auto the manual output follows the output, so Manual takes over where the loop is; from
-   Manual the PID continues from the manual output (specification 32 §3), so Auto starts without
+   Manual the PID continues from the manual output (specification 45 §3), so Auto starts without
    a bump.
 4. The three gains share one sign (specification 37, §conversion domain): positive for direct
    action, negative for reverse action, when the output must rise while the measurement is above
@@ -591,7 +591,7 @@ loop is ordinary code around `Control.PID` (§8.1).
 
 ## 16. References
 
-[Spec 32 — Control.PID](32-control-pid.md), [spec 40 — Alarm library](40-alarm-library.md),
+[Spec 45 — Control.PID](45-control-pid.md), [spec 40 — Alarm library](40-alarm-library.md),
 [spec 39 — HMI](39-hmi-builder.md), [component catalogue](hmi-component-catalogue.md),
 [control platform purpose](control-platform-purpose.md). Research behind the patterns (not a
 certification claim): [PLCopen OOP guidelines](https://www.plcopen.org/news/plcopen-releases-guidelines-for-object-orientation/),

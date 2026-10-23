@@ -444,15 +444,6 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn type_storage_bit_width(&self, type_id: TypeId) -> Option<u128> {
-        let resolved = self.table.resolve_alias_type(type_id);
-        if matches!(self.table.type_by_id(resolved), Some(Type::Bool)) {
-            return Some(1);
-        }
-        self.sizeof_type_bytes(resolved)
-            .and_then(|bytes| u128::from(bytes).checked_mul(8))
-    }
-
     pub(super) fn collect_union_type(&mut self, node: &SyntaxNode, name: SmolStr) -> TypeId {
         let mut variants = Vec::new();
         let mut seen_variants = FxHashMap::default();
@@ -573,11 +564,11 @@ impl SymbolCollector<'_> {
                     values.push((value_name, value));
                     next_value = value + 1;
                 }
-            } else if child.kind() == SyntaxKind::Name {
-                if let Some((value_name, _range)) = name_from_node(&child) {
-                    values.push((value_name, next_value));
-                    next_value += 1;
-                }
+            } else if child.kind() == SyntaxKind::Name
+                && let Some((value_name, _range)) = name_from_node(&child)
+            {
+                values.push((value_name, next_value));
+                next_value += 1;
             }
         }
 
@@ -637,28 +628,24 @@ impl SymbolCollector<'_> {
         if let Some(pointer_node) = node
             .children()
             .find(|n| n.kind() == SyntaxKind::PointerType)
-        {
-            if let Some(inner_ref) = pointer_node
+            && let Some(inner_ref) = pointer_node
                 .children()
                 .find(|n| n.kind() == SyntaxKind::TypeRef)
-            {
-                let target = self.resolve_type_from_ref(&inner_ref);
-                return self.table.register_pointer_type(target);
-            }
+        {
+            let target = self.resolve_type_from_ref(&inner_ref);
+            return self.table.register_pointer_type(target);
         }
 
         // Handle reference types
         if let Some(ref_node) = node
             .children()
             .find(|n| n.kind() == SyntaxKind::ReferenceType)
-        {
-            if let Some(inner_ref) = ref_node
+            && let Some(inner_ref) = ref_node
                 .children()
                 .find(|n| n.kind() == SyntaxKind::TypeRef)
-            {
-                let target = self.resolve_type_from_ref(&inner_ref);
-                return self.table.register_reference_type(target);
-            }
+        {
+            let target = self.resolve_type_from_ref(&inner_ref);
+            return self.table.register_reference_type(target);
         }
 
         // Handle string types with length
@@ -1155,17 +1142,17 @@ impl SymbolCollector<'_> {
 
     pub(super) fn register_type_names(&mut self, node: &SyntaxNode, namespace: &[SmolStr]) {
         for child in node.children() {
-            if child.kind() == SyntaxKind::Name {
-                if let Some((name, _)) = name_from_node(&child) {
-                    let qualified = qualify_name(namespace, &name);
-                    self.table.register_type(
-                        qualified.clone(),
-                        Type::Alias {
-                            name: qualified,
-                            target: TypeId::UNKNOWN,
-                        },
-                    );
-                }
+            if child.kind() == SyntaxKind::Name
+                && let Some((name, _)) = name_from_node(&child)
+            {
+                let qualified = qualify_name(namespace, &name);
+                self.table.register_type(
+                    qualified.clone(),
+                    Type::Alias {
+                        name: qualified,
+                        target: TypeId::UNKNOWN,
+                    },
+                );
             }
         }
     }
@@ -1245,9 +1232,12 @@ fn subrange_contains_star(node: &SyntaxNode) -> bool {
         .any(|token| token.kind() == SyntaxKind::Star)
 }
 
-fn relative_address_bit_interval(address: &str, bit_width: u128) -> Option<(u128, u128)> {
+pub(super) fn relative_address_bit_interval(
+    address: &str,
+    bit_width: u128,
+) -> Option<(u128, u128)> {
     let address = address.strip_prefix('%')?;
-    let (unit, offset) = address.split_at(1);
+    let (unit, offset) = address.split_at_checked(1)?;
     if !matches!(
         unit,
         "X" | "x" | "B" | "b" | "W" | "w" | "D" | "d" | "L" | "l"

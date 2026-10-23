@@ -231,7 +231,7 @@ For each tutorial:
 
 ---
 
-## 09_simulation_coupling.st
+## 09_simulation_coupling/
 
 ### VS Code Feature Spotlight
 
@@ -239,7 +239,7 @@ For each tutorial:
 
 ### Guided Steps
 
-1. Open `09_simulation_coupling.st`.
+1. Open `09_simulation_coupling/src/main.st`.
 2. `Ctrl/Cmd+Shift+P` -> `Structured Text: Open Runtime Panel`.
 3. Start runtime (Local mode).
 4. In I/O panel, write `%IW0` below threshold (for example `Word(300)`) and observe alarm output.
@@ -318,7 +318,7 @@ For each tutorial:
 2. Build and run the tutorial project.
 3. Toggle `%IX0.0` / `%IX0.1` / `%IX0.2` / `%IX0.3` to drive start/stop/spike/bypass scenarios.
 4. Verify setpoint, deviation, and alarm values update in Live Values.
-5. Read the `%QX` outputs with `trust-runtime ctl ... io-read`.
+5. Read the `%QX` outputs with `trust-runtime ctl --project ./12_hmi_pid_process_dashboard io-read`.
 
 ### Challenge
 

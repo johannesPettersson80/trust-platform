@@ -17,13 +17,16 @@ fn trust_dev_command() -> Command {
 }
 
 fn trust_runtime_command_with_dev_alias() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command.env("TRUST_DEV_BIN", trust_dev_bin());
     command
 }
 
 fn trust_dev_bin() -> std::path::PathBuf {
-    if let Some(path) = option_env!("CARGO_BIN_EXE_trust-dev") {
+    if let Some(path) = std::env::var_os("CARGO_BIN_EXE_trust-dev") {
         return path.into();
     }
     if let Ok(path) = std::env::var("TRUST_DEV_BIN") {
@@ -146,8 +149,12 @@ fn docs_alias_ignores_an_unusable_sibling_and_uses_path() {
         .expect("write project source");
 
     let copied_runtime = runner_dir.join("trust-runtime");
-    std::fs::copy(env!("CARGO_BIN_EXE_trust-runtime"), &copied_runtime)
-        .expect("copy runtime binary");
+    std::fs::copy(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+        &copied_runtime,
+    )
+    .expect("copy runtime binary");
     std::fs::create_dir(runner_dir.join("trust-dev")).expect("create unusable sibling directory");
 
     let trust_dev = trust_dev_bin();
@@ -194,11 +201,14 @@ fn docs_alias_maps_a_signaled_child_to_shell_status() {
     permissions.set_mode(0o755);
     std::fs::set_permissions(&fake_trust_dev, permissions).expect("make shim executable");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .env("TRUST_DEV_BIN", &fake_trust_dev)
-        .arg("docs")
-        .output()
-        .expect("run alias with signaled child");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .env("TRUST_DEV_BIN", &fake_trust_dev)
+    .arg("docs")
+    .output()
+    .expect("run alias with signaled child");
 
     assert_eq!(
         output.status.code(),
@@ -224,11 +234,14 @@ fn docs_alias_propagates_a_normal_child_exit_code() {
     permissions.set_mode(0o755);
     std::fs::set_permissions(&fake_trust_dev, permissions).expect("make shim executable");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .env("TRUST_DEV_BIN", &fake_trust_dev)
-        .arg("docs")
-        .output()
-        .expect("run alias with non-zero child");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .env("TRUST_DEV_BIN", &fake_trust_dev)
+    .arg("docs")
+    .output()
+    .expect("run alias with non-zero child");
 
     assert_eq!(output.status.code(), Some(37));
     assert!(String::from_utf8_lossy(&output.stderr).contains("trust-dev docs"));
@@ -240,11 +253,14 @@ fn docs_alias_reports_an_unlaunchable_explicit_trust_dev() {
     let root = unique_temp_dir("docs-missing-child");
     let missing_trust_dev = root.join("missing-trust-dev");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .env("TRUST_DEV_BIN", &missing_trust_dev)
-        .arg("docs")
-        .output()
-        .expect("run alias with missing explicit child");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .env("TRUST_DEV_BIN", &missing_trust_dev)
+    .arg("docs")
+    .output()
+    .expect("run alias with missing explicit child");
 
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);

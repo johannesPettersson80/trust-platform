@@ -1,287 +1,8 @@
-//! Runtime restart and retention.
-
-#![allow(missing_docs)]
-
-use indexmap::IndexMap;
+//! Regression corpus for the installed common-engine lifecycle.
+#[cfg(test)]
+use crate::{error::RuntimeError, value::Value, RestartMode};
+#[cfg(test)]
 use smol_str::SmolStr;
-
-use crate::error;
-use crate::memory::VariableStorage;
-use crate::program_model::edge_phase_storage_name;
-use crate::task::TaskState;
-use crate::value::Value;
-
-use super::core::Runtime;
-use super::retain_snapshot::{retain_on_warm, value_is_retainable};
-use super::types::{GlobalInitValue, RestartMode};
-
-pub(super) struct PreparedRestart {
-    pub(super) storage: VariableStorage,
-    /// Markers committed from the restarted storage (Specification 11 §6.5).
-    pub(super) memory: crate::io::StagedImage,
-}
-
-impl Runtime {
-    /// Restart the runtime in the given mode (cold or warm).
-    pub fn restart(&mut self, mode: RestartMode) -> Result<(), error::RuntimeError> {
-        let prepared = self.prepare_restart(mode)?;
-        self.commit_restart(prepared);
-        Ok(())
-    }
-
-    pub(super) fn prepare_restart(
-        &self,
-        mode: RestartMode,
-    ) -> Result<PreparedRestart, error::RuntimeError> {
-        let globals = self.globals.clone();
-        let mut retained = IndexMap::new();
-        let mut retained_program_vars = Vec::new();
-        // Instance variables kept across a warm restart (IEC 61131-3 Ed.3 §6.5.6.2).
-        let mut kept_global_instances = Vec::new();
-        let mut kept_program_instances = Vec::new();
-        let declarations = super::restart_instances::Declarations {
-            function_blocks: &self.function_blocks,
-            classes: &self.classes,
-        };
-        if matches!(mode, RestartMode::Warm) {
-            for (name, meta) in &globals {
-                if let Some(Value::Instance(id)) = self.storage.get_global(name.as_ref()) {
-                    if let Some(image) = super::restart_instances::capture(
-                        &self.storage,
-                        &declarations,
-                        *id,
-                        retain_on_warm(meta.retain),
-                    ) {
-                        kept_global_instances.push((name.clone(), image));
-                    }
-                }
-                if retain_on_warm(meta.retain) {
-                    // Instance identities are never retained; their instances are reconstructed below.
-                    if let Some(value) = self
-                        .storage
-                        .get_global(name.as_ref())
-                        .filter(|value| value_is_retainable(value))
-                    {
-                        retained.insert(name.clone(), value.clone());
-                    }
-                }
-            }
-            for program in self.programs.values() {
-                let Some(Value::Instance(id)) = self.storage.get_global(program.name.as_ref())
-                else {
-                    continue;
-                };
-                for var in &program.vars {
-                    if let Some(Value::Instance(member)) =
-                        self.storage.get_instance_var(*id, var.name.as_ref())
-                    {
-                        if let Some(image) = super::restart_instances::capture(
-                            &self.storage,
-                            &declarations,
-                            *member,
-                            retain_on_warm(var.retain),
-                        ) {
-                            kept_program_instances.push((
-                                program.name.clone(),
-                                var.name.clone(),
-                                image,
-                            ));
-                        }
-                    }
-                    if !retain_on_warm(var.retain) {
-                        continue;
-                    }
-                    let Some(value) = self.storage.get_instance_var(*id, var.name.as_ref()) else {
-                        continue;
-                    };
-                    if value_is_retainable(value) {
-                        retained_program_vars.push((
-                            program.name.clone(),
-                            var.name.clone(),
-                            value.clone(),
-                        ));
-                    }
-                }
-                if let Some(inputs) = self.edge_inputs.get(&program.name) {
-                    for input in inputs {
-                        let Some(var) = program
-                            .vars
-                            .iter()
-                            .find(|var| var.name.eq_ignore_ascii_case(input.name.as_str()))
-                        else {
-                            continue;
-                        };
-                        if !retain_on_warm(var.retain) {
-                            continue;
-                        }
-                        let phase_name =
-                            edge_phase_storage_name(program.name.as_str(), input.name.as_str());
-                        let Some(value) = self
-                            .storage
-                            .get_instance_var(*id, phase_name.as_str())
-                            .cloned()
-                        else {
-                            continue;
-                        };
-                        if value_is_retainable(&value) {
-                            retained_program_vars.push((program.name.clone(), phase_name, value));
-                        }
-                    }
-                }
-            }
-        }
-
-        // Compiled runtime metadata keeps ValueRef targets for program/FB instances.
-        // Preserve those references across both cold and warm restarts by recreating
-        // instances from a stable id sequence before execution resumes.
-        let mut storage = self.storage.clone();
-        storage.reset_runtime_values(true);
-
-        for (name, meta) in globals {
-            let keep = matches!(mode, RestartMode::Warm) && retain_on_warm(meta.retain);
-            if keep {
-                if let Some(value) = retained.get(&name) {
-                    storage.set_global(name.clone(), value.clone());
-                    continue;
-                }
-            }
-            match meta.init {
-                GlobalInitValue::Value(value) => {
-                    storage.set_global(name.clone(), value);
-                }
-                GlobalInitValue::FunctionBlock { type_name } => {
-                    let key = SmolStr::new(type_name.to_ascii_uppercase());
-                    let fb = self
-                        .function_blocks
-                        .get(&key)
-                        .ok_or(error::RuntimeError::UndefinedFunctionBlock(type_name))?;
-                    let instance_id = crate::instance::create_fb_instance(
-                        &mut storage,
-                        &self.registry,
-                        &self.profile,
-                        &self.classes,
-                        &self.function_blocks,
-                        &self.functions,
-                        &self.stdlib,
-                        &self.initializer_catalog,
-                        fb,
-                    )?;
-                    storage.set_global(name.clone(), Value::Instance(instance_id));
-                }
-                GlobalInitValue::Class { type_name } => {
-                    let key = SmolStr::new(type_name.to_ascii_uppercase());
-                    let class_def = self
-                        .classes
-                        .get(&key)
-                        .ok_or(error::RuntimeError::TypeMismatch)?;
-                    let instance_id = crate::instance::create_class_instance(
-                        &mut storage,
-                        &self.registry,
-                        &self.profile,
-                        &self.classes,
-                        &self.function_blocks,
-                        &self.functions,
-                        &self.stdlib,
-                        &self.initializer_catalog,
-                        class_def,
-                    )?;
-                    storage.set_global(name.clone(), Value::Instance(instance_id));
-                }
-                GlobalInitValue::InstanceArray { initializer } => {
-                    let value = crate::instance::create_instance_array(
-                        &mut storage,
-                        &self.registry,
-                        &self.profile,
-                        &self.classes,
-                        &self.function_blocks,
-                        &self.functions,
-                        &self.stdlib,
-                        &self.initializer_catalog,
-                        meta.type_id,
-                    )?
-                    .ok_or(error::RuntimeError::TypeMismatch)?;
-                    if let Some(expr) = &initializer {
-                        crate::instance::apply_instance_array_initializer(
-                            &mut storage,
-                            &self.registry,
-                            &self.profile,
-                            &self.stdlib,
-                            &self.initializer_catalog,
-                            &self.function_blocks,
-                            None,
-                            &value,
-                            expr,
-                        )?;
-                    }
-                    storage.set_global(name.clone(), value);
-                }
-            }
-        }
-
-        let programs = self.programs.values().cloned().collect::<Vec<_>>();
-        for program in programs {
-            let instance_id = crate::instance::create_program_instance(
-                &mut storage,
-                &self.registry,
-                &self.profile,
-                &self.classes,
-                &self.function_blocks,
-                &self.functions,
-                &self.stdlib,
-                &self.initializer_catalog,
-                &program,
-            )?;
-            storage.set_global(program.name.clone(), Value::Instance(instance_id));
-        }
-        for (program_name, var_name, value) in retained_program_vars {
-            let Some(Value::Instance(id)) = storage.get_global(program_name.as_ref()) else {
-                continue;
-            };
-            storage.set_instance_var(*id, var_name, value);
-        }
-        for (name, image) in &kept_global_instances {
-            if let Some(Value::Instance(id)) = storage.get_global(name.as_ref()).cloned() {
-                super::restart_instances::restore(&mut storage, id, image);
-            }
-        }
-        for (program_name, var_name, image) in &kept_program_instances {
-            let Some(Value::Instance(program)) = storage.get_global(program_name.as_ref()).cloned()
-            else {
-                continue;
-            };
-            if let Some(Value::Instance(id)) = storage
-                .get_instance_var(program, var_name.as_ref())
-                .cloned()
-            {
-                super::restart_instances::restore(&mut storage, id, image);
-            }
-        }
-
-        let memory = self.io.interface().stage_memory(&storage)?;
-        Ok(PreparedRestart { storage, memory })
-    }
-
-    pub(super) fn commit_restart(&mut self, prepared: PreparedRestart) {
-        // Pending host method requests are not retained PLC state. A request prepared for
-        // the old instance generation must not execute against the restarted program.
-        if let Some(exchange) = self.hmi_exchange() {
-            exchange.methods.invalidate();
-        }
-        if let Some(debug) = &self.debug {
-            debug.clear_runtime_mutations();
-        }
-        self.storage = prepared.storage;
-        self.io.interface_mut().apply_staged(prepared.memory);
-        self.openot_telemetry.reset_scan_state();
-        for state in self.task_state.values_mut() {
-            *state = TaskState::new(self.current_time);
-        }
-        self.faults.clear();
-        self.cycle_counter = 0;
-        // The instances are new; a simulated plant publishes its controller measurements again.
-        self.clear_controller_measurements();
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -292,67 +13,48 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn restart_instance_construction_failure_preserves_live_state() {
-        let source = r#"
-FUNCTION_BLOCK CounterFb
-VAR
-    count : INT := INT#0;
-END_VAR
-END_FUNCTION_BLOCK
-
-VAR_GLOBAL
-    g_fb : CounterFb;
-END_VAR
-
-PROGRAM Main
-END_PROGRAM
-"#;
-
-        let mut harness = TestHarness::from_source(source).expect("compile harness");
-        let instance_id = match harness.runtime().storage.get_global("g_fb") {
-            Some(Value::Instance(id)) => *id,
-            other => panic!("expected g_fb instance, got {other:?}"),
-        };
+    fn restart_store_failure_preserves_live_state_and_queued_forces() {
+        struct FailedStore;
+        impl crate::retain::RetainStore for FailedStore {
+            fn load(&self) -> Result<crate::RetainSnapshot, RuntimeError> {
+                Err(RuntimeError::RetainStore("unavailable".into()))
+            }
+            fn store(&self, _: &crate::RetainSnapshot) -> Result<(), RuntimeError> {
+                Ok(())
+            }
+        }
+        let mut harness = TestHarness::from_source("FUNCTION_BLOCK CounterFb VAR count : INT; END_VAR END_FUNCTION_BLOCK VAR_GLOBAL g_fb : CounterFb; END_VAR PROGRAM Main END_PROGRAM").unwrap();
         harness
             .runtime_mut()
-            .storage
-            .set_instance_var(instance_id, "count", Value::Int(7));
+            .write_named_path(
+                "g_fb",
+                &[crate::value::RefSegment::Field("count".into())],
+                Value::Int(7),
+            )
+            .unwrap();
+        let Some(Value::Instance(instance)) = harness.runtime().storage().get_global("g_fb") else {
+            panic!("FB")
+        };
+        let instance = *instance;
         harness.runtime_mut().cycle_counter = 9;
         let debug = harness.runtime_mut().enable_debug();
-        debug.force_instance(instance_id, "count", Value::Int(99));
-
-        let fb_key = harness
-            .runtime()
-            .function_blocks
-            .keys()
-            .find(|name| name.eq_ignore_ascii_case("CounterFb"))
-            .cloned()
-            .expect("CounterFb definition key");
-        let fb = harness
+        debug.force_instance(instance, "count", Value::Int(99));
+        harness
             .runtime_mut()
-            .function_blocks
-            .shift_remove(&fb_key)
-            .expect("remove CounterFb definition");
-
+            .set_retain_store(Some(Box::new(FailedStore)), None);
         let error = harness
             .runtime_mut()
-            .restart(RestartMode::Warm)
-            .expect_err("missing FB definition must reject restart");
-        assert!(
-            matches!(error, error::RuntimeError::UndefinedFunctionBlock(_)),
-            "expected undefined FB restart failure, got {error:?}"
-        );
+            .restart_with_retain_store(RestartMode::Warm)
+            .unwrap_err();
+        assert!(matches!(error, RuntimeError::RetainStore(_)));
         assert_eq!(harness.runtime().cycle_counter, 9);
         assert_eq!(
             harness
                 .runtime()
-                .storage
-                .get_instance_var(instance_id, "count"),
-            Some(&Value::Int(7)),
-            "failed restart must preserve live instance storage"
+                .storage()
+                .get_instance_var(instance, "count"),
+            Some(&Value::Int(7))
         );
-
-        harness.runtime_mut().function_blocks.insert(fb_key, fb);
         let cycle = harness.cycle();
         assert!(
             cycle.errors.is_empty(),
@@ -361,10 +63,9 @@ END_PROGRAM
         assert_eq!(
             harness
                 .runtime()
-                .storage
-                .get_instance_var(instance_id, "count"),
-            Some(&Value::Int(99)),
-            "failed restart must preserve queued debug forces"
+                .storage()
+                .get_instance_var(instance, "count"),
+            Some(&Value::Int(99))
         );
         assert_eq!(harness.runtime().cycle_counter, 10);
     }
@@ -391,7 +92,8 @@ END_PROGRAM
         harness.cycle();
         let state_name = harness
             .runtime()
-            .globals
+            .storage()
+            .globals()
             .keys()
             .find(|name| name.as_str().eq_ignore_ascii_case("state"))
             .cloned()
@@ -446,7 +148,8 @@ END_PROGRAM
         let mut harness = TestHarness::from_source(source).expect("compile harness");
         let holder_name = harness
             .runtime()
-            .globals
+            .storage()
+            .globals()
             .keys()
             .find(|name| name.as_str().eq_ignore_ascii_case("retained_holder"))
             .cloned()
@@ -505,7 +208,8 @@ END_PROGRAM
         let mut harness = TestHarness::from_source(source).expect("compile harness");
         let holder_name = harness
             .runtime()
-            .globals
+            .storage()
+            .globals()
             .keys()
             .find(|name| name.as_str().eq_ignore_ascii_case("retained_holder"))
             .cloned()
@@ -549,7 +253,8 @@ END_PROGRAM
         let mut harness = TestHarness::from_source(source).expect("compile harness");
         let points_name = harness
             .runtime()
-            .globals
+            .storage()
+            .globals()
             .keys()
             .find(|name| name.as_str().eq_ignore_ascii_case("retained_points"))
             .cloned()

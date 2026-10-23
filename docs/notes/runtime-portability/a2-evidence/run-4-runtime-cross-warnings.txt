@@ -1,0 +1,17 @@
+[gate-progress state=started phase=A2-runtime-cross-warnings target=scena-rust-builder pid=1212012 elapsed=0.0s timeout=3600s command='bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+[runtime-warning-gate] Host target warning-deny check
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+[gate-progress state=running phase=A2-runtime-cross-warnings target=scena-rust-builder pid=1212012 elapsed=30.1s timeout=3600s command='bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+    Finished `dev` profile [unoptimized] target(s) in 47.18s
+[runtime-warning-gate] Windows cross-target warning-deny check (x86_64-pc-windows-gnu)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime-core)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+[gate-progress state=running phase=A2-runtime-cross-warnings target=scena-rust-builder pid=1212012 elapsed=60.1s timeout=3600s command='bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+[gate-progress state=running phase=A2-runtime-cross-warnings target=scena-rust-builder pid=1212012 elapsed=90.0s timeout=3600s command='bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+    Finished `dev` profile [unoptimized] target(s) in 47.98s
+[gate-progress state=finished phase=A2-runtime-cross-warnings target=scena-rust-builder pid=1212012 elapsed=96.3s timeout=3600s command='bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross' status=0]

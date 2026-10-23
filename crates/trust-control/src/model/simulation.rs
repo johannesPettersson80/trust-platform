@@ -223,10 +223,9 @@ fn materialize_delayed_model(
         sample_time_seconds,
         ..
     } = model
+        && (sample_time_seconds * 1000.0 - binding.step_ms).abs() > 1e-9
     {
-        if (sample_time_seconds * 1000.0 - binding.step_ms).abs() > 1e-9 {
-            return Err(ModelRefusal::DiscreteStepDisagrees);
-        }
+        return Err(ModelRefusal::DiscreteStepDisagrees);
     }
     let plant = delayed_system_of(model)?;
     validate_plant_shape(
@@ -265,10 +264,10 @@ fn materialize_state_space(
     sample_time_seconds: Option<f64>,
     binding: &SelectedModelSimulationBinding,
 ) -> Result<Materialized, ModelRefusal> {
-    if let Some(sample_time_seconds) = sample_time_seconds {
-        if (sample_time_seconds * 1000.0 - binding.step_ms).abs() > 1e-9 {
-            return Err(ModelRefusal::DiscreteUpdatePeriod);
-        }
+    if let Some(sample_time_seconds) = sample_time_seconds
+        && (sample_time_seconds * 1000.0 - binding.step_ms).abs() > 1e-9
+    {
+        return Err(ModelRefusal::DiscreteUpdatePeriod);
     }
     if identity.delay_seconds != 0.0 {
         return Err(ModelRefusal::ContinuousDelayAdapter);
@@ -395,20 +394,19 @@ fn matrix_parameters(system: &StateSpace) -> Result<Vec<(&'static str, Parameter
 }
 
 fn validate_binding(binding: &SelectedModelSimulationBinding) -> Result<(), ModelRefusal> {
-    if let Some(targets) = &binding.actuator_feedback_targets {
-        if targets.len() != binding.command_sources.len()
+    if let Some(targets) = &binding.actuator_feedback_targets
+        && (targets.len() != binding.command_sources.len()
             || targets
                 .iter()
                 .flatten()
-                .any(|address| !address.starts_with("%I"))
-        {
-            return Err(ModelRefusal::ActuatorFeedbackAddresses);
-        }
+                .any(|address| !address.starts_with("%I")))
+    {
+        return Err(ModelRefusal::ActuatorFeedbackAddresses);
     }
-    if let Some(actuators) = &binding.actuators {
-        if !actuators.iter().all(valid_actuator) {
-            return Err(ModelRefusal::InvalidActuator);
-        }
+    if let Some(actuators) = &binding.actuators
+        && !actuators.iter().all(valid_actuator)
+    {
+        return Err(ModelRefusal::InvalidActuator);
     }
     if !is_plant_id(&binding.plant_id) {
         return Err(ModelRefusal::PlantId);
@@ -476,10 +474,8 @@ fn ordered_address_is_valid(address: &str, prefixes: &[&str], allows_pid: bool) 
     if address.starts_with('%') {
         return prefixes.iter().any(|prefix| address.starts_with(prefix));
     }
-    if allows_pid {
-        if let Some(path) = address.strip_prefix("pid:") {
-            return is_symbol_path(path);
-        }
+    if allows_pid && let Some(path) = address.strip_prefix("pid:") {
+        return is_symbol_path(path);
     }
     is_symbol_path(address)
 }
@@ -518,20 +514,20 @@ fn simulation_toml(
             array_text(&binding.feedback_targets)
         ),
     ];
-    if let Some(targets) = &binding.actuator_feedback_targets {
-        if targets.iter().any(Option::is_some) {
-            let entries: Vec<String> = targets
-                .iter()
-                .map(|address| match address {
-                    None => "{}".to_owned(),
-                    Some(address) => format!("{{ address = {} }}", quote(address)),
-                })
-                .collect();
-            lines.push(format!(
-                "actuator_feedback_targets = [{}]",
-                entries.join(", ")
-            ));
-        }
+    if let Some(targets) = &binding.actuator_feedback_targets
+        && targets.iter().any(Option::is_some)
+    {
+        let entries: Vec<String> = targets
+            .iter()
+            .map(|address| match address {
+                None => "{}".to_owned(),
+                Some(address) => format!("{{ address = {} }}", quote(address)),
+            })
+            .collect();
+        lines.push(format!(
+            "actuator_feedback_targets = [{}]",
+            entries.join(", ")
+        ));
     }
     lines.push(format!("initial_state = {}", array_numbers(initial_state)?));
     lines.push(format!(

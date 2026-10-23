@@ -118,7 +118,7 @@ pub fn start_web_server_with_mode(
     ));
     let hmi_access = Arc::new(config.hmi.clone());
     crate::hmi::remote_operations::configure_owner(
-        &control_state.resource.hmi_exchange(),
+        &crate::control::hmi_ports::hmi_exchange(&control_state),
         hmi_sessions.clone(),
         hmi_access.clone(),
         control_state.audit_tx.clone(),
@@ -130,9 +130,10 @@ pub fn start_web_server_with_mode(
     // The runtime keeps the active bundle's trended values from the start (§5.9 item 1).
     super::hmi_display::trends::share_trended_paths(
         &hmi_store,
-        &control_state.resource.hmi_exchange(),
+        &crate::control::hmi_ports::hmi_exchange(&control_state),
     );
-    let hmi_alarms = super::hmi_alarms::AlarmService::start(control_state.resource.clone());
+    let hmi_alarms =
+        super::hmi_alarms::AlarmService::start(crate::control::hmi_ports::resource(&control_state));
     let hmi_commands = Arc::new(super::hmi_command::Commands {
         registry: Arc::new(crate::hmi::commands::registry::CommandRegistry::default()),
         access: hmi_access.clone(),

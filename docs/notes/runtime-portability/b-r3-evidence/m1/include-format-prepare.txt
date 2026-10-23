@@ -1,0 +1,2 @@
+[gate-progress state=started phase=B-R3-include-format-prepare target=scena-rust-builder pid=1605292 elapsed=0.0s timeout=7200s command='rustfmt --edition 2021 --config-path rustfmt.toml crates/trust-runtime-core/src/program_model/ops/time_ops.rs']
+[gate-progress state=finished phase=B-R3-include-format-prepare target=scena-rust-builder pid=1605292 elapsed=0.1s timeout=7200s command='rustfmt --edition 2021 --config-path rustfmt.toml crates/trust-runtime-core/src/program_model/ops/time_ops.rs' status=0]

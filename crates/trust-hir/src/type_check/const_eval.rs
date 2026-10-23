@@ -260,12 +260,11 @@ impl<'a> TypeChecker<'a> {
                 break;
             };
 
-            if const_named_scope_kind(scope.kind) {
-                if let Some(scope_name) = self.const_scope_name_for_scope(scope_id) {
-                    if scopes.last() != Some(&Some(scope_name.clone())) {
-                        scopes.push(Some(scope_name));
-                    }
-                }
+            if const_named_scope_kind(scope.kind)
+                && let Some(scope_name) = self.const_scope_name_for_scope(scope_id)
+                && scopes.last() != Some(&Some(scope_name.clone()))
+            {
+                scopes.push(Some(scope_name));
             }
 
             current = scope.parent;
@@ -281,12 +280,11 @@ impl<'a> TypeChecker<'a> {
 
         while let Some(scope_id) = current {
             let scope = self.symbols.get_scope(scope_id)?;
-            if const_named_scope_kind(scope.kind) {
-                if let Some(owner) = scope.owner {
-                    if let Some(symbol) = self.symbols.get(owner) {
-                        parts.push(symbol.name.clone());
-                    }
-                }
+            if const_named_scope_kind(scope.kind)
+                && let Some(owner) = scope.owner
+                && let Some(symbol) = self.symbols.get(owner)
+            {
+                parts.push(symbol.name.clone());
             }
             current = scope.parent;
         }

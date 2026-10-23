@@ -1,0 +1,10 @@
+[gate-progress state=started phase=A2-freeze-source target=scena-rust-builder pid=34594 elapsed=0.0s timeout=3600s command='python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-evidence-5.py']
+Traceback (most recent call last):
+  File "/home/johannes/.cache/trust-portability-a2-setup/prepare-evidence-5.py", line 13, in <module>
+    selected=select_generated_mutant(candidates,{key:mutation[key] for key in ('function','genre','replacement')})
+  File "/home/johannes/projects/trust-platform-portability-a2/scripts/verification/mutation_execution.py", line 44, in select_generated_mutant
+    raise MutationContractError(
+        f"mutation selector for {config.get('function')} found {len(matches)} generated mutants"
+    )
+scripts.verification.metadata_validator.mutation_contracts.MutationContractError: mutation selector for Parser<'t, 'src>::recover_top_level_until found 3 generated mutants
+[gate-progress state=finished phase=A2-freeze-source target=scena-rust-builder pid=34594 elapsed=0.3s timeout=3600s command='python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-evidence-5.py' status=1]

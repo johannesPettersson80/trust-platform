@@ -30,10 +30,7 @@ fn temp(name: &str) -> std::path::PathBuf {
 #[test]
 fn the_version_is_the_documented_hash_of_the_files_in_path_order() {
     let files = bundle(&[("hmi/pages/b.toml", b"B"), ("hmi/a.toml", b"A")]);
-    let expected = format!(
-        "{:x}",
-        Sha256::digest(b"hmi/a.toml\0A\0hmi/pages/b.toml\0B\0")
-    );
+    let expected = hex::encode(Sha256::digest(b"hmi/a.toml\0A\0hmi/pages/b.toml\0B\0")).to_string();
     assert_eq!(files.version(), expected);
     assert_eq!(files.short_version(), expected[..16]);
     assert_ne!(
@@ -199,4 +196,30 @@ fn a_project_bundle_holds_its_libraries_panels_pairs_and_symbols_its_own_taking_
         "{:?}",
         read.files.keys().collect::<Vec<_>>()
     );
+}
+
+/// An HMI route reads a file of `hmi/` only: a link, a linked folder or a path outside the folder
+/// never discloses the project's `io.toml`, whose credentials no route may show. Catches a
+/// reader that follows a link named like an image to the I/O configuration.
+#[cfg(unix)]
+#[test]
+fn an_hmi_file_read_never_follows_a_link_or_reaches_the_io_configuration() {
+    let root = temp("hmi-file-guard");
+    std::fs::create_dir_all(root.join("hmi/assets")).expect("an assets folder");
+    std::fs::write(root.join("io.toml"), "[io]\npassword = \"secret\"\n").expect("io.toml");
+    std::fs::write(root.join("hmi/assets/logo.svg"), "<svg/>").expect("an image");
+    std::os::unix::fs::symlink(root.join("io.toml"), root.join("hmi/assets/leak.svg"))
+        .expect("a link to io.toml");
+    std::os::unix::fs::symlink(&root, root.join("hmi/project")).expect("a linked folder");
+    std::fs::write(root.join("hmi/io.toml"), "[io]\n").expect("an io.toml inside hmi");
+
+    assert_eq!(
+        super::read_hmi_file(&root, "hmi/assets/logo.svg").as_deref(),
+        Some(&b"<svg/>"[..])
+    );
+    assert_eq!(super::read_hmi_file(&root, "hmi/assets/leak.svg"), None);
+    assert_eq!(super::read_hmi_file(&root, "hmi/project/io.toml"), None);
+    assert_eq!(super::read_hmi_file(&root, "hmi/../io.toml"), None);
+    assert_eq!(super::read_hmi_file(&root, "hmi/io.toml"), None);
+    let _ = std::fs::remove_dir_all(root);
 }

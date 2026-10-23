@@ -66,22 +66,28 @@ END_PROGRAM
 }
 
 fn run_validate(project: &std::path::Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("validate")
-        .arg("--project")
-        .arg(project)
-        .output()
-        .expect("run trust-runtime validate")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("validate")
+    .arg("--project")
+    .arg(project)
+    .output()
+    .expect("run trust-runtime validate")
 }
 
 fn run_validate_ci(project: &std::path::Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("validate")
-        .arg("--project")
-        .arg(project)
-        .arg("--ci")
-        .output()
-        .expect("run trust-runtime validate --ci")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("validate")
+    .arg("--project")
+    .arg(project)
+    .arg("--ci")
+    .output()
+    .expect("run trust-runtime validate --ci")
 }
 
 fn stderr_text(output: &Output) -> String {

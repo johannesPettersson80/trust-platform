@@ -21,7 +21,7 @@ export interface PlantMonitorResult {
    */
   reason?: string | null;
   /**
-   * The plant's status is a simulation's (specification 34, §20.4).
+   * The plant's status is a simulation's (specification 47, §20.4).
    */
   source: "Simulation" | "Physical";
   /**
@@ -125,7 +125,7 @@ export interface PlantStatusView {
   [k: string]: unknown;
 }
 /**
- * One actuator's position and flags (specification 34, §20.4).
+ * One actuator's position and flags (specification 47, §20.4).
  */
 export interface PlantActuatorStatus {
   /**

@@ -1,0 +1,18 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "status": "source-reviewed; corrections unvalidated",
+  "identity_sha256": "41125cc837543f7e333c2d71b578f148d83bb92b618af009f4da259400d2f75e",
+  "frozen_manifest_sha256": "230f05c6020e90a8d08be922a913b1d03758dfd70c64a9086e78f26c6571847b",
+  "files": [
+    {
+      "path": "xtask/src/portability/elf.rs",
+      "before_sha256": "65efbfebbc151aedfe93e02b25ce0ebf0dbf5b83f689f1959ef6899b75bef55c",
+      "prepared_sha256": "b84edaff9146c44657fa8147490a5e91724bd14b1defc1caf8dcfe6f3078df9c"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/conversions/string.rs",
+      "before_sha256": "8acd8a10f128c9e74d45ce48445cfd43667bd743d213798b7104633ff3ebc650",
+      "prepared_sha256": "d813463c8daa23bf968ba168497cfa65a875d859cc6ecec51aad3c70fe7f2e68"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+cd /home/johannes/projects/trust-platform-portability-br2-m1 || exit 1
+export PATH="$HOME/.cargo/bin:$PATH" RUSTUP_TOOLCHAIN=1.95.0
+unset RUSTFLAGS CARGO_ENCODED_RUSTFLAGS RUSTC_BOOTSTRAP CC CXX GIT_INDEX_FILE
+export RUSTC_WRAPPER=/usr/bin/env CARGO_BUILD_RUSTC_WRAPPER=/usr/bin/env SCCACHE_DISABLE=1
+export CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=6 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+export CARGO_TARGET_DIR=/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b
+export TMPDIR=/mnt/HC_Volume_107089260/builder-storage/tmp/portability-b
+export B_SETUP=/home/johannes/.cache/trust-portability-br2-setup
+export B_EVIDENCE=/home/johannes/.cache/trust-portability-b-evidence/b-r2-m1
+mkdir -p "$B_EVIDENCE" "$TMPDIR"

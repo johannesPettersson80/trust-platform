@@ -71,7 +71,10 @@ handlers::tests::core::core_part_07::lsp_inlay_hints_parameters: test
 handlers::tests::core::core_part_07::lsp_inline_values_constants: test
 handlers::tests::core::core_part_07::lsp_inline_values_fetch_runtime_values_from_control_stub: test
 handlers::tests::core::core_part_07::lsp_linked_editing_ranges: test
+handlers::tests::core::core_part_08::lsp_inline_values_editor_token_goes_to_the_editor_endpoint: test
 handlers::tests::core::core_part_08::lsp_inline_values_merge_instances_into_locals: test
+handlers::tests::core::core_part_08::lsp_inline_values_repository_endpoint_never_receives_the_editor_token: test
+handlers::tests::core::core_part_08::lsp_inline_values_repository_endpoint_uses_its_own_token: test
 handlers::tests::core::core_part_08::lsp_inline_values_runtime_override_accepts_camel_case_client_settings: test
 handlers::tests::core::core_part_08::lsp_inline_values_runtime_override_accepts_snake_case_client_settings: test
 handlers::tests::core::core_part_08::lsp_inline_values_runtime_override_prefers_camel_case_when_aliases_conflict: test
@@ -116,3 +119,5 @@ handlers::tests::mod_part_01::mod_part_01_part_01::lsp_golden_multi_root_protoco
 handlers::tests::mod_part_02::lsp_code_action_namespace_disambiguation_non_call: test
 handlers::tests::rename_trace_cases::editor_rename_local_trace_cases: test
 handlers::tests::rename_trace_cases::editor_rename_project_trace_cases: test
+handlers::tests::workspace_deletion::deleting_a_project_directory_removes_its_imports_before_the_next_scaffold: test
+handlers::tests::workspace_deletion::reindex_removes_missing_sources_without_dropping_budget_skipped_live_files: test

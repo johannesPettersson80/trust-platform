@@ -5,8 +5,8 @@ Thanks for taking the time to contribute. This project is early-stage and still 
 ## Development setup
 
 Prerequisites:
-- Rust 1.95+
-- Node.js 20+ (for the VS Code extension)
+- Rust 1.99+
+- Node.js 24.21.0 (for the VS Code extension)
 - [just](https://github.com/casey/just) (task runner used by the repo)
 
 Optional:

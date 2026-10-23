@@ -1,6 +1,6 @@
-//! The plant summary of a plant handoff (specification 35, §0.1a; specification 34, §20.4): the engine reads the active runtime's
+//! The plant summary of a plant handoff (specification 35, §0.1a; specification 47, §20.4): the engine reads the active runtime's
 //! `plant.status` and answers the plant's status, or the reason it is unavailable. This module decides it: which reads are not
-//! made (a stopped runtime, a blank endpoint), the decode of the runtime's answer as specification 34 names it, the stale-revision
+//! made (a stopped runtime, a blank endpoint), the decode of the runtime's answer as specification 47 names it, the stale-revision
 //! and missing-plant refusals, and the reason of a failed read. The read itself is the engine's runtime client, passed in.
 
 #![allow(clippy::module_name_repetitions)] // The types name their concept: the plant summary.
@@ -20,7 +20,7 @@ pub const UNREACHABLE: &str = "Runtime is unreachable";
 pub const AUTHORIZATION_REJECTED: &str = "Runtime authorization was rejected";
 /// The runtime does not answer `plant.status`.
 pub const UNSUPPORTED: &str = "Plant status is unsupported";
-/// The runtime's answer is not the `plant.status` answer of specification 34, §20.4.
+/// The runtime's answer is not the `plant.status` answer of specification 47, §20.4.
 pub const MALFORMED: &str = "Plant status is malformed";
 /// The running project has no plant with the handoff's identifier.
 pub const NO_PLANT: &str = "Plant no longer exists";
@@ -33,7 +33,7 @@ const REVISION_PREFIX: &str = "sha256:";
 const PROJECT_PREFIX: &str = "project:sha256:";
 const SAFE_INTEGER_MAX: u64 = 9_007_199_254_740_991;
 
-/// The top-level fields of a `plant.status` answer (specification 34, §20.4), exactly as the runtime writes them.
+/// The top-level fields of a `plant.status` answer (specification 47, §20.4), exactly as the runtime writes them.
 const STATUS_FIELDS: [&str; 14] = [
     "contract",
     "schema_version",
@@ -126,7 +126,7 @@ pub enum OperatingState {
     Faulted,
 }
 
-/// One actuator's position and flags (specification 34, §20.4).
+/// One actuator's position and flags (specification 47, §20.4).
 #[allow(clippy::struct_excessive_bools)] // The runtime reports each actuator flag as its own boolean.
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -204,7 +204,7 @@ pub struct PlantStatusView {
 pub struct PlantMonitorResult {
     /// Whether the status is available.
     pub availability: PlantAvailability,
-    /// The plant's status is a simulation's (specification 34, §20.4).
+    /// The plant's status is a simulation's (specification 47, §20.4).
     pub source: MonitorSource,
     /// The plant the handoff names.
     pub plant_id: String,
@@ -216,7 +216,7 @@ pub struct PlantMonitorResult {
     pub status: Option<PlantStatusView>,
 }
 
-/// Answers `controlStudio/plantMonitor` (specification 34, §20.4; specification 35, §0.1a). The runtime is read only when the
+/// Answers `controlStudio/plantMonitor` (specification 47, §20.4; specification 35, §0.1a). The runtime is read only when the
 /// panel's state allows it: a stopped runtime that does not answer its probe is not read, and a blank endpoint is unreachable.
 /// `read` makes the one read of `plant.status` for the connection, with the endpoint trimmed; it answers the runtime's answer, or
 /// the text of why the read failed (the refusal code and the failure's words), which decides the reason.
@@ -318,7 +318,7 @@ struct Top {
     random_algorithm_version: u64,
 }
 
-/// Decodes the runtime's `plant.status` answer for `project_id`, as specification 34, §20.4 names its form: the top-level fields
+/// Decodes the runtime's `plant.status` answer for `project_id`, as specification 47, §20.4 names its form: the top-level fields
 /// exactly, the project and the operation it names, and every plant with its own exact fields. An answer of another form is not
 /// decoded (`None`).
 fn read_status(value: &Value, project_id: &str) -> Option<ActiveStatus> {
@@ -357,7 +357,7 @@ fn read_status(value: &Value, project_id: &str) -> Option<ActiveStatus> {
     })
 }
 
-/// One plant's status, when it has exactly the fields of specification 34, §20.4 and each holds its form.
+/// One plant's status, when it has exactly the fields of specification 47, §20.4 and each holds its form.
 fn read_plant(value: &Value, top: &Top) -> Option<PlantRead> {
     let plant = value.as_object()?;
     if !has_exactly(plant, &PLANT_FIELDS) {
@@ -443,7 +443,7 @@ fn non_empty_text(value: Option<&Value>) -> Option<String> {
         .map(str::to_owned)
 }
 
-/// A configuration revision: `sha256:` and at least one more character (specification 34, §20.4).
+/// A configuration revision: `sha256:` and at least one more character (specification 47, §20.4).
 fn revision_text(value: Option<&Value>) -> Option<String> {
     non_empty_text(value).filter(|revision| {
         revision.starts_with(REVISION_PREFIX) && revision.len() > REVISION_PREFIX.len()

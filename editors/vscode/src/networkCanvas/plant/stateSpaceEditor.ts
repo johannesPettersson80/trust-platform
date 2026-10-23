@@ -18,7 +18,7 @@ export interface PlantInputDelayIssue {
   message: string;
 }
 
-/** Mirrors Specification 33's transport-history contract without allocating history. */
+/** Mirrors Specification 46's transport-history contract without allocating history. */
 export function validateStateSpaceInputDelays(input: {
   parameters: PlantParameters;
   inputs: number;

@@ -1,0 +1,4 @@
+[gate-progress state=started phase=A2-fixture-clippy target=scena-rust-builder pid=78278 elapsed=0.0s timeout=3600s command='cargo clippy --locked -p trust-runtime --test bytecode_vm_core --all-features -- -D warnings']
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a2/crates/trust-runtime)
+    Finished `dev` profile [unoptimized] target(s) in 0.76s
+[gate-progress state=finished phase=A2-fixture-clippy target=scena-rust-builder pid=78278 elapsed=0.9s timeout=3600s command='cargo clippy --locked -p trust-runtime --test bytecode_vm_core --all-features -- -D warnings' status=0]

@@ -42,12 +42,15 @@ impl Drop for Project {
 }
 
 fn check(args: &[&std::ffi::OsStr]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-lsp"))
-        .arg("check")
-        .args(args)
-        .env_remove("RUST_LOG")
-        .output()
-        .expect("run trust-lsp check")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-lsp")
+            .expect("Cargo must provide trust-lsp binary while executing integration tests"),
+    )
+    .arg("check")
+    .args(args)
+    .env_remove("RUST_LOG")
+    .output()
+    .expect("run trust-lsp check")
 }
 
 fn text(bytes: &[u8]) -> String {

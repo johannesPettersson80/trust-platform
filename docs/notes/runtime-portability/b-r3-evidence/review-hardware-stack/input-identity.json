@@ -1,0 +1,11 @@
+{
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/run3/measurement/firmware.elf": "87d622c71fa6f6dab01d13caef9db2671a174f9ccb575b0398d76389b8f61c5b",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/run3/measurement/firmware.map": "83f976f1c22c399a5ece0d1ce59249fb5781ccc8b554a64d740c0c2674dfc48b",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/final-board/uart.txt": "ec2c27fbbc5a1c25d77a9c972ed0323dd0bd02fdd1e7d62422aae3b25e2cb9ac",
+  "/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core/src/vm/dispatch.rs": "7a53ce4a771db4aa621115cb3a38d2e677ba7d43a498df7a5fb77d5faaef4439",
+  "/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core/src/vm/call/mod.rs": "8da5dde79824ddb897caae527ec91af5deccca8dc20db3bb6c6b2e8c3001f0a3",
+  "/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core/src/vm/engine/initialization/mod.rs": "91311e8d59d8a0be6c668b3f9e2f836b7dd5c3712b8b73c3f35461181e914e29",
+  "/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re/src/main.rs": "ab800e76983aa8cc282ceaaf4bf7e6fc963d5d71a6921a9d9e5b29035a56e67b",
+  "/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re/src/runner.rs": "c9feed521109a6581108e181c1cbb9c880486b7947f82d90a1919e8fdcf2a425",
+  "/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re/src/memory.rs": "735074515c0a8d8e8013de6d514fe67e746f43c9f09f3beeaaa1522664426a97"
+}

@@ -1,20 +1,23 @@
 [package]
 name = "trust-fuzz"
 version = "0.0.0"
+license = "MIT OR Apache-2.0"
 publish = false
-edition = "2021"
+edition = "2024"
+rust-version = "1.99"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
+libfuzzer-sys = "0.4.13"
 trust-hir = { path = "../crates/trust-hir" }
 trust-lsp = { path = "../crates/trust-lsp" }
 trust-plcopen = { path = "../crates/trust-plcopen" }
 trust-runtime = { path = "../crates/trust-runtime" }
+trust-runtime-core = { path = "../crates/trust-runtime-core", features = ["register-ir"] }
 trust-syntax = { path = "../crates/trust-syntax" }
-serde_json = "1"
+serde_json = "1.0.152"
 
 [[bin]]
 name = "syntax_parse"
@@ -47,6 +50,18 @@ test = false
 doc = false
 
 [[bin]]
+name = "bytecode_admission"
+path = "fuzz_targets/bytecode_admission.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "bytecode_reprepare"
+path = "fuzz_targets/bytecode_reprepare.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "runtime_config"
 path = "fuzz_targets/runtime_config.rs"
 test = false
@@ -59,3 +74,4 @@ test = false
 doc = false
 
 [workspace]
+resolver = "3"

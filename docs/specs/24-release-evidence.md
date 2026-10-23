@@ -116,6 +116,16 @@ names are nonempty and unique, and must include `SHA256SUMS`,
 Only after every state is accepted may the guard report success and emit its
 release and workflow URLs.
 
+### Exact-SHA candidate execution
+
+Release-sensitive pushes require a clean exact-SHA candidate artifact whose
+recorded local and remote commands all ran against the candidate revision. The
+remote VS Code gate uses a unique, bounded-length temporary directory under
+`/tmp` for browser and Extension Host process sockets, removes that directory
+when the gate exits, and keeps Cargo build output in the separately validated
+generated target. A caller-supplied target path must not lengthen browser socket
+paths or make an otherwise valid rendered gate fail.
+
 ### Tag-triggered preflight and manifest alignment
 
 Before a tag-triggered release builds artifacts, the workspace package version,

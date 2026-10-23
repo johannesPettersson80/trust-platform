@@ -1,0 +1,7 @@
+[gate-progress state=started phase=A2-provenance-tooling target=scena-rust-builder pid=1029917 elapsed=0.0s timeout=3600s command='python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.metadata_validator.case_trace_contract_tests']
+........................................
+----------------------------------------------------------------------
+Ran 40 tests in 0.822s
+
+OK
+[gate-progress state=finished phase=A2-provenance-tooling target=scena-rust-builder pid=1029917 elapsed=1.0s timeout=3600s command='python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.metadata_validator.case_trace_contract_tests' status=0]

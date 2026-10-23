@@ -1,0 +1,387 @@
+{
+  "approximate_text_family_delta_bytes": {
+    "adapter": 104,
+    "allocator": 2,
+    "btree": -1032,
+    "decode": 1188,
+    "dispatch": 710,
+    "encode": 0,
+    "engine": -1178,
+    "firmware": 1140,
+    "libm": 24,
+    "other": -846,
+    "preparation": -16,
+    "sort": -424,
+    "stdlib": -1024,
+    "validator": 2604
+  },
+  "baseline": {
+    "approximate_text_families": {
+      "adapter": {
+        "bytes": 2154
+      },
+      "allocator": {
+        "bytes": 304
+      },
+      "btree": {
+        "bytes": 26854
+      },
+      "decode": {
+        "bytes": 15226
+      },
+      "dispatch": {
+        "bytes": 53988
+      },
+      "encode": {
+        "bytes": 0
+      },
+      "engine": {
+        "bytes": 44940
+      },
+      "firmware": {
+        "bytes": 15876
+      },
+      "libm": {
+        "bytes": 17020
+      },
+      "other": {
+        "bytes": 141926
+      },
+      "preparation": {
+        "bytes": 35366
+      },
+      "sort": {
+        "bytes": 986
+      },
+      "stdlib": {
+        "bytes": 25966
+      },
+      "validator": {
+        "bytes": 54498
+      }
+    },
+    "code_free_bytes": 0,
+    "code_load_bytes": 474392,
+    "code_origin": 134283264,
+    "code_padding_bytes": 8,
+    "code_span_bytes": 474400,
+    "deduplicated_alias_rows": 92,
+    "estimated_L2_overflow_bytes": 15648,
+    "flash_load_bytes": 489516,
+    "sections": {
+      ".ARM.attributes": {
+        "bytes": 67,
+        "lma": 0,
+        "vma": 0
+      },
+      ".bss": {
+        "bytes": 73788,
+        "lma": 536870912,
+        "vma": 536870912
+      },
+      ".comment": {
+        "bytes": 139,
+        "lma": 0,
+        "vma": 0
+      },
+      ".data": {
+        "bytes": 0,
+        "lma": 536870912,
+        "vma": 536870912
+      },
+      ".debug_abbrev": {
+        "bytes": 10681,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_aranges": {
+        "bytes": 26800,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_frame": {
+        "bytes": 82016,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_info": {
+        "bytes": 795160,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_line": {
+        "bytes": 485327,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_loc": {
+        "bytes": 109,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_pubnames": {
+        "bytes": 702,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_pubtypes": {
+        "bytes": 71,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_ranges": {
+        "bytes": 196536,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_str": {
+        "bytes": 2624680,
+        "lma": 0,
+        "vma": 0
+      },
+      ".firmware_rodata": {
+        "bytes": 14720,
+        "lma": 134218144,
+        "vma": 134218144
+      },
+      ".gnu.sgstubs": {
+        "bytes": 0,
+        "lma": 134757664,
+        "vma": 134757664
+      },
+      ".rodata": {
+        "bytes": 38924,
+        "lma": 134718736,
+        "vma": 134718736
+      },
+      ".shstrtab": {
+        "bytes": 263,
+        "lma": 0,
+        "vma": 0
+      },
+      ".strtab": {
+        "bytes": 216087,
+        "lma": 0,
+        "vma": 0
+      },
+      ".symtab": {
+        "bytes": 122320,
+        "lma": 0,
+        "vma": 0
+      },
+      ".text": {
+        "bytes": 435468,
+        "lma": 134283264,
+        "vma": 134283264
+      },
+      ".uninit": {
+        "bytes": 0,
+        "lma": 536944700,
+        "vma": 536944700
+      },
+      ".vector_table": {
+        "bytes": 404,
+        "lma": 134217728,
+        "vma": 134217728
+      }
+    },
+    "sector0_free_bytes": 1248,
+    "sector0_load_bytes": 15124,
+    "sector0_overflow_bytes": 0,
+    "sector0_padding_bytes": 12,
+    "sector0_span_bytes": 15136,
+    "text_attributed_bytes": 435104,
+    "text_unmapped_residual_bytes": 364
+  },
+  "code_capacity_bytes": 458752,
+  "code_span_delta_bytes": 1856,
+  "current": {
+    "approximate_text_families": {
+      "adapter": {
+        "bytes": 2258
+      },
+      "allocator": {
+        "bytes": 306
+      },
+      "btree": {
+        "bytes": 25822
+      },
+      "decode": {
+        "bytes": 16414
+      },
+      "dispatch": {
+        "bytes": 54698
+      },
+      "encode": {
+        "bytes": 0
+      },
+      "engine": {
+        "bytes": 43762
+      },
+      "firmware": {
+        "bytes": 17016
+      },
+      "libm": {
+        "bytes": 17044
+      },
+      "other": {
+        "bytes": 141080
+      },
+      "preparation": {
+        "bytes": 35350
+      },
+      "sort": {
+        "bytes": 562
+      },
+      "stdlib": {
+        "bytes": 24942
+      },
+      "validator": {
+        "bytes": 57102
+      }
+    },
+    "code_free_bytes": 0,
+    "code_load_bytes": 476252,
+    "code_origin": 134283264,
+    "code_padding_bytes": 4,
+    "code_span_bytes": 476256,
+    "deduplicated_alias_rows": 101,
+    "estimated_L2_overflow_bytes": 17504,
+    "flash_load_bytes": 490896,
+    "sections": {
+      ".ARM.attributes": {
+        "bytes": 67,
+        "lma": 0,
+        "vma": 0
+      },
+      ".bss": {
+        "bytes": 73788,
+        "lma": 536870912,
+        "vma": 536870912
+      },
+      ".comment": {
+        "bytes": 139,
+        "lma": 0,
+        "vma": 0
+      },
+      ".data": {
+        "bytes": 0,
+        "lma": 536870912,
+        "vma": 536870912
+      },
+      ".debug_abbrev": {
+        "bytes": 10972,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_aranges": {
+        "bytes": 27504,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_frame": {
+        "bytes": 84056,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_info": {
+        "bytes": 787301,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_line": {
+        "bytes": 487053,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_loc": {
+        "bytes": 109,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_pubnames": {
+        "bytes": 702,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_pubtypes": {
+        "bytes": 71,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_ranges": {
+        "bytes": 201800,
+        "lma": 0,
+        "vma": 0
+      },
+      ".debug_str": {
+        "bytes": 2517407,
+        "lma": 0,
+        "vma": 0
+      },
+      ".firmware_rodata": {
+        "bytes": 14240,
+        "lma": 134218144,
+        "vma": 134218144
+      },
+      ".gnu.sgstubs": {
+        "bytes": 0,
+        "lma": 134759520,
+        "vma": 134759520
+      },
+      ".rodata": {
+        "bytes": 39540,
+        "lma": 134719976,
+        "vma": 134719976
+      },
+      ".shstrtab": {
+        "bytes": 263,
+        "lma": 0,
+        "vma": 0
+      },
+      ".strtab": {
+        "bytes": 221431,
+        "lma": 0,
+        "vma": 0
+      },
+      ".symtab": {
+        "bytes": 124976,
+        "lma": 0,
+        "vma": 0
+      },
+      ".text": {
+        "bytes": 436712,
+        "lma": 134283264,
+        "vma": 134283264
+      },
+      ".uninit": {
+        "bytes": 0,
+        "lma": 536944700,
+        "vma": 536944700
+      },
+      ".vector_table": {
+        "bytes": 404,
+        "lma": 134217728,
+        "vma": 134217728
+      }
+    },
+    "sector0_free_bytes": 1728,
+    "sector0_load_bytes": 14644,
+    "sector0_overflow_bytes": 0,
+    "sector0_padding_bytes": 12,
+    "sector0_span_bytes": 14656,
+    "text_attributed_bytes": 436356,
+    "text_unmapped_residual_bytes": 356
+  },
+  "flash_load_delta_bytes": 1380,
+  "limitations": "Section totals are exact map values; flash load excludes RAM-only and debug sections, and does not include gaps. Upper code and sector-0 spans include their placement gaps separately. Family ownership is approximate, disjoint symbol attribution, not isolated causal savings per edit. Upper overflow is estimated against L2's 448 KiB code capacity for both maps; sector-0 capacity is 16 KiB. Only ELF inspection establishes installability. Unnamed instructions, literal pools and alignment remain an explicit residual.",
+  "schema": "trust-f401-map-comparison-v1",
+  "section_delta_bytes": {
+    ".bss": 0,
+    ".data": 0,
+    ".firmware_rodata": -480,
+    ".rodata": 616,
+    ".text": 1244,
+    ".vector_table": 0
+  }
+}

@@ -1,0 +1,12 @@
+[gate-progress state=started phase=A2-metadata target=scena-rust-builder pid=1034798 elapsed=0.0s timeout=3600s command='python3 scripts/validate_verification_metadata.py']
+[gate-progress state=running phase=A2-metadata target=scena-rust-builder pid=1034798 elapsed=30.0s timeout=3600s command='python3 scripts/validate_verification_metadata.py']
+verification metadata validation failed:
+- verification/gate-inventory.toml: missing inventory record for live fact DISC_A8A2891F6E41A9FC5813 scripts/openot_real_database_gate.sh openot_real_database_gate
+- verification/gate-inventory.toml: missing inventory record for live fact DISC_AA1BB3D48730FBC3E7F8 scripts/supply_chain_gate.sh supply_chain_gate
+- verification/gate-inventory.toml: missing inventory record for live fact DISC_AC946DF7E9314615FACC .github/workflows/openot-real-databases.yml OpenOT real databases / exact-product-matrix
+- verification/gate-inventory.toml: missing inventory record for live fact DISC_AF0D11C20AA129227402 .github/workflows/release.yml Release / openot-real-databases
+- verification/gate-inventory.toml: missing inventory record for live fact DISC_FE08B50A7CAE0DA0D32B scripts/architecture_safety_gate.sh architecture_safety_gate
+- verification/suites/nightly.toml: nightly commands must not contain duplicates
+- verification/suites/nightly.toml: nightly command_bindings must not contain duplicates
+- verification/fuzz-program.toml: execution source .github/workflows/ci.yml digest drifted
+[gate-progress state=finished phase=A2-metadata target=scena-rust-builder pid=1034798 elapsed=55.9s timeout=3600s command='python3 scripts/validate_verification_metadata.py' status=1]

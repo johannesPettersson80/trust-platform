@@ -10,12 +10,12 @@ pub(super) fn apply_program_retain_overrides(
             continue;
         };
         let type_name = super::resolve_program_type_name(program_defs, &program.type_name, using)?;
-        if let Some(existing) = retain_by_type.insert(type_name.clone(), policy) {
-            if existing != policy {
-                return Err(CompileError::new(
-                    "conflicting RETAIN/NON_RETAIN qualifiers for program type",
-                ));
-            }
+        if let Some(existing) = retain_by_type.insert(type_name.clone(), policy)
+            && existing != policy
+        {
+            return Err(CompileError::new(
+                "conflicting RETAIN/NON_RETAIN qualifiers for program type",
+            ));
         }
     }
 
@@ -34,7 +34,7 @@ pub(super) fn apply_program_retain_overrides(
 }
 
 pub(super) fn register_program_instances(
-    runtime: &mut Runtime,
+    runtime: &mut RuntimeBuilder,
     program_defs: &IndexMap<SmolStr, ProgramDef>,
     programs: &[ProgramInstanceConfig],
     using: &[SmolStr],
@@ -68,7 +68,7 @@ pub(super) fn register_program_instances(
         let mut instance = def.clone();
         instance.name = program.name.clone();
         runtime
-            .register_program(instance.clone())
+            .materialize_legacy_program(instance.clone())
             .map_err(|err| CompileError::new(format!("PROGRAM init error: {err}")))?;
         runtime.set_program_type(program.name.as_str(), def.name.clone());
         let instance_id = match runtime.storage().get_global(program.name.as_ref()) {
@@ -132,7 +132,7 @@ pub(super) fn attach_programs_to_tasks(
 }
 
 pub(super) fn attach_fb_instances_to_tasks(
-    runtime: &Runtime,
+    runtime: &RuntimeBuilder,
     tasks: &mut [crate::task::TaskConfig],
     programs: &[ProgramInstanceConfig],
 ) -> Result<(), CompileError> {

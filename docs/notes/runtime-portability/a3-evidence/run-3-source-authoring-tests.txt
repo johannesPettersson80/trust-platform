@@ -1,0 +1,70 @@
+[gate-progress state=started phase=A3-source-authoring-tests target=scena-rust-builder pid=582377 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_source_free_authoring -- --nocapture --test-threads=1 --skip saved_two_point_zero_fixture_matches_source_and_portable_reader']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime)
+    Finished `test` profile [unoptimized] target(s) in 5.77s
+     Running tests/bytecode_source_free_authoring.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_source_free_authoring-4787ee61ad43e8f3)
+
+running 16 tests
+test access_aliases_cannot_collide_with_resource_globals_in_saved_artifacts ... ok
+test array_and_member_defaults_are_compiled_as_value_recipes ... ok
+
+thread 'explicit_local_initialization_does_not_execute_a_separate_type_default' (582528) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:82:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "invalid section data: local VAR_META name must use the reserved @local scope" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test explicit_local_initialization_does_not_execute_a_separate_type_default ... FAILED
+test explicit_version_selection_keeps_the_legacy_default ... ok
+
+thread 'function_statics_keep_distinct_initial_and_restart_contexts' (582530) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:119:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "invalid section data: local VAR_META name must use the reserved @local scope" }
+test function_statics_keep_distinct_initial_and_restart_contexts ... FAILED
+test source_free_aliases_can_read_multiple_concrete_program_roots ... ok
+
+thread 'source_free_authoring_preserves_a_faulting_initializer_without_running_it' (582532) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:18:10:
+source-free authoring retains executable startup code: CompileError { message: "error[E202]: variable initializer must be a literal or constant expression: mutable dependency 'divisor' (at 45..57)" }
+test source_free_authoring_preserves_a_faulting_initializer_without_running_it ... FAILED
+
+thread 'source_free_disabled_result_recipe_is_not_evaluated_during_authoring' (582533) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:415:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "error[E202]: default constant expression divides by zero (at 28..42)\nerror[E204]: expected 0 arguments, found 1 (at 159..177)" }
+test source_free_disabled_result_recipe_is_not_evaluated_during_authoring ... FAILED
+
+thread 'source_free_fb_signature_lookup_uses_frame_shadowing_without_a_concrete_instance' (582534) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:333:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "invalid section data: local VAR_META name must use the reserved @local scope" }
+test source_free_fb_signature_lookup_uses_frame_shadowing_without_a_concrete_instance ... FAILED
+
+thread 'source_free_frame_types_and_dense_slots_are_admission_invariants' (582535) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:248:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "invalid section data: local VAR_META name must use the reserved @local scope" }
+test source_free_frame_types_and_dense_slots_are_admission_invariants ... FAILED
+test source_free_globals_preserve_constant_qualifiers ... ok
+
+thread 'source_free_io_bindings_cannot_exceed_the_advertised_image' (582537) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:223:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "invalid section data: invalid construction record" }
+test source_free_io_bindings_cannot_exceed_the_advertised_image ... FAILED
+test source_free_signatures_cover_rootless_and_inherited_fb_templates ... ok
+test source_free_single_tasks_require_a_bool_global ... ok
+
+thread 'static_lexical_names_must_be_unique_even_when_backing_names_differ' (582540) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:431:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "invalid section data: local VAR_META name must use the reserved @local scope" }
+test static_lexical_names_must_be_unique_even_when_backing_names_differ ... FAILED
+
+thread 'static_visibility_is_derived_from_the_owner_and_declaration_prefix' (582541) panicked at crates/trust-runtime/tests/bytecode_source_free_authoring.rs:510:10:
+called `Result::unwrap()` on an `Err` value: CompileError { message: "invalid section data: local VAR_META name must use the reserved @local scope" }
+test static_visibility_is_derived_from_the_owner_and_declaration_prefix ... FAILED
+
+failures:
+
+failures:
+    explicit_local_initialization_does_not_execute_a_separate_type_default
+    function_statics_keep_distinct_initial_and_restart_contexts
+    source_free_authoring_preserves_a_faulting_initializer_without_running_it
+    source_free_disabled_result_recipe_is_not_evaluated_during_authoring
+    source_free_fb_signature_lookup_uses_frame_shadowing_without_a_concrete_instance
+    source_free_frame_types_and_dense_slots_are_admission_invariants
+    source_free_io_bindings_cannot_exceed_the_advertised_image
+    static_lexical_names_must_be_unique_even_when_backing_names_differ
+    static_visibility_is_derived_from_the_owner_and_declaration_prefix
+
+test result: FAILED. 7 passed; 9 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.37s
+
+error: test failed, to rerun pass `-p trust-runtime --test bytecode_source_free_authoring`
+error: 1 target failed:
+    `-p trust-runtime --test bytecode_source_free_authoring`
+[gate-progress state=finished phase=A3-source-authoring-tests target=scena-rust-builder pid=582377 elapsed=6.3s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_source_free_authoring -- --nocapture --test-threads=1 --skip saved_two_point_zero_fixture_matches_source_and_portable_reader' status=101]

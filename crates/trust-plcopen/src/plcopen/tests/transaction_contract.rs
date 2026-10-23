@@ -297,7 +297,7 @@ fn transaction_contract_export_discovery_is_recursive_literal_and_deterministic(
         ("z last/Ωmega.st", "Omega"),
         ("a[first]/two.pou", "Two"),
         ("a[first]/one.st", "One"),
-        ("literal*/three.ST", "Three"),
+        ("literal[star]/three.ST", "Three"),
     ] {
         transaction_contract_write_project_source(
             &project,

@@ -1,0 +1,1 @@
+inspect: M2 did not produce an installable ELF

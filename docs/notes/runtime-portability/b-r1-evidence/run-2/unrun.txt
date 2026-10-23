@@ -1,0 +1,4 @@
+inspect: Retained optimized candidate did not link; no current installable ELF
+hardware: Firmware-size prerequisite failed; no flashing, device tests or automatic link retry
+diagrams: Architecture prerequisite failed
+diagram-drift: Architecture prerequisite failed

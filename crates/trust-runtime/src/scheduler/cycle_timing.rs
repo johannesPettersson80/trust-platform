@@ -1,4 +1,4 @@
-//! Cycle timing of a resource loop (specification 33, §6.1): the wall-clock cycle grid and, in simulation,
+//! Cycle timing of a resource loop (specification 46, §6.1): the wall-clock cycle grid and, in simulation,
 //! exact simulation-time steps.
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -21,7 +21,7 @@ pub(crate) struct CycleSlot {
 }
 
 /// Simulation time of one resource: one step per executed cycle, the shared speed, and the achieved speed
-/// reported to control.status (specification 33, §6.1).
+/// reported to control.status (specification 46, §6.1).
 #[derive(Debug)]
 struct SimulationClock {
     source: u64,
@@ -99,7 +99,7 @@ impl Drop for SimulationClock {
 }
 
 /// Timing of a resource loop. On the wall clock, cycles follow the grid of the cycle interval. In simulation,
-/// each executed cycle also advances simulation time by one interval (specification 33, §6.1).
+/// each executed cycle also advances simulation time by one interval (specification 46, §6.1).
 #[derive(Debug, Default)]
 pub(crate) struct CycleTiming {
     /// Wall-clock start of the last cycle's slot. The next cycle is due one paced interval later.
@@ -137,7 +137,7 @@ impl CycleTiming {
             .map(|simulation| simulation.speed.clone())
     }
 
-    /// The process time a restarted runtime continues from (specification 33, §6.1 item 4).
+    /// The process time a restarted runtime continues from (specification 46, §6.1 item 4).
     pub(crate) fn restart_time(&self, wall: Duration) -> Duration {
         match self.simulation.as_ref() {
             Some(simulation) => simulation
@@ -147,7 +147,7 @@ impl CycleTiming {
         }
     }
 
-    /// Restarts the schedule at the next cycle and measures the achieved speed afresh (specification 33, §6.1
+    /// Restarts the schedule at the next cycle and measures the achieved speed afresh (specification 46, §6.1
     /// items 3 and 4). Has no effect on the wall clock.
     pub(crate) fn restart_schedule(&mut self) {
         if let Some(simulation) = self.simulation.as_mut() {

@@ -64,7 +64,7 @@ pub fn fitting_instances(
     let holdings = crate::hmi::instance_holdings::Holdings::new(
         runtime.function_blocks(),
         runtime.classes(),
-        runtime.programs(),
+        runtime.program_templates(),
         runtime.registry(),
     );
     let takes = |path: &str, id| {

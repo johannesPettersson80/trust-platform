@@ -228,7 +228,9 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
             }
         };
         for (arg, _) in &deferred_ints {
-            if !self.checker.is_contextual_int_literal(common, &arg.expr)
+            if !self
+                .checker
+                .is_contextual_base_int_literal(common, &arg.expr)
                 && !self.checker.is_contextual_real_literal(common, &arg.expr)
             {
                 self.checker.diagnostics.error(
@@ -322,7 +324,10 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         }
         let common = common?;
         for (arg, _) in &deferred_ints {
-            if !self.checker.is_contextual_int_literal(common, &arg.expr) {
+            if !self
+                .checker
+                .is_contextual_base_int_literal(common, &arg.expr)
+            {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArgumentType,
                     arg.range,

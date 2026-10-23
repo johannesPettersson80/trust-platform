@@ -276,8 +276,14 @@ fn state_contract_file_ids_for_config_are_scoped_to_indexing_roots() {
     let root = TempTree::new("trust-lsp-state-config-ids");
     let outside = TempTree::new("trust-lsp-state-config-ids-outside");
     let state = ServerState::new();
-    let inside_uri = file_uri(&root.path().join("src/Inside.st"));
-    let outside_uri = file_uri(&outside.path().join("Outside.st"));
+    let inside_path = root.path().join("src/Inside.st");
+    let outside_path = outside.path().join("Outside.st");
+    fs::create_dir_all(inside_path.parent().expect("inside source directory"))
+        .expect("create inside source directory");
+    fs::write(&inside_path, "PROGRAM Inside END_PROGRAM").expect("write inside source");
+    fs::write(&outside_path, "PROGRAM Outside END_PROGRAM").expect("write outside source");
+    let inside_uri = file_uri(&inside_path);
+    let outside_uri = file_uri(&outside_path);
     let virtual_uri = Url::parse("untitled:virtual").unwrap();
     let inside_id = state
         .index_document_deferred_budget(inside_uri, "PROGRAM Inside END_PROGRAM".to_string())
@@ -532,19 +538,19 @@ fn file_uri(path: &Path) -> Url {
     Url::from_file_path(path).expect("absolute path URI")
 }
 
-struct TempTree {
+pub(super) struct TempTree {
     path: PathBuf,
 }
 
 impl TempTree {
-    fn new(prefix: &str) -> Self {
+    pub(super) fn new(prefix: &str) -> Self {
         let sequence = TEMP_SEQUENCE.fetch_add(1, AtomicOrdering::Relaxed);
         let path = std::env::temp_dir().join(format!("{prefix}-{}-{sequence}", std::process::id()));
         fs::create_dir_all(&path).expect("create temp tree");
         Self { path }
     }
 
-    fn path(&self) -> &Path {
+    pub(super) fn path(&self) -> &Path {
         &self.path
     }
 }

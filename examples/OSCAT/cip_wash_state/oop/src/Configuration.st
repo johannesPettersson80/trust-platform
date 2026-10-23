@@ -1,5 +1,5 @@
 CONFIGURATION CipWashStateOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE CipWashStateOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Cip WITH MainTask : Main;
 END_RESOURCE

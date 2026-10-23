@@ -1,11 +1,18 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "react-jsx",
-    "noEmit": true
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
   "include": [
+    "src/webview/assets.d.ts",
     "src/statechart/webview/**/*.ts",
     "src/statechart/webview/**/*.tsx",
     "src/sfc/webview/**/*.ts",
@@ -17,5 +24,8 @@
     "src/hmiBuilder/editor/webview/**/*.ts",
     "src/hmiBuilder/editor/webview/**/*.tsx"
   ],
-  "exclude": ["node_modules", ".vscode-test"]
+  "exclude": [
+    "node_modules",
+    ".vscode-test"
+  ]
 }

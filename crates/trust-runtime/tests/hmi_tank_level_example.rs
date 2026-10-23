@@ -106,8 +106,8 @@ impl Process {
             panic!("the program instance Tank");
         };
         self.runtime
-            .storage_mut()
-            .set_instance_var(program, name, value);
+            .write_instance(program, name, value)
+            .expect("write the instance variable");
     }
 
     /// Sets the controller's mode by name, as the mode selector does.

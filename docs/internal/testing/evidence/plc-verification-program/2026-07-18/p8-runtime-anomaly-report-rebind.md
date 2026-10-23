@@ -35,4 +35,3 @@ pair and finished clean at the source commit.
 
 This rebind creates no proof, closes no specification gap, changes no product
 behavior, and changes no CI or suite enforcement.
-

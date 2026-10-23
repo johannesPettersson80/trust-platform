@@ -256,7 +256,7 @@ pub(in crate::web::config_ui_routes) fn handle_workspace_routes(
                 "ok": true,
                 "runtime_id": runtime.runtime_id,
                 "path": path.display().to_string(),
-                "text": text,
+                "text": io_secrets::redact(&text)?,
                 "revision": text_revision(text.as_str()),
             }))
         }) {
@@ -301,11 +301,10 @@ pub(in crate::web::config_ui_routes) fn handle_workspace_routes(
                 payload.runtime_id.as_deref(),
                 ctx.control_state,
             )?;
-            write_config_file(
+            write_io_config_file(
                 runtime.root.join("io.toml").as_path(),
                 payload.text.as_str(),
                 payload.expected_revision.as_deref(),
-                crate::config::validate_io_toml_text,
             )
             .map(|revision| {
                 json!({
@@ -471,12 +470,12 @@ pub(in crate::web::config_ui_routes) fn handle_workspace_routes(
             let absolute = runtime.root.join("src").join(&path);
             let current_text = fs::read_to_string(&absolute).unwrap_or_default();
             let current_revision = text_revision(current_text.as_str());
-            if let Some(expected) = payload.expected_revision.as_deref() {
-                if expected.trim() != current_revision {
-                    return Err(RuntimeError::ControlError(
-                        format!("conflict: {current_revision}").into(),
-                    ));
-                }
+            if let Some(expected) = payload.expected_revision.as_deref()
+                && expected.trim() != current_revision
+            {
+                return Err(RuntimeError::ControlError(
+                    format!("conflict: {current_revision}").into(),
+                ));
             }
             atomic_write_text(&absolute, payload.text.as_str())?;
             let revision = text_revision(payload.text.as_str());

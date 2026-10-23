@@ -74,7 +74,7 @@ The runtime scheduler uses a `Clock` for time and pacing. Thread creation and mu
 | `sleep_until` | Paces resource cycles in real threads |
 | `wake` | Allows clean shutdown of resource threads |
 
-Notably absent: file I/O (bytecode loaded at init), networking (handled separately via I/O abstraction), explicit mutex APIs (runtime uses `RwLock`/`Mutex` internally), dynamic allocation in hot path.
+The clock interface excludes file I/O (bytecode loaded at init), networking (handled separately via I/O abstraction), and explicit mutex APIs (runtime uses `RwLock`/`Mutex` internally). Control-path allocation requirements are profile-specific, as described in §6.1 and specification 34; this interface does not establish allocation-free hosted execution.
 
 ### 5. Clock Implementations
 
@@ -152,20 +152,47 @@ Deterministic replay excludes programs that read `CURRENT_DT` unless the
 environment controls the host clock. The complete callable contract is in
 `docs/specs/07-standard-functions.md#host-civil-clock-current_dt`.
 
-#### 5.3 Embedded Clock (Planned)
+#### 5.3 Embedded Runtime and Clock (Planned)
 
-An RTOS-backed clock (e.g., FreeRTOS) is planned for embedded targets. The runtime core remains unchanged; only the `Clock` implementation differs.
+Embedded execution requires the shared-engine migration defined in
+[Runtime Portability](34-runtime-portability.md), not only another `Clock`
+implementation. The current hosted dispatcher depends on `Runtime`, hosted
+storage/services, initialization metadata, and OS timing. The migration extracts
+compiler-free construction, initialization, execution, storage, and supervision
+boundaries while retaining common IEC semantics and supported hosted behavior.
+
+Board adapters supply time, process-image I/O, persistence, watchdog, and startup
+mechanisms. A bare-metal or RTOS-backed clock is a composition choice; it does not
+change common PLC scheduling. The first reference board is NUCLEO-F401RE; the
+provisional second target is ESP32-C6. Neither is qualified by this specification
+update. Current hosted behavior remains authoritative until the corresponding
+planned profile is implemented and validated.
 
 ### 6. Runtime Components
 
 #### 6.1 Executor
 
-Interprets compiled ST bytecode. Operates on the process image. Pure computation with no platform dependencies.
+Executes compiled ST bytecode against runtime variable/instance storage and the
+I/O process image. The current hosted VM has a stack path and an optimized
+register-IR/tier-1 path; both use shared value operations, budgets, and error
+contracts. Current host ownership, allocation, and timing dependencies are not
+proof of portable or allocation-free execution.
 
-**Design decisions:**
-- Stack-based bytecode VM (simpler than register-based)
-- No heap allocation during execution (predictable timing)
-- All state in process image (inspectable, serializable)
+The planned portable engine preserves those semantics and supported optimized
+execution while separating immutable prepared metadata from mutable state.
+Allocation-free control paths are an acceptance requirement for the bounded
+profiles in specification 34, including fault/first-use paths. They are not a
+claim about every existing hosted execution path, and all PLC state is not
+required to reside inside the byte-oriented I/O image.
+
+Planned H optimized-tier migration (specification 34 HOST-04/MODEL-02) moves
+lowering and specialized compilation into candidate preparation. Their diagnostic
+attempt/result counts are preparation observations; installed plan hits, opcode
+counts and precomputed fallback reasons remain execution observations. Resetting
+telemetry does not invalidate installed executable plans. Existing hosted tuning
+controls select an explicit prepared policy, without permitting first-use or
+threshold-triggered compilation in bounded RUN. This planned diagnostic migration
+does not change IEC instruction results or assert that H is already verified.
 
 #### 6.2 Task Manager (Resource Scheduler)
 
@@ -227,6 +254,14 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
 ##### Task readiness and overrun accounting
 
+**A1 implementation:** the nominal-deadline rule below is implemented in source under
+[specification 34 Scope A, A1](34-runtime-portability.md#131-first-implementation-scopes)
+before its first validation batch and accepted scheduler baseline. The pre-A1 code used the
+sampled-time baseline; validation status remains in the portability checklist.
+Source implementation is not validation evidence. IEC 61131-3 Ed.3 §6.8.2(b) requires
+periodic scheduling at the specified interval; §6.8.2 permits implementation-specific
+interval resolution and execution later than the scheduled instant.
+
 For each scheduler sample, the portable readiness boundary observes one
 `SINGLE` value and one logical `now`. A FALSE-to-TRUE `SINGLE` transition makes
 the task due at `now`, updates the saved edge state, and does not advance the
@@ -237,39 +272,61 @@ IEC task configuration uses zero for disabled periodic scheduling and a
 positive duration for periodic scheduling; a negative portable metadata value
 is conservatively treated as disabled. (IEC 61131-3 Ed.3 section 6.8.2 a-b.)
 
-With `SINGLE` FALSE and a positive interval, a task is not due until `now` is
-at least `last_run + interval`. A backward logical-clock sample does not move
-`last_run`, create an overrun, or make the task due; periodic readiness resumes
-only when a later sample reaches the next deadline relative to the unchanged
-baseline. When exactly one interval is due, the returned due time is that
-nominal deadline, the missed-interval count is zero, and `last_run` advances to
-the sampled `now`.
+Task registration records the current logical time as the initial periodic
+baseline. After a periodic activation, `last_run` denotes the latest nominal
+deadline accounted for, not the sampled execution time. With `SINGLE` FALSE and
+a positive interval, a task is not due until `now` is at least
+`last_run + interval`. A backward logical-clock sample does not move `last_run`,
+create an overrun, or make the task due; periodic readiness resumes only when a
+later sample reaches the next deadline relative to the unchanged baseline.
+When exactly one interval is due, the returned due time is that nominal
+deadline, the missed-interval count is zero, and `last_run` advances to that
+deadline. A late sample does not move later deadlines: the task is selected in
+the first cycle sampled at or after its deadline and executes in that cycle's
+normal priority order, subject to the existing fault/STOP policy.
 
 If a forward jump spans `n > 1` complete intervals, the scheduler emits one
 activation rather than replaying work. Its due time remains the first nominal
 deadline, the per-sample missed count is `n - 1`, the cumulative overrun count
-adds that value with saturation, and `last_run` advances to `now`. Deadline
-addition also saturates at the representable signed-nanosecond bound. Event
+adds that value with saturation, and `last_run` advances to the last nominal
+deadline at or before `now`: the first due deadline plus `n - 1` intervals.
+Equivalently, with the previous baseline `b`, compute
+`n = saturating_sub(now, b) / interval` and set
+`last_run = saturating_add(b, saturating_mul(n, interval))` when periodic work
+is due. Deadline arithmetic saturates at the representable signed-nanosecond
+bound. Missed activations are dropped, counted, and never replayed. Event
 readiness never changes those periodic counters. These due-time and accounting
 rules are truST bookkeeping beyond the IEC task-trigger definition; they make
 host-pause, simulation, and test-clock behavior deterministic. They are
 specified here as a truST runtime contract, not as an IEC deviation.
+
+For a task registered at 0 ms with a 25 ms interval and samples exactly every
+10 ms, nominal deadlines 25, 50, 75 and 100 ms produce activations at 30, 50,
+80 and 100 ms. The periodic baseline becomes 25, 50, 75 and 100 ms respectively;
+no interval is missed. This preserves the configured mean period instead of
+the pre-A1 sampled-time implementation's 30 ms period. The sampling lateness
+bound applies to this fixed-grid case; actual task start and completion also
+depend on load, priority and platform delays.
 
 ##### Resource-runner cycle transaction
 
 One resource tick samples the current injected clock and task inputs, then
 executes each due periodic or rising-edge event program once in the
 deterministic scheduler order. In the reviewed combined case, the initial
-zero-time tick executes neither program, the ten-millisecond tick executes the
-periodic program and one rising-edge event activation, and the following
-ten-millisecond tick executes only the periodic program after the event input
-falls.
+zero-time tick executes neither program, the tick at 10 ms executes the
+10 ms periodic program and one rising-edge event activation, and the tick at
+20 ms executes only the periodic program after the event input falls. These
+exact-deadline observations are unchanged by the baseline correction.
 
 A backward manual-clock sample does not replay periodic work or create an
 overrun. A later sample that reaches the next deadline resumes from the
 unchanged periodic baseline. A forward jump spanning multiple complete
 intervals executes the periodic program once and records the remaining
-intervals as missed, as defined by the readiness contract above.
+intervals as missed, as defined by the readiness contract above. Under the
+nominal-deadline rule, a 10 ms task first sampled at 35 ms reports due time 10 ms,
+one activation and two missed intervals, advances its baseline to 30 ms, and
+is next due at 40 ms. The pre-A1 sampled-time implementation instead advanced
+that baseline to 35 ms and is next due at 45 ms.
 
 If due task execution returns an error, the tick returns that typed error and
 latches the runtime fault state. A later tick rejects as
@@ -542,6 +599,14 @@ projected through the existing `IoDriverHealth` surface rather than a parallel
 status model. Output handoff is level/latest-value semantics for `%Q`, not an
 edge or pulse delivery guarantee.
 
+The native Modbus worker regression proves causal independence from a protocol
+response: a real peer receives a request, withholds its reply, and the scan call
+returns under its configured policy before that reply is released. Its finite
+harness timeout is shorter than the transport timeout, so waiting for transport
+timeout cannot satisfy the assertion. Elapsed wall time is diagnostic evidence;
+it does not certify a hard latency bound on an unqualified shared operating
+system. Target-specific timing qualification remains separate.
+
 ##### Modbus default-fault and deadline integrity
 
 The Modbus background worker uses a fixed scan-side deadline for input refresh
@@ -591,10 +656,14 @@ state has a stronger success boundary:
   image and then attempts the resulting output image on every configured I/O
   driver.
 - A driver's safe-state attempt is confirmed only when `write_outputs` returns
-  successfully and the driver's immediately observed health is `Ok`.
-  `Degraded` or `Faulted` health means the physical handoff is unconfirmed,
-  even when `on_error = "warn"` or `"ignore"` made the ordinary driver call
-  return successfully.
+  successfully and the driver's immediately observed output-path health is `Ok`.
+  `Degraded` or `Faulted` output-path health means the physical handoff is
+  unconfirmed, even when `on_error = "warn"` or `"ignore"` made the ordinary
+  driver call return successfully. Output-path health is the driver's health,
+  except that input-path conditions degrade or fault the reported driver health
+  but not the output path, so they never unconfirm a safe-state handoff. For
+  MQTT these are stale or missing input and incoming-queue overflow
+  (specification 32 §8, specification 34 §11.1).
 - A worker-backed driver whose handoff is queued, reconnecting, timed out, or
   otherwise pending must therefore return a safe-state error at the runtime
   boundary. A later asynchronous delivery does not retroactively turn that
@@ -644,7 +713,10 @@ non-`None` mode. Configured authentication and certificate-trust rules are
 enforced by the wire server before a client may read a node.
 
 Server construction and listener startup do not depend on the first runtime
-snapshot. Before a snapshot exists, nodes have no fabricated ready value.
+snapshot. Startup fails with a stable error, and reports no running server, when
+the configured listen address is already in use or the server stops before it
+serves requests; another process answering on the same port never counts as
+this server being ready. Before a snapshot exists, nodes have no fabricated ready value.
 After a snapshot becomes available, a reference client may read every exported
 supported scalar with CurrentRead access. Loopback/reference-client proof
 establishes interoperability for the exercised profile only; it does not
@@ -669,6 +741,7 @@ following fail-closed product contract:
 | ADS client/server points | A scalar or array `REAL`/`LREAL` value is non-finite | Reject before cache acceptance, write queuing, or PLC storage mutation, as specified below. |
 | Runtime mesh subscription | Numeric conversion to the configured `REAL`/`LREAL` target is non-finite | Reject before queuing or applying the local update; retain the previous PLC value. |
 | Managed local debug write/force | Input for a declared `REAL`/`LREAL` address is non-finite or overflows the declared width | Return a failed DAP response and preserve both value and force state, as specified in 6.9.1. |
+| Checked embedding engineering writes (`write_global`, `write_instance`, `write_reference`, `write_access`) | A declared `REAL`/`LREAL` value, recursively through arrays/structures, is non-finite | Return `runtime_non_finite_value` before destination or process-image mutation; preserve the installed state. Internal IEC assignments remain governed by their arithmetic contract. |
 | File-backed retain save/load | A scalar, array element, or structure field is non-finite | Reject the complete save or load transaction, as specified in 6.7. |
 | `simulation.toml` coupling threshold | The configured threshold is non-finite | Reject the configuration before activation, as specified in 6.9.2. |
 
@@ -738,7 +811,7 @@ become an infinite `REAL` value or register payload. This is a truST Modbus
 product and safety contract outside IEC 61131-3, not an IEC decision or
 deviation.
 
-###### Modbus and MQTT typed point-map contract
+###### Typed protocol point-map integration contract
 
 Typed point maps bind one protocol scalar to one bounded process-image scalar.
 They do not reinterpret arbitrary trailing bytes, merge overlapping
@@ -765,27 +838,19 @@ Within one input or output map, two point definitions must not claim the same
 protocol identity or overlapping process-image storage. Boolean bits in the
 same byte are distinct storage only when their bit indices differ. Modbus
 register ranges account for the type's complete one- or two-register width and
-the selected function/table. MQTT identities use the exact normalized topic.
+the selected function/table. MQTT protocol identity is specified by
+[`32-mqtt-io.md`](32-mqtt-io.md).
 An input and output may use the same process-image offset because `%I` and
 `%Q` are separate images. Ambiguous duplicates or overlaps are configuration
 errors before a worker or transport is started.
 
-For MQTT:
-
-- a point topic is trimmed, non-empty, contains no control character, and is
-  an exact publish/delivery topic rather than a `+` or `#` subscription
-  filter;
-- Boolean maps require `image_bit`; numeric maps reject it;
-- payload formats are text, JSON, binary little-endian, and binary big-endian,
-  including their documented aliases; omitted format means text;
-- text and JSON numeric strings permit surrounding whitespace but must contain
-  one complete finite scalar;
-- JSON Boolean input accepts a Boolean, number, or recognized Boolean string;
-  JSON numeric input accepts a number or numeric string;
-- binary Boolean payloads contain exactly one byte and numeric binary payloads
-  contain exactly the declared width; extra and truncated bytes are rejected;
-  and
-- output metric names are trimmed, non-empty, and free of control characters.
+MQTT is a communication protocol owned by
+[`32-mqtt-io.md`](32-mqtt-io.md). This runtime-engine document owns only its
+integration boundary: startup resolves symbolic tags and installs all
+process-image bindings atomically before the protocol worker starts; the worker
+cannot access program storage or resolve symbols; scan-cycle calls exchange
+bounded snapshots and handoffs; and runtime I/O snapshots retain the declared
+PLC type metadata required by control and debug surfaces.
 
 For Modbus:
 
@@ -805,78 +870,24 @@ These point-map rules are truST protocol/product behavior outside IEC
 an invalid configuration, malformed scalar, out-of-range value, or partial
 batch into accepted PLC data.
 
-2. **MQTT (baseline profile)**
-- Topic bridge between broker payloads and process image bytes.
-- `topic_in` payload bytes are copied into `%I` at cycle start.
-- `%Q` output bytes are published to `topic_out` at cycle end.
-- Optional `input_points` and `output_points` map typed scalar MQTT topics to
-  process-image offsets with `bool`, `u16`, `i16`, `u32`, `i32`, or `f32`
-  values, `text`/`json`/`binary_le`/`binary_be` payloads, and linear
-  `scale`/`offset`.
-- Numeric typed point values are stored in the runtime process image as
-  little-endian bytes; binary MQTT payload endianness applies only to the MQTT
-  payload.
-- Optional Sparkplug B outbound node profile for typed `output_points`:
-  `namespace = "spBv1.0"`, `spec_version = "3.0.0"`, required `group_id`, and
-  required `edge_node_id`.
-- Sparkplug mode publishes NBIRTH on MQTT session establishment, configures
-  NDEATH as the MQTT last will, and publishes NDATA scalar metric payloads for
-  typed output points.
-- Sparkplug topics are
-  `<namespace>/<group_id>/NBIRTH/<edge_node_id>`,
-  `<namespace>/<group_id>/NDEATH/<edge_node_id>`, and
-  `<namespace>/<group_id>/NDATA/<edge_node_id>`. Birth precedes data for each
-  accepted session. Payloads use the Eclipse Tahu Sparkplug B protobuf metric
-  representation for the supported scalar types. The configured profile
-  requires `group_id`, `edge_node_id`, at least one output point, and no input
-  points. Device topics, templates, aliases, and command subscriptions are
-  non-goals rather than claimed supported behavior. Structural field-byte or
-  substring assertions do not establish reference Tahu interoperability; a
-  reference decoder remains required for that proof.
-- A plain `mqtt://` endpoint is permitted only for loopback/local authority
-  unless the explicit insecure-remote override is set. `mqtts://` implies TLS.
-  TLS configuration requires a CA path; client certificate and key are an
-  all-or-nothing pair; TLS-only fields are rejected when TLS is disabled.
-  An empty ALPN list has no effect when TLS is disabled. Enabling TLS constructs
-  the configured CA and optional mTLS transport, but construction alone is not
-  evidence of a successful broker handshake.
-- Runtime exchange is worker-backed: broker connect/poll/publish and
-  reconnection happen on the MQTT worker, while scan-cycle reads/writes use
-  bounded snapshot/handoff state.
-- When a raw `topic_in` read drains multiple payloads in one worker operation,
-  the newest drained payload is the authoritative process-image snapshot.
-- Under the default `fault` policy, disconnected or stale MQTT input reads and
-  bounded reads with no available snapshot return `IoFreshness`. Completed
-  connection failures retain their connection context at the worker boundary;
-  they are not replaced by a generic unavailable-snapshot message.
-- The same default `fault` policy remains authoritative when a prior input
-  snapshot exists but the requested refresh misses its scan deadline, when an
-  output handoff misses its scan deadline, and when completed typed-output
-  preflight fails, including Sparkplug NDATA preparation. Those failures set
-  faulted health and return an error rather than collapsing to degraded
-  success. A faulted stale-input read leaves the caller's input buffer
-  unchanged. `warn` and `ignore` retain their documented degraded-success
-  behavior. The focused stale-snapshot copy lock covers `warn`; an explicit
-  `ignore` stale-copy matrix remains open.
-  An output deadline does not itself cancel the already queued asynchronous
-  output; later publication does not retroactively make the timed-out call
-  successful.
-- Reconnection is non-blocking; runtime cycle remains deterministic.
-- Reconnection uses a non-zero bounded backoff and cannot busy-loop after a
-  connection failure. Dropping the driver requests shutdown and returns within
-  the bounded driver-drop deadline, including while a session connection is
-  pending. This return-time contract does not claim that the detached worker
-  thread has already joined; joined worker shutdown remains open proof debt.
-- Security baseline rejects insecure remote brokers unless explicitly overridden.
-- Sparkplug B non-goals in this profile: command subscriptions, device-level
-  DBIRTH/DDATA topics, metric aliases, templates, and store-and-forward.
+2. **MQTT I/O integration**
+- MQTT configuration, topics, mapping, payload, security, session, discovery,
+  and interoperability behavior is specified by
+  [`32-mqtt-io.md`](32-mqtt-io.md).
+- The host runtime lowers MQTT points through the shared process image and
+  starts the protocol-owned worker only after configuration and binding
+  succeed.
+- Broker connect, poll, publish, and reconnect work never runs on the PLC scan
+  thread. Scan reads and writes use bounded snapshot and handoff state.
+- Driver failures enter the common runtime I/O health and fault-policy path.
+- MQTT is not part of the PLC executor, scheduler, or IEC language semantics.
 
-###### MQTT default-fault and latest-value integrity
+###### MQTT runtime integration integrity
 
-The newest raw-payload and default-fault rules above are a truST runtime product
-contract outside IEC 61131-3. Broker delivery, worker deadlines, cached
-snapshots, and output preflight are not IEC language semantics and do not
-belong in `IEC_DECISIONS.md` or `IEC_DEVIATIONS.md`.
+MQTT worker deadlines and fault projection are runtime integration contracts.
+Broker delivery, MQTT sessions, topics, payloads, and reconnect semantics are
+owned by [`32-mqtt-io.md`](32-mqtt-io.md). Neither document turns these truST
+product contracts into IEC language decisions or deviations.
 
 3. **EtherCAT (backend v1)**
 - Driver name: `ethercat`.
@@ -1065,10 +1076,6 @@ must not expose credentials.
 - The runtime does not clamp, normalize, or substitute a default value.
   Subnormal values and signed zero are outside this rule.
 
-Protocol roadmap priority after OPC UA baseline:
-- First: MQTT
-- Next: EtherNet/IP
-
 ##### Connector status and discovery truth contract
 
 Connector reporting is an additive supervisory contract over protocol-owned
@@ -1101,12 +1108,11 @@ readiness:
 
 - `confirmed` requires a valid protocol-level exchange. Modbus uses FC43/14
   device identification or an explicitly configured FC03 safe read. A normal
-  or protocol-valid Modbus exception response confirms the protocol. MQTT uses
-  an accepted CONNACK.
+  or protocol-valid Modbus exception response confirms the protocol. MQTT
+  classification is defined by [`32-mqtt-io.md`](32-mqtt-io.md).
 - `likely` requires a protocol-shaped response that does not establish an
-  accepted session. An MQTT authentication or authorization rejection is
-  `likely` with `auth_required = true`; other valid rejected CONNACK responses
-  are also `likely`.
+  accepted session. MQTT rejection classification and authentication evidence
+  are defined by [`32-mqtt-io.md`](32-mqtt-io.md).
 - `port_reachable` proves only that the TCP connection succeeded. It must not
   be rendered or consumed as a confirmed Modbus device or MQTT broker.
 - `unavailable` means that no useful discovery evidence was obtained.
@@ -1117,10 +1123,8 @@ fleet peer supplies an invalid connector report, the peer's raw topology
 remains visible and the validation failure is shown to the operator; the bad
 report must not make that peer or the other configured peers silently vanish.
 
-MQTT discovery sets `clean_session = true` and sends DISCONNECT immediately
-after every received CONNACK, including rejected CONNACK responses. It does not
-leave a discovery session active. MQTTS port reachability without a TLS MQTT
-exchange remains `port_reachable`.
+MQTT discovery evidence and session-cleanup behavior are specified by
+[`32-mqtt-io.md`](32-mqtt-io.md).
 
 The Modbus discovery wire probe emits a valid MBAP header with protocol ID
 zero, exact transaction ID, unit ID, and PDU length. FC43/14 uses transaction
@@ -1133,19 +1137,9 @@ a normal function response is accepted, and an exception function requires an
 explicit exception code. A mismatched unit, truncated exception, malformed
 length, unexpected function, or partial body is not Modbus evidence.
 
-The MQTT discovery CONNECT packet uses MQTT 3.1.1, clean-session true,
-keepalive zero, no credential or will flags, and a bounded UTF-8 client ID.
-Remaining Length uses the canonical shortest MQTT base-128 encoding and is
-limited to four bytes and 268,435,455; overlong, non-minimal, truncated, or
-overflow encodings reject. CONNACK is exactly packet type `0x20`, remaining
-length 2, a session-present flag of zero or one, and return code 0 through 5.
-Reserved acknowledgement flags, extra bytes, unknown return codes, and
-session-present set on a rejected connection are malformed protocol input, not
-`likely` evidence. Valid return code zero is `confirmed`; codes 4 and 5 are
-`likely` with authentication required; other valid rejection codes are
-`likely` without that flag. A valid CONNACK is followed by DISCONNECT even
-when rejected. Malformed input and TCP-only behavior never become protocol
-confirmation.
+MQTT packet validation and CONNACK classification are owned by
+[`32-mqtt-io.md`](32-mqtt-io.md); this shared discovery surface consumes only
+the resulting evidence class.
 
 ##### Communication discovery scope and symbol browsing
 
@@ -1185,15 +1179,8 @@ ascending and canonicalized to the containing network: `/24` through `/30`
 exclude network and broadcast, `/31` includes both point-to-point addresses,
 and `/32` includes its sole address.
 
-MQTT discovery never performs an undirected network scan. Missing host returns
-no candidates plus the stable directed-host warning. A directed host accepts a
-host, IPv4 address, or bracketed IPv6 address. An omitted port probes the
-distinct resolved addresses at both 1883 and 8883 in deterministic
-address/port order; an explicit nonzero port probes only that endpoint.
-Schemes, userinfo, paths, queries, fragments, invalid ports, ambiguous
-unbracketed IPv6, duplicate socket addresses, and unresolved targets reject
-before probing. Port 8883 yields only MQTTS TCP-reachability evidence unless a
-TLS MQTT exchange is actually completed.
+MQTT target validation, directed-only scope, deterministic endpoint order, and
+TLS evidence limits are owned by [`32-mqtt-io.md`](32-mqtt-io.md).
 
 OPC UA client discovery requires a directed host or endpoint. A bare host
 defaults to `opc.tcp://<host>:4840`; an explicit valid port, bracketed IPv6
@@ -1369,6 +1356,57 @@ execution model, not an IEC deviation.
   from one millisecond through one second, later attempts increase
   exponentially, and the resulting delay never exceeds one second.
 
+**Faulted resource lifecycle (hosted runtime):**
+- A fault that halts the resource (policy `Halt` or `SafeHalt`, a watchdog
+  `halt` or `safe_halt` action, an exhausted automatic restart, or a failed
+  restart) leaves the resource in FAULT after the fault action has run. The
+  runtime process keeps running: the control plane, web UI, HMI and protocol
+  servers stay available, `status` reports the fault, and `last_error` keeps the
+  root fault.
+- The faulted resource executes no task and commits no outputs. It waits for a
+  recovery request: `restart` (warm or cold) runs the configured initialization
+  and retain policy and then resumes cyclic execution (specification 34
+  STATE-06); an online change prepares and commits as in section 6.7.1 and then
+  resumes; `stop` ends the resource. A failed recovery leaves the resource in
+  FAULT with the new error. `pause` and `resume` are rejected while faulted.
+- The runtime process ends only on a stop request or a termination signal. It
+  exits with status 0 when the resource ends Stopped and with status 1 when it
+  ends Faulted, so a service manager can tell a clean stop from a failure.
+
+**Hosted hang supervision (specification 34 TIME-03):**
+- The checks above run on the scan thread, so none of them can act while that
+  thread is inside a driver or native callback that does not return. With the
+  watchdog enabled, the hosted runtime therefore runs an independent supervisor
+  thread per resource.
+- The scan thread publishes the active-execution deadline of the cycle it is
+  running and withdraws it when the cycle ends. A debugger hold suspends the
+  deadline exactly as it suspends the watchdog, so operator dwell time never
+  counts.
+- The supervisor checks the published deadline at least every
+  `clamp(timeout / 4, 1 ms, 100 ms)`. A cycle still running one check interval
+  after its deadline is hung. The supervisor then sets the resource to Faulted,
+  records `WatchdogTimeout` as `last_error` with the detail that the scan did not
+  return, and applies `runtime.watchdog.hang_action`:
+  - `fault` (default): nothing more. The process keeps serving the control
+    plane, `status` reports the fault, and requests that need the scan thread
+    (`pause`, `resume`, `restart`, online change) are rejected with the stable
+    error that names the resource state, because only a new runtime process can
+    recover a thread that does not return.
+  - `abort`: after recording the fault, the process exits at once with status
+    70, so an external service manager can restart it.
+- truST cannot drive outputs while the scan thread is blocked, because that
+  thread owns the drivers and the process image. A hang therefore relies on the
+  I/O devices' own communication-loss behaviour, which installations must
+  configure; it does not claim a confirmed safe state.
+- If a call the supervisor declared hung returns later, the scan thread finds
+  its deadline expired and follows the configured watchdog action for an
+  overrun; the cycle's outputs are not committed.
+- The maximum time from a deadline to the recorded fault is two check
+  intervals. Detecting and faulting a hang is a protection result, not
+  completion of the missed control deadline.
+- With the watchdog disabled there is no supervisor and a hang is not detected;
+  the configuration documentation states this.
+
 **Per-cycle deadline lifecycle:**
 - Before executing a cycle with an enabled watchdog, the scheduler arms both
   the execution and output-commit deadlines from the same wall-clock start and
@@ -1395,6 +1433,13 @@ storage, prove that the underlying fault was repaired, or authorize a caller to
 recover production execution. Those actions remain owned by the host recovery
 and control boundaries. This is a truST runtime API contract, not an IEC
 deviation.
+
+The installed hosted runtime's `clear_fault` exposes this bookkeeping clear for
+tests and engineering tooling. A scan executed after it continues the existing
+program without any initialization, so it is not a recovery path. Product
+recovery, through control commands or the `Restart` fault policy, always runs
+the configured warm or cold restart before control resumes (specification 34
+STATE-06).
 
 ##### Fault-policy decision projection
 
@@ -1574,15 +1619,42 @@ but is not a readable retain file, or a parent path that cannot contain the
 file, returns the underlying retain operation as an error instead of silently
 substituting an empty snapshot.
 
-The current checksum-protected format is version 2. Version-1 `STRN` snapshots
-remain readable for the value tags supported by that format; a decoded value
-materializes with the same logical name and runtime value. Successful
+The current checksum-protected format is version 3. Version-1 and version-2
+`STRN` snapshots remain readable for the value tags supported by those formats;
+a decoded value materializes with the same logical name and runtime value.
+Those formats store structures as logical type/field values only. When an old
+snapshot is migrated to a declaration with relative physical storage, the
+runtime rebuilds backing from the admitted declaration and logical fields,
+zeroing unnamed gaps; old files never promised to preserve hidden physical
+bits. Successful
 replacement publishes one complete snapshot and leaves no retain temporary
 file. Parent-directory synchronization occurs after rename. If that final sync
 fails, `store` returns an error and does not claim durability, but a read in the
 same filesystem session may observe the already-renamed new snapshot. The
 manager keeps the snapshot dirty and permits the next due save to retry without
 another mutation notification.
+
+Version 3 adds an opaque physical checkpoint to a structure value when that
+value owns admitted relative-layout backing. The checkpoint carries the storage
+ABI, complete extent, leaf and child paths, scalar encodings and constraints,
+and backing bytes, including unnamed gaps. Values without relative physical
+backing retain the existing logical structure representation. The runtime
+validates checkpoint framing, counts against remaining input before allocation,
+path depth, UTF-8 names, extents, encoding widths, and every logical scalar leaf
+against the backing before the snapshot can be returned. Checkpoint lengths,
+counts, string lengths, and extents use their checked `u32` wire fields; the
+decoder also uses fallible reservations and rejects values not representable by
+the host. Invalid checkpoint data rejects the complete load.
+Retain save suppression compares physical checkpoints recursively in addition
+to ordinary logical value equality, so hidden-byte-only mutations are durable
+without changing the language-level equality of structure values. It also
+compares serialized floating-point bit patterns, including signed zero, before
+skipping a save.
+Warm migration attaches the checked checkpoint only to an equivalent admitted
+layout; incompatible ABI, field paths, offsets, scalar codecs, enum constraints,
+extent, or removal of physical semantics rejects the entire application
+without mutation. The checkpoint is internal persistence data and does not
+authorize caller-supplied physical layouts or raw installed-state writes.
 
 Before applying a loaded snapshot, the runtime resolves every retained name
 and stages all compatible migrations:
@@ -1655,12 +1727,21 @@ runtime's active resource identity so subsequent bytecode encoding cannot
 propagate the placeholder. The exception does not apply to multi-resource
 modules.
 
+A reload request waits up to five seconds for the resource to take it. If the
+resource has not started applying the request by then, the request is withdrawn
+and never applied, and the reply reports the timeout; once the resource has
+started applying it, the reply reports the commit or preparation result. A
+reload therefore never commits after its caller was told it timed out.
+
 If preparation fails, the request returns an error and leaves the prior
 executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state
 unchanged. The old program remains executable on the next scan.
 For the reviewed retained `INT(0..10)` value `100`, this rejection retains the
 cause-identifying diagnostic text `outside declared subrange 0..10`.
+The typed retain-subrange rejection carries the destination and value/bounds,
+with stable code `runtime_subrange_violation`; retain context must not erase the
+cause into a generic type mismatch or migration string.
 The reviewed malformed byte sequence `[00, 01, 02, 03]` fails preparation as
 the typed `RuntimeError::Bytecode`; no stable message text is implied.
 
@@ -1944,7 +2025,10 @@ no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
 authentication, enabled I/O-driver configurations, bytecode container, module,
-and selected-resource requirements used by startup. Its versioned JSON success
+and selected-resource requirements used by startup. The configured resource name
+resolves exactly as at launch (§6.7.1 named selection): a name the bytecode does
+not declare fails validation with the launch error, and validation never falls
+back to the primary resource. Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
 runtime drivers.
@@ -2008,13 +2092,19 @@ after a TCP or Unix connection is established, reads and writes are bounded to
 integer; every other value remains the trimmed string. Human-oriented rendering
 happens only after `ok = true`. Status renders
 `state=<state> fault=<fault> rt_profile=<profile> rt_active=<bool>`, defaulting
-absent fault/realtime fields to `none`, `disabled`, and `false`. Health renders
+an absent or JSON-null fault to `none`, and absent realtime fields to
+`disabled` and `false`. A non-null fault must be a string. Health renders
 `ok=<bool>`. An empty task list renders `tasks=0`; otherwise each task renders
 one line containing its name, min/average/max/last milliseconds to three
 decimal places, and overrun count.
 For status, health, and task summaries, a missing or wrong-typed required result
 field is a command failure; it is not rendered as raw JSON or replaced with an
 invented value.
+
+`ctl events` and `ctl faults` send `events.tail` and `faults`. An optional
+`--limit <n>` is sent as `limit`; without it the request carries no parameters,
+so the operation's default of 50 applies. Both print the raw response line, so a
+rejected write's `write_rejected` event is visible from the command line.
 
 ###### Runtime control request, job, and state-surface contract
 
@@ -2085,6 +2175,13 @@ first selects only `RuntimeEvent::Fault` entries and then applies the limit, so
 intervening non-fault events cannot reduce the requested number of faults.
 `SafeStateFailed` remains its own event type and is not silently relabeled as
 the originating resource fault.
+
+The event store keeps the newest 1,000 events, the largest limit either
+operation accepts; a newer event displaces the oldest. A debug control with no
+event sender attached buffers events for callers that drain them directly, such
+as embedders and the debugger. That buffer keeps the newest 1,024 events, drops
+the oldest beyond that bound and counts every dropped event, so the caller can
+tell that it missed events (specification 34 §11.1).
 
 Historian query parameters are strict objects. `historian.query` permits only
 `variable`, `since_ms`, and `limit`; `historian.alerts` permits only `limit`.
@@ -2214,6 +2311,14 @@ its `kind:name` identity, increments its call count, and contributes its elapsed
 time to the per-cycle average. A profiling snapshot retains the reviewed call
 identities and ranks the reviewed program call ahead of the smaller
 function-block call by average cycle contribution.
+
+Hosted program-call instrumentation records each invoked program under its
+canonical configured instance name, including multiple programs in one task and
+unscheduled background programs. A program invocation that returns an execution
+fault is still recorded; later programs in the failed cycle are not invoked or
+counted. Observation does not change the original execution error. The shared
+engine supplies paired, read-only program observations to the hosted adapter;
+ordinary MCU execution does not acquire a hosted metrics clock or sink.
 
 Disabling profiling clears accumulated call entries and top contributors and
 ignores calls recorded while disabled. Re-enabling profiling starts a clean
@@ -2439,6 +2544,21 @@ text, and out-of-range integers reject as `unsupported value`. This admission
 grammar does not bypass target-width or declared-type checks when the queued
 mutation is applied at a scan boundary.
 
+An admitted integer is an untyped literal (IEC 61131-3 Ed.3 §6.3.2, Table 5): a
+literal without a type prefix takes its type from its destination, and a positive
+integer may serve as a bit-string literal. When an `io.write` or `io.force`
+mutation is applied, an integer destination (`SINT` to `ULINT`) takes the value
+in its declared type if
+the value lies in that type's range, and a bit-string destination (`BYTE` to
+`LWORD`) takes a non-negative value that fits its width. Any other value or
+destination type rejects that request alone: it reports a `write_rejected`
+event, changes neither the destination nor the force set, and does not fault
+the PLC (specification 34 §4.3.1). For example, `io-write %MW0 41` stores
+`INT` 41 into an `INT` binding, and `io-write %MW0 40000` is rejected. Variable
+mutations (`set`, `var.force`) apply the same rule to the declared type of their
+target variable: `set global:Counter 41` stores `INT` 41 into an `INT` global,
+and a value the declared type cannot take rejects that request alone, as above.
+
 An accepted `io.write` appends one one-shot request in arrival order. Multiple
 writes to the same address remain distinct ordered requests. An accepted
 `io.force` creates an active force; forcing the same exact address again
@@ -2446,11 +2566,46 @@ replaces its value in place without duplicating or reordering the force.
 `io.unforce` removes only the exact matching force and is idempotent when no
 such force exists.
 
+Pending one-shot `io.write` requests, pending variable writes, pending debugger
+expression writes (`setExpression`), active I/O forces and active variable forces
+are each bounded at 1,024 entries per runtime (specification 34 §4.3.1). A request that would add an entry beyond its bound is
+refused with the stable error `request queue full` and changes nothing.
+Re-forcing an already forced target replaces its value in place and is never
+refused by the bound.
+
 The bounded `eval` operation trims `expr`, rejects an empty name, and performs
 an exact snapshot lookup: global storage first, then retained storage. It is a
 name read, not general expression execution. An absent snapshot returns
 `no snapshot available`; an unknown name returns `unknown identifier`.
 Successful values use the stable runtime debug representation.
+
+Installed retained targets are declaration-qualified views of ordinary PLC
+storage, not a second retain bank. The label for a retained global is its global
+name; a retained program member uses `@program/<instance>/<member>`, matching
+checkpoint labels. `retain:<label>` writes and forces resolve the installed
+retained declaration against the current live program root at the cycle boundary
+and use the common checked-write policy and cumulative cycle allowance. Missing,
+non-retained, retired or type-incompatible destinations report write rejection
+without creating storage or a PLC execution fault. Queue/force acceptance remains
+distinct from application: existing syntactically valid request acknowledgements,
+original target labels, deduplication and release behavior are unchanged. Retain
+list presentation remains in declaration order. Isolated detached inspection
+fixtures may still expose an explicit legacy retain bank; installed execution
+never falls back to that bank. Exact `eval` name lookup is preserved; DAP retained
+name matching remains ASCII case-insensitive through the same immutable index.
+Shared checkpoint capture also rejects duplicate serialized labels with a retain
+migration error before returning or saving a snapshot. A global name that equals
+a generated `@program/<root>/<member>` key shall never silently replace either
+retained value. This applies to the shared core on every platform; it does not
+change explicit insert-or-replace operations on already collected snapshot records.
+Shared snapshot application shall reject colliding destination labels under its
+existing ASCII-insensitive name matching before mutating PLC values. Distinct
+declared destinations must not silently replace each other in the restoration index.
+
+Hosted installation rejects ambiguous retained labels, including a global label
+colliding with a synthetic program-member label under ASCII case folding. The
+failed candidate must not replace the installed controller or its published state.
+
 
 Variable mutation targets use exact lowercase prefixes. `set` admits
 `global:<name>` and `retain:<name>` only. Force and release additionally admit
@@ -2586,8 +2741,8 @@ Modbus and MQTT Test are bounded TCP-reachability probes, not protocol
 handshakes. Their positive detail and evidence therefore claim only that the
 resolved port accepted a TCP connection. Modbus accepts a host, IPv4 address,
 or bracketed IPv6 address with an optional port and defaults an omitted port
-to 502. MQTT accepts the `mqtt://` and `tcp://` cleartext schemes with default
-port 1883 and the `mqtts://` and `ssl://` TLS schemes with default port 8883.
+to 502. MQTT target syntax and default ports are specified by
+[`32-mqtt-io.md`](32-mqtt-io.md).
 An explicit valid port is retained. Empty hosts, zero or invalid ports,
 userinfo, paths, queries, fragments, unsupported schemes, and ambiguous
 unbracketed IPv6 are field errors before DNS or connection activity. A
@@ -3337,8 +3492,8 @@ four and eight bytes respectively. Multi-byte values use canonical
 little-endian byte order. The reviewed matrix proves exact encode/decode
 round trips for its named representative values; it does not select behavior
 for noncanonical `BOOL` bytes, every elementary value, or non-finite egress.
-Non-finite ingress remains governed by
-[ADS floating-point ingress](#ads-floating-point-ingress).
+Non-finite ingress remains governed by the ADS client configuration and
+activation contract.
 
 For the reviewed `STRING(8)` partition, the declared capacity is eight payload
 bytes and the fixed layout is nine bytes including the terminator. Decoding the
@@ -3677,7 +3832,7 @@ names and their generated quality names are unique across every connection.
 
 Imported ADS scalar descriptors project to the corresponding supported IEC
 BOOL, signed and unsigned integer, REAL/LREAL, bit-string, and STRING type
-names defined by [Data Types](05-data-types.md). STRING capacity and every
+names defined by [Data Types](02-data-types.md). STRING capacity and every
 inclusive array lower/upper bound are retained. Poll and notification modes and
 read, write, or read-write access are serialized without silently changing the
 selected capability. Malformed current configuration, missing selection,
@@ -3907,8 +4062,8 @@ The standalone IDE resource contract is:
   equivalent typed `too_large` error before writing.
 
 These are focused reference-environment budgets. They are regression gates for
-the shipped authoring path, not universal real-time guarantees for arbitrary
-hardware or projects.
+the shipped authoring path on the x86_64 CI reference environment, not
+universal real-time guarantees for arbitrary hardware or projects.
 
 ###### Unified Web IDE shell contract
 
@@ -3945,6 +4100,13 @@ expandable buttons with accurate `aria-expanded` state. Hydrated I/O and
 runtime communication drivers appear as labeled cards. Expanding and
 collapsing the driver region updates both the visible region and the
 controlling button's `aria-expanded` value.
+
+Hardware-tab activation and route changes remain browser-responsive while the
+communication graph is laid out. Canvas relayout requests made before the next
+animation frame coalesce into one pending frame. Replacing or deactivating that
+request cancels both the pending frame and its delayed resize/fit timers. The
+latest request schedules one fit pass after 260 milliseconds, so project
+hydration cannot overlap or accumulate parallel resize/fit sequences.
 
 Every driver-card configuration action carries one exact settings key and
 category. Activating it selects Settings, updates the route, renders the owning
@@ -4151,6 +4313,18 @@ part of the accepted request and is applied immediately after the response
 write attempt; process teardown must not race the operator-visible
 acknowledgement off the control connection.
 
+After a valid shutdown acknowledgement, fleet stop confirmation probes may race
+process teardown. A connection reset, broken pipe, aborted connection, empty
+EOF, or transport read/write timeout is inconclusive during this confirmation
+only: it consumes the existing bounded polling budget without resending
+shutdown. A subsequent connection failure confirms `stopped` and removes the
+advisory PID; an accepted status response still means reachable. If confirmation
+exhausts its budget, return `stopping` and retain the PID rather than claiming
+success. Authentication failures, malformed or oversized responses, wrong IDs,
+and configuration errors remain errors, including after acknowledgement.
+Ordinary status and the initial stop probe retain their existing strict error
+behavior. A transport interruption alone never proves a completed stop.
+
 `status` and `logs` are read-only and do not create `.trust-runtime` state when
 it is absent. Log tailing retains only the requested final lines in memory
 rather than loading the complete log file. A start operation may create its
@@ -4184,6 +4358,29 @@ when enabled:
   rejected. The default is **disabled** in production mode (see `runtime.control.mode`).
 - `runtime.control.mode` defaults to `production` and can be set to `debug` for development
   workflows; `runtime.control.debug_enabled` overrides the mode when explicitly set.
+- `step_in`, `step_over` and `step_out` act only while the debugger holds the scan:
+  at a breakpoint, after a debug-mode `pause`, or after a completed step. Otherwise
+  they are rejected with a stable error and arm nothing. In production mode `pause`
+  and `resume` act on the resource scheduler, so a step after a production `pause`
+  is rejected; an attached debug adapter can still step from a breakpoint. In
+  either mode, `resume` also releases any debugger hold, so the scan returns to
+  cyclic execution. While a debugger holds the scan, `status` reports the hold
+  rather than `running`.
+- A `paused` or `running` reply means the resource accepted the request; the
+  scheduler acts on it at its next command boundary, and `status` reports the
+  state actually reached. On a resource that is faulted or stopped, or whose
+  scheduler no longer accepts commands, both requests are rejected with a stable
+  error that names the resource state, and they change nothing: a faulted
+  resource resumes only through `restart`, which runs the configured warm or
+  cold initialization first (specification 34 STATE-06).
+- Restart requests that arrive before the resource has taken the previous one
+  coalesce into a single restart, and a cold request takes precedence over a
+  warm one: a pending cold restart is never downgraded by a later warm request,
+  and a later cold request upgrades a pending warm one. Each accepted request is
+  answered once.
+- The resource command queue holds at most 1,024 commands. A request that finds
+  it full is rejected with the stable code `resource_busy` and is not queued, so
+  a burst of requests cannot grow the runtime's memory without bound.
 
 ##### 6.9.1 Managed debug floating-point ingress
 
@@ -4211,12 +4408,15 @@ execution, and a later authorized client must observe the existing force state.
 An authorization change governs subsequent write, force, and release requests;
 it does not silently mutate an already accepted force.
 
-Deliberate resource stop, fault handling, and every warm or cold restart are
-clearing boundaries. Before safe-state handling or restarted execution can
-proceed, the runtime clears queued debug writes and active variable and I/O
-forces. Safe-state output therefore has precedence over debug forcing, and a
-request accepted before a clearing boundary cannot be replayed into the next
-runtime lifecycle.
+Deliberate resource stop, fault handling, and the commit of every warm or cold
+restart or online change are clearing boundaries. Before safe-state handling or
+restarted execution can proceed, the runtime clears queued debug writes and
+active variable and I/O forces. Safe-state output therefore has precedence over
+debug forcing, and a request accepted before a clearing boundary cannot be
+replayed into the next runtime lifecycle. A restart or online change whose
+preparation fails never reaches its commit, so it is not a clearing boundary:
+queued writes and forces stay as they were (specification 10 §4.8 and the
+online-change preparation rule in section 6.7.1).
 
 ##### 6.9.3 Simulation coupling thresholds
 
@@ -4507,7 +4707,51 @@ role below the route requirement returns `forbidden`; absent authority returns
 error text, use `application/json`, and return HTTP 403 and 401 respectively.
 The accepted token value is forwarded to control dispatch. A server-owned
 internal control token is used only when the web request supplied no token; it
-must not replace an explicit token. The `X-Trust-Ide-Session` header name is
+must not replace an explicit token.
+
+The I/O configuration routes follow the same contract in every web server mode.
+`GET /api/io/config` requires Viewer and is an observation projection, not a
+credential retrieval surface: every driver parameter whose key is secret-valued
+(`password`, `auth_token`, `token`, `secret`, `client_secret`, `credential`,
+`credentials` and `private_key`, matched ASCII-case-insensitively at any depth)
+is replaced with the marker `<redacted>` before serialization. `POST
+/api/io/config` requires Engineer; a secret-valued parameter that arrives as
+`<redacted>` keeps the value stored for the driver at the same position with the
+same name, so saving a configuration as it was read never erases or replaces a
+credential. A marker with no stored value to keep is refused as an invalid
+configuration, and nothing is written. A stored secret literally equal to the
+marker is still an existing value and must survive a read/save round trip.
+
+Restoration also binds a retained credential to its authentication destination.
+For `mqtt` and `mqtt-tcp`, the requested and stored configurations must have the
+same parsed broker host/port, TLS mode, CA/client-authentication material and
+trimmed TLS file paths, ALPN, username, client ID and effective
+`allow_insecure_remote` policy. The driver's parser owns defaults and validation.
+Topic, mapping and timing edits may retain the password. A changed authentication
+context requires explicit replacement credentials; a marker is refused before
+writing any file. For other drivers, any retained marker requires the complete
+submitted parameter object to equal the stored redacted projection. Comparing
+two redacted projections is insufficient, because an explicitly replaced opaque
+credential container can itself change the destination. Invalid context errors
+are generic and never echo credentials. Configuration comparison does not freeze
+external DNS or changes to certificate material at an unchanged path.
+
+The same projection and restoration apply to `/api/ide/io/config`,
+`/api/runtime-cloud/io/config`, `/api/config-ui/io/config` and generic IDE file
+access to `io.toml`, in both runtime and standalone IDE modes. Text editing
+preserves unrelated fields and comments outside opaque redacted secret containers. Revision tokens and IDE versions
+are based on the original stored text, so even a secret-only concurrent change
+causes a stale-write conflict. Invalid configuration responses must not echo
+source snippets containing credentials. A proxy must project successful remote
+I/O responses and must not forward arbitrary remote error text.
+
+The generic IDE cannot rename `io.toml` to another filename or follow a final
+symbolic link; these restrictions prevent aliases from bypassing the credential
+projection. Directory moves retaining the `io.toml` filename remain supported.
+Creating a new I/O file validates its configuration and refuses a marker without
+a stored value. These rules do not remove the authenticated I/O read/save flow.
+
+The `X-Trust-Ide-Session` header name is
 also ASCII-case-insensitive and its value is preserved exactly.
 
 Every state-changing API route applies the following POST admission rules
@@ -4994,6 +5238,14 @@ reachability checks:
   such as `site-b/*`, a suffix such as `*/runtime-b`, and exact target IDs have
   their documented meanings; other embedded-wildcard shapes do not match.
 
+The runtime communications conformance gate must execute every named native
+case in its suite. A stale filter that selects zero tests is a gate failure and
+must not be reported as conformance success. Case execution evidence is scoped
+to the current invocation; a passing result retained in a reused output
+directory cannot satisfy a later run. Its development-profile gateway case
+verifies the permissive `dev` policy above; default-deny write coverage belongs
+to the `wan` profile and must not be attributed to `dev`.
+
 Preflight and dispatch responses retain the caller's `request_id` and
 `connected_via`. Each dispatched target produces one result for that target;
 successful target results carry the target audit correlation supplied by the
@@ -5122,6 +5374,23 @@ The runtime emits structured events for debugging and testing:
 - Fault and overrun notifications
 
 These events are consumed by the debugger (`trust-debug`) and test harnesses to validate behavior deterministically.
+
+##### Hosted embedding mutation lifecycle (planned H migration)
+
+[Specification 34 §4.3.1](34-runtime-portability.md#431-construction-and-installed-state-mutation)
+defines H's construction and installed-state boundary. Raw mutable storage and
+authoring type-registry access belong to a non-executable construction object.
+Installed controllers, including paused or stopped ones, use checked live value
+writes; debug parsing uses separate scratch types. Code, layout and executable
+type changes use an isolated validated candidate and the existing hosted
+online-change/warm-restart boundary. Ordinary supported writes and forces retain
+their existing timing and do not require STOP or reinitialization.
+
+This is an explicit migration of Rust callers using live `storage_mut()` or
+`registry_mut()`, not a reduction in PLC functions or hosted debugging features.
+Until H implements and validates the migration, current hosted code still exposes
+those raw mutable references. This specification amendment does not claim that
+the new API or its regression tests already exist.
 
 ### 7. Build Configuration
 

@@ -357,13 +357,13 @@ fn check_settings(
         if setting.title.trim().is_empty() {
             fail(format!("the setting `{}` needs a title", setting.member));
         }
-        if let (Some(min), Some(max)) = (setting.min, setting.max) {
-            if min > max {
-                fail(format!(
-                    "the setting `{}` has a minimum above its maximum",
-                    setting.member
-                ));
-            }
+        if let (Some(min), Some(max)) = (setting.min, setting.max)
+            && min > max
+        {
+            fail(format!(
+                "the setting `{}` has a minimum above its maximum",
+                setting.member
+            ));
         }
         if setting.step.is_some_and(|step| step <= 0.0) {
             fail(format!(

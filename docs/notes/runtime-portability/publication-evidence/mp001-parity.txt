@@ -1,0 +1,24 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.93s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/trust_lsp-288fa01c6e028ed1)
+     Running unittests src/main.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/trust_lsp-ee368a526d26ac60)
+     Running tests/spec_drift.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/spec_drift-a244ab30dbfac4c0)
+   Compiling trust-syntax v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-syntax)
+   Compiling verification-cases v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/verification-cases)
+   Compiling trust-hir v0.24.73 (/home/johannes/projects/trust-platform-portability-release/crates/trust-hir)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.26s
+     Running tests/semantic_type_checking.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/semantic_type_checking-409c557604491850)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/trust_lsp-288fa01c6e028ed1)
+     Running unittests src/main.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/trust_lsp-ee368a526d26ac60)
+     Running tests/spec_drift.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/spec_drift-a244ab30dbfac4c0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running tests/semantic_type_checking.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/semantic_type_checking-409c557604491850)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/trust_lsp-288fa01c6e028ed1)
+     Running unittests src/main.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/trust_lsp-ee368a526d26ac60)
+     Running tests/spec_drift.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/spec_drift-a244ab30dbfac4c0)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running tests/semantic_type_checking.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a1-integration/debug/deps/semantic_type_checking-409c557604491850)
+MP-001 parity check passed:
+  - LSP handler tests: 121 cases
+  - HIR semantic type-checking tests: 866 cases

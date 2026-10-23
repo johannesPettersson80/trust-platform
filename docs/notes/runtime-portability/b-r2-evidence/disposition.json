@@ -1,0 +1,12 @@
+{
+  "scope": "B-R2",
+  "implementation": "authored and independently reviewed",
+  "M1": "capacity-only failed link; full map retained",
+  "M2": "capacity-only failed link; full map retained",
+  "final_batch": "native behavior passes; two Clippy gates fail",
+  "hardware": "unrun: no installable ELF and software prerequisites fail",
+  "corrections": "five expression changes in two Rust files, reviewed but unvalidated",
+  "remaining_execution_authorization": false,
+  "commit_push": "not performed",
+  "functions_removed": false
+}

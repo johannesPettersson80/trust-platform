@@ -1,0 +1,21 @@
+Open On-Chip Debugger 0.12.0+dev-snapshot (2026-02-16-16:07)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+srst_only separate srst_nogate srst_open_drain connect_deassert_srst
+Info : STLINK V2J30M19 (API v2) VID:PID 0483:374B
+Info : Target voltage: 3.257143
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : clock speed 1800 kHz
+Info : stlink_dap_op_connect(connect)
+Info : SWD DPIDR 0x2ba01477
+Info : [stm32f4x.cpu] Cortex-M4 r0p1 processor detected
+Info : [stm32f4x.cpu] target has 6 breakpoints, 4 watchpoints
+Info : [stm32f4x.cpu] Examination succeed
+Info : [stm32f4x.cpu] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+Warn : [stm32f4x.cpu] target was in unknown state when halt was requested
+sp (/32): 0x20017f50
+pc (/32): 0x0806eff8
+shutdown command invoked

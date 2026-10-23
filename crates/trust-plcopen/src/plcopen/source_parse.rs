@@ -50,6 +50,10 @@ fn load_sources(project_root: &Path, sources_root: &Path) -> anyhow::Result<Vec<
     Ok(sources)
 }
 
+fn portable_source_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 fn extract_pou_declarations(source: &LoadedSource) -> (Vec<PouDecl>, Vec<String>) {
     let mut declarations = Vec::new();
     let mut warnings = Vec::new();
@@ -93,17 +97,18 @@ fn extract_pou_declarations(source: &LoadedSource) -> (Vec<PouDecl>, Vec<String>
         }
 
         let line = line_for_node(&source.text, &node);
+        let source_path = portable_source_path(&source.path);
         declarations.push(PouDecl {
             methods: extract_codesys_methods_from_pou(
                 &node,
                 &source.text,
-                &source.path.display().to_string(),
+                &source_path,
                 &name,
             ),
             name,
             pou_type,
             body: normalize_body_text(node.text().to_string()),
-            source: source.path.display().to_string(),
+            source: source_path,
             line,
         });
     }

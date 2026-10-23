@@ -95,7 +95,7 @@ fn normalize_live_target(raw: &str) -> Result<String, RuntimeError> {
 }
 
 pub(super) fn config_ui_live_targets_snapshot() -> serde_json::Value {
-    let manager = config_ui_live_manager()
+    config_ui_live_manager()
         .lock()
         .ok()
         .map(|guard| config_ui_live_targets_snapshot_with_guard(&guard))
@@ -108,8 +108,7 @@ pub(super) fn config_ui_live_targets_snapshot() -> serde_json::Value {
                 "last_error": "live manager unavailable",
                 "updated_at_ns": now_ns(),
             })
-        });
-    manager
+        })
 }
 
 fn config_ui_live_targets_snapshot_with_guard(

@@ -431,8 +431,8 @@ END_CONFIGURATION
 
 #[test]
 fn a_warm_restart_rebuilds_retained_global_instance_arrays_and_keeps_retained_values() {
-    // docs/specs/10-runtime-semantics.md §4.8: instance identities are never retained, including inside an aggregate; the
-    // warm restart reconstructs the instances, and retained values keep their values.
+    // docs/specs/10-runtime-semantics.md §4.8 and IEC 61131-3 Ed.3 §6.5.6.2: each element of an instance array declared
+    // RETAIN is a RETAIN instance and keeps its variables over a warm restart; the program's own instance starts over.
     let source = format!(
         "{ACCUMULATOR}
 PROGRAM Main
@@ -478,7 +478,11 @@ END_CONFIGURATION
     let cycle = harness.cycle();
     assert!(cycle.errors.is_empty(), "cycle errors: {:?}", cycle.errors);
     assert_eq!(harness.get_output("Kept"), Some(Value::DInt(3)));
-    assert_eq!(harness.get_output("First"), Some(Value::DInt(1)));
+    assert_eq!(
+        harness.get_output("First"),
+        Some(Value::DInt(3)),
+        "the retained element counts on from the two scans before the restart"
+    );
     assert_eq!(harness.get_output("Mine"), Some(Value::DInt(100)));
 }
 

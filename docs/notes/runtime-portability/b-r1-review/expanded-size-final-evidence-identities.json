@@ -1,0 +1,42 @@
+[
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/safe-icf/firmware.map",
+    "sha256": "2b9f0af658b63c9902386c2d3a89db36144e56b5ffe657b18e998a5f0cc7d933",
+    "bytes": 1992242
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/safe-icf/footprint.json",
+    "sha256": "b0fc91c753019a258bb3c29f9fd8fe0f42cc29096194106d4d64bb7624af5a09",
+    "bytes": 7304
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/safe-icf/footprint.txt",
+    "sha256": "dd82607b304c649aa52f0adb652383a0e9dbf187b888a4d1b876ca2cfd3b1b16",
+    "bytes": 5784
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/safe-icf/link.txt",
+    "sha256": "4b9dfb878ee334efbf1d3fde8e8d3874f2833831b4e4d0e6063d46b0aa32f7d9",
+    "bytes": 60606
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/safe-icf/object-sections.txt",
+    "sha256": "bfe2b9411485d280a3311cbd809f56facef5f782c31b261a6db9d4b94923599c",
+    "bytes": 1902332
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/safe-icf/rustflags.txt",
+    "sha256": "e52e9f68c484d923168c4a862083886e380d2fd56739fc9087a49b7d6c3ae0c9",
+    "bytes": 206
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/safe-icf/source-sha256.txt",
+    "sha256": "94e91e74b5df04acd07bd7ff22e3016115da4b2c7fc2e1eba0cc85590c7ba4f4",
+    "bytes": 825588
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/expanded-size/measurement-ledger.tsv",
+    "sha256": "49e586cb8241917debe27c0f2adc9c182cd06032d6ac333e86c417a40075e1b9",
+    "bytes": 204
+  }
+]

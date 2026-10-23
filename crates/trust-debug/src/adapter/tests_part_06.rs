@@ -2,13 +2,14 @@ use super::*;
 
 #[test]
 fn dispatch_evaluate_returns_value() {
-    let mut runtime = Runtime::new();
-    let frame_id = runtime.storage_mut().push_frame("MAIN");
-    runtime
-        .storage_mut()
-        .set_local("foo", RuntimeValue::Int(41));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut storage = trust_runtime::memory::VariableStorage::new();
+    let frame_id = storage.push_frame("MAIN");
+    storage.set_local("foo", RuntimeValue::Int(41));
 
-    let session = DebugSession::new(runtime);
+    let control = DebugControl::new();
+    control.refresh_snapshot_from_storage(&storage, Duration::ZERO);
+    let session = DebugSession::with_control(runtime.build().unwrap(), control);
     let mut adapter = DebugAdapter::new(session);
 
     let eval_req = Request {
@@ -34,8 +35,8 @@ fn dispatch_evaluate_returns_value() {
 
 #[test]
 fn dispatch_evaluate_rejects_calls() {
-    let runtime = Runtime::new();
-    let session = DebugSession::new(runtime);
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let session = DebugSession::new(runtime.build().unwrap());
     let mut adapter = DebugAdapter::new(session);
 
     let eval_req = Request {
@@ -58,10 +59,13 @@ fn dispatch_evaluate_rejects_calls() {
 
 #[test]
 fn dispatch_evaluate_allows_pure_stdlib_calls() {
-    let mut runtime = Runtime::new();
-    let frame_id = runtime.storage_mut().push_frame("MAIN");
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut storage = trust_runtime::memory::VariableStorage::new();
+    let frame_id = storage.push_frame("MAIN");
 
-    let session = DebugSession::new(runtime);
+    let control = DebugControl::new();
+    control.refresh_snapshot_from_storage(&storage, Duration::ZERO);
+    let session = DebugSession::with_control(runtime.build().unwrap(), control);
     let mut adapter = DebugAdapter::new(session);
 
     let eval_req = Request {
@@ -86,17 +90,18 @@ fn dispatch_evaluate_allows_pure_stdlib_calls() {
 
 #[test]
 fn dispatch_evaluate_resolves_instance_and_retain() {
-    let mut runtime = Runtime::new();
-    let instance_id = runtime.storage_mut().create_instance("MyFB");
-    runtime
-        .storage_mut()
-        .set_instance_var(instance_id, "iv", RuntimeValue::Int(7));
-    let frame_id = runtime
-        .storage_mut()
-        .push_frame_with_instance("METHOD", instance_id);
-    runtime.storage_mut().set_retain("r", RuntimeValue::DInt(9));
+    let runtime = trust_runtime::RuntimeBuilder::new();
+    let mut storage = trust_runtime::memory::VariableStorage::new();
+    let instance_id = storage
+        .try_create_instance("MyFB")
+        .expect("instance identity");
+    storage.set_instance_var(instance_id, "iv", RuntimeValue::Int(7));
+    let frame_id = storage.push_frame_with_instance("METHOD", instance_id);
+    storage.set_retain("r", RuntimeValue::DInt(9));
 
-    let session = DebugSession::new(runtime);
+    let control = DebugControl::new();
+    control.refresh_snapshot_from_storage(&storage, Duration::ZERO);
+    let session = DebugSession::with_control(runtime.build().unwrap(), control);
     let mut adapter = DebugAdapter::new(session);
 
     let eval_instance_req = Request {
@@ -161,7 +166,8 @@ fn dispatch_evaluate_resolves_instance_and_retain() {
 
 #[test]
 fn dispatch_evaluate_honors_using_for_types() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
+    let mut storage = trust_runtime::memory::VariableStorage::new();
     let type_name = SmolStr::new("UTIL.MYINT");
     runtime.registry_mut().register(
         type_name.clone(),
@@ -170,18 +176,18 @@ fn dispatch_evaluate_honors_using_for_types() {
             target: TypeId::INT,
         },
     );
-    runtime
-        .register_program(ProgramDef {
-            name: SmolStr::new("MAIN"),
-            vars: Vec::new(),
-            temps: Vec::new(),
-            using: vec![SmolStr::new("UTIL")],
-            body: Vec::new(),
-        })
-        .unwrap();
-    let frame_id = runtime.storage_mut().push_frame("MAIN");
+    runtime.register_program(ProgramDef {
+        name: SmolStr::new("MAIN"),
+        vars: Vec::new(),
+        temps: Vec::new(),
+        using: vec![SmolStr::new("UTIL")],
+        body: Vec::new(),
+    });
+    let frame_id = storage.push_frame("MAIN");
 
-    let session = DebugSession::new(runtime);
+    let control = DebugControl::new();
+    control.refresh_snapshot_from_storage(&storage, Duration::ZERO);
+    let session = DebugSession::with_control(runtime.build().unwrap(), control);
     let mut adapter = DebugAdapter::new(session);
 
     let eval_req = Request {

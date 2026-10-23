@@ -142,9 +142,8 @@ outflow_coefficient_m2_sqrt_m_per_s = 0.020
             assert_eq!(
                 run["conditions"]["simulationConfigRevision"],
                 format!(
-                    "sha256:{:x}",
-                    sha2::Sha256::digest(selected_plant.as_bytes())
-                ),
+                    "sha256:{}",
+                    hex::encode(sha2::Sha256::digest(selected_plant.as_bytes()))),
                 "configuration identity must hash the exact UTF-8 TOML bytes"
             );
             assert_eq!(channel_value(run, 0, "Main.H1"), 0.61);
@@ -163,7 +162,7 @@ outflow_coefficient_m2_sqrt_m_per_s = 0.020
 
 #[test]
 fn isolated_run_drives_the_selected_plant_through_program_variables_without_addresses() {
-    // Specification 33 §13.1–§13.2 and Specification 35 §17.1: a controller output and a measurement without I/O addresses.
+    // Specification 46 §13.1–§13.2 and Specification 35 §17.1: a controller output and a measurement without I/O addresses.
     let (mut state, _root) = search_fixture();
     state.sources = SourceRegistry::new(vec![SourceFile {
         id: 1,

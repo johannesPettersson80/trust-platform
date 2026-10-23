@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use trust_ads_core::{PointAccess, SymbolFlag, SymbolSnapshot};
@@ -161,11 +161,11 @@ struct ImportSymbolsApplyControlParams {
     #[serde(default)]
     write_acknowledged: bool,
     #[serde(default)]
-    ads_toml_path: Option<PathBuf>,
+    ads_toml_path: Option<String>,
     #[serde(default)]
-    snapshot_path: Option<PathBuf>,
+    snapshot_path: Option<String>,
     #[serde(default)]
-    generated_path: Option<PathBuf>,
+    generated_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -467,6 +467,7 @@ fn derive_local_identity_for_apply(_target: &TargetIdentity) -> Result<LocalIden
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use serde_json::{json, Value};

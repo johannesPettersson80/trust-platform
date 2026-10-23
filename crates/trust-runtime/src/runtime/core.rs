@@ -4,18 +4,18 @@
 
 use crate::debug::DebugControl;
 use crate::execution_backend::ExecutionBackend;
-use crate::io::{IoDriver, IoDriverStatus, IoInterface, IoSafeState};
+use crate::io::{IoDriver, IoDriverStatus, IoInterface};
 use crate::memory::{AccessMap, FrameId, InstanceId, VariableStorage};
 use crate::metrics::RuntimeMetrics;
 use crate::program_model::{
     ClassDef, EdgeInput, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
 };
 use crate::program_model::{Expr, LValue};
-use crate::retain::{RetainManager, RetainStore};
+use crate::retain::RetainManager;
 use crate::stdlib::StandardLibrary;
 use crate::task::{ProgramDef, TaskConfig, TaskState};
 use crate::value::{DateTimeProfile, Duration, Value};
-use crate::watchdog::{FaultAction, FaultDecision, FaultPolicy, WatchdogPolicy};
+use crate::watchdog::FaultDecision;
 use crate::{error, stdlib};
 use indexmap::IndexMap;
 use smol_str::SmolStr;
@@ -32,7 +32,7 @@ use super::metrics_subsystem::MetricsSubsystem;
 use super::opcua_client_subsystem::OpcUaClientSubsystem;
 use super::openot_telemetry::OpenOtTelemetrySubsystem;
 use super::types::{GlobalInitValue, GlobalVarMeta, RetainPolicy};
-use super::watchdog_subsystem::WatchdogSubsystem;
+use super::vm::HostedRegisterEnvironment;
 
 /// Minimal runtime entry point (extended later).
 pub struct Runtime {
@@ -45,8 +45,6 @@ pub struct Runtime {
     pub(super) initializer_catalog: InitializerCatalog,
     pub(super) ads: AdsSubsystem,
     pub(super) opcua_client: OpcUaClientSubsystem,
-    pub(super) links: super::link_subsystem::LinkSubsystem,
-    pub(super) hmi: super::hmi_subsystem::HmiSubsystem,
     pub(super) io: IoSubsystem,
     pub(super) access: AccessMap,
     pub(super) stdlib: StandardLibrary,
@@ -54,26 +52,15 @@ pub struct Runtime {
     pub(super) statement_index: IndexMap<u32, Vec<crate::debug::SourceLocation>>,
     pub(super) source_text_index: IndexMap<u32, String>,
     pub(super) source_label_index: HashMap<SmolStr, u32>,
-    /// Resolved VM statement locations by (POU, pc); filled only while debug control is attached, cleared when the module
-    /// or the registered sources change.
-    pub(super) vm_statement_locations:
-        rustc_hash::FxHashMap<(u32, u32), Option<crate::debug::SourceLocation>>,
     pub(super) functions: IndexMap<SmolStr, FunctionDef>,
     pub(super) function_blocks: IndexMap<SmolStr, FunctionBlockDef>,
     pub(super) classes: IndexMap<SmolStr, ClassDef>,
     pub(super) interfaces: IndexMap<SmolStr, InterfaceDef>,
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
-    /// The program type of each program instance a configuration names, by the instance's name
-    /// in upper case (`PROGRAM Tank WITH Fast : TankLevelControl`).
-    pub(super) program_types: IndexMap<SmolStr, SmolStr>,
     pub(super) edge_inputs: IndexMap<SmolStr, Vec<EdgeInput>>,
     pub(super) globals: IndexMap<SmolStr, GlobalVarMeta>,
-    /// Globals declared `VAR_GLOBAL CONSTANT`, which nothing outside the program may write.
-    pub(super) constant_globals: indexmap::IndexSet<SmolStr>,
     pub(super) tasks: Vec<TaskConfig>,
     pub(super) ready_tasks_scratch: Vec<super::types::ReadyTask>,
-    /// The tasks that ran in the current cycle, each with the intervals it missed before it.
-    pub(super) cycle_task_runs: Vec<(SmolStr, u64)>,
     pub(super) background_program_names_scratch: Vec<SmolStr>,
     pub(super) task_state: IndexMap<SmolStr, TaskState>,
     pub(super) task_thread_ids: IndexMap<SmolStr, u32>,
@@ -83,7 +70,6 @@ pub struct Runtime {
     pub(super) cycle_counter: u64,
     pub(super) retain: RetainManager,
     pub(super) metrics: MetricsSubsystem,
-    pub(super) watchdog: WatchdogSubsystem,
     pub(super) faults: FaultSubsystem,
     pub(super) openot_telemetry: OpenOtTelemetrySubsystem,
     pub(super) execution_deadline: Option<std::time::Instant>,
@@ -93,12 +79,8 @@ pub struct Runtime {
     pub(super) vm_local_init_plan_cache: super::vm::VmLocalInitPlanCacheState,
     pub(super) vm_register_lowering_cache: super::vm::RegisterLoweringCacheState,
     pub(super) vm_register_profile: super::vm::RegisterProfileState,
+    pub(super) vm_execution_budget: trust_runtime_core::vm::hosted::budget::ExecutionBudget,
     pub(super) vm_tier1_specialized_executor: super::vm::RegisterTier1SpecializedExecutorState,
-    /// Measurements a simulated plant gives Control.PID instances (`pid:` targets).
-    pub(super) controller_measurements: super::controller_measurement::ControllerMeasurements,
-    /// Whether simulation is enabled for this resource. The target is simulated only with it and simulation-only I/O
-    /// (Specification 35, A2.4); the default is physical.
-    pub(super) simulation_enabled: bool,
 }
 
 impl std::fmt::Debug for Runtime {
@@ -165,5 +147,34 @@ mod accessor_contract_tests;
 impl Default for Runtime {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Runtime {
+    /// Consume materialized authoring values only for historical private tests.
+    pub(crate) fn from_authoring_fixture(builder: super::RuntimeBuilder) -> Self {
+        let mut fixture = Self::new();
+        fixture.resource_name = builder.resource_name;
+        fixture.profile = builder.profile;
+        fixture.storage = builder.storage;
+        fixture.registry = builder.registry;
+        fixture.initializer_catalog = builder.initializer_catalog;
+        fixture.stdlib = builder.stdlib;
+        fixture.functions = builder.functions;
+        fixture.function_blocks = builder.function_blocks;
+        fixture.classes = builder.classes;
+        fixture.interfaces = builder.interfaces;
+        fixture.edge_inputs = builder.edge_inputs;
+        fixture.programs = builder.programs;
+        fixture.globals = builder.globals;
+        fixture.access = builder.access;
+        *fixture.io.interface_mut() = builder.io;
+        fixture.statement_index = builder.statement_index;
+        fixture.source_text_index = builder.source_text_index;
+        fixture.source_label_index = builder.source_label_index;
+        for task in builder.tasks {
+            fixture.register_task(task);
+        }
+        fixture
     }
 }

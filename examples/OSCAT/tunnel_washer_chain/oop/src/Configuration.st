@@ -1,5 +1,5 @@
 CONFIGURATION TunnelWasherChainOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE TunnelWasherChainOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Washer WITH MainTask : Main;
 END_RESOURCE

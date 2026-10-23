@@ -84,7 +84,9 @@ export function registerControlStudioPanel(context: vscode.ExtensionContext): vo
     exportRecording: () => exportActiveLoop(context),
   });
   context.subscriptions.push(
-    runtimeLifecycleService.onDidChange(() => scheduleMonitorRefresh())
+    runtimeLifecycleService.onDidChange(() => scheduleMonitorRefresh()),
+    // Each process-image update of the active simulator session refreshes the loop's monitor too (B2).
+    runtimeLifecycleService.onDidIoStateChange(() => scheduleMonitorRefresh())
   );
 }
 

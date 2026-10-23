@@ -55,10 +55,9 @@ pub(super) fn resolve_reference_for_lvalue(
             if let Some(qualified) = target
                 .qualified_name()
                 .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
+                && let Some(reference) = resolve_reference(ctx, &qualified)
             {
-                if let Some(reference) = resolve_reference(ctx, &qualified) {
-                    return Ok(reference);
-                }
+                return Ok(reference);
             }
             let base_value = read_lvalue(ctx, target)?;
             match base_value {

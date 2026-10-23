@@ -1,0 +1,115 @@
+{
+  "aggregate_sha256": "72cd2fae04790e9c2e956c921dcee015d757b3cdce13721e42bf2610ae6656ca",
+  "framing": "sorted path/NUL/raw bytes/NUL",
+  "scope": "Independent review of a1 index/registry/partial-selection correction delta only; no compilation or test execution",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/bytecode/format/construction.rs",
+      "sha256": "a9ad0f8c324217d29ce8df6e72dc6a2a1f0634803e3b6bb2ece6ab7b3d23dca8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/assertions.rs",
+      "sha256": "02b7991548cff2b3826441495b03bbf8ab4cbe71411a0ad2c3a76a6bddcf38ff"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/bit.rs",
+      "sha256": "73adcf5426790366822bec6deaf53648081fbb637bef6d1ab6391172cd81164b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/comparison.rs",
+      "sha256": "e46e29a7227fa378f3691d08d78a3829e86722eff47e5fb70307af7507f602f4"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/mod.rs",
+      "sha256": "11924f201de8c391158b4daf631cf38d87ee8ebbef5db18cda302098dd876d95"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/numeric.rs",
+      "sha256": "940bf1e5f23e41eec2a49eda9f7de8b852d1bf8790995f1dc390274698ebd4e3"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/registration.rs",
+      "sha256": "6cf42b28bdc29425ce128ca61edd7c5e14f676a731296f8e8d287e32f01caf51"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/selection.rs",
+      "sha256": "2bec415a5dddb5f401851741d0dbc39173176b1a19cb79baf6217ec36c42b0f8"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/string.rs",
+      "sha256": "f975cf94561241acfc10f4447f775ebf1d243ad12aa6f47f6e569b6bfdd4b078"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/time.rs",
+      "sha256": "05dc1cb33f333c4dedd11bbfc3b52e37d040a2cfb295ae7296017e0fd2a3fc5d"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/stdlib/validate.rs",
+      "sha256": "26a4af3134ecc156ef4f0b9a9937b7e851fa6e8c1dcb6ed5773e88a752ef6139"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/partial_access.rs",
+      "sha256": "4eae49b38cea6ee6dd7615294a78bf4ac9fa4187b115f41be5c7cd91fb399611"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/construction/values.rs",
+      "sha256": "ca74015d29fcd2a03b1188db04a5560c2a9dc2b61edb51a11b77591ab232efbe"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/construction.rs",
+      "sha256": "fca0e528d9fe2ef41c8411dd8c556f0f8bb315b1ce2f4b256abcbe58b9392b47"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/staging.rs",
+      "sha256": "4404742e447e12eb3b049a5d1d4d3937c6e7de2de833bc3bd163940bcf355a6e"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/policy.rs",
+      "sha256": "d36ccceb4adbfec00bf6a95c8bb5e9a57b3273b1b0718666d1b59fb47e887e5a"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/readonly.rs",
+      "sha256": "58a76c1e8c90f5194def15e6d6fb9d96f2f6318f70cc6b580da7c577517e7e29"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/reference_types.rs",
+      "sha256": "42a4dc7731cb70f839f21fe89492d8c52d6527d495eeaa538b9a21c94c263992"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/restart.rs",
+      "sha256": "1aacbfaff4b0c265e09274da0509c0ce38a2627398897d4fda121b57eb5186b2"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared.rs",
+      "sha256": "a753352c7970051d30f357e4e079a451e661b28382e7f49cfafd5aa9900fff76"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/admission.rs",
+      "sha256": "ccd0cb51717285257f7c07259bdfc188914d271c7efbb846d72ac32e67a2bda2"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/budget.rs",
+      "sha256": "7b5467806976f07d714646a17eda553f42cef9b761d266a0caefa891a2b71048"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes.rs",
+      "sha256": "a40b25bc03e35850844affad0463a22f3aae3f5a01feef02972d35d1981db69f"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/actions.rs",
+      "sha256": "17eb678869a731d309d9c95eb541000fd8e6531dcbc9ac728f9381c36c361591"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/declarations.rs",
+      "sha256": "0cd1ebd65bdffc6aa9a1e823871591c3c86b47fd6d93beeef996b8235d24550b"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/tests.rs",
+      "sha256": "aeddf268ab2e83fc9e7966b871e25efed2be424a079a74e5bc54bb890d9ccc75"
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_execution_cost.rs",
+      "sha256": "4001d774235d6be6f5c414f2fa446c5efa9330dee41244f071a8019c0b29bdd8"
+    }
+  ]
+}

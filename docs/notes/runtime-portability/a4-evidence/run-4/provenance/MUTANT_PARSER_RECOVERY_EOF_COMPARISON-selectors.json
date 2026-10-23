@@ -1,0 +1,2370 @@
+[
+  {
+    "diff": "--- parser.rs\n+++ replace parse -> Parse with Default::default()\n@@ -6,30 +6,17 @@\n use crate::parser::source::Source;\n use crate::parser::{Parse, ParseError};\n use crate::syntax::SyntaxKind;\n use drop_bomb::DropBomb;\n \n /// Parses source text into a syntax tree.\n #[must_use]\n pub fn parse(source: &str) -> Parse {\n-    let tokens = lex(source);\n-    let parser = Parser::new(&tokens, source);\n-    let (events, errors) = parser.parse();\n-\n-    let sink = Sink::new(&tokens, source, events);\n-    let (green_node, mut sink_errors) = sink.finish();\n-\n-    let mut all_errors = errors;\n-    all_errors.append(&mut sink_errors);\n-\n-    Parse {\n-        green_node,\n-        errors: all_errors,\n-    }\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// The parser state.\n pub(crate) struct Parser<'t, 'src> {\n     pub(crate) source: Source<'t, 'src>,\n     pub(crate) events: Vec<Event>,\n     errors: Vec<ParseError>,\n     pub(crate) expr_depth: usize,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "parse",
+      "return_type": "-> Parse",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 28
+        },
+        "start": {
+          "column": 1,
+          "line": 11
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:14:5: replace parse -> Parse with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 27
+      },
+      "start": {
+        "column": 5,
+        "line": 14
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Marker::complete -> CompletedMarker with Default::default()\n@@ -41,34 +41,17 @@\n }\n \n impl Marker {\n     pub(crate) fn complete(\n         mut self,\n         parser: &mut Parser<'_, '_>,\n         kind: SyntaxKind,\n     ) -> CompletedMarker {\n-        self.bomb.defuse();\n-        match parser.events.get_mut(self.pos) {\n-            Some(Event::Placeholder) => {\n-                parser.events[self.pos] = Event::Start {\n-                    kind,\n-                    forward_parent: None,\n-                };\n-            }\n-            Some(Event::Start {\n-                kind: existing_kind,\n-                ..\n-            }) => {\n-                *existing_kind = kind;\n-            }\n-            _ => {}\n-        }\n-        parser.events.push(Event::Finish);\n-        CompletedMarker { pos: self.pos }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[derive(Clone, Copy)]\n pub(crate) struct CompletedMarker {\n     pub(crate) pos: usize,\n }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Marker::complete",
+      "return_type": "-> CompletedMarker",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 67
+        },
+        "start": {
+          "column": 5,
+          "line": 44
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:49:9: replace Marker::complete -> CompletedMarker with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 42,
+        "line": 66
+      },
+      "start": {
+        "column": 9,
+        "line": 49
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm Some(Event::Placeholder) in Marker::complete\n@@ -43,22 +43,17 @@\n impl Marker {\n     pub(crate) fn complete(\n         mut self,\n         parser: &mut Parser<'_, '_>,\n         kind: SyntaxKind,\n     ) -> CompletedMarker {\n         self.bomb.defuse();\n         match parser.events.get_mut(self.pos) {\n-            Some(Event::Placeholder) => {\n-                parser.events[self.pos] = Event::Start {\n-                    kind,\n-                    forward_parent: None,\n-                };\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             Some(Event::Start {\n                 kind: existing_kind,\n                 ..\n             }) => {\n                 *existing_kind = kind;\n             }\n             _ => {}\n         }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Marker::complete",
+      "return_type": "-> CompletedMarker",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 67
+        },
+        "start": {
+          "column": 5,
+          "line": 44
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:51:13: delete match arm Some(Event::Placeholder) in Marker::complete",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 56
+      },
+      "start": {
+        "column": 13,
+        "line": 51
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm Some(Event::Start{kind:existing_kind, ..}) in Marker::complete\n@@ -49,22 +49,17 @@\n         self.bomb.defuse();\n         match parser.events.get_mut(self.pos) {\n             Some(Event::Placeholder) => {\n                 parser.events[self.pos] = Event::Start {\n                     kind,\n                     forward_parent: None,\n                 };\n             }\n-            Some(Event::Start {\n-                kind: existing_kind,\n-                ..\n-            }) => {\n-                *existing_kind = kind;\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             _ => {}\n         }\n         parser.events.push(Event::Finish);\n         CompletedMarker { pos: self.pos }\n     }\n }\n \n #[derive(Clone, Copy)]\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Marker::complete",
+      "return_type": "-> CompletedMarker",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 67
+        },
+        "start": {
+          "column": 5,
+          "line": 44
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:57:13: delete match arm Some(Event::Start{kind:existing_kind, ..}) in Marker::complete",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 62
+      },
+      "start": {
+        "column": 13,
+        "line": 57
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace CompletedMarker::precede -> Marker with Default::default()\n@@ -77,23 +77,17 @@\n     Found(TokenKind),\n     Closed(TokenKind),\n     Boundary(TokenKind),\n     Limit,\n }\n \n impl CompletedMarker {\n     pub(crate) fn precede(self, parser: &mut Parser<'_, '_>) -> Marker {\n-        let new_pos = parser.events.len();\n-        parser.events.push(Event::Placeholder);\n-        set_forward_parent(&mut parser.events, self.pos, new_pos);\n-        Marker {\n-            pos: new_pos,\n-            bomb: DropBomb::new(\"uncompleted marker\"),\n-        }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n fn set_forward_parent(events: &mut [Event], from: usize, to: usize) {\n     let mut current = from;\n     loop {\n         match &mut events[current] {\n             Event::Start {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "CompletedMarker::precede",
+      "return_type": "-> Marker",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 92
+        },
+        "start": {
+          "column": 5,
+          "line": 84
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:85:9: replace CompletedMarker::precede -> Marker with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 91
+      },
+      "start": {
+        "column": 9,
+        "line": 85
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace set_forward_parent with ()\n@@ -88,32 +88,17 @@\n         Marker {\n             pos: new_pos,\n             bomb: DropBomb::new(\"uncompleted marker\"),\n         }\n     }\n }\n \n fn set_forward_parent(events: &mut [Event], from: usize, to: usize) {\n-    let mut current = from;\n-    loop {\n-        match &mut events[current] {\n-            Event::Start {\n-                forward_parent: Some(fp),\n-                ..\n-            } => {\n-                current += *fp as usize;\n-            }\n-            Event::Start { forward_parent, .. } => {\n-                *forward_parent = Some((to - current) as u32);\n-                break;\n-            }\n-            _ => break,\n-        }\n-    }\n+    () /* ~ changed by cargo-mutants ~ */\n }\n \n impl<'t, 'src> Parser<'t, 'src> {\n     fn new(tokens: &'t [Token], source: &'src str) -> Self {\n         Self {\n             source: Source::new(tokens, source),\n             events: Vec::new(),\n             errors: Vec::new(),\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "set_forward_parent",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 112
+        },
+        "start": {
+          "column": 1,
+          "line": 95
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:96:5: replace set_forward_parent with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 111
+      },
+      "start": {
+        "column": 5,
+        "line": 96
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm Event::Start{forward_parent:Some(fp), ..} in set_forward_parent\n@@ -91,22 +91,17 @@\n         }\n     }\n }\n \n fn set_forward_parent(events: &mut [Event], from: usize, to: usize) {\n     let mut current = from;\n     loop {\n         match &mut events[current] {\n-            Event::Start {\n-                forward_parent: Some(fp),\n-                ..\n-            } => {\n-                current += *fp as usize;\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             Event::Start { forward_parent, .. } => {\n                 *forward_parent = Some((to - current) as u32);\n                 break;\n             }\n             _ => break,\n         }\n     }\n }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "set_forward_parent",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 112
+        },
+        "start": {
+          "column": 1,
+          "line": 95
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:99:13: delete match arm Event::Start{forward_parent:Some(fp), ..} in set_forward_parent",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 104
+      },
+      "start": {
+        "column": 13,
+        "line": 99
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm Event::Start{forward_parent, ..} in set_forward_parent\n@@ -97,20 +97,17 @@\n     loop {\n         match &mut events[current] {\n             Event::Start {\n                 forward_parent: Some(fp),\n                 ..\n             } => {\n                 current += *fp as usize;\n             }\n-            Event::Start { forward_parent, .. } => {\n-                *forward_parent = Some((to - current) as u32);\n-                break;\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             _ => break,\n         }\n     }\n }\n \n impl<'t, 'src> Parser<'t, 'src> {\n     fn new(tokens: &'t [Token], source: &'src str) -> Self {\n         Self {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "set_forward_parent",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 112
+        },
+        "start": {
+          "column": 1,
+          "line": 95
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:105:13: delete match arm Event::Start{forward_parent, ..} in set_forward_parent",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 108
+      },
+      "start": {
+        "column": 13,
+        "line": 105
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with -= in set_forward_parent\n@@ -95,17 +95,17 @@\n fn set_forward_parent(events: &mut [Event], from: usize, to: usize) {\n     let mut current = from;\n     loop {\n         match &mut events[current] {\n             Event::Start {\n                 forward_parent: Some(fp),\n                 ..\n             } => {\n-                current += *fp as usize;\n+                current -= /* ~ changed by cargo-mutants ~ */ *fp as usize;\n             }\n             Event::Start { forward_parent, .. } => {\n                 *forward_parent = Some((to - current) as u32);\n                 break;\n             }\n             _ => break,\n         }\n     }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "set_forward_parent",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 112
+        },
+        "start": {
+          "column": 1,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:103:25: replace += with -= in set_forward_parent",
+    "package": "single_file",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 103
+      },
+      "start": {
+        "column": 25,
+        "line": 103
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with *= in set_forward_parent\n@@ -95,17 +95,17 @@\n fn set_forward_parent(events: &mut [Event], from: usize, to: usize) {\n     let mut current = from;\n     loop {\n         match &mut events[current] {\n             Event::Start {\n                 forward_parent: Some(fp),\n                 ..\n             } => {\n-                current += *fp as usize;\n+                current *= /* ~ changed by cargo-mutants ~ */ *fp as usize;\n             }\n             Event::Start { forward_parent, .. } => {\n                 *forward_parent = Some((to - current) as u32);\n                 break;\n             }\n             _ => break,\n         }\n     }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "set_forward_parent",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 112
+        },
+        "start": {
+          "column": 1,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:103:25: replace += with *= in set_forward_parent",
+    "package": "single_file",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 103
+      },
+      "start": {
+        "column": 25,
+        "line": 103
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace - with + in set_forward_parent\n@@ -98,17 +98,17 @@\n         match &mut events[current] {\n             Event::Start {\n                 forward_parent: Some(fp),\n                 ..\n             } => {\n                 current += *fp as usize;\n             }\n             Event::Start { forward_parent, .. } => {\n-                *forward_parent = Some((to - current) as u32);\n+                *forward_parent = Some((to + /* ~ changed by cargo-mutants ~ */ current) as u32);\n                 break;\n             }\n             _ => break,\n         }\n     }\n }\n \n impl<'t, 'src> Parser<'t, 'src> {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "set_forward_parent",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 112
+        },
+        "start": {
+          "column": 1,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:106:44: replace - with + in set_forward_parent",
+    "package": "single_file",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 106
+      },
+      "start": {
+        "column": 44,
+        "line": 106
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace - with / in set_forward_parent\n@@ -98,17 +98,17 @@\n         match &mut events[current] {\n             Event::Start {\n                 forward_parent: Some(fp),\n                 ..\n             } => {\n                 current += *fp as usize;\n             }\n             Event::Start { forward_parent, .. } => {\n-                *forward_parent = Some((to - current) as u32);\n+                *forward_parent = Some((to / /* ~ changed by cargo-mutants ~ */ current) as u32);\n                 break;\n             }\n             _ => break,\n         }\n     }\n }\n \n impl<'t, 'src> Parser<'t, 'src> {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "set_forward_parent",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 112
+        },
+        "start": {
+          "column": 1,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:106:44: replace - with / in set_forward_parent",
+    "package": "single_file",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 106
+      },
+      "start": {
+        "column": 44,
+        "line": 106
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![], vec![])\n@@ -118,55 +118,17 @@\n             events: Vec::new(),\n             errors: Vec::new(),\n             expr_depth: 0,\n         }\n     }\n \n     fn parse(mut self) -> (Vec<Event>, Vec<ParseError>) {\n         // Start the root node\n-        self.start_node(SyntaxKind::SourceFile);\n-\n-        // Parse top-level items\n-        while !self.at_end() {\n-            if self.at(TokenKind::KwUsing) {\n-                self.parse_using_directive();\n-            } else if self.at(TokenKind::KwVarGlobal) {\n-                self.parse_var_block();\n-            } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {\n-                self.parse_program();\n-            } else if self.at(TokenKind::KwFunction) {\n-                self.parse_function();\n-            } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)\n-            {\n-                self.parse_function_block();\n-            } else if self.at(TokenKind::KwClass) {\n-                self.parse_class();\n-            } else if self.at(TokenKind::KwConfiguration) {\n-                self.parse_configuration();\n-            } else if self.at(TokenKind::KwInterface) {\n-                self.parse_interface();\n-            } else if self.at(TokenKind::KwType) {\n-                self.parse_type_decl();\n-            } else if self.at(TokenKind::KwNamespace) {\n-                self.parse_namespace();\n-            } else if self.current().is_trivia() {\n-                self.bump();\n-            } else {\n-                // Error recovery: skip unknown token\n-                self.error(\n-                    \"expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE\",\n-                );\n-                self.bump();\n-            }\n-        }\n-\n-        self.finish_node();\n-\n-        (self.events, self.errors)\n+        (vec![], vec![]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     // =========================================================================\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n         self.source.current()\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::parse",
+      "return_type": "-> (Vec<Event>, Vec<ParseError>)",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 165
+        },
+        "start": {
+          "column": 5,
+          "line": 124
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:126:9: replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![], vec![])",
+    "package": "single_file",
+    "replacement": "(vec![], vec![])",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 164
+      },
+      "start": {
+        "column": 9,
+        "line": 126
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![], vec![Default::default()])\n@@ -118,55 +118,17 @@\n             events: Vec::new(),\n             errors: Vec::new(),\n             expr_depth: 0,\n         }\n     }\n \n     fn parse(mut self) -> (Vec<Event>, Vec<ParseError>) {\n         // Start the root node\n-        self.start_node(SyntaxKind::SourceFile);\n-\n-        // Parse top-level items\n-        while !self.at_end() {\n-            if self.at(TokenKind::KwUsing) {\n-                self.parse_using_directive();\n-            } else if self.at(TokenKind::KwVarGlobal) {\n-                self.parse_var_block();\n-            } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {\n-                self.parse_program();\n-            } else if self.at(TokenKind::KwFunction) {\n-                self.parse_function();\n-            } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)\n-            {\n-                self.parse_function_block();\n-            } else if self.at(TokenKind::KwClass) {\n-                self.parse_class();\n-            } else if self.at(TokenKind::KwConfiguration) {\n-                self.parse_configuration();\n-            } else if self.at(TokenKind::KwInterface) {\n-                self.parse_interface();\n-            } else if self.at(TokenKind::KwType) {\n-                self.parse_type_decl();\n-            } else if self.at(TokenKind::KwNamespace) {\n-                self.parse_namespace();\n-            } else if self.current().is_trivia() {\n-                self.bump();\n-            } else {\n-                // Error recovery: skip unknown token\n-                self.error(\n-                    \"expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE\",\n-                );\n-                self.bump();\n-            }\n-        }\n-\n-        self.finish_node();\n-\n-        (self.events, self.errors)\n+        (vec![], vec![Default::default()]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     // =========================================================================\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n         self.source.current()\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::parse",
+      "return_type": "-> (Vec<Event>, Vec<ParseError>)",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 165
+        },
+        "start": {
+          "column": 5,
+          "line": 124
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:126:9: replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![], vec![Default::default()])",
+    "package": "single_file",
+    "replacement": "(vec![], vec![Default::default()])",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 164
+      },
+      "start": {
+        "column": 9,
+        "line": 126
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![Default::default()], vec![])\n@@ -118,55 +118,17 @@\n             events: Vec::new(),\n             errors: Vec::new(),\n             expr_depth: 0,\n         }\n     }\n \n     fn parse(mut self) -> (Vec<Event>, Vec<ParseError>) {\n         // Start the root node\n-        self.start_node(SyntaxKind::SourceFile);\n-\n-        // Parse top-level items\n-        while !self.at_end() {\n-            if self.at(TokenKind::KwUsing) {\n-                self.parse_using_directive();\n-            } else if self.at(TokenKind::KwVarGlobal) {\n-                self.parse_var_block();\n-            } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {\n-                self.parse_program();\n-            } else if self.at(TokenKind::KwFunction) {\n-                self.parse_function();\n-            } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)\n-            {\n-                self.parse_function_block();\n-            } else if self.at(TokenKind::KwClass) {\n-                self.parse_class();\n-            } else if self.at(TokenKind::KwConfiguration) {\n-                self.parse_configuration();\n-            } else if self.at(TokenKind::KwInterface) {\n-                self.parse_interface();\n-            } else if self.at(TokenKind::KwType) {\n-                self.parse_type_decl();\n-            } else if self.at(TokenKind::KwNamespace) {\n-                self.parse_namespace();\n-            } else if self.current().is_trivia() {\n-                self.bump();\n-            } else {\n-                // Error recovery: skip unknown token\n-                self.error(\n-                    \"expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE\",\n-                );\n-                self.bump();\n-            }\n-        }\n-\n-        self.finish_node();\n-\n-        (self.events, self.errors)\n+        (vec![Default::default()], vec![]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     // =========================================================================\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n         self.source.current()\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::parse",
+      "return_type": "-> (Vec<Event>, Vec<ParseError>)",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 165
+        },
+        "start": {
+          "column": 5,
+          "line": 124
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:126:9: replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![Default::default()], vec![])",
+    "package": "single_file",
+    "replacement": "(vec![Default::default()], vec![])",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 164
+      },
+      "start": {
+        "column": 9,
+        "line": 126
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![Default::default()], vec![Default::default()])\n@@ -118,55 +118,17 @@\n             events: Vec::new(),\n             errors: Vec::new(),\n             expr_depth: 0,\n         }\n     }\n \n     fn parse(mut self) -> (Vec<Event>, Vec<ParseError>) {\n         // Start the root node\n-        self.start_node(SyntaxKind::SourceFile);\n-\n-        // Parse top-level items\n-        while !self.at_end() {\n-            if self.at(TokenKind::KwUsing) {\n-                self.parse_using_directive();\n-            } else if self.at(TokenKind::KwVarGlobal) {\n-                self.parse_var_block();\n-            } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {\n-                self.parse_program();\n-            } else if self.at(TokenKind::KwFunction) {\n-                self.parse_function();\n-            } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)\n-            {\n-                self.parse_function_block();\n-            } else if self.at(TokenKind::KwClass) {\n-                self.parse_class();\n-            } else if self.at(TokenKind::KwConfiguration) {\n-                self.parse_configuration();\n-            } else if self.at(TokenKind::KwInterface) {\n-                self.parse_interface();\n-            } else if self.at(TokenKind::KwType) {\n-                self.parse_type_decl();\n-            } else if self.at(TokenKind::KwNamespace) {\n-                self.parse_namespace();\n-            } else if self.current().is_trivia() {\n-                self.bump();\n-            } else {\n-                // Error recovery: skip unknown token\n-                self.error(\n-                    \"expected VAR_GLOBAL, PROGRAM, TEST_PROGRAM, FUNCTION, FUNCTION_BLOCK, TEST_FUNCTION_BLOCK, CLASS, CONFIGURATION, INTERFACE, TYPE, or NAMESPACE\",\n-                );\n-                self.bump();\n-            }\n-        }\n-\n-        self.finish_node();\n-\n-        (self.events, self.errors)\n+        (vec![Default::default()], vec![Default::default()]) /* ~ changed by cargo-mutants ~ */\n     }\n \n     // =========================================================================\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n         self.source.current()\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::parse",
+      "return_type": "-> (Vec<Event>, Vec<ParseError>)",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 165
+        },
+        "start": {
+          "column": 5,
+          "line": 124
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:126:9: replace Parser<'t, 'src>::parse -> (Vec<Event>, Vec<ParseError>) with (vec![Default::default()], vec![Default::default()])",
+    "package": "single_file",
+    "replacement": "(vec![Default::default()], vec![Default::default()])",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 164
+      },
+      "start": {
+        "column": 9,
+        "line": 126
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete ! in Parser<'t, 'src>::parse\n@@ -121,17 +121,17 @@\n         }\n     }\n \n     fn parse(mut self) -> (Vec<Event>, Vec<ParseError>) {\n         // Start the root node\n         self.start_node(SyntaxKind::SourceFile);\n \n         // Parse top-level items\n-        while !self.at_end() {\n+        while  /* ~ changed by cargo-mutants ~ */self.at_end() {\n             if self.at(TokenKind::KwUsing) {\n                 self.parse_using_directive();\n             } else if self.at(TokenKind::KwVarGlobal) {\n                 self.parse_var_block();\n             } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {\n                 self.parse_program();\n             } else if self.at(TokenKind::KwFunction) {\n                 self.parse_function();\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::parse",
+      "return_type": "-> (Vec<Event>, Vec<ParseError>)",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 165
+        },
+        "start": {
+          "column": 5,
+          "line": 124
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "parser.rs:129:15: delete ! in Parser<'t, 'src>::parse",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 129
+      },
+      "start": {
+        "column": 15,
+        "line": 129
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace || with && in Parser<'t, 'src>::parse\n@@ -126,17 +126,17 @@\n         self.start_node(SyntaxKind::SourceFile);\n \n         // Parse top-level items\n         while !self.at_end() {\n             if self.at(TokenKind::KwUsing) {\n                 self.parse_using_directive();\n             } else if self.at(TokenKind::KwVarGlobal) {\n                 self.parse_var_block();\n-            } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {\n+            } else if self.at(TokenKind::KwProgram) && /* ~ changed by cargo-mutants ~ */ self.at(TokenKind::KwTestProgram) {\n                 self.parse_program();\n             } else if self.at(TokenKind::KwFunction) {\n                 self.parse_function();\n             } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)\n             {\n                 self.parse_function_block();\n             } else if self.at(TokenKind::KwClass) {\n                 self.parse_class();\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::parse",
+      "return_type": "-> (Vec<Event>, Vec<ParseError>)",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 165
+        },
+        "start": {
+          "column": 5,
+          "line": 124
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:134:53: replace || with && in Parser<'t, 'src>::parse",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 55,
+        "line": 134
+      },
+      "start": {
+        "column": 53,
+        "line": 134
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace || with && in Parser<'t, 'src>::parse\n@@ -130,17 +130,17 @@\n             if self.at(TokenKind::KwUsing) {\n                 self.parse_using_directive();\n             } else if self.at(TokenKind::KwVarGlobal) {\n                 self.parse_var_block();\n             } else if self.at(TokenKind::KwProgram) || self.at(TokenKind::KwTestProgram) {\n                 self.parse_program();\n             } else if self.at(TokenKind::KwFunction) {\n                 self.parse_function();\n-            } else if self.at(TokenKind::KwFunctionBlock) || self.at(TokenKind::KwTestFunctionBlock)\n+            } else if self.at(TokenKind::KwFunctionBlock) && /* ~ changed by cargo-mutants ~ */ self.at(TokenKind::KwTestFunctionBlock)\n             {\n                 self.parse_function_block();\n             } else if self.at(TokenKind::KwClass) {\n                 self.parse_class();\n             } else if self.at(TokenKind::KwConfiguration) {\n                 self.parse_configuration();\n             } else if self.at(TokenKind::KwInterface) {\n                 self.parse_interface();\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::parse",
+      "return_type": "-> (Vec<Event>, Vec<ParseError>)",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 165
+        },
+        "start": {
+          "column": 5,
+          "line": 124
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:138:59: replace || with && in Parser<'t, 'src>::parse",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 61,
+        "line": 138
+      },
+      "start": {
+        "column": 59,
+        "line": 138
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::current -> TokenKind with Default::default()\n@@ -164,17 +164,17 @@\n         (self.events, self.errors)\n     }\n \n     // =========================================================================\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n-        self.source.current()\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn at(&self, kind: TokenKind) -> bool {\n         self.source.peek_kind() == kind\n     }\n \n     pub(crate) fn at_end(&self) -> bool {\n         self.source.at_end()\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::current",
+      "return_type": "-> TokenKind",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 173
+        },
+        "start": {
+          "column": 5,
+          "line": 171
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:172:9: replace Parser<'t, 'src>::current -> TokenKind with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 172
+      },
+      "start": {
+        "column": 9,
+        "line": 172
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at -> bool with true\n@@ -168,17 +168,17 @@\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n         self.source.current()\n     }\n \n     pub(crate) fn at(&self, kind: TokenKind) -> bool {\n-        self.source.peek_kind() == kind\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn at_end(&self) -> bool {\n         self.source.at_end()\n     }\n \n     pub(crate) fn peek_kind_n(&self, n: usize) -> TokenKind {\n         self.source.peek_kind_n(n)\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 177
+        },
+        "start": {
+          "column": 5,
+          "line": 175
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:176:9: replace Parser<'t, 'src>::at -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 176
+      },
+      "start": {
+        "column": 9,
+        "line": 176
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at -> bool with false\n@@ -168,17 +168,17 @@\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n         self.source.current()\n     }\n \n     pub(crate) fn at(&self, kind: TokenKind) -> bool {\n-        self.source.peek_kind() == kind\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn at_end(&self) -> bool {\n         self.source.at_end()\n     }\n \n     pub(crate) fn peek_kind_n(&self, n: usize) -> TokenKind {\n         self.source.peek_kind_n(n)\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 177
+        },
+        "start": {
+          "column": 5,
+          "line": 175
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:176:9: replace Parser<'t, 'src>::at -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 40,
+        "line": 176
+      },
+      "start": {
+        "column": 9,
+        "line": 176
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace == with != in Parser<'t, 'src>::at\n@@ -168,17 +168,17 @@\n     // Helper Methods\n     // =========================================================================\n \n     pub(crate) fn current(&self) -> TokenKind {\n         self.source.current()\n     }\n \n     pub(crate) fn at(&self, kind: TokenKind) -> bool {\n-        self.source.peek_kind() == kind\n+        self.source.peek_kind() != /* ~ changed by cargo-mutants ~ */ kind\n     }\n \n     pub(crate) fn at_end(&self) -> bool {\n         self.source.at_end()\n     }\n \n     pub(crate) fn peek_kind_n(&self, n: usize) -> TokenKind {\n         self.source.peek_kind_n(n)\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 177
+        },
+        "start": {
+          "column": 5,
+          "line": 175
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:176:33: replace == with != in Parser<'t, 'src>::at",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 176
+      },
+      "start": {
+        "column": 33,
+        "line": 176
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at_end -> bool with true\n@@ -172,17 +172,17 @@\n         self.source.current()\n     }\n \n     pub(crate) fn at(&self, kind: TokenKind) -> bool {\n         self.source.peek_kind() == kind\n     }\n \n     pub(crate) fn at_end(&self) -> bool {\n-        self.source.at_end()\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn peek_kind_n(&self, n: usize) -> TokenKind {\n         self.source.peek_kind_n(n)\n     }\n \n     pub(crate) fn scan_top_level_ahead(\n         &self,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_end",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 181
+        },
+        "start": {
+          "column": 5,
+          "line": 179
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:180:9: replace Parser<'t, 'src>::at_end -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 180
+      },
+      "start": {
+        "column": 9,
+        "line": 180
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at_end -> bool with false\n@@ -172,17 +172,17 @@\n         self.source.current()\n     }\n \n     pub(crate) fn at(&self, kind: TokenKind) -> bool {\n         self.source.peek_kind() == kind\n     }\n \n     pub(crate) fn at_end(&self) -> bool {\n-        self.source.at_end()\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn peek_kind_n(&self, n: usize) -> TokenKind {\n         self.source.peek_kind_n(n)\n     }\n \n     pub(crate) fn scan_top_level_ahead(\n         &self,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_end",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 181
+        },
+        "start": {
+          "column": 5,
+          "line": 179
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:180:9: replace Parser<'t, 'src>::at_end -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 180
+      },
+      "start": {
+        "column": 9,
+        "line": 180
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::peek_kind_n -> TokenKind with Default::default()\n@@ -176,17 +176,17 @@\n         self.source.peek_kind() == kind\n     }\n \n     pub(crate) fn at_end(&self) -> bool {\n         self.source.at_end()\n     }\n \n     pub(crate) fn peek_kind_n(&self, n: usize) -> TokenKind {\n-        self.source.peek_kind_n(n)\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn scan_top_level_ahead(\n         &self,\n         start_offset: usize,\n         targets: &[TokenKind],\n         close_tokens: &[TokenKind],\n         boundaries: &[TokenKind],\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::peek_kind_n",
+      "return_type": "-> TokenKind",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 185
+        },
+        "start": {
+          "column": 5,
+          "line": 183
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:184:9: replace Parser<'t, 'src>::peek_kind_n -> TokenKind with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 184
+      },
+      "start": {
+        "column": 9,
+        "line": 184
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::scan_top_level_ahead -> BoundedTopLevelScan with Default::default()\n@@ -187,45 +187,17 @@\n     pub(crate) fn scan_top_level_ahead(\n         &self,\n         start_offset: usize,\n         targets: &[TokenKind],\n         close_tokens: &[TokenKind],\n         boundaries: &[TokenKind],\n         max_lookahead: usize,\n     ) -> BoundedTopLevelScan {\n-        let mut paren_depth = 0usize;\n-        let mut bracket_depth = 0usize;\n-\n-        for offset in start_offset..=max_lookahead {\n-            let kind = self.peek_kind_n(offset);\n-            if kind == TokenKind::Eof {\n-                return BoundedTopLevelScan::Boundary(kind);\n-            }\n-            if boundaries.contains(&kind) {\n-                return BoundedTopLevelScan::Boundary(kind);\n-            }\n-            if paren_depth == 0 && bracket_depth == 0 {\n-                if targets.contains(&kind) {\n-                    return BoundedTopLevelScan::Found(kind);\n-                }\n-                if close_tokens.contains(&kind) {\n-                    return BoundedTopLevelScan::Closed(kind);\n-                }\n-            }\n-            match kind {\n-                TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n-                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n-                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n-                _ => {}\n-            }\n-        }\n-\n-        BoundedTopLevelScan::Limit\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn recover_top_level_until(\n         &mut self,\n         close_tokens: &[TokenKind],\n         boundaries: &[TokenKind],\n         max_tokens: usize,\n         consume_close: bool,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:195:9: replace Parser<'t, 'src>::scan_top_level_ahead -> BoundedTopLevelScan with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 223
+      },
+      "start": {
+        "column": 9,
+        "line": 195
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace == with != in Parser<'t, 'src>::scan_top_level_ahead\n@@ -192,17 +192,17 @@\n         boundaries: &[TokenKind],\n         max_lookahead: usize,\n     ) -> BoundedTopLevelScan {\n         let mut paren_depth = 0usize;\n         let mut bracket_depth = 0usize;\n \n         for offset in start_offset..=max_lookahead {\n             let kind = self.peek_kind_n(offset);\n-            if kind == TokenKind::Eof {\n+            if kind != /* ~ changed by cargo-mutants ~ */ TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if paren_depth == 0 && bracket_depth == 0 {\n                 if targets.contains(&kind) {\n                     return BoundedTopLevelScan::Found(kind);\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:200:21: replace == with != in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 200
+      },
+      "start": {
+        "column": 21,
+        "line": 200
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace && with || in Parser<'t, 'src>::scan_top_level_ahead\n@@ -198,17 +198,17 @@\n         for offset in start_offset..=max_lookahead {\n             let kind = self.peek_kind_n(offset);\n             if kind == TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n-            if paren_depth == 0 && bracket_depth == 0 {\n+            if paren_depth == 0 || /* ~ changed by cargo-mutants ~ */ bracket_depth == 0 {\n                 if targets.contains(&kind) {\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:206:33: replace && with || in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 206
+      },
+      "start": {
+        "column": 33,
+        "line": 206
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace == with != in Parser<'t, 'src>::scan_top_level_ahead\n@@ -198,17 +198,17 @@\n         for offset in start_offset..=max_lookahead {\n             let kind = self.peek_kind_n(offset);\n             if kind == TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n-            if paren_depth == 0 && bracket_depth == 0 {\n+            if paren_depth != /* ~ changed by cargo-mutants ~ */ 0 && bracket_depth == 0 {\n                 if targets.contains(&kind) {\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:206:28: replace == with != in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 206
+      },
+      "start": {
+        "column": 28,
+        "line": 206
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace == with != in Parser<'t, 'src>::scan_top_level_ahead\n@@ -198,17 +198,17 @@\n         for offset in start_offset..=max_lookahead {\n             let kind = self.peek_kind_n(offset);\n             if kind == TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n-            if paren_depth == 0 && bracket_depth == 0 {\n+            if paren_depth == 0 && bracket_depth != /* ~ changed by cargo-mutants ~ */ 0 {\n                 if targets.contains(&kind) {\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:206:50: replace == with != in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 206
+      },
+      "start": {
+        "column": 50,
+        "line": 206
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::LParen in Parser<'t, 'src>::scan_top_level_ahead\n@@ -207,17 +207,17 @@\n                 if targets.contains(&kind) {\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n-                TokenKind::LParen => paren_depth += 1,\n+                 /* ~ changed by cargo-mutants ~ */\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:215:17: delete match arm TokenKind::LParen in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 55,
+        "line": 215
+      },
+      "start": {
+        "column": 17,
+        "line": 215
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::LBracket in Parser<'t, 'src>::scan_top_level_ahead\n@@ -208,17 +208,17 @@\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n+                 /* ~ changed by cargo-mutants ~ */\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:216:17: delete match arm TokenKind::LBracket in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 216
+      },
+      "start": {
+        "column": 17,
+        "line": 216
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::RParen in Parser<'t, 'src>::scan_top_level_ahead\n@@ -209,17 +209,17 @@\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n-                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n+                 /* ~ changed by cargo-mutants ~ */\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:217:17: delete match arm TokenKind::RParen in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 82,
+        "line": 217
+      },
+      "start": {
+        "column": 17,
+        "line": 217
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::RBracket in Parser<'t, 'src>::scan_top_level_ahead\n@@ -210,17 +210,17 @@\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n-                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n+                 /* ~ changed by cargo-mutants ~ */\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n \n     pub(crate) fn recover_top_level_until(\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:218:17: delete match arm TokenKind::RBracket in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 88,
+        "line": 218
+      },
+      "start": {
+        "column": 17,
+        "line": 218
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with -= in Parser<'t, 'src>::scan_top_level_ahead\n@@ -207,17 +207,17 @@\n                 if targets.contains(&kind) {\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n-                TokenKind::LParen => paren_depth += 1,\n+                TokenKind::LParen => paren_depth -= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:215:50: replace += with -= in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 215
+      },
+      "start": {
+        "column": 50,
+        "line": 215
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with *= in Parser<'t, 'src>::scan_top_level_ahead\n@@ -207,17 +207,17 @@\n                 if targets.contains(&kind) {\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n-                TokenKind::LParen => paren_depth += 1,\n+                TokenKind::LParen => paren_depth *= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:215:50: replace += with *= in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 215
+      },
+      "start": {
+        "column": 50,
+        "line": 215
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with -= in Parser<'t, 'src>::scan_top_level_ahead\n@@ -208,17 +208,17 @@\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n+                TokenKind::LBracket => bracket_depth -= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:216:54: replace += with -= in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 56,
+        "line": 216
+      },
+      "start": {
+        "column": 54,
+        "line": 216
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with *= in Parser<'t, 'src>::scan_top_level_ahead\n@@ -208,17 +208,17 @@\n                     return BoundedTopLevelScan::Found(kind);\n                 }\n                 if close_tokens.contains(&kind) {\n                     return BoundedTopLevelScan::Closed(kind);\n                 }\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n+                TokenKind::LBracket => bracket_depth *= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::scan_top_level_ahead",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 224
+        },
+        "start": {
+          "column": 5,
+          "line": 187
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:216:54: replace += with *= in Parser<'t, 'src>::scan_top_level_ahead",
+    "package": "single_file",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 56,
+        "line": 216
+      },
+      "start": {
+        "column": 54,
+        "line": 216
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::recover_top_level_until -> BoundedTopLevelScan with Default::default()\n@@ -225,44 +225,17 @@\n \n     pub(crate) fn recover_top_level_until(\n         &mut self,\n         close_tokens: &[TokenKind],\n         boundaries: &[TokenKind],\n         max_tokens: usize,\n         consume_close: bool,\n     ) -> BoundedTopLevelScan {\n-        let mut paren_depth = 0usize;\n-        let mut bracket_depth = 0usize;\n-\n-        for _ in 0..max_tokens {\n-            let kind = self.current();\n-            if kind == TokenKind::Eof {\n-                return BoundedTopLevelScan::Boundary(kind);\n-            }\n-            if boundaries.contains(&kind) {\n-                return BoundedTopLevelScan::Boundary(kind);\n-            }\n-            if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n-                if consume_close {\n-                    self.bump();\n-                }\n-                return BoundedTopLevelScan::Closed(kind);\n-            }\n-            match kind {\n-                TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n-                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n-                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n-                _ => {}\n-            }\n-            self.bump();\n-        }\n-\n-        BoundedTopLevelScan::Limit\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn bump(&mut self) {\n         let kind = self.source.current();\n         self.events.push(Event::token(SyntaxKind::from(kind)));\n         self.source.bump();\n     }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:233:9: replace Parser<'t, 'src>::recover_top_level_until -> BoundedTopLevelScan with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 260
+      },
+      "start": {
+        "column": 9,
+        "line": 233
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace == with != in Parser<'t, 'src>::recover_top_level_until\n@@ -230,17 +230,17 @@\n         max_tokens: usize,\n         consume_close: bool,\n     ) -> BoundedTopLevelScan {\n         let mut paren_depth = 0usize;\n         let mut bracket_depth = 0usize;\n \n         for _ in 0..max_tokens {\n             let kind = self.current();\n-            if kind == TokenKind::Eof {\n+            if kind != /* ~ changed by cargo-mutants ~ */ TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:238:21: replace == with != in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 238
+      },
+      "start": {
+        "column": 21,
+        "line": 238
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace && with || in Parser<'t, 'src>::recover_top_level_until\n@@ -236,17 +236,17 @@\n         for _ in 0..max_tokens {\n             let kind = self.current();\n             if kind == TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n-            if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n+            if paren_depth == 0 && bracket_depth == 0 || /* ~ changed by cargo-mutants ~ */ close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:244:55: replace && with || in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 57,
+        "line": 244
+      },
+      "start": {
+        "column": 55,
+        "line": 244
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace && with || in Parser<'t, 'src>::recover_top_level_until\n@@ -236,17 +236,17 @@\n         for _ in 0..max_tokens {\n             let kind = self.current();\n             if kind == TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n-            if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n+            if paren_depth == 0 || /* ~ changed by cargo-mutants ~ */ bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:244:33: replace && with || in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 244
+      },
+      "start": {
+        "column": 33,
+        "line": 244
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace == with != in Parser<'t, 'src>::recover_top_level_until\n@@ -236,17 +236,17 @@\n         for _ in 0..max_tokens {\n             let kind = self.current();\n             if kind == TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n-            if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n+            if paren_depth != /* ~ changed by cargo-mutants ~ */ 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:244:28: replace == with != in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 244
+      },
+      "start": {
+        "column": 28,
+        "line": 244
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace == with != in Parser<'t, 'src>::recover_top_level_until\n@@ -236,17 +236,17 @@\n         for _ in 0..max_tokens {\n             let kind = self.current();\n             if kind == TokenKind::Eof {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n             if boundaries.contains(&kind) {\n                 return BoundedTopLevelScan::Boundary(kind);\n             }\n-            if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n+            if paren_depth == 0 && bracket_depth != /* ~ changed by cargo-mutants ~ */ 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:244:50: replace == with != in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 244
+      },
+      "start": {
+        "column": 50,
+        "line": 244
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::LParen in Parser<'t, 'src>::recover_top_level_until\n@@ -243,17 +243,17 @@\n             }\n             if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n-                TokenKind::LParen => paren_depth += 1,\n+                 /* ~ changed by cargo-mutants ~ */\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n             self.bump();\n         }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:251:17: delete match arm TokenKind::LParen in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 55,
+        "line": 251
+      },
+      "start": {
+        "column": 17,
+        "line": 251
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::LBracket in Parser<'t, 'src>::recover_top_level_until\n@@ -244,17 +244,17 @@\n             if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n+                 /* ~ changed by cargo-mutants ~ */\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n             self.bump();\n         }\n \n         BoundedTopLevelScan::Limit\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:252:17: delete match arm TokenKind::LBracket in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 252
+      },
+      "start": {
+        "column": 17,
+        "line": 252
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::RParen in Parser<'t, 'src>::recover_top_level_until\n@@ -245,17 +245,17 @@\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n-                TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n+                 /* ~ changed by cargo-mutants ~ */\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n             self.bump();\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:253:17: delete match arm TokenKind::RParen in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 82,
+        "line": 253
+      },
+      "start": {
+        "column": 17,
+        "line": 253
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete match arm TokenKind::RBracket in Parser<'t, 'src>::recover_top_level_until\n@@ -246,17 +246,17 @@\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n-                TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n+                 /* ~ changed by cargo-mutants ~ */\n                 _ => {}\n             }\n             self.bump();\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "parser.rs:254:17: delete match arm TokenKind::RBracket in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 88,
+        "line": 254
+      },
+      "start": {
+        "column": 17,
+        "line": 254
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with -= in Parser<'t, 'src>::recover_top_level_until\n@@ -243,17 +243,17 @@\n             }\n             if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n-                TokenKind::LParen => paren_depth += 1,\n+                TokenKind::LParen => paren_depth -= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n             self.bump();\n         }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:251:50: replace += with -= in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 251
+      },
+      "start": {
+        "column": 50,
+        "line": 251
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with *= in Parser<'t, 'src>::recover_top_level_until\n@@ -243,17 +243,17 @@\n             }\n             if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n-                TokenKind::LParen => paren_depth += 1,\n+                TokenKind::LParen => paren_depth *= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::LBracket => bracket_depth += 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n             self.bump();\n         }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:251:50: replace += with *= in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 251
+      },
+      "start": {
+        "column": 50,
+        "line": 251
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with -= in Parser<'t, 'src>::recover_top_level_until\n@@ -244,17 +244,17 @@\n             if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n+                TokenKind::LBracket => bracket_depth -= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n             self.bump();\n         }\n \n         BoundedTopLevelScan::Limit\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:252:54: replace += with -= in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 56,
+        "line": 252
+      },
+      "start": {
+        "column": 54,
+        "line": 252
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace += with *= in Parser<'t, 'src>::recover_top_level_until\n@@ -244,17 +244,17 @@\n             if paren_depth == 0 && bracket_depth == 0 && close_tokens.contains(&kind) {\n                 if consume_close {\n                     self.bump();\n                 }\n                 return BoundedTopLevelScan::Closed(kind);\n             }\n             match kind {\n                 TokenKind::LParen => paren_depth += 1,\n-                TokenKind::LBracket => bracket_depth += 1,\n+                TokenKind::LBracket => bracket_depth *= /* ~ changed by cargo-mutants ~ */ 1,\n                 TokenKind::RParen => paren_depth = paren_depth.saturating_sub(1),\n                 TokenKind::RBracket => bracket_depth = bracket_depth.saturating_sub(1),\n                 _ => {}\n             }\n             self.bump();\n         }\n \n         BoundedTopLevelScan::Limit\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_top_level_until",
+      "return_type": "-> BoundedTopLevelScan",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 261
+        },
+        "start": {
+          "column": 5,
+          "line": 226
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:252:54: replace += with *= in Parser<'t, 'src>::recover_top_level_until",
+    "package": "single_file",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 56,
+        "line": 252
+      },
+      "start": {
+        "column": 54,
+        "line": 252
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::bump with ()\n@@ -256,19 +256,17 @@\n             }\n             self.bump();\n         }\n \n         BoundedTopLevelScan::Limit\n     }\n \n     pub(crate) fn bump(&mut self) {\n-        let kind = self.source.current();\n-        self.events.push(Event::token(SyntaxKind::from(kind)));\n-        self.source.bump();\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn start(&mut self) -> Marker {\n         let pos = self.events.len();\n         self.events.push(Event::Placeholder);\n         Marker {\n             pos,\n             bomb: DropBomb::new(\"uncompleted marker\"),\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::bump",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 267
+        },
+        "start": {
+          "column": 5,
+          "line": 263
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:264:9: replace Parser<'t, 'src>::bump with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 28,
+        "line": 266
+      },
+      "start": {
+        "column": 9,
+        "line": 264
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::start -> Marker with Default::default()\n@@ -262,22 +262,17 @@\n \n     pub(crate) fn bump(&mut self) {\n         let kind = self.source.current();\n         self.events.push(Event::token(SyntaxKind::from(kind)));\n         self.source.bump();\n     }\n \n     pub(crate) fn start(&mut self) -> Marker {\n-        let pos = self.events.len();\n-        self.events.push(Event::Placeholder);\n-        Marker {\n-            pos,\n-            bomb: DropBomb::new(\"uncompleted marker\"),\n-        }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn start_node(&mut self, kind: SyntaxKind) {\n         self.events.push(Event::start(kind));\n     }\n \n     pub(crate) fn finish_node(&mut self) {\n         self.events.push(Event::Finish);\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::start",
+      "return_type": "-> Marker",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 276
+        },
+        "start": {
+          "column": 5,
+          "line": 269
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:270:9: replace Parser<'t, 'src>::start -> Marker with Default::default()",
+    "package": "single_file",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 275
+      },
+      "start": {
+        "column": 9,
+        "line": 270
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::start_node with ()\n@@ -271,17 +271,17 @@\n         self.events.push(Event::Placeholder);\n         Marker {\n             pos,\n             bomb: DropBomb::new(\"uncompleted marker\"),\n         }\n     }\n \n     pub(crate) fn start_node(&mut self, kind: SyntaxKind) {\n-        self.events.push(Event::start(kind));\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn finish_node(&mut self) {\n         self.events.push(Event::Finish);\n     }\n \n     pub(crate) fn error(&mut self, message: &str) {\n         let range = self\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::start_node",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 280
+        },
+        "start": {
+          "column": 5,
+          "line": 278
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:279:9: replace Parser<'t, 'src>::start_node with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 279
+      },
+      "start": {
+        "column": 9,
+        "line": 279
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::finish_node with ()\n@@ -275,17 +275,17 @@\n         }\n     }\n \n     pub(crate) fn start_node(&mut self, kind: SyntaxKind) {\n         self.events.push(Event::start(kind));\n     }\n \n     pub(crate) fn finish_node(&mut self) {\n-        self.events.push(Event::Finish);\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     pub(crate) fn error(&mut self, message: &str) {\n         let range = self\n             .source\n             .current_token()\n             .map(|t| t.range)\n             .unwrap_or_else(|| text_size::TextRange::empty(text_size::TextSize::from(0)));\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::finish_node",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 284
+        },
+        "start": {
+          "column": 5,
+          "line": 282
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:283:9: replace Parser<'t, 'src>::finish_node with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 41,
+        "line": 283
+      },
+      "start": {
+        "column": 9,
+        "line": 283
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::error with ()\n@@ -279,26 +279,17 @@\n         self.events.push(Event::start(kind));\n     }\n \n     pub(crate) fn finish_node(&mut self) {\n         self.events.push(Event::Finish);\n     }\n \n     pub(crate) fn error(&mut self, message: &str) {\n-        let range = self\n-            .source\n-            .current_token()\n-            .map(|t| t.range)\n-            .unwrap_or_else(|| text_size::TextRange::empty(text_size::TextSize::from(0)));\n-\n-        self.errors.push(ParseError {\n-            message: message.to_string(),\n-            range,\n-        });\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Skip tokens until we find a synchronization point for error recovery.\n     /// This helps the parser continue after encountering an error.\n     #[allow(dead_code)]\n     pub(crate) fn recover_to_sync_point(&mut self) {\n         while !self.at_end() {\n             // Check if current token is a sync point\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::error",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 297
+        },
+        "start": {
+          "column": 5,
+          "line": 286
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:287:9: replace Parser<'t, 'src>::error with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 12,
+        "line": 296
+      },
+      "start": {
+        "column": 9,
+        "line": 287
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::recover_to_sync_point with ()\n@@ -295,23 +295,17 @@\n             range,\n         });\n     }\n \n     /// Skip tokens until we find a synchronization point for error recovery.\n     /// This helps the parser continue after encountering an error.\n     #[allow(dead_code)]\n     pub(crate) fn recover_to_sync_point(&mut self) {\n-        while !self.at_end() {\n-            // Check if current token is a sync point\n-            if self.is_sync_point() {\n-                break;\n-            }\n-            self.bump();\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Returns true if the current token is a synchronization point.\n     pub(crate) fn is_sync_point(&self) -> bool {\n         matches!(\n             self.current(),\n             // Statement terminators\n             TokenKind::Semicolon\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_to_sync_point",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 310
+        },
+        "start": {
+          "column": 5,
+          "line": 299
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:303:9: replace Parser<'t, 'src>::recover_to_sync_point with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 309
+      },
+      "start": {
+        "column": 9,
+        "line": 303
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete ! in Parser<'t, 'src>::recover_to_sync_point\n@@ -295,17 +295,17 @@\n             range,\n         });\n     }\n \n     /// Skip tokens until we find a synchronization point for error recovery.\n     /// This helps the parser continue after encountering an error.\n     #[allow(dead_code)]\n     pub(crate) fn recover_to_sync_point(&mut self) {\n-        while !self.at_end() {\n+        while  /* ~ changed by cargo-mutants ~ */self.at_end() {\n             // Check if current token is a sync point\n             if self.is_sync_point() {\n                 break;\n             }\n             self.bump();\n         }\n     }\n \n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_to_sync_point",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 310
+        },
+        "start": {
+          "column": 5,
+          "line": 299
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "parser.rs:303:15: delete ! in Parser<'t, 'src>::recover_to_sync_point",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 303
+      },
+      "start": {
+        "column": 15,
+        "line": 303
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::is_sync_point -> bool with true\n@@ -306,74 +306,17 @@\n                 break;\n             }\n             self.bump();\n         }\n     }\n \n     /// Returns true if the current token is a synchronization point.\n     pub(crate) fn is_sync_point(&self) -> bool {\n-        matches!(\n-            self.current(),\n-            // Statement terminators\n-            TokenKind::Semicolon\n-            // End of control flow\n-            | TokenKind::KwEndIf\n-            | TokenKind::KwEndFor\n-            | TokenKind::KwEndWhile\n-            | TokenKind::KwEndRepeat\n-            | TokenKind::KwEndCase\n-            // End of blocks\n-            | TokenKind::KwEndVar\n-            | TokenKind::KwEndType\n-            | TokenKind::KwEndStruct\n-            | TokenKind::KwEndUnion\n-            // End of POUs\n-            | TokenKind::KwEndProgram\n-            | TokenKind::KwEndTestProgram\n-            | TokenKind::KwEndFunction\n-            | TokenKind::KwEndFunctionBlock\n-            | TokenKind::KwEndTestFunctionBlock\n-            | TokenKind::KwEndClass\n-            | TokenKind::KwEndMethod\n-            | TokenKind::KwEndProperty\n-            | TokenKind::KwEndInterface\n-            | TokenKind::KwEndNamespace\n-            | TokenKind::KwEndConfiguration\n-            | TokenKind::KwEndResource\n-            | TokenKind::KwEndAction\n-            | TokenKind::KwEndGet\n-            | TokenKind::KwEndSet\n-            // Start of new constructs (recover at next item)\n-            | TokenKind::KwProgram\n-            | TokenKind::KwTestProgram\n-            | TokenKind::KwFunction\n-            | TokenKind::KwFunctionBlock\n-            | TokenKind::KwTestFunctionBlock\n-            | TokenKind::KwClass\n-            | TokenKind::KwMethod\n-            | TokenKind::KwProperty\n-            | TokenKind::KwInterface\n-            | TokenKind::KwNamespace\n-            | TokenKind::KwConfiguration\n-            | TokenKind::KwResource\n-            | TokenKind::KwTask\n-            | TokenKind::KwType\n-            | TokenKind::KwAction\n-            | TokenKind::KwVarAccess\n-            | TokenKind::KwVarConfig\n-            // Variable blocks\n-            | TokenKind::KwVar\n-            | TokenKind::KwVarInput\n-            | TokenKind::KwVarOutput\n-            | TokenKind::KwVarInOut\n-            | TokenKind::KwVarTemp\n-            | TokenKind::KwVarGlobal\n-            | TokenKind::KwVarExternal\n-        )\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n         self.is_sync_point() && !self.current().can_start_statement()\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::is_sync_point",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 372
+        },
+        "start": {
+          "column": 5,
+          "line": 312
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:314:9: replace Parser<'t, 'src>::is_sync_point -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 371
+      },
+      "start": {
+        "column": 9,
+        "line": 314
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::is_sync_point -> bool with false\n@@ -306,74 +306,17 @@\n                 break;\n             }\n             self.bump();\n         }\n     }\n \n     /// Returns true if the current token is a synchronization point.\n     pub(crate) fn is_sync_point(&self) -> bool {\n-        matches!(\n-            self.current(),\n-            // Statement terminators\n-            TokenKind::Semicolon\n-            // End of control flow\n-            | TokenKind::KwEndIf\n-            | TokenKind::KwEndFor\n-            | TokenKind::KwEndWhile\n-            | TokenKind::KwEndRepeat\n-            | TokenKind::KwEndCase\n-            // End of blocks\n-            | TokenKind::KwEndVar\n-            | TokenKind::KwEndType\n-            | TokenKind::KwEndStruct\n-            | TokenKind::KwEndUnion\n-            // End of POUs\n-            | TokenKind::KwEndProgram\n-            | TokenKind::KwEndTestProgram\n-            | TokenKind::KwEndFunction\n-            | TokenKind::KwEndFunctionBlock\n-            | TokenKind::KwEndTestFunctionBlock\n-            | TokenKind::KwEndClass\n-            | TokenKind::KwEndMethod\n-            | TokenKind::KwEndProperty\n-            | TokenKind::KwEndInterface\n-            | TokenKind::KwEndNamespace\n-            | TokenKind::KwEndConfiguration\n-            | TokenKind::KwEndResource\n-            | TokenKind::KwEndAction\n-            | TokenKind::KwEndGet\n-            | TokenKind::KwEndSet\n-            // Start of new constructs (recover at next item)\n-            | TokenKind::KwProgram\n-            | TokenKind::KwTestProgram\n-            | TokenKind::KwFunction\n-            | TokenKind::KwFunctionBlock\n-            | TokenKind::KwTestFunctionBlock\n-            | TokenKind::KwClass\n-            | TokenKind::KwMethod\n-            | TokenKind::KwProperty\n-            | TokenKind::KwInterface\n-            | TokenKind::KwNamespace\n-            | TokenKind::KwConfiguration\n-            | TokenKind::KwResource\n-            | TokenKind::KwTask\n-            | TokenKind::KwType\n-            | TokenKind::KwAction\n-            | TokenKind::KwVarAccess\n-            | TokenKind::KwVarConfig\n-            // Variable blocks\n-            | TokenKind::KwVar\n-            | TokenKind::KwVarInput\n-            | TokenKind::KwVarOutput\n-            | TokenKind::KwVarInOut\n-            | TokenKind::KwVarTemp\n-            | TokenKind::KwVarGlobal\n-            | TokenKind::KwVarExternal\n-        )\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n         self.is_sync_point() && !self.current().can_start_statement()\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::is_sync_point",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 372
+        },
+        "start": {
+          "column": 5,
+          "line": 312
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:314:9: replace Parser<'t, 'src>::is_sync_point -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 371
+      },
+      "start": {
+        "column": 9,
+        "line": 314
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at_stmt_list_end -> bool with true\n@@ -368,17 +368,17 @@\n             | TokenKind::KwVarTemp\n             | TokenKind::KwVarGlobal\n             | TokenKind::KwVarExternal\n         )\n     }\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n-        self.is_sync_point() && !self.current().can_start_statement()\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n     pub(crate) fn recover_statement(&mut self) {\n         while !self.at_end() {\n             if self.at(TokenKind::Semicolon) {\n                 self.bump();\n                 break;\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_stmt_list_end",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 377
+        },
+        "start": {
+          "column": 5,
+          "line": 374
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:376:9: replace Parser<'t, 'src>::at_stmt_list_end -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 376
+      },
+      "start": {
+        "column": 9,
+        "line": 376
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at_stmt_list_end -> bool with false\n@@ -368,17 +368,17 @@\n             | TokenKind::KwVarTemp\n             | TokenKind::KwVarGlobal\n             | TokenKind::KwVarExternal\n         )\n     }\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n-        self.is_sync_point() && !self.current().can_start_statement()\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n     pub(crate) fn recover_statement(&mut self) {\n         while !self.at_end() {\n             if self.at(TokenKind::Semicolon) {\n                 self.bump();\n                 break;\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_stmt_list_end",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 377
+        },
+        "start": {
+          "column": 5,
+          "line": 374
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:376:9: replace Parser<'t, 'src>::at_stmt_list_end -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 376
+      },
+      "start": {
+        "column": 9,
+        "line": 376
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace && with || in Parser<'t, 'src>::at_stmt_list_end\n@@ -368,17 +368,17 @@\n             | TokenKind::KwVarTemp\n             | TokenKind::KwVarGlobal\n             | TokenKind::KwVarExternal\n         )\n     }\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n-        self.is_sync_point() && !self.current().can_start_statement()\n+        self.is_sync_point() || /* ~ changed by cargo-mutants ~ */ !self.current().can_start_statement()\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n     pub(crate) fn recover_statement(&mut self) {\n         while !self.at_end() {\n             if self.at(TokenKind::Semicolon) {\n                 self.bump();\n                 break;\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_stmt_list_end",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 377
+        },
+        "start": {
+          "column": 5,
+          "line": 374
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:376:30: replace && with || in Parser<'t, 'src>::at_stmt_list_end",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 32,
+        "line": 376
+      },
+      "start": {
+        "column": 30,
+        "line": 376
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete ! in Parser<'t, 'src>::at_stmt_list_end\n@@ -368,17 +368,17 @@\n             | TokenKind::KwVarTemp\n             | TokenKind::KwVarGlobal\n             | TokenKind::KwVarExternal\n         )\n     }\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n-        self.is_sync_point() && !self.current().can_start_statement()\n+        self.is_sync_point() &&  /* ~ changed by cargo-mutants ~ */self.current().can_start_statement()\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n     pub(crate) fn recover_statement(&mut self) {\n         while !self.at_end() {\n             if self.at(TokenKind::Semicolon) {\n                 self.bump();\n                 break;\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_stmt_list_end",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 377
+        },
+        "start": {
+          "column": 5,
+          "line": 374
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "parser.rs:376:33: delete ! in Parser<'t, 'src>::at_stmt_list_end",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 34,
+        "line": 376
+      },
+      "start": {
+        "column": 33,
+        "line": 376
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::recover_statement with ()\n@@ -373,26 +373,17 @@\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n         self.is_sync_point() && !self.current().can_start_statement()\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n     pub(crate) fn recover_statement(&mut self) {\n-        while !self.at_end() {\n-            if self.at(TokenKind::Semicolon) {\n-                self.bump();\n-                break;\n-            }\n-            if self.is_sync_point() || self.current().can_start_statement() {\n-                break;\n-            }\n-            self.bump();\n-        }\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// Consume a statement terminator, or insert it when unambiguous.\n     pub(crate) fn expect_semicolon(&mut self) {\n         if self.at(TokenKind::Semicolon) {\n             self.bump();\n             return;\n         }\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_statement",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 391
+        },
+        "start": {
+          "column": 5,
+          "line": 379
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:381:9: replace Parser<'t, 'src>::recover_statement with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 390
+      },
+      "start": {
+        "column": 9,
+        "line": 381
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ delete ! in Parser<'t, 'src>::recover_statement\n@@ -373,17 +373,17 @@\n \n     /// Returns true when a statement list should stop for recovery.\n     pub(crate) fn at_stmt_list_end(&self) -> bool {\n         self.is_sync_point() && !self.current().can_start_statement()\n     }\n \n     /// Recover at statement level - skip to next statement or block end.\n     pub(crate) fn recover_statement(&mut self) {\n-        while !self.at_end() {\n+        while  /* ~ changed by cargo-mutants ~ */self.at_end() {\n             if self.at(TokenKind::Semicolon) {\n                 self.bump();\n                 break;\n             }\n             if self.is_sync_point() || self.current().can_start_statement() {\n                 break;\n             }\n             self.bump();\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_statement",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 391
+        },
+        "start": {
+          "column": 5,
+          "line": 379
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "parser.rs:381:15: delete ! in Parser<'t, 'src>::recover_statement",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 381
+      },
+      "start": {
+        "column": 15,
+        "line": 381
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace || with && in Parser<'t, 'src>::recover_statement\n@@ -378,17 +378,17 @@\n \n     /// Recover at statement level - skip to next statement or block end.\n     pub(crate) fn recover_statement(&mut self) {\n         while !self.at_end() {\n             if self.at(TokenKind::Semicolon) {\n                 self.bump();\n                 break;\n             }\n-            if self.is_sync_point() || self.current().can_start_statement() {\n+            if self.is_sync_point() && /* ~ changed by cargo-mutants ~ */ self.current().can_start_statement() {\n                 break;\n             }\n             self.bump();\n         }\n     }\n \n     /// Consume a statement terminator, or insert it when unambiguous.\n     pub(crate) fn expect_semicolon(&mut self) {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::recover_statement",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 391
+        },
+        "start": {
+          "column": 5,
+          "line": 379
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:386:37: replace || with && in Parser<'t, 'src>::recover_statement",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 386
+      },
+      "start": {
+        "column": 37,
+        "line": 386
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::expect_semicolon with ()\n@@ -387,28 +387,17 @@\n                 break;\n             }\n             self.bump();\n         }\n     }\n \n     /// Consume a statement terminator, or insert it when unambiguous.\n     pub(crate) fn expect_semicolon(&mut self) {\n-        if self.at(TokenKind::Semicolon) {\n-            self.bump();\n-            return;\n-        }\n-\n-        if self.at_semicolon_insertion_point() {\n-            self.error(\"expected ';'\");\n-            return;\n-        }\n-\n-        self.error(\"expected ';'\");\n-        self.recover_statement();\n+        () /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn at_semicolon_insertion_point(&self) -> bool {\n         if self.at_end() {\n             return true;\n         }\n \n         if self.is_sync_point() || self.current().can_start_statement() {\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::expect_semicolon",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 407
+        },
+        "start": {
+          "column": 5,
+          "line": 393
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:395:9: replace Parser<'t, 'src>::expect_semicolon with ()",
+    "package": "single_file",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 34,
+        "line": 406
+      },
+      "start": {
+        "column": 9,
+        "line": 395
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at_semicolon_insertion_point -> bool with true\n@@ -402,32 +402,17 @@\n             return;\n         }\n \n         self.error(\"expected ';'\");\n         self.recover_statement();\n     }\n \n     fn at_semicolon_insertion_point(&self) -> bool {\n-        if self.at_end() {\n-            return true;\n-        }\n-\n-        if self.is_sync_point() || self.current().can_start_statement() {\n-            return true;\n-        }\n-\n-        if matches!(\n-            self.current(),\n-            TokenKind::KwElse | TokenKind::KwElsif | TokenKind::KwUntil\n-        ) {\n-            return true;\n-        }\n-\n-        self.current().can_start_expr() && self.source.has_case_label_ahead()\n+        true /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_semicolon_insertion_point",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 426
+        },
+        "start": {
+          "column": 5,
+          "line": 409
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:410:9: replace Parser<'t, 'src>::at_semicolon_insertion_point -> bool with true",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 78,
+        "line": 425
+      },
+      "start": {
+        "column": 9,
+        "line": 410
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace Parser<'t, 'src>::at_semicolon_insertion_point -> bool with false\n@@ -402,32 +402,17 @@\n             return;\n         }\n \n         self.error(\"expected ';'\");\n         self.recover_statement();\n     }\n \n     fn at_semicolon_insertion_point(&self) -> bool {\n-        if self.at_end() {\n-            return true;\n-        }\n-\n-        if self.is_sync_point() || self.current().can_start_statement() {\n-            return true;\n-        }\n-\n-        if matches!(\n-            self.current(),\n-            TokenKind::KwElse | TokenKind::KwElsif | TokenKind::KwUntil\n-        ) {\n-            return true;\n-        }\n-\n-        self.current().can_start_expr() && self.source.has_case_label_ahead()\n+        false /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_semicolon_insertion_point",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 426
+        },
+        "start": {
+          "column": 5,
+          "line": 409
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "parser.rs:410:9: replace Parser<'t, 'src>::at_semicolon_insertion_point -> bool with false",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 78,
+        "line": 425
+      },
+      "start": {
+        "column": 9,
+        "line": 410
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace || with && in Parser<'t, 'src>::at_semicolon_insertion_point\n@@ -406,17 +406,17 @@\n         self.recover_statement();\n     }\n \n     fn at_semicolon_insertion_point(&self) -> bool {\n         if self.at_end() {\n             return true;\n         }\n \n-        if self.is_sync_point() || self.current().can_start_statement() {\n+        if self.is_sync_point() && /* ~ changed by cargo-mutants ~ */ self.current().can_start_statement() {\n             return true;\n         }\n \n         if matches!(\n             self.current(),\n             TokenKind::KwElse | TokenKind::KwElsif | TokenKind::KwUntil\n         ) {\n             return true;\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_semicolon_insertion_point",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 426
+        },
+        "start": {
+          "column": 5,
+          "line": 409
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:414:33: replace || with && in Parser<'t, 'src>::at_semicolon_insertion_point",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 414
+      },
+      "start": {
+        "column": 33,
+        "line": 414
+      }
+    }
+  },
+  {
+    "diff": "--- parser.rs\n+++ replace && with || in Parser<'t, 'src>::at_semicolon_insertion_point\n@@ -417,17 +417,17 @@\n \n         if matches!(\n             self.current(),\n             TokenKind::KwElse | TokenKind::KwElsif | TokenKind::KwUntil\n         ) {\n             return true;\n         }\n \n-        self.current().can_start_expr() && self.source.has_case_label_ahead()\n+        self.current().can_start_expr() || /* ~ changed by cargo-mutants ~ */ self.source.has_case_label_ahead()\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n \n     #[test]\n",
+    "file": "parser.rs",
+    "function": {
+      "function_name": "Parser<'t, 'src>::at_semicolon_insertion_point",
+      "return_type": "-> bool",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 426
+        },
+        "start": {
+          "column": 5,
+          "line": 409
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "parser.rs:425:41: replace && with || in Parser<'t, 'src>::at_semicolon_insertion_point",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 425
+      },
+      "start": {
+        "column": 41,
+        "line": 425
+      }
+    }
+  }
+]

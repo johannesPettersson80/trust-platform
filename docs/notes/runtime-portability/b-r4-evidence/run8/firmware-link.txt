@@ -1,0 +1,2 @@
+[gate-progress state=started phase=B-R4-firmware-link target=scena-rust-builder pid=1797449 elapsed=0.0s timeout=7200s command='bash /home/johannes/.cache/trust-portability-br4-setup-run8/measure.sh']
+[gate-progress state=finished phase=B-R4-firmware-link target=scena-rust-builder pid=1797449 elapsed=6.7s timeout=7200s command='bash /home/johannes/.cache/trust-portability-br4-setup-run8/measure.sh' status=0]

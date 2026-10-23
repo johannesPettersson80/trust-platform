@@ -16,22 +16,22 @@ fn symbols_in_scope(
             CompletionKind::Constant
         } else {
             match symbol.kind {
-            SymbolKind::Variable { .. } => CompletionKind::Variable,
-            SymbolKind::Constant => CompletionKind::Constant,
-            SymbolKind::Function { .. } => CompletionKind::Function,
-            SymbolKind::FunctionBlock => CompletionKind::FunctionBlock,
-            SymbolKind::Class => CompletionKind::Type,
-            SymbolKind::Method { .. } => CompletionKind::Method,
-            SymbolKind::Property { .. } => CompletionKind::Property,
-            SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
-            SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
-            SymbolKind::Program
-            | SymbolKind::ProgramInstance
-            | SymbolKind::Parameter { .. }
-            | SymbolKind::Namespace
-            | SymbolKind::Configuration
-            | SymbolKind::Resource
-            | SymbolKind::Task => CompletionKind::Variable,
+                SymbolKind::Variable { .. } => CompletionKind::Variable,
+                SymbolKind::Constant => CompletionKind::Constant,
+                SymbolKind::Function { .. } => CompletionKind::Function,
+                SymbolKind::FunctionBlock => CompletionKind::FunctionBlock,
+                SymbolKind::Class => CompletionKind::Type,
+                SymbolKind::Method { .. } => CompletionKind::Method,
+                SymbolKind::Property { .. } => CompletionKind::Property,
+                SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
+                SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
+                SymbolKind::Program
+                | SymbolKind::ProgramInstance
+                | SymbolKind::Parameter { .. }
+                | SymbolKind::Namespace
+                | SymbolKind::Configuration
+                | SymbolKind::Resource
+                | SymbolKind::Task => CompletionKind::Variable,
             }
         };
 
@@ -127,14 +127,10 @@ fn member_access_base_type(
     if let Some(field_expr) = dot
         .parent_ancestors()
         .find(|n| n.kind() == SyntaxKind::FieldExpr)
+        && let Some(base_expr) = field_expr.children().next()
+        && let Some(base_type) = base_type_from_expr_node(db, file_id, symbols, root, &base_expr)
     {
-        if let Some(base_expr) = field_expr.children().next() {
-            if let Some(base_type) =
-                base_type_from_expr_node(db, file_id, symbols, root, &base_expr)
-            {
-                return Some(base_type);
-            }
-        }
+        return Some(base_type);
     }
 
     let offset = u32::from(dot.text_range().start());
@@ -156,10 +152,10 @@ fn base_type_from_expr_node(
             .filter_map(|e| e.into_token())
             .find(|t| t.kind() == SyntaxKind::Ident)?;
         let scope_id = scope_at_position(symbols, root, node.text_range().start());
-        if let Some(symbol_id) = symbols.resolve(ident.text(), scope_id) {
-            if let Some(symbol) = symbols.get(symbol_id) {
-                return Some(symbol.type_id);
-            }
+        if let Some(symbol_id) = symbols.resolve(ident.text(), scope_id)
+            && let Some(symbol) = symbols.get(symbol_id)
+        {
+            return Some(symbol.type_id);
         }
     }
 
@@ -197,18 +193,18 @@ fn current_owner_for_scope(symbols: &SymbolTable, scope_id: ScopeId) -> Option<S
         let Some(scope) = symbols.get_scope(scope_id) else {
             break;
         };
-        if let Some(owner_id) = scope.owner {
-            if let Some(symbol) = symbols.get(owner_id) {
-                match symbol.kind {
-                    SymbolKind::Class | SymbolKind::FunctionBlock => return Some(owner_id),
-                    SymbolKind::Method { .. } | SymbolKind::Property { .. } => {
-                        if let Some(parent) = symbol.parent {
-                            return Some(parent);
-                        }
-                        return Some(owner_id);
+        if let Some(owner_id) = scope.owner
+            && let Some(symbol) = symbols.get(owner_id)
+        {
+            match symbol.kind {
+                SymbolKind::Class | SymbolKind::FunctionBlock => return Some(owner_id),
+                SymbolKind::Method { .. } | SymbolKind::Property { .. } => {
+                    if let Some(parent) = symbol.parent {
+                        return Some(parent);
                     }
-                    _ => {}
+                    return Some(owner_id);
                 }
+                _ => {}
             }
         }
         current = scope.parent;
@@ -222,10 +218,10 @@ fn namespace_path_for_scope(symbols: &SymbolTable, scope_id: ScopeId) -> Vec<Smo
         let Some(scope) = symbols.get_scope(scope_id) else {
             break;
         };
-        if let Some(owner_id) = scope.owner {
-            if let Some(symbol) = symbols.get(owner_id) {
-                return namespace_path_for_symbol(symbols, symbol);
-            }
+        if let Some(owner_id) = scope.owner
+            && let Some(symbol) = symbols.get(owner_id)
+        {
+            return namespace_path_for_symbol(symbols, symbol);
         }
         current = scope.parent;
     }
@@ -294,11 +290,11 @@ fn completion_item_for_symbol(
         CompletionKind::Constant
     } else {
         match symbol.kind {
-        SymbolKind::Variable { .. } => CompletionKind::Variable,
-        SymbolKind::Function { .. } => CompletionKind::Function,
-        SymbolKind::Method { .. } => CompletionKind::Method,
-        SymbolKind::Property { .. } => CompletionKind::Property,
-        _ => return None,
+            SymbolKind::Variable { .. } => CompletionKind::Variable,
+            SymbolKind::Function { .. } => CompletionKind::Function,
+            SymbolKind::Method { .. } => CompletionKind::Method,
+            SymbolKind::Property { .. } => CompletionKind::Property,
+            _ => return None,
         }
     };
     let mut item = CompletionItem::new(symbol.name.clone(), kind).with_priority(10);
@@ -321,10 +317,10 @@ fn attach_symbol_docs_simple(
     }
     if let Some(doc) = &symbol.doc {
         docs.push(doc.to_string());
-    } else if stdlib_filter.allows_function_block(symbol.name.as_str()) {
-        if let Some(std_doc) = stdlib_docs::standard_fb_doc(symbol.name.as_str()) {
-            docs.push(std_doc.to_string());
-        }
+    } else if stdlib_filter.allows_function_block(symbol.name.as_str())
+        && let Some(std_doc) = stdlib_docs::standard_fb_doc(symbol.name.as_str())
+    {
+        docs.push(std_doc.to_string());
     }
     if let Some(namespace) = namespace_string_for_symbol(symbols, symbol) {
         docs.push(format!("Namespace: {namespace}"));
@@ -351,21 +347,20 @@ fn attach_symbol_docs(
     let mut docs = Vec::new();
     if let Some(doc) = &symbol.doc {
         docs.push(doc.to_string());
-    } else if stdlib_filter.allows_function_block(symbol.name.as_str()) {
-        if let Some(std_doc) = stdlib_docs::standard_fb_doc(symbol.name.as_str()) {
-            docs.push(std_doc.to_string());
-        }
+    } else if stdlib_filter.allows_function_block(symbol.name.as_str())
+        && let Some(std_doc) = stdlib_docs::standard_fb_doc(symbol.name.as_str())
+    {
+        docs.push(std_doc.to_string());
     }
     if let Some(namespace) = namespace_string_for_symbol(filter.symbols(), symbol) {
         docs.push(format!("Namespace: {namespace}"));
     }
-    if let Some(scope_id) = scope_id {
-        if let Some(using_path) =
+    if let Some(scope_id) = scope_id
+        && let Some(using_path) =
             using_path_for_symbol(filter.symbols(), scope_id, symbol.name.as_str(), symbol.id)
-        {
-            let path = join_namespace_path(&using_path);
-            docs.push(format!("USING {path}"));
-        }
+    {
+        let path = join_namespace_path(&using_path);
+        docs.push(format!("USING {path}"));
     }
     if let Some(visibility) = visibility_label(symbol.visibility) {
         docs.push(format!("Visibility: {visibility}"));
@@ -463,22 +458,22 @@ fn using_scope_symbol_completions(
                     CompletionKind::Constant
                 } else {
                     match symbol.kind {
-                    SymbolKind::Variable { .. } => CompletionKind::Variable,
-                    SymbolKind::Constant => CompletionKind::Constant,
-                    SymbolKind::Function { .. } => CompletionKind::Function,
-                    SymbolKind::FunctionBlock => CompletionKind::FunctionBlock,
-                    SymbolKind::Class => CompletionKind::Type,
-                    SymbolKind::Method { .. } => CompletionKind::Method,
-                    SymbolKind::Property { .. } => CompletionKind::Property,
-                    SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
-                    SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
-                    SymbolKind::Program
-                    | SymbolKind::ProgramInstance
-                    | SymbolKind::Parameter { .. }
-                    | SymbolKind::Namespace
-                    | SymbolKind::Configuration
-                    | SymbolKind::Resource
-                    | SymbolKind::Task => CompletionKind::Variable,
+                        SymbolKind::Variable { .. } => CompletionKind::Variable,
+                        SymbolKind::Constant => CompletionKind::Constant,
+                        SymbolKind::Function { .. } => CompletionKind::Function,
+                        SymbolKind::FunctionBlock => CompletionKind::FunctionBlock,
+                        SymbolKind::Class => CompletionKind::Type,
+                        SymbolKind::Method { .. } => CompletionKind::Method,
+                        SymbolKind::Property { .. } => CompletionKind::Property,
+                        SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
+                        SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
+                        SymbolKind::Program
+                        | SymbolKind::ProgramInstance
+                        | SymbolKind::Parameter { .. }
+                        | SymbolKind::Namespace
+                        | SymbolKind::Configuration
+                        | SymbolKind::Resource
+                        | SymbolKind::Task => CompletionKind::Variable,
                     }
                 };
 

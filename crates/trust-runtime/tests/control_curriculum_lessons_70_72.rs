@@ -49,13 +49,13 @@ fn lesson70_run_after(
     let p1 = program(&runtime);
     for (name, value) in ["K1", "K2", "N"].into_iter().zip(gains) {
         assert!(runtime
-            .storage_mut()
-            .set_instance_var(p1, name, Value::LReal(value)));
+            .write_instance(p1, name, Value::LReal(value))
+            .is_ok());
     }
     // The mode is written by symbol: the runtime refuses an Auto transfer whose mode flag is bound to I/O.
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "FeedbackEnabled", Value::Bool(feedback)));
+        .write_instance(p1, "FeedbackEnabled", Value::Bool(feedback))
+        .is_ok());
     debug.enqueue_io_write(
         IoAddress::parse("%ML0").unwrap(),
         Value::LWord(setpoint.to_bits()),
@@ -172,8 +172,8 @@ fn lesson70_in_manual_the_pump_follows_the_manual_flow() {
     let debug = runtime.enable_debug();
     let p1 = program(&runtime);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "ManualFlowM3PerS", Value::LReal(0.012)));
+        .write_instance(p1, "ManualFlowM3PerS", Value::LReal(0.012))
+        .is_ok());
     scan_every(&mut runtime, &mut simulation, &debug, 0, 1000, &[]);
     assert_eq!(number(&runtime, "%QL0"), 0.012, "written Manual flow");
 }
@@ -415,8 +415,8 @@ fn lesson72_run_after(
     let debug = runtime.enable_debug();
     let p1 = program(&runtime);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "AssumedReadingSdM", Value::LReal(sd_m)));
+        .write_instance(p1, "AssumedReadingSdM", Value::LReal(sd_m))
+        .is_ok());
     let mut record = Vec::new();
     let mut now = 0;
     for (step, period) in std::iter::repeat_n(&1000, rest)

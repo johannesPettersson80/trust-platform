@@ -1,0 +1,11 @@
+# Firmware prepared-module owner assessment
+
+Read-only design review by `/root/br1_static_registry`. No source edit, compilation, tests, formatter, link or hardware command. This is a proposed composition change, not implementation acceptance or a measured saving.
+
+A Box<PreparedModule> owned by the firmware fixture is appropriate within the existing instrumented72KiB bring-up heap. It preserves immutable prepared metadata and borrowed RuntimeState ownership without changing the shared core API, program artifact, functions, admission rules or runtime limits. The local Box owner is declared before services/state, so state and its references are dropped before the prepared owner. Box adds one fixed ownership allocation and its matching destruction; it is not a new PLC value representation or M3 bounded-storage claim.
+
+Return the Box from explicit non-inline prepare, allocate it before PREP and MEM records, and let the phase finish before instantiate. The temporary by-value preparation result may still occupy stack during preparation; Box::new is not guaranteed to initialize directly in heap. Its benefit must be established from the linked caller frame and preparation/instantiation hardware high-water. Binary no_std code needs its own extern crate alloc plus alloc::boxed::Box import.
+
+The existing firmware README and panic handler already define terminal fail-closed OOM: allocator failure counters feed a bounded emergency record, emergency_halt forces PA5 off, writes a failure cookie and prevents automatic retry while feeding the watchdog. Ordinary Box::new uses this existing policy. A custom unsafe allocation/Box::from_raw path or singleton Vec wrapper is unnecessary for this harness. This does not promise recoverable allocation/admission behavior for production M3; retain that distinction.
+
+Spec/checkpoint should explicitly record the fixed firmware ownership allocation and its exhaustion policy before implementation, since prior core phase experiments explicitly excluded boxing. Keep heap72KiB, stack16KiB, minimum observed stack headroom2KiB and all functionality unchanged. MEM must include owner allocation/peak/drop; PREP logical shared-engine charges remain separately reported. Do not infer physical acceptance from current28KiB preparation peak or predicted frame saving.

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { RoutePlan, SymbolNode } from "../offlineComm";
-import { nodeKey, type OpcuaErrorView } from "./opcuaClientModel";
+import { AdsBrowseTargetControls } from "./AdsBrowseTargetControls";
+import type { BrowseErrorView } from "./browseErrorModel";
+import { nodeKey } from "./opcuaClientModel";
+import { SymbolSelectionCheckbox } from "./SymbolSelectionCheckbox";
 import { t, tint } from "./theme";
 
 // §0.5.2 Browse tags/signals — look INSIDE a target (e.g. an ADS PLC's symbol table). Searchable
@@ -11,6 +14,8 @@ export function BrowseTagsPanel({
   title = "Browse tags",
   actionLabel = "Add tags",
   targetLabel,
+  protocol,
+  target,
   tree,
   routeMissing,
   routePlan,
@@ -20,21 +25,25 @@ export function BrowseTagsPanel({
   onTrustCertificate,
   onEditCredentials,
   onCopy,
+  onBrowseTarget,
   onAddTags,
   onClose,
 }: {
   title?: string;
   actionLabel?: string;
   targetLabel: string;
+  protocol: string;
+  target: Record<string, unknown>;
   tree: SymbolNode[] | undefined;
   routeMissing: boolean;
   routePlan?: RoutePlan;
-  error?: OpcuaErrorView; // opcua_client structured browse failure (cert/auth/security/unreachable)
+  error?: BrowseErrorView;
   loading: boolean;
   onCreateRoute: () => void;
   onTrustCertificate?: () => void; // explicit cert-trust + re-browse (opcua_client)
   onEditCredentials?: () => void; // opcua_client auth recovery: reopen the endpoint form prefilled
   onCopy: (text: string) => void;
+  onBrowseTarget: (target: Record<string, unknown>) => void;
   onAddTags: (paths: string[], writable: boolean) => void;
   onClose: () => void;
 }) {
@@ -46,6 +55,7 @@ export function BrowseTagsPanel({
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [allowWrites, setAllowWrites] = useState(false);
   const [routeCreateAttempted, setRouteCreateAttempted] = useState(false);
+  const [adsPortDraftStale, setAdsPortDraftStale] = useState(false);
   const allowWritesRef = useRef(false);
 
   const setAllowWritesChecked = (checked: boolean) => {
@@ -65,10 +75,13 @@ export function BrowseTagsPanel({
 
   // `selected` holds stable node keys (nodeKey: node_id ?? id ?? path), never the display path, so
   // two leaves sharing a path can't be conflated.
-  const toggleSel = (key: string) =>
+  const setSelectionChecked = (key: string, checked: boolean) =>
     setSelected((prev) => {
+      if (prev.has(key) === checked) {
+        return prev;
+      }
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      checked ? next.add(key) : next.delete(key);
       return next;
     });
   const toggleExp = (id: string) =>
@@ -98,8 +111,11 @@ export function BrowseTagsPanel({
     return out;
   }, [q, tree]);
   const selectableKeys = useMemo(
-    () => (routeMissing || error || loading ? new Set<string>() : collectLeafKeys(tree ?? [])),
-    [error, loading, routeMissing, tree]
+    () =>
+      routeMissing || error || loading || adsPortDraftStale
+        ? new Set<string>()
+        : collectLeafKeys(tree ?? []),
+    [adsPortDraftStale, error, loading, routeMissing, tree]
   );
   const selectedAddKeys = useMemo(
     () => [...selected].filter((key) => selectableKeys.has(key)),
@@ -117,20 +133,24 @@ export function BrowseTagsPanel({
   }, [selectableKeys]);
 
   const addDisabledReason =
-    routeMissing
-      ? "Create the route and browse again before adding tags."
-      : error
-        ? "Resolve the browse error before adding tags."
-        : loading
-          ? "Wait for browse results before adding tags."
-          : tree === undefined
-            ? "Start or connect the runtime, then Browse again to load symbols."
-            : tree.length === 0
-              ? "No symbols are available to add."
-              : selectedAddKeys.length === 0
-                ? "Select at least one symbol to add."
-                : undefined;
-  const writeToggleDisabled = routeMissing || Boolean(error) || loading || tree === undefined || tree.length === 0;
+    adsPortDraftStale
+      ? "Browse the edited ADS port before adding tags from that server."
+      : routeMissing
+        ? "Create the route and browse again before adding tags."
+        : error
+          ? "Resolve the browse error before adding tags."
+          : loading
+            ? "Wait for browse results before adding tags."
+            : tree === undefined
+              ? protocol === "ads"
+                ? "Choose an ADS port and browse its symbols first."
+                : "Start or connect the runtime, then Browse again to load symbols."
+              : tree.length === 0
+                ? "No symbols are available to add."
+                : selectedAddKeys.length === 0
+                  ? "Select at least one symbol to add."
+                  : undefined;
+  const writeToggleDisabled = routeMissing || Boolean(error) || loading || adsPortDraftStale || tree === undefined || tree.length === 0;
   const routeWarningText = routeCreateAttempted
     ? artifacts.length
       ? "Route needs TwinCAT administrator access. Run the generated route script on the TwinCAT computer, then reopen Browse."
@@ -142,7 +162,11 @@ export function BrowseTagsPanel({
 
   const leaf = (n: SymbolNode, depth: number) => (
     <div key={nodeKey(n)} style={{ ...ROW, paddingLeft: 8 + depth * 14 }}>
-      <input type="checkbox" checked={selected.has(nodeKey(n))} onChange={() => toggleSel(nodeKey(n))} style={{ flex: "none" }} />
+      <SymbolSelectionCheckbox
+        checked={selected.has(nodeKey(n))}
+        label={`Select ${n.path}`}
+        onCheckedChange={(checked) => setSelectionChecked(nodeKey(n), checked)}
+      />
       <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--vscode-foreground, #eef1f5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.name}</span>
       {(n.data_type || n.type) && <span style={{ flex: "none", fontSize: 10, color: "var(--vscode-descriptionForeground, #7f8794)" }}>{n.data_type || n.type}</span>}
       {accessLabel(n) && <span title={`${accessLabel(n)} on the device`} style={{ flex: "none", fontSize: 9, color: "var(--vscode-disabledForeground, #6a7280)" }}>{accessLabel(n)}</span>}
@@ -175,7 +199,19 @@ export function BrowseTagsPanel({
         <button onClick={onClose} aria-label="Close" style={ICON}>✕</button>
       </div>
 
-      {routeMissing && (
+      {protocol === "ads" && (
+        <AdsBrowseTargetControls
+          target={target}
+          loading={loading}
+          onBrowse={(nextTarget) => {
+            setAdsPortDraftStale(false);
+            onBrowseTarget(nextTarget);
+          }}
+          onDraftStaleChange={setAdsPortDraftStale}
+        />
+      )}
+
+      {routeMissing && !adsPortDraftStale && (
         <div style={WARNING_BAR}>
           <span style={WARNING_TEXT}>{routeWarningText}</span>
           <button
@@ -190,7 +226,7 @@ export function BrowseTagsPanel({
         </div>
       )}
 
-      {error && (
+      {error && !adsPortDraftStale && (
         <div style={WARNING_BAR}>
           <span style={WARNING_TEXT}>Warning: {error.title}: {error.detail}</span>
           {error.action === "trust" && onTrustCertificate && (
@@ -202,14 +238,19 @@ export function BrowseTagsPanel({
         </div>
       )}
 
-      {!routeMissing && !error && (
+      {!routeMissing && !error && !adsPortDraftStale && tree !== undefined && (
         <div style={{ padding: "9px 14px", borderBottom: "1px solid var(--vscode-editorWidget-border, #2a2f3a)" }}>
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search symbols" style={SEARCH} />
         </div>
       )}
 
       <div style={{ flex: 1, overflow: "auto", padding: "6px 8px" }}>
-        {routeMissing ? (
+        {adsPortDraftStale ? (
+          <p style={EMPTY}>
+            The displayed ADS port has not been browsed yet. Browse it before selecting or adding
+            symbols.
+          </p>
+        ) : routeMissing ? (
           artifacts.length ? (
             <div style={{ padding: "2px 4px" }}>
               {routeCreateAttempted && (
@@ -243,16 +284,26 @@ export function BrowseTagsPanel({
               <p style={EMPTY}>Create the route on the PLC, then reopen Browse to load the symbol table.</p>
             </>
           )
+        ) : error ? (
+          <p style={EMPTY}>Resolve the browse error above, then browse again.</p>
         ) : loading ? (
           <p style={EMPTY}>Loading symbols…</p>
         ) : tree === undefined ? (
-          <p style={EMPTY}>Start or connect the runtime, then Browse again to load symbols.</p>
+          <p style={EMPTY}>
+            {protocol === "ads"
+              ? "Choose the ADS server port above, then browse that server's symbol namespace."
+              : "Start or connect the runtime, then Browse again to load symbols."}
+          </p>
         ) : matches ? (
           matches.length ? matches.map((n) => leaf(n, 0)) : <p style={EMPTY}>No matching symbols.</p>
         ) : tree.length ? (
           tree.map((n) => renderNode(n, 0))
         ) : (
-          <p style={EMPTY}>No symbols found.</p>
+          <p style={EMPTY}>
+            {protocol === "ads"
+              ? "The ADS server returned an empty symbol table or no compatible symbols."
+              : "No symbols found."}
+          </p>
         )}
       </div>
 

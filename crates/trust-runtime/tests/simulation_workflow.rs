@@ -205,7 +205,9 @@ target = "%IW0"
 fn physics_revolute_joint_queues_encoder_feedback_through_io_boundary() {
     let enable = IoAddress::parse("%QX0.0").expect("enable address");
     let feedback = IoAddress::parse("%IW0").expect("feedback address");
-    let mut runtime = Runtime::new();
+    let mut declarations = trust_runtime::RuntimeBuilder::new();
+    declarations.io_mut().resize(2, 2, 0);
+    let mut runtime = declarations.build().expect("admit simulation images");
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 1,
@@ -232,8 +234,7 @@ fn physics_revolute_joint_queues_encoder_feedback_through_io_boundary() {
     });
 
     runtime
-        .io_mut()
-        .write(&enable, Value::Bool(true))
+        .write_io(&enable, Value::Bool(true))
         .expect("write enable");
     simulation
         .apply_post_cycle(Duration::from_millis(0), &runtime)
@@ -287,7 +288,9 @@ fn deterministic_trace_with_same_simulation_config() {
 fn coupling_applies_threshold_with_delay() {
     let source = IoAddress::parse("%QW0").expect("source address");
     let target = IoAddress::parse("%IX0.1").expect("target address");
-    let mut runtime = Runtime::new();
+    let mut declarations = trust_runtime::RuntimeBuilder::new();
+    declarations.io_mut().resize(2, 2, 0);
+    let mut runtime = declarations.build().expect("admit simulation images");
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 123,
@@ -306,8 +309,7 @@ fn coupling_applies_threshold_with_delay() {
     });
 
     runtime
-        .io_mut()
-        .write(&source, Value::Word(4))
+        .write_io(&source, Value::Word(4))
         .expect("write below threshold");
     simulation
         .apply_post_cycle(Duration::from_millis(0), &runtime)
@@ -323,8 +325,7 @@ fn coupling_applies_threshold_with_delay() {
     assert!(!read_input_bit(&runtime, &target));
 
     runtime
-        .io_mut()
-        .write(&source, Value::Word(20))
+        .write_io(&source, Value::Word(20))
         .expect("write above threshold");
     simulation
         .apply_post_cycle(Duration::from_millis(100), &runtime)
@@ -342,7 +343,9 @@ fn coupling_applies_threshold_with_delay() {
 
 #[test]
 fn scripted_fault_disturbance_faults_runtime() {
-    let mut runtime = Runtime::new();
+    let mut declarations = trust_runtime::RuntimeBuilder::new();
+    declarations.io_mut().resize(2, 2, 0);
+    let mut runtime = declarations.build().expect("admit simulation images");
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 7,
@@ -372,7 +375,9 @@ fn scripted_fault_disturbance_faults_runtime() {
 
 #[test]
 fn accelerated_clock_keeps_watchdog_semantics() {
-    let mut runtime = Runtime::new();
+    let mut declarations = trust_runtime::RuntimeBuilder::new();
+    declarations.io_mut().resize(2, 2, 0);
+    let mut runtime = declarations.build().expect("admit simulation images");
     runtime.set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(200),
@@ -391,7 +396,9 @@ fn accelerated_clock_keeps_watchdog_semantics() {
 fn run_simulation_trace() -> Vec<bool> {
     let source = IoAddress::parse("%QW0").expect("source address");
     let target = IoAddress::parse("%IX0.0").expect("target address");
-    let mut runtime = Runtime::new();
+    let mut declarations = trust_runtime::RuntimeBuilder::new();
+    declarations.io_mut().resize(2, 2, 0);
+    let mut runtime = declarations.build().expect("admit simulation images");
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 42,
@@ -424,8 +431,7 @@ fn run_simulation_trace() -> Vec<bool> {
             .expect("pre cycle trace");
         trace.push(read_input_bit(&runtime, &target));
         runtime
-            .io_mut()
-            .write(&source, Value::Word(output))
+            .write_io(&source, Value::Word(output))
             .expect("set output");
         simulation
             .apply_post_cycle(now, &runtime)
@@ -437,7 +443,9 @@ fn run_simulation_trace() -> Vec<bool> {
 fn run_physics_trace() -> Vec<u16> {
     let enable = IoAddress::parse("%QX0.0").expect("enable address");
     let feedback = IoAddress::parse("%IW0").expect("feedback address");
-    let mut runtime = Runtime::new();
+    let mut declarations = trust_runtime::RuntimeBuilder::new();
+    declarations.io_mut().resize(2, 2, 0);
+    let mut runtime = declarations.build().expect("admit simulation images");
     let mut simulation = SimulationController::new(SimulationConfig {
         enabled: true,
         seed: 42,
@@ -463,8 +471,7 @@ fn run_physics_trace() -> Vec<u16> {
         plant_system: Default::default(),
     });
     runtime
-        .io_mut()
-        .write(&enable, Value::Bool(true))
+        .write_io(&enable, Value::Bool(true))
         .expect("write enable");
 
     let mut trace = Vec::with_capacity(1000);
@@ -489,7 +496,7 @@ fn hash_u16_trace(trace: &[u16]) -> String {
     for value in trace {
         hasher.update(value.to_le_bytes());
     }
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 fn write_simulation_physics_artifact(

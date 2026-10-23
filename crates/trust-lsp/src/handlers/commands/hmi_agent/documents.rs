@@ -167,7 +167,7 @@ pub(super) fn same_content(first: &DocumentSnapshot, second: &DocumentSnapshot) 
 /// SHA-256 of `bytes` as lowercase hexadecimal text.
 #[must_use]
 pub(super) fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes)).to_string()
 }
 
 /// The observed state of a page that does not exist.
@@ -243,7 +243,7 @@ fn presence_hash(exists: bool, text: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(marker);
     hasher.update(text.as_bytes());
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize()).to_string()
 }
 
 #[cfg(test)]

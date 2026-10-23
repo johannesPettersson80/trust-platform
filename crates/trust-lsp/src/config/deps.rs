@@ -53,14 +53,16 @@ pub(super) fn resolve_manifest_dependencies(
     resolver.resolve_all(dependencies);
     let (libraries, mut issues, resolved_lock) = resolver.finish();
 
-    if issues.is_empty() && !build.dependencies_locked && !resolved_lock.is_empty() {
-        if let Err(message) = super::write_dependency_lock(&lock_path, resolved_lock) {
-            issues.push(super::DependencyResolutionIssue {
-                code: "L006",
-                dependency: "lockfile".to_string(),
-                message,
-            });
-        }
+    if issues.is_empty()
+        && !build.dependencies_locked
+        && !resolved_lock.is_empty()
+        && let Err(message) = super::write_dependency_lock(&lock_path, resolved_lock)
+    {
+        issues.push(super::DependencyResolutionIssue {
+            code: "L006",
+            dependency: "lockfile".to_string(),
+            message,
+        });
     }
 
     (libraries.into_values().collect(), issues)
@@ -179,18 +181,18 @@ impl<'a> DependencyResolver<'a> {
                 });
                 return;
             }
-            if let Some(required) = dependency.version.as_deref() {
-                if existing.version.as_deref() != Some(required) {
-                    let available = existing.version.as_deref().unwrap_or("unspecified");
-                    self.issues.push(super::DependencyResolutionIssue {
-                        code: "L002",
-                        dependency: dependency.name.clone(),
-                        message: format!(
-                            "Dependency '{}' requested version {}, but resolved version is {}",
-                            dependency.name, required, available
-                        ),
-                    });
-                }
+            if let Some(required) = dependency.version.as_deref()
+                && existing.version.as_deref() != Some(required)
+            {
+                let available = existing.version.as_deref().unwrap_or("unspecified");
+                self.issues.push(super::DependencyResolutionIssue {
+                    code: "L002",
+                    dependency: dependency.name.clone(),
+                    message: format!(
+                        "Dependency '{}' requested version {}, but resolved version is {}",
+                        dependency.name, required, available
+                    ),
+                });
             }
             return;
         }
@@ -218,18 +220,18 @@ impl<'a> DependencyResolver<'a> {
             }
         };
 
-        if let Some(required) = dependency.version.as_deref() {
-            if package.version.as_deref() != Some(required) {
-                let available = package.version.as_deref().unwrap_or("unspecified");
-                self.issues.push(super::DependencyResolutionIssue {
-                    code: "L002",
-                    dependency: dependency.name.clone(),
-                    message: format!(
-                        "Dependency '{}' requested version {}, but resolved package version is {}",
-                        dependency.name, required, available
-                    ),
-                });
-            }
+        if let Some(required) = dependency.version.as_deref()
+            && package.version.as_deref() != Some(required)
+        {
+            let available = package.version.as_deref().unwrap_or("unspecified");
+            self.issues.push(super::DependencyResolutionIssue {
+                code: "L002",
+                dependency: dependency.name.clone(),
+                message: format!(
+                    "Dependency '{}' requested version {}, but resolved package version is {}",
+                    dependency.name, required, available
+                ),
+            });
         }
 
         let mut library_dependencies = Vec::new();

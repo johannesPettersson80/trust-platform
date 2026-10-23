@@ -14,6 +14,13 @@ pub trait IoDriver: Send {
         IoDriverHealth::Ok
     }
 
+    /// Report the output-path health that a safe-state handoff depends on (specification 11,
+    /// safe-state handoff confirmation). Defaults to `health()`; a driver overrides it only when
+    /// its reported health includes conditions that concern received data alone.
+    fn output_health(&self) -> IoDriverHealth {
+        self.health()
+    }
+
     /// The bytes of the input image it fills, from its own configuration, so a value located
     /// there turns stale while its link exchanges no data (specification 42, §5 item 4); `0..
     /// usize::MAX` for a driver that fills the image from its start. None marks nothing.

@@ -535,10 +535,10 @@ fn every_alarm_action_appears_in_the_audit_log() {
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut records = Vec::new();
     while Instant::now() < deadline {
-        if let Ok(event) = plant.audit.recv_timeout(Duration::from_millis(100)) {
-            if event.request_type == "hmi.alarm" {
-                records.push(event.details.unwrap_or(Value::Null));
-            }
+        if let Ok(event) = plant.audit.recv_timeout(Duration::from_millis(100))
+            && event.request_type == "hmi.alarm"
+        {
+            records.push(event.details.unwrap_or(Value::Null));
         }
     }
     let applied = records

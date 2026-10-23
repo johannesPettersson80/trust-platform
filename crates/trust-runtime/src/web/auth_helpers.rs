@@ -52,12 +52,11 @@ fn resolve_web_role(
         .iter()
         .find(|header| header.field.equiv("X-Trust-Token"))
         .map(|header| header.value.as_str().to_string());
-    if let Some(expected) = expected {
-        if let Some(provided) = header.as_deref() {
-            if constant_time_eq(expected.as_str(), provided) {
-                return Some((AccessRole::Admin, header));
-            }
-        }
+    if let Some(expected) = expected
+        && let Some(provided) = header.as_deref()
+        && constant_time_eq(expected.as_str(), provided)
+    {
+        return Some((AccessRole::Admin, header));
     }
     let header = header?;
     pairing

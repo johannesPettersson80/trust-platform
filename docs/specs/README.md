@@ -2,7 +2,7 @@
 
 This directory contains the IEC 61131-3 Structured Text language specs
 (`01-09`), the split runtime/tooling specs (`10-14`), the Ladder/profile/editor
-specs (`15-17`), the project/runtime and operational contract specs (`18-39`), and the current
+specs (`15-17`), the project/runtime and operational contract specs (`18-43` and `45-47`), and the current
 non-numbered SFC profile note (`sfc-profile`). Product and tooling contracts in
 this directory are explicitly identified and do not become IEC requirements.
 
@@ -20,12 +20,17 @@ this directory are explicitly identified and do not become IEC requirements.
 | [08-standard-function-blocks.md](08-standard-function-blocks.md) | Bistable, edge detection, counter, timer FBs | trust-hir |
 | [09-semantic-rules.md](09-semantic-rules.md) | Cross-cutting semantic validity rules shared by the language specs | trust-hir |
 | [10-runtime-semantics.md](10-runtime-semantics.md) | Runtime value, memory, execution, stdlib, I/O, errors, testing API | trust-runtime |
-| [11-runtime-engine.md](11-runtime-engine.md) | Runtime architecture, clocks, scheduler, drivers, retain, launcher, browser/discovery/mesh | trust-runtime |
+| [11-runtime-engine.md](11-runtime-engine.md) | Runtime architecture, clocks, scheduler, process-image and driver integration, retain, launcher, and host composition | trust-runtime |
 | [12-bytecode.md](12-bytecode.md) | STBC container, sections, instruction set, versioning | trust-runtime |
 | [13-debug-adapter.md](13-debug-adapter.md) | Debug adapter semantics, breakpoints, variables, reload behavior | trust-debug, trust-runtime |
 | [14-lsp.md](14-lsp.md) | LSP architecture, IDE behavior, protocol, diagnostics, performance | trust-lsp, trust-ide, trust-hir |
-| [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 | [15-ladder-diagram.md](15-ladder-diagram.md) | Normative IEC-aligned LD language semantics and conformance rules | trust-runtime, trust-lsp, editors/vscode |
+| [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
+| [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
+| [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
+| [19-project-model.md](19-project-model.md) | Project tree, config-file roles, build/run lifecycle ownership | trust-runtime, trust-lsp |
+| [20-agent-api-v1.md](20-agent-api-v1.md) | JSON-RPC contract for `trust-dev agent serve` | trust-dev |
+| [21-harness-protocol.md](21-harness-protocol.md) | Deterministic harness wire protocol | trust-harness, trust-runtime |
 | [22-developer-workflows.md](22-developer-workflows.md) | Developer source-discovery and project-scoped commit behavior | trust-dev |
 | [23-connector-status.md](23-connector-status.md) | Canonical connector state, health, confidence, and point-quality vocabulary | trust-runtime, editors/vscode |
 | [24-release-evidence.md](24-release-evidence.md) | Platform, source-build, dependency, artifact, version, hardware, and conformance evidence | release tooling, CI, docs |
@@ -36,9 +41,9 @@ this directory are explicitly identified and do not become IEC requirements.
 | [29-hir-sizeof-and-allocation.md](29-hir-sizeof-and-allocation.md) | Product contracts for `SIZEOF`, `NEW`, and `__DELETE` semantic validation | trust-hir |
 | [30-verification-inventory.md](30-verification-inventory.md) | Governance contract for complete IEC table inventory coverage and fail-closed review | verification tooling |
 | [31-oscat-library-profile.md](31-oscat-library-profile.md) | Normative truST product profile for the classic OSCAT package and its OOP facade | trust-runtime |
-| [32-control-pid.md](32-control-pid.md) | Combined-form PID controller and independent low-pass filter contract | libraries/control, trust-runtime |
-| [33-simulation-plant-models.md](33-simulation-plant-models.md) | Dynamic fake-plant models, controlled uncertainty, seeded replay, and process-image simulation contract | trust-runtime |
-| [34-vscode-plant-simulation-ui.md](34-vscode-plant-simulation-ui.md) | Devices & Connections behavior for creating, configuring, and observing simulated plants | editors/vscode, trust-runtime |
+| [32-mqtt-io.md](32-mqtt-io.md) | MQTT communication, configuration, mapping, payload, security, worker, and broker-interoperability contracts | trust-runtime |
+| [33-openot-database-persistence.md](33-openot-database-persistence.md) | TOML-selected durable persistence of resolved OpenOT documents | trust-runtime |
+| [34-runtime-portability.md](34-runtime-portability.md) | Planned shared host/MCU engine, source-free initialization, bounded profiles, target qualification, and dependency modernization | trust-runtime-core, trust-runtime, future platform adapters |
 | [35-vscode-control-studio.md](35-vscode-control-studio.md) | In-editor monitoring, testing, identification, tuning, and validation of PID control loops | editors/vscode, trust-runtime |
 | [36-control-pid-performance-evaluation.md](36-control-pid-performance-evaluation.md) | Executed Control.PID performance, robustness, disturbance, noise, and stability benchmark | trust-runtime, editors/vscode |
 | [37-control-advanced-structures.md](37-control-advanced-structures.md) | Smith prediction, PID gain scheduling, and static two-loop decoupling composed around Control.PID | libraries/control, trust-runtime |
@@ -48,14 +53,12 @@ this directory are explicitly identified and do not become IEC requirements.
 | [41-equipment-library.md](41-equipment-library.md) | Retired `Equipment` library; replaced by the Plant library | — |
 | [42-communication-links.md](42-communication-links.md) | The state of every communication link for the program and the HMI: the `Comm.Link` block the runtime fills each scan, its alarm and the link faceplate | libraries/comm, trust-runtime |
 | [43-hmi-agent-authoring.md](43-hmi-agent-authoring.md) | Agent tools for visual HMI composition, revisioned drafts, rendered critique, collaborative editing, MCP access and CI/release acceptance | editors/vscode, trust-lsp, trust-runtime |
+| [45-control-pid.md](45-control-pid.md) | Combined-form PID controller and independent low-pass filter contract | libraries/control, trust-runtime |
+| [46-simulation-plant-models.md](46-simulation-plant-models.md) | Dynamic fake-plant models, controlled uncertainty, seeded replay, and process-image simulation contract | trust-runtime |
+| [47-vscode-plant-simulation-ui.md](47-vscode-plant-simulation-ui.md) | Devices & Connections behavior for creating, configuring, and observing simulated plants | editors/vscode, trust-runtime |
 | [trust-plant-library.md](trust-plant-library.md) | The native OOP Plant library: equipment, instruments, controllers, groups and sequences with mode-based authority, retained settings and runtime discovery | libraries/plant, trust-runtime, trust-lsp, editors/vscode |
 | [hmi-component-catalogue.md](hmi-component-catalogue.md) | Exact FB-to-HMI asset catalogue, reuse/new work, instrument ownership and drag-and-drop code-generation contract | libraries, trust-lsp, trust-runtime, editors/vscode |
-| [16-ladder-profile-trust.md](16-ladder-profile-trust.md) | truST LD schema/runtime/editor profile and interoperability constraints | trust-runtime, trust-lsp, editors/vscode |
-| [17-visual-editors-runtime-unification.md](17-visual-editors-runtime-unification.md) | Shared ST-backed runtime/debug command path for Ladder/Statechart/Blockly | editors/vscode, trust-debug, trust-runtime |
-| [18-configurations-resources-tasks.md](18-configurations-resources-tasks.md) | CONFIGURATION/RESOURCE/TASK declarations and program-to-task binding rules | trust-hir, trust-lsp, trust-runtime |
-| [19-project-model.md](19-project-model.md) | Project tree, config-file roles, build/run lifecycle ownership | trust-runtime, trust-lsp |
-| [20-agent-api-v1.md](20-agent-api-v1.md) | JSON-RPC contract for `trust-dev agent serve` | trust-dev |
-| [21-harness-protocol.md](21-harness-protocol.md) | Deterministic harness wire protocol | trust-harness, trust-runtime |
+| [sfc-profile.md](sfc-profile.md) | Reserved SFC keywords, visual-editor scope, textual SFC boundary | editors/vscode, trust-syntax |
 
 ## Standard Reference
 
@@ -97,13 +100,16 @@ These specifications are based on:
 - HIR warning policy (see `28-hir-warning-policy.md`)
 - `SIZEOF` and allocation semantic validation (see `29-hir-sizeof-and-allocation.md`)
 - IEC table inventory governance (see `30-verification-inventory.md`)
-- OSCAT library profile, Control PID library contract, fake-plant simulation
-  contract, plant-simulation UI contract, and Control Studio contract (see
-  `31-oscat-library-profile.md`, `32-control-pid.md`,
-  `33-simulation-plant-models.md`, and
-  `34-vscode-plant-simulation-ui.md` through
-  `36-control-pid-performance-evaluation.md` and
-  `37-control-advanced-structures.md`)
+- OSCAT classic-package and OOP-facade profile (see `31-oscat-library-profile.md`)
+- MQTT communication and PLC I/O mapping (see `32-mqtt-io.md`)
+- OpenOT database persistence (see `33-openot-database-persistence.md`)
+- Shared runtime portability and modernization plan (see `34-runtime-portability.md`; implementation and hardware qualification remain pending)
+- Control Studio contract, its executed PID benchmark and the advanced control
+  structures (see `35-vscode-control-studio.md` through
+  `37-control-advanced-structures.md`), with the Control PID library contract,
+  the fake-plant simulation contract and the plant-simulation UI contract (see
+  `45-control-pid.md`, `46-simulation-plant-models.md` and
+  `47-vscode-plant-simulation-ui.md`)
 
 ### Not Covered (Out of Scope)
 
@@ -129,13 +135,23 @@ For HIR query/invalidation behavior, OpenOT authoring, warning policy, and
 allocation-related semantic checks, use `docs/specs/26-hir-semantic-kernel.md`
 through `docs/specs/29-hir-sizeof-and-allocation.md`. For verification
 inventory governance, use `docs/specs/30-verification-inventory.md`.
-For reusable library contracts, use `docs/specs/31-oscat-library-profile.md`
-and `docs/specs/32-control-pid.md`. For dynamic process simulation and
-controlled plant uncertainty, use `docs/specs/33-simulation-plant-models.md`.
-For configuring and observing those plants in Devices & Connections, use
-`docs/specs/34-vscode-plant-simulation-ui.md`. For the complete loop workflow
-from monitoring and experiment design through identification, tuning, and
-validation, use `docs/specs/35-vscode-control-studio.md`.
+For MQTT broker communication, configuration, symbolic tag mapping, payloads,
+and interoperability, use `docs/specs/32-mqtt-io.md`.
+For TOML-selected OpenOT database persistence, delivery, outage, and backend
+contracts, use `docs/specs/33-openot-database-persistence.md`.
+For the shared engine migration, compiler-free loading, STM32/ESP32 targets,
+resource/numeric contracts, and modernization sequence, use
+`docs/specs/34-runtime-portability.md`. It defines planned behavior and acceptance;
+its inclusion here does not claim implemented MCU support.
+Dated input hashes, review dispositions, and dependency registry research are
+indexed in [runtime portability research notes](../notes/runtime-portability/README.md);
+they are supporting evidence, not additional product requirements.
+For the reusable PID library contract, use `docs/specs/45-control-pid.md`. For
+dynamic process simulation and controlled plant uncertainty, use
+`docs/specs/46-simulation-plant-models.md`. For configuring and observing those
+plants in Devices & Connections, use `docs/specs/47-vscode-plant-simulation-ui.md`.
+For the complete loop workflow from monitoring and experiment design through
+identification, tuning, and validation, use `docs/specs/35-vscode-control-studio.md`.
 For the executed PID performance and stability benchmark, use
 `docs/specs/36-control-pid-performance-evaluation.md`.
 For optional delay compensation, gain scheduling, and two-loop decoupling
@@ -180,8 +196,8 @@ Use:
 
 ### For Control Engineering
 
-- [32-control-pid.md](32-control-pid.md) for practical P, PI, PD, and PID behavior
-- [33-simulation-plant-models.md](33-simulation-plant-models.md) for simulated
+- [45-control-pid.md](45-control-pid.md) for practical P, PI, PD, and PID behavior
+- [46-simulation-plant-models.md](46-simulation-plant-models.md) for simulated
   plant dynamics and nonidealities
 - [Identify](control-studio-identify-page.md), [Tune](control-studio-tune-page.md)
   and [Validate](control-studio-validate-page.md) for Control Studio page layouts

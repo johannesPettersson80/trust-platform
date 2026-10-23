@@ -30,10 +30,8 @@ pub(super) fn inspect_metadata(
     draft: bool,
 ) -> AgentResult<Value> {
     let mut open = native::unsaved_pages(&argument.open);
-    if draft {
-        if let Value::Object(pages) = &mut open {
-            pages.insert(file.to_owned(), Value::String(text.to_owned()));
-        }
+    if draft && let Value::Object(pages) = &mut open {
+        pages.insert(file.to_owned(), Value::String(text.to_owned()));
     }
     let catalogue = native::catalogue(state, &argument.root_uri, &open)?;
     let formats = catalogue
@@ -49,10 +47,10 @@ pub(super) fn inspect_metadata(
     let mut provenance = Map::new();
     for object in &objects {
         let id = text_of(object, "id").to_owned();
-        if let Some(group) = object.get("group").and_then(Value::as_str) {
-            if !group.is_empty() {
-                groups.entry(group.to_owned()).or_default().push(id.clone());
-            }
+        if let Some(group) = object.get("group").and_then(Value::as_str)
+            && !group.is_empty()
+        {
+            groups.entry(group.to_owned()).or_default().push(id.clone());
         }
         provenance.insert(id, provenance_of(object, &formats));
     }

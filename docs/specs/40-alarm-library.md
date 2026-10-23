@@ -158,7 +158,10 @@ first out; the trip itself is an event (specification 39, §13.3).
 | `DeviationAlarm` | `Value : LREAL`, `Reference : LREAL`, `Limit : LREAL`, `Deadband : LREAL := 0` | from `ABS(Value - Reference) > Limit` until it is below `Limit - Deadband` |
 | `DiscrepancyAlarm` | `Command : BOOL`, `Feedback : BOOL` | `Command <> Feedback`; `OnDelay` is the time the equipment may take to follow |
 
-A value that is not finite counts as beyond the limit: a broken measurement is not hidden.
+A value that is not finite counts as beyond the limit: a broken measurement is not hidden. truST
+itself never stores a non-finite `REAL` or `LREAL` (specification 10): it refuses such a write and
+faults an operation whose result would be one, so this rule guards the block where its value comes
+from elsewhere.
 
 ### 3.8 Retained state
 

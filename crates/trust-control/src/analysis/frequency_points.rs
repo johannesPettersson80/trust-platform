@@ -38,13 +38,11 @@ pub fn channel_points(
         sample_time_seconds,
         ..
     } = model
-    {
-        if frequencies
+        && frequencies
             .iter()
             .any(|frequency| *frequency >= PI / sample_time_seconds)
-        {
-            return Err(FeedbackRefusal::AliasRisk);
-        }
+    {
+        return Err(FeedbackRefusal::AliasRisk);
     }
     match model {
         GeneralModel::TransferFunction { identity, transfer } => {

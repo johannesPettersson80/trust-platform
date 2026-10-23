@@ -9,6 +9,7 @@ pub struct ResourceRunner<C: Clock + Clone> {
     command_rx: Option<std::sync::mpsc::Receiver<ResourceCommand>>,
     simulation: Option<crate::simulation::SimulationController>,
     thread_init_hook: Option<Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>>,
+    hang_action: crate::watchdog::HangAction,
 }
 
 impl<C: Clock + Clone> ResourceRunner<C> {
@@ -24,6 +25,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             command_rx: None,
             simulation: None,
             thread_init_hook: None,
+            hang_action: crate::watchdog::HangAction::default(),
         }
     }
 
@@ -41,7 +43,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         self
     }
 
-    /// Run on simulation time at the shared `speed` (specification 33, §6.1). Each executed cycle advances
+    /// Run on simulation time at the shared `speed` (specification 46, §6.1). Each executed cycle advances
     /// simulation time by one cycle interval, and cycles are paced at the cycle interval divided by the speed.
     /// With `metrics`, the achieved speed is reported to control.status. Without this, process time follows the
     /// wall clock.
@@ -69,6 +71,14 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         hook: Arc<dyn Fn() -> Result<(), RuntimeError> + Send + Sync>,
     ) -> Self {
         self.thread_init_hook = Some(hook);
+        self
+    }
+
+    /// Select what hosted hang supervision does after it records a hung scan thread
+    /// (`runtime.watchdog.hang_action`). The default is [`crate::watchdog::HangAction::Fault`].
+    #[must_use]
+    pub fn with_hang_action(mut self, action: crate::watchdog::HangAction) -> Self {
+        self.hang_action = action;
         self
     }
 
@@ -100,7 +110,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         Ok(())
     }
 
-    /// Continues process time after a restart, from the last simulation time in simulation (specification 33,
+    /// Continues process time after a restart, from the last simulation time in simulation (specification 46,
     /// §6.1 item 4), and restarts the simulation schedule.
     fn continue_after_restart(&mut self) {
         let now = self.timing.restart_time(self.clock.now());
@@ -131,12 +141,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     pub fn tick_with_shared(&mut self, shared: &SharedGlobals) -> Result<(), RuntimeError> {
         let now = self.clock.now();
         self.runtime.set_current_time(now);
-        shared.with_lock(|globals| {
-            shared.sync_into_locked(globals, &mut self.runtime)?;
-            let result = self.runtime.execute_cycle();
-            shared.sync_from_locked(globals, &self.runtime)?;
-            result
-        })
+        shared.execute_cycle(&mut self.runtime)
     }
 
     /// Spawn the runner in a dedicated OS thread.
@@ -144,9 +149,13 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
         let clock = self.clock.clone();
         let simulation_speed = self.timing.simulation_speed();
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
         let hmi = runner.runtime.hmi_exchange().unwrap_or_else(|| {
@@ -158,6 +167,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let stop_thread = stop.clone();
         let state_thread = state.clone();
         let last_error_thread = last_error.clone();
+        let supervision_thread = supervision.clone();
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
         let builder = thread::Builder::new().name(name.into());
@@ -170,7 +180,13 @@ impl<C: Clock + Clone> ResourceRunner<C> {
                     state_thread.clone(),
                     last_error_thread.clone(),
                     move || {
-                        run_resource_loop(runner, stop_thread, state_thread, last_error_thread);
+                        run_resource_loop(
+                            runner,
+                            stop_thread,
+                            state_thread,
+                            last_error_thread,
+                            supervision_thread,
+                        );
                     },
                 );
             })
@@ -189,6 +205,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             stop,
             state,
             last_error,
+            supervision,
             thread_id,
             clock,
             join: Some(join),
@@ -200,16 +217,21 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
     /// Spawn the runner with shared global synchronization.
     pub fn spawn_with_shared(
-        self,
+        mut self,
         name: impl Into<String>,
         shared: SharedGlobals,
     ) -> Result<ResourceHandle<C>, RuntimeError> {
+        shared.validate_destination(&mut self.runtime)?;
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));
+        let supervision = Arc::new(supervisor::ScanSupervision::new(
+            state.clone(),
+            last_error.clone(),
+        ));
         let clock = self.clock.clone();
         let simulation_speed = self.timing.simulation_speed();
-        let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
+        let (cmd_tx, cmd_rx) = command_channel();
         let mut runner = self;
         runner.command_rx = Some(cmd_rx);
         let hmi = runner.runtime.hmi_exchange().unwrap_or_else(|| {
@@ -221,6 +243,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let stop_thread = stop.clone();
         let state_thread = state.clone();
         let last_error_thread = last_error.clone();
+        let supervision_thread = supervision.clone();
         let shared_thread = shared.clone();
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
@@ -239,6 +262,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
                             stop_thread,
                             state_thread,
                             last_error_thread,
+                            supervision_thread,
                             shared_thread,
                         );
                     },
@@ -259,6 +283,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             stop,
             state,
             last_error,
+            supervision,
             thread_id,
             clock,
             join: Some(join),
@@ -277,13 +302,13 @@ fn run_guarded_resource_thread(
     body: impl FnOnce(),
 ) {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if let Some(hook) = thread_init_hook.as_ref() {
-            if let Err(err) = hook() {
-                set_last_error(&last_error, err.clone());
-                set_resource_state(&state, ResourceState::Faulted);
-                let _ = id_tx.send(Err(err));
-                return;
-            }
+        if let Some(hook) = thread_init_hook.as_ref()
+            && let Err(err) = hook()
+        {
+            set_last_error(&last_error, err.clone());
+            set_resource_state(&state, ResourceState::Faulted);
+            let _ = id_tx.send(Err(err));
+            return;
         }
         let _ = id_tx.send(Ok(thread::current().id()));
         body();

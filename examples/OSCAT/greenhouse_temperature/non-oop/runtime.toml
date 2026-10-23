@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "Cpu0"
+name = "GreenhouseTemperatureClassic"
 cycle_interval_ms = 100
 
 [runtime.control]

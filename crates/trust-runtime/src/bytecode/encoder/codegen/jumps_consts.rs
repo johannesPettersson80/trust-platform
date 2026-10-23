@@ -37,13 +37,24 @@ impl<'a> BytecodeEncoder<'a> {
         Ok(())
     }
 
-    fn emit_store_ref(
+    pub(in crate::bytecode::encoder) fn emit_store_ref(
         &mut self,
         reference: &ValueRef,
         code: &mut Vec<u8>,
     ) -> Result<(), BytecodeError> {
         let ref_idx = self.ref_index_for(reference)?;
         code.push(0x21);
+        code.extend_from_slice(&ref_idx.to_le_bytes());
+        Ok(())
+    }
+
+    pub(in crate::bytecode::encoder) fn emit_address_ref(
+        &mut self,
+        reference: &ValueRef,
+        code: &mut Vec<u8>,
+    ) -> Result<(), BytecodeError> {
+        let ref_idx = self.ref_index_for(reference)?;
+        code.push(0x22);
         code.extend_from_slice(&ref_idx.to_le_bytes());
         Ok(())
     }

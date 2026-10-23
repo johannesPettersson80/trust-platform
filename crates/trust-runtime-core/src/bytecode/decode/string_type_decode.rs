@@ -1,0 +1,229 @@
+use super::*;
+
+pub(super) fn decode_string_table(
+    version: BytecodeVersion,
+    reader: &mut BytecodeReader<'_>,
+    context: &'static str,
+    budget: &mut DecodeBudget,
+) -> Result<StringTable, BytecodeError> {
+    let count = read_bounded_count(reader, 4, context)?;
+    let mut entries = budget.vector(count)?;
+    for _ in 0..count {
+        let len = reader.read_u32()? as usize;
+        let bytes = reader.read_bytes(len)?;
+        budget.charge(bytes.len(), bytes.len())?;
+        let string = core::str::from_utf8(bytes)
+            .map_err(|_| BytecodeError::from(RejectionReason::InvalidUtf8))?;
+        entries.push(SmolStr::new(string));
+        if version.uses_extended_layout() {
+            let entry_len = 4usize
+                .checked_add(len)
+                .ok_or(BytecodeError::SectionOutOfBounds)?;
+            let padded = align4(entry_len).ok_or(BytecodeError::SectionOutOfBounds)?;
+            let padding = padded.saturating_sub(entry_len);
+            if padding > 0 {
+                reader.read_bytes(padding)?;
+            }
+        }
+    }
+    Ok(StringTable { entries })
+}
+
+pub(super) fn decode_type_table(
+    version: BytecodeVersion,
+    payload: &[u8],
+    budget: &mut DecodeBudget,
+) -> Result<TypeTable, BytecodeError> {
+    let mut reader = BytecodeReader::new(payload);
+    let minimum_entry_bytes = if version.uses_extended_layout() {
+        4
+    } else {
+        12
+    };
+    let count = read_bounded_count(&mut reader, minimum_entry_bytes, "TYPE_TABLE")?;
+    if version.uses_extended_layout() {
+        let mut offsets = budget.vector(count)?;
+        for _ in 0..count {
+            offsets.push(reader.read_u32()?);
+        }
+        let base = reader.pos();
+        let mut entries = budget.vector(count)?;
+        for (idx, offset) in offsets.iter().enumerate() {
+            let offset = *offset as usize;
+            let next = if idx + 1 < offsets.len() {
+                offsets[idx + 1] as usize
+            } else {
+                payload.len()
+            };
+            validate_type_range(payload.len(), base, idx, offset, next, &offsets)?;
+
+            let mut entry_reader = BytecodeReader::new(&payload[offset..next]);
+            let entry = decode_type_entry(version, &mut entry_reader, budget)?;
+            if entry_reader.remaining() != 0 {
+                return Err(BytecodeError::from(
+                    RejectionReason::TypeEntryLengthMismatch,
+                ));
+            }
+            entries.push(entry);
+        }
+        Ok(TypeTable { offsets, entries })
+    } else {
+        let mut entries = budget.vector(count)?;
+        for _ in 0..count {
+            entries.push(decode_type_entry(version, &mut reader, budget)?);
+        }
+        Ok(TypeTable {
+            offsets: Vec::new(),
+            entries,
+        })
+    }
+}
+
+pub(super) fn validate_type_range(
+    payload_len: usize,
+    base: usize,
+    idx: usize,
+    offset: usize,
+    next: usize,
+    offsets: &[u32],
+) -> Result<(), BytecodeError> {
+    if offset < base || offset > payload_len || next > payload_len || next < offset {
+        return Err(BytecodeError::from(
+            RejectionReason::TypeTableOffsetOutOfBounds,
+        ));
+    }
+    if idx > 0 && offset < offsets[idx - 1] as usize {
+        return Err(BytecodeError::from(
+            RejectionReason::TypeTableOffsetsNotSorted,
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn decode_type_entry(
+    version: BytecodeVersion,
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<TypeEntry, BytecodeError> {
+    let kind = reader.read_u8()?;
+    let _flags = reader.read_u8()?;
+    let _reserved = reader.read_u16()?;
+    let name_idx = optional_u32(reader.read_u32()?);
+    let kind = TypeKind::from_raw(kind)
+        .ok_or_else(|| BytecodeError::from(RejectionReason::InvalidTypeKind))?;
+    if matches!(kind, TypeKind::OverlappingStruct | TypeKind::LocatedStruct)
+        && !version.has_relative_layouts()
+    {
+        return Err(RejectionReason::InvalidTypeKind.into());
+    }
+    let data = match kind {
+        TypeKind::Primitive => {
+            let prim_id = reader.read_u16()?;
+            let max_length = reader.read_u16()?;
+            TypeData::Primitive {
+                prim_id,
+                max_length,
+            }
+        }
+        TypeKind::Array => {
+            let elem_type_id = reader.read_u32()?;
+            let dim_count = read_bounded_count(reader, 16, "TYPE_TABLE array dimension")?;
+            let mut dims = budget.vector(dim_count)?;
+            for _ in 0..dim_count {
+                let lower = reader.read_i64()?;
+                let upper = reader.read_i64()?;
+                dims.push((lower, upper));
+            }
+            TypeData::Array { elem_type_id, dims }
+        }
+        TypeKind::Struct | TypeKind::OverlappingStruct | TypeKind::LocatedStruct => {
+            let located = kind != TypeKind::Struct;
+            let field_count = read_bounded_count(
+                reader,
+                if located { 12 } else { 8 },
+                "TYPE_TABLE struct field",
+            )?;
+            let mut fields = budget.vector(field_count)?;
+            for _ in 0..field_count {
+                let name_idx = reader.read_u32()?;
+                let type_id = reader.read_u32()?;
+                let bit_offset = if located {
+                    optional_u32(reader.read_u32()?)
+                } else {
+                    None
+                };
+                fields.push(Field {
+                    name_idx,
+                    type_id,
+                    bit_offset,
+                });
+            }
+            TypeData::Struct { fields }
+        }
+        TypeKind::Enum => {
+            let base_type_id = reader.read_u32()?;
+            let variant_count = read_bounded_count(reader, 12, "TYPE_TABLE enum variant")?;
+            let mut variants = budget.vector(variant_count)?;
+            for _ in 0..variant_count {
+                let name_idx = reader.read_u32()?;
+                let value = reader.read_i64()?;
+                variants.push(EnumVariant { name_idx, value });
+            }
+            TypeData::Enum {
+                base_type_id,
+                variants,
+            }
+        }
+        TypeKind::Alias => {
+            let target_type_id = reader.read_u32()?;
+            TypeData::Alias { target_type_id }
+        }
+        TypeKind::Subrange => {
+            let base_type_id = reader.read_u32()?;
+            let lower = reader.read_i64()?;
+            let upper = reader.read_i64()?;
+            TypeData::Subrange {
+                base_type_id,
+                lower,
+                upper,
+            }
+        }
+        TypeKind::Reference => {
+            let target_type_id = reader.read_u32()?;
+            TypeData::Reference { target_type_id }
+        }
+        TypeKind::Union => {
+            let field_count = read_bounded_count(reader, 8, "TYPE_TABLE union field")?;
+            let mut fields = budget.vector(field_count)?;
+            for _ in 0..field_count {
+                let name_idx = reader.read_u32()?;
+                let type_id = reader.read_u32()?;
+                fields.push(Field {
+                    name_idx,
+                    type_id,
+                    bit_offset: None,
+                });
+            }
+            TypeData::Union { fields }
+        }
+        TypeKind::FunctionBlock | TypeKind::Class => {
+            let pou_id = reader.read_u32()?;
+            TypeData::Pou { pou_id }
+        }
+        TypeKind::Interface => {
+            let method_count = read_bounded_count(reader, 8, "TYPE_TABLE interface method")?;
+            let mut methods = budget.vector(method_count)?;
+            for _ in 0..method_count {
+                let name_idx = reader.read_u32()?;
+                let slot = reader.read_u32()?;
+                methods.push(InterfaceMethod { name_idx, slot });
+            }
+            TypeData::Interface { methods }
+        }
+    };
+    Ok(TypeEntry {
+        kind,
+        name_idx,
+        data,
+    })
+}

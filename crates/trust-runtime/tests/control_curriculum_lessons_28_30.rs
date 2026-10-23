@@ -48,11 +48,9 @@ fn lesson28_bad_quality_removes_heat_at_once_and_freezes_the_state() {
     let (mut runtime, mut simulation, debug, program) = lesson28_in_auto(100);
     let stored_output = controller_state(&runtime, program, "NominalOutput");
     let filtered = program_number(&runtime, program, "FilteredC");
-    assert!(runtime.storage_mut().set_instance_var(
-        program,
-        "SensorQualityGood",
-        Value::Bool(false)
-    ));
+    assert!(runtime
+        .write_instance(program, "SensorQualityGood", Value::Bool(false))
+        .is_ok());
     scan(&mut runtime, &mut simulation, &debug, 10_000, &[]);
     assert_eq!(
         number(&runtime, "%QL0"),
@@ -89,8 +87,8 @@ fn lesson28_bad_quality_removes_heat_at_once_and_freezes_the_state() {
 fn lesson28_a_frozen_sensor_fails_once_its_reading_is_older_than_half_a_second() {
     let (mut runtime, mut simulation, debug, program) = lesson28_in_auto(100);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "SensorFrozen", Value::Bool(true)));
+        .write_instance(program, "SensorFrozen", Value::Bool(true))
+        .is_ok());
     for scans in 1..=5 {
         scan(
             &mut runtime,
@@ -119,7 +117,7 @@ fn lesson28_recovers_after_acknowledgement_and_three_fresh_valid_samples() {
     let (mut runtime, mut simulation, debug, program) = lesson28_in_auto(100);
     let set = |runtime: &mut trust_runtime::Runtime, name: &str, value: Value| {
         assert!(
-            runtime.storage_mut().set_instance_var(program, name, value),
+            runtime.write_instance(program, name, value).is_ok(),
             "{name}"
         );
     };
@@ -234,21 +232,20 @@ fn lesson28_verifies_from_the_state_control_studio_presets() {
     for name in ["Initialized", "AutoMode"] {
         assert!(
             runtime
-                .storage_mut()
-                .set_instance_var(program, name, Value::Bool(true)),
+                .write_instance(program, name, Value::Bool(true))
+                .is_ok(),
             "{name}"
         );
     }
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &trust_runtime::io::IoAddress::parse("%ML0").unwrap(),
             lreal(38.0),
         )
         .unwrap();
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "SetpointC", Value::LReal(38.0)));
+        .write_instance(program, "SetpointC", Value::LReal(38.0))
+        .is_ok());
     let mut outputs = Vec::new();
     for sequence in 0..10_i64 {
         let now = Duration::from_millis(sequence * 100);
@@ -287,11 +284,9 @@ fn lesson29_in_auto(
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
     }
     debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
-    assert!(runtime.storage_mut().set_instance_var(
-        program,
-        "DisturbanceKw",
-        Value::LReal(load_kw)
-    ));
+    assert!(runtime
+        .write_instance(program, "DisturbanceKw", Value::LReal(load_kw))
+        .is_ok());
     for step in 5..until_step {
         scan(
             &mut runtime,
@@ -341,8 +336,8 @@ fn lesson29_commissions_the_selected_controller_at_one_boundary() {
         ],
     );
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "FilterTimeS", Value::LReal(1.0)));
+        .write_instance(program, "FilterTimeS", Value::LReal(1.0))
+        .is_ok());
     scan(
         &mut runtime,
         &mut simulation,
@@ -417,21 +412,20 @@ fn lesson29_verifies_from_the_state_control_studio_presets() {
     for name in ["Initialized", "AutoMode"] {
         assert!(
             runtime
-                .storage_mut()
-                .set_instance_var(program, name, Value::Bool(true)),
+                .write_instance(program, name, Value::Bool(true))
+                .is_ok(),
             "{name}"
         );
     }
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &trust_runtime::io::IoAddress::parse("%ML0").unwrap(),
             lreal(38.0),
         )
         .unwrap();
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "SetpointC", Value::LReal(38.0)));
+        .write_instance(program, "SetpointC", Value::LReal(38.0))
+        .is_ok());
     let mut outputs = Vec::new();
     for sequence in 0..10_i64 {
         let now = Duration::from_millis(sequence * 100);
@@ -460,11 +454,9 @@ fn lesson30_setpoint_step(track_measured: bool, seconds: u64) -> Vec<(f64, f64, 
     let debug = runtime.enable_debug();
     let program = program(&runtime);
     if !track_measured {
-        assert!(runtime.storage_mut().set_instance_var(
-            program,
-            "TrackMeasuredPosition",
-            Value::Bool(false)
-        ));
+        assert!(runtime
+            .write_instance(program, "TrackMeasuredPosition", Value::Bool(false))
+            .is_ok());
     }
     for step in 0..5 {
         scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);

@@ -12,15 +12,15 @@ use crate::program_model::{
 use crate::stdlib::{conversions, StdParams};
 use crate::value::{
     checked_array_offset_i64, materialize_value_path, parse_partial_access, read_partial_access,
-    read_string_element, ref_indices_from_iter, size_of_type, ArrayValue, PartialAccessError,
-    RefSegment, SizeOfError, StructValue, Value, ValueRef,
+    read_string_element, ref_indices_from_iter, ArrayValue, PartialAccessError, RefSegment,
+    SizeOfError, StructValue, Value, ValueRef,
 };
 
 use super::super::frames::VmFrame;
 use super::VmPouInitPlan;
 
 pub(super) fn apply_fb_instance_initializer_from_vm_frame(
-    runtime: &mut crate::Runtime,
+    runtime: &mut crate::runtime::LegacyRuntimeFixture,
     plan: &VmPouInitPlan,
     frame: &VmFrame,
     visible_slots: usize,
@@ -65,7 +65,7 @@ pub(super) fn apply_fb_instance_initializer_from_vm_frame(
 }
 
 pub(super) fn evaluate_initializer_from_vm_frame(
-    runtime: &crate::Runtime,
+    runtime: &crate::runtime::LegacyRuntimeFixture,
     plan: &VmPouInitPlan,
     frame: &VmFrame,
     visible_slots: usize,
@@ -81,9 +81,10 @@ pub(super) fn evaluate_initializer_from_vm_frame(
         profile,
     };
     let value = eval_vm_local_expr(&ctx, expr)?;
-    crate::harness::initializer::apply_aggregate_overrides(
+    crate::harness::initializer::apply_aggregate_overrides_with_abi(
         runtime.storage(),
         runtime.registry(),
+        crate::value::StorageAbi::LegacyTemporal32,
         runtime.initializer_catalog(),
         &ctx.profile,
         frame.runtime_instance,
@@ -94,7 +95,7 @@ pub(super) fn evaluate_initializer_from_vm_frame(
 }
 
 struct VmLocalExprContext<'a> {
-    runtime: &'a crate::Runtime,
+    runtime: &'a crate::runtime::LegacyRuntimeFixture,
     plan: &'a VmPouInitPlan,
     frame: &'a VmFrame,
     visible_slots: usize,
@@ -167,10 +168,10 @@ fn eval_vm_local_expr(ctx: &VmLocalExprContext<'_>, expr: &Expr) -> Result<Value
             read_vm_local_indices(target_value, &index_values)
         }
         Expr::Field { target, field } => {
-            if let Some(qualified) = qualified_field_expr_name(expr) {
-                if let Ok(value) = read_vm_local_name(ctx, &qualified) {
-                    return Ok(value);
-                }
+            if let Some(qualified) = qualified_field_expr_name(expr)
+                && let Ok(value) = read_vm_local_name(ctx, &qualified)
+            {
+                return Ok(value);
             }
             let target_value = eval_vm_local_expr(ctx, target)?;
             read_vm_local_field(ctx, target_value, field)
@@ -262,9 +263,12 @@ fn eval_vm_local_size_of(
     target: &SizeOfTarget,
 ) -> Result<Value, RuntimeError> {
     let size = match target {
-        SizeOfTarget::Type(type_id) => {
-            size_of_type(*type_id, ctx.runtime.registry()).map_err(size_error_to_runtime)?
-        }
+        SizeOfTarget::Type(type_id) => crate::value::size_of_type_with_abi(
+            *type_id,
+            ctx.runtime.registry(),
+            crate::value::StorageAbi::LegacyTemporal32,
+        )
+        .map_err(size_error_to_runtime)?,
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
     Ok(Value::DInt(size))
@@ -283,7 +287,7 @@ fn eval_vm_local_call(
 
     if let Some(entry) = ctx.runtime.stdlib().get(&key) {
         let values = if has_named {
-            bind_vm_local_stdlib_named_args(ctx, &entry.params, args)?
+            bind_vm_local_stdlib_named_args(ctx, entry.params, args)?
         } else {
             eval_vm_local_positional_args(ctx, args)?
         };
@@ -291,7 +295,7 @@ fn eval_vm_local_call(
     }
 
     if conversions::is_conversion_name(key.as_str()) {
-        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
+        let params = StdParams::Fixed(vec![SmolStr::new("IN")].into());
         let values = if has_named {
             bind_vm_local_stdlib_named_args(ctx, &params, args)?
         } else {
@@ -485,27 +489,26 @@ fn read_vm_local_lvalue(
 }
 
 fn read_vm_local_name(ctx: &VmLocalExprContext<'_>, name: &SmolStr) -> Result<Value, RuntimeError> {
-    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name) {
-        if slot < ctx.visible_slots {
-            return ctx
-                .frame
-                .locals
-                .get(slot)
-                .cloned()
-                .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()));
-        }
+    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name)
+        && slot < ctx.visible_slots
+    {
+        return ctx
+            .frame
+            .locals
+            .get(slot)
+            .cloned()
+            .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()));
     }
     if let Some(value) = read_static_local(ctx, name) {
         return Ok(value);
     }
-    if let Some(instance_id) = ctx.frame.runtime_instance {
-        if let Some(value) = ctx
+    if let Some(instance_id) = ctx.frame.runtime_instance
+        && let Some(value) = ctx
             .runtime
             .storage()
             .get_instance_var_recursive(instance_id, name.as_str())
-        {
-            return Ok(value.clone());
-        }
+    {
+        return Ok(value.clone());
     }
     if let Some(value) = ctx.runtime.storage().get_global(name.as_str()) {
         return Ok(value.clone());
@@ -594,10 +597,9 @@ fn resolve_vm_local_lvalue_reference(
             if let Some(qualified) = target
                 .qualified_name()
                 .map(|prefix| SmolStr::new(format!("{prefix}.{field}")))
+                && let Some(reference) = resolve_vm_local_name_reference(ctx, &qualified)
             {
-                if let Some(reference) = resolve_vm_local_name_reference(ctx, &qualified) {
-                    return Ok(reference);
-                }
+                return Ok(reference);
             }
             let base_value = read_vm_local_lvalue(ctx, target)?;
             match base_value {
@@ -629,25 +631,24 @@ fn resolve_vm_local_name_reference(
     ctx: &VmLocalExprContext<'_>,
     name: &SmolStr,
 ) -> Option<ValueRef> {
-    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name) {
-        if slot < ctx.visible_slots {
-            return Some(ValueRef {
-                location: MemoryLocation::Local(FrameId(
-                    super::super::call::VM_LOCAL_SENTINEL_FRAME_ID,
-                )),
-                offset: slot,
-                path: Vec::new(),
-            });
-        }
+    if let Some(slot) = vm_local_slot_for_name(ctx.plan, name)
+        && slot < ctx.visible_slots
+    {
+        return Some(ValueRef {
+            location: MemoryLocation::Local(FrameId(
+                super::super::call::VM_LOCAL_SENTINEL_FRAME_ID,
+            )),
+            offset: slot,
+            path: Vec::new(),
+        });
     }
-    if let Some(instance_id) = ctx.frame.runtime_instance {
-        if let Some(reference) = ctx
+    if let Some(instance_id) = ctx.frame.runtime_instance
+        && let Some(reference) = ctx
             .runtime
             .storage()
             .ref_for_instance_recursive(instance_id, name.as_str())
-        {
-            return Some(reference);
-        }
+    {
+        return Some(reference);
     }
     ctx.runtime.storage().ref_for_global(name.as_str())
 }

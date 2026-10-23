@@ -593,10 +593,10 @@ fn unconfirmed_start(
     persistence: Option<&dyn RecordingOwnerPersistence>,
 ) -> RecordingStartError<RuntimeRecordingSession> {
     session.start_failure = Some(text(&start_error).to_string());
-    if let Some(journal) = persistence {
-        if let Err(error) = journal.persist(&session.recovery_owner()) {
-            return RecordingStartError::Failed(error);
-        }
+    if let Some(journal) = persistence
+        && let Err(error) = journal.persist(&session.recovery_owner())
+    {
+        return RecordingStartError::Failed(error);
     }
     let (recording, stop_error) = match session.stop() {
         Ok(run) => (Some(run), None),

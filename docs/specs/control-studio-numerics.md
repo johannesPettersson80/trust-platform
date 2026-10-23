@@ -58,7 +58,7 @@ u = Kp·e + Ki·∫e dt + Kd·(de/dt),    Ki = Kp / Ti,    Kd = Kp · Td
 Formula results are ideal (ISA time-constant) PI values. They are translated to the
 parallel gains explicitly. No series, incremental, positional, vendor or per-scan
 gain conversion is permitted. The exact PI, PD and PID form, timing, derivative filter,
-weights, limits, tracking and anti-windup are those of Specification 32.
+weights, limits, tracking and anti-windup are those of Specification 45.
 
 **N0.6 Continuous and discrete.** Transfer functions, the SIMC and AMIGO formulas,
 the integrating rules and the Routh-Hurwitz test are continuous-time, in `s`. A

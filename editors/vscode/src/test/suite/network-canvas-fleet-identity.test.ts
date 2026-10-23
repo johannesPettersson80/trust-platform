@@ -470,7 +470,7 @@ suite("Network Canvas fleet identity", function () {
     assert.strictEqual(once.links[0]?.detail, "singleton peer degraded");
     assert.strictEqual(once.links[0]?.secure, true);
 
-    const dataServiceSource = fs.readFileSync(
+    const refreshSource = fs.readFileSync(
       path.join(
         __dirname,
         "..",
@@ -478,13 +478,13 @@ suite("Network Canvas fleet identity", function () {
         "..",
         "src",
         "networkCanvas",
-        "canvasDataService.ts"
+        "refreshData.ts"
       ),
       "utf8"
     );
     assert.match(
-      dataServiceSource,
-      /mergeFleetTopologies\(\[liveTopology\]\)/,
+      refreshSource,
+      /mergeFleetTopologies\(\[live\.topology, offline\.topology\]\)/,
       "a lone live topology must pass through the same normalization ingress as merged responses"
     );
   });

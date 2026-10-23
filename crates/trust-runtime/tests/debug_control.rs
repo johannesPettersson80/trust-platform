@@ -11,20 +11,12 @@ use trust_runtime::harness::parse_debug_expression;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::memory::VariableStorage;
 use trust_runtime::value::{DateTimeProfile, Value};
-use trust_runtime::Runtime;
 
 fn make_debug_context<'a>(
     storage: &'a mut VariableStorage,
     registry: &'a TypeRegistry,
 ) -> DebugRuntimeContext<'a> {
-    DebugRuntimeContext {
-        storage,
-        registry,
-        stdlib: None,
-        profile: DateTimeProfile::default(),
-        current_instance: None,
-        now: trust_runtime::value::Duration::ZERO,
-    }
+    DebugRuntimeContext::new(storage, registry)
 }
 
 fn wait_for_pause(control: &DebugControl, timeout: Duration) {
@@ -179,7 +171,7 @@ fn resolve_breakpoint_next_statement() {
 
 #[test]
 fn runtime_resolves_breakpoint_using_index() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let source = "x := 1;\ny := 2;\n";
     let x_start = source.find("x := 1;").unwrap();
     let x_end = x_start + "x := 1;".len();
@@ -193,6 +185,8 @@ fn runtime_resolves_breakpoint_using_index() {
         ],
     );
 
+    let runtime = runtime.build().expect("admit source inspection metadata");
+
     let resolved = runtime
         .resolve_breakpoint_location(source, 0, 1, 0)
         .unwrap();
@@ -201,7 +195,7 @@ fn runtime_resolves_breakpoint_using_index() {
 
 #[test]
 fn runtime_resolves_breakpoint_position_to_statement_start() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     let source = "x := 1;\n  y := 2;\n";
     let x_start = source.find("x := 1;").unwrap();
     let x_end = x_start + "x := 1;".len();
@@ -214,6 +208,8 @@ fn runtime_resolves_breakpoint_position_to_statement_start() {
             SourceLocation::new(0, y_start as u32, y_end as u32),
         ],
     );
+
+    let runtime = runtime.build().expect("admit source inspection metadata");
 
     let (location, line, col) = runtime
         .resolve_breakpoint_position(source, 0, 1, 0)
@@ -337,9 +333,12 @@ fn watch_changes_reported_between_stops() {
         storage.push_frame("MAIN");
         storage.set_local("x", Value::DInt(1));
         let registry = TypeRegistry::new();
+        // The executor changes its own storage between statements; the hook sees each
+        // statement through a fresh context, as a scan would present it.
         let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&first_location), 0);
-        ctx.storage.set_local("x", Value::DInt(2));
+        storage.set_local("x", Value::DInt(2));
+        let mut ctx = make_debug_context(&mut storage, &registry);
         hook.on_statement_with_context(&mut ctx, Some(&second_location), 0);
     });
 
@@ -428,6 +427,7 @@ fn conditional_breakpoint_skips_when_false() {
             log_message: None,
             hits: 0,
             generation: 0,
+            type_registry: None,
         }],
     );
 
@@ -465,6 +465,7 @@ fn conditional_breakpoint_pauses_when_true() {
             log_message: None,
             hits: 0,
             generation: 0,
+            type_registry: None,
         }],
     );
 
@@ -502,6 +503,7 @@ fn hit_count_breakpoint_pauses_on_threshold() {
             log_message: None,
             hits: 0,
             generation: 0,
+            type_registry: None,
         }],
     );
 
@@ -550,6 +552,7 @@ fn logpoint_emits_output_without_pausing() {
             ]),
             hits: 0,
             generation: 0,
+            type_registry: None,
         }],
     );
 
@@ -611,6 +614,7 @@ fn logpoint_sender_drop_buffers_log_in_debug_control() {
             log_message: Some(vec![LogFragment::Text("fault log".to_string())]),
             hits: 0,
             generation: 0,
+            type_registry: None,
         }],
     );
 

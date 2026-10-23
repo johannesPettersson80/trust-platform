@@ -12,7 +12,7 @@ use crate::hmi::member_paths::{MemberPath, PathSegment};
 use crate::io::{IoAddress, IoSize};
 use crate::memory::IoArea;
 
-use super::core::Runtime;
+use super::installed::Runtime;
 use super::link_subsystem::io_reading;
 
 /// When each `io.toml` link last exchanged data, or else when the display first saw it.
@@ -32,7 +32,7 @@ pub(crate) struct SilentInput {
 impl Runtime {
     /// The variables at the inputs of the links that exchange no data now.
     pub(super) fn silent_inputs(&mut self) -> Vec<SilentInput> {
-        let now_ms = self.current_time.as_millis();
+        let now_ms = self.current_time().as_millis();
         let mut silent: Vec<(Vec<Range<usize>>, u64)> = Vec::new();
         for io in self.io.link_ios() {
             let last = self

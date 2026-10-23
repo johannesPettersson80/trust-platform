@@ -190,33 +190,31 @@ impl<'a, 'b> StandardChecker<'a, 'b> {
         let et_type = self.timer_value_type(typed.get(3).and_then(|arg| arg.as_ref()), "ET");
 
         let expected = if let Some(fixed) = fixed_type {
-            if let Some(pt) = pt_type {
-                if pt != fixed {
-                    if let Some((arg, _)) = typed.get(1).and_then(|arg| arg.as_ref()) {
-                        self.checker.diagnostics.error(
-                            DiagnosticCode::InvalidArgumentType,
-                            arg.range,
-                            format!(
-                                "expected '{}' for parameter 'PT'",
-                                self.checker.type_name(fixed)
-                            ),
-                        );
-                    }
-                }
+            if let Some(pt) = pt_type
+                && pt != fixed
+                && let Some((arg, _)) = typed.get(1).and_then(|arg| arg.as_ref())
+            {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    format!(
+                        "expected '{}' for parameter 'PT'",
+                        self.checker.type_name(fixed)
+                    ),
+                );
             }
-            if let Some(et) = et_type {
-                if et != fixed {
-                    if let Some((arg, _)) = typed.get(3).and_then(|arg| arg.as_ref()) {
-                        self.checker.diagnostics.error(
-                            DiagnosticCode::InvalidArgumentType,
-                            arg.range,
-                            format!(
-                                "expected '{}' for parameter 'ET'",
-                                self.checker.type_name(fixed)
-                            ),
-                        );
-                    }
-                }
+            if let Some(et) = et_type
+                && et != fixed
+                && let Some((arg, _)) = typed.get(3).and_then(|arg| arg.as_ref())
+            {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::InvalidArgumentType,
+                    arg.range,
+                    format!(
+                        "expected '{}' for parameter 'ET'",
+                        self.checker.type_name(fixed)
+                    ),
+                );
             }
             fixed
         } else {

@@ -17,6 +17,9 @@ use crate::RuntimeMetadata;
 
 pub use trust_runtime_core::scheduler::ResourceState;
 
+use command_queue::{command_channel, try_queue};
+pub use command_queue::{CommandSendError, ReloadClaim, RESOURCE_COMMAND_CAPACITY};
+
 mod cycle_timing;
 mod simulation_clock;
 
@@ -33,8 +36,15 @@ include!("scheduler/runner_api.rs");
 include!("scheduler/runner_loop.rs");
 include!("scheduler/handle_shared.rs");
 
+mod command_queue;
+mod faulted;
+mod supervisor;
+
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod policy_update_tests;
 
 #[cfg(test)]
 mod simulated_time_tests;

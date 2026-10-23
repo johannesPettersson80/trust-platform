@@ -201,12 +201,12 @@ impl HmiAccessConfig {
                     ));
                 }
             }
-            if let (Some(min), Some(max)) = (rule.min, rule.max) {
-                if min > max {
-                    return Err(format!(
-                        "{KEY}.write \"{text}\": min {min} is above max {max}"
-                    ));
-                }
+            if let (Some(min), Some(max)) = (rule.min, rule.max)
+                && min > max
+            {
+                return Err(format!(
+                    "{KEY}.write \"{text}\": min {min} is above max {max}"
+                ));
             }
             write.push(WriteRule {
                 path,

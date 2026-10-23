@@ -1,0 +1,57 @@
+[gate-progress state=started phase=B-R1-runtime-vertical target=scena-rust-builder pid=1499239 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked --no-fail-fast -p trust-runtime --test api_smoke --test debug_control --test complete_program --test runtime_reliability -- --nocapture --test-threads=1']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime)
+[gate-progress state=running phase=B-R1-runtime-vertical target=scena-rust-builder pid=1499239 elapsed=30.1s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked --no-fail-fast -p trust-runtime --test api_smoke --test debug_control --test complete_program --test runtime_reliability -- --nocapture --test-threads=1']
+    Finished `test` profile [unoptimized] target(s) in 30.08s
+     Running tests/api_smoke.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/deps/api_smoke-f6ce8ba69c8a1fc1)
+
+running 3 tests
+test loads_runtime ... ok
+test runtime_execution_backend_defaults_and_lazy_vm_materialization ... ok
+test runtime_metrics_snapshot_tracks_vm_backend_selection ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/complete_program.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/deps/complete_program-4d2aa5a7cac817ec)
+
+running 1 test
+test complete_program_compiles_without_errors ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/debug_control.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/deps/debug_control-bd579bf545dfc737)
+
+running 20 tests
+test breakpoint_emits_stop_event ... ok
+test breakpoint_generation_increments_on_clear ... ok
+test breakpoint_pauses_execution ... ok
+test conditional_breakpoint_pauses_when_true ... ok
+test conditional_breakpoint_skips_when_false ... ok
+test frame_location_tracks_current_frame ... ok
+test hit_count_breakpoint_pauses_on_threshold ... ok
+test logpoint_emits_output_without_pausing ... ok
+test logpoint_sender_drop_buffers_log_in_debug_control ... ok
+test pause_preserves_task_order ... ok
+test resolve_breakpoint_next_statement ... ok
+test resolve_breakpoint_prefers_inner_statement ... ok
+test runtime_event_sender_drop_buffers_event_in_debug_control ... ok
+test runtime_resolves_breakpoint_position_to_statement_start ... ok
+test runtime_resolves_breakpoint_using_index ... ok
+test statement_locations_use_first_token_in_if_block ... ok
+test step_once_pauses_again ... ok
+test step_out_pauses_after_return ... ok
+test step_over_pauses_at_same_depth ... ok
+test watch_changes_reported_between_stops ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/runtime_reliability.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/deps/runtime_reliability-10250a283c4bbff1)
+
+running 4 tests
+test e2e_retain_roundtrip_restart ... ok
+test e2e_startup_io_restart ... ok
+test retain_power_loss_does_not_persist_unsaved ... ok
+test watchdog_faults_resource_on_overrun ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+[gate-progress state=finished phase=B-R1-runtime-vertical target=scena-rust-builder pid=1499239 elapsed=31.2s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked --no-fail-fast -p trust-runtime --test api_smoke --test debug_control --test complete_program --test runtime_reliability -- --nocapture --test-threads=1' status=0]

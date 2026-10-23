@@ -337,12 +337,12 @@ pub fn merge_manual_entry(
 ) -> Result<BTreeMap<String, f64>, Refusal> {
     let mut values = entered.clone();
     for (symbol, pinned) in pins {
-        if let Some(current) = values.get(symbol) {
-            if (current - pinned).abs() > 0.0 {
-                return Err(Refusal::new(format!(
-                    "Unpin {symbol} before changing its setting."
-                )));
-            }
+        if let Some(current) = values.get(symbol)
+            && (current - pinned).abs() > 0.0
+        {
+            return Err(Refusal::new(format!(
+                "Unpin {symbol} before changing its setting."
+            )));
         }
         values.insert(symbol.clone(), *pinned);
     }

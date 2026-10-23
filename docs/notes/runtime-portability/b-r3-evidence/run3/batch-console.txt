@@ -1,0 +1,28 @@
+[gate-progress state=started phase=B-R3-canonical-parity target=scena-rust-builder pid=1685484 elapsed=0.0s timeout=7200s command='sha256sum -c /home/johannes/.cache/trust-portability-br3-setup-run3/canonical.sha256']
+AGENTS.md: OK
+CLAUDE.md: OK
+.codex/skills/st-lsp-solid/SKILL.md: OK
+.codex/skills/trust-ci-release-gates/SKILL.md: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_cleanup.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_guard.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_prepare.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_release.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh: OK
+.codex/skills/trust-ci-release-gates/scripts/pre-push: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_cleanup.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_cleanup_tests.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_prepare.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_release.py: OK
+.codex/skills/trust-hmi-contracts/SKILL.md: OK
+.codex/skills/trust-lsp-iec/SKILL.md: OK
+.codex/skills/trust-remote-builder/SKILL.md: OK
+.codex/skills/trust-test-authoring/SKILL.md: OK
+.codex/skills/trust-vscode-quality/SKILL.md: OK
+[gate-progress state=finished phase=B-R3-canonical-parity target=scena-rust-builder pid=1685484 elapsed=0.1s timeout=7200s command='sha256sum -c /home/johannes/.cache/trust-portability-br3-setup-run3/canonical.sha256' status=0]
+[gate-progress state=started phase=B-R3-firmware-link target=scena-rust-builder pid=1685491 elapsed=0.0s timeout=7200s command='bash /home/johannes/.cache/trust-portability-br3-setup-run3/measure.sh']
+[gate-progress state=finished phase=B-R3-firmware-link target=scena-rust-builder pid=1685491 elapsed=7.2s timeout=7200s command='bash /home/johannes/.cache/trust-portability-br3-setup-run3/measure.sh' status=0]
+[gate-progress state=started phase=B-R3-inspect target=scena-rust-builder pid=1685640 elapsed=0.0s timeout=7200s command='/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/xtask portability inspect /home/johannes/.cache/trust-portability-b-evidence/b-r3-run3/measurement/firmware.elf /home/johannes/.cache/trust-portability-b-evidence/b-r3-run3/elf-report.json']
+{"application_sector_bytes":16384,"firmware_code_capacity_bytes":458752,"firmware_code_free_bytes":16544,"firmware_code_span_bytes":442208,"firmware_sha256":"87d622c71fa6f6dab01d13caef9db2671a174f9ccb575b0398d76389b8f61c5b","flash_load_bytes":458360,"heap_reserved_bytes":73728,"load_segments":[[134217728,16160],[134283264,403904],[134687168,38296]],"other_static_ram_bytes":60,"persistence_reserved_bytes":32768,"sections":[{"address":134217728,"bytes":404,"name":".vector_table"},{"address":134218144,"bytes":15744,"name":".firmware_rodata"},{"address":134283264,"bytes":403904,"name":".text"},{"address":134687168,"bytes":38296,"name":".rodata"},{"address":536870912,"bytes":73788,"name":".bss"}],"sector0_free_bytes":224,"sector0_span_bytes":16160,"stack_reserved_bytes":16384,"static_ram_bytes_including_heap":73788}
+[gate-progress state=finished phase=B-R3-inspect target=scena-rust-builder pid=1685640 elapsed=0.1s timeout=7200s command='/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/xtask portability inspect /home/johannes/.cache/trust-portability-b-evidence/b-r3-run3/measurement/firmware.elf /home/johannes/.cache/trust-portability-b-evidence/b-r3-run3/elf-report.json' status=0]

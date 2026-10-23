@@ -542,21 +542,21 @@ fn struct_serialized_construction_preserves_union_order_and_nested_identity() {
     assert_eq!(value.field("number"), Some(&Value::Int(8)));
 
     assert_eq!(
-        StructValue::from_serialized_parts(&registry, "Absent", IndexMap::new()),
+        StructValue::from_serialized_parts(&registry, "Absent", IndexMap::default()),
         Err(ValueConstructionError::UnknownTypeName("Absent".into()))
     );
     assert_eq!(
-        StructValue::new(&registry, TypeId::BOOL, IndexMap::new()),
+        StructValue::new(&registry, TypeId::BOOL, IndexMap::default()),
         Err(ValueConstructionError::NotStructOrUnion(TypeId::BOOL))
     );
     let unknown = TypeId(900_002);
     assert_eq!(
-        StructValue::new(&registry, unknown, IndexMap::new()),
+        StructValue::new(&registry, unknown, IndexMap::default()),
         Err(ValueConstructionError::UnknownType(unknown))
     );
     let cycle = register_alias_cycle(&mut registry, "StructCycle");
     assert_eq!(
-        StructValue::new(&registry, cycle, IndexMap::new()),
+        StructValue::new(&registry, cycle, IndexMap::default()),
         Err(ValueConstructionError::AliasCycle(cycle))
     );
 

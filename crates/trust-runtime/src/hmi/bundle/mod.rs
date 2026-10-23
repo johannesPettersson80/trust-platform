@@ -33,6 +33,27 @@ pub const LIBRARY_FOLDERS: [(&str, &[&str]); 3] = [
     ("symbols", &["svg", "toml"]),
 ];
 
+/// Reads a file of a project's `hmi/` folder by its project-relative path, for a route or a check.
+/// A link is not followed, and a path that leads outside `hmi/` or names an `io.toml` is refused,
+/// so that no HMI route discloses the I/O configuration's credentials, as the bundle itself never
+/// takes a link.
+pub(crate) fn read_hmi_file(project: &Path, relative: &str) -> Option<Vec<u8>> {
+    let path = project.join(relative);
+    if !std::fs::symlink_metadata(&path).ok()?.is_file() {
+        return None;
+    }
+    let folder = project.join("hmi").canonicalize().ok()?;
+    let resolved = path.canonicalize().ok()?;
+    let io_config = resolved
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.eq_ignore_ascii_case("io.toml"));
+    if !resolved.starts_with(&folder) || io_config {
+        return None;
+    }
+    std::fs::read(&resolved).ok()
+}
+
 /// Every file under `hmi/`, by path (`hmi/pages/overview.toml`).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HmiBundle {
@@ -124,7 +145,7 @@ impl HmiBundle {
             hasher.update(bytes);
             hasher.update([0]);
         }
-        format!("{:x}", hasher.finalize())
+        hex::encode(hasher.finalize()).to_string()
     }
 
     /// The first 16 hexadecimal digits of the version: the page version of §12.8.

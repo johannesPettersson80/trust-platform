@@ -9,7 +9,8 @@ use crate::program_model::InitializerCatalog;
 use crate::value::DateTimeProfile;
 
 use super::super::lower::{
-    const_int_from_node, lower_initializer_expr, parse_subrange, resolve_initializer_enum_variant,
+    const_int_from_node, lower_expr_with_context, parse_subrange, parse_subrange_in,
+    resolve_initializer_enum_variant,
 };
 use super::super::types::CompileError;
 use super::super::util::{
@@ -225,10 +226,9 @@ fn lower_type_decl_node(
                 let Some(type_id) = last_type_id else {
                     continue;
                 };
-                let expr =
-                    lower_initializer_expr(&child, &mut ctx, type_id).and_then(|lowered| {
-                        resolve_initializer_enum_variant(&child, lowered, type_id, &ctx)
-                    })?;
+                let expr = lower_expr_with_context(&child, &mut ctx, Some(type_id)).and_then(
+                    |lowered| resolve_initializer_enum_variant(&child, lowered, type_id, &ctx),
+                )?;
                 let initializer_id = initializer_catalog.insert(expr);
                 initializer_catalog.set_type_default(type_id, initializer_id);
             }
@@ -267,7 +267,7 @@ fn lower_struct_def(
             .initializer
             .as_ref()
             .map(|expr| {
-                lower_initializer_expr(expr, ctx, type_id)
+                lower_expr_with_context(expr, ctx, Some(type_id))
                     .and_then(|lowered| {
                         resolve_initializer_enum_variant(expr, lowered, type_id, ctx)
                     })
@@ -428,7 +428,7 @@ pub(crate) fn lower_type_ref(
                 type_name = Some(node_text(&child));
             }
             SyntaxKind::Subrange => {
-                subrange = Some(parse_subrange(&child, ctx)?);
+                subrange = Some(child.clone());
             }
             _ => {}
         }
@@ -451,7 +451,9 @@ pub(crate) fn lower_type_ref(
         return Err(CompileError::new("unsupported type reference"));
     };
     let base_id = resolve_type_name(&name, ctx)?;
-    if let Some((lower, upper)) = subrange {
+    if let Some(range) = subrange {
+        // The bounds are values of the base type, so they are lowered with it as destination.
+        let (lower, upper) = parse_subrange_in(&range, ctx, Some(base_id))?;
         let type_name = ctx
             .registry
             .type_name(base_id)
@@ -476,10 +478,10 @@ pub(crate) fn resolve_type_name(
     if let Some(id) = ctx.registry.lookup(name) {
         return Ok(id);
     }
-    if !name.contains('.') {
-        if let Some(id) = resolve_using_type(ctx.registry, name, &ctx.using)? {
-            return Ok(id);
-        }
+    if !name.contains('.')
+        && let Some(id) = resolve_using_type(ctx.registry, name, &ctx.using)?
+    {
+        return Ok(id);
     }
     Err(CompileError::new(format!("unknown type '{name}'")))
 }
@@ -515,12 +517,12 @@ pub(crate) fn resolve_named_type(
             .type_name(id)
             .ok_or_else(|| CompileError::new("unknown type"));
     }
-    if !type_name.contains('.') {
-        if let Some(id) = resolve_using_type(registry, type_name, using)? {
-            return registry
-                .type_name(id)
-                .ok_or_else(|| CompileError::new("unknown type"));
-        }
+    if !type_name.contains('.')
+        && let Some(id) = resolve_using_type(registry, type_name, using)?
+    {
+        return registry
+            .type_name(id)
+            .ok_or_else(|| CompileError::new("unknown type"));
     }
     Err(CompileError::new(format!("unknown type '{type_name}'")))
 }

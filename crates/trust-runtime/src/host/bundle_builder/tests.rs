@@ -166,6 +166,54 @@ fn build_accepts_cross_file_root_global_struct_field_access() {
 }
 
 #[test]
+fn build_emits_hash_bound_openot_definition_for_the_compiled_sources() {
+    let root = temp_dir("trust-runtime-build-openot-definition");
+    let library_sources = [
+        ("openot_control_block.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_control_block.st.txt")),
+        ("openot_crc32c.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_crc32c.st.txt")),
+        ("openot_lifecycle.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_lifecycle.st.txt")),
+        ("openot_message.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_message.st.txt")),
+        ("openot_producer.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_producer.st.txt")),
+        ("openot_records_dropped.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_records_dropped.st.txt")),
+        ("openot_ring256_producer.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring256_producer.st.txt")),
+        ("openot_ring.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring.st.txt")),
+        ("openot_source_high_water.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_source_high_water.st.txt")),
+        ("openot_value_state.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_value_state.st.txt")),
+        ("openot_wire_encode.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_wire_encode.st.txt")),
+    ];
+    for (name, source) in library_sources {
+        write_file(&root.join("src").join(name), source);
+    }
+    write_file(
+        &root.join("src/main.st"),
+        r#"
+PROGRAM Main
+VAR
+    Start : BOOL {attribute 'oot' := 'message', 'template' := 'bundle proof'};
+END_VAR
+Start := TRUE;
+END_PROGRAM
+"#,
+    );
+
+    build_program_stbc(&root, None).expect("build should pass");
+
+    let definition_path = root.join("openot-definition.json");
+    let bytes = fs::read(&definition_path).expect("build must emit OpenOT definition");
+    let definition: open_ot_definition::DefinitionFile =
+        serde_json::from_slice(&bytes).expect("emitted definition must parse");
+    let hash = open_ot_definition::compute_content_hash(&definition)
+        .expect("emitted definition hash must verify");
+    assert_eq!(definition.header.content_hash, hash.content_hash);
+    assert!(definition
+        .message_templates
+        .iter()
+        .any(|template| template.format == "bundle proof"));
+
+    fs::remove_dir_all(root).ok();
+}
+
+#[test]
 fn check_compiles_without_writing_program_stbc() {
     let root = temp_dir("trust-runtime-check-no-write");
     write_root_source(&root);

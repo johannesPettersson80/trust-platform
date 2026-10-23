@@ -253,10 +253,10 @@ impl SearchService {
         if purpose == Purpose::Run {
             let mut result = json!({"job_id":job.id,"project_revision":job.revision,"status":job.status,"cancel_requested":job.cancel.load(Ordering::SeqCst),"reason":job.reason,"source_basis":"loaded-runtime-sources","io_provenance":"isolated-simulation-no-physical-drivers"});
             result["captured_sample_count"] = json!(job.captured_samples.load(Ordering::SeqCst));
-            if include_results != Some(false) {
-                if let Some(run) = job.trials.first().and_then(|trial| trial.get("run")) {
-                    result["run"] = run.clone();
-                }
+            if include_results != Some(false)
+                && let Some(run) = job.trials.first().and_then(|trial| trial.get("run"))
+            {
+                result["run"] = run.clone();
             }
             return Ok(result);
         }

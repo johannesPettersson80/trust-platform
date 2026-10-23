@@ -1,0 +1,16 @@
+{
+  "baseline.map": "d3daf025166784dd2cc4e8f4449dc1dc40a546cf4c361bf09a9e58ddb3c37963",
+  "board-batch.sh": "53ebe08b0a479bab66ddd946bb9a6e1fa2b70fd718a4795f3f003468d105958a",
+  "builder-batch.sh": "41cac4e042580778bf07b204406ee933a60af49ddffe6ac0d5a9c9620b2876c1",
+  "builder-measurement.sh": "1e9306e1e71c2cee88c2426e5fcbbc6be3dc89560ad2e04bfc470b4863edb056",
+  "builder-preparation.sh": "2b0b588f6c4292981fea399f37c43eb1eb808c5e7c857aff4bc1edd60c5a6a28",
+  "canonical.sha256": "0a31687edc1f6cd7ca2e3909b5dbd9ff18a55f1c3e6512db1703a196992c92b3",
+  "environment.sh": "1209161cb22020ab0d5365fbe309f887a72a452ba7640719061203282a267792",
+  "fixture-sha256.txt": "6d108a02c9c614873d97eff800a09a1b7db461440479925c2822725a592b03a6",
+  "format-once.sh": "81a1d515aaf19cc35e3a3b4485d7475c90f54cee35ab775173e601639bc640ee",
+  "freeze-source.py": "cae48071ebe8d6ee0fe5d6ac7664f36d3b6a39359fb4dbc4358d89720e10741a",
+  "measure.sh": "c9a2372fb28ef9713d5b5181b7e9e9d89bf508a6bad5fa34ecc55f07a561319f",
+  "prepare-metadata-index.py": "145c0f21ff533918b5fa65b43dfcb576b19e752240beeb3544249d4f25c077be",
+  "refresh-unsafe-location.py": "9db3f27aea3eaee4b8e11256c36e9f5eda118551e8de2433ea5c128f523b49ac",
+  "reused-source.sha256": "5e4e7b52c8941fd43b34ac70cfbc90427a9ce32fc58efa624c73f88aebcd4b9a"
+}

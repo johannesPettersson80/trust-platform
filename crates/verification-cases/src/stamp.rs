@@ -18,11 +18,16 @@ pub(crate) struct TrustVerifyStamp {
 pub(crate) fn read_trust_verify_stamp(
     config: &RunConfig,
     case_file_digest: &str,
+    mut read: impl FnMut(&str) -> Option<std::ffi::OsString>,
 ) -> Result<TrustVerifyStamp, CaseRunError> {
-    let test_id = read_stamp_env(TRUST_VERIFY_TEST_ID)?;
-    let run_id = read_stamp_env(TRUST_VERIFY_RUN_ID)?;
-    let digest = read_stamp_env(TRUST_VERIFY_CASE_FILE_DIGEST)?;
-    let artifact_dir = read_stamp_env(TRUST_VERIFY_ARTIFACT_DIR)?;
+    let test_id = read_stamp_value(TRUST_VERIFY_TEST_ID, read(TRUST_VERIFY_TEST_ID))?;
+    let run_id = read_stamp_value(TRUST_VERIFY_RUN_ID, read(TRUST_VERIFY_RUN_ID))?;
+    let digest = read_stamp_value(
+        TRUST_VERIFY_CASE_FILE_DIGEST,
+        read(TRUST_VERIFY_CASE_FILE_DIGEST),
+    )?;
+    let artifact_dir =
+        read_stamp_value(TRUST_VERIFY_ARTIFACT_DIR, read(TRUST_VERIFY_ARTIFACT_DIR))?;
 
     let present = [
         test_id.is_some(),
@@ -74,8 +79,11 @@ pub(crate) fn read_trust_verify_stamp(
     })
 }
 
-fn read_stamp_env(name: &'static str) -> Result<Option<String>, CaseRunError> {
-    std::env::var_os(name)
+fn read_stamp_value(
+    name: &'static str,
+    value: Option<std::ffi::OsString>,
+) -> Result<Option<String>, CaseRunError> {
+    value
         .map(|value| {
             value
                 .into_string()

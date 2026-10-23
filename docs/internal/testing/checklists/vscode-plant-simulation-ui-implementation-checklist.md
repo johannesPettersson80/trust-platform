@@ -22,8 +22,8 @@ Owner: VS Code Devices & Connections and runtime simulation configuration
 
 Product authority:
 
-- [Specification 34 - VS Code Plant Simulation UI](../../../specs/34-vscode-plant-simulation-ui.md)
-- [Specification 33 - Simulation Plant Models](../../../specs/33-simulation-plant-models.md)
+- [Specification 34 - VS Code Plant Simulation UI](../../../specs/47-vscode-plant-simulation-ui.md)
+- [Specification 33 - Simulation Plant Models](../../../specs/46-simulation-plant-models.md)
 - [Specification 35 - VS Code Control Studio](../../../specs/35-vscode-control-studio.md)
 
 This checklist contains only plant-specific work. Test-first development,

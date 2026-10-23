@@ -174,7 +174,11 @@ impl Program {
     fn start(arguments: &[String], with_token: bool, folder: &Path, name: &str) -> Self {
         let out = folder.join(format!("{name}.out"));
         let err = folder.join(format!("{name}.err"));
-        let mut command = Command::new(env!("CARGO_BIN_EXE_trust-control-studio"));
+        let mut command = Command::new(
+            std::env::var_os("CARGO_BIN_EXE_trust-control-studio").expect(
+                "Cargo must provide trust-control-studio binary while executing integration tests",
+            ),
+        );
         command
             .args(arguments)
             .stdin(Stdio::null())

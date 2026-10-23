@@ -5,18 +5,19 @@
 mod breakpoints;
 mod control;
 pub mod dap;
+mod execution_snapshot;
 mod hook;
 mod resolve;
 mod trace;
 mod types;
 
 pub(crate) use control::{
-    control_number_as, numeric_control_value, resolve_control_parameter_path, ForcedVarTarget,
-    PendingVarTarget, ScanObserver, ScanView,
+    control_number_as, numeric_control_value, resolve_control_parameter_path, PendingVarTarget,
+    ScanObserver, ScanView, ScanWrites,
 };
 pub use control::{
-    ControlAction, ControlOutcome, DebugControl, DebugMode, IoRecordingResult, IoRecordingSpec,
-    StepKind,
+    ControlAction, ControlOutcome, DebugControl, DebugMode, ForcedVarTarget, IoRecordingResult,
+    IoRecordingSpec, RequestQueueFull, StepKind,
 };
 pub use dap::{DebugScope, DebugSource, DebugVariable, DebugVariableHandles, VariableHandle};
 pub use hook::{DebugHook, DebugRuntimeContext, NoopDebugHook};

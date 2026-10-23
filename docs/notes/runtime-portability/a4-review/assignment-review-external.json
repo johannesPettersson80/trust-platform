@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "reviewer": "a1_readonly_review",
+  "created_utc": "2026-10-10T05:11:08.586907+00:00",
+  "head": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "source_state": "dirty, unexecuted",
+  "scope": "Other-author External-binding exclusion delta only; earlier own-code exclusions remain in force.",
+  "previous_review_aggregate_sha256": "f7da514bf67cdd4bc261c54ad18e1c990631b0369c78cf8b83354ac68364932e",
+  "verdict": "source_inspection_clear",
+  "validation_executed": false,
+  "aggregate_algorithm": "SHA-256 over sorted UTF-8 relative path, NUL, raw file bytes, NUL",
+  "aggregate_sha256": "d67e4ceb32b6e7ede71817eeb075ddf4b27f37d3294dc1505b95d4410073fa8f",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/access.rs",
+      "bytes": 4717,
+      "sha256": "39eaa30b25f6c49b9da4868f1949d64a6d2b85cde5b235b64ecd5e090c584e52",
+      "prior_assignment_review_sha256": "1ca9de5eca4fdb526f8646e6e605bb9c0d5647066d6b6ee37421c37a25544409"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/staging.rs",
+      "bytes": 4708,
+      "sha256": "aa67e3bcfaac74a02f5ea3b5f55b3fa006493249924a649782e9afdd1b9451b8",
+      "prior_assignment_review_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/policy.rs",
+      "bytes": 12166,
+      "sha256": "540985ba60ca55365c428539b41c9a29c5bd3c143720be415835d3a4c0506f14",
+      "prior_assignment_review_sha256": "c007d8ab593a04d897e331b113ae1c8911db32fbe222467cc71e2f9a385dc1ba"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/readonly.rs",
+      "bytes": 5314,
+      "sha256": "3cf0dd5f8f32f01b82be970f2fa0276aa4c1eb5a9403113f500e6cdf25c85050",
+      "prior_assignment_review_sha256": "dc7629cc5abca0e5e19d19409df06a9e2bebc5e7295b9cb6d0d0f442cc52efb0"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/restart.rs",
+      "bytes": 4376,
+      "sha256": "3e0a392c2ddc8cf01ea1ef22f757ccd8023488f1217a9a0ec4a1cd45408b9ca4",
+      "prior_assignment_review_sha256": null
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_readonly.rs",
+      "bytes": 9258,
+      "sha256": "3cbc08711adc77e19084322da382f293dc262f95bbcb7dc9c3740892739481ca",
+      "prior_assignment_review_sha256": "468360d04ca54e682c3e86eadd41e1cf05fc01cee35c8390bae3b9c7bf535457"
+    },
+    {
+      "path": "docs/specs/12-bytecode.md",
+      "bytes": 111609,
+      "sha256": "c707b61021145a107a1fe8d4f70c8d6bbbeb6af1d9c2188c26869d6b95d72820",
+      "prior_assignment_review_sha256": "3402c98bbf7a96c6e8bdf997f8d3fc7ffc578e364b73d4aeed0bfd78c67feb24"
+    }
+  ],
+  "observations": [
+    "Validator excludes External from physical dense-slot/name keys and recomputes its construction demand as zero.",
+    "Runtime permission, visibility, type, global-name, staged ownership and retained-program traversal now select physical declarations rather than non-owning External aliases.",
+    "The forged alias retains the compatible reference/type, clears constant/default fields and sets zero demand; prepending it updates declaration references in roots, initializer declarations and related declaration indexes.",
+    "Root-parent and initializer-context indexes belong to separate tables and correctly remain unchanged.",
+    "Existing global retained-graph traversal already selects StorageRole::Variable, excluding External."
+  ],
+  "limitations": [
+    "No build, test, formatter or validator was executed.",
+    "Admission and runtime assertions in the new regression remain unverified.",
+    "Prior hashes are recorded only when present in the earlier manifest; staging/restart have no invented before-image hashes.",
+    "This addendum independently reviews only the described delta, not unrelated changes in mixed-author files."
+  ]
+}

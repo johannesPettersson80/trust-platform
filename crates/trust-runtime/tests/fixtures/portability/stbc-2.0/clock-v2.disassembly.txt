@@ -1,0 +1,37 @@
+STBC 2.0 flags=0x00000001
+SECTION 0x0001
+SECTION 0x0002
+SECTION 0x0003
+SECTION 0x0004
+SECTION 0x0005
+  POU 0 0
+    00000000: 09 03 00 00 00 05 00 00 00 00 00 00 00
+    0000000D: 23
+    0000000E: 30 03 00 00 00
+    00000013: 13
+    00000014: 33
+    00000015: 09 03 00 00 00 01 00 00 00 00 00 00 00
+    00000022: 23
+    00000023: 30 04 00 00 00
+    00000028: 13
+    00000029: 33
+SECTION 0x0006
+SECTION 0x0007
+SECTION 0x0008
+SECTION 0x000B
+SECTION 0x000A
+SECTION 0x0009
+SECTION 0x000D
+  DECL 0 owner=Global role=ProgramRoot retain=0 flags=0 owner_pou_id=0 name_idx=2 type_id=none slot=0 ref_idx=0 default_const_idx=none construction_nodes=3 related_declaration_idx=none source_name_idx=none
+  DECL 1 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=3 type_id=0 slot=0 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+  DECL 2 owner=Instance role=Variable retain=0 flags=0 owner_pou_id=0 name_idx=4 type_id=1 slot=1 ref_idx=none default_const_idx=none construction_nodes=1 related_declaration_idx=none source_name_idx=none
+SECTION 0x000E
+  ROOT 0 declaration_idx=0 binding_ref_idx=0 instance_owner_id=0 parent_root_idx=none template_pou_id=0 flags=0
+SECTION 0x000F
+  INIT 0 declaration_idx=1 owner_pou_id=0 result_ref_idx=3 code_offset=42 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    0000002A: 66 00 00 00 00
+    0000002F: 21 03 00 00 00
+  INIT 1 declaration_idx=2 owner_pou_id=0 result_ref_idx=4 code_offset=52 code_length=10 visible_local_count=0 visible_static_count=0 phase=Instance once=None stage=Default trigger=Ordinary target_idx=none partial_kind=0 target_kind=Declaration target_reserved=[00,00] partial_index=0 context_initializer_idx=none recipe_type_id=none recipe_member_idx=none body_kind=Action recipe_reserved=[00,00,00]
+    00000034: 66 01 00 00 00
+    00000039: 21 04 00 00 00
+SECTION 0x0010

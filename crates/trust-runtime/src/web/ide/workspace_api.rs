@@ -107,6 +107,16 @@ impl WebIdeState {
             ));
         }
 
+        let payload = if super::super::io_secrets::is_io_config(&resolved) {
+            super::super::io_secrets::restore(&payload, "").map_err(|_| {
+                IdeError::new(
+                    IdeErrorKind::InvalidInput,
+                    "invalid I/O configuration or missing stored secret",
+                )
+            })?
+        } else {
+            payload
+        };
         if let Some(parent) = resolved.parent() {
             std::fs::create_dir_all(parent).map_err(|err| {
                 IdeError::new(
@@ -168,6 +178,14 @@ impl WebIdeState {
         let old_resolved = self.resolve_workspace_path(&old_norm)?;
         let old_is_dir = old_resolved.is_dir();
         let new_resolved = self.resolve_workspace_path(&new_norm)?;
+        if super::super::io_secrets::is_io_config(&old_resolved)
+            && !super::super::io_secrets::is_io_config(&new_resolved)
+        {
+            return Err(IdeError::new(
+                IdeErrorKind::Forbidden,
+                "I/O configuration must retain its io.toml filename",
+            ));
+        }
         if !old_resolved.exists() {
             return Err(IdeError::new(
                 IdeErrorKind::NotFound,

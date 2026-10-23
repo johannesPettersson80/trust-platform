@@ -65,7 +65,7 @@ package "PlantSystem" {
   component "Preallocated checkpoint\nfailed-substep rollback" as checkpoint
 }
 
-package "Simulation time (spec 33 §6.1)" as simTime {
+package "Simulation time (spec 46 §6.1)" as simTime {
   component "Resource loop\nrunner_loop.rs: each cycle paced at\ncycle interval / time_scale; pause, resume\nand a speed change restart the schedule" as sim_loop
   component "CycleTiming\ncycle_timing.rs: one exact step per\nexecuted cycle; wall clock without simulation" as sim_timing
   component "SimulationSpeed\nshared time_scale 1..100\nnew speed applies from the next cycle" as sim_speed

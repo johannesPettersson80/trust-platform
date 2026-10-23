@@ -14,8 +14,11 @@ use crate::memory::{InstanceId, VariableStorage};
 use crate::opcua::{OpcUaClientConnectionState, OpcUaClientConnectionStatus};
 use crate::value::{Duration, EnumValue, Value};
 
-use super::core::Runtime;
-use super::io_subsystem::LinkIo;
+use super::ads_subsystem::AdsSubsystem;
+use super::io_subsystem::{IoSubsystem, LinkIo};
+use super::opcua_client_subsystem::OpcUaClientSubsystem;
+use super::RuntimeMetadata;
+use crate::debug::ScanWrites;
 
 /// The block the runtime fills (§4).
 pub(crate) const LINK_BLOCK: &str = "Comm.Link";
@@ -228,7 +231,7 @@ impl LinkSubsystem {
     /// writes every `Comm.Link` block of the program.
     fn apply(
         &mut self,
-        storage: &mut VariableStorage,
+        writes: &mut dyn ScanWrites,
         readings: Vec<LinkReading>,
         tests: Vec<(String, String)>,
         resets: &FxHashSet<String>,
@@ -253,7 +256,7 @@ impl LinkSubsystem {
         }
         self.tests.extend(tests);
         for id in self.blocks.clone() {
-            self.fill(storage, id, now_ms);
+            self.fill(writes, id, now_ms);
         }
     }
 
@@ -314,8 +317,9 @@ impl LinkSubsystem {
     }
 
     /// Writes one block's outputs from the link its `Name` names (§4).
-    fn fill(&mut self, storage: &mut VariableStorage, part: InstanceId, now_ms: i64) {
-        let name = match storage
+    fn fill(&mut self, writes: &mut dyn ScanWrites, part: InstanceId, now_ms: i64) {
+        let name = match writes
+            .storage()
             .get_instance(part)
             .and_then(|instance| find_ignoring_case(&instance.variables, "Name"))
         {
@@ -352,7 +356,8 @@ impl LinkSubsystem {
             }
         };
         let (word, value) = state.name_and_value();
-        if let Some(Value::Enum(current)) = storage
+        if let Some(Value::Enum(current)) = writes
+            .storage()
             .get_instance(part)
             .and_then(|instance| find_ignoring_case(&instance.variables, "State"))
         {
@@ -361,55 +366,55 @@ impl LinkSubsystem {
                 SmolStr::new(word),
                 value,
             );
-            set_member(storage, part, "State", Value::Enum(Box::new(next)));
+            set_member(writes, part, "State", Value::Enum(Box::new(next)));
         }
-        set_member(storage, part, "Connected", Value::Bool(state.exchanges()));
+        set_member(writes, part, "Connected", Value::Bool(state.exchanges()));
         set_member(
-            storage,
+            writes,
             part,
             "Disabled",
             Value::Bool(state == LinkState::Disabled),
         );
-        set_member(storage, part, "Known", Value::Bool(known));
+        set_member(writes, part, "Known", Value::Bool(known));
         set_member(
-            storage,
+            writes,
             part,
             "StateTime",
             Value::Time(Duration::from_millis(state_ms)),
         );
         set_member(
-            storage,
+            writes,
             part,
             "LastGoodAge",
             Value::Time(Duration::from_millis(good_ms)),
         );
         set_member(
-            storage,
+            writes,
             part,
             "LastError",
             Value::String(SmolStr::new(clip(&error))),
         );
         let (exchanges, failures, response_ms) = counts;
         set_member(
-            storage,
+            writes,
             part,
             "Exchanges",
             Value::UDInt(u32::try_from(exchanges).unwrap_or(u32::MAX)),
         );
         set_member(
-            storage,
+            writes,
             part,
             "Failures",
             Value::UDInt(u32::try_from(failures).unwrap_or(u32::MAX)),
         );
         set_member(
-            storage,
+            writes,
             part,
             "ResponseTime",
             Value::Time(Duration::from_millis(response_ms)),
         );
         set_member(
-            storage,
+            writes,
             part,
             "TestResult",
             Value::String(SmolStr::new(clip(&test))),
@@ -420,7 +425,7 @@ impl LinkSubsystem {
             .map(|link| link.detail.clone())
             .unwrap_or_default();
         set_member(
-            storage,
+            writes,
             part,
             "Detail",
             Value::String(SmolStr::new(clip(&detail))),
@@ -447,55 +452,82 @@ fn link_part(storage: &VariableStorage, id: InstanceId) -> Option<InstanceId> {
     None
 }
 
-/// Writes a member the block declares, under its declared name.
-fn set_member(storage: &mut VariableStorage, part: InstanceId, name: &str, value: Value) {
-    let Some(key) = storage.get_instance(part).and_then(|instance| {
-        instance
-            .variables
-            .keys()
-            .find(|key| key.eq_ignore_ascii_case(name))
-            .cloned()
-    }) else {
+/// Writes a member the block declares, under its declared name, through the scan's checked
+/// writes. A member the runtime refuses keeps its value; the block shows the rest.
+fn set_member(writes: &mut dyn ScanWrites, part: InstanceId, name: &str, value: Value) {
+    let storage = writes.storage();
+    let Some(reference) = storage
+        .get_instance(part)
+        .and_then(|instance| {
+            instance
+                .variables
+                .keys()
+                .find(|key| key.eq_ignore_ascii_case(name))
+                .cloned()
+        })
+        .and_then(|key| storage.ref_for_instance(part, &key))
+    else {
         return;
     };
-    storage.set_instance_var(part, key, value);
+    writes.write(&reference, value);
 }
 
-impl Runtime {
+/// The scan's services the link states come from.
+pub(super) struct LinkSources<'a> {
+    pub(super) io: &'a mut IoSubsystem,
+    pub(super) ads: &'a AdsSubsystem,
+    pub(super) opcua: &'a OpcUaClientSubsystem,
+    pub(super) metadata: &'a RuntimeMetadata,
+    /// The size of the input image, for a link test's spare image.
+    pub(super) input_len: usize,
+}
+
+impl LinkSubsystem {
     /// Fills the program's `Comm.Link` blocks with the state of their links, after the inputs
     /// are read and before the program runs (§4 item 1); first it does what the blocks asked in
     /// the last scan: switching `io.toml` drivers' links off or on, testing them, starting their
     /// counters again. A program without the block is skipped.
-    pub(super) fn apply_link_states(&mut self, now_ms: i64) {
-        if find_ignoring_case(&self.function_blocks, LINK_BLOCK).is_none() {
+    pub(super) fn apply_link_states(
+        &mut self,
+        sources: LinkSources<'_>,
+        writes: &mut dyn ScanWrites,
+        now_ms: i64,
+    ) {
+        let LinkSources {
+            io,
+            ads,
+            opcua,
+            metadata,
+            input_len,
+        } = sources;
+        if find_ignoring_case(metadata.function_blocks(), LINK_BLOCK).is_none() {
             return;
         }
         {
-            let programs = &self.programs;
+            let programs = metadata.program_templates();
             let is_program = |name: &str| find_ignoring_case(programs, name).is_some();
             let holdings = crate::hmi::instance_holdings::Holdings::new(
-                &self.function_blocks,
-                &self.classes,
-                &self.programs,
-                &self.registry,
+                metadata.function_blocks(),
+                metadata.classes(),
+                metadata.program_templates(),
+                metadata.registry(),
             );
-            self.links
-                .find_blocks(&self.storage, &holdings, &is_program, now_ms);
+            self.find_blocks(writes.storage(), &holdings, &is_program, now_ms);
         }
-        let requests = self.links.requests(&self.storage);
+        let requests = self.requests(writes.storage());
         // A link runs while none of its blocks switches it off (§4 item 6).
         let off: FxHashSet<&str> = requests
             .iter()
             .filter(|request| !request.enable)
             .map(|request| request.name.as_str())
             .collect();
-        let links: Vec<SmolStr> = self.io.link_ios().map(|io| io.link.clone()).collect();
+        let links: Vec<SmolStr> = io.link_ios().map(|io| io.link.clone()).collect();
         for link in &links {
-            self.io.set_link_enabled(link, !off.contains(link.as_str()));
+            io.set_link_enabled(link, !off.contains(link.as_str()));
         }
         let mut tests = Vec::new();
         for request in requests.iter().filter(|request| request.test) {
-            let outcome = match self.io.test_link(&request.name) {
+            let outcome = match io.test_link(&request.name, input_len) {
                 Some(Ok(time)) => format!("answered in {} ms", time.as_millis()),
                 Some(Err(error)) => error,
                 None if request.name.starts_with("ads:")
@@ -512,21 +544,14 @@ impl Runtime {
             .filter(|request| request.reset)
             .map(|request| request.name.clone())
             .collect();
-        let mut readings: Vec<LinkReading> = self.io.link_ios().map(|io| io_reading(&io)).collect();
-        if self.ads.connection_count() > 0 {
-            readings.extend(self.ads.status_report().connections.iter().map(ads_reading));
+        let mut readings: Vec<LinkReading> = io.link_ios().map(|io| io_reading(&io)).collect();
+        if ads.connection_count() > 0 {
+            readings.extend(ads.status_report().connections.iter().map(ads_reading));
         }
-        if self.opcua_client.connection_count() > 0 {
-            readings.extend(
-                self.opcua_client
-                    .status_report()
-                    .connections
-                    .iter()
-                    .map(opcua_reading),
-            );
+        if opcua.connection_count() > 0 {
+            readings.extend(opcua.status_report().connections.iter().map(opcua_reading));
         }
-        self.links
-            .apply(&mut self.storage, readings, tests, &resets, now_ms);
+        self.apply(writes, readings, tests, &resets, now_ms);
     }
 }
 

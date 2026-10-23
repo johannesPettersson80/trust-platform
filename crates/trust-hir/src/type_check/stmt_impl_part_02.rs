@@ -1,5 +1,4 @@
 impl<'a, 'b> StmtChecker<'a, 'b> {
-
     fn check_for_stmt(&mut self, node: &SyntaxNode) {
         let incoming = self.checker.return_value_definitely_assigned;
         let mut control_symbol = None;
@@ -8,27 +7,25 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         // FOR loop iterator must be integer
         for child in node.children() {
             if matches!(child.kind(), SyntaxKind::NameRef | SyntaxKind::Name) {
-                if let Some(name) = self.checker.resolve_ref().get_name_from_ref(&child) {
-                    if let Some(symbol_id) = self
+                if let Some(name) = self.checker.resolve_ref().get_name_from_ref(&child)
+                    && let Some(symbol_id) = self
                         .checker
                         .symbols
                         .resolve(&name, self.checker.current_scope)
+                    && let Some(symbol) = self.checker.symbols.get(symbol_id)
+                {
+                    let iter_type = self.checker.resolve_alias_type(symbol.type_id);
+                    if let Some(ty) = self.checker.symbols.type_by_id(iter_type)
+                        && !ty.is_integer()
                     {
-                        if let Some(symbol) = self.checker.symbols.get(symbol_id) {
-                            let iter_type = self.checker.resolve_alias_type(symbol.type_id);
-                            if let Some(ty) = self.checker.symbols.type_by_id(iter_type) {
-                                if !ty.is_integer() {
-                                    self.checker.diagnostics.error(
-                                        DiagnosticCode::TypeMismatch,
-                                        child.text_range(),
-                                        "FOR loop iterator must be integer type",
-                                    );
-                                }
-                            }
-                            control_symbol = Some(symbol_id);
-                            control_type = Some(iter_type);
-                        }
+                        self.checker.diagnostics.error(
+                            DiagnosticCode::TypeMismatch,
+                            child.text_range(),
+                            "FOR loop iterator must be integer type",
+                        );
                     }
+                    control_symbol = Some(symbol_id);
+                    control_type = Some(iter_type);
                 }
                 break;
             }
@@ -42,18 +39,21 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         for (idx, expr) in exprs.iter().enumerate() {
             let expr_type_raw = self.check_expression(expr);
             let expr_type = self.checker.resolve_alias_type(expr_type_raw);
-            if let Some(ty) = self.checker.symbols.type_by_id(expr_type) {
-                if !ty.is_integer() {
-                    self.checker.diagnostics.error(
-                        DiagnosticCode::TypeMismatch,
-                        expr.text_range(),
-                        "FOR loop bounds must be integer type",
-                    );
-                }
+            if let Some(ty) = self.checker.symbols.type_by_id(expr_type)
+                && !ty.is_integer()
+            {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::TypeMismatch,
+                    expr.text_range(),
+                    "FOR loop bounds must be integer type",
+                );
             }
 
             if let Some(control_type) = control_type {
-                let context_literal = self.checker.is_contextual_int_literal(control_type, expr);
+                let context_literal = self
+                    .checker
+                    .is_contextual_base_int_literal(control_type, expr);
+                let errors_before = self.checker.diagnostics.error_count();
                 if expr_type != TypeId::UNKNOWN && expr_type != control_type && !context_literal {
                     let label = match idx {
                         0 => "initial value",
@@ -70,6 +70,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                         ),
                     );
                 }
+                if self.checker.diagnostics.error_count() == errors_before {
+                    self.checker
+                        .check_untyped_literal_range(control_type, expr, true);
+                }
             }
         }
 
@@ -77,15 +81,15 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         if let Some(control_symbol) = control_symbol {
             restricted.insert(control_symbol);
         }
-        if let Some(expr) = exprs.first() {
-            if let Some(symbol_id) = self.checker.resolve_ref().resolve_simple_symbol(expr) {
-                restricted.insert(symbol_id);
-            }
+        if let Some(expr) = exprs.first()
+            && let Some(symbol_id) = self.checker.resolve_ref().resolve_simple_symbol(expr)
+        {
+            restricted.insert(symbol_id);
         }
-        if let Some(expr) = exprs.get(1) {
-            if let Some(symbol_id) = self.checker.resolve_ref().resolve_simple_symbol(expr) {
-                restricted.insert(symbol_id);
-            }
+        if let Some(expr) = exprs.get(1)
+            && let Some(symbol_id) = self.checker.resolve_ref().resolve_simple_symbol(expr)
+        {
+            restricted.insert(symbol_id);
         }
 
         self.checker.loop_stack.push(LoopContext { restricted });
@@ -93,7 +97,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         self.checker.loop_stack.pop();
         self.checker.return_value_definitely_assigned = incoming;
     }
-
 
     fn check_while_stmt(&mut self, node: &SyntaxNode) {
         let incoming = self.checker.return_value_definitely_assigned;
@@ -113,7 +116,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         self.checker.return_value_definitely_assigned = incoming;
     }
 
-
     fn check_repeat_stmt(&mut self, node: &SyntaxNode) {
         let incoming = self.checker.return_value_definitely_assigned;
         // Check UNTIL condition is boolean
@@ -131,7 +133,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         self.checker.loop_stack.pop();
         self.checker.return_value_definitely_assigned = incoming;
     }
-
 
     fn check_case_stmt(&mut self, node: &SyntaxNode) {
         let incoming = self.checker.return_value_definitely_assigned;
@@ -186,7 +187,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
     fn check_exit_stmt(&mut self, node: &SyntaxNode) {
         if self.checker.loop_stack.is_empty() {
             self.checker.diagnostics.error(
@@ -197,7 +197,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
     fn check_continue_stmt(&mut self, node: &SyntaxNode) {
         if self.checker.loop_stack.is_empty() {
             self.checker.diagnostics.error(
@@ -207,7 +206,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             );
         }
     }
-
 
     fn check_jmp_stmt(&mut self, node: &SyntaxNode) {
         let label_name = node
@@ -236,24 +234,21 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
     fn check_label_stmt(&mut self, node: &SyntaxNode) {
-        if let Some(label_node) = node.children().find(|n| n.kind() == SyntaxKind::Name) {
-            if let Some(name) = self.checker.resolve_ref().get_name_from_ref(&label_node) {
-                if let Some(scope) = self.checker.label_scopes.last_mut() {
-                    let key = SmolStr::new(name.to_ascii_uppercase());
-                    if !scope.labels.insert(key) {
-                        self.checker.diagnostics.error(
-                            DiagnosticCode::DuplicateDeclaration,
-                            label_node.text_range(),
-                            format!("duplicate label '{}'", name),
-                        );
-                    }
-                }
+        if let Some(label_node) = node.children().find(|n| n.kind() == SyntaxKind::Name)
+            && let Some(name) = self.checker.resolve_ref().get_name_from_ref(&label_node)
+            && let Some(scope) = self.checker.label_scopes.last_mut()
+        {
+            let key = SmolStr::new(name.to_ascii_uppercase());
+            if !scope.labels.insert(key) {
+                self.checker.diagnostics.error(
+                    DiagnosticCode::DuplicateDeclaration,
+                    label_node.text_range(),
+                    format!("duplicate label '{}'", name),
+                );
             }
         }
 
         self.check_statement_children(node);
     }
-
 }

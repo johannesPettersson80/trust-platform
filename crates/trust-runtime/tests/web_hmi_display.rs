@@ -153,15 +153,15 @@ fn the_stream_sends_the_update_period_then_the_page_values_with_the_cycle_count(
 }
 
 /// The next simulation message of the stream that `wanted` accepts: whether simulation is on, the
-/// configured speed and the achieved speed, as `control.status` reports them (specification 33,
+/// configured speed and the achieved speed, as `control.status` reports them (specification 46,
 /// §6.1, item 6).
 fn next_simulation(socket: &mut WebSocket<TcpStream>, wanted: impl Fn(&Value) -> bool) -> Value {
     loop {
         let message = next_message(socket);
-        if let Some(simulation) = message.get("simulation") {
-            if wanted(simulation) {
-                return simulation.clone();
-            }
+        if let Some(simulation) = message.get("simulation")
+            && wanted(simulation)
+        {
+            return simulation.clone();
         }
     }
 }

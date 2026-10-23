@@ -1,4 +1,4 @@
-//! Control.PID measurement targets (Specification 33 §13.3): `pid:<instance>` gives the plant's
+//! Control.PID measurement targets (Specification 46 §13.3): `pid:<instance>` gives the plant's
 //! measurement to that controller's `Update` without writing the program's own variables.
 use super::*;
 use crate::harness::TestHarness;

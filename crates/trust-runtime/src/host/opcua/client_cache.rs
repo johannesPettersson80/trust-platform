@@ -362,10 +362,10 @@ impl OpcUaSharedClientCache {
         detail: impl Into<String>,
     ) -> bool {
         let mut guard = self.inner.lock().unwrap_or_else(|err| err.into_inner());
-        if !guard
+        if guard
             .pending_writes
             .get(point.var.as_str())
-            .is_some_and(|pending| pending.generation == generation)
+            .is_none_or(|pending| pending.generation != generation)
         {
             return false;
         }

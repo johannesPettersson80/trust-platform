@@ -1,0 +1,27 @@
+[package]
+name = "trust-nucleo-f401re"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "3"
+
+[dependencies]
+trust-platform-stm32f4 = { path = "../../crates/trust-platform-stm32f4" }
+trust-board-fixture = { path = "../../crates/trust-board-fixture" }
+cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }
+cortex-m-rt = { version = "=0.7.7", features = ["paint-stack", "set-sp", "set-vtor"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = 1
+panic = "abort"
+overflow-checks = true
+
+[profile.dev]
+panic = "abort"

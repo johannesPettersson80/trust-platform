@@ -1,0 +1,13 @@
+{
+  "FINISHED": "dcabd2ed0e7e1b245710684374f4fbd1a7ca52be56cefe392ef88ef167dc2c4d",
+  "README.md": "9cd28ccbaf51f4a89b3f4b6717988b5a4ed0e27c78a67937f9ee2fdb21e7279b",
+  "STARTED": "4f347f41cb2ef304587813e2e6819b067ad9d0f0d168de62e782ce8e08fd005a",
+  "artifact-sha256.json": "c92467f45981427281c5dc466489a713eab1f0e82fed343d12e4236637cacfff",
+  "commands.txt": "2d75118ff4718aa30ae522143dd385cc5bf7aca59c1be237e74b46af3f919923",
+  "environment.txt": "3ce0ef7b264399d7493a49d82eccce1c12165175e0becb6bb9be3cc61bf72ab2",
+  "external-root.json": "ac4bf1627da1a9d35a63da0003612ce753fd68130eb9fc4be8e9102eb629d1c6",
+  "formatted-source-manifest.json": "0b37c8fbaacd6f101e916f793cc549f3c211b8beebd2062a04a44a72eaf162f2",
+  "generated-fixture-sha256.txt": "8619e75961162f8df827a296426c8d381e29270fdc96b4bb2080f36f88dee5f6",
+  "ledger.tsv": "2af4d5bfac81022e83ce8f72976c99908c1d6537181c700124b0ce875f6a6583",
+  "result.txt": "124dbdf51bbf0ef20f35f9d74995fe6a3674e1889ef49dbd319998a55fc9d77f"
+}

@@ -167,7 +167,9 @@ fn vm_validator_accepts_local_path_ref_for_pou_owned_local_slot() {
     });
 
     let bytes = module.encode().expect("encode module");
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new()
+        .build()
+        .expect("admit empty application");
     runtime
         .apply_bytecode_bytes(&bytes, None)
         .expect("local path refs owned by the POU local frame should validate");

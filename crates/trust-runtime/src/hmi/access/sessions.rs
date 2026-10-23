@@ -145,15 +145,14 @@ impl SessionStore {
         };
         state.failures.remove(&key);
         state.sessions.retain(|_, session| self.alive(session, now));
-        if state.sessions.len() >= MAX_SESSIONS {
-            if let Some(oldest) = state
+        if state.sessions.len() >= MAX_SESSIONS
+            && let Some(oldest) = state
                 .sessions
                 .iter()
                 .min_by_key(|(_, session)| session.started)
                 .map(|(token, _)| token.clone())
-            {
-                state.sessions.remove(&oldest);
-            }
+        {
+            state.sessions.remove(&oldest);
         }
         let token = random_text(32);
         let session = Session {

@@ -168,9 +168,10 @@ fn relative_tls_path_resolves_lexically_against_project_root() {
 
 #[test]
 fn absolute_tls_path_is_preserved_without_project_root() {
+    let absolute = temp_dir("absolute").join("server.pem");
     assert_eq!(
-        resolve_tls_path(Path::new("/etc/trust/server.pem"), None).expect("resolve absolute"),
-        PathBuf::from("/etc/trust/server.pem")
+        resolve_tls_path(&absolute, None).expect("resolve absolute"),
+        absolute
     );
 }
 

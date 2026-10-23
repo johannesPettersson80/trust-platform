@@ -347,20 +347,20 @@ fn apply_opcua_client_protocol(
         );
     }
     if let Some(opcua_client_text) = opcua_client_text {
-        if let Some(parent) = opcua_client_path.parent() {
-            if let Err(error) = std::fs::create_dir_all(parent) {
-                return blocked_response(
-                    protocol,
-                    String::new(),
-                    request.action,
-                    vec![field_error(
-                        "_",
-                        format!("failed to create {}: {error}", parent.display()),
-                    )],
-                    Some(opcua_client_path.display().to_string()),
-                    None,
-                );
-            }
+        if let Some(parent) = opcua_client_path.parent()
+            && let Err(error) = std::fs::create_dir_all(parent)
+        {
+            return blocked_response(
+                protocol,
+                String::new(),
+                request.action,
+                vec![field_error(
+                    "_",
+                    format!("failed to create {}: {error}", parent.display()),
+                )],
+                Some(opcua_client_path.display().to_string()),
+                None,
+            );
         }
         if let Err(error) = std::fs::write(&opcua_client_path, opcua_client_text) {
             return blocked_response(
@@ -491,25 +491,39 @@ fn apply_ads_protocol(
         "config_path".to_string(),
         toml::Value::String(normalized_config_path),
     );
-    let connections = params.get("connections");
+    let requested_connections = connections_array(params.get("connections"));
+    let effective_connections = match requested_connections {
+        Some(connections) if request.action == CommApplyAction::Add => {
+            match merge_ads_connections_for_add(&ads_path, connections) {
+                Ok(connections) => Some(connections),
+                Err(error) => {
+                    field_errors.push(error);
+                    None
+                }
+            }
+        }
+        Some(connections) => Some(connections.clone()),
+        None => None,
+    };
+    let connections = effective_connections.as_ref();
     if enabled
         && !matches!(
             request.action,
             CommApplyAction::Remove | CommApplyAction::Disable | CommApplyAction::Validate
         )
-        && connections_array(connections).is_none_or(Vec::is_empty)
+        && connections.is_none_or(Vec::is_empty)
         && !ads_path.is_file()
     {
         field_errors.push(field_error(
             "connections",
-            "Enable ADS only after adding at least one connection with at least one selected point.",
+            "Enable ADS only after adding at least one connection.",
         ));
     }
-    if let Some(connections) = connections_array(connections) {
+    if let Some(connections) = connections {
         if enabled && connections.is_empty() {
             field_errors.push(field_error(
                 "connections",
-                "ADS requires at least one connection with at least one selected point.",
+                "ADS requires at least one connection.",
             ));
         } else if !connections.is_empty() {
             match render_ads_toml(connections) {
@@ -557,7 +571,7 @@ fn apply_ads_protocol(
             None,
         );
     }
-    let ads_text = connections_array(connections)
+    let ads_text = connections
         .filter(|connections| !connections.is_empty())
         .and_then(|connections| render_ads_toml(connections).ok());
 
@@ -593,20 +607,20 @@ fn apply_ads_protocol(
         );
     }
     if let Some(ads_text) = ads_text {
-        if let Some(parent) = ads_path.parent() {
-            if let Err(error) = std::fs::create_dir_all(parent) {
-                return blocked_response(
-                    protocol,
-                    String::new(),
-                    request.action,
-                    vec![field_error(
-                        "_",
-                        format!("failed to create {}: {error}", parent.display()),
-                    )],
-                    Some(ads_path.display().to_string()),
-                    None,
-                );
-            }
+        if let Some(parent) = ads_path.parent()
+            && let Err(error) = std::fs::create_dir_all(parent)
+        {
+            return blocked_response(
+                protocol,
+                String::new(),
+                request.action,
+                vec![field_error(
+                    "_",
+                    format!("failed to create {}: {error}", parent.display()),
+                )],
+                Some(ads_path.display().to_string()),
+                None,
+            );
         }
         if let Err(error) = std::fs::write(&ads_path, ads_text) {
             return blocked_response(
@@ -813,10 +827,8 @@ fn patch_ads_server_runtime_section(
         .is_none_or(Vec::is_empty);
 
     let mut table = edit_table_from_toml(params);
-    if should_preserve_clients {
-        if let Some(clients) = previous_clients {
-            table.insert("clients", clients);
-        }
+    if should_preserve_clients && let Some(clients) = previous_clients {
+        table.insert("clients", clients);
     }
     runtime.insert("ads_server", Item::Table(table));
     Ok(())
@@ -1037,6 +1049,65 @@ fn render_ads_toml(connections: &[toml::Value]) -> Result<String, CommFieldError
     );
     toml::to_string_pretty(&toml::Value::Table(root))
         .map_err(|error| field_error("_", format!("failed to render ads.toml: {error}")))
+}
+
+fn merge_ads_connections_for_add(
+    ads_path: &Path,
+    requested: &[toml::Value],
+) -> Result<Vec<toml::Value>, CommFieldError> {
+    let mut merged = match std::fs::read_to_string(ads_path) {
+        Ok(text) => {
+            let value = toml::from_str::<toml::Value>(&text).map_err(|error| {
+                field_error(
+                    "connections",
+                    format!("failed to read existing {}: {error}", ads_path.display()),
+                )
+            })?;
+            value
+                .get("connections")
+                .and_then(toml::Value::as_array)
+                .cloned()
+                .ok_or_else(|| {
+                    field_error(
+                        "connections",
+                        format!("{} has no connections array", ads_path.display()),
+                    )
+                })?
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(error) => {
+            return Err(field_error(
+                "connections",
+                format!("failed to read {}: {error}", ads_path.display()),
+            ));
+        }
+    };
+    for connection in requested {
+        let identity = ads_connection_identity(connection);
+        let already_present = identity.as_ref().is_some_and(|identity| {
+            merged
+                .iter()
+                .any(|existing| ads_connection_identity(existing).as_ref() == Some(identity))
+        });
+        if !already_present {
+            merged.push(connection.clone());
+        }
+    }
+    Ok(merged)
+}
+
+fn ads_connection_identity(value: &toml::Value) -> Option<(String, String, i64)> {
+    let table = value.as_table()?;
+    let target_net_id = table.get("target_net_id")?.as_str()?.trim();
+    let host = table.get("host")?.as_str()?.trim();
+    if target_net_id.is_empty() || host.is_empty() {
+        return None;
+    }
+    let port = table
+        .get("ams_port")
+        .and_then(toml::Value::as_integer)
+        .unwrap_or(851);
+    Some((target_net_id.to_string(), host.to_string(), port))
 }
 
 fn render_opcua_client_toml(

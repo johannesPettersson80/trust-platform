@@ -372,10 +372,10 @@ fn authorize_setup_access(
     query: Option<&str>,
     now_unix: u64,
 ) -> bool {
-    if let Some(expires_at) = expires_at {
-        if now_unix > expires_at {
-            return false;
-        }
+    if let Some(expires_at) = expires_at
+        && now_unix > expires_at
+    {
+        return false;
     }
     let Some(token) = expected_token else {
         return true;

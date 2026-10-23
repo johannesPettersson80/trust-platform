@@ -203,14 +203,14 @@ fn find_chromium(named: Option<PathBuf>) -> anyhow::Result<PathBuf> {
             return Ok(PathBuf::from(candidate));
         }
     }
-    if let Some(home) = std::env::var_os("HOME") {
-        if let Ok(entries) = std::fs::read_dir(Path::new(&home).join(".cache/ms-playwright")) {
-            for entry in entries.filter_map(Result::ok) {
-                for tail in ["chrome-linux64/chrome", "chrome-linux/chrome"] {
-                    let path = entry.path().join(tail);
-                    if path.is_file() {
-                        return Ok(path);
-                    }
+    if let Some(home) = std::env::var_os("HOME")
+        && let Ok(entries) = std::fs::read_dir(Path::new(&home).join(".cache/ms-playwright"))
+    {
+        for entry in entries.filter_map(Result::ok) {
+            for tail in ["chrome-linux64/chrome", "chrome-linux/chrome"] {
+                let path = entry.path().join(tail);
+                if path.is_file() {
+                    return Ok(path);
                 }
             }
         }

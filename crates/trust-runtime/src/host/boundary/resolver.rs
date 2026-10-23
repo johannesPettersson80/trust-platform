@@ -4,13 +4,70 @@ use crate::io::IoAddress;
 use crate::memory::InstanceId;
 use crate::program_model::{Expr, LValue};
 use crate::value::Value;
+use crate::value::ValueRef;
 use crate::Runtime;
+use trust_hir::TypeId;
 
 use super::BoundaryError;
 
 enum RootResolution {
     Global,
     ProgramVar { instance_id: InstanceId },
+}
+
+/// A scalar program-instance tag resolved to runtime storage and declared type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedIoTag {
+    /// Canonical fully qualified program-instance variable name.
+    pub name: SmolStr,
+    /// Stable runtime storage reference for the variable.
+    pub reference: ValueRef,
+    /// Declared IEC type of the variable.
+    pub type_id: TypeId,
+}
+
+/// Resolve one fully qualified direct program variable for an external I/O map.
+pub fn resolve_io_tag(runtime: &Runtime, path: &str) -> Result<ResolvedIoTag, BoundaryError> {
+    let path = path.trim();
+    let Some((instance_name, variable_name)) = path.split_once('.') else {
+        return Err(BoundaryError::UnsupportedPathSyntax {
+            path: path.into(),
+            reason: "I/O tags require ProgramInstance.Variable".to_string(),
+        });
+    };
+    if instance_name.is_empty() || variable_name.is_empty() || variable_name.contains('.') {
+        return Err(BoundaryError::UnsupportedPathSyntax {
+            path: path.into(),
+            reason: "I/O tags require one direct scalar program variable".to_string(),
+        });
+    }
+
+    let program = runtime
+        .programs()
+        .values()
+        .find(|program| program.name.eq_ignore_ascii_case(instance_name))
+        .ok_or_else(|| BoundaryError::UnresolvedName { path: path.into() })?;
+    let variable = program
+        .vars
+        .iter()
+        .find(|variable| variable.name.eq_ignore_ascii_case(variable_name))
+        .ok_or_else(|| BoundaryError::UnresolvedName { path: path.into() })?;
+    let Some(Value::Instance(instance_id)) = runtime.storage().get_global(program.name.as_ref())
+    else {
+        return Err(BoundaryError::UnboundProgram {
+            program: program.name.clone(),
+        });
+    };
+    let reference = runtime
+        .storage()
+        .ref_for_instance_recursive(*instance_id, variable.name.as_ref())
+        .ok_or_else(|| BoundaryError::UnresolvedName { path: path.into() })?;
+
+    Ok(ResolvedIoTag {
+        name: SmolStr::new(format!("{}.{}", program.name, variable.name)),
+        reference,
+        type_id: variable.type_id,
+    })
 }
 
 pub(crate) fn resolve_read(runtime: &Runtime, path: &str) -> Result<Value, BoundaryError> {
@@ -47,9 +104,10 @@ pub(crate) fn resolve_read(runtime: &Runtime, path: &str) -> Result<Value, Bound
         RootResolution::ProgramVar { instance_id } => Some(instance_id),
     };
 
-    crate::helper_eval::eval_storage_expr_with_stdlib(
+    crate::helper_eval::eval_storage_expr_with_abi(
         runtime.storage(),
         runtime.registry(),
+        runtime.prepared().storage_abi(),
         &runtime.profile(),
         current_instance,
         Some(runtime.stdlib()),
@@ -85,19 +143,20 @@ pub(crate) fn resolve_write(
 ) -> Result<(), BoundaryError> {
     if is_simple_name(path) {
         if runtime.storage().get_global(path).is_some() {
-            runtime.storage_mut().set_global(SmolStr::new(path), value);
-            return Ok(());
+            return runtime
+                .write_global(path, value)
+                .map_err(|error| BoundaryError::from_runtime(path, error));
         }
         if let Some((instance_id, _)) = find_program_var_instance(runtime, path)? {
-            if runtime
-                .storage_mut()
-                .set_instance_var(instance_id, SmolStr::new(path), value)
-            {
-                return Ok(());
-            }
-            return Err(BoundaryError::InternalFailure {
-                context: "program variable instance disappeared during write",
-            });
+            let reference = runtime
+                .storage()
+                .ref_for_instance_recursive(instance_id, path)
+                .ok_or(BoundaryError::InternalFailure {
+                    context: "program variable instance disappeared during write",
+                })?;
+            return runtime
+                .write_reference(&reference, value)
+                .map_err(|error| BoundaryError::from_runtime(path, error));
         }
         return Err(BoundaryError::UnresolvedName { path: path.into() });
     }
@@ -113,17 +172,9 @@ pub(crate) fn resolve_write(
         RootResolution::Global => None,
         RootResolution::ProgramVar { instance_id } => Some(instance_id),
     };
-    let registry = runtime.registry().clone();
-    let profile = runtime.profile();
-    crate::helper_eval::write_storage_lvalue(
-        runtime.storage_mut(),
-        &registry,
-        &profile,
-        current_instance,
-        &target,
-        value,
-    )
-    .map_err(|error| BoundaryError::from_runtime(path, error))
+    runtime
+        .write_lvalue_in_instance(&target, value, current_instance)
+        .map_err(|error| BoundaryError::from_runtime(path, error))
 }
 
 pub(crate) fn resolve_bind(
@@ -139,8 +190,13 @@ pub(crate) fn resolve_bind(
     }
 
     if runtime.storage().get_global(path).is_some() {
-        runtime.io_mut().bind(path, address);
-        return Ok(());
+        let reference = runtime
+            .storage()
+            .ref_for_global(path)
+            .ok_or_else(|| BoundaryError::UndeclaredBinding { path: path.into() })?;
+        return runtime
+            .bind_checked_io(reference, address, path.into())
+            .map_err(|error| BoundaryError::from_runtime(path, error));
     }
     if let Some((instance_id, _)) = find_program_var_instance(runtime, path)? {
         let Some(reference) = runtime
@@ -149,8 +205,9 @@ pub(crate) fn resolve_bind(
         else {
             return Err(BoundaryError::UndeclaredBinding { path: path.into() });
         };
-        runtime.io_mut().bind_ref(reference, address);
-        return Ok(());
+        return runtime
+            .bind_checked_io(reference, address, path.into())
+            .map_err(|error| BoundaryError::from_runtime(path, error));
     }
 
     Err(BoundaryError::UndeclaredBinding { path: path.into() })
@@ -158,22 +215,32 @@ pub(crate) fn resolve_bind(
 
 fn parse_read_path(runtime: &Runtime, path: &str) -> Result<Expr, BoundaryError> {
     let mut registry = runtime.registry().clone();
-    crate::harness::parse_debug_expression(path, &mut registry, runtime.profile(), &[]).map_err(
-        |error| BoundaryError::UnsupportedPathSyntax {
-            path: path.into(),
-            reason: error.to_string(),
-        },
+    crate::harness::parse_debug_expression_with_abi(
+        path,
+        &mut registry,
+        runtime.profile(),
+        &[],
+        runtime.prepared().storage_abi(),
     )
+    .map_err(|error| BoundaryError::UnsupportedPathSyntax {
+        path: path.into(),
+        reason: error.to_string(),
+    })
 }
 
 fn parse_write_path(runtime: &Runtime, path: &str) -> Result<LValue, BoundaryError> {
     let mut registry = runtime.registry().clone();
-    crate::harness::parse_debug_lvalue(path, &mut registry, runtime.profile(), &[]).map_err(
-        |error| BoundaryError::UnsupportedPathSyntax {
-            path: path.into(),
-            reason: error.to_string(),
-        },
+    crate::harness::parse_debug_lvalue_with_abi(
+        path,
+        &mut registry,
+        runtime.profile(),
+        &[],
+        runtime.prepared().storage_abi(),
     )
+    .map_err(|error| BoundaryError::UnsupportedPathSyntax {
+        path: path.into(),
+        reason: error.to_string(),
+    })
 }
 
 fn classify_root(

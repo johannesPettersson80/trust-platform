@@ -29,6 +29,8 @@ except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     )
 
 NULL_SHA = "0" * 40
+DEFAULT_RUN_DISCOVERY_TIMEOUT_SECONDS = 3 * 60
+DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS = 90 * 60
 REQUIRED_EVIDENCE_ASSETS = {
     "SHA256SUMS",
     "release-provenance.json",
@@ -107,7 +109,7 @@ def fail(message: str) -> int:
     return 1
 
 
-def _main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Fail CI when a workspace version bump on main/master is missing matching "
@@ -122,13 +124,13 @@ def _main() -> int:
     parser.add_argument(
         "--run-discovery-timeout-seconds",
         type=int,
-        default=180,
+        default=DEFAULT_RUN_DISCOVERY_TIMEOUT_SECONDS,
         help="How long to wait for the tag-triggered Release run to appear.",
     )
     parser.add_argument(
         "--run-completion-timeout-seconds",
         type=int,
-        default=1800,
+        default=DEFAULT_RUN_COMPLETION_TIMEOUT_SECONDS,
         help="How long to wait for the Release run to complete.",
     )
     parser.add_argument(
@@ -137,7 +139,11 @@ def _main() -> int:
         default=15,
         help="Polling interval used while waiting for Release workflow evidence.",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def _main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     if args.event_name != "push" or args.ref not in {"refs/heads/main", "refs/heads/master"}:
         print("version-release-guard: skipped (not a push to main/master).")
@@ -337,9 +343,9 @@ def _main() -> int:
     return 0
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     try:
-        return _main()
+        return _main(argv)
     except ReleaseEvidenceError as exc:
         return fail(str(exc))
 

@@ -526,12 +526,12 @@ fn plan(
             .index
             .resolve(instance)
             .map(|node| node.type_name.clone());
-        if let Some(declared) = &declared_type {
-            if !project.same_type(declared, block) {
-                return Err(format!(
-                    "{instance} is declared as {declared}; the page shows {block}"
-                ));
-            }
+        if let Some(declared) = &declared_type
+            && !project.same_type(declared, block)
+        {
+            return Err(format!(
+                "{instance} is declared as {declared}; the page shows {block}"
+            ));
         }
         let target = target(project, root)?;
         let key = target.program.to_ascii_uppercase();

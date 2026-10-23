@@ -14,6 +14,8 @@ fn register_executor_runs_supported_program() {
     let mut runtime = Runtime::new();
     runtime.storage_mut().set_global("g0", Value::DInt(41));
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -38,6 +40,8 @@ fn register_executor_profile_records_hot_blocks_for_supported_program() {
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -87,10 +91,11 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
     code.push(0x06);
 
     let pou_id = 1_u32;
-    let mut pou_by_id = rustc_hash::FxHashMap::default();
+    let mut pou_by_id = HashMap::new();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -99,7 +104,7 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
             primary_instance_owner: None,
         },
     );
-    let mut program_ids = rustc_hash::FxHashMap::default();
+    let mut program_ids = HashMap::new();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
     let refs = vec![
         VmRef::Global {
@@ -115,27 +120,28 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
             path: RefPath::new(),
         },
     ];
-    let module = VmModule {
-        code,
-        strings: vec![SmolStr::new("VALUE"), SmolStr::new("ACC")],
-        types: TypeTable::default(),
-        refs,
-        consts: vec![Value::DInt(11), Value::DInt(13)],
-        pou_by_id,
-        program_ids,
-        function_ids: Default::default(),
-        function_block_ids: Default::default(),
-        class_ids: Default::default(),
-        parent_pou_ids: Default::default(),
-        interface_type_ids_by_pou: Default::default(),
-        native_symbol_specs: Vec::new(),
-        pou_params: Default::default(),
-        pou_has_return_slot: Default::default(),
-        method_table_by_owner: Default::default(),
-        ref_types: Vec::new(),
-        ref_slots: Default::default(),
-        debug_map: super::super::debug_map::VmDebugMap::default(),
-        instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
+    let module = {
+        let mut legacy = VmModule::legacy(
+            crate::bytecode::BytecodeVersion::LEGACY,
+            code,
+            vec![SmolStr::new("VALUE"), SmolStr::new("ACC")],
+            TypeTable::default(),
+            refs,
+            vec![Value::DInt(11), Value::DInt(13)],
+        )
+        .expect("legacy fixture metadata");
+        let mut entries = pou_by_id;
+        for (_, id) in program_ids {
+            legacy.define_legacy_pou(
+                id,
+                crate::bytecode::PouKind::Program,
+                entries.remove(&id).expect("fixture POU"),
+                Vec::new(),
+                false,
+            );
+        }
+        legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+        legacy
     };
 
     let mut runtime = Runtime::new();
@@ -155,6 +161,8 @@ fn register_executor_profile_records_dynamic_ref_and_instance_lookup_counters() 
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome =
         try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, Some(instance_id))
             .expect("execute register program");
@@ -353,6 +361,8 @@ fn register_executor_falls_back_when_lowering_contains_unsupported_opcode() {
     let (module, pou_id) = manual_vm_module(code, Vec::new(), 0);
     let mut runtime = Runtime::new();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("fallback decision");
     assert_eq!(outcome, RegisterExecutionOutcome::FallbackToStack);
@@ -374,6 +384,8 @@ fn register_executor_profile_records_ref_op_counters_for_load_ref_store_ref_prog
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -409,6 +421,8 @@ fn register_executor_profile_avoids_clone_counter_for_scalar_load_const() {
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -438,6 +452,8 @@ fn register_executor_profile_avoids_clone_counters_for_borrowed_ref_const_binary
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -469,6 +485,8 @@ fn register_executor_profile_avoids_clone_counters_for_borrowed_ref_ref_non_dint
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -498,6 +516,8 @@ fn register_executor_profile_avoids_clone_counters_for_borrowed_ref_const_non_di
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("execute register program");
     assert_eq!(outcome, RegisterExecutionOutcome::Executed);
@@ -520,6 +540,8 @@ fn register_executor_profile_records_fallback_reason() {
     runtime.set_vm_register_profile_enabled(true);
     runtime.reset_vm_register_profile();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let outcome = try_execute_pou_with_register_ir(&mut runtime, &module, pou_id, None)
         .expect("fallback decision");
     assert_eq!(outcome, RegisterExecutionOutcome::FallbackToStack);

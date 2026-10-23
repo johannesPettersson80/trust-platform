@@ -1,7 +1,6 @@
 use super::*;
 use crate::simulation::SimulationConfig;
 use crate::value::Value;
-use trust_hir::TypeId;
 
 fn integrator_dead_time_system(config: &str) -> (PlantSystem, Runtime) {
     let stamp = std::time::SystemTime::now()
@@ -16,20 +15,13 @@ fn integrator_dead_time_system(config: &str) -> (PlantSystem, Runtime) {
     let loaded = SimulationConfig::load(&path);
     let _ = std::fs::remove_file(path);
     let config = loaded.expect("integrator_dead_time configuration must load");
-    let mut runtime = Runtime::new();
-    runtime
-        .io_mut()
-        .bind_typed("command", IoAddress::parse("%QL0").unwrap(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", IoAddress::parse("%IL0").unwrap(), TypeId::LREAL);
+    let runtime = super::lreal_bound_runtime(&[("command", "%QL0"), ("feedback", "%IL0")]);
     (PlantSystem::new(&config.plant_system), runtime)
 }
 
 fn write_lreal(runtime: &mut Runtime, address: &str, value: f64) {
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &IoAddress::parse(address).unwrap(),
             Value::LWord(value.to_bits()),
         )
@@ -169,13 +161,7 @@ dead_time_s = 0.5
     .unwrap();
     let config = SimulationConfig::load(&path).unwrap();
     let mut system = PlantSystem::new(&config.plant_system);
-    let mut runtime = Runtime::new();
-    runtime
-        .io_mut()
-        .bind_typed("command", IoAddress::parse("%QL0").unwrap(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", IoAddress::parse("%IL0").unwrap(), TypeId::LREAL);
+    let runtime = super::lreal_bound_runtime(&[("command", "%QL0"), ("feedback", "%IL0")]);
 
     for step in 1..=10_000 {
         system

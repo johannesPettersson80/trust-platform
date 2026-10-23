@@ -144,4 +144,3 @@ and each worktree returned clean before its next generator.
   unchanged.
 - Version metadata is synchronized at 0.24.50; tagging and public release are
   deferred until the change reaches `main`.
-

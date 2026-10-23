@@ -26,19 +26,19 @@ pub fn check_page_policy(
         if !is_control {
             continue;
         }
-        if let Some(command) = &object.command {
-            if let Ok(path) = MemberPath::parse(&command.instance) {
-                // A method command needs no write rule; a rule that covers its instance raises
-                // the role it needs (§21.2 item 1).
-                let message = rule_for(policy, &path)
-                    .and_then(|rule| needs_more(rule, object, &command.instance));
-                if let Some(message) = message {
-                    problems.push(BindingProblem {
-                        object: object.id.clone(),
-                        property: Some("command".into()),
-                        message,
-                    });
-                }
+        if let Some(command) = &object.command
+            && let Ok(path) = MemberPath::parse(&command.instance)
+        {
+            // A method command needs no write rule; a rule that covers its instance raises
+            // the role it needs (§21.2 item 1).
+            let message = rule_for(policy, &path)
+                .and_then(|rule| needs_more(rule, object, &command.instance));
+            if let Some(message) = message {
+                problems.push(BindingProblem {
+                    object: object.id.clone(),
+                    property: Some("command".into()),
+                    message,
+                });
             }
         }
         for (property, binding) in &object.bind {
@@ -70,14 +70,14 @@ pub fn check_page_policy(
 
 /// What the control asks beyond the rule: a lower role or wider limits.
 fn needs_more(rule: &WriteRule, object: &HmiObject, path: &str) -> Option<String> {
-    if let Some(asked) = object.role.map(control_role) {
-        if asked < rule.role {
-            return Some(format!(
+    if let Some(asked) = object.role.map(control_role)
+        && asked < rule.role
+    {
+        return Some(format!(
                 "the runtime's write policy lets only the {} role write \"{path}\", but the control asks for {}",
                 role_name(rule.role),
                 role_name(asked)
             ));
-        }
     }
     let lower = matches!((rule.min, object.min), (Some(policy), Some(control)) if control < policy);
     let higher =

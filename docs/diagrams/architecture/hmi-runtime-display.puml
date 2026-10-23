@@ -27,9 +27,13 @@ package "trust-runtime: web thread" as web #MistyRose {
 }
 
 package "trust-runtime: resource thread" as resource #PaleTurquoise {
-    component "Program task calls Hmi.Display\nruntime::hmi_subsystem\nserve after that task" as command
+    component "Program task calls Hmi.Display\nruntime::hmi_subsystem\nserved at the end of that scan (§18)" as command
     component "hmi::display_values::read\nmember paths + wire values\n(no storage copy)" as read
     component "VariableStorage\nglobals and instances" as storage
+}
+
+package "trust-runtime: control" as control #Honeydew {
+    component "control::hmi_ports\nthe web routes' port to the resource\n(exchange, resource, historian)" as port
 }
 
 component "HmiExchange (shared Arc)\nunion of open-screen paths\nvalues, commands, alarms, history" as exchange
@@ -51,7 +55,8 @@ catalogue --> editor : formats (refresh on HMI edits)
 editor --> drawing : frame + formats
 display --> stream : websocket
 stream --> files : the page's bound paths
-stream --> exchange : wait_for_call + read
+stream --> port : wait_for_call + read
+port --> exchange
 command --> exchange : serve after Display call
 exchange --> read : copy values at service boundary
 read --> storage

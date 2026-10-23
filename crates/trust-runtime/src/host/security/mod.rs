@@ -14,6 +14,22 @@ use serde::{Deserialize, Serialize};
 use crate::config::{TlsConfig, TlsMode};
 use crate::error::RuntimeError;
 
+/// Whether a configuration key names a secret value: a credential that read surfaces never return
+/// (specification 11, §6.9.7). Matched ASCII-case-insensitively.
+pub fn is_secret_param_key(key: &str) -> bool {
+    matches!(
+        key.to_ascii_lowercase().as_str(),
+        "password"
+            | "auth_token"
+            | "token"
+            | "credential"
+            | "credentials"
+            | "secret"
+            | "client_secret"
+            | "private_key"
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AccessRole {

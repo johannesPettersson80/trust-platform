@@ -103,10 +103,10 @@ pub(crate) fn run_model_check(
     let model = &request.current.model;
     let campaigns = estimation_campaigns(loop_definition, request.stored)?;
     maximum_normalized_error(loop_definition)?;
-    if let Some(campaigns) = &campaigns {
-        if estimation_record(model, campaigns).is_none() {
-            return Err(estimation_missing());
-        }
+    if let Some(campaigns) = &campaigns
+        && estimation_record(model, campaigns).is_none()
+    {
+        return Err(estimation_missing());
     }
     model_validation_channels(loop_definition, model)?;
     let source = RuntimeClient::connect(connection)?.status()?.source();

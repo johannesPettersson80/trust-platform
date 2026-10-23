@@ -1,0 +1,113 @@
+[gate-progress state=started phase=B-R1-native-tools target=scena-rust-builder pid=1412071 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked -p trust-platform-stm32f4 -p xtask --no-fail-fast -- --nocapture --test-threads=1']
+   Compiling quote v1.0.45
+   Compiling proc-macro2 v1.0.106
+   Compiling object v0.37.3
+   Compiling trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-platform-stm32f4)
+   Compiling syn v2.0.117
+   Compiling serde_derive v1.0.228
+   Compiling serde v1.0.228
+   Compiling xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-b/xtask)
+    Finished `test` profile [unoptimized] target(s) in 6.25s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/deps/trust_platform_stm32f4-22739b3f7f5b9ca7)
+
+running 4 tests
+test profile::tests::physical_button_polarity_is_not_a_synthetic_input ... ok
+test profile::tests::reset_marker_rejects_torn_and_uninitialized_pairs ... ok
+test time::tests::elapsed_time_saturates_without_reversing ... ok
+test time::tests::hardware_counter_extension_preserves_rollover_and_repeated_samples ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/debug/deps/xtask-a64142679ab6537d)
+
+running 80 tests
+test full_map::tests::audit_report_allowlist_accepts_documented_advisory ... ok
+test full_map::tests::current_deny_policy_has_required_sections_and_metadata ... ok
+test full_map::tests::direct_control_dispatch_bypass_detects_handle_request_value ... ok
+test full_map::tests::direct_control_state_field_bypass_detects_runtime_state_fields ... ok
+test full_map::tests::documented_command_route_replaces_mapping_question ... ok
+test full_map::tests::documented_workbench_command_migration_policy_passes ... ok
+test full_map::tests::fatal_hir_zero_doctor_finding_fails_full_map_check ... ok
+test full_map::tests::finds_action_enum_names ... ok
+test full_map::tests::function_size_summaries_count_multiline_function_bodies ... ok
+test full_map::tests::hir_zero_doctor_no_findings_passes_full_map_check ... ok
+test full_map::tests::hir_zero_doctor_warn_only_output_passes_full_map_check ... ok
+test full_map::tests::host_surface_ports_active_passes_without_direct_runtime_state_bypass ... ok
+test full_map::tests::host_surface_test_import_is_ignored ... ok
+test full_map::tests::known_bad_deny_policy_missing_metadata_fails ... ok
+test full_map::tests::known_bad_dependency_allowlist_without_metadata_fails ... ok
+test full_map::tests::known_bad_failed_dependency_tool_status_fails ... ok
+test full_map::tests::known_bad_field_runtime_profile_including_workbench_fails ... ok
+test full_map::tests::known_bad_host_surface_file_without_owner_category_fails ... ok
+test full_map::tests::known_bad_host_surface_forbidden_import_fails_without_waiver ... ok
+test full_map::tests::known_bad_large_module_without_owner_note_fails_kiss_check ... ok
+test full_map::tests::known_bad_large_runtime_file_without_owner_note_fails ... ok
+test full_map::tests::known_bad_large_runtime_test_file_without_owner_note_fails ... ok
+test full_map::tests::known_bad_missing_public_api_baseline_fails ... ok
+test full_map::tests::known_bad_missing_safety_tool_gate_fails ... ok
+test full_map::tests::known_bad_parser_recovery_ad_hoc_scanner_fails ... ok
+test full_map::tests::known_bad_parser_recovery_missing_property_test_fails ... ok
+test full_map::tests::known_bad_product_bin_importing_workbench_module_fails ... ok
+test full_map::tests::known_bad_runtime_cloud_importing_web_module_fails ... ok
+test full_map::tests::known_bad_runtime_core_forbidden_dependency_fails ... ok
+test full_map::tests::known_bad_runtime_core_forbidden_host_import_fails ... ok
+test full_map::tests::known_bad_runtime_core_large_function_fails_kiss_check ... ok
+test full_map::tests::known_bad_runtime_top_level_module_decision_without_metadata_fails ... ok
+test full_map::tests::known_bad_runtime_top_level_module_without_decision_note_fails ... ok
+test full_map::tests::known_bad_runtime_vm_mutation_survivor_fails_full_map_check ... ok
+test full_map::tests::known_bad_stale_command_route_handler_fails ... ok
+test full_map::tests::known_bad_stale_large_file_allowlist_entry_fails ... ok
+test full_map::tests::known_bad_tiverse_workspace_status_mismatch_fails ... ok
+test full_map::tests::known_bad_unallowlisted_audit_report_fails ... ok
+test full_map::tests::known_bad_unallowlisted_machete_report_fails ... ok
+test full_map::tests::known_bad_unclassified_command_module_and_action_fail ... ok
+test full_map::tests::known_bad_unclassified_runtime_panic_like_site_fails ... ok
+test full_map::tests::known_bad_unknown_workspace_edge_fails_policy ... ok
+test full_map::tests::known_bad_unregistered_concurrency_boundary_fails ... ok
+test full_map::tests::known_bad_unregistered_unsafe_site_fails ... ok
+test full_map::tests::known_bad_unsafe_summary_without_owner_fails ... ok
+test full_map::tests::known_bad_unsupported_diagram_alias_fails ... ok
+test full_map::tests::known_bad_unsupported_diagram_crate_edge_fails ... ok
+test full_map::tests::known_bad_web_route_direct_control_dispatch_bypass_fails_when_ports_active ... ok
+test full_map::tests::known_bad_web_route_direct_runtime_state_bypass_fails_when_ports_active ... ok
+test full_map::tests::known_bad_workbench_command_without_migration_policy_fails ... ok
+test full_map::tests::known_bad_workbench_command_without_removal_window_fails ... ok
+test full_map::tests::machete_report_allowlist_accepts_documented_dependency ... ok
+test full_map::tests::parses_enum_variants_without_attributes ... ok
+test full_map::tests::repo_runtime_core_policy_covers_runtime_split_forbidden_sets ... ok
+test full_map::tests::runtime_safety_gate_execution_error_fails_full_map_check ... ok
+test full_map::tests::runtime_safety_gate_findings_fail_full_map_check ... ok
+test full_map::tests::runtime_safety_gate_no_findings_passes_full_map_check ... ok
+test full_map::tests::runtime_top_level_final_cap_waiver_allows_recorded_over_cap_baseline ... ok
+test full_map::tests::runtime_vm_mutation_clean_evidence_passes_full_map_check ... ok
+test full_map::tests::runtime_vm_mutation_missing_evidence_is_partial_full_map_check ... ok
+test full_map::tests::separate_firmware_workspace_safety_sites_are_discovered_without_build_outputs ... ok
+test full_map::tests::top_level_module_summary_prefers_directory_for_split_module ... ok
+test full_map::tests::unsafe_summary_with_remaining_hotspots_is_a_finding ... ok
+test full_map::tests::unsafe_token_scan_ignores_safe_identifier_names ... ok
+test full_map::tests::workspace_exclude_manifest_marks_tiverse_standalone ... ok
+test portability::bundle::tests::application_bundle_preserves_three_artifacts_and_rejects_sector_overflow ... ok
+test portability::elf::tests::flash_and_ram_boundaries_do_not_admit_reserved_regions_or_overflow ... ok
+test portability::map::tests::failed_link_map_still_reports_capacity_overflow ... ok
+test portability::map::tests::incomplete_malformed_and_overlapping_maps_are_rejected ... ok
+test portability::map::tests::totals_exclude_debug_and_ram_and_aliases_are_counted_once ... ok
+test portability::map::tests::zero_size_flash_alignment_reserves_span_without_load_bytes ... ok
+test portability::supply_chain_tests::both_lock_graphs_are_audited_and_any_graph_failure_fails_the_gate ... ok
+test portability::trace::tests::complete_synthetic_protocol_is_accepted_without_claiming_board_execution ... ok
+test portability::trace::tests::missing_corrupt_duplicate_and_unsafe_records_are_rejected ... ok
+test software_map::tests::stable_json_does_not_depend_on_collection_order ... ok
+test software_map::tests::stable_json_sorts_nested_targets ... ok
+test tests::known_bad_positional_parser_contract_without_comma_scan_fails ... ok
+test tests::positional_parser_contract_accepts_bounded_comma_scan ... ok
+test tests::unknown_doctor_mode_error_mentions_full_map ... ok
+test tests::usage_mentions_full_map_mode ... ok
+
+test result: ok. 80 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+   Doc-tests trust_platform_stm32f4
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[gate-progress state=finished phase=B-R1-native-tools target=scena-rust-builder pid=1412071 elapsed=6.6s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked -p trust-platform-stm32f4 -p xtask --no-fail-fast -- --nocapture --test-threads=1' status=0]

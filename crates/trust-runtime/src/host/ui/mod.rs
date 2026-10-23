@@ -135,12 +135,11 @@ pub fn run_ui(
 
             terminal.draw(|frame| render_ui(frame.area(), frame, &state, no_input))?;
 
-            if event::poll(StdDuration::from_millis(50))? {
-                if let Event::Key(key) = event::read()? {
-                    if handle_key(key, &mut client, &mut state, no_input)? {
-                        break;
-                    }
-                }
+            if event::poll(StdDuration::from_millis(50))?
+                && let Event::Key(key) = event::read()?
+                && handle_key(key, &mut client, &mut state, no_input)?
+            {
+                break;
             }
         }
         Ok(())
@@ -157,6 +156,7 @@ fn resolve_endpoint(
     endpoint: Option<String>,
     token: Option<String>,
 ) -> anyhow::Result<(ControlEndpoint, Option<String>, Option<PathBuf>)> {
+    let token = token.or_else(|| std::env::var("TRUST_CTL_TOKEN").ok());
     client::resolve_endpoint(bundle, endpoint, token)
 }
 

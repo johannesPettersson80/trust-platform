@@ -1,0 +1,3586 @@
+[
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace validate_pou_index -> Result<(), BytecodeError> with Ok(())\n@@ -1,143 +1,17 @@\n use super::*;\n \n pub(super) fn validate_pou_index(\n     tables: &ValidationContext<'_>,\n     bodies: &[u8],\n     decoded_instruction_count: &mut usize,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n-    let (strings, types, const_pool, ref_table, index) = (\n-        tables.strings,\n-        tables.types,\n-        tables.const_pool,\n-        tables.ref_table,\n-        tables.index,\n-    );\n-    budget.temporary(|budget| validate_pou_local_ref_partition(tables, budget))?;\n-    for (position, entry) in index.entries.iter().enumerate() {\n-        budget.work(1)?;\n-        if tables.pou_position(entry.id, budget)? != Some(position) {\n-            return Err(BytecodeError::section_diagnostic(\n-                SectionDiagnostic::DuplicatePou(entry.id),\n-            ));\n-        }\n-        validate_pou_local_ref_range(ref_table, entry, budget)?;\n-        ensure_string_index(strings, entry.name_idx)?;\n-        if let Some(return_type_id) = entry.return_type_id {\n-            ensure_type_index(types, return_type_id)?;\n-        }\n-        if let Some(owner) = entry.owner_pou_id {\n-            if tables.pou(owner, budget)?.is_none() {\n-                return Err(BytecodeError::InvalidPouId(owner));\n-            }\n-        }\n-        budget.work(entry.params.len())?;\n-        for param in &entry.params {\n-            ensure_string_index(strings, param.name_idx)?;\n-            ensure_type_index(types, param.type_id)?;\n-            if let Some(default_idx) = param.default_const_idx {\n-                ensure_const_index(const_pool, default_idx)?;\n-            }\n-        }\n-        validate_param_direction_metadata(entry, budget)?;\n-        if let Some(meta) = &entry.class_meta {\n-            if let Some(parent) = meta.parent_pou_id {\n-                if tables.pou(parent, budget)?.is_none() {\n-                    return Err(BytecodeError::InvalidPouId(parent));\n-                }\n-            }\n-            budget.work(meta.interfaces.len())?;\n-            for interface in &meta.interfaces {\n-                ensure_type_index(types, interface.interface_type_id)?;\n-                let interface_entry = types\n-                    .entries\n-                    .get(interface.interface_type_id as usize)\n-                    .ok_or_else(|| BytecodeError::InvalidIndex {\n-                        kind: \"type\".into(),\n-                        index: interface.interface_type_id,\n-                    })?;\n-                if !matches!(interface_entry.kind, TypeKind::Interface) {\n-                    return Err(BytecodeError::from(\n-                        RejectionReason::InterfaceMappingExpectsInterfaceType,\n-                    ));\n-                }\n-                if let TypeData::Interface { methods } = &interface_entry.data {\n-                    if interface.vtable_slots.len() != methods.len() {\n-                        return Err(BytecodeError::from(\n-                            RejectionReason::InterfaceMappingSlotMismatch,\n-                        ));\n-                    }\n-                }\n-            }\n-            budget.work(meta.methods.len())?;\n-            for method in &meta.methods {\n-                ensure_string_index(strings, method.name_idx)?;\n-                if tables.pou(method.pou_id, budget)?.is_none() {\n-                    return Err(BytecodeError::InvalidPouId(method.pou_id));\n-                }\n-            }\n-        }\n-        let start = entry.code_offset as usize;\n-        let end = start\n-            .checked_add(entry.code_length as usize)\n-            .ok_or_else(|| BytecodeError::from(RejectionReason::PouCodeOutOfBounds))?;\n-        if end > bodies.len() {\n-            return Err(BytecodeError::from(RejectionReason::PouCodeOutOfBounds));\n-        }\n-        let code = &bodies[start..end];\n-        budget.temporary(|budget| {\n-            let instructions = decode_instructions(\n-                code,\n-                decoded_instruction_count,\n-                budget,\n-                |instruction, budget| {\n-                    if matches!(instruction.opcode, 0x20..=0x22)\n-                        && tables\n-                            .ref_table\n-                            .entries\n-                            .get(instruction.operand(0) as usize)\n-                            .is_some_and(|r| r.location == RefLocation::InitializerResult)\n-                    {\n-                        return Err(RejectionReason::InitializerReferenceScope.into());\n-                    }\n-                    if matches!(\n-                        instruction.opcode,\n-                        crate::bytecode::opcodes::DEFAULT_TYPED\n-                            ..=crate::bytecode::opcodes::STRUCT_SET\n-                    ) {\n-                        return Err(BytecodeError::InvalidOpcode(instruction.opcode));\n-                    }\n-                    validate_instruction_operands(tables, Some(entry), instruction, budget)\n-                },\n-            )?;\n-            // The legacy-call rejection follows complete decoding/jump checks, as before.\n-            for instruction in &instructions {\n-                budget.work(1)?;\n-                if instruction.opcode == 0x05 {\n-                    return Err(BytecodeError::from(RejectionReason::LegacyCall));\n-                }\n-            }\n-            budget.temporary(|budget| validate_reference_escape(tables, &instructions, budget))?;\n-            if tables.initializers.is_none() {\n-                budget\n-                    .temporary(|budget| validate_owner_contract(tables, &instructions, budget))?;\n-            }\n-            budget.temporary(|budget| {\n-                validate_stack_shape(tables, &instructions, code.len(), budget)\n-            })?;\n-            budget.temporary(|budget| validate_const_compat(tables, &instructions, budget))?;\n-            budget.temporary(|budget| {\n-                validate_param_direction_calls(tables, Some(entry), &instructions, budget)\n-            })?;\n-            Ok(())\n-        })?;\n-    }\n-    Ok(())\n+    Ok(()) /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn validate_pou_local_ref_partition(\n     tables: &ValidationContext<'_>,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let mut previous_end = 0;\n     for &(start, end, _) in &tables.local_ranges {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:9:5: replace validate_pou_index -> Result<(), BytecodeError> with Ok(())",
+    "package": "single_file",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 135
+      },
+      "start": {
+        "column": 5,
+        "line": 9
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_pou_index\n@@ -11,17 +11,17 @@\n         tables.types,\n         tables.const_pool,\n         tables.ref_table,\n         tables.index,\n     );\n     budget.temporary(|budget| validate_pou_local_ref_partition(tables, budget))?;\n     for (position, entry) in index.entries.iter().enumerate() {\n         budget.work(1)?;\n-        if tables.pou_position(entry.id, budget)? != Some(position) {\n+        if tables.pou_position(entry.id, budget)? == /* ~ changed by cargo-mutants ~ */ Some(position) {\n             return Err(BytecodeError::section_diagnostic(\n                 SectionDiagnostic::DuplicatePou(entry.id),\n             ));\n         }\n         validate_pou_local_ref_range(ref_table, entry, budget)?;\n         ensure_string_index(strings, entry.name_idx)?;\n         if let Some(return_type_id) = entry.return_type_id {\n             ensure_type_index(types, return_type_id)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:19:51: replace != with == in validate_pou_index",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 53,
+        "line": 19
+      },
+      "start": {
+        "column": 51,
+        "line": 19
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete ! in validate_pou_index\n@@ -51,17 +51,17 @@\n                 ensure_type_index(types, interface.interface_type_id)?;\n                 let interface_entry = types\n                     .entries\n                     .get(interface.interface_type_id as usize)\n                     .ok_or_else(|| BytecodeError::InvalidIndex {\n                         kind: \"type\".into(),\n                         index: interface.interface_type_id,\n                     })?;\n-                if !matches!(interface_entry.kind, TypeKind::Interface) {\n+                if  /* ~ changed by cargo-mutants ~ */matches!(interface_entry.kind, TypeKind::Interface) {\n                     return Err(BytecodeError::from(\n                         RejectionReason::InterfaceMappingExpectsInterfaceType,\n                     ));\n                 }\n                 if let TypeData::Interface { methods } = &interface_entry.data {\n                     if interface.vtable_slots.len() != methods.len() {\n                         return Err(BytecodeError::from(\n                             RejectionReason::InterfaceMappingSlotMismatch,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "pou_and_instr.rs:59:20: delete ! in validate_pou_index",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 21,
+        "line": 59
+      },
+      "start": {
+        "column": 20,
+        "line": 59
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_pou_index\n@@ -57,17 +57,17 @@\n                         index: interface.interface_type_id,\n                     })?;\n                 if !matches!(interface_entry.kind, TypeKind::Interface) {\n                     return Err(BytecodeError::from(\n                         RejectionReason::InterfaceMappingExpectsInterfaceType,\n                     ));\n                 }\n                 if let TypeData::Interface { methods } = &interface_entry.data {\n-                    if interface.vtable_slots.len() != methods.len() {\n+                    if interface.vtable_slots.len() == /* ~ changed by cargo-mutants ~ */ methods.len() {\n                         return Err(BytecodeError::from(\n                             RejectionReason::InterfaceMappingSlotMismatch,\n                         ));\n                     }\n                 }\n             }\n             budget.work(meta.methods.len())?;\n             for method in &meta.methods {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:65:53: replace != with == in validate_pou_index",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 55,
+        "line": 65
+      },
+      "start": {
+        "column": 53,
+        "line": 65
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with == in validate_pou_index\n@@ -76,17 +76,17 @@\n                     return Err(BytecodeError::InvalidPouId(method.pou_id));\n                 }\n             }\n         }\n         let start = entry.code_offset as usize;\n         let end = start\n             .checked_add(entry.code_length as usize)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouCodeOutOfBounds))?;\n-        if end > bodies.len() {\n+        if end == /* ~ changed by cargo-mutants ~ */ bodies.len() {\n             return Err(BytecodeError::from(RejectionReason::PouCodeOutOfBounds));\n         }\n         let code = &bodies[start..end];\n         budget.temporary(|budget| {\n             let instructions = decode_instructions(\n                 code,\n                 decoded_instruction_count,\n                 budget,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:84:16: replace > with == in validate_pou_index",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 84
+      },
+      "start": {
+        "column": 16,
+        "line": 84
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with < in validate_pou_index\n@@ -76,17 +76,17 @@\n                     return Err(BytecodeError::InvalidPouId(method.pou_id));\n                 }\n             }\n         }\n         let start = entry.code_offset as usize;\n         let end = start\n             .checked_add(entry.code_length as usize)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouCodeOutOfBounds))?;\n-        if end > bodies.len() {\n+        if end < /* ~ changed by cargo-mutants ~ */ bodies.len() {\n             return Err(BytecodeError::from(RejectionReason::PouCodeOutOfBounds));\n         }\n         let code = &bodies[start..end];\n         budget.temporary(|budget| {\n             let instructions = decode_instructions(\n                 code,\n                 decoded_instruction_count,\n                 budget,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:84:16: replace > with < in validate_pou_index",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 84
+      },
+      "start": {
+        "column": 16,
+        "line": 84
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with >= in validate_pou_index\n@@ -76,17 +76,17 @@\n                     return Err(BytecodeError::InvalidPouId(method.pou_id));\n                 }\n             }\n         }\n         let start = entry.code_offset as usize;\n         let end = start\n             .checked_add(entry.code_length as usize)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouCodeOutOfBounds))?;\n-        if end > bodies.len() {\n+        if end >= /* ~ changed by cargo-mutants ~ */ bodies.len() {\n             return Err(BytecodeError::from(RejectionReason::PouCodeOutOfBounds));\n         }\n         let code = &bodies[start..end];\n         budget.temporary(|budget| {\n             let instructions = decode_instructions(\n                 code,\n                 decoded_instruction_count,\n                 budget,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:84:16: replace > with >= in validate_pou_index",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 84
+      },
+      "start": {
+        "column": 16,
+        "line": 84
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace && with || in validate_pou_index\n@@ -87,17 +87,17 @@\n         let code = &bodies[start..end];\n         budget.temporary(|budget| {\n             let instructions = decode_instructions(\n                 code,\n                 decoded_instruction_count,\n                 budget,\n                 |instruction, budget| {\n                     if matches!(instruction.opcode, 0x20..=0x22)\n-                        && tables\n+                        || /* ~ changed by cargo-mutants ~ */ tables\n                             .ref_table\n                             .entries\n                             .get(instruction.operand(0) as usize)\n                             .is_some_and(|r| r.location == RefLocation::InitializerResult)\n                     {\n                         return Err(RejectionReason::InitializerReferenceScope.into());\n                     }\n                     if matches!(\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:95:25: replace && with || in validate_pou_index",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 95
+      },
+      "start": {
+        "column": 25,
+        "line": 95
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace == with != in validate_pou_index\n@@ -91,17 +91,17 @@\n                 decoded_instruction_count,\n                 budget,\n                 |instruction, budget| {\n                     if matches!(instruction.opcode, 0x20..=0x22)\n                         && tables\n                             .ref_table\n                             .entries\n                             .get(instruction.operand(0) as usize)\n-                            .is_some_and(|r| r.location == RefLocation::InitializerResult)\n+                            .is_some_and(|r| r.location != /* ~ changed by cargo-mutants ~ */ RefLocation::InitializerResult)\n                     {\n                         return Err(RejectionReason::InitializerReferenceScope.into());\n                     }\n                     if matches!(\n                         instruction.opcode,\n                         crate::bytecode::opcodes::DEFAULT_TYPED\n                             ..=crate::bytecode::opcodes::STRUCT_SET\n                     ) {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:99:57: replace == with != in validate_pou_index",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 59,
+        "line": 99
+      },
+      "start": {
+        "column": 57,
+        "line": 99
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace == with != in validate_pou_index\n@@ -108,17 +108,17 @@\n                         return Err(BytecodeError::InvalidOpcode(instruction.opcode));\n                     }\n                     validate_instruction_operands(tables, Some(entry), instruction, budget)\n                 },\n             )?;\n             // The legacy-call rejection follows complete decoding/jump checks, as before.\n             for instruction in &instructions {\n                 budget.work(1)?;\n-                if instruction.opcode == 0x05 {\n+                if instruction.opcode != /* ~ changed by cargo-mutants ~ */ 0x05 {\n                     return Err(BytecodeError::from(RejectionReason::LegacyCall));\n                 }\n             }\n             budget.temporary(|budget| validate_reference_escape(tables, &instructions, budget))?;\n             if tables.initializers.is_none() {\n                 budget\n                     .temporary(|budget| validate_owner_contract(tables, &instructions, budget))?;\n             }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_index",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 136
+        },
+        "start": {
+          "column": 1,
+          "line": 3
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:116:39: replace == with != in validate_pou_index",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 41,
+        "line": 116
+      },
+      "start": {
+        "column": 39,
+        "line": 116
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace validate_pou_local_ref_partition -> Result<(), BytecodeError> with Ok(())\n@@ -134,49 +134,17 @@\n     }\n     Ok(())\n }\n \n pub(super) fn validate_pou_local_ref_partition(\n     tables: &ValidationContext<'_>,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n-    let mut previous_end = 0;\n-    for &(start, end, _) in &tables.local_ranges {\n-        budget.work(1)?;\n-        if start < previous_end {\n-            return Err(RejectionReason::PouLocalRefRangesOverlap.into());\n-        }\n-        previous_end = end;\n-    }\n-    let mut owners = Vec::new();\n-    for &(start, end, _) in &tables.local_ranges {\n-        let mut owner_id = None;\n-        for reference in &tables.ref_table.entries[start as usize..end as usize] {\n-            budget.work(1)?;\n-            match owner_id {\n-                Some(expected) if expected != reference.owner_id => {\n-                    return Err(RejectionReason::PouLocalRefRangeContainsMultipleFrameOwners.into())\n-                }\n-                None => owner_id = Some(reference.owner_id),\n-                Some(_) => {}\n-            }\n-        }\n-        if let Some(owner) = owner_id {\n-            budget.push(&mut owners, owner)?;\n-        }\n-    }\n-    budget.sort_by(&mut owners, &mut |a, b, _| Ok(a.cmp(b)))?;\n-    for pair in owners.windows(2) {\n-        budget.work(1)?;\n-        if pair[0] == pair[1] {\n-            return Err(RejectionReason::PouLocalRefRangesShareAFrameOwner.into());\n-        }\n-    }\n-    Ok(())\n+    Ok(()) /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn validate_instruction_operands(\n     tables: &ValidationContext<'_>,\n     pou: Option<&PouEntry>,\n     instruction: &Instruction,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:142:5: replace validate_pou_local_ref_partition -> Result<(), BytecodeError> with Ok(())",
+    "package": "single_file",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 174
+      },
+      "start": {
+        "column": 5,
+        "line": 142
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with == in validate_pou_local_ref_partition\n@@ -137,17 +137,17 @@\n \n pub(super) fn validate_pou_local_ref_partition(\n     tables: &ValidationContext<'_>,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let mut previous_end = 0;\n     for &(start, end, _) in &tables.local_ranges {\n         budget.work(1)?;\n-        if start < previous_end {\n+        if start == /* ~ changed by cargo-mutants ~ */ previous_end {\n             return Err(RejectionReason::PouLocalRefRangesOverlap.into());\n         }\n         previous_end = end;\n     }\n     let mut owners = Vec::new();\n     for &(start, end, _) in &tables.local_ranges {\n         let mut owner_id = None;\n         for reference in &tables.ref_table.entries[start as usize..end as usize] {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:145:18: replace < with == in validate_pou_local_ref_partition",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 145
+      },
+      "start": {
+        "column": 18,
+        "line": 145
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with > in validate_pou_local_ref_partition\n@@ -137,17 +137,17 @@\n \n pub(super) fn validate_pou_local_ref_partition(\n     tables: &ValidationContext<'_>,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let mut previous_end = 0;\n     for &(start, end, _) in &tables.local_ranges {\n         budget.work(1)?;\n-        if start < previous_end {\n+        if start > /* ~ changed by cargo-mutants ~ */ previous_end {\n             return Err(RejectionReason::PouLocalRefRangesOverlap.into());\n         }\n         previous_end = end;\n     }\n     let mut owners = Vec::new();\n     for &(start, end, _) in &tables.local_ranges {\n         let mut owner_id = None;\n         for reference in &tables.ref_table.entries[start as usize..end as usize] {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:145:18: replace < with > in validate_pou_local_ref_partition",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 145
+      },
+      "start": {
+        "column": 18,
+        "line": 145
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with <= in validate_pou_local_ref_partition\n@@ -137,17 +137,17 @@\n \n pub(super) fn validate_pou_local_ref_partition(\n     tables: &ValidationContext<'_>,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let mut previous_end = 0;\n     for &(start, end, _) in &tables.local_ranges {\n         budget.work(1)?;\n-        if start < previous_end {\n+        if start <= /* ~ changed by cargo-mutants ~ */ previous_end {\n             return Err(RejectionReason::PouLocalRefRangesOverlap.into());\n         }\n         previous_end = end;\n     }\n     let mut owners = Vec::new();\n     for &(start, end, _) in &tables.local_ranges {\n         let mut owner_id = None;\n         for reference in &tables.ref_table.entries[start as usize..end as usize] {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:145:18: replace < with <= in validate_pou_local_ref_partition",
+    "package": "single_file",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 145
+      },
+      "start": {
+        "column": 18,
+        "line": 145
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace match guard expected != reference.owner_id with true in validate_pou_local_ref_partition\n@@ -148,17 +148,17 @@\n         previous_end = end;\n     }\n     let mut owners = Vec::new();\n     for &(start, end, _) in &tables.local_ranges {\n         let mut owner_id = None;\n         for reference in &tables.ref_table.entries[start as usize..end as usize] {\n             budget.work(1)?;\n             match owner_id {\n-                Some(expected) if expected != reference.owner_id => {\n+                Some(expected) if true /* ~ changed by cargo-mutants ~ */ => {\n                     return Err(RejectionReason::PouLocalRefRangeContainsMultipleFrameOwners.into())\n                 }\n                 None => owner_id = Some(reference.owner_id),\n                 Some(_) => {}\n             }\n         }\n         if let Some(owner) = owner_id {\n             budget.push(&mut owners, owner)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "pou_and_instr.rs:156:35: replace match guard expected != reference.owner_id with true in validate_pou_local_ref_partition",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 65,
+        "line": 156
+      },
+      "start": {
+        "column": 35,
+        "line": 156
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace match guard expected != reference.owner_id with false in validate_pou_local_ref_partition\n@@ -148,17 +148,17 @@\n         previous_end = end;\n     }\n     let mut owners = Vec::new();\n     for &(start, end, _) in &tables.local_ranges {\n         let mut owner_id = None;\n         for reference in &tables.ref_table.entries[start as usize..end as usize] {\n             budget.work(1)?;\n             match owner_id {\n-                Some(expected) if expected != reference.owner_id => {\n+                Some(expected) if false /* ~ changed by cargo-mutants ~ */ => {\n                     return Err(RejectionReason::PouLocalRefRangeContainsMultipleFrameOwners.into())\n                 }\n                 None => owner_id = Some(reference.owner_id),\n                 Some(_) => {}\n             }\n         }\n         if let Some(owner) = owner_id {\n             budget.push(&mut owners, owner)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "pou_and_instr.rs:156:35: replace match guard expected != reference.owner_id with false in validate_pou_local_ref_partition",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 65,
+        "line": 156
+      },
+      "start": {
+        "column": 35,
+        "line": 156
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_pou_local_ref_partition\n@@ -148,17 +148,17 @@\n         previous_end = end;\n     }\n     let mut owners = Vec::new();\n     for &(start, end, _) in &tables.local_ranges {\n         let mut owner_id = None;\n         for reference in &tables.ref_table.entries[start as usize..end as usize] {\n             budget.work(1)?;\n             match owner_id {\n-                Some(expected) if expected != reference.owner_id => {\n+                Some(expected) if expected == /* ~ changed by cargo-mutants ~ */ reference.owner_id => {\n                     return Err(RejectionReason::PouLocalRefRangeContainsMultipleFrameOwners.into())\n                 }\n                 None => owner_id = Some(reference.owner_id),\n                 Some(_) => {}\n             }\n         }\n         if let Some(owner) = owner_id {\n             budget.push(&mut owners, owner)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:156:44: replace != with == in validate_pou_local_ref_partition",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 156
+      },
+      "start": {
+        "column": 44,
+        "line": 156
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace == with != in validate_pou_local_ref_partition\n@@ -162,17 +162,17 @@\n         }\n         if let Some(owner) = owner_id {\n             budget.push(&mut owners, owner)?;\n         }\n     }\n     budget.sort_by(&mut owners, &mut |a, b, _| Ok(a.cmp(b)))?;\n     for pair in owners.windows(2) {\n         budget.work(1)?;\n-        if pair[0] == pair[1] {\n+        if pair[0] != /* ~ changed by cargo-mutants ~ */ pair[1] {\n             return Err(RejectionReason::PouLocalRefRangesShareAFrameOwner.into());\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn validate_instruction_operands(\n     tables: &ValidationContext<'_>,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_partition",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 175
+        },
+        "start": {
+          "column": 1,
+          "line": 138
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:170:20: replace == with != in validate_pou_local_ref_partition",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 170
+      },
+      "start": {
+        "column": 20,
+        "line": 170
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace validate_instruction_operands -> Result<(), BytecodeError> with Ok(())\n@@ -175,131 +175,17 @@\n }\n \n pub(super) fn validate_instruction_operands(\n     tables: &ValidationContext<'_>,\n     pou: Option<&PouEntry>,\n     instruction: &Instruction,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n-    let opcode = instruction.opcode;\n-    match opcode {\n-        0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40 | 0x41\n-        | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50 | 0x51 | 0x52\n-        | 0x53 | 0x54 | 0x55 => {}\n-        0x02..=0x04 => {}\n-        0x05 => {\n-            let pou_id = instruction.operand(0);\n-            if tables.pou(pou_id, budget)?.is_none() {\n-                return Err(BytecodeError::InvalidPouId(pou_id));\n-            }\n-        }\n-\n-        0x09 => {\n-            let kind = instruction.operand(0);\n-            let symbol_idx = instruction.operand(1);\n-            let arg_count = instruction.operand(2);\n-            if kind > 3 {\n-                return Err(BytecodeError::from(\n-                    RejectionReason::CallNativeKindOutOfRange,\n-                ));\n-            }\n-            if symbol_idx as usize >= tables.strings.entries.len() {\n-                return Err(BytecodeError::InvalidIndex {\n-                    kind: \"native symbol\".into(),\n-                    index: symbol_idx,\n-                });\n-            }\n-            if arg_count as usize > crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n-                return Err(BytecodeError::from(\n-                    RejectionReason::CallNativeArgCountOutOfRange,\n-                ));\n-            }\n-        }\n-        0x10 => {\n-            let const_idx = instruction.operand(0);\n-            ensure_const_index(tables.const_pool, const_idx)?;\n-        }\n-        0x20..=0x22 => {\n-            let ref_idx = instruction.operand(0);\n-            if let Some(pou) = pou {\n-                ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;\n-            } else {\n-                ensure_ref_index(tables.ref_table, ref_idx)?;\n-                if tables.ref_table.entries[ref_idx as usize].location == RefLocation::Local {\n-                    return Err(RejectionReason::InitializerVisibility.into());\n-                }\n-            }\n-        }\n-        0x23 | 0x24 => {}\n-        0x30 => {\n-            let name_idx = instruction.operand(0);\n-            ensure_string_index(tables.strings, name_idx)?;\n-        }\n-        0x60 => {\n-            let type_id = instruction.operand(0);\n-            ensure_type_index(tables.types, type_id)?;\n-        }\n-        0x61 => {}\n-        0x62 | 0x63 => {\n-            let operand = instruction.operand(0);\n-            validate_partial_access_operand(operand)?;\n-        }\n-        0x64 => {\n-            let type_id = instruction.operand(0);\n-            ensure_type_index(tables.types, type_id)?;\n-            let entry = &tables.types.entries[type_id as usize];\n-            if !matches!(entry.kind, TypeKind::Reference | TypeKind::Interface) {\n-                return Err(BytecodeError::from(\n-                    RejectionReason::ReferenceAttemptExpectsReferenceOrInterfaceTargetType,\n-                ));\n-            }\n-        }\n-        crate::bytecode::opcodes::DEFAULT_VALUE => {\n-            let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(\n-                crate::bytecode::opcodes::DEFAULT_VALUE,\n-            ))?;\n-            let target = initializers\n-                .entries\n-                .get(instruction.operand(0) as usize)\n-                .ok_or(RejectionReason::InvalidInitializerRecord)?;\n-            if target.phase != crate::bytecode::InitializationPhase::ValueDefault\n-                || target.body_kind != crate::bytecode::InitializerBodyKind::Action\n-            {\n-                return Err(RejectionReason::InvalidInitializerRecord.into());\n-            }\n-        }\n-        crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {\n-            if tables.initializers.is_none() {\n-                return Err(BytecodeError::InvalidOpcode(opcode));\n-            }\n-            let operand = instruction.operand(0);\n-            match opcode {\n-                crate::bytecode::opcodes::DEFAULT_TYPED\n-                    ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n-                    ensure_type_index(tables.types, operand)?\n-                }\n-                crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n-                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n-                {\n-                    return Err(RejectionReason::InvalidInitializerRecord.into());\n-                }\n-                crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n-                    return Err(RejectionReason::InvalidInitializerRecord.into())\n-                }\n-                crate::bytecode::opcodes::STRUCT_SET => {\n-                    ensure_string_index(tables.strings, operand)?\n-                }\n-                _ => {}\n-            }\n-        }\n-        0x70 => {}\n-        _ => return Err(BytecodeError::InvalidOpcode(opcode)),\n-    }\n-    Ok(())\n+    Ok(()) /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn validate_pou_local_ref_range(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let start = pou.local_ref_start;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:183:5: replace validate_instruction_operands -> Result<(), BytecodeError> with Ok(())",
+    "package": "single_file",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 297
+      },
+      "start": {
+        "column": 5,
+        "line": 183
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40 | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50 | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 in validate_instruction_operands\n@@ -177,19 +177,17 @@\n pub(super) fn validate_instruction_operands(\n     tables: &ValidationContext<'_>,\n     pou: Option<&PouEntry>,\n     instruction: &Instruction,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let opcode = instruction.opcode;\n     match opcode {\n-        0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40 | 0x41\n-        | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50 | 0x51 | 0x52\n-        | 0x53 | 0x54 | 0x55 => {}\n+         /* ~ changed by cargo-mutants ~ */\n         0x02..=0x04 => {}\n         0x05 => {\n             let pou_id = instruction.operand(0);\n             if tables.pou(pou_id, budget)?.is_none() {\n                 return Err(BytecodeError::InvalidPouId(pou_id));\n             }\n         }\n \n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:185:9: delete match arm 0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40 | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50 | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 187
+      },
+      "start": {
+        "column": 9,
+        "line": 185
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x02..= 0x04 in validate_instruction_operands\n@@ -180,17 +180,17 @@\n     instruction: &Instruction,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let opcode = instruction.opcode;\n     match opcode {\n         0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40 | 0x41\n         | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50 | 0x51 | 0x52\n         | 0x53 | 0x54 | 0x55 => {}\n-        0x02..=0x04 => {}\n+         /* ~ changed by cargo-mutants ~ */\n         0x05 => {\n             let pou_id = instruction.operand(0);\n             if tables.pou(pou_id, budget)?.is_none() {\n                 return Err(BytecodeError::InvalidPouId(pou_id));\n             }\n         }\n \n         0x09 => {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:188:9: delete match arm 0x02..= 0x04 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 26,
+        "line": 188
+      },
+      "start": {
+        "column": 9,
+        "line": 188
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x05 in validate_instruction_operands\n@@ -181,22 +181,17 @@\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let opcode = instruction.opcode;\n     match opcode {\n         0x00 | 0x01 | 0x06 | 0x11 | 0x12 | 0x13 | 0x25 | 0x31 | 0x32 | 0x33 | 0x40 | 0x41\n         | 0x42 | 0x43 | 0x44 | 0x45 | 0x46 | 0x47 | 0x48 | 0x49 | 0x4C | 0x50 | 0x51 | 0x52\n         | 0x53 | 0x54 | 0x55 => {}\n         0x02..=0x04 => {}\n-        0x05 => {\n-            let pou_id = instruction.operand(0);\n-            if tables.pou(pou_id, budget)?.is_none() {\n-                return Err(BytecodeError::InvalidPouId(pou_id));\n-            }\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n \n         0x09 => {\n             let kind = instruction.operand(0);\n             let symbol_idx = instruction.operand(1);\n             let arg_count = instruction.operand(2);\n             if kind > 3 {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeKindOutOfRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:189:9: delete match arm 0x05 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 194
+      },
+      "start": {
+        "column": 9,
+        "line": 189
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x09 in validate_instruction_operands\n@@ -188,37 +188,17 @@\n         0x02..=0x04 => {}\n         0x05 => {\n             let pou_id = instruction.operand(0);\n             if tables.pou(pou_id, budget)?.is_none() {\n                 return Err(BytecodeError::InvalidPouId(pou_id));\n             }\n         }\n \n-        0x09 => {\n-            let kind = instruction.operand(0);\n-            let symbol_idx = instruction.operand(1);\n-            let arg_count = instruction.operand(2);\n-            if kind > 3 {\n-                return Err(BytecodeError::from(\n-                    RejectionReason::CallNativeKindOutOfRange,\n-                ));\n-            }\n-            if symbol_idx as usize >= tables.strings.entries.len() {\n-                return Err(BytecodeError::InvalidIndex {\n-                    kind: \"native symbol\".into(),\n-                    index: symbol_idx,\n-                });\n-            }\n-            if arg_count as usize > crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n-                return Err(BytecodeError::from(\n-                    RejectionReason::CallNativeArgCountOutOfRange,\n-                ));\n-            }\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         0x10 => {\n             let const_idx = instruction.operand(0);\n             ensure_const_index(tables.const_pool, const_idx)?;\n         }\n         0x20..=0x22 => {\n             let ref_idx = instruction.operand(0);\n             if let Some(pou) = pou {\n                 ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:196:9: delete match arm 0x09 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 216
+      },
+      "start": {
+        "column": 9,
+        "line": 196
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x10 in validate_instruction_operands\n@@ -209,20 +209,17 @@\n                 });\n             }\n             if arg_count as usize > crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeArgCountOutOfRange,\n                 ));\n             }\n         }\n-        0x10 => {\n-            let const_idx = instruction.operand(0);\n-            ensure_const_index(tables.const_pool, const_idx)?;\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         0x20..=0x22 => {\n             let ref_idx = instruction.operand(0);\n             if let Some(pou) = pou {\n                 ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;\n             } else {\n                 ensure_ref_index(tables.ref_table, ref_idx)?;\n                 if tables.ref_table.entries[ref_idx as usize].location == RefLocation::Local {\n                     return Err(RejectionReason::InitializerVisibility.into());\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:217:9: delete match arm 0x10 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 220
+      },
+      "start": {
+        "column": 9,
+        "line": 217
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x20..= 0x22 in validate_instruction_operands\n@@ -213,27 +213,17 @@\n                     RejectionReason::CallNativeArgCountOutOfRange,\n                 ));\n             }\n         }\n         0x10 => {\n             let const_idx = instruction.operand(0);\n             ensure_const_index(tables.const_pool, const_idx)?;\n         }\n-        0x20..=0x22 => {\n-            let ref_idx = instruction.operand(0);\n-            if let Some(pou) = pou {\n-                ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;\n-            } else {\n-                ensure_ref_index(tables.ref_table, ref_idx)?;\n-                if tables.ref_table.entries[ref_idx as usize].location == RefLocation::Local {\n-                    return Err(RejectionReason::InitializerVisibility.into());\n-                }\n-            }\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         0x23 | 0x24 => {}\n         0x30 => {\n             let name_idx = instruction.operand(0);\n             ensure_string_index(tables.strings, name_idx)?;\n         }\n         0x60 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:221:9: delete match arm 0x20..= 0x22 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 231
+      },
+      "start": {
+        "column": 9,
+        "line": 221
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x23 | 0x24 in validate_instruction_operands\n@@ -224,17 +224,17 @@\n                 ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;\n             } else {\n                 ensure_ref_index(tables.ref_table, ref_idx)?;\n                 if tables.ref_table.entries[ref_idx as usize].location == RefLocation::Local {\n                     return Err(RejectionReason::InitializerVisibility.into());\n                 }\n             }\n         }\n-        0x23 | 0x24 => {}\n+         /* ~ changed by cargo-mutants ~ */\n         0x30 => {\n             let name_idx = instruction.operand(0);\n             ensure_string_index(tables.strings, name_idx)?;\n         }\n         0x60 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n         }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:232:9: delete match arm 0x23 | 0x24 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 26,
+        "line": 232
+      },
+      "start": {
+        "column": 9,
+        "line": 232
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x30 in validate_instruction_operands\n@@ -225,20 +225,17 @@\n             } else {\n                 ensure_ref_index(tables.ref_table, ref_idx)?;\n                 if tables.ref_table.entries[ref_idx as usize].location == RefLocation::Local {\n                     return Err(RejectionReason::InitializerVisibility.into());\n                 }\n             }\n         }\n         0x23 | 0x24 => {}\n-        0x30 => {\n-            let name_idx = instruction.operand(0);\n-            ensure_string_index(tables.strings, name_idx)?;\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         0x60 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n         }\n         0x61 => {}\n         0x62 | 0x63 => {\n             let operand = instruction.operand(0);\n             validate_partial_access_operand(operand)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:233:9: delete match arm 0x30 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 236
+      },
+      "start": {
+        "column": 9,
+        "line": 233
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x60 in validate_instruction_operands\n@@ -229,20 +229,17 @@\n                 }\n             }\n         }\n         0x23 | 0x24 => {}\n         0x30 => {\n             let name_idx = instruction.operand(0);\n             ensure_string_index(tables.strings, name_idx)?;\n         }\n-        0x60 => {\n-            let type_id = instruction.operand(0);\n-            ensure_type_index(tables.types, type_id)?;\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         0x61 => {}\n         0x62 | 0x63 => {\n             let operand = instruction.operand(0);\n             validate_partial_access_operand(operand)?;\n         }\n         0x64 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:237:9: delete match arm 0x60 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 240
+      },
+      "start": {
+        "column": 9,
+        "line": 237
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x61 in validate_instruction_operands\n@@ -233,17 +233,17 @@\n         0x30 => {\n             let name_idx = instruction.operand(0);\n             ensure_string_index(tables.strings, name_idx)?;\n         }\n         0x60 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n         }\n-        0x61 => {}\n+         /* ~ changed by cargo-mutants ~ */\n         0x62 | 0x63 => {\n             let operand = instruction.operand(0);\n             validate_partial_access_operand(operand)?;\n         }\n         0x64 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n             let entry = &tables.types.entries[type_id as usize];\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:241:9: delete match arm 0x61 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 241
+      },
+      "start": {
+        "column": 9,
+        "line": 241
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x62 | 0x63 in validate_instruction_operands\n@@ -234,20 +234,17 @@\n             let name_idx = instruction.operand(0);\n             ensure_string_index(tables.strings, name_idx)?;\n         }\n         0x60 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n         }\n         0x61 => {}\n-        0x62 | 0x63 => {\n-            let operand = instruction.operand(0);\n-            validate_partial_access_operand(operand)?;\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         0x64 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n             let entry = &tables.types.entries[type_id as usize];\n             if !matches!(entry.kind, TypeKind::Reference | TypeKind::Interface) {\n                 return Err(BytecodeError::from(\n                     RejectionReason::ReferenceAttemptExpectsReferenceOrInterfaceTargetType,\n                 ));\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:242:9: delete match arm 0x62 | 0x63 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 245
+      },
+      "start": {
+        "column": 9,
+        "line": 242
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x64 in validate_instruction_operands\n@@ -238,26 +238,17 @@\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n         }\n         0x61 => {}\n         0x62 | 0x63 => {\n             let operand = instruction.operand(0);\n             validate_partial_access_operand(operand)?;\n         }\n-        0x64 => {\n-            let type_id = instruction.operand(0);\n-            ensure_type_index(tables.types, type_id)?;\n-            let entry = &tables.types.entries[type_id as usize];\n-            if !matches!(entry.kind, TypeKind::Reference | TypeKind::Interface) {\n-                return Err(BytecodeError::from(\n-                    RejectionReason::ReferenceAttemptExpectsReferenceOrInterfaceTargetType,\n-                ));\n-            }\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         crate::bytecode::opcodes::DEFAULT_VALUE => {\n             let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(\n                 crate::bytecode::opcodes::DEFAULT_VALUE,\n             ))?;\n             let target = initializers\n                 .entries\n                 .get(instruction.operand(0) as usize)\n                 .ok_or(RejectionReason::InvalidInitializerRecord)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:246:9: delete match arm 0x64 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 255
+      },
+      "start": {
+        "column": 9,
+        "line": 246
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm crate::bytecode::opcodes::DEFAULT_VALUE in validate_instruction_operands\n@@ -248,30 +248,17 @@\n             ensure_type_index(tables.types, type_id)?;\n             let entry = &tables.types.entries[type_id as usize];\n             if !matches!(entry.kind, TypeKind::Reference | TypeKind::Interface) {\n                 return Err(BytecodeError::from(\n                     RejectionReason::ReferenceAttemptExpectsReferenceOrInterfaceTargetType,\n                 ));\n             }\n         }\n-        crate::bytecode::opcodes::DEFAULT_VALUE => {\n-            let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(\n-                crate::bytecode::opcodes::DEFAULT_VALUE,\n-            ))?;\n-            let target = initializers\n-                .entries\n-                .get(instruction.operand(0) as usize)\n-                .ok_or(RejectionReason::InvalidInitializerRecord)?;\n-            if target.phase != crate::bytecode::InitializationPhase::ValueDefault\n-                || target.body_kind != crate::bytecode::InitializerBodyKind::Action\n-            {\n-                return Err(RejectionReason::InvalidInitializerRecord.into());\n-            }\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {\n             if tables.initializers.is_none() {\n                 return Err(BytecodeError::InvalidOpcode(opcode));\n             }\n             let operand = instruction.operand(0);\n             match opcode {\n                 crate::bytecode::opcodes::DEFAULT_TYPED\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:256:9: delete match arm crate::bytecode::opcodes::DEFAULT_VALUE in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 269
+      },
+      "start": {
+        "column": 9,
+        "line": 256
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm crate::bytecode::opcodes::DEFAULT_TYPED..= crate::bytecode::opcodes::STRUCT_SET in validate_instruction_operands\n@@ -262,40 +262,17 @@\n                 .get(instruction.operand(0) as usize)\n                 .ok_or(RejectionReason::InvalidInitializerRecord)?;\n             if target.phase != crate::bytecode::InitializationPhase::ValueDefault\n                 || target.body_kind != crate::bytecode::InitializerBodyKind::Action\n             {\n                 return Err(RejectionReason::InvalidInitializerRecord.into());\n             }\n         }\n-        crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {\n-            if tables.initializers.is_none() {\n-                return Err(BytecodeError::InvalidOpcode(opcode));\n-            }\n-            let operand = instruction.operand(0);\n-            match opcode {\n-                crate::bytecode::opcodes::DEFAULT_TYPED\n-                    ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n-                    ensure_type_index(tables.types, operand)?\n-                }\n-                crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n-                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n-                {\n-                    return Err(RejectionReason::InvalidInitializerRecord.into());\n-                }\n-                crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n-                    return Err(RejectionReason::InvalidInitializerRecord.into())\n-                }\n-                crate::bytecode::opcodes::STRUCT_SET => {\n-                    ensure_string_index(tables.strings, operand)?\n-                }\n-                _ => {}\n-            }\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         0x70 => {}\n         _ => return Err(BytecodeError::InvalidOpcode(opcode)),\n     }\n     Ok(())\n }\n \n pub(super) fn validate_pou_local_ref_range(\n     ref_table: &RefTable,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:270:9: delete match arm crate::bytecode::opcodes::DEFAULT_TYPED..= crate::bytecode::opcodes::STRUCT_SET in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 293
+      },
+      "start": {
+        "column": 9,
+        "line": 270
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x70 in validate_instruction_operands\n@@ -286,17 +286,17 @@\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n                 }\n                 _ => {}\n             }\n         }\n-        0x70 => {}\n+         /* ~ changed by cargo-mutants ~ */\n         _ => return Err(BytecodeError::InvalidOpcode(opcode)),\n     }\n     Ok(())\n }\n \n pub(super) fn validate_pou_local_ref_range(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:294:9: delete match arm 0x70 in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 294
+      },
+      "start": {
+        "column": 9,
+        "line": 294
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with == in validate_instruction_operands\n@@ -192,17 +192,17 @@\n                 return Err(BytecodeError::InvalidPouId(pou_id));\n             }\n         }\n \n         0x09 => {\n             let kind = instruction.operand(0);\n             let symbol_idx = instruction.operand(1);\n             let arg_count = instruction.operand(2);\n-            if kind > 3 {\n+            if kind == /* ~ changed by cargo-mutants ~ */ 3 {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeKindOutOfRange,\n                 ));\n             }\n             if symbol_idx as usize >= tables.strings.entries.len() {\n                 return Err(BytecodeError::InvalidIndex {\n                     kind: \"native symbol\".into(),\n                     index: symbol_idx,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:200:21: replace > with == in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 200
+      },
+      "start": {
+        "column": 21,
+        "line": 200
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with < in validate_instruction_operands\n@@ -192,17 +192,17 @@\n                 return Err(BytecodeError::InvalidPouId(pou_id));\n             }\n         }\n \n         0x09 => {\n             let kind = instruction.operand(0);\n             let symbol_idx = instruction.operand(1);\n             let arg_count = instruction.operand(2);\n-            if kind > 3 {\n+            if kind < /* ~ changed by cargo-mutants ~ */ 3 {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeKindOutOfRange,\n                 ));\n             }\n             if symbol_idx as usize >= tables.strings.entries.len() {\n                 return Err(BytecodeError::InvalidIndex {\n                     kind: \"native symbol\".into(),\n                     index: symbol_idx,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:200:21: replace > with < in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 200
+      },
+      "start": {
+        "column": 21,
+        "line": 200
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with >= in validate_instruction_operands\n@@ -192,17 +192,17 @@\n                 return Err(BytecodeError::InvalidPouId(pou_id));\n             }\n         }\n \n         0x09 => {\n             let kind = instruction.operand(0);\n             let symbol_idx = instruction.operand(1);\n             let arg_count = instruction.operand(2);\n-            if kind > 3 {\n+            if kind >= /* ~ changed by cargo-mutants ~ */ 3 {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeKindOutOfRange,\n                 ));\n             }\n             if symbol_idx as usize >= tables.strings.entries.len() {\n                 return Err(BytecodeError::InvalidIndex {\n                     kind: \"native symbol\".into(),\n                     index: symbol_idx,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:200:21: replace > with >= in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 200
+      },
+      "start": {
+        "column": 21,
+        "line": 200
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace >= with < in validate_instruction_operands\n@@ -197,17 +197,17 @@\n             let kind = instruction.operand(0);\n             let symbol_idx = instruction.operand(1);\n             let arg_count = instruction.operand(2);\n             if kind > 3 {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeKindOutOfRange,\n                 ));\n             }\n-            if symbol_idx as usize >= tables.strings.entries.len() {\n+            if symbol_idx as usize < /* ~ changed by cargo-mutants ~ */ tables.strings.entries.len() {\n                 return Err(BytecodeError::InvalidIndex {\n                     kind: \"native symbol\".into(),\n                     index: symbol_idx,\n                 });\n             }\n             if arg_count as usize > crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeArgCountOutOfRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:205:36: replace >= with < in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 205
+      },
+      "start": {
+        "column": 36,
+        "line": 205
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with == in validate_instruction_operands\n@@ -203,17 +203,17 @@\n                 ));\n             }\n             if symbol_idx as usize >= tables.strings.entries.len() {\n                 return Err(BytecodeError::InvalidIndex {\n                     kind: \"native symbol\".into(),\n                     index: symbol_idx,\n                 });\n             }\n-            if arg_count as usize > crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n+            if arg_count as usize == /* ~ changed by cargo-mutants ~ */ crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeArgCountOutOfRange,\n                 ));\n             }\n         }\n         0x10 => {\n             let const_idx = instruction.operand(0);\n             ensure_const_index(tables.const_pool, const_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:211:35: replace > with == in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 211
+      },
+      "start": {
+        "column": 35,
+        "line": 211
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with < in validate_instruction_operands\n@@ -203,17 +203,17 @@\n                 ));\n             }\n             if symbol_idx as usize >= tables.strings.entries.len() {\n                 return Err(BytecodeError::InvalidIndex {\n                     kind: \"native symbol\".into(),\n                     index: symbol_idx,\n                 });\n             }\n-            if arg_count as usize > crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n+            if arg_count as usize < /* ~ changed by cargo-mutants ~ */ crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeArgCountOutOfRange,\n                 ));\n             }\n         }\n         0x10 => {\n             let const_idx = instruction.operand(0);\n             ensure_const_index(tables.const_pool, const_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:211:35: replace > with < in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 211
+      },
+      "start": {
+        "column": 35,
+        "line": 211
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with >= in validate_instruction_operands\n@@ -203,17 +203,17 @@\n                 ));\n             }\n             if symbol_idx as usize >= tables.strings.entries.len() {\n                 return Err(BytecodeError::InvalidIndex {\n                     kind: \"native symbol\".into(),\n                     index: symbol_idx,\n                 });\n             }\n-            if arg_count as usize > crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n+            if arg_count as usize >= /* ~ changed by cargo-mutants ~ */ crate::bytecode::BYTECODE_MAX_NATIVE_ARGUMENTS {\n                 return Err(BytecodeError::from(\n                     RejectionReason::CallNativeArgCountOutOfRange,\n                 ));\n             }\n         }\n         0x10 => {\n             let const_idx = instruction.operand(0);\n             ensure_const_index(tables.const_pool, const_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:211:35: replace > with >= in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 36,
+        "line": 211
+      },
+      "start": {
+        "column": 35,
+        "line": 211
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace == with != in validate_instruction_operands\n@@ -219,17 +219,17 @@\n             ensure_const_index(tables.const_pool, const_idx)?;\n         }\n         0x20..=0x22 => {\n             let ref_idx = instruction.operand(0);\n             if let Some(pou) = pou {\n                 ensure_pou_ref_operand(tables.ref_table, pou, ref_idx)?;\n             } else {\n                 ensure_ref_index(tables.ref_table, ref_idx)?;\n-                if tables.ref_table.entries[ref_idx as usize].location == RefLocation::Local {\n+                if tables.ref_table.entries[ref_idx as usize].location != /* ~ changed by cargo-mutants ~ */ RefLocation::Local {\n                     return Err(RejectionReason::InitializerVisibility.into());\n                 }\n             }\n         }\n         0x23 | 0x24 => {}\n         0x30 => {\n             let name_idx = instruction.operand(0);\n             ensure_string_index(tables.strings, name_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:227:72: replace == with != in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 74,
+        "line": 227
+      },
+      "start": {
+        "column": 72,
+        "line": 227
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete ! in validate_instruction_operands\n@@ -242,17 +242,17 @@\n         0x62 | 0x63 => {\n             let operand = instruction.operand(0);\n             validate_partial_access_operand(operand)?;\n         }\n         0x64 => {\n             let type_id = instruction.operand(0);\n             ensure_type_index(tables.types, type_id)?;\n             let entry = &tables.types.entries[type_id as usize];\n-            if !matches!(entry.kind, TypeKind::Reference | TypeKind::Interface) {\n+            if  /* ~ changed by cargo-mutants ~ */matches!(entry.kind, TypeKind::Reference | TypeKind::Interface) {\n                 return Err(BytecodeError::from(\n                     RejectionReason::ReferenceAttemptExpectsReferenceOrInterfaceTargetType,\n                 ));\n             }\n         }\n         crate::bytecode::opcodes::DEFAULT_VALUE => {\n             let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(\n                 crate::bytecode::opcodes::DEFAULT_VALUE,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "pou_and_instr.rs:250:16: delete ! in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 250
+      },
+      "start": {
+        "column": 16,
+        "line": 250
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace || with && in validate_instruction_operands\n@@ -257,17 +257,17 @@\n             let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(\n                 crate::bytecode::opcodes::DEFAULT_VALUE,\n             ))?;\n             let target = initializers\n                 .entries\n                 .get(instruction.operand(0) as usize)\n                 .ok_or(RejectionReason::InvalidInitializerRecord)?;\n             if target.phase != crate::bytecode::InitializationPhase::ValueDefault\n-                || target.body_kind != crate::bytecode::InitializerBodyKind::Action\n+                && /* ~ changed by cargo-mutants ~ */ target.body_kind != crate::bytecode::InitializerBodyKind::Action\n             {\n                 return Err(RejectionReason::InvalidInitializerRecord.into());\n             }\n         }\n         crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {\n             if tables.initializers.is_none() {\n                 return Err(BytecodeError::InvalidOpcode(opcode));\n             }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:265:17: replace || with && in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 265
+      },
+      "start": {
+        "column": 17,
+        "line": 265
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_instruction_operands\n@@ -256,17 +256,17 @@\n         crate::bytecode::opcodes::DEFAULT_VALUE => {\n             let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(\n                 crate::bytecode::opcodes::DEFAULT_VALUE,\n             ))?;\n             let target = initializers\n                 .entries\n                 .get(instruction.operand(0) as usize)\n                 .ok_or(RejectionReason::InvalidInitializerRecord)?;\n-            if target.phase != crate::bytecode::InitializationPhase::ValueDefault\n+            if target.phase == /* ~ changed by cargo-mutants ~ */ crate::bytecode::InitializationPhase::ValueDefault\n                 || target.body_kind != crate::bytecode::InitializerBodyKind::Action\n             {\n                 return Err(RejectionReason::InvalidInitializerRecord.into());\n             }\n         }\n         crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {\n             if tables.initializers.is_none() {\n                 return Err(BytecodeError::InvalidOpcode(opcode));\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:264:29: replace != with == in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 31,
+        "line": 264
+      },
+      "start": {
+        "column": 29,
+        "line": 264
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_instruction_operands\n@@ -257,17 +257,17 @@\n             let initializers = tables.initializers.ok_or(BytecodeError::InvalidOpcode(\n                 crate::bytecode::opcodes::DEFAULT_VALUE,\n             ))?;\n             let target = initializers\n                 .entries\n                 .get(instruction.operand(0) as usize)\n                 .ok_or(RejectionReason::InvalidInitializerRecord)?;\n             if target.phase != crate::bytecode::InitializationPhase::ValueDefault\n-                || target.body_kind != crate::bytecode::InitializerBodyKind::Action\n+                || target.body_kind == /* ~ changed by cargo-mutants ~ */ crate::bytecode::InitializerBodyKind::Action\n             {\n                 return Err(RejectionReason::InvalidInitializerRecord.into());\n             }\n         }\n         crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {\n             if tables.initializers.is_none() {\n                 return Err(BytecodeError::InvalidOpcode(opcode));\n             }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:265:37: replace != with == in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 265
+      },
+      "start": {
+        "column": 37,
+        "line": 265
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm crate::bytecode::opcodes::DEFAULT_TYPED..= crate::bytecode::opcodes::APPLY_INIT_VALUE in validate_instruction_operands\n@@ -268,20 +268,17 @@\n             }\n         }\n         crate::bytecode::opcodes::DEFAULT_TYPED..=crate::bytecode::opcodes::STRUCT_SET => {\n             if tables.initializers.is_none() {\n                 return Err(BytecodeError::InvalidOpcode(opcode));\n             }\n             let operand = instruction.operand(0);\n             match opcode {\n-                crate::bytecode::opcodes::DEFAULT_TYPED\n-                    ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n-                    ensure_type_index(tables.types, operand)?\n-                }\n+                 /* ~ changed by cargo-mutants ~ */\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n                     if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n                 crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:276:17: delete match arm crate::bytecode::opcodes::DEFAULT_TYPED..= crate::bytecode::opcodes::APPLY_INIT_VALUE in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 279
+      },
+      "start": {
+        "column": 17,
+        "line": 276
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm crate::bytecode::opcodes::STRUCT_SET in validate_instruction_operands\n@@ -280,19 +280,17 @@\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n                     if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n                 crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n-                crate::bytecode::opcodes::STRUCT_SET => {\n-                    ensure_string_index(tables.strings, operand)?\n-                }\n+                 /* ~ changed by cargo-mutants ~ */\n                 _ => {}\n             }\n         }\n         0x70 => {}\n         _ => return Err(BytecodeError::InvalidOpcode(opcode)),\n     }\n     Ok(())\n }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:288:17: delete match arm crate::bytecode::opcodes::STRUCT_SET in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 290
+      },
+      "start": {
+        "column": 17,
+        "line": 288
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace match guard operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES with true in validate_instruction_operands\n@@ -273,17 +273,17 @@\n             }\n             let operand = instruction.operand(0);\n             match opcode {\n                 crate::bytecode::opcodes::DEFAULT_TYPED\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n-                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n+                    if true /* ~ changed by cargo-mutants ~ */ =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n                 crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "pou_and_instr.rs:281:24: replace match guard operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES with true in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 82,
+        "line": 281
+      },
+      "start": {
+        "column": 24,
+        "line": 281
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace match guard operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES with false in validate_instruction_operands\n@@ -273,17 +273,17 @@\n             }\n             let operand = instruction.operand(0);\n             match opcode {\n                 crate::bytecode::opcodes::DEFAULT_TYPED\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n-                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n+                    if false /* ~ changed by cargo-mutants ~ */ =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n                 crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "pou_and_instr.rs:281:24: replace match guard operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES with false in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 82,
+        "line": 281
+      },
+      "start": {
+        "column": 24,
+        "line": 281
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace match guard operand != 0 with true in validate_instruction_operands\n@@ -277,17 +277,17 @@\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n                     if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n-                crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n+                crate::bytecode::opcodes::STRUCT_NEW if true /* ~ changed by cargo-mutants ~ */ => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n                 }\n                 _ => {}\n             }\n         }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "pou_and_instr.rs:285:57: replace match guard operand != 0 with true in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 69,
+        "line": 285
+      },
+      "start": {
+        "column": 57,
+        "line": 285
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace match guard operand != 0 with false in validate_instruction_operands\n@@ -277,17 +277,17 @@\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n                     if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n-                crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n+                crate::bytecode::opcodes::STRUCT_NEW if false /* ~ changed by cargo-mutants ~ */ => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n                 }\n                 _ => {}\n             }\n         }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "pou_and_instr.rs:285:57: replace match guard operand != 0 with false in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 69,
+        "line": 285
+      },
+      "start": {
+        "column": 57,
+        "line": 285
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with == in validate_instruction_operands\n@@ -273,17 +273,17 @@\n             }\n             let operand = instruction.operand(0);\n             match opcode {\n                 crate::bytecode::opcodes::DEFAULT_TYPED\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n-                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n+                    if operand == /* ~ changed by cargo-mutants ~ */ crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n                 crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:281:32: replace > with == in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 33,
+        "line": 281
+      },
+      "start": {
+        "column": 32,
+        "line": 281
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with < in validate_instruction_operands\n@@ -273,17 +273,17 @@\n             }\n             let operand = instruction.operand(0);\n             match opcode {\n                 crate::bytecode::opcodes::DEFAULT_TYPED\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n-                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n+                    if operand < /* ~ changed by cargo-mutants ~ */ crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n                 crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:281:32: replace > with < in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 33,
+        "line": 281
+      },
+      "start": {
+        "column": 32,
+        "line": 281
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with >= in validate_instruction_operands\n@@ -273,17 +273,17 @@\n             }\n             let operand = instruction.operand(0);\n             match opcode {\n                 crate::bytecode::opcodes::DEFAULT_TYPED\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n-                    if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n+                    if operand >= /* ~ changed by cargo-mutants ~ */ crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n                 crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:281:32: replace > with >= in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 33,
+        "line": 281
+      },
+      "start": {
+        "column": 32,
+        "line": 281
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_instruction_operands\n@@ -277,17 +277,17 @@\n                     ..=crate::bytecode::opcodes::APPLY_INIT_VALUE => {\n                     ensure_type_index(tables.types, operand)?\n                 }\n                 crate::bytecode::opcodes::ARRAY_NEW | crate::bytecode::opcodes::ARRAY_SET\n                     if operand > crate::bytecode::BYTECODE_MAX_CONSTRUCTION_NODES =>\n                 {\n                     return Err(RejectionReason::InvalidInitializerRecord.into());\n                 }\n-                crate::bytecode::opcodes::STRUCT_NEW if operand != 0 => {\n+                crate::bytecode::opcodes::STRUCT_NEW if operand == /* ~ changed by cargo-mutants ~ */ 0 => {\n                     return Err(RejectionReason::InvalidInitializerRecord.into())\n                 }\n                 crate::bytecode::opcodes::STRUCT_SET => {\n                     ensure_string_index(tables.strings, operand)?\n                 }\n                 _ => {}\n             }\n         }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_instruction_operands",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 298
+        },
+        "start": {
+          "column": 1,
+          "line": 177
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:285:65: replace != with == in validate_instruction_operands",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 67,
+        "line": 285
+      },
+      "start": {
+        "column": 65,
+        "line": 285
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace validate_pou_local_ref_range -> Result<(), BytecodeError> with Ok(())\n@@ -297,45 +297,17 @@\n     Ok(())\n }\n \n pub(super) fn validate_pou_local_ref_range(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n-    let start = pou.local_ref_start;\n-    let end = start\n-        .checked_add(pou.local_ref_count)\n-        .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-    if end as usize > ref_table.entries.len() {\n-        return Err(BytecodeError::from(\n-            RejectionReason::PouLocalRefRangeOutOfBounds,\n-        ));\n-    }\n-    budget.work((end - start) as usize)?;\n-    for ref_idx in start..end {\n-        let ref_entry = &ref_table.entries[ref_idx as usize];\n-        if ref_entry.location != RefLocation::Local {\n-            return Err(BytecodeError::from(\n-                RejectionReason::PouLocalRefRangeContainsNonLocalRef,\n-            ));\n-        }\n-        if !ref_entry.segments.is_empty() {\n-            return Err(BytecodeError::from(\n-                RejectionReason::PouLocalRefRangeContainsPathRef,\n-            ));\n-        }\n-        if ref_entry.offset != ref_idx.saturating_sub(start) {\n-            return Err(BytecodeError::from(\n-                RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset,\n-            ));\n-        }\n-    }\n-    Ok(())\n+    Ok(()) /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n     if pou.local_ref_count == 0 {\n         return None;\n     }\n     ref_table\n         .entries\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:305:5: replace validate_pou_local_ref_range -> Result<(), BytecodeError> with Ok(())",
+    "package": "single_file",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 333
+      },
+      "start": {
+        "column": 5,
+        "line": 305
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with == in validate_pou_local_ref_range\n@@ -301,17 +301,17 @@\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let start = pou.local_ref_start;\n     let end = start\n         .checked_add(pou.local_ref_count)\n         .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-    if end as usize > ref_table.entries.len() {\n+    if end as usize == /* ~ changed by cargo-mutants ~ */ ref_table.entries.len() {\n         return Err(BytecodeError::from(\n             RejectionReason::PouLocalRefRangeOutOfBounds,\n         ));\n     }\n     budget.work((end - start) as usize)?;\n     for ref_idx in start..end {\n         let ref_entry = &ref_table.entries[ref_idx as usize];\n         if ref_entry.location != RefLocation::Local {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:309:21: replace > with == in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 309
+      },
+      "start": {
+        "column": 21,
+        "line": 309
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with < in validate_pou_local_ref_range\n@@ -301,17 +301,17 @@\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let start = pou.local_ref_start;\n     let end = start\n         .checked_add(pou.local_ref_count)\n         .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-    if end as usize > ref_table.entries.len() {\n+    if end as usize < /* ~ changed by cargo-mutants ~ */ ref_table.entries.len() {\n         return Err(BytecodeError::from(\n             RejectionReason::PouLocalRefRangeOutOfBounds,\n         ));\n     }\n     budget.work((end - start) as usize)?;\n     for ref_idx in start..end {\n         let ref_entry = &ref_table.entries[ref_idx as usize];\n         if ref_entry.location != RefLocation::Local {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:309:21: replace > with < in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 309
+      },
+      "start": {
+        "column": 21,
+        "line": 309
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with >= in validate_pou_local_ref_range\n@@ -301,17 +301,17 @@\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     budget: &mut ValidationBudget,\n ) -> Result<(), BytecodeError> {\n     let start = pou.local_ref_start;\n     let end = start\n         .checked_add(pou.local_ref_count)\n         .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-    if end as usize > ref_table.entries.len() {\n+    if end as usize >= /* ~ changed by cargo-mutants ~ */ ref_table.entries.len() {\n         return Err(BytecodeError::from(\n             RejectionReason::PouLocalRefRangeOutOfBounds,\n         ));\n     }\n     budget.work((end - start) as usize)?;\n     for ref_idx in start..end {\n         let ref_entry = &ref_table.entries[ref_idx as usize];\n         if ref_entry.location != RefLocation::Local {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:309:21: replace > with >= in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 22,
+        "line": 309
+      },
+      "start": {
+        "column": 21,
+        "line": 309
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace - with + in validate_pou_local_ref_range\n@@ -306,17 +306,17 @@\n     let end = start\n         .checked_add(pou.local_ref_count)\n         .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n     if end as usize > ref_table.entries.len() {\n         return Err(BytecodeError::from(\n             RejectionReason::PouLocalRefRangeOutOfBounds,\n         ));\n     }\n-    budget.work((end - start) as usize)?;\n+    budget.work((end + /* ~ changed by cargo-mutants ~ */ start) as usize)?;\n     for ref_idx in start..end {\n         let ref_entry = &ref_table.entries[ref_idx as usize];\n         if ref_entry.location != RefLocation::Local {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsNonLocalRef,\n             ));\n         }\n         if !ref_entry.segments.is_empty() {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:314:22: replace - with + in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 314
+      },
+      "start": {
+        "column": 22,
+        "line": 314
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace - with / in validate_pou_local_ref_range\n@@ -306,17 +306,17 @@\n     let end = start\n         .checked_add(pou.local_ref_count)\n         .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n     if end as usize > ref_table.entries.len() {\n         return Err(BytecodeError::from(\n             RejectionReason::PouLocalRefRangeOutOfBounds,\n         ));\n     }\n-    budget.work((end - start) as usize)?;\n+    budget.work((end / /* ~ changed by cargo-mutants ~ */ start) as usize)?;\n     for ref_idx in start..end {\n         let ref_entry = &ref_table.entries[ref_idx as usize];\n         if ref_entry.location != RefLocation::Local {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsNonLocalRef,\n             ));\n         }\n         if !ref_entry.segments.is_empty() {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:314:22: replace - with / in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 23,
+        "line": 314
+      },
+      "start": {
+        "column": 22,
+        "line": 314
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_pou_local_ref_range\n@@ -309,17 +309,17 @@\n     if end as usize > ref_table.entries.len() {\n         return Err(BytecodeError::from(\n             RejectionReason::PouLocalRefRangeOutOfBounds,\n         ));\n     }\n     budget.work((end - start) as usize)?;\n     for ref_idx in start..end {\n         let ref_entry = &ref_table.entries[ref_idx as usize];\n-        if ref_entry.location != RefLocation::Local {\n+        if ref_entry.location == /* ~ changed by cargo-mutants ~ */ RefLocation::Local {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsNonLocalRef,\n             ));\n         }\n         if !ref_entry.segments.is_empty() {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsPathRef,\n             ));\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:317:31: replace != with == in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 33,
+        "line": 317
+      },
+      "start": {
+        "column": 31,
+        "line": 317
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete ! in validate_pou_local_ref_range\n@@ -314,17 +314,17 @@\n     budget.work((end - start) as usize)?;\n     for ref_idx in start..end {\n         let ref_entry = &ref_table.entries[ref_idx as usize];\n         if ref_entry.location != RefLocation::Local {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsNonLocalRef,\n             ));\n         }\n-        if !ref_entry.segments.is_empty() {\n+        if  /* ~ changed by cargo-mutants ~ */ref_entry.segments.is_empty() {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsPathRef,\n             ));\n         }\n         if ref_entry.offset != ref_idx.saturating_sub(start) {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset,\n             ));\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "pou_and_instr.rs:322:12: delete ! in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 13,
+        "line": 322
+      },
+      "start": {
+        "column": 12,
+        "line": 322
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_pou_local_ref_range\n@@ -319,17 +319,17 @@\n                 RejectionReason::PouLocalRefRangeContainsNonLocalRef,\n             ));\n         }\n         if !ref_entry.segments.is_empty() {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsPathRef,\n             ));\n         }\n-        if ref_entry.offset != ref_idx.saturating_sub(start) {\n+        if ref_entry.offset == /* ~ changed by cargo-mutants ~ */ ref_idx.saturating_sub(start) {\n             return Err(BytecodeError::from(\n                 RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset,\n             ));\n         }\n     }\n     Ok(())\n }\n \n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_pou_local_ref_range",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 334
+        },
+        "start": {
+          "column": 1,
+          "line": 300
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:327:29: replace != with == in validate_pou_local_ref_range",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 31,
+        "line": 327
+      },
+      "start": {
+        "column": 29,
+        "line": 327
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace pou_local_owner -> Option<u32> with None\n@@ -329,23 +329,17 @@\n                 RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset,\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n-    if pou.local_ref_count == 0 {\n-        return None;\n-    }\n-    ref_table\n-        .entries\n-        .get(pou.local_ref_start as usize)\n-        .map(|entry| entry.owner_id)\n+    None /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn ensure_pou_ref_operand(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     ref_idx: u32,\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "pou_local_owner",
+      "return_type": "-> Option<u32>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 344
+        },
+        "start": {
+          "column": 1,
+          "line": 336
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:337:5: replace pou_local_owner -> Option<u32> with None",
+    "package": "single_file",
+    "replacement": "None",
+    "span": {
+      "end": {
+        "column": 37,
+        "line": 343
+      },
+      "start": {
+        "column": 5,
+        "line": 337
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace pou_local_owner -> Option<u32> with Some(0)\n@@ -329,23 +329,17 @@\n                 RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset,\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n-    if pou.local_ref_count == 0 {\n-        return None;\n-    }\n-    ref_table\n-        .entries\n-        .get(pou.local_ref_start as usize)\n-        .map(|entry| entry.owner_id)\n+    Some(0) /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn ensure_pou_ref_operand(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     ref_idx: u32,\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "pou_local_owner",
+      "return_type": "-> Option<u32>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 344
+        },
+        "start": {
+          "column": 1,
+          "line": 336
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:337:5: replace pou_local_owner -> Option<u32> with Some(0)",
+    "package": "single_file",
+    "replacement": "Some(0)",
+    "span": {
+      "end": {
+        "column": 37,
+        "line": 343
+      },
+      "start": {
+        "column": 5,
+        "line": 337
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace pou_local_owner -> Option<u32> with Some(1)\n@@ -329,23 +329,17 @@\n                 RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset,\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n-    if pou.local_ref_count == 0 {\n-        return None;\n-    }\n-    ref_table\n-        .entries\n-        .get(pou.local_ref_start as usize)\n-        .map(|entry| entry.owner_id)\n+    Some(1) /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn ensure_pou_ref_operand(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     ref_idx: u32,\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "pou_local_owner",
+      "return_type": "-> Option<u32>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 344
+        },
+        "start": {
+          "column": 1,
+          "line": 336
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:337:5: replace pou_local_owner -> Option<u32> with Some(1)",
+    "package": "single_file",
+    "replacement": "Some(1)",
+    "span": {
+      "end": {
+        "column": 37,
+        "line": 343
+      },
+      "start": {
+        "column": 5,
+        "line": 337
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace == with != in pou_local_owner\n@@ -329,17 +329,17 @@\n                 RejectionReason::PouLocalRefRangeContainsNonContiguousLocalOffset,\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn pou_local_owner(ref_table: &RefTable, pou: &PouEntry) -> Option<u32> {\n-    if pou.local_ref_count == 0 {\n+    if pou.local_ref_count != /* ~ changed by cargo-mutants ~ */ 0 {\n         return None;\n     }\n     ref_table\n         .entries\n         .get(pou.local_ref_start as usize)\n         .map(|entry| entry.owner_id)\n }\n \n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "pou_local_owner",
+      "return_type": "-> Option<u32>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 344
+        },
+        "start": {
+          "column": 1,
+          "line": 336
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:337:28: replace == with != in pou_local_owner",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 337
+      },
+      "start": {
+        "column": 28,
+        "line": 337
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace ensure_pou_ref_operand -> Result<(), BytecodeError> with Ok(())\n@@ -343,36 +343,17 @@\n         .map(|entry| entry.owner_id)\n }\n \n pub(super) fn ensure_pou_ref_operand(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     ref_idx: u32,\n ) -> Result<(), BytecodeError> {\n-    ensure_ref_index(ref_table, ref_idx)?;\n-    let ref_entry = &ref_table.entries[ref_idx as usize];\n-    if ref_entry.location == RefLocation::Local {\n-        let end = pou\n-            .local_ref_start\n-            .checked_add(pou.local_ref_count)\n-            .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-        if ref_idx < pou.local_ref_start || ref_idx >= end {\n-            if !ref_entry.segments.is_empty()\n-                && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n-                && ref_entry.offset < pou.local_ref_count\n-            {\n-                return Ok(());\n-            }\n-            return Err(BytecodeError::from(\n-                RejectionReason::LocalRefOutsidePouLocalRange,\n-            ));\n-        }\n-    }\n-    Ok(())\n+    Ok(()) /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:351:5: replace ensure_pou_ref_operand -> Result<(), BytecodeError> with Ok(())",
+    "package": "single_file",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 370
+      },
+      "start": {
+        "column": 5,
+        "line": 351
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace == with != in ensure_pou_ref_operand\n@@ -345,17 +345,17 @@\n \n pub(super) fn ensure_pou_ref_operand(\n     ref_table: &RefTable,\n     pou: &PouEntry,\n     ref_idx: u32,\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n-    if ref_entry.location == RefLocation::Local {\n+    if ref_entry.location != /* ~ changed by cargo-mutants ~ */ RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:353:27: replace == with != in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 353
+      },
+      "start": {
+        "column": 27,
+        "line": 353
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace || with && in ensure_pou_ref_operand\n@@ -350,17 +350,17 @@\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-        if ref_idx < pou.local_ref_start || ref_idx >= end {\n+        if ref_idx < pou.local_ref_start && /* ~ changed by cargo-mutants ~ */ ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:358:42: replace || with && in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 358
+      },
+      "start": {
+        "column": 42,
+        "line": 358
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with == in ensure_pou_ref_operand\n@@ -350,17 +350,17 @@\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-        if ref_idx < pou.local_ref_start || ref_idx >= end {\n+        if ref_idx == /* ~ changed by cargo-mutants ~ */ pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:358:20: replace < with == in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 21,
+        "line": 358
+      },
+      "start": {
+        "column": 20,
+        "line": 358
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with > in ensure_pou_ref_operand\n@@ -350,17 +350,17 @@\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-        if ref_idx < pou.local_ref_start || ref_idx >= end {\n+        if ref_idx > /* ~ changed by cargo-mutants ~ */ pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:358:20: replace < with > in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 21,
+        "line": 358
+      },
+      "start": {
+        "column": 20,
+        "line": 358
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with <= in ensure_pou_ref_operand\n@@ -350,17 +350,17 @@\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-        if ref_idx < pou.local_ref_start || ref_idx >= end {\n+        if ref_idx <= /* ~ changed by cargo-mutants ~ */ pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:358:20: replace < with <= in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 21,
+        "line": 358
+      },
+      "start": {
+        "column": 20,
+        "line": 358
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace >= with < in ensure_pou_ref_operand\n@@ -350,17 +350,17 @@\n ) -> Result<(), BytecodeError> {\n     ensure_ref_index(ref_table, ref_idx)?;\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n-        if ref_idx < pou.local_ref_start || ref_idx >= end {\n+        if ref_idx < pou.local_ref_start || ref_idx < /* ~ changed by cargo-mutants ~ */ end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:358:53: replace >= with < in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 55,
+        "line": 358
+      },
+      "start": {
+        "column": 53,
+        "line": 358
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace && with || in ensure_pou_ref_operand\n@@ -353,17 +353,17 @@\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n-                && ref_entry.offset < pou.local_ref_count\n+                || /* ~ changed by cargo-mutants ~ */ ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:361:17: replace && with || in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 361
+      },
+      "start": {
+        "column": 17,
+        "line": 361
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace && with || in ensure_pou_ref_operand\n@@ -352,17 +352,17 @@\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n-                && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n+                || /* ~ changed by cargo-mutants ~ */ pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:360:17: replace && with || in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "||",
+    "span": {
+      "end": {
+        "column": 19,
+        "line": 360
+      },
+      "start": {
+        "column": 17,
+        "line": 360
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete ! in ensure_pou_ref_operand\n@@ -351,17 +351,17 @@\n     ensure_ref_index(ref_table, ref_idx)?;\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n-            if !ref_entry.segments.is_empty()\n+            if  /* ~ changed by cargo-mutants ~ */ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "pou_and_instr.rs:359:16: delete ! in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 359
+      },
+      "start": {
+        "column": 16,
+        "line": 359
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace == with != in ensure_pou_ref_operand\n@@ -352,17 +352,17 @@\n     let ref_entry = &ref_table.entries[ref_idx as usize];\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n-                && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n+                && pou_local_owner(ref_table, pou) != /* ~ changed by cargo-mutants ~ */ Some(ref_entry.owner_id)\n                 && ref_entry.offset < pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:360:52: replace == with != in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 54,
+        "line": 360
+      },
+      "start": {
+        "column": 52,
+        "line": 360
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with == in ensure_pou_ref_operand\n@@ -353,17 +353,17 @@\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n-                && ref_entry.offset < pou.local_ref_count\n+                && ref_entry.offset == /* ~ changed by cargo-mutants ~ */ pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:361:37: replace < with == in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 361
+      },
+      "start": {
+        "column": 37,
+        "line": 361
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with > in ensure_pou_ref_operand\n@@ -353,17 +353,17 @@\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n-                && ref_entry.offset < pou.local_ref_count\n+                && ref_entry.offset > /* ~ changed by cargo-mutants ~ */ pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:361:37: replace < with > in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 361
+      },
+      "start": {
+        "column": 37,
+        "line": 361
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace < with <= in ensure_pou_ref_operand\n@@ -353,17 +353,17 @@\n     if ref_entry.location == RefLocation::Local {\n         let end = pou\n             .local_ref_start\n             .checked_add(pou.local_ref_count)\n             .ok_or_else(|| BytecodeError::from(RejectionReason::PouLocalRefRangeOverflow))?;\n         if ref_idx < pou.local_ref_start || ref_idx >= end {\n             if !ref_entry.segments.is_empty()\n                 && pou_local_owner(ref_table, pou) == Some(ref_entry.owner_id)\n-                && ref_entry.offset < pou.local_ref_count\n+                && ref_entry.offset <= /* ~ changed by cargo-mutants ~ */ pou.local_ref_count\n             {\n                 return Ok(());\n             }\n             return Err(BytecodeError::from(\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "ensure_pou_ref_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 371
+        },
+        "start": {
+          "column": 1,
+          "line": 346
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:361:37: replace < with <= in ensure_pou_ref_operand",
+    "package": "single_file",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 361
+      },
+      "start": {
+        "column": 37,
+        "line": 361
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace unsupported_runtime_opcode_name -> Option<&'static str> with None\n@@ -366,28 +366,17 @@\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n-    match opcode {\n-        0x07 => Some(\"CALL_METHOD\"),\n-        0x08 => Some(\"CALL_VIRTUAL\"),\n-        0x14 => Some(\"ROT3\"),\n-        0x15 => Some(\"ROT4\"),\n-        0x16 => Some(\"CAST_IMPLICIT\"),\n-        0x4A => Some(\"SHL\"),\n-        0x4B => Some(\"SHR\"),\n-        0x4D => Some(\"ROL\"),\n-        0x4E => Some(\"ROR\"),\n-        _ => None,\n-    }\n+    None /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:374:5: replace unsupported_runtime_opcode_name -> Option<&'static str> with None",
+    "package": "single_file",
+    "replacement": "None",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 385
+      },
+      "start": {
+        "column": 5,
+        "line": 374
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace unsupported_runtime_opcode_name -> Option<&'static str> with Some(\"\")\n@@ -366,28 +366,17 @@\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n-    match opcode {\n-        0x07 => Some(\"CALL_METHOD\"),\n-        0x08 => Some(\"CALL_VIRTUAL\"),\n-        0x14 => Some(\"ROT3\"),\n-        0x15 => Some(\"ROT4\"),\n-        0x16 => Some(\"CAST_IMPLICIT\"),\n-        0x4A => Some(\"SHL\"),\n-        0x4B => Some(\"SHR\"),\n-        0x4D => Some(\"ROL\"),\n-        0x4E => Some(\"ROR\"),\n-        _ => None,\n-    }\n+    Some(\"\") /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:374:5: replace unsupported_runtime_opcode_name -> Option<&'static str> with Some(\"\")",
+    "package": "single_file",
+    "replacement": "Some(\"\")",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 385
+      },
+      "start": {
+        "column": 5,
+        "line": 374
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace unsupported_runtime_opcode_name -> Option<&'static str> with Some(\"xyzzy\")\n@@ -366,28 +366,17 @@\n                 RejectionReason::LocalRefOutsidePouLocalRange,\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n-    match opcode {\n-        0x07 => Some(\"CALL_METHOD\"),\n-        0x08 => Some(\"CALL_VIRTUAL\"),\n-        0x14 => Some(\"ROT3\"),\n-        0x15 => Some(\"ROT4\"),\n-        0x16 => Some(\"CAST_IMPLICIT\"),\n-        0x4A => Some(\"SHL\"),\n-        0x4B => Some(\"SHR\"),\n-        0x4D => Some(\"ROL\"),\n-        0x4E => Some(\"ROR\"),\n-        _ => None,\n-    }\n+    Some(\"xyzzy\") /* ~ changed by cargo-mutants ~ */\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:374:5: replace unsupported_runtime_opcode_name -> Option<&'static str> with Some(\"xyzzy\")",
+    "package": "single_file",
+    "replacement": "Some(\"xyzzy\")",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 385
+      },
+      "start": {
+        "column": 5,
+        "line": 374
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x07 in unsupported_runtime_opcode_name\n@@ -367,17 +367,17 @@\n             ));\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n-        0x07 => Some(\"CALL_METHOD\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n         0x16 => Some(\"CAST_IMPLICIT\"),\n         0x4A => Some(\"SHL\"),\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:375:9: delete match arm 0x07 in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 37,
+        "line": 375
+      },
+      "start": {
+        "column": 9,
+        "line": 375
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x08 in unsupported_runtime_opcode_name\n@@ -368,17 +368,17 @@\n         }\n     }\n     Ok(())\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n-        0x08 => Some(\"CALL_VIRTUAL\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n         0x16 => Some(\"CAST_IMPLICIT\"),\n         0x4A => Some(\"SHL\"),\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:376:9: delete match arm 0x08 in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 376
+      },
+      "start": {
+        "column": 9,
+        "line": 376
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x14 in unsupported_runtime_opcode_name\n@@ -369,17 +369,17 @@\n     }\n     Ok(())\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n-        0x14 => Some(\"ROT3\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x15 => Some(\"ROT4\"),\n         0x16 => Some(\"CAST_IMPLICIT\"),\n         0x4A => Some(\"SHL\"),\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:377:9: delete match arm 0x14 in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 377
+      },
+      "start": {
+        "column": 9,
+        "line": 377
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x15 in unsupported_runtime_opcode_name\n@@ -370,17 +370,17 @@\n     Ok(())\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n-        0x15 => Some(\"ROT4\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x16 => Some(\"CAST_IMPLICIT\"),\n         0x4A => Some(\"SHL\"),\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:378:9: delete match arm 0x15 in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 378
+      },
+      "start": {
+        "column": 9,
+        "line": 378
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x16 in unsupported_runtime_opcode_name\n@@ -371,17 +371,17 @@\n }\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n-        0x16 => Some(\"CAST_IMPLICIT\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x4A => Some(\"SHL\"),\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:379:9: delete match arm 0x16 in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 379
+      },
+      "start": {
+        "column": 9,
+        "line": 379
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x4A in unsupported_runtime_opcode_name\n@@ -372,17 +372,17 @@\n \n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n         0x16 => Some(\"CAST_IMPLICIT\"),\n-        0x4A => Some(\"SHL\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:380:9: delete match arm 0x4A in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 380
+      },
+      "start": {
+        "column": 9,
+        "line": 380
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x4B in unsupported_runtime_opcode_name\n@@ -373,17 +373,17 @@\n pub(super) fn unsupported_runtime_opcode_name(opcode: u8) -> Option<&'static str> {\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n         0x16 => Some(\"CAST_IMPLICIT\"),\n         0x4A => Some(\"SHL\"),\n-        0x4B => Some(\"SHR\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:381:9: delete match arm 0x4B in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 381
+      },
+      "start": {
+        "column": 9,
+        "line": 381
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x4D in unsupported_runtime_opcode_name\n@@ -374,17 +374,17 @@\n     match opcode {\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n         0x16 => Some(\"CAST_IMPLICIT\"),\n         0x4A => Some(\"SHL\"),\n         0x4B => Some(\"SHR\"),\n-        0x4D => Some(\"ROL\"),\n+         /* ~ changed by cargo-mutants ~ */\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:382:9: delete match arm 0x4D in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 382
+      },
+      "start": {
+        "column": 9,
+        "line": 382
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0x4E in unsupported_runtime_opcode_name\n@@ -375,17 +375,17 @@\n         0x07 => Some(\"CALL_METHOD\"),\n         0x08 => Some(\"CALL_VIRTUAL\"),\n         0x14 => Some(\"ROT3\"),\n         0x15 => Some(\"ROT4\"),\n         0x16 => Some(\"CAST_IMPLICIT\"),\n         0x4A => Some(\"SHL\"),\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n-        0x4E => Some(\"ROR\"),\n+         /* ~ changed by cargo-mutants ~ */\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "unsupported_runtime_opcode_name",
+      "return_type": "-> Option<&'static str>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 386
+        },
+        "start": {
+          "column": 1,
+          "line": 373
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:383:9: delete match arm 0x4E in unsupported_runtime_opcode_name",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 383
+      },
+      "start": {
+        "column": 9,
+        "line": 383
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace validate_partial_access_operand -> Result<(), BytecodeError> with Ok(())\n@@ -381,29 +381,10 @@\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n-    if (operand & !0x3FF) != 0 {\n-        return Err(BytecodeError::from(\n-            RejectionReason::PartialAccessOperandOutOfRange,\n-        ));\n-    }\n-    let kind = (operand >> 8) & 0x03;\n-    let index = (operand & 0xFF) as u8;\n-    let max = match kind {\n-        0 => 63, // bit\n-        1 => 7,  // byte\n-        2 => 3,  // word\n-        3 => 1,  // dword\n-        _ => unreachable!(),\n-    };\n-    if index > max {\n-        return Err(BytecodeError::from(\n-            RejectionReason::PartialAccessIndexOutOfRange,\n-        ));\n-    }\n-    Ok(())\n+    Ok(()) /* ~ changed by cargo-mutants ~ */\n }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "pou_and_instr.rs:389:5: replace validate_partial_access_operand -> Result<(), BytecodeError> with Ok(())",
+    "package": "single_file",
+    "replacement": "Ok(())",
+    "span": {
+      "end": {
+        "column": 11,
+        "line": 408
+      },
+      "start": {
+        "column": 5,
+        "line": 389
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace != with == in validate_partial_access_operand\n@@ -381,17 +381,17 @@\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n-    if (operand & !0x3FF) != 0 {\n+    if (operand & !0x3FF) == /* ~ changed by cargo-mutants ~ */ 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:389:27: replace != with == in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 29,
+        "line": 389
+      },
+      "start": {
+        "column": 27,
+        "line": 389
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace & with | in validate_partial_access_operand\n@@ -381,17 +381,17 @@\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n-    if (operand & !0x3FF) != 0 {\n+    if (operand | /* ~ changed by cargo-mutants ~ */ !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:389:17: replace & with | in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "|",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 389
+      },
+      "start": {
+        "column": 17,
+        "line": 389
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace & with ^ in validate_partial_access_operand\n@@ -381,17 +381,17 @@\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n-    if (operand & !0x3FF) != 0 {\n+    if (operand ^ /* ~ changed by cargo-mutants ~ */ !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:389:17: replace & with ^ in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "^",
+    "span": {
+      "end": {
+        "column": 18,
+        "line": 389
+      },
+      "start": {
+        "column": 17,
+        "line": 389
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete ! in validate_partial_access_operand\n@@ -381,17 +381,17 @@\n         0x4B => Some(\"SHR\"),\n         0x4D => Some(\"ROL\"),\n         0x4E => Some(\"ROR\"),\n         _ => None,\n     }\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n-    if (operand & !0x3FF) != 0 {\n+    if (operand &  /* ~ changed by cargo-mutants ~ */0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "pou_and_instr.rs:389:19: delete ! in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 20,
+        "line": 389
+      },
+      "start": {
+        "column": 19,
+        "line": 389
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace & with | in validate_partial_access_operand\n@@ -386,17 +386,17 @@\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n-    let kind = (operand >> 8) & 0x03;\n+    let kind = (operand >> 8) | /* ~ changed by cargo-mutants ~ */ 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:394:31: replace & with | in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "|",
+    "span": {
+      "end": {
+        "column": 32,
+        "line": 394
+      },
+      "start": {
+        "column": 31,
+        "line": 394
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace & with ^ in validate_partial_access_operand\n@@ -386,17 +386,17 @@\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n-    let kind = (operand >> 8) & 0x03;\n+    let kind = (operand >> 8) ^ /* ~ changed by cargo-mutants ~ */ 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:394:31: replace & with ^ in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "^",
+    "span": {
+      "end": {
+        "column": 32,
+        "line": 394
+      },
+      "start": {
+        "column": 31,
+        "line": 394
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace >> with << in validate_partial_access_operand\n@@ -386,17 +386,17 @@\n }\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n-    let kind = (operand >> 8) & 0x03;\n+    let kind = (operand << /* ~ changed by cargo-mutants ~ */ 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:394:25: replace >> with << in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "<<",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 394
+      },
+      "start": {
+        "column": 25,
+        "line": 394
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace & with | in validate_partial_access_operand\n@@ -387,17 +387,17 @@\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n-    let index = (operand & 0xFF) as u8;\n+    let index = (operand | /* ~ changed by cargo-mutants ~ */ 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n     if index > max {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:395:26: replace & with | in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "|",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 395
+      },
+      "start": {
+        "column": 26,
+        "line": 395
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace & with ^ in validate_partial_access_operand\n@@ -387,17 +387,17 @@\n \n pub(super) fn validate_partial_access_operand(operand: u32) -> Result<(), BytecodeError> {\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n-    let index = (operand & 0xFF) as u8;\n+    let index = (operand ^ /* ~ changed by cargo-mutants ~ */ 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n     if index > max {\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:395:26: replace & with ^ in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "^",
+    "span": {
+      "end": {
+        "column": 27,
+        "line": 395
+      },
+      "start": {
+        "column": 26,
+        "line": 395
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 0 in validate_partial_access_operand\n@@ -389,17 +389,17 @@\n     if (operand & !0x3FF) != 0 {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n-        0 => 63, // bit\n+         /* ~ changed by cargo-mutants ~ */ // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n     if index > max {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessIndexOutOfRange,\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:397:9: delete match arm 0 in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 397
+      },
+      "start": {
+        "column": 9,
+        "line": 397
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 1 in validate_partial_access_operand\n@@ -390,17 +390,17 @@\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n-        1 => 7,  // byte\n+         /* ~ changed by cargo-mutants ~ */  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n     if index > max {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessIndexOutOfRange,\n         ));\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:398:9: delete match arm 1 in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 398
+      },
+      "start": {
+        "column": 9,
+        "line": 398
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 2 in validate_partial_access_operand\n@@ -391,17 +391,17 @@\n             RejectionReason::PartialAccessOperandOutOfRange,\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n-        2 => 3,  // word\n+         /* ~ changed by cargo-mutants ~ */  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n     if index > max {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessIndexOutOfRange,\n         ));\n     }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:399:9: delete match arm 2 in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 399
+      },
+      "start": {
+        "column": 9,
+        "line": 399
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ delete match arm 3 in validate_partial_access_operand\n@@ -392,17 +392,17 @@\n         ));\n     }\n     let kind = (operand >> 8) & 0x03;\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n-        3 => 1,  // dword\n+         /* ~ changed by cargo-mutants ~ */  // dword\n         _ => unreachable!(),\n     };\n     if index > max {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessIndexOutOfRange,\n         ));\n     }\n     Ok(())\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "pou_and_instr.rs:400:9: delete match arm 3 in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 16,
+        "line": 400
+      },
+      "start": {
+        "column": 9,
+        "line": 400
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with == in validate_partial_access_operand\n@@ -395,15 +395,15 @@\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n-    if index > max {\n+    if index == /* ~ changed by cargo-mutants ~ */ max {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessIndexOutOfRange,\n         ));\n     }\n     Ok(())\n }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:403:14: replace > with == in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 403
+      },
+      "start": {
+        "column": 14,
+        "line": 403
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with < in validate_partial_access_operand\n@@ -395,15 +395,15 @@\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n-    if index > max {\n+    if index < /* ~ changed by cargo-mutants ~ */ max {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessIndexOutOfRange,\n         ));\n     }\n     Ok(())\n }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:403:14: replace > with < in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 403
+      },
+      "start": {
+        "column": 14,
+        "line": 403
+      }
+    }
+  },
+  {
+    "diff": "--- pou_and_instr.rs\n+++ replace > with >= in validate_partial_access_operand\n@@ -395,15 +395,15 @@\n     let index = (operand & 0xFF) as u8;\n     let max = match kind {\n         0 => 63, // bit\n         1 => 7,  // byte\n         2 => 3,  // word\n         3 => 1,  // dword\n         _ => unreachable!(),\n     };\n-    if index > max {\n+    if index >= /* ~ changed by cargo-mutants ~ */ max {\n         return Err(BytecodeError::from(\n             RejectionReason::PartialAccessIndexOutOfRange,\n         ));\n     }\n     Ok(())\n }\n",
+    "file": "pou_and_instr.rs",
+    "function": {
+      "function_name": "validate_partial_access_operand",
+      "return_type": "-> Result<(), BytecodeError>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 409
+        },
+        "start": {
+          "column": 1,
+          "line": 388
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "pou_and_instr.rs:403:14: replace > with >= in validate_partial_access_operand",
+    "package": "single_file",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 15,
+        "line": 403
+      },
+      "start": {
+        "column": 14,
+        "line": 403
+      }
+    }
+  }
+]

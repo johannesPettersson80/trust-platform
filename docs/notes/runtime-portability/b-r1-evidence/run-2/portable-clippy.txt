@@ -1,0 +1,56 @@
+[gate-progress state=started phase=B-R1-portable-clippy target=scena-rust-builder pid=1437840 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-runtime-core --no-default-features --all-targets -- -D warnings']
+    Checking typenum v1.20.0
+    Checking serde_core v1.0.228
+    Checking winnow v1.0.2
+    Checking thiserror v2.0.18
+    Checking memchr v2.8.0
+    Checking toml_writer v1.1.1+spec-1.1.0
+    Checking hashbrown v0.17.0
+    Checking rustc-hash v2.1.2
+    Checking smol_str v0.2.2
+    Checking toml_parser v1.1.2+spec-1.1.0
+    Checking crc32fast v1.5.0
+    Checking indexmap v2.14.0
+    Checking generic-array v0.14.7
+    Checking crypto-common v0.1.7
+    Checking block-buffer v0.10.4
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Checking digest v0.10.7
+    Checking sha2 v0.10.9
+    Checking serde_spanned v1.1.1
+    Checking toml_datetime v1.1.1+spec-1.1.0
+    Checking serde_json v1.0.149
+    Checking serde v1.0.228
+    Checking toml v1.1.2+spec-1.1.0
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/verification-cases)
+error: manual implementation of `.is_multiple_of()`
+  --> crates/trust-runtime-core/src/bytecode/decode/section_validate.rs:53:12
+   |
+53 |         if entry.offset % 4 != 0 {
+   |            ^^^^^^^^^^^^^^^^^^^^^ help: replace with: `!entry.offset.is_multiple_of(4)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#manual_is_multiple_of
+   = note: `-D clippy::manual-is-multiple-of` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::manual_is_multiple_of)]`
+
+error: all variants have the same postfix: `Clone`
+   --> crates/trust-runtime-core/src/vm/call/context.rs:120:1
+    |
+120 | / pub enum RegisterValueOpKind {
+121 | |     /// A constant value was materialized.
+122 | |     ConstLoadClone,
+123 | |     /// A register value was cloned.
+...   |
+134 | |     OutputValueClone,
+135 | | }
+    | |_^
+    |
+    = help: remove the postfixes and use full paths to the variants instead of glob imports
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#enum_variant_names
+    = note: `-D clippy::enum-variant-names` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::enum_variant_names)]`
+
+error: could not compile `trust-runtime-core` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `trust-runtime-core` (lib test) due to 2 previous errors
+[gate-progress state=finished phase=B-R1-portable-clippy target=scena-rust-builder pid=1437840 elapsed=6.1s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-runtime-core --no-default-features --all-targets -- -D warnings' status=101]

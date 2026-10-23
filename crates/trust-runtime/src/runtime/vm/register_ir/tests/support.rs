@@ -6,37 +6,43 @@ use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::bundle_builder::collect_project_source_files;
-use crate::bytecode::{SectionData, SectionId, TypeTable};
+use crate::bytecode::TypeTable;
 use crate::config::RuntimeConfig;
 use crate::error::RuntimeError;
 use crate::execution_backend::ExecutionBackend;
-use crate::harness::{bytecode_module_from_source, CompileSession, TestHarness};
+use crate::harness::CompileSession;
 use crate::program_model::{apply_binary, apply_unary, BinaryOp, UnaryOp};
+use crate::runtime::legacy_harness::legacy_module_from_source as bytecode_module_from_source;
+use crate::runtime::LegacyRuntimeFixture as Runtime;
+use crate::runtime::LegacyTestHarness as TestHarness;
 use crate::value::{DateTimeProfile, RefPath, RefSegment, StructValue, Value};
-use crate::{RestartMode, Runtime};
+use crate::RestartMode;
 
 use super::super::{VmPouEntry, VmRef};
+use super::environment::{parse_bool, parse_number};
 use super::{
     block_index_from_id, collect_block_leaders, compute_block_entry_stack_depths,
     deadline_exceeded, decode_pou, execute_register_block_interpreted,
     execute_tier1_compiled_block, fuse_register_block_instructions,
     fuse_register_block_instructions_with_costs, instruction_reads_register, invalid_bytecode,
     lower_pou_to_register_ir, next_linear_block_target, normalize_stack_for_block_exit,
-    parse_env_bool, parse_tier1_env_bool, parse_tier1_env_usize, prepare_register_file,
-    read_bool_register, read_reference_register, read_reference_register_with_counts,
-    read_register_with_counts, try_execute_pou_with_register_ir,
+    prepare_register_file, read_bool_register, read_reference_register,
+    read_reference_register_with_counts, read_register_with_counts, register_statement_location,
+    sparse_register_read_counts_by_block, try_execute_pou_with_register_ir,
     try_execute_pou_with_register_ir_with_locals, verify_register_program, BlockTarget,
-    RegisterBlock, RegisterBlockExecutionOutcome, RegisterExecutionBuffers,
-    RegisterExecutionOutcome, RegisterId, RegisterInstr, RegisterProfileState, RegisterProgram,
-    Tier1BlockExecutionOutcome, Tier1CompiledBlock, Tier1CompiledInstr, VmModule,
+    LegacyRegisterFixtureContext, RegisterBlock, RegisterBlockExecutionOutcome,
+    RegisterExecutionBuffers, RegisterExecutionOutcome, RegisterId, RegisterInstr,
+    RegisterProfileState, RegisterProgram, Tier1BlockExecutionOutcome, Tier1CompiledBlock,
+    Tier1CompiledInstr, VmModule,
 };
 
 fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
     let bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
+    let vm_module =
+        crate::runtime::vm::materialize_test_module(&bytecode).expect("decode vm module");
     let main_key = SmolStr::new("MAIN");
     let pou_id = vm_module
-        .program_ids
+        .program_ids()
         .get(&main_key)
         .copied()
         .expect("main pou id");
@@ -45,10 +51,11 @@ fn vm_module_and_main_pou(source: &str) -> (VmModule, u32) {
 
 fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmModule, u32) {
     let pou_id = 1_u32;
-    let mut pou_by_id = rustc_hash::FxHashMap::default();
+    let mut pou_by_id = HashMap::new();
     pou_by_id.insert(
         pou_id,
         VmPouEntry {
+            kind: crate::bytecode::PouKind::Function,
             name: SmolStr::new("MAIN"),
             code_start: 0,
             code_end: code.len(),
@@ -57,7 +64,7 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
             primary_instance_owner: None,
         },
     );
-    let mut program_ids = rustc_hash::FxHashMap::default();
+    let mut program_ids = HashMap::new();
     program_ids.insert(SmolStr::new("MAIN"), pou_id);
 
     let refs = (0..ref_count)
@@ -67,34 +74,43 @@ fn manual_vm_module(code: Vec<u8>, consts: Vec<Value>, ref_count: usize) -> (VmM
         })
         .collect();
 
-    let mut module = VmModule {
-            code,
-            strings: Vec::new(),
-            types: TypeTable::default(),
-            refs,
-            consts,
-            pou_by_id,
-            program_ids,
-            function_ids: Default::default(),
-            function_block_ids: Default::default(),
-            class_ids: Default::default(),
-            parent_pou_ids: Default::default(),
-            interface_type_ids_by_pou: Default::default(),
-            native_symbol_specs: Vec::new(),
-            pou_params: Default::default(),
-            pou_has_return_slot: Default::default(),
-            method_table_by_owner: Default::default(),
-            ref_types: Vec::new(),
-            ref_slots: Default::default(),
-            debug_map: super::super::debug_map::VmDebugMap::default(),
-            instruction_budget: super::super::DEFAULT_INSTRUCTION_BUDGET,
-        };
-    module.reindex_refs();
-    (module, pou_id)
+    (
+        {
+            let mut legacy = VmModule::legacy(
+                crate::bytecode::BytecodeVersion::LEGACY,
+                code,
+                Vec::new(),
+                TypeTable::default(),
+                refs,
+                consts,
+            )
+            .expect("legacy fixture metadata");
+            let mut entries = pou_by_id;
+            for (_, id) in program_ids {
+                legacy.define_legacy_pou(
+                    id,
+                    crate::bytecode::PouKind::Program,
+                    entries.remove(&id).expect("fixture POU"),
+                    Vec::new(),
+                    false,
+                );
+            }
+            legacy.set_legacy_instruction_budget(super::super::DEFAULT_INSTRUCTION_BUDGET);
+            legacy
+        },
+        pou_id,
+    )
 }
 
 fn emit_u32(code: &mut Vec<u8>, value: u32) {
     code.extend_from_slice(&value.to_le_bytes());
+}
+
+fn assert_invalid_bytecode_contains(err: RuntimeError, needle: &str) {
+    assert!(
+        matches!(&err, RuntimeError::Bytecode { detail, .. } if detail.contains(needle)),
+        "unexpected error: {err:?}"
+    );
 }
 
 fn emit_i32(code: &mut Vec<u8>, value: i32) {
@@ -194,16 +210,16 @@ fn execute_stack_subset(
         }
         budget = budget.saturating_sub(1);
 
-        let opcode = module.code[pc];
+        let opcode = module.code()[pc];
         pc += 1;
         match opcode {
             0x00 => {}
             0x02 => {
-                let offset = read_i32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let offset = read_i32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 pc = jump_target_within(pc, offset, pou.code_start, pou.code_end)?;
             }
             0x03 | 0x04 => {
-                let offset = read_i32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let offset = read_i32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let condition = pop_bool_condition(&mut stack)?;
                 let should_jump = (opcode == 0x03 && condition) || (opcode == 0x04 && !condition);
                 if should_jump {
@@ -212,9 +228,9 @@ fn execute_stack_subset(
             }
             0x06 => return Ok(()),
             0x10 => {
-                let const_idx = read_u32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let const_idx = read_u32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let value = module
-                    .consts
+                    .consts()
                     .get(const_idx as usize)
                     .cloned()
                     .ok_or_else(|| invalid_bytecode(format!("invalid const index {const_idx}")))?;
@@ -239,7 +255,7 @@ fn execute_stack_subset(
                 stack.swap(len - 1, len - 2);
             }
             0x20 => {
-                let ref_idx = read_u32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let ref_idx = read_u32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let value = refs
                     .get(ref_idx as usize)
                     .cloned()
@@ -247,7 +263,7 @@ fn execute_stack_subset(
                 stack.push(value);
             }
             0x21 => {
-                let ref_idx = read_u32_operand(&module.code, &mut pc, pou.code_end, opcode)?;
+                let ref_idx = read_u32_operand(module.code(), &mut pc, pou.code_end, opcode)?;
                 let value = pop_stack_value(&mut stack, opcode)?;
                 let slot = refs
                     .get_mut(ref_idx as usize)
@@ -363,16 +379,15 @@ fn execute_register_subset(
             match instruction {
                 RegisterInstr::Nop => {}
                 RegisterInstr::LoadConst { dest, const_idx } => {
-                    let value =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let value = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     write_register_value(&mut registers, *dest, value)?;
                 }
                 RegisterInstr::LoadNull { dest } => {
@@ -465,16 +480,15 @@ fn execute_register_subset(
                             "parity register executor invalid ref index {left_ref_idx}",
                         ))
                     })?;
-                    let right =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let right = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     let result = apply_binary(*op, left, right, &profile)?;
                     let slot = refs.get_mut(*dest_ref_idx as usize).ok_or_else(|| {
                         invalid_bytecode(format!(
@@ -489,16 +503,15 @@ fn execute_register_subset(
                     right_ref_idx,
                     dest_ref_idx,
                 } => {
-                    let left =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let left = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     let right = refs.get(*right_ref_idx as usize).cloned().ok_or_else(|| {
                         invalid_bytecode(format!(
                             "parity register executor invalid ref index {right_ref_idx}",
@@ -524,16 +537,15 @@ fn execute_register_subset(
                             "parity register executor invalid ref index {ref_idx}",
                         ))
                     })?;
-                    let right =
-                        module
-                            .consts
-                            .get(*const_idx as usize)
-                            .cloned()
-                            .ok_or_else(|| {
-                                invalid_bytecode(format!(
-                                    "parity register executor invalid const index {const_idx}",
-                                ))
-                            })?;
+                    let right = module
+                        .consts()
+                        .get(*const_idx as usize)
+                        .cloned()
+                        .ok_or_else(|| {
+                            invalid_bytecode(format!(
+                                "parity register executor invalid const index {const_idx}",
+                            ))
+                        })?;
                     let result = apply_binary(*op, left, right, &profile)?;
                     let condition = match result {
                         Value::Bool(value) => value,
@@ -577,6 +589,7 @@ fn execute_register_subset(
                     }
                 }
                 RegisterInstr::Return => return Ok(()),
+                RegisterInstr::ForStepZero => return Err(RuntimeError::ForStepZero),
                 RegisterInstr::VmFallback { opcode, .. } => {
                     return Err(invalid_bytecode(format!(
                         "parity register executor encountered fallback opcode 0x{opcode:02X}",
@@ -610,7 +623,11 @@ fn assert_no_fallback(program: &RegisterProgram) {
     );
 }
 
-fn test_register_block(id: u32, start_pc: usize, instructions: Vec<RegisterInstr>) -> RegisterBlock {
+fn test_register_block(
+    id: u32,
+    start_pc: usize,
+    instructions: Vec<RegisterInstr>,
+) -> RegisterBlock {
     let bytecode_instruction_count = instructions.len();
     let instruction_costs = vec![1; instructions.len()];
     RegisterBlock {
@@ -620,6 +637,7 @@ fn test_register_block(id: u32, start_pc: usize, instructions: Vec<RegisterInstr
         entry_stack_depth: 0,
         bytecode_instruction_count,
         instruction_costs,
+        instruction_cost_steps: vec![vec![1]; instructions.len()],
         instructions,
     }
 }
@@ -633,88 +651,25 @@ fn test_register_program(blocks: Vec<RegisterBlock>) -> RegisterProgram {
     }
 }
 
-fn clear_register_execution_pools() {
-    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow_mut().clear());
-    super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| pool.borrow_mut().clear());
-}
-
-fn register_execution_pool_lengths() -> (usize, usize, usize, usize) {
-    let frames = super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| pool.borrow().len());
-    let registers = super::VM_REGISTER_FILE_POOL.with(|pool| pool.borrow().len());
-    let reads = super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| pool.borrow().len());
-    let native = super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| pool.borrow().len());
-    (frames, registers, reads, native)
-}
-
-fn fill_register_execution_pools_to_limit() {
-    super::VM_REGISTER_FRAME_STACK_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Default::default);
-    });
-    super::VM_REGISTER_FILE_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Vec::new);
-    });
-    super::VM_REGISTER_READ_COUNTS_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Vec::new);
-    });
-    super::VM_REGISTER_NATIVE_CALL_STACK_POOL.with(|pool| {
-        let mut pool = pool.borrow_mut();
-        pool.clear();
-        pool.resize_with(super::REGISTER_EXECUTION_POOL_LIMIT, Default::default);
-    });
-}
-
-fn assert_invalid_bytecode_contains(err: RuntimeError, needle: &str) {
-    assert!(
-        matches!(&err, RuntimeError::Bytecode { detail, .. } if detail.contains(needle)),
-        "unexpected error: {err:?}"
-    );
-}
-
 #[test]
 fn register_execution_buffers_return_clean_buffers_and_respect_pool_limit() {
-    clear_register_execution_pools();
+    // The old implicit thread-local pool is replaced by one installed owner's
+    // reserved scratch. Exercise the same clearing invariant directly.
+    let mut buffers = RegisterExecutionBuffers::reserve(3, 2).expect("reserve scratch");
     {
-        let mut buffers = RegisterExecutionBuffers::acquire(3);
-        let (_frames, registers, remaining_reads, _native_stack) = buffers.buffers_mut();
+        let (_, registers, reads, _) = buffers.buffers_mut();
         registers[0] = Value::DInt(41);
-        remaining_reads[0] = 7;
+        reads[0] = 7;
     }
-    assert_eq!(register_execution_pool_lengths(), (1, 1, 1, 1));
-
+    let capacity = buffers.storage_bytes();
+    buffers.select(2).expect("select smaller body");
     {
-        let mut buffers = RegisterExecutionBuffers::acquire(2);
-        let (_frames, registers, remaining_reads, _native_stack) = buffers.buffers_mut();
+        let (_, registers, reads, _) = buffers.buffers_mut();
         assert_eq!(registers, [Value::Null, Value::Null]);
-        assert_eq!(remaining_reads, [0, 0]);
+        assert_eq!(reads, [0, 0]);
     }
-
-    fill_register_execution_pools_to_limit();
-    {
-        let _extra = RegisterExecutionBuffers {
-            frames: Some(Default::default()),
-            registers: Some(Vec::new()),
-            remaining_register_reads: Some(Vec::new()),
-            native_call_stack: Some(Default::default()),
-        };
-    }
-    assert_eq!(
-        register_execution_pool_lengths(),
-        (
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-            super::REGISTER_EXECUTION_POOL_LIMIT,
-        )
-    );
-    clear_register_execution_pools();
+    assert_eq!(buffers.storage_bytes(), capacity);
+    assert!(buffers.select(4).is_err(), "cannot grow scratch in RUN");
 }
 
 #[test]
@@ -737,23 +692,23 @@ fn prepare_register_file_resizes_truncates_and_preserves_values() {
 
 #[test]
 fn parse_env_bool_accepts_explicit_true_false_and_defaults() {
-    let key = "TRUST_TEST_REGISTER_IR_PARSE_ENV_BOOL";
-    std::env::remove_var(key);
-    assert!(parse_env_bool(key, true));
-    assert!(!parse_env_bool(key, false));
+    assert!(parse_bool(None, true));
+    assert!(!parse_bool(None, false));
 
     for value in ["1", "true", "YES", " on "] {
-        std::env::set_var(key, value);
-        assert!(parse_env_bool(key, false), "expected true for {value:?}");
+        assert!(
+            parse_bool(Some(value), false),
+            "expected true for {value:?}"
+        );
     }
     for value in ["0", "false", "NO", " off "] {
-        std::env::set_var(key, value);
-        assert!(!parse_env_bool(key, true), "expected false for {value:?}");
+        assert!(
+            !parse_bool(Some(value), true),
+            "expected false for {value:?}"
+        );
     }
-    std::env::set_var(key, "maybe");
-    assert!(parse_env_bool(key, true));
-    assert!(!parse_env_bool(key, false));
-    std::env::remove_var(key);
+    assert!(parse_bool(Some("maybe"), true));
+    assert!(!parse_bool(Some("maybe"), false));
 }
 
 #[test]
@@ -761,6 +716,8 @@ fn register_execution_rejects_initial_locals_beyond_frame_capacity() {
     let (module, pou_id) = manual_vm_module(vec![0x06], Vec::new(), 0);
     let mut runtime = Runtime::new();
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let err = try_execute_pou_with_register_ir_with_locals(
         &mut runtime,
         &module,
@@ -769,7 +726,7 @@ fn register_execution_rejects_initial_locals_beyond_frame_capacity() {
         Some(&[Value::DInt(1)]),
         false,
         0,
-        None,
+        trust_runtime_core::vm::hosted::budget::ExecutionEntry::Root,
     )
     .expect_err("initial locals beyond frame capacity must fail");
 
@@ -793,7 +750,10 @@ fn next_linear_block_target_uses_following_block_not_current_block() {
 fn register_read_helpers_preserve_bool_and_null_reference_errors() {
     let bool_registers = vec![Value::Bool(true), Value::Bool(false), Value::DInt(1)];
     assert_eq!(read_bool_register(&bool_registers, RegisterId(0)), Ok(true));
-    assert_eq!(read_bool_register(&bool_registers, RegisterId(1)), Ok(false));
+    assert_eq!(
+        read_bool_register(&bool_registers, RegisterId(1)),
+        Ok(false)
+    );
     assert!(matches!(
         read_bool_register(&bool_registers, RegisterId(2)),
         Err(RuntimeError::ConditionNotBool)
@@ -822,7 +782,7 @@ fn register_read_helpers_preserve_bool_and_null_reference_errors() {
 #[test]
 fn interpreted_ref_field_reports_null_reference_base() {
     let (mut module, _pou_id) = manual_vm_module(Vec::new(), Vec::new(), 0);
-    module.strings.push(SmolStr::new("FIELD"));
+    module.append_legacy_string(SmolStr::new("FIELD"));
     let program = test_register_program(vec![test_register_block(
         0,
         0,
@@ -838,8 +798,10 @@ fn interpreted_ref_field_reports_null_reference_base() {
     let mut registers = vec![Value::Reference(None), Value::Null];
     let mut remaining_reads = vec![1, 0];
     let mut native_call_stack = Default::default();
-    let mut budget = 10;
+    runtime.vm_execution_budget.reset(10);
 
+    let mut runtime = LegacyRegisterFixtureContext::new(&mut runtime, &module)
+        .expect("prepare legacy register fixture");
     let err = execute_register_block_interpreted(
         &mut runtime,
         &module,
@@ -849,7 +811,6 @@ fn interpreted_ref_field_reports_null_reference_base() {
         &mut remaining_reads,
         &mut native_call_stack,
         block,
-        &mut budget,
         0,
     )
     .expect_err("null reference base must fail");
@@ -870,11 +831,8 @@ fn block_index_from_id_rejects_missing_and_mismatched_blocks() {
         "missing block id 2",
     );
 
-    let mismatched = test_register_program(vec![test_register_block(
-        7,
-        0,
-        vec![RegisterInstr::Return],
-    )]);
+    let mismatched =
+        test_register_program(vec![test_register_block(7, 0, vec![RegisterInstr::Return])]);
     assert_invalid_bytecode_contains(
         block_index_from_id(&mismatched, 0).expect_err("mismatched block id must fail"),
         "block id/index mismatch",
@@ -882,10 +840,11 @@ fn block_index_from_id_rejects_missing_and_mismatched_blocks() {
 }
 
 #[test]
-fn vm_statement_location_resolves_vm_debug_map_entries_and_follows_new_registrations() {
+fn register_statement_location_resolves_vm_debug_map_entries() {
     let (mut module, pou_id) = manual_vm_module(vec![0x06], Vec::new(), 0);
-    module.debug_map.source_by_pc.insert(
-        (pou_id, 0),
+    module.set_legacy_source_location(
+        pou_id,
+        0,
         super::super::debug_map::VmSourceLocation {
             file: SmolStr::new("unit.st"),
             line: 1,
@@ -898,20 +857,23 @@ fn vm_statement_location_resolves_vm_debug_map_entries_and_follows_new_registrat
     runtime.register_source_text(0, "x := 1;\n");
     runtime.register_statement_locations(0, vec![location]);
 
-    let resolve = super::super::dispatch::vm_statement_location;
-    assert_eq!(resolve(&mut runtime, &module, pou_id, 0), Some(location));
-    assert_eq!(resolve(&mut runtime, &module, pou_id, 99), None);
-
-    // A later registration replaces a resolution made before it.
-    let replaced = crate::debug::SourceLocation::new(0, 0, 7);
-    runtime.register_source_text(0, "x := 10;\n");
-    runtime.register_statement_locations(0, vec![replaced]);
-    assert_eq!(resolve(&mut runtime, &module, pou_id, 0), Some(replaced));
+    assert_eq!(
+        register_statement_location(&runtime, &module, pou_id, 0),
+        Some(location)
+    );
+    assert_eq!(
+        register_statement_location(&runtime, &module, pou_id, 99),
+        None
+    );
 }
 
 #[test]
 fn deadline_exceeded_distinguishes_missing_past_and_future_deadlines() {
     assert!(!deadline_exceeded(None));
-    assert!(deadline_exceeded(Some(Instant::now() - Duration::from_secs(1))));
-    assert!(!deadline_exceeded(Some(Instant::now() + Duration::from_secs(3600))));
+    assert!(deadline_exceeded(Some(
+        Instant::now() - Duration::from_secs(1)
+    )));
+    assert!(!deadline_exceeded(Some(
+        Instant::now() + Duration::from_secs(3600)
+    )));
 }

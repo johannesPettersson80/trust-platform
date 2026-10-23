@@ -1,4 +1,4 @@
-//! Spec 32: the public state snapshot observes the actual PID without mutation.
+//! Spec 45: the public state snapshot observes the actual PID without mutation.
 use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::Runtime;

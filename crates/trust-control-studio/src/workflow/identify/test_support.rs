@@ -137,7 +137,7 @@ pub(crate) struct FakeState {
     /// Whether the runtime refuses every page of a recording from the acknowledged start of an experiment on, as when the connection
     /// is lost during the hold.
     refuse_after_start: AtomicBool,
-    /// The plant this runtime proves it runs, when a test says so (specification 34, §20.4).
+    /// The plant this runtime proves it runs, when a test says so (specification 47, §20.4).
     proven_plant: Mutex<Option<PlantContext>>,
 }
 
@@ -180,7 +180,7 @@ impl FakeState {
         *self.ending.lock() = Some((status, stop_reason));
     }
 
-    /// From now on this runtime proves that it runs `plant` (specification 34, §20.4).
+    /// From now on this runtime proves that it runs `plant` (specification 47, §20.4).
     pub(crate) fn prove_plant(&self, plant: PlantContext) {
         *self.proven_plant.lock() = Some(plant);
     }

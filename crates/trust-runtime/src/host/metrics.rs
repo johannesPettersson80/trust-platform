@@ -209,7 +209,7 @@ pub struct RuntimeMetrics {
     profile_calls: HashMap<SmolStr, CallProfileEntry>,
     pub faults: u64,
     pub overruns: u64,
-    /// Achieved simulation speed of each simulated resource, keyed by the resource's source id (specification 33,
+    /// Achieved simulation speed of each simulated resource, keyed by the resource's source id (specification 46,
     /// §6.1 item 3).
     simulation_achieved: BTreeMap<u64, f64>,
 }

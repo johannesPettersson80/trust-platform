@@ -11,32 +11,85 @@ env:
   RUST_BACKTRACE: 1
   # GitHub runners do not guarantee sccache availability; disable wrapper in CI.
   RUSTC_WRAPPER: ""
+  # Every integration test is its own binary linking the runtime. Line tables keep file:line
+  # backtraces at a fraction of the size of full debug info, and CI never reuses incremental
+  # caches, so both settings keep `cargo build --all-targets` inside the runners' free disk.
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_PROFILE_TEST_DEBUG: line-tables-only
 
 jobs:
+  portable-core:
+    name: Portable core (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: thumbv7em-none-eabihf
+            board_adapter: trust-platform-stm32f4
+          - target: riscv32imac-unknown-none-elf
+            board_adapter: trust-platform-esp32
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: portable-core-${{ matrix.target }}
+      - name: Check isolated no_std core and value layout
+        run: cargo check --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }}
+      - name: Record resolved target features
+        run: cargo tree --locked -p trust-runtime-core --no-default-features --target ${{ matrix.target }} -e features,no-dev
+      - name: Check the board adapter and shared fixture for the target
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --locked -p ${{ matrix.board_adapter }} -p trust-board-fixture --target ${{ matrix.target }}
+      - name: Mark gate success
+        if: ${{ success() }}
+        run: |
+          mkdir -p gate-artifacts
+          echo "job=portable-core target=${{ matrix.target }} result=success" > gate-artifacts/portable-core.txt
+      - name: Upload gate marker
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-portable-core-${{ matrix.target }}
+          path: gate-artifacts/portable-core.txt
+
   fmt:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: rustfmt
       - name: Guard IEC log paths
         run: python3 ./scripts/check_iec_log_paths.py
       - name: Guard expensive gate observability
-        run: python3 ./scripts/check_gate_observability.py
+        run: |
+          python3 ./scripts/run_with_progress.py --self-test
+          python3 ./scripts/check_gate_observability.py
       - name: Guard regression-test-first bug fixes
         run: |
           python3 ./scripts/check_regression_test_first.py --self-test
           BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           python3 ./scripts/check_regression_test_first.py --base "${BASE_SHA}" --head "${HEAD_SHA}"
+      - name: Guard release evidence wait budget
+        run: python3 ./scripts/test_check_version_release_evidence.py
+      - name: Guard deterministic diagram workflow
+        run: python3 -m unittest scripts.tests.test_diagram_workflow -v
+      - name: Guard workspace integration-test binary paths
+        run: python3 ./scripts/runtime_test_binary_path_contract_tests.py
       - run: cargo fmt --all -- --check
       - name: Mark gate success
         if: ${{ success() }}
@@ -54,12 +107,12 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
@@ -92,12 +145,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Install Windows vendored OpenSSL Perl prerequisites
         if: ${{ matrix.os == 'windows-latest' }}
@@ -215,6 +268,22 @@ jobs:
           done
           echo "Full test suite failed after 2 attempts." | tee -a "${LOG_PATH}"
           exit 1
+      - name: Doc tests with checked compile-fail codes, and the runtime-only composition
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG_PATH="gate-artifacts/test-${{ matrix.os }}.log"
+          # `cargo test --all-targets` runs no doc tests. Stable rustdoc checks the error code
+          # declared by a `compile_fail,E0xxx` doc test only with RUSTC_BOOTSTRAP set, so these
+          # runs prove why each forbidden API use is rejected, not only that it fails to build.
+          RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime -p trust-runtime-core 2>&1 | tee -a "${LOG_PATH}"
+          RUSTC_BOOTSTRAP=1 cargo test --locked --doc -p trust-runtime --no-default-features --features runtime-only 2>&1 | tee -a "${LOG_PATH}"
+          # Most integration tests need the full composition; these five are the runtime-only set.
+          cargo test --locked -p trust-runtime --no-default-features --features runtime-only \
+            --test hosted_platform_legacy_gating --test hosted_platform_cycle_port_source \
+            --test hosted_platform_composition_graph --test hosted_platform_cross_composition \
+            --test runtime_only_composition 2>&1 | tee -a "${LOG_PATH}"
       - name: Upload test suite log
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -240,13 +309,17 @@ jobs:
     name: Conformance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
+      - name: Install real MQTT broker conformance dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mosquitto mosquitto-clients
       - name: Run conformance suite (pass 1)
         run: |
           mkdir -p gate-artifacts
@@ -359,41 +432,15 @@ jobs:
     name: Architecture Safety
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
-      - name: Install architecture scanner dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ripgrep
-      - name: Install ast-grep
-        run: |
-          if command -v ast-grep >/dev/null 2>&1; then
-            ast-grep --version
-          else
-            cargo install ast-grep --version 0.42.1 --locked
-            ast-grep --version
-          fi
-      - name: Install cargo-public-api
-        run: |
-          if cargo public-api --version >/dev/null 2>&1; then
-            cargo public-api --version
-          else
-            cargo install cargo-public-api --version 0.51.0 --locked
-            cargo public-api --version
-          fi
-      - name: Run external unsafe AST scanner gate
-        run: ./scripts/architecture_external_safety_ast_grep_gate.sh
-      - name: Run runtime boundary fail-closed gate
-        run: ./scripts/runtime_boundary_fail_closed_ast_grep_gate.sh
-      - name: Run runtime safety fail-closed gate
-        run: ./scripts/runtime_safety_fail_closed_ast_grep_gate.sh
-      - name: Run full-map architecture doctor
-        run: cargo run -p xtask -- architecture-doctor --full-map
+      - name: Run shared architecture safety gate
+        run: bash scripts/architecture_safety_gate.sh
       - name: Upload architecture safety artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -419,15 +466,15 @@ jobs:
           path: gate-artifacts/architecture-safety.txt
 
   msrv:
-    name: MSRV (1.95)
+    name: MSRV (1.99)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@1.95
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --all-targets
         env:
@@ -448,12 +495,12 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --no-deps --all-features
         env:
@@ -474,16 +521,16 @@ jobs:
     name: Browser Analysis Gates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: "24.21.0"
       - name: Install wasm target
         run: rustup target add wasm32-unknown-unknown
       - name: Run parity + latency + memory + incremental gates
@@ -558,23 +605,21 @@ jobs:
       run:
         working-directory: editors/vscode
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: "24.21.0"
           cache: 'npm'
           cache-dependency-path: editors/vscode/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Install wasm-pack
         run: |
-          if ! command -v wasm-pack >/dev/null 2>&1; then
-            cargo install wasm-pack --version 0.15.0 --locked
-          fi
+          cargo install wasm-pack --version 0.15.0 --locked --force
           export PATH="$HOME/.cargo/bin:$PATH"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           wasm-pack --version
@@ -601,6 +646,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
+      - name: Install and identify the locked Chromium browser
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          npm --prefix scripts/captures ci
+          npm --prefix scripts/captures run capture:install -- --with-deps
+          browser=$(cd scripts/captures && node --input-type=module -e 'import { chromium } from "playwright"; console.log(chromium.executablePath())')
+          printf 'CHROME=%s\nTRUST_UI_TEST_BROWSER=%s\n' "$browser" "$browser" >> "$GITHUB_ENV"
+          cargo run --locked -p xtask -- browser-command probe "$browser" --version
       - name: Run extension integration tests
         shell: bash
         run: |
@@ -616,7 +670,7 @@ jobs:
               --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-1800}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
-              -- xvfb-run -a npm test; then
+              -- bash ../../scripts/captures/run-owned-command.sh xvfb-run -a npm test; then
               if [[ "${attempt}" -gt 1 ]]; then
                 echo "VS Code integration tests passed only after retry" \
                   | tee -a "${GITHUB_WORKSPACE}/gate-artifacts/vscode-extension-retry-rescued.txt"
@@ -656,12 +710,12 @@ jobs:
     name: Editor Expansion Smoke
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Validate Neovim/Zed editor setup and core workflow coverage
         run: ./scripts/check_editor_integration_smoke.sh
@@ -681,12 +735,12 @@ jobs:
     name: MP-001 Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Verify split-test parity and discovery stability
         run: scripts/check_mp001_split_parity.sh --verify
@@ -706,42 +760,22 @@ jobs:
     name: Supply Chain
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout OpenOT reference sibling
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-deny and cargo-audit
         run: |
-          if ! cargo deny --version >/dev/null 2>&1; then
-            cargo install cargo-deny --version 0.19.9 --locked
-          fi
-          if ! cargo audit --version >/dev/null 2>&1; then
-            cargo install cargo-audit --version 0.22.2 --locked
-          fi
+          cargo install cargo-deny --version 0.20.2 --locked --force
+          cargo install cargo-audit --version 0.22.2 --locked --force
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo deny --version
           cargo audit --version
-      - name: Validate owned dependency exception lifetimes
-        run: python3 scripts/check_dependency_exceptions.py
-      - name: Run cargo-deny
-        run: cargo deny check advisories licenses bans sources
-      - name: Run cargo-audit with tracked advisory exceptions
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t audit_ignore_args < <(python3 - <<'PY'
-          import tomllib
-          data = tomllib.load(open("deny.toml", "rb"))
-          for entry in data.get("advisories", {}).get("ignore", []):
-              advisory = entry.get("id")
-              if advisory:
-                  print("--ignore")
-                  print(advisory)
-          PY
-          )
-          cargo audit --deny warnings "${audit_ignore_args[@]}"
+      - name: Run shared supply-chain gate
+        run: bash scripts/supply_chain_gate.sh
       - name: Mark gate success
         if: ${{ success() }}
         run: |
@@ -757,11 +791,12 @@ jobs:
   version-release-guard:
     name: Version Release Guard
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     permissions:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Validate workspace/extension version alignment
@@ -792,10 +827,10 @@ jobs:
   release-gate-report:
     name: Release Gate Report
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, hmi-screen-tests, editor-expansion, mp001-parity, supply-chain, version-release-guard]
+    needs: [portable-core, fmt, clippy, test, conformance, architecture-safety, msrv, docs, browser-analysis, vscode-extension, hmi-screen-tests, editor-expansion, mp001-parity, supply-chain, version-release-guard]
     if: ${{ always() }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Prepare gate artifact directory
         run: mkdir -p gate-artifacts
@@ -809,6 +844,7 @@ jobs:
 
       - name: Generate release gate report
         env:
+          NEED_PORTABLE_CORE: ${{ needs['portable-core'].result }}
           NEED_FMT: ${{ needs.fmt.result }}
           NEED_CLIPPY: ${{ needs.clippy.result }}
           NEED_TEST: ${{ needs.test.result }}
@@ -827,6 +863,8 @@ jobs:
           python3 scripts/generate_release_gate_report.py \
             --output-dir gate-report \
             --gate-artifacts-dir gate-artifacts \
+            --required-gate gate-portable-core-thumbv7em-none-eabihf \
+            --required-gate gate-portable-core-riscv32imac-unknown-none-elf \
             --required-gate gate-fmt \
             --required-gate gate-clippy \
             --required-gate gate-test-ubuntu-latest \
@@ -844,6 +882,7 @@ jobs:
             --required-gate gate-supply-chain \
             --required-gate gate-version-release-guard \
             --job-status "fmt=${NEED_FMT}" \
+            --job-status "portable-core=${NEED_PORTABLE_CORE}" \
             --job-status "clippy=${NEED_CLIPPY}" \
             --job-status "test=${NEED_TEST}" \
             --job-status "conformance=${NEED_CONFORMANCE}" \

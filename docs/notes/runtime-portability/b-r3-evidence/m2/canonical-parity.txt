@@ -1,0 +1,23 @@
+[gate-progress state=started phase=B-R3-canonical-parity target=scena-rust-builder pid=1626466 elapsed=0.0s timeout=7200s command='sha256sum -c /home/johannes/.cache/trust-portability-br3-setup-m2/canonical.sha256']
+AGENTS.md: OK
+CLAUDE.md: OK
+.codex/skills/st-lsp-solid/SKILL.md: OK
+.codex/skills/trust-ci-release-gates/SKILL.md: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_cleanup.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_guard.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_prepare.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/__pycache__/release_candidate_release.cpython-313.pyc: OK
+.codex/skills/trust-ci-release-gates/scripts/compiler_passthrough.sh: OK
+.codex/skills/trust-ci-release-gates/scripts/pre-push: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_cleanup.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_cleanup_tests.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_guard_tests.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_prepare.py: OK
+.codex/skills/trust-ci-release-gates/scripts/release_candidate_release.py: OK
+.codex/skills/trust-hmi-contracts/SKILL.md: OK
+.codex/skills/trust-lsp-iec/SKILL.md: OK
+.codex/skills/trust-remote-builder/SKILL.md: OK
+.codex/skills/trust-test-authoring/SKILL.md: OK
+.codex/skills/trust-vscode-quality/SKILL.md: OK
+[gate-progress state=finished phase=B-R3-canonical-parity target=scena-rust-builder pid=1626466 elapsed=0.1s timeout=7200s command='sha256sum -c /home/johannes/.cache/trust-portability-br3-setup-m2/canonical.sha256' status=0]

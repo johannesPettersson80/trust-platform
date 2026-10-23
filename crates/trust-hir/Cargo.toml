@@ -7,11 +7,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = ["boxcar"]
+
 [dependencies]
 trust-syntax.workspace = true
 salsa.workspace = true
-smol_str.workspace = true
-rustc-hash.workspace = true
+smol_str = { workspace = true, features = ["std"] }
+rustc-hash = { workspace = true, features = ["std"] }
 tracing.workspace = true
 text-size.workspace = true
 rowan.workspace = true

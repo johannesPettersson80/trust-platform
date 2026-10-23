@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::watchdog::{FaultPolicy, FaultSubsystem};
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_FAULT_STATE_CLEAR_TRACE_001";
@@ -51,12 +52,35 @@ fn run_fault_clear_case(
         .get("scenario")
         .and_then(|value| value.as_str())
         .ok_or_else(|| format!("{} scenario must be a string", case.id))?;
-    let (observed, expected) = execute_scenario(scenario)?;
+    let (observed, expected, operations) = execute_scenario(scenario)?;
     probe.trace = observed.iter().map(Observation::render).collect();
-    let failures = (observed != expected)
+    let mut failures = (observed != expected)
         .then(|| format!("expected {expected:?}, observed {observed:?}"))
         .into_iter()
         .collect::<Vec<_>>();
+    // Each clear is one operation under test. A clear writes the fault record and reports no
+    // error; the policy is not part of the clear.
+    for (before, after) in operations {
+        let before_state = fault_record_state(before);
+        let after_state = fault_record_state(after);
+        let operation = ObservedOperation {
+            outcome: "accept_value",
+            fault_surface: None,
+            status_before: None,
+            status_after: None,
+            before: &before_state,
+            after: &after_state,
+        };
+        match check_case_expectation(case, &operation) {
+            Ok(mismatches) => failures.extend(mismatches),
+            Err(error) => failures.push(error),
+        }
+    }
+    for trace_step in case.trace.as_deref().unwrap_or(&[]) {
+        if let Err(error) = check_trace_fields(&trace_step.expected, &[]) {
+            failures.push(error);
+        }
+    }
     Ok(CaseExecution {
         result: if failures.is_empty() {
             CaseResult::Passed
@@ -72,7 +96,12 @@ fn run_fault_clear_case(
     })
 }
 
-fn execute_scenario(scenario: &str) -> Result<(Vec<Observation>, Vec<Observation>), String> {
+type ClearOperation = (Observation, Observation);
+
+/// Observations before and after each step, and the clear operations performed.
+type ScenarioRun = (Vec<Observation>, Vec<Observation>, Vec<ClearOperation>);
+
+fn execute_scenario(scenario: &str) -> Result<ScenarioRun, String> {
     let result = match scenario {
         "RECORDED_FAULT_CLEAR" => {
             let mut faults = FaultSubsystem::new();
@@ -87,17 +116,23 @@ fn execute_scenario(scenario: &str) -> Result<(Vec<Observation>, Vec<Observation
                     Observation::new(true, Some("watchdog_timeout"), "safe_halt"),
                     Observation::new(false, None, "safe_halt"),
                 ],
+                vec![(before, after)],
             )
         }
         "HEALTHY_CLEAR_IDEMPOTENT" => {
             let mut faults = FaultSubsystem::new();
             faults.set_policy(FaultPolicy::Restart);
+            let initial = observe(&faults);
             faults.clear();
             let first = observe(&faults);
             faults.clear();
             let second = observe(&faults);
             let expected = Observation::new(false, None, "restart");
-            (vec![first, second], vec![expected, expected])
+            (
+                vec![first, second],
+                vec![expected, expected],
+                vec![(initial, first), (first, second)],
+            )
         }
         other => return Err(format!("unreviewed fault-state clear scenario {other}")),
     };
@@ -125,6 +160,26 @@ impl Observation {
             "faulted={},last_fault={:?},policy={}",
             self.faulted, self.last_fault, self.policy
         )
+    }
+}
+
+/// The fault record and the policy at one side of a clear. The record is the target, and a
+/// clear must leave the policy (a sibling) unchanged.
+fn fault_record_state(observation: Observation) -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: Some(
+            format!(
+                "faulted={},last_fault={:?}",
+                observation.faulted, observation.last_fault
+            )
+            .into(),
+        ),
+        siblings: [("policy".to_string(), observation.policy.into())]
+            .into_iter()
+            .collect(),
+        diagnostics: Vec::new(),
     }
 }
 

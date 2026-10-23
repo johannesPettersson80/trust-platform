@@ -133,11 +133,10 @@ fn assign(runtime: &mut Runtime, symbol: &str, number: f64) -> Result<(), String
             None => value.clone(),
         };
         runtime
-            .io_mut()
-            .write(&address, io_value)
+            .write_io(&address, io_value)
             .map_err(|e| e.to_string())?;
     }
-    if !runtime.storage_mut().write_by_ref(reference, value) {
+    if runtime.write_reference(&reference, value).is_err() {
         return Err(format!("cannot assign scalar binding {symbol}"));
     }
     Ok(())
@@ -229,23 +228,11 @@ fn execute(input: &super::execution_plan::ExecutionPlan) -> Result<JsonValue, St
         .iter()
         .map(|s| crate::harness::SourceFile::with_path(&s.path, &s.text))
         .collect();
+    // Compiling installs the admitted executable before any PLC scan deadline is armed. The
+    // parent still bounds all preparation by the job budget.
     let mut runtime = crate::harness::CompileSession::from_sources(sources)
         .build_runtime()
         .map_err(|e| e.to_string())?;
-    // Compile and validate the executable before arming a PLC scan deadline.
-    // Lazy VM loading inside execute_cycle would charge source compilation to
-    // the first scan. The parent still bounds all preparation by the job budget.
-    let source_texts = input
-        .snapshot
-        .sources
-        .iter()
-        .map(|source| source.text.as_str())
-        .collect::<Vec<_>>();
-    let module = crate::bytecode::build_module_from_runtime_with_sources(&runtime, &source_texts)
-        .map_err(|error| error.to_string())?;
-    runtime
-        .apply_bytecode_module(&module, None)
-        .map_err(|error| error.to_string())?;
     // The first scan sees every bound input as the live plant had it; the run's plant then
     // writes only its own feedback targets.
     super::process_inputs::apply(&mut runtime, &input.snapshot.process_inputs)?;

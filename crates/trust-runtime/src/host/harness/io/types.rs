@@ -8,20 +8,20 @@ struct IoLeafBinding {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct InstanceBinding {
-    pub(super) reference: crate::value::ValueRef,
-    pub(super) type_id: TypeId,
-    pub(super) address: IoAddress,
-    pub(super) display_name: SmolStr,
+pub(crate) struct InstanceBinding {
+    pub(crate) reference: crate::value::ValueRef,
+    pub(crate) type_id: TypeId,
+    pub(crate) address: IoAddress,
+    pub(crate) display_name: SmolStr,
 }
 
 #[derive(Debug, Clone)]
-enum FieldAddress {
+pub(crate) enum FieldAddress {
     Relative { offset_bytes: u64, bit_offset: u8 },
     Absolute(IoAddress),
 }
 
-pub(super) fn bind_value_ref_to_address(
+pub(crate) fn bind_value_ref_to_address(
     io: &mut crate::io::IoInterface,
     registry: &TypeRegistry,
     reference: crate::value::ValueRef,
@@ -38,6 +38,10 @@ pub(super) fn bind_value_ref_to_address(
             binding.size,
             binding.bit_offset,
         )?;
+        // Admission must preserve the common address/capacity cause before the
+        // declaration is serialized or any runtime image is allocated.
+        trust_runtime_core::io_image::validate_process_image_address(&target)
+            .map_err(|error| CompileError::new(error.to_string()))?;
         if let Some(name) = display_name.clone() {
             io.bind_ref_named_typed(binding.reference, target, binding.value_type, name);
         } else {

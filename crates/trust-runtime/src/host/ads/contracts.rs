@@ -59,6 +59,7 @@ struct ConnectionSection {
     transport: Option<String>,
     insecure_transport: Option<bool>,
     auto_add_route: Option<bool>,
+    #[serde(default)]
     points: Vec<PointSection>,
 }
 
@@ -149,17 +150,14 @@ impl ConnectionSection {
                 "invalid target AMS Net ID '{target_net_id}'; expected six decimal octets in canonical form"
             ));
         }
-        if let Some(local_net_id) = self.local_net_id.as_deref() {
-            if !is_canonical_ams_net_id(local_net_id) {
-                return invalid(format!(
-                    "invalid local AMS Net ID '{local_net_id}'; expected six decimal octets in canonical form"
-                ));
-            }
+        if let Some(local_net_id) = self.local_net_id.as_deref()
+            && !is_canonical_ams_net_id(local_net_id)
+        {
+            return invalid(format!(
+            "invalid local AMS Net ID '{local_net_id}'; expected six decimal octets in canonical form"
+        ));
         }
         let host = non_empty("connections.host", self.host)?;
-        if self.points.is_empty() {
-            return invalid(format!("connections '{name}' requires at least one point"));
-        }
         let transport = parse_transport(self.transport.as_deref().unwrap_or("secure"))?;
         let insecure_transport = self.insecure_transport.unwrap_or(false);
         if matches!(transport, TransportSecurity::Plain) && !insecure_transport {
@@ -196,6 +194,11 @@ impl ConnectionSection {
             .into_iter()
             .map(|point| point.into_config(&name, point_names))
             .collect::<Result<Vec<_>, _>>()?;
+        if points.is_empty() {
+            return invalid(format!(
+                "ADS connection '{name}' requires at least one point"
+            ));
+        }
         Ok(AdsConnectionConfig { route, points })
     }
 }

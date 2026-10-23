@@ -2,25 +2,21 @@ use super::*;
 
 #[test]
 fn dispatch_threads_stack_scopes_variables() {
-    let mut runtime = Runtime::new();
-    let frame_id = runtime.storage_mut().push_frame("MAIN");
-    runtime
-        .storage_mut()
-        .set_local("foo", RuntimeValue::Int(42));
-    runtime
-        .storage_mut()
-        .set_global("g", RuntimeValue::Bool(true));
-    runtime.storage_mut().set_retain("r", RuntimeValue::DInt(7));
+    let mut storage = trust_runtime::memory::VariableStorage::new();
+    let frame_id = storage.push_frame("MAIN");
+    storage.set_local("foo", RuntimeValue::Int(42));
+    storage.set_global("g", RuntimeValue::Bool(true));
+    storage.set_retain("r", RuntimeValue::DInt(7));
     let mut fields = IndexMap::new();
     fields.insert(SmolStr::new("field"), RuntimeValue::Bool(true));
-    runtime.storage_mut().set_local(
+    storage.set_local(
         "s",
         RuntimeValue::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
             SmolStr::new("MY_STRUCT"),
             fields,
         ))),
     );
-    runtime.storage_mut().set_local(
+    storage.set_local(
         "arr",
         RuntimeValue::Array(Box::new(
             ArrayValue::from_untyped_parts(
@@ -30,30 +26,30 @@ fn dispatch_threads_stack_scopes_variables() {
             .expect("valid debug array"),
         )),
     );
-    let parent_id = runtime.storage_mut().create_instance("ParentFB");
-    runtime
-        .storage_mut()
-        .set_instance_var(parent_id, "pv", RuntimeValue::Bool(false));
-    let instance_id = runtime.storage_mut().create_instance("MyFB");
-    if let Some(instance) = runtime.storage_mut().get_instance_mut(instance_id) {
+    let parent_id = storage
+        .try_create_instance("ParentFB")
+        .expect("instance identity");
+    storage.set_instance_var(parent_id, "pv", RuntimeValue::Bool(false));
+    let instance_id = storage
+        .try_create_instance("MyFB")
+        .expect("instance identity");
+    if let Some(instance) = storage.get_instance_mut(instance_id) {
         instance.parent = Some(parent_id);
     }
-    runtime
-        .storage_mut()
-        .set_instance_var(instance_id, "iv", RuntimeValue::DInt(3));
-    runtime
-        .storage_mut()
-        .set_local("inst", RuntimeValue::Instance(instance_id));
-    let value_ref = runtime.storage().ref_for_local("foo").unwrap();
-    runtime
-        .storage_mut()
-        .set_local("ref", RuntimeValue::Reference(Some(value_ref)));
+    storage.set_instance_var(instance_id, "iv", RuntimeValue::DInt(3));
+    storage.set_local("inst", RuntimeValue::Instance(instance_id));
+    let value_ref = storage.ref_for_local("foo").unwrap();
+    storage.set_local("ref", RuntimeValue::Reference(Some(value_ref)));
 
     let control = DebugControl::new();
     let mut hook = control.clone();
     hook.on_statement(Some(&SourceLocation::new(0, 0, 5)), 0);
 
-    let mut session = DebugSession::with_control(runtime, control);
+    control.refresh_snapshot_from_storage(&storage, Duration::ZERO);
+    let mut session = DebugSession::with_control(
+        trust_runtime::RuntimeBuilder::new().build().unwrap(),
+        control,
+    );
     session.register_source("main.st", 0, "foo := 1;\n");
     let mut adapter = DebugAdapter::new(session);
 
@@ -288,12 +284,12 @@ fn dispatch_threads_stack_scopes_variables() {
 
 #[test]
 fn stack_trace_falls_back_to_main_frame_when_no_storage_frames_exist() {
-    let runtime = Runtime::new();
+    let runtime = trust_runtime::RuntimeBuilder::new();
     let control = DebugControl::new();
     let mut hook = control.clone();
     hook.on_statement(Some(&SourceLocation::new(0, 0, 5)), 0);
 
-    let mut session = DebugSession::with_control(runtime, control);
+    let mut session = DebugSession::with_control(runtime.build().unwrap(), control);
     session.register_source("main.st", 0, "PROGRAM Main\nx := 1;\nEND_PROGRAM\n");
     let mut adapter = DebugAdapter::new(session);
 
@@ -322,12 +318,12 @@ fn stack_trace_falls_back_to_main_frame_when_no_storage_frames_exist() {
 
 #[test]
 fn stack_trace_rejects_unknown_thread_id() {
-    let runtime = Runtime::new();
+    let runtime = trust_runtime::RuntimeBuilder::new();
     let control = DebugControl::new();
     let mut hook = control.clone();
     hook.on_statement(Some(&SourceLocation::new(0, 0, 5)), 0);
 
-    let mut session = DebugSession::with_control(runtime, control);
+    let mut session = DebugSession::with_control(runtime.build().unwrap(), control);
     session.register_source("main.st", 0, "PROGRAM Main\nx := 1;\nEND_PROGRAM\n");
     let mut adapter = DebugAdapter::new(session);
 
@@ -355,10 +351,10 @@ fn stack_trace_rejects_unknown_thread_id() {
 
 #[test]
 fn stack_trace_returns_default_main_frame_without_location() {
-    let runtime = Runtime::new();
+    let runtime = trust_runtime::RuntimeBuilder::new();
     let control = DebugControl::new();
 
-    let mut session = DebugSession::with_control(runtime, control);
+    let mut session = DebugSession::with_control(runtime.build().unwrap(), control);
     session.register_source("main.st", 0, "PROGRAM Main\nx := 1;\nEND_PROGRAM\n");
     let mut adapter = DebugAdapter::new(session);
 
@@ -388,13 +384,25 @@ fn stack_trace_returns_default_main_frame_without_location() {
 
 #[test]
 fn scopes_for_synthetic_main_frame_are_graceful() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     runtime
-        .storage_mut()
-        .set_global("g", RuntimeValue::Bool(true));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "g".into(),
+            type_id: TypeId::BOOL,
+            initializer: Some(trust_runtime::program_model::Expr::Literal(
+                RuntimeValue::Bool(true),
+            )),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .unwrap();
     let control = DebugControl::new();
 
-    let mut session = DebugSession::with_control(runtime, control);
+    let mut session = DebugSession::with_control(runtime.build().unwrap(), control);
     session.register_source("main.st", 0, "PROGRAM Main\nx := 1;\nEND_PROGRAM\n");
     let mut adapter = DebugAdapter::new(session);
 
@@ -434,14 +442,31 @@ fn scopes_for_synthetic_main_frame_are_graceful() {
 
 #[test]
 fn io_state_then_stack_trace_do_not_block_when_runtime_mutex_is_held() {
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new();
     runtime
-        .storage_mut()
-        .set_global("g", RuntimeValue::Bool(true));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "g".into(),
+            type_id: TypeId::BOOL,
+            initializer: Some(trust_runtime::program_model::Expr::Literal(
+                RuntimeValue::Bool(true),
+            )),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .unwrap();
     let control = DebugControl::new();
     let mut hook = control.clone();
     hook.on_statement(Some(&SourceLocation::new(0, 0, 5)), 0);
-    control.refresh_snapshot_from_storage(runtime.storage(), runtime.current_time());
+    let runtime = runtime.build().unwrap();
+    control.refresh_snapshot_from_storage_with_abi(
+        runtime.storage(),
+        runtime.current_time(),
+        runtime.prepared().storage_abi(),
+    );
 
     let mut session = DebugSession::with_control(runtime, control);
     session.register_source("main.st", 0, "PROGRAM Main\nx := 1;\nEND_PROGRAM\n");

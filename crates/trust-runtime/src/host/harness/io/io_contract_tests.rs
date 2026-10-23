@@ -61,9 +61,6 @@ fn harness_io_contract_elementary_types_map_to_exact_io_widths() {
         (TypeId::DWORD, IoSize::DWord),
         (TypeId::REAL, IoSize::DWord),
         (TypeId::TIME, IoSize::DWord),
-        (TypeId::DATE, IoSize::DWord),
-        (TypeId::TOD, IoSize::DWord),
-        (TypeId::DT, IoSize::DWord),
         (TypeId::LINT, IoSize::LWord),
         (TypeId::ULINT, IoSize::LWord),
         (TypeId::LWORD, IoSize::LWord),
@@ -74,6 +71,24 @@ fn harness_io_contract_elementary_types_map_to_exact_io_widths() {
         (TypeId::LDT, IoSize::LWord),
     ] {
         assert_eq!(io_size_for_type(type_id, &registry).unwrap(), expected);
+    }
+}
+
+#[test]
+fn harness_io_contract_short_dates_and_times_have_no_direct_width() {
+    // Spec 10 section 1.2: DATE, TOD and DT have an implementation-defined size (IEC 61131-3
+    // Table 10), so they are refused at direct addresses; their long forms map to LWORD above.
+    let registry = TypeRegistry::new();
+    for (type_id, name) in [
+        (TypeId::DATE, "DATE"),
+        (TypeId::TOD, "TOD"),
+        (TypeId::DT, "DT"),
+    ] {
+        let error = io_size_for_type(type_id, &registry).unwrap_err();
+        assert!(
+            error.to_string().contains(name),
+            "{name} refusal must name the type: {error}"
+        );
     }
 }
 
@@ -141,11 +156,31 @@ fn harness_io_contract_unbounded_and_unsupported_types_fail_closed() {
 }
 
 #[test]
-fn harness_io_contract_type_size_delegates_checked_portable_layout() {
+fn harness_io_contract_wire_extent_uses_codec_widths_and_relative_gaps() {
     let mut registry = TypeRegistry::new();
     let array = registry.register_array(TypeId::WORD, vec![(1, 3)]);
     assert_eq!(type_size_bytes(TypeId::BOOL, &registry).unwrap(), 1);
     assert_eq!(type_size_bytes(array, &registry).unwrap(), 6);
+    let located = registry.register_struct(
+        "TimedPair",
+        vec![
+            field("first", TypeId::TIME, Some("%B0")),
+            field("second", TypeId::TIME, Some("%B8")),
+        ],
+    );
+    let located_array = registry.register_array(located, vec![(0, 1)]);
+    assert_eq!(type_size_bytes(located, &registry).unwrap(), 12);
+    assert_eq!(type_size_bytes(located_array, &registry).unwrap(), 24);
+    assert_eq!(crate::value::size_of_type(located, &registry).unwrap(), 16);
+    assert_eq!(
+        crate::value::size_of_type_with_abi(
+            located,
+            &registry,
+            crate::value::StorageAbi::LegacyTemporal32
+        )
+        .unwrap(),
+        8
+    );
     let unbounded = registry.register("Text", Type::String { max_len: None });
     assert_compile_error(type_size_bytes(unbounded, &registry), "unsupported size");
 }

@@ -160,9 +160,7 @@ fn lesson56_auto(runtime: &mut trust_runtime::Runtime, outer: bool, inner: bool)
         );
     }
     for (name, value) in [("OuterAuto", outer), ("InnerAuto", inner)] {
-        assert!(runtime
-            .storage_mut()
-            .set_instance_var(p1, name, Value::Bool(value)));
+        assert!(runtime.write_instance(p1, name, Value::Bool(value)).is_ok());
     }
 }
 

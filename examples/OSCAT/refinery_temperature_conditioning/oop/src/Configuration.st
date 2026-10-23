@@ -1,5 +1,5 @@
 CONFIGURATION RefineryTemperatureConditioningOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE RefineryTemperatureConditioningOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Conditioning WITH MainTask : Main;
 END_RESOURCE

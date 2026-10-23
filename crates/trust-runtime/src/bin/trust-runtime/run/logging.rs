@@ -75,6 +75,19 @@ fn log_runtime_event(logger: &RuntimeLogger, event: &trust_runtime::debug::Runti
                 }),
             );
         }
+        trust_runtime::debug::RuntimeEvent::WriteRejected {
+            target,
+            error,
+            time,
+        } => {
+            logger.log(
+                LogLevel::Warn,
+                "write_rejected",
+                json!({
+                    "target": target.as_str(), "error": error, "time_ms": time.as_millis(),
+                }),
+            );
+        }
         trust_runtime::debug::RuntimeEvent::Fault { error, time } => {
             logger.log(
                 LogLevel::Error,

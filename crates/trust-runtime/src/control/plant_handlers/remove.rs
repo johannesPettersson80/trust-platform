@@ -240,8 +240,10 @@ fn plant_remove_fingerprint(params: &PlantRemoveParams) -> String {
         "plant_id": params.plant_id,
     });
     format!(
-        "sha256:{:x}",
-        Sha256::digest(serde_json::to_vec(&validated_input).unwrap_or_default())
+        "sha256:{}",
+        hex::encode(Sha256::digest(
+            serde_json::to_vec(&validated_input).unwrap_or_default()
+        ))
     )
 }
 

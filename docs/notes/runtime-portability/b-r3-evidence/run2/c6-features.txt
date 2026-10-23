@@ -1,0 +1,44 @@
+[gate-progress state=started phase=B-R3-c6-features target=scena-rust-builder pid=1661585 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo tree --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf -e features,no-dev']
+trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+├── indexmap v2.14.0
+│   ├── equivalent v1.0.2
+│   └── hashbrown v0.17.0
+├── rustc-hash v2.1.2
+├── smol_str v0.2.2
+├── thiserror v2.0.18
+│   └── thiserror-impl feature "default"
+│       └── thiserror-impl v2.0.18 (proc-macro)
+│           ├── proc-macro2 feature "default"
+│           │   ├── proc-macro2 v1.0.106
+│           │   │   └── unicode-ident feature "default"
+│           │   │       └── unicode-ident v1.0.24
+│           │   └── proc-macro2 feature "proc-macro"
+│           │       └── proc-macro2 v1.0.106 (*)
+│           ├── quote feature "default"
+│           │   ├── quote v1.0.45
+│           │   │   └── proc-macro2 v1.0.106 (*)
+│           │   └── quote feature "proc-macro"
+│           │       ├── quote v1.0.45 (*)
+│           │       └── proc-macro2 feature "proc-macro" (*)
+│           └── syn feature "default"
+│               ├── syn v2.0.117
+│               │   ├── proc-macro2 v1.0.106 (*)
+│               │   ├── quote v1.0.45 (*)
+│               │   └── unicode-ident feature "default" (*)
+│               ├── syn feature "clone-impls"
+│               │   └── syn v2.0.117 (*)
+│               ├── syn feature "derive"
+│               │   └── syn v2.0.117 (*)
+│               ├── syn feature "parsing"
+│               │   └── syn v2.0.117 (*)
+│               ├── syn feature "printing"
+│               │   └── syn v2.0.117 (*)
+│               └── syn feature "proc-macro"
+│                   ├── syn v2.0.117 (*)
+│                   ├── proc-macro2 feature "proc-macro" (*)
+│                   └── quote feature "proc-macro" (*)
+└── libm feature "default"
+    ├── libm v0.2.16
+    └── libm feature "arch"
+        └── libm v0.2.16
+[gate-progress state=finished phase=B-R3-c6-features target=scena-rust-builder pid=1661585 elapsed=0.2s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo tree --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf -e features,no-dev' status=0]

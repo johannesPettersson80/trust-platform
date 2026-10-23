@@ -10,16 +10,25 @@ use trust_runtime::error::RuntimeError;
 use trust_runtime::io::{IoAddress, IoDriver, IoDriverHealth, IoSafeState};
 use trust_runtime::scheduler::{ResourceControl, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
-    TraceStep,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_SAFE_STATE_HANDOFF_001";
 const CASE_FILE: &str = "verification/cases/runtime_safety/RT_SAFE_STOP_001.toml";
 const CASE_FILE_DIGEST: &str =
     "sha256:5e3004dc8ff7a4aead90899d3a995f0dbd38bf6ce335c0d637e4a30cd9e636bb";
+/// Trace fields that `compare_step` compares.
+const SAFE_STATE_READ_FIELDS: &[&str] = &[
+    "resource_state",
+    "first_writes",
+    "second_writes",
+    "first_output",
+    "second_output",
+    "last_error_contains",
+];
 
 #[test]
 fn safe_state_handoff_trace_cases() {
@@ -69,8 +78,34 @@ fn run_safe_state_case(
         return Err(format!("{} must contain exactly one trace step", case.id));
     }
     let observation = execute_step(&trace[0])?;
-    let mismatches = compare_step(&trace[0], &observation)?;
+    let mut mismatches = compare_step(&trace[0], &observation)?;
+    if let Err(error) = check_trace_fields(&trace[0].expected, SAFE_STATE_READ_FIELDS) {
+        mismatches.push(format!("{} step {}: {error}", case.id, trace[0].sequence));
+    }
     probe.observed = Some(observation.as_json(trace[0].sequence));
+
+    // The handoff is the operation under test. No output is observed before it: the
+    // write logs are cleared when the resource pauses, so the before state stays empty.
+    let before = StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: None,
+        siblings: BTreeMap::new(),
+        diagnostics: Vec::new(),
+    };
+    let after = observation.snapshot();
+    let observed = ObservedOperation {
+        outcome: observation.outcome(),
+        fault_surface: observation.fault_surface.as_deref(),
+        status_before: None,
+        status_after: Some(observation.status()),
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &observed) {
+        Ok(declared) => mismatches.extend(declared),
+        Err(error) => mismatches.push(error),
+    }
 
     if mismatches.is_empty() {
         Ok(CaseExecution {
@@ -93,13 +128,14 @@ fn execute_step(step: &TraceStep) -> Result<Observation, String> {
     let first = Arc::new(Mutex::new(Vec::new()));
     let second = Arc::new(Mutex::new(Vec::new()));
 
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
     let mut safe_state = IoSafeState::default();
     safe_state.outputs.push((
         IoAddress::parse("%QX0.0").map_err(|error| error.to_string())?,
         Value::Bool(false),
     ));
+    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
     runtime.set_io_safe_state(safe_state);
     runtime.add_io_driver(
         "first-safe-state",
@@ -137,10 +173,13 @@ fn execute_step(step: &TraceStep) -> Result<Observation, String> {
 
     let first_writes = first.lock().unwrap_or_else(|error| error.into_inner());
     let second_writes = second.lock().unwrap_or_else(|error| error.into_inner());
+    let last_error = handle.last_error();
+    let fault_surface = last_error.as_ref().map(fault_surface_of);
     Ok(Observation {
         first_output: first_writes.last().and_then(|value| value.first()).copied(),
         first_writes: first_writes.len(),
-        last_error: handle.last_error().map(|error| error.to_string()),
+        last_error: last_error.map(|error| error.to_string()),
+        fault_surface,
         resource_state: state_name(handle.state()).to_string(),
         second_output: second_writes
             .last()
@@ -259,6 +298,29 @@ fn trace_u8(values: &BTreeMap<String, toml::Value>, key: &str) -> Result<u8, Str
         .ok_or_else(|| format!("trace field {key} must be a byte"))
 }
 
+/// The fault surface an error exposes. The safe-state handoff failures that
+/// `write_safe_outputs` reports are `IoDriver` messages that begin with their prefix;
+/// any other error is named by its variant.
+fn fault_surface_of(error: &RuntimeError) -> String {
+    if let RuntimeError::IoDriver(message) = error {
+        if message.starts_with("safe-state output unconfirmed for driver ") {
+            return "SafeStateUnconfirmed".to_string();
+        }
+        if message.starts_with("safe-state output write failed for driver ") {
+            return "SafeStateWriteFailed".to_string();
+        }
+    }
+    variant_name(error)
+}
+
+/// The name of an error's variant, read from its derived `Debug` form, which starts with
+/// the variant name and then `(`, `{`, or nothing for a unit variant.
+fn variant_name(error: &RuntimeError) -> String {
+    let debug = format!("{error:?}");
+    let name = debug.split(['(', '{', ' ']).next().unwrap_or_default();
+    name.to_string()
+}
+
 fn state_name(state: ResourceState) -> &'static str {
     match state {
         ResourceState::Boot => "boot",
@@ -333,12 +395,56 @@ struct Observation {
     first_output: Option<u8>,
     first_writes: usize,
     last_error: Option<String>,
+    /// The fault surface named by the last error, see [`fault_surface_of`].
+    fault_surface: Option<String>,
     resource_state: String,
     second_output: Option<u8>,
     second_writes: usize,
 }
 
 impl Observation {
+    /// True when the runtime reported that the safe-state output is unconfirmed.
+    fn safe_state_unconfirmed(&self) -> bool {
+        self.fault_surface.as_deref() == Some("SafeStateUnconfirmed")
+    }
+
+    /// Outcome classified from the runtime's last error: the unconfirmed safe state is
+    /// reported as `not_safe_reported`, any other error as `fault_visible`.
+    fn outcome(&self) -> &'static str {
+        if self.safe_state_unconfirmed() {
+            "not_safe_reported"
+        } else if self.last_error.is_some() {
+            "fault_visible"
+        } else {
+            "accept_value"
+        }
+    }
+
+    /// Status classified the same way as [`Observation::outcome`], otherwise the resource state.
+    fn status(&self) -> &str {
+        if self.safe_state_unconfirmed() {
+            "not_safe_reported"
+        } else if self.last_error.is_some() {
+            "fault_visible"
+        } else {
+            self.resource_state.as_str()
+        }
+    }
+
+    /// State after the handoff: the outputs the drivers received and the visible error.
+    fn snapshot(&self) -> StateSnapshot {
+        StateSnapshot {
+            process_image_hash: Some(format!(
+                "first={:?},second={:?}",
+                self.first_output, self.second_output
+            )),
+            retain_hash: None,
+            target: Some(json!(self.resource_state)),
+            siblings: BTreeMap::new(),
+            diagnostics: self.last_error.iter().cloned().collect(),
+        }
+    }
+
     fn as_json(&self, sequence: u32) -> serde_json::Value {
         json!({
             "first_output": self.first_output,

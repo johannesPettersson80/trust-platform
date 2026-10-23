@@ -17,7 +17,7 @@ pub struct MqttIoDriver {
 
 impl MqttIoDriver {
     pub fn from_params(value: &toml::Value) -> Result<Self, RuntimeError> {
-        Self::from_params_with_factory(value, Arc::new(RumqttSessionFactory))
+        Self::from_params_with_factory(value, Arc::new(RumqttSessionFactory::default()))
     }
 
     fn from_params_with_factory(
@@ -57,6 +57,37 @@ impl MqttIoDriver {
     pub fn validate_params(value: &toml::Value) -> Result<(), RuntimeError> {
         let _ = MqttIoConfig::from_params(value)?;
         Ok(())
+    }
+
+    /// Uses the same effective endpoint and authentication settings as connection setup.
+    pub(crate) fn same_credential_context(
+        requested: &toml::Value,
+        stored: &toml::Value,
+    ) -> Result<bool, RuntimeError> {
+        let requested = MqttIoConfig::from_params(requested)?;
+        let stored = MqttIoConfig::from_params(stored)?;
+        Ok(requested.endpoint == stored.endpoint
+            && requested.tls == stored.tls
+            && requested.username == stored.username
+            && requested.client_id == stored.client_id
+            && requested.allow_insecure_remote == stored.allow_insecure_remote)
+    }
+
+    /// The driver's own health from its last session, read, or write, without the incoming-overflow
+    /// overlay that `health()` adds. A worker uses it only for the detail of a lost link.
+    fn connection_health(&self) -> IoDriverHealth {
+        match &self.worker {
+            Some(worker) => worker.health(),
+            None => self.health.clone(),
+        }
+    }
+
+    /// True when a session exists and reports itself connected. Backoff and output-path health
+    /// follow the link, not the reported health, which input conditions also degrade.
+    fn link_connected(&self) -> bool {
+        self.session
+            .as_ref()
+            .is_some_and(|session| session.is_connected())
     }
 
     fn set_degraded(&mut self, message: impl AsRef<str>) {
@@ -167,34 +198,31 @@ impl MqttIoDriver {
         }
     }
 
+    /// Takes what arrived since the last read, without waiting for more: a read with nothing new
+    /// is stale at once, so the worker never holds a scan or an output handoff (specification 32
+    /// section 8).
     fn take_fresh_payloads(&mut self) -> Result<Vec<MqttInboundPayload>, RuntimeError> {
-        let deadline = Instant::now() + MQTT_READY_TIMEOUT;
-        loop {
-            let (payloads, connected, last_error) = {
-                let Some(session) = self.session.as_mut() else {
-                    return Err(RuntimeError::IoFreshness("mqtt session unavailable".into()));
-                };
-                (
-                    session.take_payloads(),
-                    session.is_connected(),
-                    session.last_error(),
-                )
+        let (payloads, connected, last_error) = {
+            let Some(session) = self.session.as_mut() else {
+                return Err(RuntimeError::IoFreshness("mqtt session unavailable".into()));
             };
-            if !payloads.is_empty() {
-                return Ok(payloads);
-            }
-            if !connected {
-                let detail = last_error
-                    .map_or_else(|| "mqtt disconnected".to_string(), |err| err.to_string());
-                self.set_degraded(&detail);
-                return Err(RuntimeError::IoFreshness(detail.into()));
-            }
-            if Instant::now() >= deadline {
-                self.set_degraded("mqtt input not fresh");
-                return Err(RuntimeError::IoFreshness("mqtt input not fresh".into()));
-            }
-            thread::sleep(MQTT_READY_POLL);
+            (
+                session.take_payloads(),
+                session.is_connected(),
+                session.last_error(),
+            )
+        };
+        if !payloads.is_empty() {
+            return Ok(payloads);
         }
+        if !connected {
+            let detail =
+                last_error.map_or_else(|| "mqtt disconnected".to_string(), |err| err.to_string());
+            self.set_degraded(&detail);
+            return Err(RuntimeError::IoFreshness(detail.into()));
+        }
+        self.set_degraded("mqtt input not fresh");
+        Err(RuntimeError::IoFreshness("mqtt input not fresh".into()))
     }
 
     fn next_sparkplug_sequence(&mut self) -> u64 {
@@ -234,6 +262,10 @@ impl MqttIoDriver {
 
 impl IoDriver for MqttIoDriver {
     fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), RuntimeError> {
+        if !self.config.input_enabled {
+            self.health = IoDriverHealth::Ok;
+            return Ok(());
+        }
         if let Some(worker) = &self.worker {
             return worker.read_inputs(inputs);
         }
@@ -285,6 +317,10 @@ impl IoDriver for MqttIoDriver {
     }
 
     fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), RuntimeError> {
+        if !self.config.output_enabled {
+            self.health = IoDriverHealth::Ok;
+            return Ok(());
+        }
         if let Some(worker) = &self.worker {
             return worker.write_outputs(outputs);
         }
@@ -334,10 +370,22 @@ impl IoDriver for MqttIoDriver {
     }
 
     fn health(&self) -> IoDriverHealth {
-        if let Some(worker) = &self.worker {
-            return worker.health();
+        overlay_incoming_overflow(self.connection_health(), self.factory.incoming_dropped())
+    }
+
+    /// Output-path health for a safe-state handoff (specification 11). A driver without outputs
+    /// has nothing to deliver, so it is always `Ok`. Input conditions and the overflow overlay
+    /// never reach it. A worker keeps it; without a worker, a connected link is `Ok` and anything
+    /// else is the driver's health.
+    fn output_health(&self) -> IoDriverHealth {
+        if !self.config.output_enabled {
+            return IoDriverHealth::Ok;
         }
-        self.health.clone()
+        match &self.worker {
+            Some(worker) => worker.output_health(),
+            None if self.link_connected() => IoDriverHealth::Ok,
+            None => self.health.clone(),
+        }
     }
 
     /// The broker and the session's state: connected, or why not (specification 42, §4 item 9).

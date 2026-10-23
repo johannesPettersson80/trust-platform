@@ -82,13 +82,12 @@ pub fn checked_settings(
     if let Timing::Discrete {
         sample_time_seconds,
     } = plant.timing
+        && (step - sample_time_seconds).abs() > SAMPLE_TIME_TOLERANCE
     {
-        if (step - sample_time_seconds).abs() > SAMPLE_TIME_TOLERANCE {
-            return Err(input_failure(
-                "The step must equal the sample time of this discrete model.",
-            )
-            .with_field("response-step"));
-        }
+        return Err(
+            input_failure("The step must equal the sample time of this discrete model.")
+                .with_field("response-step"),
+        );
     }
     if initial_state.len() != plant.system.states()
         || initial_state.iter().any(|value| !value.is_finite())
@@ -222,10 +221,9 @@ fn controller_system(definition: &FeedbackDefinition, step: f64) -> Result<Delay
     if let Timing::Discrete {
         sample_time_seconds,
     } = system.timing
+        && (sample_time_seconds - step).abs() > SAMPLE_TIME_TOLERANCE
     {
-        if (sample_time_seconds - step).abs() > SAMPLE_TIME_TOLERANCE {
-            return Err(failure("Controller and plant sample periods must match."));
-        }
+        return Err(failure("Controller and plant sample periods must match."));
     }
     Ok(system)
 }

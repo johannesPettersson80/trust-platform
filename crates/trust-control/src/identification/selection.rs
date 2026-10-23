@@ -95,10 +95,10 @@ pub fn select(
         .iter()
         .copied()
         .find(|candidate| candidate.model.kind == LowOrderModelKind::FirstOrderDeadTime);
-    if let (Some(first_order), Some(delayed)) = (first_order, delayed) {
-        if resolves_delay(delayed, first_order) {
-            return Some(delayed.model.clone());
-        }
+    if let (Some(first_order), Some(delayed)) = (first_order, delayed)
+        && resolves_delay(delayed, first_order)
+    {
+        return Some(delayed.model.clone());
     }
     simplest(&acceptable).map(|candidate| candidate.model.clone())
 }

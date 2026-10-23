@@ -780,25 +780,34 @@ export function mountStRuntimePanel(
           const toggle = document.createElement("button");
           toggle.type = "button";
           toggle.className = "value-input bool-toggle";
-          const initial = boolCurrentValue ? "TRUE" : "FALSE";
+          const draft = String(defaultValue || "").trim().toUpperCase();
+          const initial = draft === "TRUE" || draft === "FALSE"
+            ? draft
+            : boolCurrentValue ? "TRUE" : "FALSE";
           toggle.value = initial;
           toggle.textContent = initial;
           toggle.dataset.key = key;
-          toggle.setAttribute("aria-pressed", boolCurrentValue ? "true" : "false");
-          toggle.title = "Choose the value to write or force (click to toggle TRUE / FALSE)";
-          toggle.setAttribute("aria-label", "Value to write or force");
+          toggle.setAttribute("aria-pressed", initial === "TRUE" ? "true" : "false");
+          toggle.title = `Selected ${initial}. Click to select ${
+            initial === "TRUE" ? "FALSE" : "TRUE"
+          }.`;
+          toggle.setAttribute("aria-label", `Value to write or force: ${initial}`);
           toggle.disabled = !(canWrite || canForce) || operationPending;
           toggle.addEventListener("click", () => {
             const next = toggle.value === "TRUE" ? "FALSE" : "TRUE";
             toggle.value = next;
             toggle.textContent = next;
             toggle.setAttribute("aria-pressed", next === "TRUE" ? "true" : "false");
+            toggle.title = `Selected ${next}. Click to select ${
+              next === "TRUE" ? "FALSE" : "TRUE"
+            }.`;
+            toggle.setAttribute("aria-label", `Value to write or force: ${next}`);
+            editCache.set(key, next);
           });
           return toggle;
         };
-        const valueControl: HTMLInputElement | HTMLButtonElement | null = isForced
-          ? null
-          : displayType === "BOOL" ? createBoolToggle() : createTextInput();
+        const valueControl: HTMLInputElement | HTMLButtonElement =
+          displayType === "BOOL" ? createBoolToggle() : createTextInput();
 
         const actionTarget = String(
           entry.writeTarget && entry.writeTarget.trim().length > 0
@@ -812,7 +821,7 @@ export function mountStRuntimePanel(
             return;
           }
           if (action !== "release") {
-            const raw = String((valueControl && valueControl.value) || "").trim();
+            const raw = String(valueControl.value || "").trim();
             if (!raw) {
               setStatusText("Enter a value.");
               return;
@@ -869,9 +878,7 @@ export function mountStRuntimePanel(
         releaseButton.disabled = !canRelease || operationPending;
         releaseButton.addEventListener("click", () => sendValue("release"));
 
-        if (valueControl) {
-          actions.appendChild(valueControl);
-        }
+        actions.appendChild(valueControl);
         actions.appendChild(writeButton);
         if (isForced) {
           actions.appendChild(releaseButton);

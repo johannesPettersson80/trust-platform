@@ -488,13 +488,13 @@ fn resolved_issues(findings: Vec<Finding>) -> Vec<RouthIssue> {
     findings
         .into_iter()
         .map(|finding| {
-            if finding.kind == RouthIssueKind::AllZeroRow {
-                if let Some(power) = finding.power {
-                    return RouthIssue {
-                        kind: finding.kind,
-                        explanation: texts::all_zero_row_resolved(power),
-                    };
-                }
+            if finding.kind == RouthIssueKind::AllZeroRow
+                && let Some(power) = finding.power
+            {
+                return RouthIssue {
+                    kind: finding.kind,
+                    explanation: texts::all_zero_row_resolved(power),
+                };
             }
             into_issue(finding)
         })

@@ -1,0 +1,3 @@
+20923a633c149fe795c77a95999834a686f4adc2f355c1b1aceb9fae7e802250  firmware/trust-nucleo-f401re/src/main.rs
+3867236f1a2daa6a1361bd5315c82bb649b59d99f6a304864ad8811cf2c64bd1  firmware/trust-nucleo-f401re/src/runner.rs
+869b36796deb0f8151d847903075272e6b68c662eb998479c12dfad1a8ff3dc3  xtask/config/full_map_policy.json

@@ -1,0 +1,17 @@
+[gate-progress state=started phase=A4-affected-clippy target=scena-rust-builder pid=2614887 elapsed=0.0s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-tcads-native)
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+error: this function has too many lines (103/100)
+  --> crates/verification-cases/examples/refresh_portability_provenance.rs:99:1
+   |
+99 | fn main() -> Result<()> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#too_many_lines
+   = note: `-D clippy::too-many-lines` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::too_many_lines)]`
+
+error: could not compile `verification-cases` (example "refresh_portability_provenance") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=finished phase=A4-affected-clippy target=scena-rust-builder pid=2614887 elapsed=4.5s timeout=5400s command='cargo clippy --locked -p trust-runtime-core -p trust-runtime -p verification-cases --all-targets --all-features -- -D warnings' status=101]

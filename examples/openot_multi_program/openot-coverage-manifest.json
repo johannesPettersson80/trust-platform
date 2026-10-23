@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "supportedOpenOtRevision": "137f0e765f085c262651f479be35298b836ac891",
+  "workload": "src/Main.st",
+  "cycles": 12,
+  "producerInstances": [
+    "Filler.OotProducer",
+    "BatchControl.OotProducer",
+    "OperatorAudit.OotProducer",
+    "SignatureAudit.OotProducer",
+    "TypedValues.OotProducer",
+    "ConditionLifecycle.OotProducer"
+  ],
+  "authoredEvents": {
+    "Message": "Filler.FillStarted",
+    "StateTransition": "Filler.Step,Mode,Isa88Procedure,PackMlProcedure",
+    "ValueChanged": "Filler.Level and TypedValues.*",
+    "ParameterChange": "TypedValues.SetPoint",
+    "ConditionActive": "ConditionLifecycle.HighPressureAlarm,GuardInterlock",
+    "ConditionCleared": "ConditionLifecycle.HighPressureAlarm,GuardInterlock",
+    "ConditionAcknowledged": "ConditionLifecycle.AckHighPressure",
+    "ConditionConfirmed": "ConditionLifecycle.ConfirmHighPressure",
+    "ConditionShelved": "ConditionLifecycle.ShelveHighPressure",
+    "ConditionUnshelved": "ConditionLifecycle.UnshelveHighPressure",
+    "ConditionSuppressed": "ConditionLifecycle.SuppressHighPressure",
+    "ConditionUnsuppressed": "ConditionLifecycle.UnsuppressHighPressure",
+    "ConditionOutOfService": "ConditionLifecycle.OosHighPressure",
+    "ConditionInService": "ConditionLifecycle.InServiceHighPressure",
+    "ConditionReset": "ConditionLifecycle.ResetHighPressure",
+    "ConditionCommented": "ConditionLifecycle.CommentHighPressure",
+    "ConditionPriorityChanged": "ConditionLifecycle.PriorityHighPressure",
+    "RecipeLoaded": "BatchControl.RecipeLoadedTrigger",
+    "RecipeApproved": "BatchControl.RecipeApprovedTrigger",
+    "MaterialAddition": "BatchControl.MaterialAdditionTrigger",
+    "BatchEvent": "BatchControl.BatchState",
+    "OperatorAction": "OperatorAudit.ActionTrigger,SignatureAudit.TargetAction",
+    "OperatorLogin": "OperatorAudit.LoginTrigger",
+    "OperatorLogout": "OperatorAudit.LogoutTrigger",
+    "SecurityAccessFailure": "OperatorAudit.SecurityFailureTrigger",
+    "ESignature": "SignatureAudit.SignTarget"
+  },
+  "valueTypes": [
+    "BOOL",
+    "SINT",
+    "USINT",
+    "INT",
+    "UINT",
+    "DINT",
+    "UDINT",
+    "LINT",
+    "ULINT",
+    "REAL",
+    "LREAL",
+    "STRING"
+  ],
+  "samplingPolicies": {
+    "on-change": "TypedValues.Enabled",
+    "deadband": "Filler.Level",
+    "periodic:250": "TypedValues.PeriodicTemperature",
+    "hysteresis": "TypedValues.HysteresisFlow"
+  },
+  "stateCoverage": {
+    "process": "Filler.Step",
+    "mode": "Filler.Mode",
+    "ISA-88": "Filler.Isa88Procedure",
+    "PackML": "Filler.PackMlProcedure"
+  },
+  "conditionClasses": {
+    "alarm": "ConditionLifecycle.HighPressureAlarm",
+    "interlock": "ConditionLifecycle.GuardInterlock"
+  },
+  "messageArguments": {
+    "arg1": "REAL Filler.Level",
+    "arg2": "UDINT Filler.BatchCount",
+    "arg3": "BOOL Filler.ReadyFlag",
+    "arg4": "STRING Filler.StatusText"
+  },
+  "runtimeSystemEvents": [
+    "Heartbeat",
+    "LoggerStarted",
+    "LoggerStopped",
+    "BufferCleared",
+    "RecordsDropped",
+    "SourceRegistered",
+    "DefinitionChanged",
+    "TimeSyncChanged",
+    "SourceHighWater"
+  ],
+  "runtimeSystemTriggers": {
+    "Heartbeat": "backend conformance fixture using the pinned runtime registry",
+    "LoggerStarted": "OpenOT cold and warm lifecycle fixtures",
+    "LoggerStopped": "OpenOT clean-shutdown lifecycle fixture",
+    "BufferCleared": "OpenOT buffer lifecycle contract fixture",
+    "RecordsDropped": "forced authoritative-loss workload",
+    "SourceRegistered": "OpenOT source-registration contract fixture",
+    "DefinitionChanged": "OpenOT warm-definition-change fixture",
+    "TimeSyncChanged": "OpenOT time-synchronization contract fixture",
+    "SourceHighWater": "multi-program producer high-water fixture"
+  },
+  "consumerDocuments": {
+    "Event": {
+      "authored": "every event in authoredEvents",
+      "runtime": "every event in runtimeSystemEvents"
+    },
+    "Loss": {
+      "bases": ["authoritative", "inferred"],
+      "preserves": ["firstSeq", "lastSeq", "count", "basis"]
+    },
+    "Placeholder": {
+      "trigger": "safe definition mismatch contract fixture",
+      "preserves": ["reason", "rawSlots"]
+    }
+  },
+  "requiredProvenance": [
+    "bufferId",
+    "source.id",
+    "source.name",
+    "source.path",
+    "source.hierarchy",
+    "runId",
+    "epoch.id",
+    "epoch.relation",
+    "epoch.definitionHash",
+    "sourceTimeNs",
+    "receiveTimeNs",
+    "flags"
+  ],
+  "coverageGate": {
+    "retrieval": "native documented query returns canonical JSON",
+    "cardinality": "every expected identity exactly once unless explicitly idempotent",
+    "semanticComparison": "canonical JSON byte equality after identity ordering"
+  },
+  "databaseProducts": [
+    "SQLite",
+    "PostgreSQL",
+    "TimescaleDB",
+    "MySQL",
+    "MariaDB",
+    "SQL Server",
+    "InfluxDB 3"
+  ]
+}

@@ -2,14 +2,22 @@
 name = "xtask"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
 
 [dependencies]
 anyhow.workspace = true
-proc-macro2 = { version = "1", features = ["span-locations"] }
+crc32fast = { workspace = true, features = ["std"] }
+object = { version = "=0.40.0", default-features = false, features = ["read", "std"] }
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 serde.workspace = true
 serde_json.workspace = true
-syn = { version = "2", features = ["full", "visit"] }
+sha2.workspace = true
+hex.workspace = true
+syn = { version = "3.0.7", features = ["full", "visit"] }
 toml.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+process-wrap = { version = "=10.0.1", default-features = false, features = ["std", "job-object"] }

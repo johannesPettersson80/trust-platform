@@ -222,12 +222,11 @@ fn read_bounded(reader: impl Read, captured: &AtomicU64, checkpoint_budget: usiz
     });
     if streamed && !final_run_agrees {
         result = Err("final worker result disagrees with captured samples".into());
-    } else if streamed {
-        if let Ok(final_result) = &mut result {
-            if let Some(final_run) = final_result.get_mut("run") {
-                final_run["samples"] = samples;
-            }
-        }
+    } else if streamed
+        && let Ok(final_result) = &mut result
+        && let Some(final_run) = final_result.get_mut("run")
+    {
+        final_run["samples"] = samples;
     }
     WorkerOutput { result, prefix }
 }

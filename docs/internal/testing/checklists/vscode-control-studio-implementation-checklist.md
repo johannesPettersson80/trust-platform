@@ -23,9 +23,9 @@ Product authority:
 
 Related contracts:
 
-- [`32-control-pid.md`](../../../specs/32-control-pid.md)
-- [`33-simulation-plant-models.md`](../../../specs/33-simulation-plant-models.md)
-- [`34-vscode-plant-simulation-ui.md`](../../../specs/34-vscode-plant-simulation-ui.md)
+- [`45-control-pid.md`](../../../specs/45-control-pid.md)
+- [`46-simulation-plant-models.md`](../../../specs/46-simulation-plant-models.md)
+- [`47-vscode-plant-simulation-ui.md`](../../../specs/47-vscode-plant-simulation-ui.md)
 
 ## Working rule
 

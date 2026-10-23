@@ -62,7 +62,7 @@ time_constant_s = 0.1
     let configuration =
         crate::simulation::SimulationConfig::load(root.path().join("simulation.toml")).unwrap();
     let simulator = crate::simulation::SimulationController::new(configuration);
-    let native = simulator.runtime_snapshot_for(&crate::Runtime::new());
+    let native = simulator.runtime_snapshot_for(&crate::runtime::empty_runtime());
     let (resource, commands) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {
         while let Ok(command) = commands.recv() {
@@ -407,7 +407,7 @@ fn finite_search_requires_active_native_simulation_not_a_configuration_file() {
 #[test]
 fn finite_search_rejects_active_simulation_with_a_physical_io_driver() {
     let (mut state, root) = search_fixture();
-    let mut runtime = crate::Runtime::new();
+    let mut runtime = crate::runtime::empty_runtime();
     runtime.add_io_driver("unqualified-physical", Box::new(GenericPhysicalDriver));
     let simulator = crate::simulation::SimulationController::new(
         crate::simulation::SimulationConfig::load(root.path().join("simulation.toml")).unwrap(),

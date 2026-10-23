@@ -5,7 +5,7 @@ use std::process::{Command, Stdio};
 #[test]
 fn debug_host_dispatches_isolated_control_search_worker() {
     let executable = std::env::var_os("TRUST_SEARCH_DEBUG_TEST_BIN")
-        .or_else(|| option_env!("CARGO_BIN_EXE_trust-debug").map(Into::into))
+        .or_else(|| std::env::var_os("CARGO_BIN_EXE_trust-debug"))
         .expect("reviewed trust-debug executable");
     let mut child = Command::new(executable)
         .arg("control-search-worker")

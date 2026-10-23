@@ -25,6 +25,7 @@ fn executor_entry(address: &str, value: i64) -> crate::io::IoSnapshotEntry {
         name: None,
         address: crate::io::IoAddress::parse(address).expect("address"),
         value_type: Some(trust_hir::TypeId::LINT),
+        value_type_name: None,
         value: crate::io::IoSnapshotValue::Value(Value::LInt(value)),
         source: None,
     }
@@ -286,6 +287,7 @@ fn real_memory(scan: u64, output: f64) -> crate::io::IoSnapshot {
             name: None,
             address: crate::io::IoAddress::parse("%ML8").expect("address"),
             value_type: Some(trust_hir::TypeId::LREAL),
+            value_type_name: None,
             value: crate::io::IoSnapshotValue::Value(Value::LReal(output)),
             source: None,
         }],

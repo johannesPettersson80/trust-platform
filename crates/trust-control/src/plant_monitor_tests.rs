@@ -1,4 +1,4 @@
-//! Specification 34, §20.4 and specification 35, §0.1a: the plant summary the engine answers from the runtime's `plant.status`. The
+//! Specification 47, §20.4 and specification 35, §0.1a: the plant summary the engine answers from the runtime's `plant.status`. The
 //! tests pin which reads are made, the decode of the runtime's answer, the refusals of a stale revision and a missing plant, and
 //! the reason of a failed read.
 

@@ -1,0 +1,45 @@
+[gate-progress state=started phase=A3-source-authoring-tests target=scena-rust-builder pid=786568 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_source_free_authoring -- --nocapture --test-threads=1']
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime-core)
+   Compiling trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-ads-core)
+   Compiling trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-ads-server)
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime)
+[gate-progress state=running phase=A3-source-authoring-tests target=scena-rust-builder pid=786568 elapsed=30.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_source_free_authoring -- --nocapture --test-threads=1']
+    Finished `test` profile [unoptimized] target(s) in 33.12s
+     Running tests/bytecode_source_free_authoring.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/deps/bytecode_source_free_authoring-4787ee61ad43e8f3)
+
+running 31 tests
+test access_aliases_cannot_collide_with_resource_globals_in_saved_artifacts ... ok
+test array_and_member_defaults_are_compiled_as_value_recipes ... ok
+test explicit_local_initialization_does_not_execute_a_separate_type_default ... ok
+test explicit_version_selection_keeps_the_legacy_default ... ok
+test function_statics_keep_distinct_initial_and_restart_contexts ... ok
+test hosted_runtime_rejects_two_point_zero_without_replacing_legacy_execution ... ok
+test nested_and_aliased_string_io_retains_each_leaf_capacity ... ok
+test portable_admission_rejects_a_forged_initializer_global_write ... ok
+test portable_admission_rejects_invalid_canonical_action_links ... ok
+test saved_two_point_zero_fixture_matches_source_and_portable_reader ... ok
+test source_free_aliases_can_read_multiple_concrete_program_roots ... ok
+test source_free_authoring_preserves_a_faulting_initializer_without_running_it ... ok
+test source_free_authoring_preserves_iec_constant_initializer_diagnostics ... ok
+test source_free_class_templates_preserve_inheritance_and_methods ... ok
+test source_free_configuration_resolves_source_at_address ... ok
+test source_free_disabled_result_recipe_is_not_evaluated_during_authoring ... ok
+test source_free_edges_have_distinct_previous_sample_slots ... ok
+test source_free_equivalent_actions_share_recipes_without_sharing_results ... ok
+test source_free_fb_signature_lookup_uses_frame_shadowing_without_a_concrete_instance ... ok
+test source_free_frame_types_and_dense_slots_are_admission_invariants ... ok
+test source_free_globals_preserve_constant_qualifiers ... ok
+test source_free_io_bindings_cannot_exceed_the_advertised_image ... ok
+test source_free_partial_alias_and_configuration_preserve_selection ... ok
+test source_free_qualifiers_are_recognized_without_skipping_misspellings ... ok
+test source_free_retained_state_survives_metadata_round_trip ... ok
+test source_free_signatures_cover_rootless_and_inherited_fb_templates ... ok
+test source_free_single_tasks_require_a_bool_global ... ok
+test source_free_templates_exclude_unused_standard_blocks ... ok
+test source_free_templates_include_expression_only_type_dependencies ... ok
+test static_lexical_names_must_be_unique_even_when_backing_names_differ ... ok
+test static_visibility_is_derived_from_the_owner_and_declaration_prefix ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+[gate-progress state=finished phase=A3-source-authoring-tests target=scena-rust-builder pid=786568 elapsed=33.9s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_source_free_authoring -- --nocapture --test-threads=1' status=0]

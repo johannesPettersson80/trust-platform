@@ -1,0 +1,5 @@
+{
+  "crates/trust-runtime-core/src/vm/engine/mod.rs": "1ed024bbdd452e2d37361d193dc984c073818eef485f0bc0d7bc57be541d7ffe",
+  "crates/trust-runtime-core/src/vm/construction/values.rs": "c812f75e93b9420c7ad84ee3e615aa177eafb9635e6226eb5654c2545a7a4468",
+  "crates/trust-runtime-core/src/vm/engine/initialization/values.rs": "42cba1208c676b399a5c62b97ea449c76c44b830495cce6d4aaf37b8eb4cb656"
+}

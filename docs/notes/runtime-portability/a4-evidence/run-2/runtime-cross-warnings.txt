@@ -1,0 +1,171 @@
+[gate-progress state=started phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2592813 elapsed=0.0s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+[runtime-warning-gate] Host target warning-deny check
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-plcopen)
+    Checking trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-wasm-analysis)
+    Checking ratatui v0.30.0
+    Checking zenoh v1.7.2
+    Checking open-ot-document v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+    Checking clap_complete v4.6.3
+    Checking owo-colors v4.3.0
+    Checking postgres-native-tls v0.5.3
+    Checking postgres v0.19.14
+    Checking toml_edit v0.25.11+spec-1.1.0
+    Checking tiverse-mmap v1.0.0 (/home/johannes/projects/trust-platform-portability-a4/third_party/tiverse-mmap)
+    Checking qrcode v0.14.1
+    Checking urlencoding v2.1.3
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-tcads-native)
+    Checking glob v0.3.3
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+    Checking open-ot-conformance v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime)
+error: unused import: `trust_runtime_core::numeric::*`
+  --> crates/trust-runtime/src/lib.rs:85:13
+   |
+85 |     pub use trust_runtime_core::numeric::*;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: private item shadows public glob re-export
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:4:1
+  |
+4 | mod state;
+  | ^^^^^^^^^^
+  |
+note: the name `state` in the type namespace is supposed to be publicly re-exported here
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:8:9
+  |
+8 | pub use trust_runtime_core::stdlib::fbs::*;
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: but the private item here shadows it
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:4:1
+  |
+4 | mod state;
+  | ^^^^^^^^^^
+  = note: `-D hidden-glob-reexports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(hidden_glob_reexports)]`
+
+error: unused imports: `read_value_path_borrowed` and `write_value_path`
+ --> crates/trust-runtime/src/value/reference.rs:6:29
+  |
+6 |     materialize_value_path, read_value_path_borrowed, write_value_path, write_value_path_typed,
+  |                             ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+error: unused import: `RetainPolicy`
+  --> crates/trust-runtime/src/runtime/retain_snapshot.rs:21:20
+   |
+21 | use super::types::{RetainPolicy, RetainSnapshot};
+   |                    ^^^^^^^^^^^^
+
+error: unused import: `VmPouStackResult`
+   --> crates/trust-runtime/src/runtime/vm/dispatch.rs:190:36
+    |
+190 |     execute_pou_stack_with_locals, VmPouStackResult,
+    |                                    ^^^^^^^^^^^^^^^^
+
+error: unused import: `VmRef`
+  --> crates/trust-runtime/src/runtime/vm/mod.rs:86:67
+   |
+86 | pub(super) use trust_runtime_core::vm::module::{invalid_bytecode, VmRef};
+   |                                                                   ^^^^^
+
+error: unused import: `VmRef`
+ --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:2:33
+  |
+2 | use super::{frames::FrameStack, VmRef};
+  |                                 ^^^^^
+
+error[E0425]: cannot find function `format_duration` in this scope
+  --> crates/trust-runtime/src/value/display/contract_tests.rs:68:20
+   |
+68 |         assert_eq!(format_duration(prefix, nanos), expected);
+   |                    ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:102:16
+    |
+102 |     assert_eq!(quote_st_string("plain"), "'plain'");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:103:16
+    |
+103 |     assert_eq!(quote_st_string("pump$'a"), "'pump$$$'a'");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:104:16
+    |
+104 |     assert_eq!(quote_st_string("$$"), "'$$$$'");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `quote_st_string` in this scope
+   --> crates/trust-runtime/src/value/display/contract_tests.rs:105:16
+    |
+105 |     assert_eq!(quote_st_string("''"), "'$'$''");
+    |                ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_value_path_borrowed` in this scope
+  --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:81:13
+   |
+81 |             read_value_path_borrowed(frame.locals.first().expect("local slot"), &reference.path)
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `single_ref_index` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:132:29
+    |
+132 |         reference.path.push(single_ref_index(0));
+    |                             ^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `single_ref_index` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:175:29
+    |
+175 |         reference.path.push(single_ref_index(0));
+    |                             ^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_value_path_borrowed` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:200:20
+    |
+200 |         let read = read_value_path_borrowed(&value, &path).expect("read extreme lower bound");
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `read_value_path_borrowed` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:205:13
+    |
+205 |             read_value_path_borrowed(&value, &path).expect("read updated extreme lower bound");
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `materialize_value_path` in this scope
+   --> crates/trust-runtime/src/runtime/vm/dispatch_refs.rs:214:20
+    |
+214 |         let read = materialize_value_path(&value, &path).expect("read non-ascii string element");
+    |                    ^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error: function `expected_size_for_type` is never used
+ --> crates/trust-runtime/src/io/coercion.rs:8:4
+  |
+8 | fn expected_size_for_type(value_type: TypeId) -> Option<IoSize> {
+  |    ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `-D dead-code` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+error: missing documentation for a function
+ --> crates/trust-runtime/src/stdlib/fbs/registry.rs:5:1
+  |
+5 | pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `-D missing-docs` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(missing_docs)]`
+
+error: could not compile `trust-runtime` (lib) due to 8 previous errors
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=running phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2592813 elapsed=30.0s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross']
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `trust-runtime` (lib test) due to 15 previous errors
+[gate-progress state=finished phase=A4-runtime-cross-warnings target=scena-rust-builder pid=2592813 elapsed=32.2s timeout=5400s command='env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross' status=101]

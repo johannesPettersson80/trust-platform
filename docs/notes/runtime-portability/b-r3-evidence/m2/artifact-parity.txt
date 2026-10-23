@@ -1,0 +1,9 @@
+[gate-progress state=started phase=B-R3-artifact-parity target=scena-rust-builder pid=1654510 elapsed=0.0s timeout=7200s command='bash -c '"'"'sha256sum --check "$B_SETUP/fixture-sha256.txt" || exit; for f in program-v2.stbc numeric-v2.stbc; do p=crates/trust-runtime/tests/fixtures/portability/stbc-2.0/$f; git show HEAD:"$p" | sha256sum; sha256sum "$p"; cmp <(git show HEAD:"$p") "$p" || exit; done'"'"'']
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc: OK
+crates/trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc: OK
+crates/trust-runtime/tests/fixtures/portability/f401/gpio.stbc: OK
+0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a  -
+0a09a7190f26bbe3481ca7ae5b7f16a130ae4dcb2ee21937b456dd8581a87e5a  crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc
+66f64b2793e7a45988c9ff93bbac5dbf219282fb576f0b3e63103ec9c0a05588  -
+66f64b2793e7a45988c9ff93bbac5dbf219282fb576f0b3e63103ec9c0a05588  crates/trust-runtime/tests/fixtures/portability/stbc-2.0/numeric-v2.stbc
+[gate-progress state=finished phase=B-R3-artifact-parity target=scena-rust-builder pid=1654510 elapsed=0.1s timeout=7200s command='bash -c '"'"'sha256sum --check "$B_SETUP/fixture-sha256.txt" || exit; for f in program-v2.stbc numeric-v2.stbc; do p=crates/trust-runtime/tests/fixtures/portability/stbc-2.0/$f; git show HEAD:"$p" | sha256sum; sha256sum "$p"; cmp <(git show HEAD:"$p") "$p" || exit; done'"'"'' status=0]

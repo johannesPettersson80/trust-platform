@@ -41,13 +41,17 @@ fn debug_hook_fires_once_per_statement() {
     let mut storage = VariableStorage::default();
     storage.push_frame("MAIN");
     let registry = TypeRegistry::new();
+    #[cfg(feature = "debug")]
     let mut hook = CountingHook { count: 0 };
+    #[cfg(not(feature = "debug"))]
+    let hook = CountingHook { count: 0 };
     let mut ctx = EvalContext {
         storage: &mut storage,
         registry: &registry,
         initializer_catalog: None,
         profile: DateTimeProfile::default(),
         now: Duration::ZERO,
+        #[cfg(feature = "debug")]
         debug: Some(&mut hook),
         call_depth: 0,
         functions: None,

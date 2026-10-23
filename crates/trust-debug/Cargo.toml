@@ -12,8 +12,8 @@ serde.workspace = true
 serde_json.workspace = true
 trust-runtime.workspace = true
 trust-hir.workspace = true
-indexmap.workspace = true
-smol_str.workspace = true
+indexmap = { workspace = true, features = ["std"] }
+smol_str = { workspace = true, features = ["std"] }
 glob.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

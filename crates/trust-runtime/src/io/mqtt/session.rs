@@ -7,10 +7,15 @@ trait MqttSession: Send {
 
 trait MqttSessionFactory: Send + Sync {
     fn connect(&self, config: &MqttIoConfig) -> Result<Box<dyn MqttSession>, RuntimeError>;
+    /// Messages dropped from incoming queues since this factory was created.
+    fn incoming_dropped(&self) -> u64;
 }
 
+/// Each driver owns one factory, so the drop count runs from driver start across reconnects.
 #[derive(Debug, Default)]
-struct RumqttSessionFactory;
+struct RumqttSessionFactory {
+    dropped: Arc<Mutex<u64>>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MqttInboundPayload {
@@ -20,13 +25,55 @@ struct MqttInboundPayload {
 
 struct RumqttSession {
     client: Client,
-    incoming: Arc<Mutex<VecDeque<MqttInboundPayload>>>,
+    incoming: Arc<Mutex<MqttIncomingQueue>>,
     connected: Arc<AtomicBool>,
     last_error: Arc<Mutex<Option<SmolStr>>>,
     _worker: thread::JoinHandle<()>,
 }
 
 const MQTT_INCOMING_QUEUE_LIMIT: usize = 256;
+
+/// Payloads received for the control path. At the bound the oldest payload is dropped, and every
+/// drop is added to the factory's count.
+struct MqttIncomingQueue {
+    payloads: VecDeque<MqttInboundPayload>,
+    dropped: Arc<Mutex<u64>>,
+}
+
+impl MqttIncomingQueue {
+    fn new(dropped: Arc<Mutex<u64>>) -> Self {
+        Self {
+            payloads: VecDeque::new(),
+            dropped,
+        }
+    }
+
+    fn push(&mut self, payload: MqttInboundPayload) {
+        while self.payloads.len() >= MQTT_INCOMING_QUEUE_LIMIT {
+            self.payloads.pop_front();
+            let mut dropped = self.dropped.lock().unwrap_or_else(|e| e.into_inner());
+            *dropped = dropped.saturating_add(1);
+        }
+        self.payloads.push_back(payload);
+    }
+
+    fn drain(&mut self) -> Vec<MqttInboundPayload> {
+        self.payloads.drain(..).collect()
+    }
+}
+
+/// From the first dropped message until the driver restarts, the driver reports `degraded` with
+/// the overflow detail. A faulted driver keeps reporting its fault.
+fn overlay_incoming_overflow(health: IoDriverHealth, dropped: u64) -> IoDriverHealth {
+    if dropped == 0 || matches!(health, IoDriverHealth::Faulted { .. }) {
+        return health;
+    }
+    IoDriverHealth::Degraded {
+        error: SmolStr::new(format!(
+            "incoming queue overflow: {dropped} messages dropped"
+        )),
+    }
+}
 
 impl MqttSessionFactory for RumqttSessionFactory {
     fn connect(&self, config: &MqttIoConfig) -> Result<Box<dyn MqttSession>, RuntimeError> {
@@ -39,7 +86,9 @@ impl MqttSessionFactory for RumqttSessionFactory {
                 .map_err(|err| RuntimeError::IoDriver(format!("mqtt subscribe: {err}").into()))?;
         }
 
-        let incoming = Arc::new(Mutex::new(VecDeque::new()));
+        let incoming = Arc::new(Mutex::new(MqttIncomingQueue::new(Arc::clone(
+            &self.dropped,
+        ))));
         let connected = Arc::new(AtomicBool::new(false));
         let last_error = Arc::new(Mutex::new(None));
         let incoming_ref = Arc::clone(&incoming);
@@ -60,10 +109,7 @@ impl MqttSessionFactory for RumqttSessionFactory {
                             .any(|topic| topic.as_str() == publish.topic)
                         {
                             let mut guard = incoming_ref.lock().unwrap_or_else(|e| e.into_inner());
-                            while guard.len() >= MQTT_INCOMING_QUEUE_LIMIT {
-                                guard.pop_front();
-                            }
-                            guard.push_back(MqttInboundPayload {
+                            guard.push(MqttInboundPayload {
                                 topic: SmolStr::new(publish.topic),
                                 payload: publish.payload.to_vec(),
                             });
@@ -92,6 +138,10 @@ impl MqttSessionFactory for RumqttSessionFactory {
             last_error,
             _worker: worker,
         }))
+    }
+
+    fn incoming_dropped(&self) -> u64 {
+        *self.dropped.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
 
@@ -156,7 +206,7 @@ impl MqttSession for RumqttSession {
 
     fn take_payloads(&mut self) -> Vec<MqttInboundPayload> {
         let mut guard = self.incoming.lock().unwrap_or_else(|e| e.into_inner());
-        guard.drain(..).collect()
+        guard.drain()
     }
 
     fn publish(&mut self, topic: &str, payload: &[u8]) -> Result<(), RuntimeError> {

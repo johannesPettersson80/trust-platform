@@ -1,0 +1,3 @@
+[gate-progress state=started phase=A2-retained-evidence target=scena-rust-builder pid=78392 elapsed=0.0s timeout=3600s command='python3 /home/johannes/.cache/trust-portability-a2-setup/check-retained-evidence-8.py']
+115 retained artifact hashes match; none are ignored
+[gate-progress state=finished phase=A2-retained-evidence target=scena-rust-builder pid=78392 elapsed=0.5s timeout=3600s command='python3 /home/johannes/.cache/trust-portability-a2-setup/check-retained-evidence-8.py' status=0]

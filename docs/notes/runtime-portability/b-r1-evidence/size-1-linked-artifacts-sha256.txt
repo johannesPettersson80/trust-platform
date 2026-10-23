@@ -1,0 +1,1 @@
+44c247a70fbe046b24c8e1949455484f20832d57762850a295d715160bce03b9  /home/johannes/.cache/trust-portability-b-evidence/size-1/firmware.map

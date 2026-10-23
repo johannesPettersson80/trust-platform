@@ -967,7 +967,7 @@ mod tests {
             response.header.error_code,
             AdsErrorCode::AccessDenied.value()
         );
-        assert_eq!(response.payload, [] as [u8; 0]);
+        assert_eq!(response.payload, Vec::<u8>::new());
         server.shutdown();
     }
 
@@ -1006,7 +1006,7 @@ mod tests {
             response.header.error_code,
             AdsErrorCode::ServiceNotSupported.value()
         );
-        assert_eq!(response.payload, [] as [u8; 0]);
+        assert_eq!(response.payload, Vec::<u8>::new());
         server.shutdown();
     }
 

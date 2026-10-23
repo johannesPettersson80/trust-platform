@@ -392,10 +392,8 @@ impl<S: RecordingSession> RecordingCoordinator<S> {
         let waited_for_start = state.pending_loop.is_some();
         self.settled
             .wait_while(&mut state, |state| state.pending_loop.is_some());
-        if waited_for_start {
-            if let Some(failure) = state.start_failure.clone() {
-                return Err(failure);
-            }
+        if waited_for_start && let Some(failure) = state.start_failure.clone() {
+            return Err(failure);
         }
         // A lost start that holds its recording: the samples are kept, then the buffer is released.
         let held = state
@@ -425,10 +423,10 @@ impl<S: RecordingSession> RecordingCoordinator<S> {
             return outcome;
         }
         // A recovered owner without a live session may only be reported (`recoveredReason`).
-        if state.session_loop.is_none() {
-            if let Some(reason) = state.recovered_reason.clone() {
-                return Err(Failure::new(&reason, Cause::Runtime, NextAction::None));
-            }
+        if state.session_loop.is_none()
+            && let Some(reason) = state.recovered_reason.clone()
+        {
+            return Err(Failure::new(&reason, Cause::Runtime, NextAction::None));
         }
         if state.stopping {
             return Ok(None);

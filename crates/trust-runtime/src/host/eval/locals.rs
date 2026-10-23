@@ -5,7 +5,9 @@ pub(crate) fn static_storage_value_ref(
     let (instance_id, owner) = static_storage_binding(ctx, name)?;
     let key = static_storage_name(&owner, name);
     match instance_id {
-        Some(instance_id) => ctx.storage.ref_for_instance_recursive(instance_id, key.as_ref()),
+        Some(instance_id) => ctx
+            .storage
+            .ref_for_instance_recursive(instance_id, key.as_ref()),
         None => ctx.storage.ref_for_global(key.as_ref()),
     }
 }
@@ -86,9 +88,10 @@ pub(crate) fn init_locals(
             continue;
         }
         let value = if let Some(expr) = &local.initializer {
-            crate::harness::initializer::evaluate_initializer(
+            crate::harness::initializer::evaluate_initializer_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -98,9 +101,10 @@ pub(crate) fn init_locals(
                 local.type_id,
             )?
         } else {
-            crate::harness::initializer::default_value_for_type_id(
+            crate::harness::initializer::default_value_for_type_id_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -194,9 +198,10 @@ pub(crate) fn init_locals_in_frame(
             continue;
         }
         let value = if let Some(expr) = &local.initializer {
-            crate::harness::initializer::evaluate_initializer(
+            crate::harness::initializer::evaluate_initializer_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -206,9 +211,10 @@ pub(crate) fn init_locals_in_frame(
                 local.type_id,
             )?
         } else {
-            crate::harness::initializer::default_value_for_type_id(
+            crate::harness::initializer::default_value_for_type_id_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -232,11 +238,16 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
     let key = static_storage_name(&owner, &local.name);
 
     if let Some(instance_id) = instance_id {
-        if ctx.storage.get_instance_var(instance_id, key.as_ref()).is_none() {
+        if ctx
+            .storage
+            .get_instance_var(instance_id, key.as_ref())
+            .is_none()
+        {
             let value = if let Some(expr) = &local.initializer {
-                crate::harness::initializer::evaluate_initializer(
+                crate::harness::initializer::evaluate_initializer_with_abi(
                     ctx.storage,
                     ctx.registry,
+                    crate::value::StorageAbi::LegacyTemporal32,
                     ctx.initializer_catalog
                         .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                     &ctx.profile,
@@ -246,9 +257,10 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
                     local.type_id,
                 )?
             } else {
-                crate::harness::initializer::default_value_for_type_id(
+                crate::harness::initializer::default_value_for_type_id_with_abi(
                     ctx.storage,
                     ctx.registry,
+                    crate::value::StorageAbi::LegacyTemporal32,
                     ctx.initializer_catalog
                         .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                     &ctx.profile,
@@ -265,9 +277,10 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
 
     if ctx.storage.get_global(key.as_ref()).is_none() {
         let value = if let Some(expr) = &local.initializer {
-            crate::harness::initializer::evaluate_initializer(
+            crate::harness::initializer::evaluate_initializer_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -277,9 +290,10 @@ fn ensure_static_storage(ctx: &mut EvalContext<'_>, local: &VarDef) -> Result<()
                 local.type_id,
             )?
         } else {
-            crate::harness::initializer::default_value_for_type_id(
+            crate::harness::initializer::default_value_for_type_id_with_abi(
                 ctx.storage,
                 ctx.registry,
+                crate::value::StorageAbi::LegacyTemporal32,
                 ctx.initializer_catalog
                     .unwrap_or(&crate::program_model::InitializerCatalog::default()),
                 &ctx.profile,
@@ -301,10 +315,10 @@ fn static_storage_binding(
     let frame = ctx.storage.current_frame()?;
     if let Some(functions) = ctx.functions {
         let key = SmolStr::new(frame.owner.to_ascii_uppercase());
-        if let Some(function) = functions.get(&key) {
-            if contains_var_named(&function.static_locals, name) {
-                return Some((None, function.name.clone()));
-            }
+        if let Some(function) = functions.get(&key)
+            && contains_var_named(&function.static_locals, name)
+        {
+            return Some((None, function.name.clone()));
         }
     }
 
@@ -327,17 +341,17 @@ fn method_static_owner_label(
     let instance = ctx.storage.get_instance(instance_id)?;
     let key = SmolStr::new(instance.type_name.to_ascii_uppercase());
 
-    if let Some(function_blocks) = ctx.function_blocks {
-        if let Some(function_block) = function_blocks.get(&key) {
-            let classes = ctx.classes?;
-            return method_static_owner_label_in_fb(
-                function_blocks,
-                classes,
-                function_block,
-                method_name,
-                local_name,
-            );
-        }
+    if let Some(function_blocks) = ctx.function_blocks
+        && let Some(function_block) = function_blocks.get(&key)
+    {
+        let classes = ctx.classes?;
+        return method_static_owner_label_in_fb(
+            function_blocks,
+            classes,
+            function_block,
+            method_name,
+            local_name,
+        );
     }
 
     let classes = ctx.classes?;

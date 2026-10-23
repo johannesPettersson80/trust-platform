@@ -1,3 +1,18 @@
+/// Newest runtime events the product event store keeps for `events.tail` and `faults`. It is the
+/// largest limit either operation accepts (specification 11, event store).
+const EVENT_STORE_CAPACITY: usize = 1_000;
+
+/// Append a runtime event, dropping the oldest events beyond `EVENT_STORE_CAPACITY`.
+fn store_event(
+    store: &mut VecDeque<trust_runtime::debug::RuntimeEvent>,
+    event: trust_runtime::debug::RuntimeEvent,
+) {
+    store.push_back(event);
+    while store.len() > EVENT_STORE_CAPACITY {
+        store.pop_front();
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn run_runtime(
     project: Option<PathBuf>,
@@ -65,7 +80,7 @@ pub fn run_runtime(
     }
 
     if let Some(bundle) = &bundle {
-        apply_bundle_runtime_overrides(&mut runtime, bundle)?;
+        apply_bundle_runtime_services(&mut runtime, bundle)?;
     }
     runtime
         .set_execution_backend(selected_execution_backend)
@@ -73,6 +88,11 @@ pub fn run_runtime(
 
     runtime.restart(restart_mode)?;
     load_startup_retain(&mut runtime, restart_mode)?;
+    let mut openot_persistence = bundle
+        .as_ref()
+        .map(start_openot_persistence_service)
+        .transpose()?
+        .flatten();
 
     let logger = RuntimeLogger::new(match &bundle {
         Some(bundle) => LogLevel::parse(bundle.runtime.log_level.as_str()),
@@ -98,10 +118,7 @@ pub fn run_runtime(
             for event in event_rx {
                 log_runtime_event(&event_logger, &event);
                 if let Ok(mut guard) = events.lock() {
-                    guard.push_back(event);
-                    while guard.len() > 200 {
-                        guard.pop_front();
-                    }
+                    store_event(&mut guard, event);
                 }
             }
         });
@@ -131,9 +148,14 @@ pub fn run_runtime(
         .as_ref()
         .map(|bundle| bundle.runtime.cycle_interval)
         .unwrap_or_else(|| Duration::from_millis(10));
+    let hang_action = bundle
+        .as_ref()
+        .map(|bundle| bundle.runtime.watchdog_hang_action)
+        .unwrap_or_default();
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), cycle_interval)
         .with_restart_signal(pending_restart.clone())
-        .with_start_gate(start_gate.clone());
+        .with_start_gate(start_gate.clone())
+        .with_hang_action(hang_action);
     if simulation_enabled {
         runner = runner.with_simulation_speed(
             SimulationSpeed::new(simulation_time_scale),
@@ -297,6 +319,9 @@ pub fn run_runtime(
         )),
         debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
         historian: historian.clone(),
+        openot_persistence_status: openot_persistence
+            .as_ref()
+            .map(OpenOtPersistenceService::status_handle),
         pairing: pairing.clone(),
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),
@@ -318,10 +343,9 @@ pub fn run_runtime(
             if snapshot_control
                 .send_command(ResourceCommand::Snapshot { respond_to: tx })
                 .is_ok()
+                && let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250))
             {
-                if let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250)) {
-                    return Some(snapshot);
-                }
+                return Some(snapshot);
             }
             snapshot_debug.snapshot()
         });
@@ -345,17 +369,24 @@ pub fn run_runtime(
     } else {
         None
     };
-    if let Some(bundle) = &bundle {
-        if bundle.runtime.mesh.enabled {
-            let access = Arc::new(bundle.runtime.web.hmi.clone());
-            let sessions = Arc::new(trust_runtime::hmi::access::sessions::SessionStore::new((*access).clone()));
-            trust_runtime::hmi::remote_operations::configure_owner(&control.hmi_exchange(),sessions,access,state.audit_tx.clone());
-        }
+    if let Some(bundle) = &bundle
+        && bundle.runtime.mesh.enabled
+    {
+        let access = Arc::new(bundle.runtime.web.hmi.clone());
+        let sessions = Arc::new(trust_runtime::hmi::access::sessions::SessionStore::new(
+            (*access).clone(),
+        ));
+        trust_runtime::hmi::remote_operations::configure_owner(
+            &control.hmi_exchange(),
+            sessions,
+            access,
+            state.audit_tx.clone(),
+        );
     }
-    if let Some(mesh) = _mesh.as_ref() {
-        if let Ok(mut guard) = mesh_topology.lock() {
-            *guard = Some(mesh.topology_evidence());
-        }
+    if let Some(mesh) = _mesh.as_ref()
+        && let Ok(mut guard) = mesh_topology.lock()
+    {
+        *guard = Some(mesh.topology_evidence());
     }
     let _discovery_handle = if let Some(bundle) = &bundle {
         if bundle.runtime.discovery.enabled {
@@ -402,10 +433,9 @@ pub fn run_runtime(
             if snapshot_control
                 .send_command(ResourceCommand::Snapshot { respond_to: tx })
                 .is_ok()
+                && let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250))
             {
-                if let Ok(snapshot) = rx.recv_timeout(std::time::Duration::from_millis(250)) {
-                    return Some(snapshot);
-                }
+                return Some(snapshot);
             }
             None
         });
@@ -417,20 +447,20 @@ pub fn run_runtime(
             snapshot_provider,
             Some(audit_tx.clone()),
         )?;
-        if let Some(server) = server {
-            if let Ok(mut slot) = ads_server_runtime.lock() {
-                *slot = Some(server);
-            }
+        if let Some(server) = server
+            && let Ok(mut slot) = ads_server_runtime.lock()
+        {
+            *slot = Some(server);
         }
     }
 
     #[cfg(not(feature = "ads-server"))]
-    if let Some(bundle) = &bundle {
-        if bundle.runtime.ads_server.enabled {
-            anyhow::bail!(
-                "runtime.ads_server.enabled=true requires trust-runtime built with feature 'ads-server'"
-            );
-        }
+    if let Some(bundle) = &bundle
+        && bundle.runtime.ads_server.enabled
+    {
+        anyhow::bail!(
+        "runtime.ads_server.enabled=true requires trust-runtime built with feature 'ads-server'"
+    );
     }
 
     if show_banner {
@@ -539,16 +569,33 @@ pub fn run_runtime(
     let join_result = handle
         .join()
         .map_err(|_| anyhow::anyhow!("runtime thread panicked"));
+    // A halting fault keeps the thread alive until a stop request, so the final state is known
+    // only after the join. It selects the exit status below.
+    let final_state = handle.state();
+    let final_error = handle.last_error();
+    if let Some(service) = openot_persistence.as_mut() {
+        service.shutdown();
+    }
     if let Some(server) = opcua_server.as_mut() {
         server.stop();
     }
     #[cfg(feature = "ads-server")]
-    if let Ok(mut slot) = ads_server_runtime.lock() {
-        if let Some(mut server) = slot.take() {
-            server.shutdown();
-        }
+    if let Ok(mut slot) = ads_server_runtime.lock()
+        && let Some(mut server) = slot.take()
+    {
+        server.shutdown();
     }
     join_result?;
+    if final_state == trust_runtime::scheduler::ResourceState::Faulted {
+        let detail = final_error.map_or_else(|| "unknown fault".to_string(), |err| err.to_string());
+        logger.log(
+            LogLevel::Error,
+            "runtime_exit",
+            json!({ "status": "faulted", "error": detail }),
+        );
+        // Returned through the binary's error path, so the process exits with status 1.
+        anyhow::bail!("runtime resource faulted: {detail}");
+    }
     logger.log(
         LogLevel::Debug,
         "runtime_exit",

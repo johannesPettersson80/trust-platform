@@ -996,13 +996,13 @@ impl World {
             if let Some(manual) = pending.tracking["manual_command_symbol"].as_str() {
                 applied.insert(manual.to_owned(), held);
             }
-            if pending.tracking["align_output"] == true {
-                if let (Some(reference), Some(process)) = (
+            if pending.tracking["align_output"] == true
+                && let (Some(reference), Some(process)) = (
                     pending.tracking["reference_symbol"].as_str(),
                     pending.tracking["process_variable"].as_str(),
-                ) {
-                    applied.insert(reference.to_owned(), self.number(process));
-                }
+                )
+            {
+                applied.insert(reference.to_owned(), self.number(process));
             }
         }
         let mode = if pending.manual {

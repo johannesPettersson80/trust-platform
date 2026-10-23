@@ -1,4 +1,4 @@
-//! Specification 33 §3.2.1: the existing actuator publishes through ordinary I/O.
+//! Specification 46 §3.2.1: the existing actuator publishes through ordinary I/O.
 use std::sync::atomic::{AtomicU64, Ordering};
 use trust_hir::TypeId;
 use trust_runtime::error::RuntimeError;
@@ -59,13 +59,11 @@ initial_applied = 75.0
 }
 
 fn runtime(bindings: &[(&str, &str, TypeId)]) -> Runtime {
-    let mut runtime = Runtime::new();
-    for (name, address, value_type) in bindings {
-        runtime
-            .io_mut()
-            .bind_typed(*name, IoAddress::parse(address).unwrap(), *value_type);
-    }
-    runtime
+    let typed: Vec<(IoAddress, TypeId)> = bindings
+        .iter()
+        .map(|(_, address, value_type)| (IoAddress::parse(address).unwrap(), *value_type))
+        .collect();
+    trust_runtime::harness::runtime_with_bindings(&typed).expect("compile the plant's bindings")
 }
 
 fn heater_runtime() -> Runtime {
@@ -78,8 +76,7 @@ fn heater_runtime() -> Runtime {
 
 fn write(runtime: &mut Runtime, address: &str, value: f64) {
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &IoAddress::parse(address).unwrap(),
             Value::LWord(value.to_bits()),
         )

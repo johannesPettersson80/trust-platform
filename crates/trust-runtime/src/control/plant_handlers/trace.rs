@@ -197,8 +197,8 @@ pub(in crate::control) fn handle_plant_trace_clear(
         );
     }
     let fingerprint = format!(
-        "sha256:{:x}",
-        Sha256::digest(
+        "sha256:{}",
+        hex::encode(Sha256::digest(
             serde_json::to_vec(&json!({
                 "operation": "plant.trace.clear",
                 "project_id": params.project_id,
@@ -207,7 +207,7 @@ pub(in crate::control) fn handle_plant_trace_clear(
                 "active_configuration_revision": params.active_configuration_revision,
             }))
             .unwrap_or_default()
-        )
+        ))
     );
     let operation_id = params.operation_id.clone();
     let outcome =

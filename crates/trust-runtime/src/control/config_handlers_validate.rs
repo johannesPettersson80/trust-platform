@@ -34,6 +34,16 @@ fn expect_positive_i64(key: &str, value: &serde_json::Value) -> Result<i64, Stri
     Ok(number)
 }
 
+/// A positive millisecond count that must also fit the signed nanosecond duration range.
+fn expect_duration_millis(
+    key: &str,
+    value: &serde_json::Value,
+) -> Result<crate::value::Duration, String> {
+    let millis = expect_positive_i64(key, value)?;
+    crate::value::Duration::checked_from_millis(millis)
+        .ok_or_else(|| config_value_error(key, &format!("must be <= {}", i64::MAX / 1_000_000)))
+}
+
 fn expect_string_array(key: &str, value: &serde_json::Value) -> Result<Vec<String>, String> {
     let values = value
         .as_array()

@@ -1,0 +1,47 @@
+    Checking nb v1.1.0
+    Checking void v1.0.2
+    Checking critical-section v1.2.0
+    Checking vcell v0.1.3
+    Checking bare-metal v0.2.5
+    Checking gcd v2.3.0
+    Checking nb v0.1.3
+    Checking bitfield v0.13.2
+    Checking fugit v0.3.9
+    Checking portable-atomic v1.15.0
+    Checking volatile-register v0.2.2
+    Checking cortex-m-rt v0.7.5
+    Checking embedded-hal v0.2.7
+    Checking time-core v0.1.9
+    Checking powerfmt v0.2.1
+    Checking embedded-hal v1.0.0
+    Checking deranged v0.5.8
+    Checking stable_deref_trait v1.2.1
+    Checking cortex-m v0.7.7
+    Checking num-conv v0.2.2
+    Checking fugit-timer v0.1.3
+    Checking embedded-dma v0.2.0
+    Checking embedded-hal-nb v1.0.0
+    Checking enumflags2 v0.7.12
+    Checking stm32f4 v0.16.0
+    Checking embedded-storage v0.3.2
+    Checking cfg-if v1.0.5
+    Checking bare-metal v1.0.0
+    Checking time v0.3.55
+    Checking embedded-io v0.6.1
+    Checking rand_core v0.6.4
+    Checking rand_core v0.9.5
+    Checking equivalent v1.0.2
+    Checking hashbrown v0.17.1
+    Checking crc32fast v1.5.0
+    Checking thiserror v2.0.21
+    Checking libm v0.2.16
+    Checking smol_str v0.2.2
+    Checking linked_list_allocator v0.10.6
+    Checking rustc-hash v2.1.3
+    Checking indexmap v2.14.2
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re)
+    Checking embedded-alloc v0.7.0
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Checking stm32f4xx-hal v0.23.0
+    Checking trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-platform-stm32f4)
+    Finished `release` profile [optimized + debuginfo] target(s) in 8.54s

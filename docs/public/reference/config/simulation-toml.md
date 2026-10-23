@@ -117,7 +117,7 @@ they are simulation evidence, not a physical safety interlock.
 The complete field tables, model equations, actuator ordering, uncertainty
 generators, random algorithm, plant events, validation rules, and numeric
 conformance oracles are normative in
-[Simulation plant models](../../../specs/33-simulation-plant-models.md).
+[Simulation plant models](../../../specs/46-simulation-plant-models.md).
 
 For normal interactive authoring, use **truST: Devices & Connections**, add a
 **Simulated plant** to a runtime, and edit the same fields in Plant Properties.
@@ -192,5 +192,5 @@ physics feedback target. Couplings may still stack on the same target.
 ## Related
 
 - [Simulation Workflow](../../operate/simulation.md)
-- [Simulation plant-model specification](../../../specs/33-simulation-plant-models.md)
+- [Simulation plant-model specification](../../../specs/46-simulation-plant-models.md)
 - [Create A New Project](../../start/create-new-project.md)

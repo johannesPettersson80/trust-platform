@@ -8,6 +8,7 @@ export type IoEntry = {
   value: string;
   forced?: boolean;
   quality?: "good" | "uncertain" | "stale" | "bad";
+  writable?: boolean;
 };
 
 export type IoState = {
@@ -15,6 +16,7 @@ export type IoState = {
   inputs: IoEntry[];
   outputs: IoEntry[];
   memory: IoEntry[];
+  ads: IoEntry[];
 };
 
 export type CompileIssue = {

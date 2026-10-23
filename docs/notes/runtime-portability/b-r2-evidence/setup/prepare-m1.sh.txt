@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source /home/johannes/.cache/trust-portability-br2-setup/environment.sh
+[[ ! -e "$B_EVIDENCE/preparation-started.txt" ]] || exit 91
+date -u +%FT%TZ > "$B_EVIDENCE/preparation-started.txt"
+sha256sum -c "$B_SETUP/canonical.sha256" > "$B_EVIDENCE/bootstrap.txt"
+hostname > "$B_EVIDENCE/host.txt"
+pwd >> "$B_EVIDENCE/host.txt"
+git rev-parse HEAD >> "$B_EVIDENCE/host.txt"
+rustc -Vv > "$B_EVIDENCE/toolchain.txt"
+cargo -V >> "$B_EVIDENCE/toolchain.txt"
+df -h "$CARGO_TARGET_DIR" "$TMPDIR" . > "$B_EVIDENCE/disk.txt"
+bash "$B_SETUP/format-once.sh" > "$B_EVIDENCE/format-preparation.txt" 2>&1
+python3 "$B_SETUP/freeze-source.py"
+git diff --binary > "$B_EVIDENCE/source.patch"
+cp Cargo.lock "$B_EVIDENCE/workspace-Cargo.lock"
+cp firmware/trust-nucleo-f401re/Cargo.lock "$B_EVIDENCE/firmware-Cargo.lock"
+date -u +%FT%TZ > "$B_EVIDENCE/preparation-finished.txt"

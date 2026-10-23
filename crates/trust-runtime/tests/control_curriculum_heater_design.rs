@@ -443,8 +443,8 @@ fn lesson19_executes_the_gains_control_studio_applies_without_overwriting_them()
         *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
     }
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", proposed.clone()));
+        .write_instance(program, "Parameters", proposed.clone())
+        .is_ok());
     for scan in 10..13 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
@@ -591,8 +591,8 @@ fn lesson20_executes_the_gains_control_studio_applies_without_overwriting_them()
         *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
     }
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", proposed.clone()));
+        .write_instance(program, "Parameters", proposed.clone())
+        .is_ok());
     for scan in 10..13 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(
@@ -748,8 +748,8 @@ fn executes_the_pi_control_studio_applies(project: &str, kp: f64, ki: f64) {
         *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
     }
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", proposed.clone()));
+        .write_instance(program, "Parameters", proposed.clone())
+        .is_ok());
     for scan in 10..13 {
         lesson19_scan(&mut runtime, &mut simulation, scan);
         assert_eq!(

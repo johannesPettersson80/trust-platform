@@ -296,10 +296,10 @@ fn collect_field_member_ranges(root: &SyntaxNode) -> FxHashSet<TextRange> {
         let Some(member) = children.next() else {
             continue;
         };
-        if matches!(member.kind(), SyntaxKind::Name | SyntaxKind::NameRef) {
-            if let Some(token) = ident_token_in_name(&member) {
-                ranges.insert(token.text_range());
-            }
+        if matches!(member.kind(), SyntaxKind::Name | SyntaxKind::NameRef)
+            && let Some(token) = ident_token_in_name(&member)
+        {
+            ranges.insert(token.text_range());
         }
     }
     ranges

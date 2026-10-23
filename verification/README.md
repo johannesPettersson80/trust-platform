@@ -136,10 +136,12 @@ TOML shape convention:
   passing case summaries exactly cover each current committed case file, and
   `R1` also needs an approved release object. These rules do not promote any
   existing record or change report-only CI.
-- `scripts/verification_report_gate.py` is the pull-request reporting front
-  door. It runs the retained recursive verification-tooling suite and full
-  historical metadata validator, then reports their results together with
-  planner and uncataloged-test observations. Those maintenance commands,
+- `scripts/verification_report_gate.py` is the reporting front door. Pull
+  requests and exact release-candidate preparation use `--smoke` to execute
+  only the report-boundary unit tests. Scheduled and manual workflow runs keep
+  the recursive verification-tooling suite, historical tooling self-tests, and
+  full metadata validator, then report those results together with planner and
+  uncataloged-test observations. Those maintenance commands,
   historical Phase 16 readiness, governance companion-file advice, planner
   findings, and absent catalog rows are advisory. Native Rust, VS Code, and
   other product tests remain enforced by their owning CI jobs. Strict mode is
@@ -295,12 +297,13 @@ is closed rather than inferred from this procedure.
   assigned `command_role = "entrypoint"` row and no helper/reference row, and
   `commands` must be their exact ordered projection.
 - `veryquick` maps to `just verification-veryquick` on `trust-builder`. The
-  bounded recipe runs the canonical verification Python suite, metadata/case
+  bounded recipe runs the verification-report smoke tests, metadata/case
   consistency, existing HIR/runtime recipes, syntax and runtime-core tests,
   bytecode validation, and one deterministic conformance case. It is not a new
   broad local Raspberry Pi gate.
-- Run `python3 scripts/run_verification_focused_tests.py` for the canonical
-  verification-tooling suite. Discovery is recursive and deterministic, so the
+- Run `python3 scripts/run_verification_focused_tests.py` only for the exhaustive
+  verification-tooling maintenance suite used by scheduled/manual reporting.
+  Discovery is recursive and deterministic, so the
   Phase 3 lexical/source-geometry regressions and future `*_tests.py` modules
   cannot be omitted by a hand-maintained command. The production module
   `metadata_validator/ignored_tests.py` is explicitly excluded.

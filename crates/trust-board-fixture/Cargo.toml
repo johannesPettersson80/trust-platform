@@ -1,0 +1,16 @@
+[package]
+name = "trust-board-fixture"
+description = "M2E fixture shared by the truST board compositions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+trust-runtime-core = { path = "../trust-runtime-core", default-features = false }
+embedded-alloc = { version = "=0.7.0", default-features = false, features = ["llff"] }
+critical-section = "1.2.0"
+
+[dev-dependencies]
+critical-section = { version = "1.2.0", features = ["std"] }

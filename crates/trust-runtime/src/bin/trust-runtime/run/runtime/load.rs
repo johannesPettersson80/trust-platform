@@ -7,9 +7,15 @@ fn load_runtime(
 
     if let Some(project_path) = project {
         let bundle = RuntimeBundle::load(&project_path)?;
-        let sources = load_project_bundle_sources(bundle.root.as_path())?;
+        let sources = if bundle.root.join("src").is_dir() {
+            load_project_bundle_sources(bundle.root.as_path())?
+        } else {
+            SourceRegistry::new(Vec::new())
+        };
         let profile = project_conversion_profile(bundle.root.as_path())?;
-        let runtime = compile_runtime_from_sources(&sources, profile)?;
+        let module = BytecodeModule::decode(&bundle.bytecode)?;
+        let runtime = compile_session_from_sources(&sources, profile)
+            .build_runtime_from_bytecode(&module, Some(&bundle.runtime.resource_name))?;
         return Ok(LoadedRuntime {
             bundle: Some(bundle),
             runtime,
@@ -55,13 +61,13 @@ fn load_runtime(
     })
 }
 
-/// Compiles the project's sources with the conversion rules of its `vendor_profile`
+/// A compile session over the project's sources with the conversion rules of its `vendor_profile`
 /// (docs/specs/07-standard-functions.md 2.10).
-fn compile_runtime_from_sources(
+fn compile_session_from_sources(
     sources: &SourceRegistry,
     profile: ConversionProfile,
-) -> anyhow::Result<Runtime> {
-    let session = CompileSession::from_sources(
+) -> CompileSession {
+    CompileSession::from_sources(
         sources
             .files()
             .iter()
@@ -73,13 +79,16 @@ fn compile_runtime_from_sources(
             })
             .collect(),
     )
-    .with_conversion_profile(profile);
-    let mut runtime = session.build_runtime()?;
-    let bytecode = session.build_bytecode_bytes()?;
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .map_err(anyhow::Error::from)?;
-    Ok(runtime)
+    .with_conversion_profile(profile)
+}
+
+fn compile_runtime_from_sources(
+    sources: &SourceRegistry,
+    profile: ConversionProfile,
+) -> anyhow::Result<Runtime> {
+    compile_session_from_sources(sources, profile)
+        .build_runtime()
+        .map_err(anyhow::Error::from)
 }
 
 fn load_project_bundle_sources(bundle_root: &Path) -> anyhow::Result<SourceRegistry> {

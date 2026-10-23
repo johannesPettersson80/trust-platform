@@ -23,7 +23,8 @@ import {
 const SESSION_WAIT_TIMEOUT_MS = 8000;
 const SESSION_WAIT_POLL_MS = 100;
 const SESSION_START_STABILITY_MS = 2500;
-const DEBUG_START_COMMAND_TIMEOUT_MS = 6000;
+const SIMULATOR_LAUNCH_TIMEOUT_MS = 15_000;
+const IO_STATE_REQUEST_TIMEOUT_MS = 5_000;
 const IO_NEXT_SCAN_TIMEOUT_MS = 1200;
 const IO_NEXT_SCAN_POLL_MS = 60;
 
@@ -58,11 +59,12 @@ export function runtimeSessionControlAuthToken(
     : undefined;
 }
 
-const EMPTY_IO_STATE: IoState = { inputs: [], outputs: [], memory: [] };
+const EMPTY_IO_STATE: IoState = { inputs: [], outputs: [], memory: [], ads: [] };
 
 class RuntimeLifecycleService {
   private readonly sessions = new Map<string, vscode.DebugSession>();
   private readonly changeEmitter = new vscode.EventEmitter<void>();
+  private readonly ioStateChangeEmitter = new vscode.EventEmitter<IoState>();
   private registered = false;
   private readonly ioStates = new Map<string, { state: IoState; highWaterScan?: number }>();
   private get lastIoState(): IoState {
@@ -73,6 +75,7 @@ class RuntimeLifecycleService {
   private failure: RuntimeStartFailure | undefined;
 
   readonly onDidChange = this.changeEmitter.event;
+  readonly onDidIoStateChange = this.ioStateChangeEmitter.event;
 
   register(context: vscode.ExtensionContext): void {
     if (this.registered) {
@@ -97,7 +100,7 @@ class RuntimeLifecycleService {
         if (state.scan !== undefined && previous?.highWaterScan !== undefined && state.scan < previous.highWaterScan) return;
         this.ioStates.set(key, { state, highWaterScan: state.scan ?? previous?.highWaterScan });
         const active = this.getStructuredTextSession();
-        if (active && structuredTextSessionKey(active) === key) this.emitChanged();
+        if (active && structuredTextSessionKey(active) === key) this.emitIoStateChanged();
       })
     );
 
@@ -217,9 +220,13 @@ class RuntimeLifecycleService {
       };
     }
     try {
-      await session.customRequest(
-        "stIoState",
-        options.afterScan === undefined ? undefined : { afterScan: options.afterScan }
+      await withTimeout(
+        session.customRequest(
+          "stIoState",
+          options.afterScan === undefined ? undefined : { afterScan: options.afterScan }
+        ),
+        IO_STATE_REQUEST_TIMEOUT_MS,
+        "I/O state request timed out."
       );
       return { ok: true, message: "I/O state requested." };
     } catch (err) {
@@ -309,22 +316,10 @@ class RuntimeLifecycleService {
     this.emitChanged();
     try {
       await this.setRuntimeMode("simulate");
-      const started = await withTimeout(
+      const session = await this.waitForStructuredTextSessionOrCommand(
         vscode.commands.executeCommand<boolean>("trust-lsp.debug.start"),
-        DEBUG_START_COMMAND_TIMEOUT_MS,
-        "Start debugging timed out. Check the runtime port or target settings."
+        SIMULATOR_LAUNCH_TIMEOUT_MS
       );
-      if (!started) {
-        throw new Error("Start debugging did not launch a Simulator session.");
-      }
-      const session = await this.waitForStructuredTextSession(
-        SESSION_WAIT_TIMEOUT_MS
-      );
-      if (!session) {
-        throw new Error(
-          "Timed out waiting for the Simulator debug session."
-        );
-      }
       const ioStateResult = await this.requestIoState({ persistFailure: true });
       if (!ioStateResult.ok) {
         this.starting = false;
@@ -503,18 +498,53 @@ class RuntimeLifecycleService {
     }
   }
 
-  private async waitForStructuredTextSession(
+  private async waitForStructuredTextSessionOrCommand(
+    command: Thenable<boolean>,
     timeoutMs: number
-  ): Promise<vscode.DebugSession | undefined> {
+  ): Promise<vscode.DebugSession> {
+    type CommandOutcome =
+      | { readonly status: "pending" }
+      | { readonly status: "resolved"; readonly started: boolean }
+      | { readonly status: "rejected"; readonly error: unknown };
+    const commandOutcome: { current: CommandOutcome } = {
+      current: { status: "pending" },
+    };
+    void Promise.resolve(command).then(
+      (started) => {
+        commandOutcome.current = { status: "resolved", started };
+      },
+      (error: unknown) => {
+        commandOutcome.current = { status: "rejected", error };
+      }
+    );
+
     const startedAt = Date.now();
     while (Date.now() - startedAt < timeoutMs) {
       const session = this.getStructuredTextSession();
       if (session) {
         return session;
       }
+      const outcome = commandOutcome.current;
+      if (outcome.status === "rejected") {
+        throw outcome.error;
+      }
+      if (outcome.status === "resolved" && !outcome.started) {
+        throw new Error("Start debugging did not launch a Simulator session.");
+      }
       await new Promise((resolve) => setTimeout(resolve, SESSION_WAIT_POLL_MS));
     }
-    return this.getStructuredTextSession();
+    const session = this.getStructuredTextSession();
+    if (session) {
+      return session;
+    }
+    const outcome = commandOutcome.current;
+    if (outcome.status === "rejected") {
+      throw outcome.error;
+    }
+    if (outcome.status === "resolved" && !outcome.started) {
+      throw new Error("Start debugging did not launch a Simulator session.");
+    }
+    throw new Error("Timed out waiting for the Simulator debug session.");
   }
 
   // Returns true once no Structured Text debug session remains (the terminate event has landed and
@@ -562,6 +592,10 @@ class RuntimeLifecycleService {
   private emitChanged(): void {
     this.changeEmitter.fire();
   }
+
+  private emitIoStateChanged(): void {
+    this.ioStateChangeEmitter.fire(this.lastIoState);
+  }
 }
 
 export const runtimeLifecycleService = new RuntimeLifecycleService();
@@ -602,12 +636,24 @@ export function normalizeIoState(value: unknown): IoState {
     typeof value.scan === "number" && Number.isFinite(value.scan)
       ? value.scan
       : undefined;
+  const inputs = normalizeIoEntries(value.inputs);
+  const outputs = normalizeIoEntries(value.outputs);
+  const memory = normalizeIoEntries(value.memory);
+  const ads = [...inputs, ...outputs, ...memory].filter(isAdsLiveValue);
   return {
     scan,
-    inputs: normalizeIoEntries(value.inputs),
-    outputs: normalizeIoEntries(value.outputs),
-    memory: normalizeIoEntries(value.memory),
+    inputs: inputs.filter((entry) => !isAdsLiveValue(entry)),
+    outputs: outputs.filter((entry) => !isAdsLiveValue(entry)),
+    memory: memory.filter((entry) => !isAdsLiveValue(entry)),
+    ads,
   };
+}
+
+function isAdsLiveValue(entry: IoState["inputs"][number]): boolean {
+  return (
+    entry.address.startsWith("global:") &&
+    /^ADS(?:\s|$)/i.test(entry.source?.trim() ?? "")
+  );
 }
 
 function normalizeIoEntries(value: unknown): IoState["inputs"] {
@@ -629,6 +675,9 @@ function normalizeIoEntries(value: unknown): IoState["inputs"] {
         value: formatIoValue(rawValue),
         forced: entry.forced === true,
       };
+      if (typeof entry.writable === "boolean") {
+        normalized.writable = entry.writable;
+      }
       if (typeof entry.name === "string") {
         normalized.name = entry.name;
       }

@@ -36,7 +36,7 @@ fn vm_malformed_bytecode_fuzz_smoke_budget() {
                 "duplicate POU id"
             }
             1 => {
-                replace_main_body(&mut module, &[0x07]);
+                replace_main_body(&mut module, &[0x07, 0, 0, 0, 0]);
                 "unsupported runtime opcode CALL_METHOD"
             }
             2 => {

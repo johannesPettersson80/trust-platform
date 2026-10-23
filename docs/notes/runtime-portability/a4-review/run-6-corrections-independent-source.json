@@ -1,0 +1,33 @@
+{
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "review": "Read-only correction review, no builds/tests/formatters/validators",
+  "run6_manifest_sha256": "3a41ebb08ae3990a7754decd366af48632ec904bd59bacb1197f32f7e6be7681",
+  "run6_artifact_index_sha256": "7cea457bc9286d2ba5dd67ac28841a79d7ddb40652cc45bda14886b176d79830",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/allocation.rs",
+      "run6_sha256": "0cffd8c70531d63d26e8d9911e17ebb5648598a75141454662de61ebd57f8892",
+      "corrected_sha256": "a0baf57024eb4628a1a47e5d24e26afc1e8089735bb365b29f0348ff29d579e3"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/initialization/mod.rs",
+      "run6_sha256": "b1a9e44c7403c73b6f6b346fc467e4e9cf7cba7ff2b56b9c2f164b5c5b033971",
+      "corrected_sha256": "88ebd52eb7975aa2860c6ca58d812ac87147489d0fee1e6bcaf1867a3b527bcf"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/output_transaction.rs",
+      "run6_sha256": "16dec85717f61e0ff3e5d462ea76df3d6639050416cb203f7a09bcb6173ef861",
+      "corrected_sha256": "c595184aec41f95cc5b590851c576db091e5d826de76672486704c4e3601e278"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/retained_graph.rs",
+      "run6_sha256": "859b7a31f0390a5c4bb23143f8b660d602bef9d01f1c5ae0b81b21c61cecd69b",
+      "corrected_sha256": "b7de8fab34f13fe5cd54fcfd869839a9b1ab140b26ca4023cd5b4f4861997ed1"
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/prepared/indexes/tests.rs",
+      "run6_sha256": "a5a9942b92d91649af8f87e90c545fb7c4c0ac9e25d5ce86931b132b1d735c3b",
+      "corrected_sha256": "82243b07ada40383124fd4d7cbba95d43e1641a701195efce6e1c1fc1f4eff92"
+    }
+  ]
+}

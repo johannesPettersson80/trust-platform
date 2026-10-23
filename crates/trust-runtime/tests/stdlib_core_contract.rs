@@ -149,7 +149,10 @@ fn fixed_arithmetic_reports_division_and_arity_errors() {
         lib.call("MOD", &[Value::DInt(11), Value::DInt(4)]),
         Ok(Value::DInt(3))
     );
-    assert!(lib.call("DIV", &[Value::Int(1), Value::Int(0)]).is_err());
+    assert_eq!(
+        lib.call("DIV", &[Value::Int(1), Value::Int(0)]),
+        Err(RuntimeError::DivisionByZero)
+    );
     assert!(matches!(
         lib.call("SUB", &[Value::Int(1)]),
         Err(RuntimeError::InvalidArgumentCount {

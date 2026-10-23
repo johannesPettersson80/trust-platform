@@ -69,11 +69,15 @@ contracts, not IEC decisions or deviations.
 
 ## Executable tutorial examples
 
-The nine single-file programs under `examples/tutorials/` are shipped product
-artifacts. Every file must compile through both the in-process runtime harness
-and the current source-to-bytecode path. Success requires both paths to return
-without a compile, type-check, lowering, or validation error; this bounded
-fixture set does not certify arbitrary Structured Text programs.
+The first eight single-file programs under `examples/tutorials/` and the
+standalone `examples/tutorials/09_simulation_coupling/` project are shipped
+product artifacts. Every Structured Text source must compile through both the
+in-process runtime harness and the current source-to-bytecode path. Tutorial 09
+must also pass `trust-runtime check --project` from its checked-in project root,
+including its runtime and I/O configuration, so the documented Runtime Panel
+flow works without repository-root fallback. Success requires these paths to
+return without a compile, type-check, lowering, or validation error; this
+bounded fixture set does not certify arbitrary Structured Text programs.
 
 Three tutorials additionally define executable behavior locks:
 
@@ -169,11 +173,27 @@ The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.
 
-When a production `CONFIGURATION` exists, all discovered test programs are registered
-as additional program instances for the test session. Ordinary runtime
-construction without that explicit registration continues to reject an
-unconfigured test program; the test runner does not silently alter the
-production configuration.
+When a production `CONFIGURATION` exists, discovered test programs are registered
+as additional program instances for the test session. A case filter selects
+invocation and reporting, not which declarations participate in whole-project
+compilation; unselected tests are not executed. A production build of the same
+project (`trust-runtime build`, `run`, a debug or Control Studio session) leaves
+its `TEST_PROGRAM` declarations unbound and does not instantiate them: they are
+test entry points, not part of the production program, so a runnable project
+may keep its tests beside its configuration. An unbound ordinary `PROGRAM`
+under a `CONFIGURATION` is still refused. The test runner does not silently
+alter the production configuration.
+
+The hosted explicit entry APIs select admitted POU identities: a supplied
+program declaration contributes its name, never a replacement executable AST.
+Named test-function-block execution constructs a fresh instance from the admitted
+template and executable initializer recipes, within one temporary ownership scope.
+The common dispatcher runs the body with the same cumulative work/deadline budget;
+all scope-owned instances and frames retire on success or failure. This scope is
+not an extra PLC call frame, deployment root or persistent global binding. Live
+references to its instances cannot escape to longer-lived PLC storage. The test
+runner constructs the compiled installation once and cold-restarts it per case;
+it does not compile and install the identical application a second time.
 
 An `ASSERT_*` failure is a failed test. A non-assertion runtime failure is an
 error. A configured per-case deadline that is reached produces the distinct
@@ -252,6 +272,104 @@ These checks prove the named scripts, workflow wiring, machine-readable fields,
 and fail-closed aggregation boundaries. They do not prove that an unexecuted
 GitHub workflow ran successfully, that uploaded artifacts are publicly
 available, or that the final release candidate is green.
+
+Shared-builder Cargo targets used by an active gate MUST hold a stable external
+lease for the complete command lifetime. Generated-target cleanup MUST acquire
+that same lease without waiting and MUST skip a target whose lease is held; a
+globbed deletion of the shared target root is forbidden. Exact-candidate
+lease descriptors MUST NOT be inherited by helper daemons or detached
+background children after the invoked command exits. A command that
+intentionally leaves an asynchronous target user running MUST arrange a
+separate lease for that user instead of extending the caller's lease
+accidentally through descriptor inheritance. Exact-candidate
+preparation MUST use the leased target for every Cargo-producing VS Code,
+cross-target, supply-chain, architecture, clippy, and full-test command, and
+its deliberate pre-test reclaim MUST use the lease-aware cleanup command. A
+cross-target command MUST NOT inject host `CC` or `CXX` overrides into the
+target build; target-specific compiler discovery remains owned by Cargo and
+the cross-target gate. Host-only commands MAY pin the host C/C++ compilers. A
+successful assertion run followed by a missing executable due to concurrent
+target deletion is an infrastructure failure, never a green test result.
+
+### Native test and docs-capture lifecycle portability
+
+Native Unix control-endpoint fixtures must derive a collision-resistant socket
+path that stays within the portable 100-byte pathname budget even when the
+configured temporary directory is longer. A long `TMPDIR` must not turn an
+otherwise valid runtime test into a socket-bind setup failure.
+
+The automated docs-capture launcher owns every browser, runtime, and Docker
+process that it starts. On success, command failure, interruption, or timeout,
+it must terminate the complete owned process session and remove the named
+code-server container before returning. It must not terminate a reused or
+externally managed server. The executable lifecycle tests use fake commands and
+processes to prove cleanup ownership; rendered Playwright journeys separately
+prove the captured product surfaces. Lifecycle assertion deadlines must exceed
+the launcher's bounded graceful-termination window so the KILL fallback and
+process reaping can complete before the test runner times out.
+
+The Docs Captures workflow must run for pull-request and main-push changes to
+the runtime Web UI source tree so browser-visible runtime changes cannot bypass
+their registered Playwright journeys. Its pull-request and push path filters
+must remain identical.
+
+### Release-candidate discovery parity
+
+The exact-SHA prepare command includes the existing MP-001 test-discovery and
+snapshot inventory check. It runs after the native workspace suite, under the
+same target lease and compiler environment, so discovery reuses the built test
+binaries. It does not rerun test bodies. Adding or moving a handler test updates
+its checked-in discovery baseline alongside the test. A failed or missing parity
+command prevents a passing release-candidate artifact.
+
+### Release-candidate build parallelism
+
+Release validation uses Cargo's normal build-job configuration on the builder. The guard
+must not replace an inherited `CARGO_BUILD_JOBS` value or a configured `[build].jobs` limit
+with a hardcoded single-job setting. When the environment is unset, Cargo resolves its
+configuration normally. Build concurrency is an infrastructure resource choice, not a
+change to the selected tests or their assertions. The 80 GiB disk preflight, target lease,
+uncached compilation and target reclamation requirements remain in force.
+
+### Release-candidate target storage
+
+The guard requires at least 80 GiB free on the filesystem that will contain its
+selected generated target, before compilation starts. It reports that filesystem,
+`$HOME` and `/tmp`; moving a target to a mounted volume does not lower the threshold.
+Approved targets are strict descendants of the home Cargo-target cache, `/tmp`, or
+`/mnt/HC_Volume_107089260/builder-storage/cargo-targets`. The volume must actually
+be mounted. Target paths cannot traverse `.` or `..`, alias another path through
+symlinks, or name an existing target/parent owned by another user. The shared
+external lease and idle-only reclamation apply to all approved roots, and policy
+is rechecked after acquiring the lease.
+
+A target migration holds both path leases, copies only the task-owned generated
+target, and verifies file bytes and symlink destinations before removing the
+original through the idle-target helper. Source checkouts, unrelated targets and
+validation evidence are not migration cleanup targets.
+
+### Post-merge release-candidate cleanup audit
+
+The post-merge audit is read-only. It binds the reviewed candidate SHA, branch,
+and main ref, then reports exact local branch, remote branch, clean worktree,
+and prunable worktree-registration cleanup targets without deleting them. A
+prunable candidate row whose directory is already absent is a
+`prunable_worktree` target and must not be passed to `git status` or classified
+as dirty. Unmerged candidates, divergent candidate refs, and existing dirty
+candidate worktrees fail closed and suppress all cleanup targets until the
+operator resolves the blocker.
+
+### Cargo integration-test binary-path portability
+
+Workspace integration tests that launch a workspace binary must remain
+compilable when Cargo checks or lints all targets without building that binary.
+They must resolve Cargo's `CARGO_BIN_EXE_*` value from the execution environment
+instead of using either compile-time `env!` form. This preserves ordinary
+`cargo test` executable discovery while allowing the reviewed host and
+cross-target warning and clippy gates to compile every crate's integration-test
+targets. The CI portability scanner must inspect every Rust source below each
+workspace crate's `tests` directory and reject compile-time lookup for every
+binary name, not only `trust-runtime`.
 
 ### CI performance reference-environment contract
 

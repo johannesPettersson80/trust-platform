@@ -1,0 +1,4 @@
+[gate-progress state=started phase=B-R4-metadata target=scena-rust-builder pid=1768068 elapsed=0.0s timeout=7200s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/review-index python3 scripts/validate_verification_metadata.py']
+[gate-progress state=running phase=B-R4-metadata target=scena-rust-builder pid=1768068 elapsed=30.0s timeout=7200s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/review-index python3 scripts/validate_verification_metadata.py']
+verification metadata validated: 1029 records
+[gate-progress state=finished phase=B-R4-metadata target=scena-rust-builder pid=1768068 elapsed=30.7s timeout=7200s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-b-evidence/b-r4-run4/review-index python3 scripts/validate_verification_metadata.py' status=0]

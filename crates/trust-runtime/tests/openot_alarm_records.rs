@@ -63,6 +63,7 @@ fn telemetry(path: PathBuf) -> OpenOtTelemetryConfig {
         source: OpenOtTelemetrySource::Heartbeat,
         producer_instance: None,
         producer_instances: Vec::new(),
+        persistence: Default::default(),
     }
 }
 

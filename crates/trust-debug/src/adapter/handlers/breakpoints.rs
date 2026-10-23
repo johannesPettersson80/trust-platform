@@ -52,10 +52,10 @@ impl DebugAdapter {
         ))];
 
         let body = self.set_breakpoints(args);
-        if self.remote_session.is_none() {
-            if let Some(report) = self.session.take_breakpoint_report() {
-                events.push(self.debug_output_message(report));
-            }
+        if self.remote_session.is_none()
+            && let Some(report) = self.session.take_breakpoint_report()
+        {
+            events.push(self.debug_output_message(report));
         }
         DispatchOutcome {
             responses: vec![self.ok_response(&request, Some(body))],
@@ -239,15 +239,17 @@ impl DebugAdapter {
                 if loc_line < line || loc_line > max_line {
                     continue;
                 }
-                if let Some(min_col) = column {
-                    if loc_line == line && loc_col < min_col {
-                        continue;
-                    }
+                if let Some(min_col) = column
+                    && loc_line == line
+                    && loc_col < min_col
+                {
+                    continue;
                 }
-                if let Some(max_col) = end_column {
-                    if loc_line == max_line && loc_col > max_col {
-                        continue;
-                    }
+                if let Some(max_col) = end_column
+                    && loc_line == max_line
+                    && loc_col > max_col
+                {
+                    continue;
                 }
                 breakpoints.push(BreakpointLocation {
                     line: self.to_client_line(loc_line),

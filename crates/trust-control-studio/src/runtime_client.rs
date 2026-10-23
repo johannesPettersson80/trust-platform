@@ -303,7 +303,7 @@ impl RuntimeClient {
         )
     }
 
-    /// The plant status of `project_id` (`plant.status`, specification 34, §20.4), as the runtime answers it, with the refusal
+    /// The plant status of `project_id` (`plant.status`, specification 47, §20.4), as the runtime answers it, with the refusal
     /// code of a refused request. Trust-control decides what the answer means.
     ///
     /// # Errors

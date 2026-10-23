@@ -149,12 +149,11 @@ fn check_analysis_units(fields: &Map<String, Value>) -> Result<(), String> {
         if let (Some(analysed), Some(actual)) = (
             plant.get(analysed_key).and_then(Value::as_str),
             signal_unit(signal_name),
-        ) {
-            if analysed != actual {
-                return Err(
-                    "The analysis's plant units must be the units of the loop's signals.".into(),
-                );
-            }
+        ) && analysed != actual
+        {
+            return Err(
+                "The analysis's plant units must be the units of the loop's signals.".into(),
+            );
         }
     }
     Ok(())

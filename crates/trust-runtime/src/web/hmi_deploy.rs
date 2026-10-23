@@ -216,7 +216,7 @@ fn deploy(mut request: Request, ctx: &HmiDeployContext<'_>) {
             ctx.generation.fetch_add(1, Ordering::AcqRel);
             super::hmi_display::trends::share_trended_paths(
                 ctx.store,
-                &ctx.control_state.resource.hmi_exchange(),
+                &crate::control::hmi_ports::hmi_exchange(ctx.control_state),
             );
             audit_versions(ctx, "hmi.deploy", &who, &versions);
             respond(
@@ -263,7 +263,7 @@ fn rollback(request: Request, ctx: &HmiDeployContext<'_>) {
             ctx.generation.fetch_add(1, Ordering::AcqRel);
             super::hmi_display::trends::share_trended_paths(
                 ctx.store,
-                &ctx.control_state.resource.hmi_exchange(),
+                &crate::control::hmi_ports::hmi_exchange(ctx.control_state),
             );
             audit_versions(ctx, "hmi.rollback", &who, &versions);
             respond(

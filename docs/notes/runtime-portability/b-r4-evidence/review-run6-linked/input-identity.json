@@ -1,0 +1,10 @@
+{
+  "manifest_sha256": "6a8823e1b138ec193157ed08c0935da87548b377eddebeb2a7399c93d5f713b2",
+  "firmware_sha256": "7c5aa689752d2bc199f56f9094b5cd8066a42d6b1a5403a62bf2aca7a41550fb",
+  "files": {
+    "measurement/firmware.map": "fc6cbdf0ae94c686ba894c220811f6fdebb15efdde823c6d7aa0b77c042feff0",
+    "measurement/footprint.json": "58589e6dd99a97c5b09e574a4c669d7c05371346b153dbd83a7ed089ea8497bc",
+    "disassembly.txt": "3dad37c8125143d693ca0a22712591ca77a2da8159c6b82c6fb3c27096d2061c",
+    "prologues.txt": "6c102fe1befcdc5a4e46a64db645cd10aeb7442f8428f6eb72db7e87c4f19804"
+  }
+}

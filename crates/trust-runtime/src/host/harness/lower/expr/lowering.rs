@@ -76,6 +76,11 @@ pub(in crate::harness) fn lower_expr_with_context(
             let op = unary_op_from_node(node)?;
             let expr =
                 first_expr_child(node).ok_or_else(|| CompileError::new("missing unary operand"))?;
+            if matches!(op, UnaryOp::Neg)
+                && let Some(literal) = lower_negated_integer_literal(&expr, ctx, expected_type)?
+            {
+                return Ok(literal);
+            }
             Ok(Expr::Unary {
                 op,
                 expr: Box::new(lower_expr_with_context(&expr, ctx, expected_type)?),
@@ -97,8 +102,19 @@ pub(in crate::harness) fn lower_expr_with_context(
                     other => other,
                 };
             }
-            let mut left = lower_expr_with_context(&exprs[0], ctx, operand_context)?;
-            let mut right = lower_expr_with_context(&exprs[1], ctx, operand_context)?;
+            // Duration scaling has heterogeneous operands: the result context
+            // must not coerce its numeric factor into TIME/LTIME. The registry
+            // resolves duration aliases; each child keeps its inferred width.
+            let (left_context, right_context) = if matches!(op, BinaryOp::Mul | BinaryOp::Div)
+                && operand_context
+                    .is_some_and(|ty| ctx.registry.is_assignable(TypeId::ANY_DURATION, ty))
+            {
+                (left_type, right_type)
+            } else {
+                (operand_context, operand_context)
+            };
+            let mut left = lower_expr_with_context(&exprs[0], ctx, left_context)?;
+            let mut right = lower_expr_with_context(&exprs[1], ctx, right_context)?;
             // Let a bare enum variant name on one side resolve against the
             // other side's enum type. Mirrors the v0.18.4 CASE-label fix
             // (commit 8d7f069) for symmetric binary operands such as
@@ -171,8 +187,8 @@ pub(in crate::harness) fn lower_expr_with_context(
         }
         SyntaxKind::CallExpr => lower_call_expr(node, ctx),
         SyntaxKind::SizeOfExpr => lower_sizeof_expr(node, ctx),
-        SyntaxKind::ArrayInitializer => lower_array_initializer(node, ctx),
-        SyntaxKind::InitializerList => lower_struct_initializer(node, ctx),
+        SyntaxKind::ArrayInitializer => lower_array_initializer(node, ctx, expected_type),
+        SyntaxKind::InitializerList => lower_struct_initializer(node, ctx, expected_type),
         _ => Err(CompileError::new("unsupported expression")),
     }
 }
@@ -277,39 +293,6 @@ fn hir_expression_type(
     Some((analysis.symbols.clone(), type_id))
 }
 
-fn lower_array_initializer(
-    node: &SyntaxNode,
-    ctx: &mut LoweringContext<'_>,
-) -> Result<Expr, CompileError> {
-    let mut elements = Vec::new();
-    for child in node.children() {
-        if is_expression_kind(child.kind()) {
-            elements.push(lower_expr(&child, ctx)?);
-        }
-    }
-    Ok(Expr::ArrayInitializer(elements))
-}
-
-fn lower_struct_initializer(
-    node: &SyntaxNode,
-    ctx: &mut LoweringContext<'_>,
-) -> Result<Expr, CompileError> {
-    let mut fields = Vec::new();
-    let mut children = node.children().peekable();
-    while let Some(child) = children.next() {
-        if child.kind() != SyntaxKind::Name {
-            continue;
-        }
-        let field = node_text(&child).into();
-        let Some(value_node) = children.find(|candidate| is_expression_kind(candidate.kind()))
-        else {
-            return Err(CompileError::new("missing aggregate initializer value"));
-        };
-        fields.push((field, lower_expr(&value_node, ctx)?));
-    }
-    Ok(Expr::StructInitializer(fields))
-}
-
 fn lower_sizeof_expr(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
@@ -341,10 +324,10 @@ fn lower_sizeof_operand_type(
 ) -> Result<TypeId, CompileError> {
     // Namespace-qualified type operands like Demo.Packet parse as FieldExpr,
     // so prefer the type path before semantic value typing for that shape.
-    if node.kind() == SyntaxKind::FieldExpr {
-        if let Some(type_id) = lower_sizeof_named_type_operand(node, ctx)? {
-            return Ok(type_id);
-        }
+    if node.kind() == SyntaxKind::FieldExpr
+        && let Some(type_id) = lower_sizeof_named_type_operand(node, ctx)?
+    {
+        return Ok(type_id);
     }
     if let Some(type_id) = lower_sizeof_value_operand_type(node, ctx)? {
         return Ok(type_id);
@@ -449,7 +432,11 @@ fn offset_for_type_lookup(node: &SyntaxNode) -> u32 {
     let range = node.text_range();
     let end = u32::from(range.end());
     let start = u32::from(range.start());
-    if end > start { end - 1 } else { start }
+    if end > start {
+        end - 1
+    } else {
+        start
+    }
 }
 
 pub(in crate::harness) fn lower_expression_type(
@@ -738,7 +725,10 @@ fn lower_call_expr(node: &SyntaxNode, ctx: &mut LoweringContext<'_>) -> Result<E
     }
     let target = lower_expr(&target_node, ctx)?;
     let parameter_contexts = lower_call_parameter_contexts(&target_node, ctx)?;
-    let args = lower_call_args(node, ctx, &parameter_contexts)?;
+    let mut args = lower_call_args(node, ctx, &parameter_contexts)?;
+    if let Some(long_names) = standard_bistable_long_names(&target_node, ctx) {
+        canonicalize_standard_bistable_arguments(&mut args, long_names);
+    }
     Ok(Expr::Call {
         target: Box::new(target),
         args,
@@ -839,41 +829,6 @@ fn aggregate_runtime_type(type_id: TypeId, registry: &TypeRegistry) -> Option<Ty
         }
     }
     None
-}
-
-fn lower_aggregate_call_args(
-    node: &SyntaxNode,
-    ctx: &mut LoweringContext<'_>,
-    type_id: TypeId,
-) -> Result<Vec<(SmolStr, Expr)>, CompileError> {
-    let Some(arg_list) = node
-        .children()
-        .find(|child| child.kind() == SyntaxKind::ArgList)
-    else {
-        return Ok(Vec::new());
-    };
-    let mut fields = Vec::new();
-    for arg in arg_list
-        .children()
-        .filter(|child| child.kind() == SyntaxKind::Arg)
-    {
-        let name = arg
-            .children()
-            .find(|child| child.kind() == SyntaxKind::Name)
-            .map(|name| node_text(&name).into())
-            .ok_or_else(|| {
-                CompileError::new(
-                    "positional struct initializers are not supported; use named field initializers",
-                )
-            })?;
-        let expr_node =
-            first_expr_child(&arg).ok_or_else(|| CompileError::new("missing initializer value"))?;
-        let value = lower_expr(&expr_node, ctx).and_then(|lowered| {
-            resolve_initializer_enum_variant(&expr_node, lowered, type_id, ctx)
-        })?;
-        fields.push((name, value));
-    }
-    Ok(fields)
 }
 
 fn lower_call_args(

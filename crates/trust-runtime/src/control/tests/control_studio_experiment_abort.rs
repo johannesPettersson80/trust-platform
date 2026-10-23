@@ -14,6 +14,7 @@ fn abort_policy_state() -> ControlState {
                 name: Some(SmolStr::new(name)),
                 address: crate::io::IoAddress::parse(address).unwrap(),
                 value_type: Some(trust_hir::TypeId::BOOL),
+                value_type_name: None,
                 value: crate::io::IoSnapshotValue::Value(Value::Bool(false)),
                 source: None,
             });

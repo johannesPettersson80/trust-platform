@@ -52,7 +52,7 @@ END_PROGRAM
 
 The normative behavior, initialization requirements, update order, equations,
 and baseline limitations are defined in
-[`docs/specs/32-control-pid.md`](../../docs/specs/32-control-pid.md). The
+[`docs/specs/45-control-pid.md`](../../docs/specs/45-control-pid.md). The
 baseline intentionally does not include validation, safe/fault modes,
 identification, tuning, or performance monitoring.
 

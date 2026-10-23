@@ -9,7 +9,7 @@ use trust_ads_core::{
 use trust_hir::TypeId;
 use trust_runtime_core::value::Value;
 
-use crate::{RetainPolicy, Runtime};
+use crate::{RetainPolicy, Runtime, RuntimeBuilder};
 
 use super::*;
 
@@ -211,6 +211,42 @@ fn generates_deterministic_ads_interface_from_snapshot_and_config() {
             "    line1_status_quality : ADS_QUALITY := Stale;\n",
             "END_VAR\n",
         )
+    );
+}
+
+#[test]
+fn rejects_discovered_port_without_selected_points_before_interface_generation() {
+    let error = parse_ads_toml(
+        r#"
+[[connections]]
+name = "TwinCAT_100_67_6_217_1_1_port_301"
+target_net_id = "100.67.6.217.1.1"
+host = "127.0.0.1"
+ams_port = 301
+transport = "plain"
+insecure_transport = true
+
+[[connections]]
+name = "TwinCAT_100_67_6_217_1_1_port_851"
+target_net_id = "100.67.6.217.1.1"
+host = "127.0.0.1"
+ams_port = 851
+transport = "plain"
+insecure_transport = true
+
+[[connections.points]]
+symbol = "MAIN.Temperature"
+var = "main_temperature"
+type = "REAL"
+"#,
+    )
+    .expect_err("every persisted ADS connection must select at least one point");
+
+    assert!(
+        error
+            .to_string()
+            .contains("TwinCAT_100_67_6_217_1_1_port_301' requires at least one point"),
+        "unexpected validation error: {error}"
     );
 }
 
@@ -580,7 +616,9 @@ fn mock_transport_reports_missing_read_value_as_point_quality_error() {
 
 #[test]
 fn declared_binding_resolution_rejects_missing_global() {
-    let runtime = Runtime::new();
+    let runtime = RuntimeBuilder::new()
+        .build()
+        .expect("install empty binding fixture");
     let connection = connection_with_points(vec![point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -661,7 +699,7 @@ fn retain_read_requires_opt_in_and_allowed_binding_starts_stale() {
 
 #[test]
 fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
-    let mut runtime = runtime_with_globals(vec![
+    let runtime = runtime_with_globals(vec![
         (
             "line1_temp",
             TypeId::REAL,
@@ -675,6 +713,8 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
             RetainPolicy::NonRetain,
         ),
     ]);
+    // This bridge-only corpus mutates isolated non-executable fixture storage.
+    let mut storage = runtime.storage().clone();
     let connection = connection_with_points(vec![
         point_config(
             "line1_temp",
@@ -701,29 +741,18 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
         AdsConnectionBridge::with_transport(transport, bindings).expect("bridge");
     worker.tick(0).expect("worker tick");
 
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(0.0))
-    );
-    bridge
-        .apply_inputs(runtime.storage_mut(), 11)
-        .expect("apply inputs");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(20.5))
-    );
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(0.0)));
+    bridge.apply_inputs(&mut storage, 11).expect("apply inputs");
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(20.5)));
 
-    let setpoint_ref = runtime
-        .storage()
+    let setpoint_ref = storage
         .ref_for_global("line1_setpoint")
         .expect("setpoint ref");
-    assert!(runtime
-        .storage_mut()
-        .write_by_ref(setpoint_ref, Value::Real(31.0)));
+    assert!(storage.write_by_ref(setpoint_ref, Value::Real(31.0)));
     assert_eq!(worker.transport().value("line1_setpoint"), None);
 
     bridge
-        .capture_outputs(runtime.storage_mut(), 12)
+        .capture_outputs(&mut storage, 12)
         .expect("capture outputs");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -736,6 +765,61 @@ fn bridge_applies_reads_at_input_phase_and_publishes_writes_at_output_phase() {
         Some(&Value::Real(31.0))
     );
     assert_eq!(bridge.pending_write("line1_setpoint"), None);
+}
+
+#[test]
+fn bridge_projects_ads_globals_for_live_values_and_queues_writable_points() {
+    let runtime = runtime_with_globals(vec![
+        (
+            "line1_temp",
+            TypeId::REAL,
+            Value::Real(20.5),
+            RetainPolicy::NonRetain,
+        ),
+        (
+            "line1_setpoint",
+            TypeId::REAL,
+            Value::Real(31.0),
+            RetainPolicy::NonRetain,
+        ),
+    ]);
+    let connection = connection_with_points(vec![
+        point_config(
+            "line1_temp",
+            "MAIN.Temperature",
+            real_type(),
+            PointAccess::Read,
+            false,
+        ),
+        point_config(
+            "line1_setpoint",
+            "GVL.Setpoint",
+            real_type(),
+            PointAccess::ReadWrite,
+            false,
+        ),
+    ]);
+    let bindings = resolve_declared_bindings(&runtime, &connection).expect("bindings");
+    let mut bridge = AdsConnectionBridge::new(bindings).expect("bridge");
+
+    let values = bridge.live_values(runtime.storage(), "line1", 851);
+    assert_eq!(values.len(), 2);
+    assert!(values.iter().all(|value| value.input));
+    assert_eq!(values[0].connection_name, "line1");
+    assert_eq!(values[0].ams_port, 851);
+    assert!(!values[0].writable);
+    assert!(values[1].writable);
+    assert!(!values[0].forced);
+    assert_eq!(bridge.live_value_writable("line1_temp"), Some(false));
+    assert_eq!(bridge.live_value_writable("line1_setpoint"), Some(true));
+    assert_eq!(bridge.live_value_writable("missing"), None);
+
+    assert!(bridge.queue_live_write("line1_setpoint", Value::Real(42.0)));
+    assert_eq!(
+        bridge.pending_write("line1_setpoint"),
+        Some(Value::Real(42.0)),
+    );
+    assert!(!bridge.queue_live_write("line1_temp", Value::Real(42.0)));
 }
 
 #[test]
@@ -793,12 +877,14 @@ fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
 
     for mode in [UpdateMode::Poll, UpdateMode::Notify] {
         for (case, type_id, data_type, initial, non_finite, size) in &values {
-            let mut runtime = runtime_with_globals(vec![(
+            let runtime = runtime_with_globals(vec![(
                 "line1_temp",
                 *type_id,
                 initial.clone(),
                 RetainPolicy::NonRetain,
             )]);
+            // This bridge-only corpus mutates isolated non-executable fixture storage.
+            let mut storage = runtime.storage().clone();
             let mut point = point_config(
                 "line1_temp",
                 "MAIN.Temperature",
@@ -849,10 +935,10 @@ fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
             );
 
             bridge
-                .apply_inputs(runtime.storage_mut(), 11)
+                .apply_inputs(&mut storage, 11)
                 .expect("rejecting input must preserve scan execution");
             assert_eq!(
-                runtime.storage().get_global("line1_temp"),
+                storage.get_global("line1_temp"),
                 Some(initial),
                 "{case} in {mode:?} mode must not reach PLC variable storage"
             );
@@ -862,12 +948,14 @@ fn client_rejects_non_finite_real_and_lreal_before_storage_apply() {
 
 #[test]
 fn read_write_binding_seeds_write_baseline_from_first_good_read() {
-    let mut runtime = runtime_with_globals(vec![(
+    let runtime = runtime_with_globals(vec![(
         "line1_setpoint",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
+    // This bridge-only corpus mutates isolated non-executable fixture storage.
+    let mut storage = runtime.storage().clone();
     let connection = connection_with_points(vec![point_config(
         "line1_setpoint",
         "GVL.Setpoint",
@@ -883,26 +971,23 @@ fn read_write_binding_seeds_write_baseline_from_first_good_read() {
     worker.tick(0).expect("worker tick");
 
     bridge
-        .apply_inputs(runtime.storage_mut(), 11)
+        .apply_inputs(&mut storage, 11)
         .expect("apply first read");
     assert_eq!(
-        runtime.storage().get_global("line1_setpoint"),
+        storage.get_global("line1_setpoint"),
         Some(&Value::Real(10.0))
     );
     bridge
-        .capture_outputs(runtime.storage_mut(), 12)
+        .capture_outputs(&mut storage, 12)
         .expect("unchanged read/write point must not write back");
     assert_eq!(bridge.pending_write("line1_setpoint"), None);
 
-    let setpoint_ref = runtime
-        .storage()
+    let setpoint_ref = storage
         .ref_for_global("line1_setpoint")
         .expect("setpoint ref");
-    assert!(runtime
-        .storage_mut()
-        .write_by_ref(setpoint_ref, Value::Real(88.8)));
+    assert!(storage.write_by_ref(setpoint_ref, Value::Real(88.8)));
     bridge
-        .capture_outputs(runtime.storage_mut(), 13)
+        .capture_outputs(&mut storage, 13)
         .expect("changed read/write point queues write");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -917,12 +1002,14 @@ fn read_write_binding_seeds_write_baseline_from_first_good_read() {
 
 #[test]
 fn spawned_worker_updates_cache_and_scan_applies_snapshot_only() {
-    let mut runtime = runtime_with_globals(vec![(
+    let runtime = runtime_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
+    // This bridge-only corpus mutates isolated non-executable fixture storage.
+    let mut storage = runtime.storage().clone();
     let connection = connection_with_points(vec![point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -945,30 +1032,29 @@ fn spawned_worker_updates_cache_and_scan_applies_snapshot_only() {
             .is_some_and(|status| status.quality.state == QualityState::Good)
     });
     assert_eq!(
-        runtime.storage().get_global("line1_temp"),
+        storage.get_global("line1_temp"),
         Some(&Value::Real(0.0)),
         "worker cache updates must not mutate runtime storage mid-scan"
     );
 
     bridge
-        .apply_inputs(runtime.storage_mut(), 50)
+        .apply_inputs(&mut storage, 50)
         .expect("apply cached input");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(42.25))
-    );
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(42.25)));
 
     thread.shutdown().expect("shutdown worker");
 }
 
 #[test]
 fn notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary() {
-    let mut runtime = runtime_with_globals(vec![(
+    let runtime = runtime_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
+    // This bridge-only corpus mutates isolated non-executable fixture storage.
+    let mut storage = runtime.storage().clone();
     let mut point = point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -1006,7 +1092,7 @@ fn notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary() {
     worker.tick(10).expect("drain notification");
 
     assert_eq!(
-        runtime.storage().get_global("line1_temp"),
+        storage.get_global("line1_temp"),
         Some(&Value::Real(0.0)),
         "notification delivery must not mutate runtime storage mid-scan"
     );
@@ -1016,23 +1102,22 @@ fn notify_binding_subscribes_skips_poll_and_applies_at_scan_boundary() {
     );
 
     bridge
-        .apply_inputs(runtime.storage_mut(), 11)
+        .apply_inputs(&mut storage, 11)
         .expect("apply cached notification");
-    assert_eq!(
-        runtime.storage().get_global("line1_temp"),
-        Some(&Value::Real(22.75))
-    );
+    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(22.75)));
     assert_eq!(worker.transport().sumup_read_batches(), 0);
 }
 
 #[test]
 fn spawned_worker_drains_output_queue_off_scan_thread() {
-    let mut runtime = runtime_with_globals(vec![(
+    let runtime = runtime_with_globals(vec![(
         "line1_setpoint",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
+    // This bridge-only corpus mutates isolated non-executable fixture storage.
+    let mut storage = runtime.storage().clone();
     let connection = connection_with_points(vec![point_config(
         "line1_setpoint",
         "GVL.Setpoint",
@@ -1046,16 +1131,13 @@ fn spawned_worker_drains_output_queue_off_scan_thread() {
         bindings,
     )
     .expect("bridge");
-    let setpoint_ref = runtime
-        .storage()
+    let setpoint_ref = storage
         .ref_for_global("line1_setpoint")
         .expect("setpoint ref");
-    assert!(runtime
-        .storage_mut()
-        .write_by_ref(setpoint_ref, Value::Real(31.0)));
+    assert!(storage.write_by_ref(setpoint_ref, Value::Real(31.0)));
 
     bridge
-        .capture_outputs(runtime.storage_mut(), 60)
+        .capture_outputs(&mut storage, 60)
         .expect("queue output");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -1165,12 +1247,14 @@ fn notify_binding_refresh_disconnects_before_resubscribe() {
 
 #[test]
 fn read_bindings_do_not_publish_outputs() {
-    let mut runtime = runtime_with_globals(vec![(
+    let runtime = runtime_with_globals(vec![(
         "line1_temp",
         TypeId::REAL,
         Value::Real(0.0),
         RetainPolicy::NonRetain,
     )]);
+    // This bridge-only corpus mutates isolated non-executable fixture storage.
+    let mut storage = runtime.storage().clone();
     let connection = connection_with_points(vec![point_config(
         "line1_temp",
         "MAIN.Temperature",
@@ -1186,15 +1270,10 @@ fn read_bindings_do_not_publish_outputs() {
     .expect("bridge");
     worker.tick(0).expect("worker tick");
 
-    let temp_ref = runtime
-        .storage()
-        .ref_for_global("line1_temp")
-        .expect("temp ref");
-    assert!(runtime
-        .storage_mut()
-        .write_by_ref(temp_ref, Value::Real(99.0)));
+    let temp_ref = storage.ref_for_global("line1_temp").expect("temp ref");
+    assert!(storage.write_by_ref(temp_ref, Value::Real(99.0)));
     bridge
-        .capture_outputs(runtime.storage_mut(), 20)
+        .capture_outputs(&mut storage, 20)
         .expect("capture outputs");
 
     assert_eq!(bridge.pending_write("line1_temp"), None);
@@ -1321,15 +1400,25 @@ fn reconnect_marks_points_stale_until_backoff_allows_connect() {
 }
 
 fn runtime_with_globals(globals: Vec<(&str, TypeId, Value, RetainPolicy)>) -> Runtime {
-    let mut runtime = Runtime::new();
+    let mut builder = RuntimeBuilder::new();
     for (name, type_id, value, retain) in globals {
-        let name = smol_str::SmolStr::new(name);
-        runtime
-            .storage_mut()
-            .set_global(name.clone(), value.clone());
-        runtime.register_global_meta(name, type_id, retain, crate::GlobalInitValue::Value(value));
+        builder
+            .register_global(crate::program_model::VarDef {
+                name: name.into(),
+                type_id,
+                initializer: Some(crate::eval::expr::Expr::Literal(value)),
+                retain,
+                static_storage: false,
+                external: false,
+                in_out: false,
+                constant: false,
+                address: None,
+            })
+            .expect("declare ADS fixture global");
     }
-    runtime
+    builder
+        .build()
+        .expect("install declared ADS binding fixture")
 }
 
 fn connection_with_points(points: Vec<AdsPointConfig>) -> AdsConnectionConfig {

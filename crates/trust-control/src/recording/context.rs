@@ -6,7 +6,7 @@
 //!
 //! The context is a fact of the run, taken when the run happens: [`ExperimentContext::of`] reads the plan the engineer reviewed and
 //! the runtime's last status of the experiment (annex E5.6), and [`PlantContext::of`] reads the runtime's saved plant configuration and
-//! its active status (specification 34, §20.2 to §20.4). A saved result the engine opens keeps the context it states
+//! its active status (specification 47, §20.2 to §20.4). A saved result the engine opens keeps the context it states
 //! ([`saved_context`]). The types hold no tagged, untagged or flattened enum, because a recording file decodes without
 //! [`crate::json`].
 
@@ -140,7 +140,7 @@ pub enum RestorationResult {
 pub struct PlantContext {
     /// The plant's identifier, which the loop names.
     pub id: String,
-    /// The revision of the saved configuration the plant runs under (specification 34, §20.3).
+    /// The revision of the saved configuration the plant runs under (specification 47, §20.3).
     pub configuration_revision: String,
     /// The plant's entry of the simulation configuration, as it was saved. Absent for a plant that is not simulated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -150,7 +150,7 @@ pub struct PlantContext {
     pub physical_topology_reference: Option<String>,
     /// The plant's model kind.
     pub model: String,
-    /// The seed the simulation's randomness was drawn with, as a decimal text (specification 33, §3.1).
+    /// The seed the simulation's randomness was drawn with, as a decimal text (specification 46, §3.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_seed: Option<String>,
     /// The plant's uncertainties, one canonical JSON text each.
@@ -316,7 +316,7 @@ impl ExperimentContext {
 }
 
 impl PlantContext {
-    /// The simulated plant that `loop_definition` is tuned against, as the runtime proves it runs it (B10.2; specification 34, §20.2
+    /// The simulated plant that `loop_definition` is tuned against, as the runtime proves it runs it (B10.2; specification 47, §20.2
     /// to §20.4). `read` is the runtime's `plant.read` answer and `status` its `plant.status` answer. `None` unless the loop names a
     /// plant, the saved configuration describes it, and the runtime reports the plant active under the revision of that saved
     /// configuration: a configuration the runtime does not run is not evidence of the run.

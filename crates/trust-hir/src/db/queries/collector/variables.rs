@@ -4,6 +4,7 @@ use crate::db::queries::collector::const_utils::{
     parse_int_literal, scope_chain_for_node, ConstEvalError,
 };
 use crate::semantic::LEGACY_UNKNOWN_TYPE_ID;
+use crate::type_check::exact_int_literal_value;
 
 impl SymbolCollector<'_> {
     pub(super) fn extract_var_decl_info(
@@ -200,11 +201,17 @@ impl SymbolCollector<'_> {
         let Some(Type::Subrange { lower, upper, .. }) = self.table.type_by_id(resolved) else {
             return;
         };
-        let (lower, upper) = (*lower, *upper);
-        let scopes = scope_chain_for_node(expr);
-        let mut guard = FxHashSet::default();
-        let Ok(value) = self.try_eval_int_expr(expr, &scopes, &mut guard) else {
-            return;
+        let (lower, upper) = (i128::from(*lower), i128::from(*upper));
+        let value = match exact_int_literal_value(expr) {
+            Some(value) => value,
+            None => {
+                let scopes = scope_chain_for_node(expr);
+                let mut guard = FxHashSet::default();
+                let Ok(value) = self.try_eval_int_expr(expr, &scopes, &mut guard) else {
+                    return;
+                };
+                i128::from(value)
+            }
         };
         if value < lower || value > upper {
             self.diagnostics.error(
@@ -569,10 +576,16 @@ impl SymbolCollector<'_> {
                 );
             }
             ty if ty.is_integer() => {
+                if let Some(value) = exact_int_literal_value(expr) {
+                    self.check_integer_default_range(type_id, value, expr);
+                    return;
+                }
                 let scopes = scope_chain_for_node(expr);
                 let mut guard = FxHashSet::default();
                 match self.try_eval_int_expr(expr, &scopes, &mut guard) {
-                    Ok(value) => self.check_integer_default_range(type_id, value, expr),
+                    Ok(value) => {
+                        self.check_integer_default_range(type_id, i128::from(value), expr);
+                    }
                     Err(err) => self.report_default_const_eval_error(err, expr.text_range()),
                 }
             }
@@ -630,7 +643,7 @@ impl SymbolCollector<'_> {
                 .any(|token| token.kind() == SyntaxKind::KwNull)
     }
 
-    fn check_integer_default_range(&mut self, type_id: TypeId, value: i64, expr: &SyntaxNode) {
+    fn check_integer_default_range(&mut self, type_id: TypeId, value: i128, expr: &SyntaxNode) {
         let Some((lower, upper)) = self.integer_type_bounds(type_id) else {
             return;
         };
@@ -643,17 +656,18 @@ impl SymbolCollector<'_> {
         }
     }
 
-    fn integer_type_bounds(&self, type_id: TypeId) -> Option<(i64, i64)> {
+    fn integer_type_bounds(&self, type_id: TypeId) -> Option<(i128, i128)> {
         let resolved = self.table.resolve_alias_type(type_id);
         match self.table.type_by_id(resolved)? {
-            Type::Subrange { lower, upper, .. } => Some((*lower, *upper)),
-            Type::SInt => Some((i64::from(i8::MIN), i64::from(i8::MAX))),
-            Type::Int => Some((i64::from(i16::MIN), i64::from(i16::MAX))),
-            Type::DInt => Some((i64::from(i32::MIN), i64::from(i32::MAX))),
-            Type::USInt => Some((0, i64::from(u8::MAX))),
-            Type::UInt => Some((0, i64::from(u16::MAX))),
-            Type::UDInt => Some((0, i64::from(u32::MAX))),
-            Type::ULInt => Some((0, i64::MAX)),
+            Type::Subrange { lower, upper, .. } => Some((i128::from(*lower), i128::from(*upper))),
+            Type::SInt => Some((i128::from(i8::MIN), i128::from(i8::MAX))),
+            Type::Int => Some((i128::from(i16::MIN), i128::from(i16::MAX))),
+            Type::DInt => Some((i128::from(i32::MIN), i128::from(i32::MAX))),
+            Type::LInt => Some((i128::from(i64::MIN), i128::from(i64::MAX))),
+            Type::USInt => Some((0, i128::from(u8::MAX))),
+            Type::UInt => Some((0, i128::from(u16::MAX))),
+            Type::UDInt => Some((0, i128::from(u32::MAX))),
+            Type::ULInt => Some((0, i128::from(u64::MAX))),
             _ => None,
         }
     }

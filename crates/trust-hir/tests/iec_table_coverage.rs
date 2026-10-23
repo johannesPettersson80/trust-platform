@@ -192,11 +192,9 @@ fn parse_test_names(source: &str) -> BTreeSet<String> {
         if pending && trimmed.starts_with("#[") {
             continue;
         }
-        if pending {
-            if let Some(name) = parse_fn_name(trimmed) {
-                names.insert(name);
-                pending = false;
-            }
+        if pending && let Some(name) = parse_fn_name(trimmed) {
+            names.insert(name);
+            pending = false;
         }
     }
     names

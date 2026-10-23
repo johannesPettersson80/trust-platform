@@ -84,16 +84,21 @@ PY
 
 echo "[editor-smoke] running targeted trust-lsp workflow tests"
 tests=(
-  "handlers::tests::core::lsp_pull_diagnostics_returns_unchanged_and_explainer"
-  "handlers::tests::core::lsp_hover_variable"
+  "handlers::tests::core::core_part_01::lsp_pull_diagnostics_returns_unchanged_and_explainer"
+  "handlers::tests::core::core_part_01::lsp_hover_variable"
   "handlers::tests::completion_hover::lsp_completion_respects_stdlib_allowlist"
   "handlers::tests::formatting_and_navigation::lsp_formatting_snapshot"
-  "handlers::tests::lsp_golden_multi_root_protocol_snapshot"
+  "handlers::tests::mod_part_01::mod_part_01_part_01::lsp_golden_multi_root_protocol_snapshot"
 )
 
+test_list="$(cargo test -p trust-lsp --bin trust-lsp -- --list)"
 for test_name in "${tests[@]}"; do
-  echo "[editor-smoke] cargo test -p trust-lsp ${test_name} -- --exact"
-  cargo test -p trust-lsp "${test_name}" -- --exact
+  if ! grep -Fqx "${test_name}: test" <<<"${test_list}"; then
+    echo "[editor-smoke] exact filter selected zero tests: ${test_name}" >&2
+    exit 1
+  fi
+  echo "[editor-smoke] cargo test -p trust-lsp --bin trust-lsp ${test_name} -- --exact"
+  cargo test -p trust-lsp --bin trust-lsp "${test_name}" -- --exact
 done
 
 echo "[editor-smoke] all checks passed"

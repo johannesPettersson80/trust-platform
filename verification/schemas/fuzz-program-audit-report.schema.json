@@ -56,8 +56,8 @@
     "targets": {
       "type": "array",
       "items": { "$ref": "#/$defs/target" },
-      "minItems": 16,
-      "maxItems": 16
+      "minItems": 18,
+      "maxItems": 18
     },
     "surfaces": {
       "type": "array",
@@ -223,6 +223,8 @@
         "FUZZ_TARGET_HIR_LOWERING",
         "FUZZ_TARGET_PLCOPEN_XML",
         "FUZZ_TARGET_BYTECODE_CONTAINER",
+        "FUZZ_TARGET_BYTECODE_ADMISSION",
+        "FUZZ_TARGET_BYTECODE_REPREPARE",
         "FUZZ_TARGET_RUNTIME_CONFIG",
         "FUZZ_TARGET_LSP_INCREMENTAL",
         "FUZZ_TARGET_ADS_AMS_FRAME",
@@ -310,7 +312,7 @@
           "minItems": 1,
           "uniqueItems": true
         },
-        "last_reviewed": { "enum": ["2026-07-11", "2026-07-17"] },
+        "last_reviewed": { "enum": ["2026-07-11", "2026-07-17", "2026-10-15"] },
         "corpus_contents_assessed": { "const": false },
         "manifest_path": { "type": "string", "minLength": 1 },
         "corpus_path": { "type": "string", "minLength": 1 },
@@ -390,8 +392,8 @@
         "by_additional_tier"
       ],
       "properties": {
-        "inventory_targets": { "const": 16 },
-        "cargo_fuzz_targets": { "const": 10 },
+        "inventory_targets": { "const": 18 },
+        "cargo_fuzz_targets": { "const": 12 },
         "bounded_rust_smokes": { "const": 6 },
         "required_surfaces": { "const": 7 },
         "gap_surfaces": { "const": 0 },

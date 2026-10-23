@@ -37,18 +37,13 @@ impl Runtime {
         );
     }
 
-    /// Register a global declared `VAR_GLOBAL CONSTANT`.
-    pub(crate) fn register_constant_global(&mut self, name: SmolStr) {
-        self.constant_globals.insert(name);
-    }
-
     /// Register a task configuration.
     pub fn register_task(&mut self, task: TaskConfig) {
         let mut state = TaskState::new(self.current_time);
-        if let Some(single) = &task.single {
-            if let Some(Value::Bool(value)) = self.storage.get_global(single.as_ref()) {
-                state.last_single = *value;
-            }
+        if let Some(single) = &task.single
+            && let Some(Value::Bool(value)) = self.storage.get_global(single.as_ref())
+        {
+            state.last_single = *value;
         }
         if !self.task_thread_ids.contains_key(&task.name) {
             let id = self.next_thread_id;
@@ -75,35 +70,6 @@ impl Runtime {
     #[must_use]
     pub fn tasks(&self) -> &[TaskConfig] {
         &self.tasks
-    }
-
-    /// Whether program instance `program` ran in the last executed cycle: a program of a task ran when that task was due in the
-    /// cycle, and a program outside every task runs in every cycle. A periodic task first runs one interval after the start,
-    /// so a program's first execution need not be the first cycle.
-    #[must_use]
-    pub fn program_ran_in_last_cycle(&self, program: &str) -> bool {
-        let mut scheduled = false;
-        for task in &self.tasks {
-            if task
-                .programs
-                .iter()
-                .any(|name| name.eq_ignore_ascii_case(program))
-            {
-                scheduled = true;
-                if self
-                    .cycle_task_runs
-                    .iter()
-                    .any(|(name, _)| name.eq_ignore_ascii_case(task.name.as_str()))
-                {
-                    return true;
-                }
-            }
-        }
-        !scheduled
-            && self
-                .programs
-                .keys()
-                .any(|name| name.eq_ignore_ascii_case(program))
     }
 
     /// Determine whether any programs run outside configured tasks.
@@ -155,11 +121,5 @@ impl Runtime {
     /// Clear the faulted state (used by tests and tooling).
     pub fn clear_fault(&mut self) {
         self.faults.clear();
-    }
-
-    /// Get the overrun count for a task by name.
-    #[must_use]
-    pub fn task_overrun_count(&self, name: &str) -> Option<u64> {
-        self.task_state.get(name).map(|state| state.overrun_count)
     }
 }

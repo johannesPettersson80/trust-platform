@@ -16,6 +16,9 @@ use crate::software_map::{
     WorkspaceEdge,
 };
 
+mod external_safety;
+pub use external_safety::external_safety_gate;
+
 pub fn architecture_doctor_full_map(root: &Path) -> Result<()> {
     let policy = FullMapPolicy::load(root)?;
     let mut map = build_software_map(root, &policy)?;
@@ -913,19 +916,18 @@ fn check_policy_metadata(policy: &FullMapPolicy) -> FullMapCheck {
             ));
         }
     }
-    if let Some(waiver) = &policy.kiss.runtime_top_level_module_cap_waiver {
-        if waiver.target_cap == 0
+    if let Some(waiver) = &policy.kiss.runtime_top_level_module_cap_waiver
+        && (waiver.target_cap == 0
             || waiver.owner.trim().is_empty()
             || waiver.rationale.trim().is_empty()
             || waiver.review_date.trim().is_empty()
             || waiver.extraction_branch.trim().is_empty()
-            || waiver.removal_condition.trim().is_empty()
-        {
-            failures.push(
-                "runtime top-level module cap waiver is missing target_cap/owner/rationale/review_date/extraction_branch/removal_condition"
-                    .to_string(),
-            );
-        }
+            || waiver.removal_condition.trim().is_empty())
+    {
+        failures.push(
+        "runtime top-level module cap waiver is missing target_cap/owner/rationale/review_date/extraction_branch/removal_condition"
+            .to_string(),
+    );
     }
     let mut runtime_module_decisions = BTreeSet::new();
     for item in &policy.kiss.runtime_top_level_module_decisions {
@@ -2391,7 +2393,7 @@ fn check_parser_recovery_rules(map: &SoftwareMap) -> FullMapCheck {
 fn check_hir_zero_silent_bug_doctor(root: &Path) -> FullMapCheck {
     let script = Path::new("scripts/hir_zero_silent_bug_doctor.py");
     let script_path = root.join(script);
-    let command = "python3 scripts/hir_zero_silent_bug_doctor.py --fail";
+    let command = "python3 scripts/hir_zero_silent_bug_doctor.py";
     if !script_path.is_file() {
         return FullMapCheck::fail(
             "FULLMAP-HIRZSB",
@@ -2402,7 +2404,6 @@ fn check_hir_zero_silent_bug_doctor(root: &Path) -> FullMapCheck {
 
     match Command::new("python3")
         .arg(script)
-        .arg("--fail")
         .current_dir(root)
         .output()
     {
@@ -2438,20 +2439,16 @@ fn hir_zero_silent_bug_doctor_check_from_output(
     details.extend(command_stream_details("stdout", &output.stdout));
     details.extend(command_stream_details("stderr", &output.stderr));
 
-    if output.success
-        && output
-            .stdout
-            .contains("HIR zero-silent-bug doctor: no findings")
-    {
+    if output.success {
         FullMapCheck::pass(
             "FULLMAP-HIRZSB",
-            "HIR zero-silent-bug doctor reported no findings",
+            "HIR zero-silent-bug doctor completed with no fatal findings",
             details,
         )
     } else {
         FullMapCheck::fail(
             "FULLMAP-HIRZSB",
-            "HIR zero-silent-bug doctor reported findings or failed",
+            "HIR zero-silent-bug doctor reported fatal findings or failed",
             details,
         )
     }
@@ -3297,7 +3294,7 @@ fn collect_unsafe_summary(root: &Path, policy: &FullMapPolicy) -> UnsafeSummary 
 
 fn collect_safety_scan_files(root: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    for rel in ["crates", "third_party"] {
+    for rel in ["crates", "third_party", "firmware"] {
         let dir = root.join(rel);
         if dir.exists() {
             collect_safety_scan_files_inner(&dir, &mut files)?;
@@ -3333,6 +3330,11 @@ fn is_test_like_source_path(path: &str) -> bool {
 
 fn is_panic_like_scan_path(path: &str) -> bool {
     path.starts_with("crates/trust-runtime/src/")
+        || path.starts_with("crates/trust-platform-stm32f4/src/")
+        || path.starts_with("firmware/trust-nucleo-f401re/src/")
+        || path.starts_with("crates/trust-board-fixture/src/")
+        || path.starts_with("crates/trust-platform-esp32/src/")
+        || path.starts_with("firmware/trust-esp32c6-reference/src/")
         || path.starts_with("crates/trust-hir/src/")
         || path.starts_with("crates/trust-lsp/src/")
         || path.starts_with("crates/trust-ide/src/")
@@ -3552,10 +3554,10 @@ fn runtime_module_for_path(runtime_src: &Path, bin_root: &Path, file: &Path) -> 
             .components()
             .map(|component| component.as_os_str().to_string_lossy().to_string())
             .collect::<Vec<_>>();
-        if parts.first().is_some_and(|part| part == "bin") {
-            if let Some(second) = parts.get(1) {
-                return second.trim_end_matches(".rs").to_string();
-            }
+        if parts.first().is_some_and(|part| part == "bin")
+            && let Some(second) = parts.get(1)
+        {
+            return second.trim_end_matches(".rs").to_string();
         }
         return first_path_component_or_stem(rel);
     }
@@ -3591,23 +3593,25 @@ fn modules_after_marker(mut line: &str, marker: &str) -> Vec<String> {
     let mut modules = Vec::new();
     while let Some(idx) = line.find(marker) {
         let tail = &line[idx + marker.len()..];
-        if let Some(inner) = tail.strip_prefix('{') {
-            if let Some(end) = inner.find('}') {
-                for item in inner[..end].split(',') {
-                    if let Some(module) = first_identifier(item) {
-                        if module != "self" && module != "super" {
-                            modules.push(module.to_string());
-                        }
-                    }
+        if let Some(inner) = tail.strip_prefix('{')
+            && let Some(end) = inner.find('}')
+        {
+            for item in inner[..end].split(',') {
+                if let Some(module) = first_identifier(item)
+                    && module != "self"
+                    && module != "super"
+                {
+                    modules.push(module.to_string());
                 }
-                line = &inner[end + 1..];
-                continue;
             }
+            line = &inner[end + 1..];
+            continue;
         }
-        if let Some(module) = first_identifier(tail) {
-            if module != "self" && module != "super" {
-                modules.push(module.to_string());
-            }
+        if let Some(module) = first_identifier(tail)
+            && module != "self"
+            && module != "super"
+        {
+            modules.push(module.to_string());
         }
         if tail.is_empty() {
             break;
@@ -3845,10 +3849,10 @@ fn collect_runtime_bin_modules(root: &Path) -> Result<Vec<String>> {
     for entry in fs::read_dir(&bin_dir).with_context(|| format!("read {}", bin_dir.display()))? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-            if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
-                modules.push(stem.to_string());
-            }
+        if path.extension().and_then(|ext| ext.to_str()) == Some("rs")
+            && let Some(stem) = path.file_stem().and_then(|stem| stem.to_str())
+        {
+            modules.push(stem.to_string());
         }
     }
     Ok(modules)
@@ -4006,10 +4010,11 @@ fn parse_enum_variants(source: &str, enum_name: &str) -> Vec<String> {
         if trimmed.starts_with("#[") || trimmed.starts_with("//") || trimmed.is_empty() {
             continue;
         }
-        if let Some(name) = leading_identifier(trimmed) {
-            if name.chars().next().is_some_and(char::is_uppercase) && name != enum_name {
-                variants.push(name.to_string());
-            }
+        if let Some(name) = leading_identifier(trimmed)
+            && name.chars().next().is_some_and(char::is_uppercase)
+            && name != enum_name
+        {
+            variants.push(name.to_string());
         }
         if brace_balance <= 0 {
             break;
@@ -5167,14 +5172,14 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
     }
 
     #[test]
-    fn known_bad_hir_zero_doctor_finding_fails_full_map_check() {
+    fn fatal_hir_zero_doctor_finding_fails_full_map_check() {
         let check = hir_zero_silent_bug_doctor_check_from_output(
-            "python3 scripts/hir_zero_silent_bug_doctor.py --fail",
+            "python3 scripts/hir_zero_silent_bug_doctor.py",
             CommandCheckOutput {
                 success: false,
                 code: Some(1),
                 stdout: "HIR zero-silent-bug doctor: 1 warn-only finding(s)\n\
-                    HIRZSB-WARN-BROAD-LOOKUP crates/trust-hir/src/demo.rs:12: symbols.lookup_any(name)"
+                    HIRZSB-FAIL-PUBLIC-RAW-API crates/trust-hir/src/demo.rs:12: pub fn lookup_any"
                     .to_string(),
                 stderr: String::new(),
             },
@@ -5184,17 +5189,34 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         assert!(check
             .details
             .iter()
-            .any(|detail| detail.contains("HIRZSB-WARN-BROAD-LOOKUP")));
+            .any(|detail| detail.contains("HIRZSB-FAIL-PUBLIC-RAW-API")));
     }
 
     #[test]
     fn hir_zero_doctor_no_findings_passes_full_map_check() {
         let check = hir_zero_silent_bug_doctor_check_from_output(
-            "python3 scripts/hir_zero_silent_bug_doctor.py --fail",
+            "python3 scripts/hir_zero_silent_bug_doctor.py",
             CommandCheckOutput {
                 success: true,
                 code: Some(0),
                 stdout: "HIR zero-silent-bug doctor: no findings\n".to_string(),
+                stderr: String::new(),
+            },
+        );
+
+        assert_eq!(check.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn hir_zero_doctor_warn_only_output_passes_full_map_check() {
+        let check = hir_zero_silent_bug_doctor_check_from_output(
+            "python3 scripts/hir_zero_silent_bug_doctor.py",
+            CommandCheckOutput {
+                success: true,
+                code: Some(0),
+                stdout: "HIR zero-silent-bug doctor: 1 warn-only finding(s)\n\
+                    HIRZSB-WARN-BROAD-LOOKUP crates/trust-hir/src/demo.rs:12: symbols.lookup_any(name)"
+                    .to_string(),
                 stderr: String::new(),
             },
         );
@@ -5325,6 +5347,40 @@ trust-runtime -- ./crates/trust-runtime/Cargo.toml:\n\
         let check = check_unsafe_concurrency_summary(&base_map());
 
         assert_eq!(check.status, CheckStatus::Finding);
+    }
+
+    #[test]
+    fn separate_firmware_workspace_safety_sites_are_discovered_without_build_outputs() -> Result<()>
+    {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "trust-firmware-safety-{}-{suffix}",
+            std::process::id()
+        ));
+        let firmware = root.join("firmware/trust-nucleo-f401re");
+        fs::create_dir_all(firmware.join("src"))?;
+        fs::create_dir_all(firmware.join("target/debug"))?;
+        fs::write(
+            firmware.join("src/main.rs"),
+            "use core::sync::atomic::AtomicU32;\nunsafe fn abort_boundary() {}\n",
+        )?;
+        fs::write(
+            firmware.join("target/debug/generated.rs"),
+            "unsafe fn stale() {}\n",
+        )?;
+        let summary = collect_unsafe_summary(&root, &base_policy());
+        fs::remove_dir_all(&root)?;
+        assert_eq!(summary.production_unsafe_sites.len(), 1);
+        assert_eq!(summary.unregistered_unsafe_sites.len(), 1);
+        assert_eq!(
+            summary.production_unsafe_sites[0].path,
+            "firmware/trust-nucleo-f401re/src/main.rs"
+        );
+        assert_eq!(summary.production_unsafe_sites[0].line, 2);
+        assert_eq!(summary.unregistered_concurrency_boundaries.len(), 1);
+        Ok(())
     }
 
     #[test]

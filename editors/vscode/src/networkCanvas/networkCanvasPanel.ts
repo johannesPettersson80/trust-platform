@@ -2,28 +2,33 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { randomUUID } from "crypto";
 
+import { getTrustConfiguration } from "../configuration";
 import { debugChannel } from "../debug/configuration";
+import type { CommCapabilitiesResponse } from "../communication/capability";
 import type {
   CommApplyResponse,
   CommSchemaResponse,
 } from "../communication/schemaForm";
 import {
-  applyCommSetup,
   clientErrorResult,
   normalizeProtocolId,
-  testCommSetup,
 } from "../communication/runtimeComm";
 import {
   openRuntimePane,
   resolveRuntimeTarget,
+  resolveRuntimeTargetFromSettings,
   type RuntimeTarget,
 } from "../runtimeTarget";
-import { RuntimeControlError, sendRuntimeControlRequest } from "../runtimeControlClient";
+import { getControlAuthToken } from "../runtimeAuth";
+import { RuntimeControlError } from "../runtimeControlClient";
+import { localSimControl } from "../simControl";
 import {
   runtimeLifecycleService,
+  type RuntimeLifecycleSnapshot,
   type RuntimeStartFailure,
 } from "../runtimeLifecycle";
-import { setSelectedRuntimeId } from "../selectedRuntime";
+import type { IoState } from "../io-panel/types";
+import { getSelectedRuntimeId, setSelectedRuntimeId } from "../selectedRuntime";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
 import {
   onDidChangeManagedRuntimes,
@@ -31,44 +36,53 @@ import {
   startManagedRuntime,
   stopManagedRuntime,
 } from "../localRuntime";
+import type { ManagedRuntime } from "../localRuntimeModel";
 import {
   attachManagedRuntimeAfterStart,
   disconnectManagedRuntimeAfterStop,
 } from "../managedRuntimeSession";
-import type { FleetTopologyResponse } from "./fleetTopology";
 import {
+  type FleetTopologyResponse,
+} from "./fleetTopology";
+import {
+  fetchAndMergeFleetTopologiesWithConnectorStatus,
+} from "./connectorsStatus";
+import {
+  buildNetworkCanvasModel,
   isNetworkCanvasStage,
   NETWORK_CANVAS_IO_PROTOCOLS,
   nextNetworkCanvasStage,
+  type NetworkCanvasFailure,
+  type NetworkCanvasModel,
   type NetworkCanvasProtocolId,
   type NetworkCanvasStage,
 } from "./model";
+import { attachPlantsToRuntime, buildCanvasGraph, projectPlantRuntimeId } from "./graphData";
 import {
-  ensureAdsRuntimeEnabled,
-  offlineAdsImportSymbols,
-  offlineCommApply,
-  offlineCommDiscover,
-  offlineCommSchema,
-  offlineCommTopology,
-  openGeneratedAdsDocuments,
-  type AdsImportSymbolsReport,
-  type DiscoverCandidate,
-} from "./offlineComm";
+  DiscoveryRequestTracker,
+  isActiveWebviewSession,
+} from "./discoverySession";
 import {
-  loadCanvasData,
+  parseDiscoveryEnvelope,
+  runNetworkCanvasDiscovery,
+  type DiscoveryMessageEnvelope,
+} from "./discoveryController";
+import { NetworkCanvasProtocolActions } from "./protocolActions";
+import { networkCanvasWebviewHtml } from "./webviewHtml";
+import { NetworkCanvasFleetActions } from "./fleetActions";
+import { NetworkCanvasConfigurationActions } from "./configurationActions";
+import { becameVisible } from "./panelVisibility";
+import {
+  LatestRefreshCoordinator,
+  type LatestRefreshContext,
+} from "./refreshCoordinator";
+import { loadNetworkCanvasRefreshData } from "./refreshData";
+import {
+  loadProjectPlantTopology,
   removeProjectPlant,
   saveProjectPlant,
 } from "./canvasDataService";
-import {
-  addFleetHost as persistFleetHost,
-  addFleetRuntime as scaffoldFleetRuntime,
-} from "./fleetConfiguration";
-import { networkCanvasWebviewHtml } from "./webviewHtml";
-import { countLabel, discoverLabel } from "./canvasLabels";
-import {
-  decodeCanvasMessage,
-  decodeOpenControlStudioMessage,
-} from "./canvasMessageRouter";
+import { decodeCanvasMessage, decodeOpenControlStudioMessage } from "./canvasMessageRouter";
 import { CONTROL_STUDIO_OPEN_COMMAND } from "../controlStudio/panel";
 import { EquipmentHardwareHandoff } from "./equipmentHandoff";
 import {
@@ -77,18 +91,13 @@ import {
 } from "./plant/signalCatalog";
 import { decodePlantContractError } from "./plant/contract";
 import { plantSaveResultLabel } from "./plant/service";
-import {
-  addOfflineEthercatChannels,
-  addOfflineExpose,
-  addOfflineOpcuaConnection,
-  browseOfflineSymbols,
-  type OfflineCanvasActionContext,
-} from "./offlineCanvasActions";
+import type { NCPlant } from "./webview/types";
 
 export const NETWORK_CANVAS_COMMAND = "trust-lsp.networkCanvas.open";
 
 const NETWORK_CANVAS_VIEW_TYPE = "trust-network-canvas";
 const REFRESH_INTERVAL_MS = 1500;
+const IO_RENDER_INTERVAL_MS = 100;
 
 let panel: vscode.WebviewPanel | undefined;
 const equipmentHandoff = new EquipmentHardwareHandoff((message) => {
@@ -99,9 +108,18 @@ let currentStage: NetworkCanvasStage = "welcome";
 let deviceRequested = false;
 let lastFailure: RuntimeStartFailure | undefined;
 let refreshTimer: NodeJS.Timeout | undefined;
+let refreshPollRunning = false;
+let refreshPollGeneration = 0;
+let ioRenderTimer: NodeJS.Timeout | undefined;
+let pendingIoState: IoState | undefined;
 let activeProtocol: NetworkCanvasProtocolId = "simulated";
 let activeSchema: CommSchemaResponse | undefined;
+let lastCapabilities: CommCapabilitiesResponse | undefined;
+let lastSnapshot: RuntimeLifecycleSnapshot | undefined;
 let lastTopology: FleetTopologyResponse | undefined;
+let lastDisplayTopology: FleetTopologyResponse | undefined;
+let lastTopologyError: string | undefined;
+let lastManagedRuntimes: ManagedRuntime[] = [];
 let activeRuntimeTarget: RuntimeTarget | undefined;
 let lastApplyResult: CommApplyResponse | undefined;
 let searchQuery = "";
@@ -109,12 +127,50 @@ let pinnedNodeId: string | undefined;
 let pendingFocusNodeId: string | undefined;
 let quickAddOpen = false;
 let runtimeSetupMessage: string | undefined;
+const fleetEndpointLabels = new Map<string, string>();
 let getLanguageClient:
   | (() => { sendRequest(method: string, params: unknown): Promise<unknown> } | undefined)
   | undefined;
 let compiledBindings: unknown;
 let compiledBindingsRoot: string | undefined;
-const fleetEndpointLabels = new Map<string, string>();
+let lastPlantTopology: NCPlant[] | undefined;
+let lastPlantSignals: PlantSignalCatalog | undefined;
+const refreshCoordinator = new LatestRefreshCoordinator();
+const discoveryRequests = new DiscoveryRequestTracker<vscode.WebviewPanel>();
+let activeDiscoveryRequest:
+  | { readonly sessionId: string; readonly requestId: number }
+  | undefined;
+let activeWebviewSessionId: string | undefined;
+
+const protocolActions = new NetworkCanvasProtocolActions({
+  panel: () => panel,
+  extensionContext: () => extensionContext,
+  topology: () => lastTopology,
+  runtimeTarget: () => activeRuntimeTarget,
+  refresh: refreshNetworkCanvasPanel,
+  startRuntime: startConfiguredRuntime,
+});
+const fleetActions = new NetworkCanvasFleetActions({
+  extensionContext: () => extensionContext,
+  endpointLabels: fleetEndpointLabels,
+  focusEndpoint: (nodeId) => {
+    pendingFocusNodeId = nodeId;
+    pinnedNodeId = nodeId;
+  },
+  refresh: refreshNetworkCanvasPanel,
+});
+const configurationActions = new NetworkCanvasConfigurationActions({
+  extensionContext: () => extensionContext,
+  schema: () => activeSchema,
+  commit: (protocol, result) => {
+    const normalized = normalizeCanvasProtocol(protocol);
+    if (normalized) {
+      activeProtocol = normalized;
+    }
+    lastApplyResult = result;
+  },
+  refresh: refreshNetworkCanvasPanel,
+});
 
 export function registerNetworkCanvasPanel(
   context: vscode.ExtensionContext,
@@ -140,12 +196,18 @@ export function registerNetworkCanvasPanel(
       void refreshNetworkCanvasPanel();
     })
   );
+  context.subscriptions.push(
+    runtimeLifecycleService.onDidIoStateChange((ioState) => {
+      renderNetworkCanvasIoState(ioState);
+    })
+  );
   // A managed runtime starting/stopping (here or from the Run bar) re-renders its node state.
   context.subscriptions.push(
     onDidChangeManagedRuntimes(() => {
       void refreshNetworkCanvasPanel();
     })
   );
+  // A saved program changes the compiled signals a plant can bind to.
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((document) => {
       if (document.languageId !== "structured-text") return;
@@ -175,8 +237,13 @@ async function showNetworkCanvasPanel(
       }
     );
     panel.webview.html = networkCanvasWebviewHtml(panel.webview, context);
+    let wasVisible = panel.visible;
     panel.onDidDispose(() => {
       equipmentHandoff.dispose();
+      refreshCoordinator.invalidate();
+      discoveryRequests.invalidate();
+      activeDiscoveryRequest = undefined;
+      activeWebviewSessionId = undefined;
       panel = undefined;
       currentStage = "welcome";
       deviceRequested = false;
@@ -190,7 +257,47 @@ async function showNetworkCanvasPanel(
       pendingFocusNodeId = undefined;
       quickAddOpen = false;
       runtimeSetupMessage = undefined;
+      activeRuntimeTarget = undefined;
+      activeSchema = undefined;
+      lastCapabilities = undefined;
+      lastSnapshot = undefined;
+      lastTopology = undefined;
+      lastDisplayTopology = undefined;
+      lastTopologyError = undefined;
+      lastManagedRuntimes = [];
+      lastPlantTopology = undefined;
+      lastPlantSignals = undefined;
+      pendingIoState = undefined;
+      if (ioRenderTimer) {
+        clearTimeout(ioRenderTimer);
+        ioRenderTimer = undefined;
+      }
       stopPolling();
+    });
+    panel.onDidChangeViewState(({ webviewPanel }) => {
+      const panelBecameVisible = becameVisible(
+        wasVisible,
+        webviewPanel.visible
+      );
+      wasVisible = webviewPanel.visible;
+      if (panelBecameVisible) {
+        startPolling();
+        discoveryRequests.invalidate();
+        activeDiscoveryRequest = undefined;
+        if (activeWebviewSessionId) {
+          void webviewPanel.webview.postMessage({
+            type: "discoverReset",
+            sessionId: activeWebviewSessionId,
+          });
+        }
+        void webviewPanel.webview.postMessage({ type: "browseReset" });
+        void refreshNetworkCanvasPanel();
+      } else if (!webviewPanel.visible) {
+        stopPolling();
+        refreshCoordinator.invalidate();
+        discoveryRequests.invalidate();
+        activeDiscoveryRequest = undefined;
+      }
     });
     panel.webview.onDidReceiveMessage((message: unknown) => {
       void handleWebviewMessage(message);
@@ -203,58 +310,175 @@ async function showNetworkCanvasPanel(
 
 async function refreshNetworkCanvasPanel(): Promise<void> {
   const panelRef = panel;
-  if (!panelRef) {
+  if (!panelRef || !panelRef.visible) {
     return;
   }
+  await refreshCoordinator.request((context) =>
+    refreshNetworkCanvasPanelOnce(panelRef, context)
+  );
+}
+
+async function refreshNetworkCanvasPanelOnce(
+  panelRef: vscode.WebviewPanel,
+  refreshContext: LatestRefreshContext
+): Promise<void> {
   const refreshDelayMs = networkCanvasRefreshDelayMs();
   if (refreshDelayMs > 0) {
     await new Promise((resolve) => setTimeout(resolve, refreshDelayMs));
-    if (!panel || panel !== panelRef) {
+    if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
       return;
     }
   }
-  const snapshot = await runtimeLifecycleService.snapshot();
-  const data = await loadCanvasData({
-    context: extensionContext,
-    stage: currentStage,
-    snapshot,
-    hasStructuredTextSession: Boolean(runtimeLifecycleService.getStructuredTextSession()),
-    activeProtocol,
-    applyResult: lastApplyResult,
-    searchQuery,
-    pinnedNodeId,
-    quickAddOpen,
-    lastFailure,
-    deviceRequested,
-    fleetEndpointLabels,
-  });
-  const plantSignals = await currentPlantSignals(snapshot.ioState, data.schema, data.topology);
-  activeRuntimeTarget = data.runtime;
-  activeSchema = data.schema;
-  lastTopology = data.topology;
-  runtimeSetupMessage = data.setupMessage;
-  if (panel !== panelRef) {
+  const [snapshot, resolvedRuntime] = await Promise.all([
+    runtimeLifecycleService.snapshot(),
+    resolveRuntimeTarget(workspaceConfigResource()),
+  ]);
+  let runtime = resolvedRuntime;
+  // The canvas SHOWS the local simulator as a node in the host but NEVER auto-starts it —
+  // the user starts it on demand (the node's Start action). The graph below renders it
+  // stopped until the lifecycle service proves it is running.
+  // The local simulator's debug adapter serves the full control API on its own Unix socket
+  // (pinned + token-protected via the launch config, see simControl). If the configured target
+  // isn't a reachable online runtime but a local sim session is live, adopt the sim's control
+  // endpoint so the add-device flow (comm.schema/comm.apply) + fleet.topology work zero-config.
+  // Probe-gated via resolveRuntimeTargetFromSettings — only adopted when the socket actually
+  // answers with the token, so reachability stays honest (never green from "a session exists").
+  if (
+    runtime.status !== "online_reachable" &&
+    runtimeLifecycleService.getStructuredTextSession()
+  ) {
+    const sim = localSimControl(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+    if (sim) {
+      const simTarget = await resolveRuntimeTargetFromSettings({
+        mode: "online",
+        endpoint: sim.endpoint,
+        authToken: sim.authToken,
+        endpointEnabled: true,
+        label: "Simulator",
+      });
+      if (simTarget.status === "online_reachable") {
+        runtime = simTarget;
+      }
+    }
+  }
+  if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
     return;
   }
-  void panelRef.webview.postMessage({
-    type: "graph",
-    graph: data.graph,
+  lastSnapshot = snapshot;
+  activeRuntimeTarget = runtime;
+  postNetworkCanvasGraph(panelRef, false);
+
+  const refreshData = await loadNetworkCanvasRefreshData({
+    context: extensionContext,
+    projectDir: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+    runtime,
+    loadPeerTopology: async () => {
+      const peers = (await resolveFleetTargets(runtime)).filter(
+        (target) => target.endpoint && target.endpoint !== runtime.endpoint
+      );
+      return peers.length > 0
+        ? fetchAndMergeFleetTopologiesWithConnectorStatus(peers)
+        : { topology: undefined, errors: [] };
+    },
   });
+  if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
+    return;
+  }
+  // The project's simulated plants and the signals they can bind to (specification 47).
+  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const [plants, plantSignals] = await Promise.all([
+    extensionContext && projectDir
+      ? loadProjectPlantTopology(extensionContext, projectDir, runtime)
+      : Promise.resolve(undefined),
+    currentPlantSignals(snapshot.ioState, refreshData.schema, refreshData.localTopology),
+  ]);
+  if (!refreshContext.isCurrent() || panel !== panelRef || !panelRef.visible) {
+    return;
+  }
+  activeSchema = refreshData.schema;
+  lastCapabilities = refreshData.capabilities;
+  lastTopology = refreshData.localTopology;
+  lastDisplayTopology = refreshData.displayTopology;
+  lastTopologyError = refreshData.topologyError;
+  runtimeSetupMessage = refreshData.runtimeSetupMessage;
+  lastManagedRuntimes = refreshData.managed;
+  lastPlantTopology = plants;
+  lastPlantSignals = plantSignals;
+  postNetworkCanvasGraph(panelRef, true);
+}
+
+function postNetworkCanvasGraph(
+  panelRef: vscode.WebviewPanel,
+  applyPendingFocus: boolean,
+): void {
+  const snapshot = lastSnapshot;
+  if (!snapshot || panel !== panelRef || !panelRef.visible) {
+    return;
+  }
+  const model = buildNetworkCanvasModel(
+    modelInputForSnapshot(currentStage, snapshot, {
+      schema: activeSchema,
+      capabilities: lastCapabilities,
+      activeProtocol,
+      applyResult: lastApplyResult,
+      searchQuery,
+      pinnedNodeId,
+      quickAddOpen,
+      topology: lastDisplayTopology,
+      topologyError: lastTopologyError,
+      runtimeSetupMessage,
+    })
+  );
+  const attachedEndpoint =
+    snapshot.status.runtimeMode === "online" &&
+    snapshot.status.runtimeState === "connected"
+      ? snapshot.status.endpoint
+      : undefined;
+  const graph = buildCanvasGraph(
+    model,
+    lastDisplayTopology,
+    undefined,
+    attachedEndpoint,
+    lastManagedRuntimes,
+    getSelectedRuntimeId()
+  );
+  const plantRuntimeId = projectPlantRuntimeId(graph);
+  if (plantRuntimeId && lastPlantTopology) {
+    attachPlantsToRuntime(graph, plantRuntimeId, lastPlantTopology);
+  }
+  void panelRef.webview.postMessage({ type: "graph", graph });
   void panelRef.webview.postMessage({
     type: "meta",
     schema: activeSchema,
     applyResult: lastApplyResult,
-    reachable: data.reachable,
+    reachable: activeRuntimeTarget?.status === "online_reachable",
     setupMessage: runtimeSetupMessage,
-    plantSignals,
+    plantSignals: lastPlantSignals,
   });
-  if (pendingFocusNodeId) {
+  if (applyPendingFocus && pendingFocusNodeId) {
     void panelRef.webview.postMessage({
       type: "focusNode",
       nodeId: pendingFocusNodeId,
     });
     pendingFocusNodeId = undefined;
   }
+}
+
+function renderNetworkCanvasIoState(ioState: IoState): void {
+  pendingIoState = ioState;
+  if (ioRenderTimer) {
+    return;
+  }
+  ioRenderTimer = setTimeout(() => {
+    ioRenderTimer = undefined;
+    const nextIoState = pendingIoState;
+    pendingIoState = undefined;
+    if (!nextIoState || !lastSnapshot || !panel?.visible) {
+      return;
+    }
+    lastSnapshot = { ...lastSnapshot, ioState: nextIoState };
+    postNetworkCanvasGraph(panel, false);
+  }, IO_RENDER_INTERVAL_MS);
 }
 
 async function currentPlantSignals(
@@ -294,207 +518,104 @@ async function currentPlantSignals(
   );
 }
 
-async function addFleetHost(message: Record<string, unknown>): Promise<void> {
-  const result = await persistFleetHost(message, fleetEndpointLabels);
-  if (result.focusNodeId) {
-    pendingFocusNodeId = result.focusNodeId;
-    pinnedNodeId = result.focusNodeId;
+// §12.10 hybrid source: the primary runtime plus any configured fleet peers, each probed.
+// Peers that don't resolve to a reachable online runtime contribute nothing to the merge.
+async function resolveFleetTargets(primary: RuntimeTarget): Promise<RuntimeTarget[]> {
+  const extra = trustConfig().get<string[]>("runtime.fleetEndpoints", []);
+  const endpoints = [
+    ...new Set(
+      (extra ?? [])
+        .map((endpoint) => endpoint.trim())
+        .filter((endpoint) => endpoint.length > 0 && endpoint !== primary.endpoint)
+    ),
+  ];
+  if (endpoints.length === 0) {
+    return [primary];
   }
-  await refreshNetworkCanvasPanel();
+  const peers = await Promise.all(
+    endpoints.map(async (endpoint) =>
+      resolveRuntimeTargetFromSettings({
+        mode: "online",
+        endpoint,
+        authToken: await getControlAuthToken(endpoint),
+        endpointEnabled: true,
+        label: fleetEndpointLabels.get(endpoint),
+      }).catch(() => undefined)
+    )
+  );
+  return [primary, ...peers.filter((peer): peer is RuntimeTarget => peer !== undefined)];
 }
 
-async function addFleetRuntime(message: Record<string, unknown>): Promise<void> {
-  await scaffoldFleetRuntime(extensionContext, message);
-  await refreshNetworkCanvasPanel();
+function workspaceConfigResource(): vscode.Uri | undefined {
+  return vscode.workspace.workspaceFolders?.[0]?.uri;
+}
+
+function trustConfig(): vscode.WorkspaceConfiguration {
+  return getTrustConfiguration(workspaceConfigResource());
 }
 
 // §0.5 Discover: run `comm.discover` for each selected protocol IN SEQUENCE (clear per-row
 // progress), then post the combined candidates. Degrades gracefully if the verb isn't there yet.
 async function handleDiscover(message: Record<string, unknown>): Promise<void> {
-  if (!panel || !extensionContext) {
+  const panelRef = panel;
+  const contextRef = extensionContext;
+  const envelope = parseDiscoveryEnvelope(message);
+  if (
+    !panelRef ||
+    !contextRef ||
+    !envelope ||
+    !isActiveWebviewSession(envelope.sessionId, activeWebviewSessionId)
+  ) {
     return;
   }
-  const request = isRecord(message.request) ? message.request : {};
-  const origin = typeof request.origin === "string" ? request.origin : "this_host";
-  const items = Array.isArray(request.items) ? request.items : [];
-  // origin "this_host" → CLI on this machine (this-host). Otherwise scan FROM the runtime — the
-  // control verb on a reachable runtime (Codex: origin=runtime is a control verb). The candidate
-  // carries no protocol, so we stamp it for the UI's "+ Add".
-  const viaRuntime =
-    origin !== "this_host" &&
-    activeRuntimeTarget?.status === "online_reachable" &&
-    Boolean(activeRuntimeTarget.endpoint);
-  const all: DiscoverCandidate[] = [];
-  for (const raw of items) {
-    if (!isRecord(raw) || typeof raw.protocol !== "string") {
-      continue;
-    }
-    const protocol = raw.protocol;
-    const cidr = typeof raw.cidr === "string" ? raw.cidr : undefined;
-    const host = typeof raw.host === "string" ? raw.host : undefined;
-    const label = discoverLabel(protocol, host, cidr);
-    void panel.webview.postMessage({ type: "discoverProgress", protocol, label, status: "scanning" });
-    let candidates: DiscoverCandidate[] = [];
-    if (viaRuntime && activeRuntimeTarget?.endpoint) {
-      const res = await sendRuntimeControlRequest<{ candidates?: DiscoverCandidate[] }>(
-        activeRuntimeTarget.endpoint,
-        activeRuntimeTarget.authToken,
-        "comm.discover",
-        { protocol, origin: "runtime", scope: { cidr, host } },
-        { timeoutMs: 8000 }
-      ).catch(() => undefined);
-      candidates = res?.candidates ?? [];
-    } else {
-      const res = await offlineCommDiscover(extensionContext, protocol, "this-host", { cidr, host });
-      candidates = res?.candidates ?? [];
-    }
-    const stamped = candidates.map((c) => ({ ...c, protocol }));
-    all.push(...stamped);
-    void panel.webview.postMessage({ type: "discoverProgress", protocol, label, status: "done", count: stamped.length });
+  const token = discoveryRequests.start(panelRef);
+  activeDiscoveryRequest = {
+    sessionId: envelope.sessionId,
+    requestId: envelope.requestId,
+  };
+  const discoveryRuntimeTarget = await resolveDiscoveryRuntimeTarget(envelope);
+  if (!discoveryRequests.isCurrent(token, panelRef)) {
+    return;
   }
-  void panel.webview.postMessage({ type: "discoverResults", candidates: all });
+  await runNetworkCanvasDiscovery(envelope, {
+    panel: panelRef,
+    extensionContext: contextRef,
+    runtimeTarget: discoveryRuntimeTarget,
+    tracker: discoveryRequests,
+    token,
+  });
 }
 
-// §0.5.2 browse a target's symbol tree (ADS first). Reports route_missing so the UI can offer the
-// "Create route" fix. Graceful if the verb isn't there yet.
-async function handleBrowseSymbols(message: Record<string, unknown>): Promise<void> {
-  await browseOfflineSymbols(offlineActionContext(), message);
-}
-
-async function handleAddExpose(message: Record<string, unknown>): Promise<void> {
-  await addOfflineExpose(offlineActionContext(), message);
+async function resolveDiscoveryRuntimeTarget(
+  envelope: DiscoveryMessageEnvelope
+): Promise<RuntimeTarget | undefined> {
+  if (envelope.request.origin === "this_host") {
+    return undefined;
+  }
+  const endpoint = envelope.request.originEndpoint?.trim();
+  if (endpoint) {
+    return resolveRuntimeTargetFromSettings({
+      mode: "online",
+      endpoint,
+      authToken: await getControlAuthToken(endpoint),
+      endpointEnabled: true,
+      label: envelope.request.origin,
+    }).catch(() => undefined);
+  }
+  return envelope.request.origin === "runtime:local"
+    ? activeRuntimeTarget
+    : undefined;
 }
 
 function networkCanvasRefreshDelayMs(): number {
-  const value = Number(process.env.TRUST_VSCODE_NETWORK_CANVAS_REFRESH_DELAY_MS ?? 0);
+  const value = Number(
+    process.env.TRUST_VSCODE_NETWORK_CANVAS_REFRESH_DELAY_MS ?? 0
+  );
   if (!Number.isFinite(value) || value <= 0) {
     return 0;
   }
   return Math.min(Math.floor(value), 10_000);
 }
-
-// opcua_client: save a browsed connection (endpoint + chosen security/auth + selected node points,
-// each with its real OPC-UA NodeId) to opcua_client.toml via comm.apply. Honest lifecycle — a file
-// write never claims the connection is live; the runtime turns it green only on real reads.
-async function handleAddOpcuaConnection(message: Record<string, unknown>): Promise<void> {
-  await addOfflineOpcuaConnection(offlineActionContext(), message);
-}
-
-// EtherCAT "Browse channels" selects PDO channel paths from the configured modules and writes that
-// selection back to the EtherCAT driver params. It is NOT an ADS import/tag pipeline.
-async function handleAddEthercatChannels(message: Record<string, unknown>): Promise<void> {
-  await addOfflineEthercatChannels(offlineActionContext(), message);
-}
-
-function offlineActionContext(): OfflineCanvasActionContext {
-  return {
-    extensionContext,
-    projectDir: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-    topology: lastTopology,
-    postMessage: (message) => void panel?.webview.postMessage(message),
-    refresh: refreshNetworkCanvasPanel,
-  };
-}
-
-// §0.5 ADS "Add tags": write the selected symbols through the existing ADS import pipeline
-// (ads.toml points + cached snapshot + generated ST). Prefer a reachable runtime's
-// ads.import_symbols.apply control verb; otherwise use the same deterministic local CLI import
-// from the extension host so a stopped project can still complete the authoring flow.
-async function handleAddTags(message: Record<string, unknown>): Promise<void> {
-  const paths = Array.isArray(message.paths)
-    ? message.paths.filter((p): p is string => typeof p === "string")
-    : [];
-  if (paths.length === 0) {
-    return;
-  }
-  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!projectDir) {
-    await vscode.window.showWarningMessage(
-      "Add tags needs an open project so truST can write ads.toml and generated ST."
-    );
-    return;
-  }
-  if (
-    !activeRuntimeTarget ||
-    activeRuntimeTarget.status !== "online_reachable" ||
-    !activeRuntimeTarget.endpoint
-  ) {
-    const protocol = typeof message.protocol === "string" ? message.protocol : "";
-    if (protocol === "ads" && extensionContext && projectDir) {
-      const src = isRecord(message.target) ? message.target : {};
-      const report = await offlineAdsImportSymbols(
-        extensionContext,
-        projectDir,
-        src,
-        paths,
-        Boolean(message.writable)
-      );
-      if (report.applied) {
-        await vscode.window.showInformationMessage(report.message);
-        await refreshNetworkCanvasPanel();
-      } else {
-        await vscode.window.showWarningMessage(`Could not add ADS tags: ${report.message}`);
-      }
-      return;
-    }
-    await vscode.window.showWarningMessage(
-      "Add tags needs a reachable runtime — it writes ads.toml + the generated ST through the runtime's ADS import pipeline."
-    );
-    return;
-  }
-  // TargetIdentity wants ip/ams_net_id; the ADS endpoint params use host/target_net_id — map them.
-  const src = isRecord(message.target) ? message.target : {};
-  const target: Record<string, unknown> = {
-    name: typeof src.name === "string" ? src.name : undefined,
-    ip: typeof src.host === "string" ? src.host : src.ip,
-    ams_net_id: typeof src.target_net_id === "string" ? src.target_net_id : src.ams_net_id,
-    ams_port: typeof src.ams_port === "number" ? src.ams_port : 851,
-    tc_version: src.tc_version,
-  };
-  const connectionName =
-    typeof src.name === "string" && src.name.trim().length > 0 ? src.name : "ads_import";
-  try {
-    const report = await sendRuntimeControlRequest<AdsImportSymbolsReport>(
-      activeRuntimeTarget.endpoint,
-      activeRuntimeTarget.authToken,
-      "ads.import_symbols.apply",
-      {
-        connection_name: connectionName,
-        symbols: paths,
-        target,
-        write_acknowledged: Boolean(message.writable),
-      },
-      { timeoutMs: 20_000 }
-    );
-    if (report?.applied) {
-      const runtimeConfig = ensureAdsRuntimeEnabled(projectDir);
-      if (!runtimeConfig.ok) {
-        await vscode.window.showWarningMessage(
-          `Added ADS tags, but ADS runtime was not enabled automatically: ${runtimeConfig.message}`
-        );
-        await refreshNetworkCanvasPanel();
-        return;
-      }
-      const count = report.selected_count ?? paths.length;
-      await openGeneratedAdsDocuments(report);
-      await vscode.window.showInformationMessage(
-        `Added ${countLabel(count, "ADS tag")}. Restart the runtime to apply the generated ST symbols.`
-      );
-      await refreshNetworkCanvasPanel();
-    } else {
-      await vscode.window.showWarningMessage(
-        `Could not add tags: ${report?.message ?? "the runtime rejected the import."}`
-      );
-    }
-  } catch (error) {
-    await vscode.window.showWarningMessage(
-      `Could not add tags: ${
-        error instanceof Error ? error.message : String(error)
-      } (live ADS import needs an ads-wire runtime build).`
-    );
-  }
-}
-
 async function handleWebviewMessage(value: unknown): Promise<void> {
   if (await equipmentHandoff.handle(value)) return;
   const message = decodeCanvasMessage(value);
@@ -503,6 +624,16 @@ async function handleWebviewMessage(value: unknown): Promise<void> {
   }
   switch (message.type) {
     case "ready":
+      discoveryRequests.invalidate();
+      activeDiscoveryRequest = undefined;
+      activeWebviewSessionId =
+        typeof message.sessionId === "string" ? message.sessionId : undefined;
+      if (panel && activeWebviewSessionId) {
+        void panel.webview.postMessage({
+          type: "discoverReset",
+          sessionId: activeWebviewSessionId,
+        });
+      }
       await refreshNetworkCanvasPanel();
       break;
     case "search":
@@ -556,24 +687,24 @@ async function handleWebviewMessage(value: unknown): Promise<void> {
       }
       break;
     case "commApply":
-      await applyNetworkCanvasSetup(message);
+      await configurationActions.apply(message);
       break;
     case "commSave":
       // Editable inspector: write config to disk (works stopped/offline).
-      await saveNetworkCanvasSetup(message, "upsert");
+      await configurationActions.save(message, "upsert");
       break;
     case "commRemove":
-      await saveNetworkCanvasSetup(message, "remove");
+      await configurationActions.save(message, "remove");
       break;
     case "commDisable":
-      await saveNetworkCanvasSetup(message, "disable");
+      await configurationActions.save(message, "disable");
       break;
     case "commApplyLive":
       // Explicit "push to the running runtime now" — control channel, online only.
-      await applyNetworkCanvasSetup(message);
+      await configurationActions.apply(message);
       break;
     case "commTest":
-      await testNetworkCanvasSetup(message);
+      await configurationActions.test(message);
       break;
     case "commApplyClientError":
       {
@@ -593,16 +724,29 @@ async function handleWebviewMessage(value: unknown): Promise<void> {
       await refreshNetworkCanvasPanel();
       break;
     case "addHost":
-      await addFleetHost(message);
+      await fleetActions.addHost(message);
       break;
     case "addRuntime":
-      await addFleetRuntime(message);
+      await fleetActions.addRuntime(message);
       break;
     case "discover":
       await handleDiscover(message);
       break;
+    case "cancelDiscover":
+      if (
+        activeDiscoveryRequest &&
+        message.sessionId === activeDiscoveryRequest.sessionId &&
+        message.requestId === activeDiscoveryRequest.requestId
+      ) {
+        discoveryRequests.invalidate();
+        activeDiscoveryRequest = undefined;
+      }
+      break;
     case "browseSymbols":
-      await handleBrowseSymbols(message);
+      await protocolActions.browseSymbols(message);
+      break;
+    case "addAdsDevice":
+      await protocolActions.addAdsDevice(message);
       break;
     case "createRoute":
       // The browse pane owns the visible recovery instructions. Keep this notification aligned with
@@ -612,16 +756,28 @@ async function handleWebviewMessage(value: unknown): Promise<void> {
       );
       break;
     case "addTags":
-      await handleAddTags(message);
+      await protocolActions.addTags(message);
+      break;
+    case "addAdsTagsBatch":
+      await protocolActions.addAdsTagsBatch(message);
+      break;
+    case "removeAdsTag":
+      await protocolActions.removeAdsTag(message);
+      break;
+    case "openAdsDiscoverySettings":
+      await vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "trust.ads.discoveryPorts"
+      );
       break;
     case "addEthercatChannels":
-      await handleAddEthercatChannels(message);
+      await protocolActions.addEthercatChannels(message);
       break;
     case "addExpose":
-      await handleAddExpose(message);
+      await protocolActions.addExpose(message);
       break;
     case "addOpcuaConnection":
-      await handleAddOpcuaConnection(message);
+      await protocolActions.addOpcuaConnection(message);
       break;
     case "copyText":
       if (typeof message.text === "string" && message.text.length > 0) {
@@ -869,130 +1025,40 @@ async function handlePlantRemove(message: Record<string, unknown>): Promise<void
   }
 }
 
-async function applyNetworkCanvasSetup(
-  message: Record<string, unknown>
-): Promise<void> {
-  const runtime = await resolveRuntimeTarget();
-  const result = await applyCommSetup(runtime, message, activeSchema);
-  if (!result) {
-    return;
-  }
-  const protocol = normalizeCanvasProtocol(result.protocol);
-  if (protocol) {
-    activeProtocol = protocol;
-  }
-  lastApplyResult = result.applyResult;
-  await refreshNetworkCanvasPanel();
-}
-
-// Settings UX: Save/Remove write the project's config files via the offline CLI — no running
-// runtime required. The change takes effect on next start; "Apply to running runtime" pushes
-// it live separately.
-async function saveNetworkCanvasSetup(
-  message: Record<string, unknown>,
-  action: "upsert" | "remove" | "disable"
-): Promise<void> {
-  const projectDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  const protocol = typeof message.protocol === "string" ? message.protocol : undefined;
-  if (!extensionContext || !projectDir || !protocol) {
-    return;
-  }
-  const params = isRecord(message.params) ? message.params : {};
-  const result = await offlineCommApply(extensionContext, projectDir, protocol, params, action);
-  if (result) {
-    const topology = result.applied
-      ? await offlineCommTopology(extensionContext, projectDir)
-      : undefined;
-    lastApplyResult = {
-      ...result,
-      instance_id:
-        result.instance_id ??
-        (topology && action !== "remove"
-          ? findSavedEndpointId(topology, protocol, params)
-          : undefined),
-    };
-  }
-  await refreshNetworkCanvasPanel();
-}
-
-function findSavedEndpointId(
-  topology: FleetTopologyResponse,
-  protocol: string,
-  params: Record<string, unknown>
-): string | undefined {
-  const protocolMatches: Array<{ id: string; params?: Record<string, unknown> }> = [];
-  for (const host of topology.hosts ?? []) {
-    const runtimes = [
-      ...(host.runtimes ?? []),
-      ...(host.containers ?? []).flatMap((container) => container.runtimes ?? []),
-    ];
-    for (const runtime of runtimes) {
-      for (const endpoint of runtime.endpoints ?? []) {
-        if (endpoint.protocol !== protocol) {
-          continue;
-        }
-        protocolMatches.push({ id: endpoint.id, params: endpoint.params });
-      }
-    }
-  }
-  const exact = protocolMatches.filter((endpoint) =>
-    endpoint.params ? paramsMatch(endpoint.params, params) : false
-  );
-  return (lastItem(exact) ?? lastItem(protocolMatches))?.id;
-}
-
-function lastItem<T>(items: readonly T[]): T | undefined {
-  return items.length > 0 ? items[items.length - 1] : undefined;
-}
-
-function paramsMatch(
-  endpointParams: Record<string, unknown>,
-  submittedParams: Record<string, unknown>
-): boolean {
-  for (const [key, value] of Object.entries(submittedParams)) {
-    if (!(key in endpointParams)) {
-      continue; // Secret/redacted fields are intentionally absent from topology.
-    }
-    if (stableParamValue(endpointParams[key]) !== stableParamValue(value)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function stableParamValue(value: unknown): string {
-  return JSON.stringify(normalizeParamValue(value)) ?? "undefined";
-}
-
-function normalizeParamValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(normalizeParamValue);
-  }
-  if (isRecord(value)) {
-    return Object.keys(value)
-      .sort()
-      .reduce<Record<string, unknown>>((acc, key) => {
-        acc[key] = normalizeParamValue(value[key]);
-        return acc;
-      }, {});
-  }
-  return value;
-}
-
-async function testNetworkCanvasSetup(
-  message: Record<string, unknown>
-): Promise<void> {
-  const runtime = await resolveRuntimeTarget();
-  const result = await testCommSetup(runtime, message, activeSchema);
-  if (!result) {
-    return;
-  }
-  const protocol = normalizeCanvasProtocol(result.protocol);
-  if (protocol) {
-    activeProtocol = protocol;
-  }
-  lastApplyResult = result.applyResult;
-  await refreshNetworkCanvasPanel();
+function modelInputForSnapshot(
+  stage: NetworkCanvasStage,
+  snapshot: RuntimeLifecycleSnapshot | undefined,
+  options: {
+    schema?: CommSchemaResponse;
+    capabilities?: CommCapabilitiesResponse;
+    activeProtocol?: NetworkCanvasProtocolId;
+    applyResult?: CommApplyResponse;
+    searchQuery?: string;
+    pinnedNodeId?: string;
+    quickAddOpen?: boolean;
+    topology?: FleetTopologyResponse;
+    topologyError?: string;
+    runtimeSetupMessage?: string;
+  } = {}
+) {
+  return {
+    stage,
+    runtime: snapshot?.status,
+    ioState: snapshot?.ioState,
+    schema: options.schema,
+    capabilities: options.capabilities,
+    activeProtocol: options.activeProtocol,
+    applyResult: options.applyResult,
+    searchQuery: options.searchQuery,
+    pinnedNodeId: options.pinnedNodeId,
+    quickAddOpen: options.quickAddOpen,
+    topology: options.topology,
+    topologyError: options.topologyError,
+    starting: snapshot?.starting,
+    failure: asNetworkFailure(lastFailure ?? snapshot?.failure),
+    deviceRequested,
+    runtimeSetupMessage: options.runtimeSetupMessage,
+  };
 }
 
 function normalizeCanvasProtocol(value: unknown): NetworkCanvasProtocolId | undefined {
@@ -1001,6 +1067,19 @@ function normalizeCanvasProtocol(value: unknown): NetworkCanvasProtocolId | unde
     NETWORK_CANVAS_IO_PROTOCOLS.includes(normalized as NetworkCanvasProtocolId)
     ? (normalized as NetworkCanvasProtocolId)
     : undefined;
+}
+
+function asNetworkFailure(
+  failure: RuntimeStartFailure | undefined
+): NetworkCanvasFailure | undefined {
+  if (!failure) {
+    return undefined;
+  }
+  return {
+    kind: failure.kind,
+    message: failure.message,
+    detail: failure.detail,
+  };
 }
 
 async function handleCanvasAction(action: string): Promise<void> {
@@ -1034,18 +1113,45 @@ async function handleCanvasAction(action: string): Promise<void> {
   }
 }
 
+async function startConfiguredRuntime(): Promise<void> {
+  currentStage = "runtime_live";
+  lastFailure = undefined;
+  await refreshNetworkCanvasPanel();
+  const result = await runtimeLifecycleService.startRuntime();
+  lastFailure = result.ok ? undefined : result.failure;
+  await refreshNetworkCanvasPanel();
+}
+
 function startPolling(): void {
-  if (refreshTimer) {
+  if (refreshTimer || refreshPollRunning || !panel?.visible) {
     return;
   }
-  refreshTimer = setInterval(() => {
-    void refreshNetworkCanvasPanel();
+  const generation = refreshPollGeneration;
+  refreshTimer = setTimeout(() => {
+    refreshTimer = undefined;
+    void runRefreshPoll(generation);
   }, REFRESH_INTERVAL_MS);
 }
 
+async function runRefreshPoll(generation: number): Promise<void> {
+  if (generation !== refreshPollGeneration || !panel?.visible) {
+    return;
+  }
+  refreshPollRunning = true;
+  try {
+    await refreshNetworkCanvasPanel();
+  } finally {
+    refreshPollRunning = false;
+    if (generation === refreshPollGeneration && panel?.visible) {
+      startPolling();
+    }
+  }
+}
+
 function stopPolling(): void {
+  refreshPollGeneration += 1;
   if (refreshTimer) {
-    clearInterval(refreshTimer);
+    clearTimeout(refreshTimer);
     refreshTimer = undefined;
   }
 }

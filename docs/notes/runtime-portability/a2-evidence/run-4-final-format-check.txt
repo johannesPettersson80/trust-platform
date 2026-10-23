@@ -1,0 +1,2 @@
+[gate-progress state=started phase=A2-final-format-check target=scena-rust-builder pid=1215640 elapsed=0.0s timeout=3600s command='cargo fmt --all -- --check']
+[gate-progress state=finished phase=A2-final-format-check target=scena-rust-builder pid=1215640 elapsed=3.7s timeout=3600s command='cargo fmt --all -- --check' status=0]

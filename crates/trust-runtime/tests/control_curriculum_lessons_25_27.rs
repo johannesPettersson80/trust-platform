@@ -208,21 +208,20 @@ fn lesson25_verifies_from_the_state_control_studio_presets() {
         ],
     );
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Initialized", Value::Bool(true)));
+        .write_instance(program, "Initialized", Value::Bool(true))
+        .is_ok());
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "AutoMode", Value::Bool(true)));
+        .write_instance(program, "AutoMode", Value::Bool(true))
+        .is_ok());
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &trust_runtime::io::IoAddress::parse("%ML0").unwrap(),
             lreal(38.0),
         )
         .unwrap();
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "SetpointC", Value::LReal(38.0)));
+        .write_instance(program, "SetpointC", Value::LReal(38.0))
+        .is_ok());
     let mut outputs = Vec::new();
     for sequence in 0..30_i64 {
         let now = Duration::from_millis(sequence * 100);
@@ -262,8 +261,8 @@ fn lesson26_manual_hold(
     if !track_manual {
         assert!(
             runtime
-                .storage_mut()
-                .set_instance_var(program, "TrackManual", Value::Bool(false)),
+                .write_instance(program, "TrackManual", Value::Bool(false))
+                .is_ok(),
             "TrackManual selects the untracked counterexample"
         );
     }
@@ -365,21 +364,20 @@ fn lesson26_verifies_from_the_state_control_studio_presets() {
     for flag in ["Initialized", "AutoMode"] {
         assert!(
             runtime
-                .storage_mut()
-                .set_instance_var(program, flag, Value::Bool(true)),
+                .write_instance(program, flag, Value::Bool(true))
+                .is_ok(),
             "{flag}"
         );
     }
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &trust_runtime::io::IoAddress::parse("%ML0").unwrap(),
             lreal(38.0),
         )
         .unwrap();
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "SetpointC", Value::LReal(38.0)));
+        .write_instance(program, "SetpointC", Value::LReal(38.0))
+        .is_ok());
     let mut outputs = Vec::new();
     for sequence in 0..10_i64 {
         let now = Duration::from_millis(sequence * 100);
@@ -556,8 +554,8 @@ fn lesson27_adopts_the_filter_time_with_the_set_and_rejects_a_negative_one() {
     let (mut runtime, mut simulation, debug, program) = lesson27_at_38c(400);
     let revision = program_dint(&runtime, program, "ParameterRevision");
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "FilterTimeS", Value::LReal(-1.0)));
+        .write_instance(program, "FilterTimeS", Value::LReal(-1.0))
+        .is_ok());
     scan(
         &mut runtime,
         &mut simulation,
@@ -575,8 +573,8 @@ fn lesson27_adopts_the_filter_time_with_the_set_and_rejects_a_negative_one() {
         "the filter keeps Tf = 1 s"
     );
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "FilterTimeS", Value::LReal(2.0)));
+        .write_instance(program, "FilterTimeS", Value::LReal(2.0))
+        .is_ok());
     scan(
         &mut runtime,
         &mut simulation,
@@ -615,21 +613,20 @@ fn lesson27_verifies_from_the_state_control_studio_presets() {
     for flag in ["Initialized", "AutoMode"] {
         assert!(
             runtime
-                .storage_mut()
-                .set_instance_var(program, flag, Value::Bool(true)),
+                .write_instance(program, flag, Value::Bool(true))
+                .is_ok(),
             "{flag}"
         );
     }
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &trust_runtime::io::IoAddress::parse("%ML0").unwrap(),
             lreal(38.0),
         )
         .unwrap();
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "SetpointC", Value::LReal(38.0)));
+        .write_instance(program, "SetpointC", Value::LReal(38.0))
+        .is_ok());
     let mut outputs = Vec::new();
     for sequence in 0..10_i64 {
         let now = Duration::from_millis(sequence * 100);

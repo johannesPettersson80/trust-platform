@@ -1,0 +1,1 @@
+env -u GIT_INDEX_FILE python3 -m unittest scripts.verification.focused_mutation_runner_tests 

@@ -1,0 +1,156 @@
+[gate-progress state=started phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=0.0s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+   Compiling ureq-proto v0.6.0
+   Compiling async-native-tls v0.4.0
+   Compiling trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ide)
+   Compiling tempfile v3.27.0
+   Compiling rustls-pemfile v2.2.0
+   Compiling pem v3.0.6
+   Compiling tokio-stream v0.1.18
+   Compiling asynchronous-codec v0.6.2
+   Compiling socket-pktinfo v0.3.2
+   Compiling notify-types v2.1.0
+   Compiling nix v0.27.1
+   Compiling itertools v0.13.0
+   Compiling sealed v0.6.0
+   Compiling if-addrs v0.15.0
+   Compiling gethostname v0.4.3
+   Compiling roxmltree v0.21.1
+   Compiling encoding_rs v0.8.35
+   Compiling utf-8 v0.7.6
+   Compiling base64 v0.21.7
+   Compiling bit-vec v0.8.0
+   Compiling bufstream v0.1.4
+   Compiling pretty-hex v0.3.0
+   Compiling connection-string v0.2.0
+   Compiling atomic-waker v1.1.2
+   Compiling unit-prefix v0.5.2
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime)
+   Compiling data-encoding v2.11.0
+   Compiling utf8-zero v0.8.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling fallible-iterator v0.3.0
+   Compiling bitflags v1.3.2
+   Compiling chunked_transfer v1.5.0
+   Compiling httpdate v1.0.3
+   Compiling shell-words v1.1.1
+   Compiling ascii v1.1.0
+   Compiling rusqlite v0.40.2
+   Compiling dialoguer v0.12.0
+   Compiling region v3.0.2
+   Compiling tiny_http v0.12.0
+   Compiling trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-wasm-analysis)
+   Compiling tungstenite v0.28.0
+   Compiling ureq v3.3.0
+   Compiling tiberius v0.12.3
+   Compiling trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-core)
+   Compiling indicatif v0.18.4
+   Compiling trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-ads-server)
+   Compiling ethercrab v0.6.0
+   Compiling rapier3d v0.32.0
+   Compiling ads v0.4.4
+   Compiling mysql v28.0.2
+   Compiling opcua v0.12.0
+   Compiling trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-plcopen)
+   Compiling mdns-sd v0.18.2
+   Compiling gpio-cdev v0.6.0
+   Compiling rumqttc v0.25.1
+   Compiling notify v8.2.0
+   Compiling open-ot-document v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+   Compiling ratatui v0.30.0
+   Compiling zenoh v1.7.2
+   Compiling clap_complete v4.6.3
+   Compiling owo-colors v4.3.0
+   Compiling postgres-native-tls v0.5.3
+   Compiling postgres v0.19.14
+   Compiling toml_edit v0.25.11+spec-1.1.0
+   Compiling tiverse-mmap v1.0.0 (/home/johannes/projects/trust-platform-portability-a4/third_party/tiverse-mmap)
+   Compiling qrcode v0.14.1
+   Compiling trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-tcads-native)
+   Compiling urlencoding v2.1.3
+   Compiling glob v0.3.3
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+   Compiling open-ot-conformance v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.0s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.1s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.2s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.3s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.4s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.5s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.6s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.7s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.8s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+error: unused import: `trust_runtime_core::numeric::*`
+  --> crates/trust-runtime/src/lib.rs:85:13
+   |
+85 |     pub use trust_runtime_core::numeric::*;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: private item shadows public glob re-export
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:4:1
+  |
+4 | mod state;
+  | ^^^^^^^^^^
+  |
+note: the name `state` in the type namespace is supposed to be publicly re-exported here
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:8:9
+  |
+8 | pub use trust_runtime_core::stdlib::fbs::*;
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: but the private item here shadows it
+ --> crates/trust-runtime/src/stdlib/fbs/mod.rs:4:1
+  |
+4 | mod state;
+  | ^^^^^^^^^^
+  = note: `-D hidden-glob-reexports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(hidden_glob_reexports)]`
+
+error: unused imports: `read_value_path_borrowed` and `write_value_path`
+ --> crates/trust-runtime/src/value/reference.rs:6:29
+  |
+6 |     materialize_value_path, read_value_path_borrowed, write_value_path, write_value_path_typed,
+  |                             ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+error: unused import: `RetainPolicy`
+  --> crates/trust-runtime/src/runtime/retain_snapshot.rs:21:20
+   |
+21 | use super::types::{RetainPolicy, RetainSnapshot};
+   |                    ^^^^^^^^^^^^
+
+error: unused import: `VmPouStackResult`
+   --> crates/trust-runtime/src/runtime/vm/dispatch.rs:190:36
+    |
+190 |     execute_pou_stack_with_locals, VmPouStackResult,
+    |                                    ^^^^^^^^^^^^^^^^
+
+error: unused import: `VmRef`
+  --> crates/trust-runtime/src/runtime/vm/mod.rs:86:67
+   |
+86 | pub(super) use trust_runtime_core::vm::module::{invalid_bytecode, VmRef};
+   |                                                                   ^^^^^
+
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=339.9s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+[gate-progress state=running phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=340.0s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+error: function `expected_size_for_type` is never used
+ --> crates/trust-runtime/src/io/coercion.rs:8:4
+  |
+8 | fn expected_size_for_type(value_type: TypeId) -> Option<IoSize> {
+  |    ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `-D dead-code` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+error: missing documentation for a function
+ --> crates/trust-runtime/src/stdlib/fbs/registry.rs:5:1
+  |
+5 | pub fn standard_function_blocks() -> Vec<FunctionBlockDef> {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `-D missing-docs` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(missing_docs)]`
+
+error: could not compile `trust-runtime` (lib) due to 8 previous errors
+[gate-progress state=finished phase=A4-source-fixtures target=scena-rust-builder pid=2557897 elapsed=353.8s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture' status=101]

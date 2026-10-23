@@ -1,0 +1,11 @@
+{
+  "firmware/trust-nucleo-f401re/memory.x": "a72a45aa2c4fbdf92972b5b1efed6742ba33c2baa25c8ef4f4160ae3865df07e",
+  "firmware/trust-nucleo-f401re/profile.x": "be517b34b94734e3acea372846005faebe79d866de2e7307cd32341c1c773468",
+  "firmware/trust-nucleo-f401re/.cargo/config.toml": "4b4922061f803e95cc599e0dc4edc32ee6748305ff5ecd4a783f23024b63e0b0",
+  "firmware/trust-nucleo-f401re/README.md": "d688655d5a40a292222c04297f45db7ac324317ed43b7b6559c6ffd6ae05a4c1",
+  "xtask/src/portability/build.rs": "666bf9f3400f984159b6d37475a24efe3527cf11bacd44d6157bae81f1df89c3",
+  "xtask/src/portability/mod.rs": "9e37fdad79f0c79652925b131918d878d0698093ca3659db6ea44d7368afc8c1",
+  "xtask/src/portability/elf.rs": "65efbfebbc151aedfe93e02b25ce0ebf0dbf5b83f689f1959ef6899b75bef55c",
+  "xtask/src/portability/map.rs": "e2bd85cd72a7de510eb8e8231156d8b47c5034666a09425f08a1ffb3570bd89c",
+  "docs/diagrams/architecture/runtime-bytecode-vm-execution.puml": "55b522128b4b1624e15181bc5e3d755fbf750f7fd3ec9379d1febb7475899a52"
+}

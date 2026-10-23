@@ -89,6 +89,10 @@ function readSrc(file: string): string {
   return fs.readFileSync(path.join(extensionRoot(), "src", file), "utf8");
 }
 
+function readSrcSet(...files: string[]): string {
+  return files.map((file) => readSrc(file)).join("\n");
+}
+
 function paletteHidden(pkg: Pkg, command: string): boolean {
   const entries = pkg.contributes?.menus?.commandPalette ?? [];
   return entries.some((item) => item.command === command && item.when === "false");
@@ -418,7 +422,10 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
   });
 
   test("Discover hardware scans are disabled with a reason until an origin can run them", () => {
-    const pane = readSrc("networkCanvas/webview/DiscoverPane.tsx");
+    const pane = readSrcSet(
+      "networkCanvas/webview/DiscoverPane.tsx",
+      "networkCanvas/webview/discoverPaneModel.ts"
+    );
     assert.ok(
       pane.includes("runtimeDiscoveryReady") &&
         pane.includes("selectedStoppedRuntimeReason") &&
@@ -442,7 +449,10 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
       "disabled buttons must render as neutral disabled controls using shared trust tokens, not VS Code primary blue"
     );
 
-    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const app = readSrcSet(
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/discoverPaneModel.ts"
+    );
     assert.ok(
       app.includes("runtimeDiscoveryReady") &&
         app.includes('health === "connected"') &&
@@ -455,23 +465,35 @@ suite("Phases 2–3 — naming + nav (v5 shell)", () => {
   });
 
   test("Discover Adopt preserves the runtime label and focuses the adopted node", () => {
-    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const app = readSrcSet(
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/useDiscoverPane.ts",
+      "networkCanvas/webview/useCanvasHostState.ts"
+    );
     assert.ok(
-      app.includes('post({ type: "addHost", endpoint, label })'),
+      app.includes('post({ type: "addHost"') &&
+        app.includes("endpoint: host.endpoint") &&
+        app.includes("label: host.label"),
       "Adopt must pass the discovered runtime label to the extension"
     );
     assert.ok(
-      app.includes('msg.type === "focusNode"') && app.includes("setSelectedId(msg.nodeId)"),
+      app.includes('message.type === "focusNode"') &&
+        app.includes("onFocusNode(message.nodeId)") &&
+        app.includes("setSelectedId(nodeId)"),
       "the canvas must select the adopted runtime after the extension refreshes the graph"
     );
 
-    const panel = ["networkCanvas/networkCanvasPanel.ts", "networkCanvas/canvasDataService.ts"].map(readSrc).join("\n");
+    const panel = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/fleetActions.ts"
+    );
     assert.ok(
       panel.includes("fleetEndpointLabels") && panel.includes("label: fleetEndpointLabels.get(endpoint)"),
       "fleet targets must keep the discovered runtime label when rendering the configured peer"
     );
     assert.ok(
-      panel.includes("pendingFocusNodeId = result.focusNodeId") &&
+      panel.includes("focusEndpoint(`fleet:${endpoint}:runtime`)") &&
+        panel.includes("pendingFocusNodeId = nodeId") &&
         panel.includes('type: "focusNode"'),
       "adopting a runtime must return to the graph with the new runtime node selected"
     );
@@ -916,12 +938,12 @@ suite("Phase 5b — examples manifest + bundle (v5 shell)", () => {
 });
 
 suite("Phase 0 — packaged runtime tools (v5 shell)", () => {
-  test("release VSIX bundles trust-runtime beside trust-lsp and trust-debug", () => {
+  test("release VSIX bundles trust-dev beside the other runtime tools", () => {
     const releaseWorkflow = fs.readFileSync(
       path.join(workspaceRoot(), ".github", "workflows", "release.yml"),
       "utf8"
     );
-    for (const binary of ["trust-lsp", "trust-debug", "trust-runtime"]) {
+    for (const binary of ["trust-lsp", "trust-debug", "trust-runtime", "trust-dev"]) {
       assert.ok(
         releaseWorkflow.includes(`cp target/\${{ matrix.target }}/release/${binary} editors/vscode/bin/`),
         `Unix VSIX packaging must copy ${binary} into editors/vscode/bin`
@@ -1075,10 +1097,10 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
       "denied write/force/release controls must be disabled before the user clicks"
     );
     assert.ok(
-      web.includes("writeDisabledReason || remoteReason || \"Write is not available for this value.\"") &&
+      web.includes("writeDisabledReason || entryReason || remoteReason || \"Write is not available for this value.\"") &&
         web.includes("\"Release force before writing this value.\"") &&
-        web.includes("if (!canForce && remoteReason)") &&
-        web.includes("forceButton.title = remoteReason") &&
+        web.includes("if (!canForce)") &&
+        web.includes("forceButton.title = entryReason || remoteReason || \"Force is not available for this value.\"") &&
         web.includes("setStatusText(currentAccess.reason)"),
       "denied controls must carry a visible reason, and forced rows must explain why Write is disabled"
     );
@@ -1272,15 +1294,19 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
         `${name} must write/force the value chosen in the row control (BOOL toggle or numeric input)`
       );
       assert.ok(
+        source.includes("editCache.set(key, next)"),
+        `${name} must preserve a selected BOOL draft across live scan rerenders`
+      );
+      assert.ok(
         source.includes("if (isForced)") &&
           source.includes("actions.appendChild(releaseButton)") &&
           source.includes("actions.appendChild(forceButton)"),
         `${name} must show Release only for forced rows and Force otherwise`
       );
       assert.ok(
-        /const valueControl[\s\S]*(isForced|forced)[\s\S]*\?\s*null/.test(source) &&
-          source.includes("Release force before writing this value."),
-        `${name} must not crowd forced rows with an editable value control beside the FORCED badge`
+        !/const valueControl[\s\S]{0,120}(isForced|forced)[\s\S]{0,80}\?\s*null/.test(source) &&
+          source.includes("actions.appendChild(valueControl)"),
+        `${name} must keep the value control visible and disabled in place while a row is forced`
       );
     }
     for (const [name, source] of [
@@ -1821,13 +1847,16 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
 });
 
 suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
-  const panel = () => [
-    "networkCanvas/networkCanvasPanel.ts",
-    "networkCanvas/canvasDataService.ts",
-    "networkCanvas/fleetConfiguration.ts",
-    "networkCanvas/offlineCanvasActions.ts",
-    "networkCanvas/webviewHtml.ts",
-  ].map(readSrc).join("\n");
+  const panel = () =>
+    readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/canvasDataService.ts",
+      "networkCanvas/fleetActions.ts",
+      "networkCanvas/configurationActions.ts",
+      "networkCanvas/protocolActions.ts",
+      "networkCanvas/refreshData.ts",
+      "networkCanvas/webviewHtml.ts"
+    );
 
   test("the canvas panel is user-facing 'Devices & Connections', never 'Network Canvas'", () => {
     const src = panel();
@@ -1843,7 +1872,10 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
   });
 
   test("Devices & Connections never opens as a blank webview while loading", () => {
-    const src = panel();
+    const src = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/webviewHtml.ts"
+    );
     assert.ok(
       src.includes('class="initial-loading"') &&
         src.includes("Loading your devices...") &&
@@ -2105,7 +2137,10 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "AddHostPanel must not define private raw VS Code colors/chrome"
     );
 
-    const host = panel();
+    const host = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/fleetActions.ts"
+    );
     assert.ok(host.includes("setControlAuthToken"), "remote tokens must use SecretStorage");
     assert.ok(
       host.includes("getControlAuthToken(endpoint)"),
@@ -2170,7 +2205,9 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "refresh must snapshot the current webview panel before any await"
     );
     assert.ok(
-      src.includes("if (panel !== panelRef)") && src.includes("return;"),
+      src.includes("panel !== panelRef") &&
+        src.includes("!panelRef.visible") &&
+        src.includes("return;"),
       "refresh must stop if the panel was disposed/replaced while async work was in flight"
     );
     assert.ok(
@@ -2239,7 +2276,7 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "the webview must centralize clearing transient apply state"
     );
     assert.ok(
-      app.includes('vscode.postMessage({ type: "clearApplyResult" })'),
+      app.includes('post({ type: "clearApplyResult" })'),
       "the webview must tell the host to clear stale apply state, not only local React state"
     );
     assert.ok(
@@ -2253,8 +2290,14 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
   });
 
   test("EtherCAT channel browse saves through EtherCAT config, not ADS import", () => {
-    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
-    const host = panel();
+    const app = readSrcSet(
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/useBrowseSession.ts"
+    );
+    const host = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/protocolActions.ts"
+    );
     const schema = readSrc("networkCanvas/webview/browseActions.ts");
 
     assert.ok(
@@ -2264,18 +2307,18 @@ suite("Phase 7 — Devices & Connections (shared run-target + naming)", () => {
       "EtherCAT browse must remain a channel picker, not a tag/import flow"
     );
     assert.ok(
-      app.includes('browseTags.protocol === "ethercat"') &&
+      app.includes('panel.protocol === "ethercat"') &&
         app.includes('type: "addEthercatChannels"'),
       "the webview must route selected EtherCAT channels to the dedicated save message"
     );
     assert.ok(
-      host.includes("async function handleAddEthercatChannels") &&
+      host.includes("async addEthercatChannels") &&
         host.includes('case "addEthercatChannels"') &&
         host.includes("selected_channels"),
       "the host must persist selected EtherCAT channels through comm.apply"
     );
     const ethercatBranch =
-      /else if \(browseTags\.protocol === "ethercat"\) \{([\s\S]*?)\n        \} else \{/.exec(
+      /else if \(panel\.protocol === "ethercat"\) \{([\s\S]*?)\n\s*\} else \{/.exec(
         app
       )?.[1] ?? "";
     assert.ok(
@@ -3004,7 +3047,10 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "the canvas summary/count label must sit beside the React Flow controls, not cover zoom/fit buttons"
     );
 
-    const app = ["networkCanvas/webview/NetworkCanvasApp.tsx", "networkCanvas/webview/CanvasGraphShell.tsx"].map(readSrc).join("\n");
+    const app = readSrcSet(
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/CanvasGraphShell.tsx"
+    );
     assert.ok(
       app.includes('className="trust-canvas-summary"'),
       "Devices & Connections must use the shared canvas summary style instead of private inline positioning"
@@ -3121,11 +3167,12 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("Devices & Connections refits when endpoint children appear after managed Start", () => {
-    const src = [
+    const src = readSrcSet(
       "networkCanvas/webview/NetworkCanvasApp.tsx",
       "networkCanvas/webview/useCanvasViewport.ts",
       "networkCanvas/webview/CanvasToolbar.tsx",
-    ].map(readSrc).join("\n");
+      "networkCanvas/webview/useDiscoverPane.ts"
+    );
     assert.ok(
       src.includes("Node identity") && src.includes("nodes.map((node) => node.id)"),
       "canvas fit signature must include child endpoint node IDs, not only host IDs"
@@ -3139,7 +3186,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "opening an inspector from a node click must refit the selected node into the narrowed canvas instead of leaving a blank-looking graph"
     );
     assert.ok(
-      src.includes('vscode.postMessage({ type: "focus", nodeId })') &&
+      src.includes('post({ type: "focus", nodeId })') &&
         src.includes("void fitView({ duration: 500, padding: 0.2, maxZoom: 1.2 })"),
       "the inspector Focus action must preserve graph context instead of panning to an empty-looking canvas"
     );
@@ -3176,7 +3223,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
       "Devices & Connections must use the shared low-prominence zoom/fit/count controls, not a separate minimap panel that clutters small graphs"
     );
     assert.ok(
-      /onDiscoverAdopt[\s\S]*setDiscoverOpen\(false\);[\s\S]*setEditMode\(false\)/.test(src) &&
+      /const adopt = useCallback[\s\S]*close\(\);[\s\S]*setEditMode\(false\)/.test(src) &&
         /drawerRoutes\.addHost[\s\S]*onSaved: \(\) => setEditMode\(false\)/.test(src),
       "successful Connect existing / Adopt runtime flows must return to a clean result graph instead of leaving edit-mode placeholders visible"
     );
@@ -3272,9 +3319,14 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.strictEqual(healthStatusLabel("disabled"), "Disabled");
 
-    const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const panel = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/configurationActions.ts"
+    );
     assert.ok(
-      panel.includes('case "commDisable"') && panel.includes('saveNetworkCanvasSetup(message, "disable")'),
+      panel.includes('case "commDisable"') &&
+        panel.includes('configurationActions.save(message, "disable")') &&
+        panel.includes("offlineCommApply("),
       "Disable must write the project config through the same offline comm apply path as Save/Remove"
     );
     const offline = readSrc("networkCanvas/offlineComm.ts");
@@ -3842,7 +3894,7 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     );
     assert.ok(
       app.includes("const onEditBrowseCredentials = useCallback") &&
-        app.includes("setBrowseTags(undefined)") &&
+        app.includes("closeBrowse()") &&
         app.includes("protocol: browseTags.protocol") &&
         app.includes("prefillParams: browseTags.target") &&
         app.includes("onEditCredentials: onEditBrowseCredentials"),
@@ -3851,7 +3903,10 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("remote browse uses one configured client connection for ADS and OPC UA", () => {
-    const app = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
+    const app = readSrcSet(
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/browseSessionModel.ts"
+    );
     assert.ok(
       app.includes('(protocol === "opcua_client" || protocol === "ads")') &&
         app.includes("Array.isArray(connections)") &&
@@ -3861,13 +3916,19 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("ADS Add tags can import into a stopped project", () => {
-    const panel = readSrc("networkCanvas/networkCanvasPanel.ts");
-    const offline = readSrc("networkCanvas/offlineComm.ts");
+    const panel = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/protocolActions.ts"
+    );
+    const offline = readSrcSet(
+      "networkCanvas/offlineComm.ts",
+      "networkCanvas/adsBrowseContract.ts"
+    );
     assert.ok(
       panel.includes("offlineAdsImportSymbols") &&
-        panel.includes('protocol === "ads"') &&
-        panel.includes("!activeRuntimeTarget") &&
-        panel.includes("refreshNetworkCanvasPanel()"),
+        panel.includes('protocol !== "ads"') &&
+        panel.includes('runtime.status !== "online_reachable"') &&
+        panel.includes("this.dependencies.refresh()"),
       "ADS Add tags must fall back to a local import path when no runtime control endpoint is reachable"
     );
     assert.ok(
@@ -3924,11 +3985,14 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   });
 
   test("network-canvas notifications do not expose backend protocol ids or awkward plurals", () => {
-    const panel = ["networkCanvas/networkCanvasPanel.ts", "networkCanvas/offlineCanvasActions.ts"].map(readSrc).join("\n");
+    const panel = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/protocolActions.ts"
+    );
     assert.ok(
       panel.includes("protocolDisplayName(protocol)") &&
         panel.includes('countLabel(names.length, "global")') &&
-        panel.includes('countLabel(count, "ADS tag")'),
+        /countLabel\([\s\S]{0,120}"ADS tag"/.test(panel),
       "network-canvas success toasts must use user-facing protocol names and real pluralization"
     );
     assert.ok(!panel.includes("global(s)") && !panel.includes("tag(s)"));
@@ -3978,7 +4042,10 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
   test("successful add-device Save lands on the saved node without clearing the result", () => {
     const addSrc = readSrc("networkCanvas/webview/AddDevicePanel.tsx");
     const appSrc = readSrc("networkCanvas/webview/NetworkCanvasApp.tsx");
-    const panelSrc = readSrc("networkCanvas/networkCanvasPanel.ts");
+    const panelSrc = readSrcSet(
+      "networkCanvas/networkCanvasPanel.ts",
+      "networkCanvas/configurationActions.ts"
+    );
 
     assert.ok(
       addSrc.includes("onSaved?: (nodeId?: string) => void") &&
@@ -3999,13 +4066,17 @@ suite("VIS — visual editors follow the shared Run + Live Values model", () => 
     assert.ok(
       panelSrc.includes("findSavedEndpointId(topology, protocol, params)") &&
         panelSrc.includes("result.instance_id ??") &&
-        panelSrc.includes("Secret/redacted fields are intentionally absent from topology."),
+        panelSrc.includes("if (!(key in endpointParams))") &&
+        panelSrc.includes("return true;"),
       "the host must resolve a saved endpoint id from topology when comm.apply omits instance_id"
     );
   });
 
   test("Devices & Connections header reports active form field errors", () => {
-    const appSrc = ["networkCanvas/webview/NetworkCanvasApp.tsx", "networkCanvas/webview/CanvasToolbar.tsx"].map(readSrc).join("\n");
+    const appSrc = readSrcSet(
+      "networkCanvas/webview/NetworkCanvasApp.tsx",
+      "networkCanvas/webview/CanvasToolbar.tsx"
+    );
 
     assert.ok(
       appSrc.includes("fieldIssueCount") &&

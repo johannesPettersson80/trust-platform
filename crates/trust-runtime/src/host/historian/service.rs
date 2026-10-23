@@ -56,10 +56,10 @@ impl HistorianService {
                 .inner
                 .lock()
                 .map_err(|_| RuntimeError::ControlError("historian unavailable".into()))?;
-            if let Some(last) = inner.last_capture_ms {
-                if timestamp_ms.saturating_sub(last) < interval_ms {
-                    return Ok(0);
-                }
+            if let Some(last) = inner.last_capture_ms
+                && timestamp_ms.saturating_sub(last) < interval_ms
+            {
+                return Ok(0);
             }
 
             let samples = collect_snapshot_samples(

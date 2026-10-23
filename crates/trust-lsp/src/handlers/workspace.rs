@@ -31,6 +31,11 @@ use super::refresh::{refresh_diagnostics, refresh_semantic_tokens};
 pub async fn register_file_watchers(client: &Client) {
     let mut watchers = Vec::new();
     watchers.push(json!({ "globPattern": "**/*.{st,ST,pou,POU}" }));
+    // Clients may report a recursive removal only for its parent directory.
+    watchers.push(json!({
+        "globPattern": "**/*",
+        "kind": tower_lsp::lsp_types::WatchKind::Delete,
+    }));
     for name in CONFIG_FILES {
         watchers.push(json!({ "globPattern": format!("**/{name}") }));
     }
@@ -203,12 +208,11 @@ pub fn will_rename_files(state: &ServerState, params: RenameFilesParams) -> Opti
             Some(result)
         });
 
-        if let Some(rename_result) = rename_result {
-            if let Some(rename_changes) = lsp_utils::rename_result_to_changes(state, rename_result)
-            {
-                for (uri, edits) in rename_changes {
-                    changes.entry(uri).or_default().extend(edits);
-                }
+        if let Some(rename_result) = rename_result
+            && let Some(rename_changes) = lsp_utils::rename_result_to_changes(state, rename_result)
+        {
+            for (uri, edits) in rename_changes {
+                changes.entry(uri).or_default().extend(edits);
             }
         }
 
@@ -335,6 +339,7 @@ async fn index_workspace_root(
     root_uri: &Url,
     seen: &mut FxHashSet<PathBuf>,
 ) -> IndexSummary {
+    state.reconcile_missing_documents(config);
     let mut files = Vec::new();
     collect_workspace_files(config, &mut files);
     files.sort();
@@ -372,17 +377,17 @@ async fn index_workspace_root(
     let mut throttle = IndexThrottle::new(config);
 
     for (idx, path) in files.iter().enumerate() {
-        if let Some(max) = max_files {
-            if indexed >= max {
-                truncated = true;
-                break;
-            }
+        if let Some(max) = max_files
+            && indexed >= max
+        {
+            truncated = true;
+            break;
         }
-        if let Some(max) = max_ms {
-            if start.elapsed() >= Duration::from_millis(max) {
-                truncated = true;
-                break;
-            }
+        if let Some(max) = max_ms
+            && start.elapsed() >= Duration::from_millis(max)
+        {
+            truncated = true;
+            break;
         }
 
         if !seen.insert(path.clone()) {
@@ -397,34 +402,34 @@ async fn index_workspace_root(
             continue;
         };
 
-        if let Some(doc) = state.get_document(&uri) {
-            if doc.is_open {
-                skipped += 1;
-                report_progress(client, &progress, idx + 1, total, &mut last_percent).await;
-                continue;
-            }
+        if let Some(doc) = state.get_document(&uri)
+            && doc.is_open
+        {
+            skipped += 1;
+            report_progress(client, &progress, idx + 1, total, &mut last_percent).await;
+            continue;
         }
 
         let step_start = Instant::now();
-        if let Some(cache) = cache.as_ref() {
-            if let Some(cached) = cache.content_for_path(path) {
-                if state
-                    .index_document_deferred_budget(uri, cached.to_string())
-                    .is_some()
-                {
-                    indexed += 1;
-                    indexed_since_budget_check += 1;
-                } else {
-                    skipped += 1;
-                }
-                if indexed_since_budget_check >= BUDGET_CHECK_INTERVAL {
-                    state.apply_memory_budget();
-                    indexed_since_budget_check = 0;
-                }
-                report_progress(client, &progress, idx + 1, total, &mut last_percent).await;
-                throttle.pause(state, step_start.elapsed()).await;
-                continue;
+        if let Some(cache) = cache.as_ref()
+            && let Some(cached) = cache.content_for_path(path)
+        {
+            if state
+                .index_document_deferred_budget(uri, cached.to_string())
+                .is_some()
+            {
+                indexed += 1;
+                indexed_since_budget_check += 1;
+            } else {
+                skipped += 1;
             }
+            if indexed_since_budget_check >= BUDGET_CHECK_INTERVAL {
+                state.apply_memory_budget();
+                indexed_since_budget_check = 0;
+            }
+            report_progress(client, &progress, idx + 1, total, &mut last_percent).await;
+            throttle.pause(state, step_start.elapsed()).await;
+            continue;
         }
 
         let Ok(content) = std::fs::read_to_string(path) else {

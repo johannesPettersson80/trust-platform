@@ -1,0 +1,6 @@
+[gate-progress state=started phase=A3-source-fixture target=scena-rust-builder pid=730428 elapsed=0.0s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime)
+[gate-progress state=running phase=A3-source-fixture target=scena-rust-builder pid=730428 elapsed=30.0s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+    Finished `dev` profile [unoptimized] target(s) in 35.66s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/examples/portability_fixture`
+[gate-progress state=finished phase=A3-source-fixture target=scena-rust-builder pid=730428 elapsed=35.9s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture' status=0]

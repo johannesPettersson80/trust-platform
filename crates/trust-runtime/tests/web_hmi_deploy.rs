@@ -375,13 +375,13 @@ fn deploying_needs_the_deploy_permission_and_is_audited() {
     let deadline = Instant::now() + Duration::from_secs(2);
     let mut records = Vec::new();
     while Instant::now() < deadline {
-        if let Ok(event) = audit.recv_timeout(Duration::from_millis(100)) {
-            if event.request_type == "hmi.deploy" || event.request_type == "hmi.rollback" {
-                records.push((
-                    event.request_type.to_string(),
-                    event.details.unwrap_or(Value::Null),
-                ));
-            }
+        if let Ok(event) = audit.recv_timeout(Duration::from_millis(100))
+            && (event.request_type == "hmi.deploy" || event.request_type == "hmi.rollback")
+        {
+            records.push((
+                event.request_type.to_string(),
+                event.details.unwrap_or(Value::Null),
+            ));
         }
     }
     let find = |kind: &str, outcome: &str| {

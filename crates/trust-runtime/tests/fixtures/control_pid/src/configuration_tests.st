@@ -1,4 +1,4 @@
-(* Specification 32 sections 2.4/2.5 and 3.2/3.3: complete value-copy configuration,
+(* Specification 45 sections 2.4/2.5 and 3.2/3.3: complete value-copy configuration,
    retained histories, and initialization without an update. *)
 USING Control;
 
@@ -127,7 +127,7 @@ Input.CycleTime := LREAL#2.0;
 ASSERT_NEAR(EXPECTED := LREAL#7.0, ACTUAL := Controller.Update(Input := Input), DELTA := LREAL#1.0e-12);
 END_TEST_PROGRAM
 
-(* Specification 32 sections 4.2/4.3 and 6: separate filter histories continue
+(* Specification 45 sections 4.2/4.3 and 6: separate filter histories continue
    across reconfiguration, using each call's own elapsed interval. *)
 TEST_PROGRAM control_low_pass_reconfiguration_preserves_both_stages_and_actual_intervals
 VAR

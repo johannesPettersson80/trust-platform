@@ -158,14 +158,14 @@ fn search_work(
         .clone()
         .filter(ControllerProject::is_search_law)
         .ok_or_else(|| Failure::new(METHOD_REFUSED, Cause::Settings, NextAction::None))?;
-    if let Some(pins) = &request.pins {
-        if pins.loop_revision != loop_definition.revision {
-            return Err(Failure::new(
-                PINS_LOOP_REVISION,
-                Cause::Settings,
-                NextAction::None,
-            ));
-        }
+    if let Some(pins) = &request.pins
+        && pins.loop_revision != loop_definition.revision
+    {
+        return Err(Failure::new(
+            PINS_LOOP_REVISION,
+            Cause::Settings,
+            NextAction::None,
+        ));
     }
     let study = storage::open_study(
         &project_root,

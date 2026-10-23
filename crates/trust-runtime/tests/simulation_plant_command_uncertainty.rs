@@ -6,8 +6,7 @@ use trust_runtime::Runtime;
 
 fn write_lreal(runtime: &mut Runtime, address: &IoAddress, value: f64) {
     runtime
-        .io_mut()
-        .write(address, Value::LWord(value.to_bits()))
+        .write_io(address, Value::LWord(value.to_bits()))
         .expect("write LREAL process-image bits");
 }
 
@@ -56,14 +55,12 @@ gain = 1.0
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", IoAddress::parse("%IL0").unwrap(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (IoAddress::parse("%IL0").unwrap(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();

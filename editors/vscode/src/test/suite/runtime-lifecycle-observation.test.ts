@@ -39,7 +39,7 @@ suite("Runtime lifecycle I/O observations", () => {
     const h = harness();
     try {
       const session = h.start("runtime-a");
-      let changes = 0; h.service.onDidChange(() => changes++);
+      let changes = 0; h.service.onDidIoStateChange(() => changes++);
       h.send(session, 337); const current = h.service.lastIoState;
       assert.strictEqual(current.scan, 337);
       h.send(session, 336);

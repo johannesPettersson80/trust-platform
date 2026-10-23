@@ -469,13 +469,12 @@ fn var_decl_at_offset(root: &SyntaxNode, offset: TextSize) -> Option<SyntaxNode>
         .token_at_offset(offset)
         .right_biased()
         .or_else(|| root.token_at_offset(offset).left_biased());
-    if let Some(token) = token {
-        if let Some(var_decl) = token
+    if let Some(token) = token
+        && let Some(var_decl) = token
             .parent_ancestors()
             .find(|node| node.kind() == SyntaxKind::VarDecl)
-        {
-            return Some(var_decl);
-        }
+    {
+        return Some(var_decl);
     }
     find_var_decl_for_range(root, TextRange::new(offset, offset))
 }

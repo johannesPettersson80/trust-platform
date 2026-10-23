@@ -527,10 +527,9 @@ fn sampled_realization(
     if let Timing::Discrete {
         sample_time_seconds,
     } = plant.timing
+        && (sample_time_seconds - settings.step_seconds).abs() > 1e-10
     {
-        if (sample_time_seconds - settings.step_seconds).abs() > 1e-10 {
-            return Err(SimulationError::SamplePeriodMismatch);
-        }
+        return Err(SimulationError::SamplePeriodMismatch);
     }
     if plant.system.states() == 0 && plant.delay_seconds == 0.0 {
         return Ok(Realization {
@@ -646,10 +645,9 @@ pub fn frozen_model_prediction(
     if let Timing::Discrete {
         sample_time_seconds,
     } = plant.timing
+        && (sample_time_seconds - step_seconds).abs() > 1e-8
     {
-        if (sample_time_seconds - step_seconds).abs() > 1e-8 {
-            return Err(SimulationError::RecordingPeriodMismatch);
-        }
+        return Err(SimulationError::RecordingPeriodMismatch);
     }
     let first_input = deviations_u
         .first()

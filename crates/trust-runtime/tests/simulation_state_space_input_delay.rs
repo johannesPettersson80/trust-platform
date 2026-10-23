@@ -1,4 +1,4 @@
-//! Specification 33 §7.6.1: independently delayed native state-space inputs.
+//! Specification 46 §7.6.1: independently delayed native state-space inputs.
 use std::sync::atomic::{AtomicU64, Ordering};
 use trust_hir::TypeId;
 use trust_runtime::error::RuntimeError;
@@ -136,16 +136,12 @@ fn rig(text: &str) -> (SimulationController, Runtime) {
         "the declared native state-space plant must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
-    for (name, address) in [
-        ("heater", "%QL0"),
-        ("load", "%QL8"),
-        ("temperature", "%IL0"),
-    ] {
-        runtime
-            .io_mut()
-            .bind_typed(name, IoAddress::parse(address).unwrap(), TypeId::LREAL);
-    }
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (IoAddress::parse("%QL0").unwrap(), TypeId::LREAL),
+        (IoAddress::parse("%QL8").unwrap(), TypeId::LREAL),
+        (IoAddress::parse("%IL0").unwrap(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -155,8 +151,7 @@ fn rig(text: &str) -> (SimulationController, Runtime) {
 fn command(runtime: &mut Runtime, heater: f64, load: f64) {
     for (address, value) in [("%QL0", heater), ("%QL8", load)] {
         runtime
-            .io_mut()
-            .write(
+            .write_io(
                 &IoAddress::parse(address).unwrap(),
                 Value::LWord(value.to_bits()),
             )

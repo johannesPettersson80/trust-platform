@@ -45,10 +45,10 @@ pub fn effective_permission(
     let (own_min, own_max) = own_limits(control);
     let min = narrower(rule.min, own_min, f64::max);
     let max = narrower(rule.max, own_max, f64::min);
-    if let (Some(min), Some(max)) = (min, max) {
-        if min > max {
-            return Err(format!("the limits of the control and the write policy for \"{shown}\" have no value in common"));
-        }
+    if let (Some(min), Some(max)) = (min, max)
+        && min > max
+    {
+        return Err(format!("the limits of the control and the write policy for \"{shown}\" have no value in common"));
     }
     Ok(Permission { role, min, max })
 }

@@ -1,0 +1,38 @@
+[gate-progress state=started phase=A4-f401-core target=scena-rust-builder pid=2167584 elapsed=0.0s timeout=5400s command='cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf']
+   Compiling thiserror v2.0.18
+    Checking hashbrown v0.17.0
+   Compiling crc32fast v1.5.0
+   Compiling libm v0.2.16
+    Checking cfg-if v1.0.4
+    Checking equivalent v1.0.2
+    Checking smol_str v0.2.2
+    Checking rustc-hash v2.1.2
+    Checking indexmap v2.14.0
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+error: unused import: `InstanceId`
+ --> crates/trust-runtime-core/src/vm/dispatch_refs.rs:4:21
+  |
+4 | use crate::memory::{InstanceId, MemoryLocation};
+  |                     ^^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error[E0063]: missing field `parameter_values_present` in initializer of `vm::frames::VmFrame`
+  --> crates/trust-runtime-core/src/vm/call/mod.rs:47:17
+   |
+47 |     let frame = VmFrame {
+   |                 ^^^^^^^ missing `parameter_values_present`
+
+error: unused variable: `declaration`
+   --> crates/trust-runtime-core/src/vm/engine/initialization/construction.rs:285:18
+    |
+285 |         for (id, declaration) in
+    |                  ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_declaration`
+    |
+    = note: `-D unused-variables` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(unused_variables)]`
+
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `trust-runtime-core` (lib) due to 3 previous errors
+[gate-progress state=finished phase=A4-f401-core target=scena-rust-builder pid=2167584 elapsed=2.7s timeout=5400s command='cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf' status=101]

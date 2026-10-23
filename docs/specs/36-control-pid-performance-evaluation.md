@@ -8,8 +8,8 @@ executed `Control.PID` implementation with truST simulated plants. It answers
 whether the specified controller behaves well for a declared plant and
 tuning; it does not claim that one tuning is stable for every plant.
 
-Controller behavior remains defined by Specification 32. Plant execution
-remains defined by Specification 33. This specification adds evaluation
+Controller behavior remains defined by Specification 45. Plant execution
+remains defined by Specification 46. This specification adds evaluation
 scenarios and acceptance metrics only. It does not change the controller,
 simulator, or Control Studio.
 

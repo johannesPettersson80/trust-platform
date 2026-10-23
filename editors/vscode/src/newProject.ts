@@ -23,12 +23,12 @@ END_PROGRAM
 
 // A CONFIGURATION instantiates the program (RESOURCE + TASK + PROGRAM WITH) so the project actually
 // runs AND so a brand-new project is clean — without an instance, the "unused program" lint (W009)
-// flags Main on first open (F-02). Mirrors the proven examples/network_canvas_demo config; INTERVAL
-// matches runtime.toml cycle_interval_ms.
+// flags Main on first open (F-02). The instance name must differ from the Main POU name because both
+// declarations are imported into the project symbol table. INTERVAL matches runtime.toml.
 const CONFIG_ST_SOURCE = `CONFIGURATION Config
 RESOURCE MainRes ON PLC
     TASK MainTask (INTERVAL := T#10ms, PRIORITY := 1);
-    PROGRAM Main WITH MainTask : Main;
+    PROGRAM MainInstance WITH MainTask : Main;
 END_RESOURCE
 END_CONFIGURATION
 `;

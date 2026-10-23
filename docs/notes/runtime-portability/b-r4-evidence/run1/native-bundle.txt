@@ -1,0 +1,13 @@
+[gate-progress state=started phase=B-R4-native-bundle target=scena-rust-builder pid=1703172 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml --lib --target x86_64-unknown-linux-gnu -- --nocapture']
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re)
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Finished `test` profile [unoptimized] target(s) in 3.38s
+     Running unittests src/lib.rs (/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/x86_64-unknown-linux-gnu/debug/deps/trust_nucleo_f401re-a96f47215ff00f0e)
+
+running 2 tests
+test stack_guard::tests::accepts_only_consistent_samples_with_the_full_required_margin ... ok
+test application::tests::independent_payloads_are_bounded_and_checked_before_exposure ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[gate-progress state=finished phase=B-R4-native-bundle target=scena-rust-builder pid=1703172 elapsed=3.5s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo test --locked --manifest-path firmware/trust-nucleo-f401re/Cargo.toml --lib --target x86_64-unknown-linux-gnu -- --nocapture' status=0]

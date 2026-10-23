@@ -40,10 +40,8 @@ pub(in crate::db) fn collect_used_symbols(
                 SyntaxKind::KwTestProgram | SyntaxKind::KwTestFunctionBlock
             )
         });
-        if is_test {
-            if let Some(symbol_id) = pou_context(symbols, &pou).symbol_id {
-                used.insert(symbol_id);
-            }
+        if is_test && let Some(symbol_id) = pou_context(symbols, &pou).symbol_id {
+            used.insert(symbol_id);
         }
     }
     let program_instances = collect_program_instances(symbols, root);

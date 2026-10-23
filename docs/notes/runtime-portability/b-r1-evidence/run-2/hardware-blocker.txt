@@ -1,0 +1,1 @@
+Retained safe-ICF candidate: code span 493536 bytes, L2 capacity 458752 bytes, overflow 34784 bytes. The ordinary compile attempt failed before linking; no default-configuration size result exists for this source.

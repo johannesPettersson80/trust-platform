@@ -5,6 +5,8 @@ use super::*;
 pub enum MockAdsOnboardingScenario {
     Healthy,
     WrongIp,
+    DirectedIdentifyBlocked,
+    LoopbackIdentifyBlocked,
     WrongAmsNetId,
     MissingRoute,
     FirewallBlocked,
@@ -62,8 +64,13 @@ impl Default for MockAdsOnboardingWire {
 }
 
 impl AdsOnboardingWire for MockAdsOnboardingWire {
-    fn udp_identify(&mut self, _target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
-        if self.scenario == MockAdsOnboardingScenario::WrongIp {
+    fn udp_identify(&mut self, target_ip: &str) -> Result<TargetIdentity, OnboardingWireError> {
+        if matches!(
+            self.scenario,
+            MockAdsOnboardingScenario::WrongIp | MockAdsOnboardingScenario::DirectedIdentifyBlocked
+        ) || (self.scenario == MockAdsOnboardingScenario::LoopbackIdentifyBlocked
+            && matches!(target_ip, "127.0.0.1" | "localhost"))
+        {
             return Err(OnboardingWireError::new(
                 OnboardingWireErrorKind::UdpIdentifyBlocked,
                 "target did not answer UDP identify",
@@ -76,6 +83,9 @@ impl AdsOnboardingWire for MockAdsOnboardingWire {
         &mut self,
         target_ip: &str,
     ) -> Result<Vec<TargetIdentity>, OnboardingWireError> {
+        if self.scenario == MockAdsOnboardingScenario::DirectedIdentifyBlocked {
+            return Ok(vec![self.target.clone()]);
+        }
         self.udp_identify(target_ip).map(|target| vec![target])
     }
 

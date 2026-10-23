@@ -30,10 +30,10 @@ impl<'a> TypeChecker<'a> {
     }
 
     pub(super) fn is_valid_lvalue(&self, node: &SyntaxNode) -> bool {
-        if node.kind() == SyntaxKind::ParenExpr {
-            if let Some(inner) = node.children().next() {
-                return self.is_valid_lvalue(&inner);
-            }
+        if node.kind() == SyntaxKind::ParenExpr
+            && let Some(inner) = node.children().next()
+        {
+            return self.is_valid_lvalue(&inner);
         }
         match node.kind() {
             SyntaxKind::NameRef | SyntaxKind::DerefExpr => true,
@@ -59,10 +59,10 @@ impl<'a> TypeChecker<'a> {
         node: &SyntaxNode,
         resolved: Option<&ResolvedSymbol>,
     ) -> bool {
-        if node.kind() == SyntaxKind::ParenExpr {
-            if let Some(inner) = node.children().next() {
-                return self.is_constant_target_with_resolved(&inner, None);
-            }
+        if node.kind() == SyntaxKind::ParenExpr
+            && let Some(inner) = node.children().next()
+        {
+            return self.is_constant_target_with_resolved(&inner, None);
         }
 
         if node.kind() == SyntaxKind::FieldExpr {
@@ -103,17 +103,16 @@ impl<'a> TypeChecker<'a> {
                 }
             }
 
-            if let Some(name) = self.resolve_ref().get_name_from_ref(node) {
-                if let NameResolveOutcome::Resolved(resolved) = self
+            if let Some(name) = self.resolve_ref().get_name_from_ref(node)
+                && let NameResolveOutcome::Resolved(resolved) = self
                     .resolve()
                     .resolve_name_in_context_outcome(&name, node.text_range())
-                {
-                    if !resolved.accessible {
-                        return false;
-                    }
-                    if let Some(symbol) = self.symbols.get(resolved.id) {
-                        return self.symbol_is_constant(symbol);
-                    }
+            {
+                if !resolved.accessible {
+                    return false;
+                }
+                if let Some(symbol) = self.symbols.get(resolved.id) {
+                    return self.symbol_is_constant(symbol);
                 }
             }
         }
@@ -284,12 +283,11 @@ impl<'a> TypeChecker<'a> {
         if self.is_return_target(node) {
             return self.current_function_return.unwrap_or(TypeId::VOID);
         }
-        if let Some(resolved) = resolved {
-            if let Some(symbol) = self.symbols.get(resolved.id) {
-                if matches!(symbol.kind, SymbolKind::Property { .. }) {
-                    return symbol.type_id;
-                }
-            }
+        if let Some(resolved) = resolved
+            && let Some(symbol) = self.symbols.get(resolved.id)
+            && matches!(symbol.kind, SymbolKind::Property { .. })
+        {
+            return symbol.type_id;
         }
         self.expr().check_expression(node)
     }
@@ -301,23 +299,23 @@ impl<'a> TypeChecker<'a> {
         let Some(current_id) = self.current_pou_symbol else {
             return false;
         };
-        if node.kind() == SyntaxKind::ParenExpr {
-            if let Some(inner) = node.children().next() {
-                return self.is_return_target(&inner);
-            }
+        if node.kind() == SyntaxKind::ParenExpr
+            && let Some(inner) = node.children().next()
+        {
+            return self.is_return_target(&inner);
         }
-        if node.kind() == SyntaxKind::NameRef {
-            if let Some(name) = self.resolve_ref().get_name_from_ref(node) {
-                if self
-                    .symbols
-                    .get(current_id)
-                    .is_some_and(|symbol| symbol.name.eq_ignore_ascii_case(name.as_str()))
-                {
-                    return true;
-                }
-                if let Some(symbol_id) = self.symbols.resolve(&name, self.current_scope) {
-                    return symbol_id == current_id;
-                }
+        if node.kind() == SyntaxKind::NameRef
+            && let Some(name) = self.resolve_ref().get_name_from_ref(node)
+        {
+            if self
+                .symbols
+                .get(current_id)
+                .is_some_and(|symbol| symbol.name.eq_ignore_ascii_case(name.as_str()))
+            {
+                return true;
+            }
+            if let Some(symbol_id) = self.symbols.resolve(&name, self.current_scope) {
+                return symbol_id == current_id;
             }
         }
         false

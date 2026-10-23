@@ -3,8 +3,7 @@ use trust_runtime::bytecode::{
     TypeData, TypeEntry, TypeKind, TypeTable,
 };
 use trust_runtime::harness::{
-    bytecode_bytes_from_source, bytecode_module_from_source, bytecode_module_from_source_with_path,
-    TestHarness,
+    bytecode_bytes_from_source, bytecode_module_from_source, TestHarness,
 };
 
 fn lookup_string(strings: &trust_runtime::bytecode::StringTable, idx: u32) -> &str {
@@ -55,22 +54,12 @@ fn walk_instructions(code: &[u8], mut on_op: impl FnMut(u8, &[u8])) {
     while i < code.len() {
         let opcode = code[i];
         i += 1;
-        let operand_len = match opcode {
-            0x02..=0x04 => 4,
-            0x05 => 4,
-            0x07 => 4,
-            0x08 => 8,
-            0x10 => 4,
-            0x16 => 1,
-            0x20..=0x22 => 4,
-            0x30 => 4,
-            0x60 => 4,
-            0x70 => 4,
-            _ => 0,
-        };
-        if i + operand_len > code.len() {
-            break;
-        }
+        let operand_len = trust_runtime_core::vm::register_test_support::opcode_operand_len(opcode)
+            .unwrap_or_else(|| panic!("unknown producer opcode 0x{opcode:02X}"));
+        assert!(
+            i + operand_len <= code.len(),
+            "truncated producer instruction"
+        );
         let operands = &code[i..i + operand_len];
         on_op(opcode, operands);
         i += operand_len;

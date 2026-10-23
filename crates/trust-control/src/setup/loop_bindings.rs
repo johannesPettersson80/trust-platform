@@ -218,8 +218,8 @@ fn revision_of(loop_definition: &LoopDefinition) -> String {
         object.remove("revision");
     }
     format!(
-        "sha256:{:x}",
-        Sha256::digest(canonical_json(&value).as_bytes())
+        "sha256:{}",
+        hex::encode(Sha256::digest(canonical_json(&value).as_bytes()))
     )
 }
 

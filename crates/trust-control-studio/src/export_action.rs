@@ -80,12 +80,10 @@ fn with_recorded_samples(
         identification: Some(identification),
         ..
     } = opened
+        && let Some(id) = identification.recording_id.clone()
     {
-        if let Some(id) = identification.recording_id.clone() {
-            let file = storage::read_recording(project, &loop_definition.id, &id)?;
-            identification.recorded_samples =
-                Some(recorded_chart_samples(loop_definition, &file.run));
-        }
+        let file = storage::read_recording(project, &loop_definition.id, &id)?;
+        identification.recorded_samples = Some(recorded_chart_samples(loop_definition, &file.run));
     }
     Ok(())
 }

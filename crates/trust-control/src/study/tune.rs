@@ -278,13 +278,13 @@ impl StudySection for TuneSection {
                 ));
             }
         }
-        if let Some(design) = &self.state_candidate {
-            if design.candidate.applied {
-                return Err(invalid(
+        if let Some(design) = &self.state_candidate
+            && design.candidate.applied
+        {
+            return Err(invalid(
                     "its state candidate is marked applied, but Tune never writes to the controller (B4.1)",
                     Cause::Settings,
                 ));
-            }
         }
         if let Some(search) = &self.search_candidate {
             search

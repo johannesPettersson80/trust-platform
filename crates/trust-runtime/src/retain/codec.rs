@@ -32,11 +32,12 @@ fn decode_snapshot(bytes: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
     let version = reader.read_u16()?;
     match version {
         RETAIN_V1_VERSION => {
-            let snapshot = decode_snapshot_payload(&mut reader)?;
+            let snapshot = decode_snapshot_payload(&mut reader, false)?;
             reader.expect_finished("retain v1 payload")?;
             Ok(snapshot)
         }
-        RETAIN_VERSION => decode_snapshot_v2(&mut reader),
+        RETAIN_V2_VERSION => decode_snapshot_v2(&mut reader),
+        RETAIN_VERSION => decode_snapshot_v3(&mut reader),
         _ => Err(RuntimeError::RetainCorruption(
             format!("unsupported retain version {version}").into(),
         )),
@@ -44,6 +45,18 @@ fn decode_snapshot(bytes: &[u8]) -> Result<RetainSnapshot, RuntimeError> {
 }
 
 fn decode_snapshot_v2(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, RuntimeError> {
+    decode_checksummed_snapshot(reader, RETAIN_V2_VERSION, false)
+}
+
+fn decode_snapshot_v3(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, RuntimeError> {
+    decode_checksummed_snapshot(reader, RETAIN_VERSION, true)
+}
+
+fn decode_checksummed_snapshot(
+    reader: &mut RetainReader<'_>,
+    version: u16,
+    physical_checkpoints: bool,
+) -> Result<RetainSnapshot, RuntimeError> {
     let payload_len = reader.read_u64()?;
     let payload_len: usize = payload_len.try_into().map_err(|_| {
         RuntimeError::RetainCorruption("retain payload length exceeds platform size".into())
@@ -56,7 +69,15 @@ fn decode_snapshot_v2(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, R
             "invalid retain trailer".into(),
         ));
     }
-    reader.expect_finished("retain v2 container")?;
+    reader.expect_finished(match version {
+        RETAIN_V2_VERSION => "retain v2 container",
+        RETAIN_VERSION => "retain v3 container",
+        _ => {
+            return Err(RuntimeError::RetainCorruption(
+                "invalid retain version".into(),
+            ))
+        }
+    })?;
     let actual_checksum = crc32fast::hash(payload);
     if actual_checksum != expected_checksum {
         return Err(RuntimeError::RetainCorruption(
@@ -67,17 +88,28 @@ fn decode_snapshot_v2(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, R
         ));
     }
     let mut payload_reader = RetainReader::new(payload);
-    let snapshot = decode_snapshot_payload(&mut payload_reader)?;
-    payload_reader.expect_finished("retain v2 payload")?;
+    let snapshot = decode_snapshot_payload(&mut payload_reader, physical_checkpoints)?;
+    payload_reader.expect_finished(match version {
+        RETAIN_V2_VERSION => "retain v2 payload",
+        RETAIN_VERSION => "retain v3 payload",
+        _ => {
+            return Err(RuntimeError::RetainCorruption(
+                "invalid retain version".into(),
+            ))
+        }
+    })?;
     Ok(snapshot)
 }
 
-fn decode_snapshot_payload(reader: &mut RetainReader<'_>) -> Result<RetainSnapshot, RuntimeError> {
+fn decode_snapshot_payload(
+    reader: &mut RetainReader<'_>,
+    physical_checkpoints: bool,
+) -> Result<RetainSnapshot, RuntimeError> {
     let count = reader.read_u32()? as usize;
     let mut values = IndexMap::new();
     for _ in 0..count {
         let name = SmolStr::new(reader.read_string()?);
-        let value = decode_value(reader)?;
+        let value = decode_value(reader, physical_checkpoints)?;
         values.insert(name, value);
     }
     Ok(RetainSnapshot::from_values(values))
@@ -258,6 +290,21 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
                 encode_string(out, name.as_str());
                 encode_value(out, field)?;
             }
+            match struct_value.encode_physical_checkpoint().map_err(|error| {
+                RuntimeError::RetainStore(
+                    format!("cannot encode physical retain checkpoint: {error}").into(),
+                )
+            })? {
+                Some(checkpoint) => {
+                    out.push(1);
+                    let len = u32::try_from(checkpoint.len()).map_err(|_| {
+                        RuntimeError::RetainStore("physical retain checkpoint is too large".into())
+                    })?;
+                    out.extend_from_slice(&len.to_le_bytes());
+                    out.extend_from_slice(&checkpoint);
+                }
+                None => out.push(0),
+            }
         }
         Value::Enum(enum_value) => {
             out.push(ValueTag::Enum as u8);
@@ -277,7 +324,10 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
     Ok(())
 }
 
-fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
+fn decode_value(
+    reader: &mut RetainReader<'_>,
+    physical_checkpoints: bool,
+) -> Result<Value, RuntimeError> {
     let tag = reader.read_u8()?;
     let value = match tag {
         x if x == ValueTag::Bool as u8 => Value::Bool(reader.read_u8()? != 0),
@@ -332,11 +382,13 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
             }
             let mut elements = Vec::with_capacity(len);
             for _ in 0..len {
-                elements.push(decode_value(reader)?);
+                elements.push(decode_value(reader, physical_checkpoints)?);
             }
             Value::Array(Box::new(
                 ArrayValue::from_untyped_parts(elements, dimensions).map_err(|error| {
-                    RuntimeError::RetainStore(format!("invalid retained array value: {error}").into())
+                    RuntimeError::RetainStore(
+                        format!("invalid retained array value: {error}").into(),
+                    )
                 })?,
             ))
         }
@@ -346,12 +398,32 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
             let mut fields = IndexMap::new();
             for _ in 0..count {
                 let name = SmolStr::new(reader.read_string()?);
-                let value = decode_value(reader)?;
+                let value = decode_value(reader, physical_checkpoints)?;
                 fields.insert(name, value);
             }
-            Value::Struct(std::sync::Arc::new(StructValue::from_untyped_parts(
-                type_name, fields,
-            )))
+            let value = StructValue::from_untyped_parts(type_name, fields);
+            let value = if physical_checkpoints {
+                match reader.read_u8()? {
+                    0 => value,
+                    1 => {
+                        let len = reader.read_u32()? as usize;
+                        let checkpoint = reader.read_bytes(len)?;
+                        value.with_physical_checkpoint(checkpoint).map_err(|_| {
+                            RuntimeError::RetainCorruption(
+                                "invalid physical struct checkpoint".into(),
+                            )
+                        })?
+                    }
+                    _ => {
+                        return Err(RuntimeError::RetainCorruption(
+                            "invalid physical struct checkpoint marker".into(),
+                        ));
+                    }
+                }
+            } else {
+                value
+            };
+            Value::Struct(std::sync::Arc::new(value))
         }
         x if x == ValueTag::Enum as u8 => {
             let type_name = SmolStr::new(reader.read_string()?);
@@ -364,7 +436,11 @@ fn decode_value(reader: &mut RetainReader<'_>) -> Result<Value, RuntimeError> {
             )))
         }
         x if x == ValueTag::Null as u8 => Value::Null,
-        _ => return Err(RuntimeError::RetainCorruption("unknown retain value tag".into())),
+        _ => {
+            return Err(RuntimeError::RetainCorruption(
+                "unknown retain value tag".into(),
+            ))
+        }
     };
     Ok(value)
 }

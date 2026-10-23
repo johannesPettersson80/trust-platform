@@ -1,0 +1,5 @@
+{
+  "crates/trust-runtime/src/host/harness/authoring_boundary_tests.rs": "2aaaa329da5eb74390680500faddfbbe919ed93a808f056b8eea9685bf237f44",
+  "crates/trust-runtime/tests/bytecode_source_free_authoring.rs": "c95340c178491d7477e2825375ec3261b6dc119d1bbf0e70808e636269891901",
+  "docs/specs/12-bytecode.md": "c6d03a1077523a68ead0f9737ebe2778a96926c0ceebc382e5adbe96b91e56c1"
+}

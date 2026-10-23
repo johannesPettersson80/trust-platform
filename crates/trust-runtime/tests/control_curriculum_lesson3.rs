@@ -97,13 +97,11 @@ fn delivered_dwell_runs_without_hidden_setup() {
             }
             assert_eq!(number(&r, "%QL0"), applied * 100.0);
             if last != applied {
-                if enabled {
-                    if let Some(previous) = last_change {
-                        assert!(
-                            (scan - previous) as f64 >= dwell * 10.0,
-                            "normal transition before 8 seconds"
-                        );
-                    }
+                if enabled && let Some(previous) = last_change {
+                    assert!(
+                        (scan - previous) as f64 >= dwell * 10.0,
+                        "normal transition before 8 seconds"
+                    );
                 }
                 last_change = Some(scan);
                 changes += 1;

@@ -85,7 +85,7 @@ const VARIABLES: [Variable; 8] = [
     },
 ];
 
-/// The fields of the PID's parameter record, in its order (specification 32), with their kind.
+/// The fields of the PID's parameter record, in its order (specification 45), with their kind.
 const PARAMETERS: [(&str, Kind); 12] = [
     ("ProportionalGain", Kind::Real),
     ("IntegralGain", Kind::Real),

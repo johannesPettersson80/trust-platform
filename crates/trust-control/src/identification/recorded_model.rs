@@ -422,12 +422,11 @@ fn checked_action<E>(
             }
         }
         AutomaticIdentificationResult::Model { model, .. } => {
-            if let GeneralModel::TransferFunction { transfer, .. } = model.as_ref() {
-                if let Some((gain, integrating)) =
+            if let GeneralModel::TransferFunction { transfer, .. } = model.as_ref()
+                && let Some((gain, integrating)) =
                     transfer_gain(&transfer.numerator, &transfer.denominator)
-                {
-                    check_gain_sign(loop_definition, gain, integrating)?;
-                }
+            {
+                check_gain_sign(loop_definition, gain, integrating)?;
             }
         }
         AutomaticIdentificationResult::StateModel { .. } => {}

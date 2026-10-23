@@ -520,19 +520,18 @@ fn apply(
         }
         None => creates.push(json!({"uri": design_uri, "text": text})),
     }
-    if selected.declared {
-        if let Some((uri, before, after)) = super::hmi_generate::refresh_regions(
+    if selected.declared
+        && let Some((uri, before, after)) = super::hmi_generate::refresh_regions(
             inputs,
             index,
             &design,
             definitions,
             selected.instance,
-        )? {
-            if before != after {
-                changes_out.insert(uri.clone(), vec![whole_file(&before, after)]);
-                expected.insert(uri, before);
-            }
-        }
+        )?
+        && before != after
+    {
+        changes_out.insert(uri.clone(), vec![whole_file(&before, after)]);
+        expected.insert(uri, before);
     }
     Ok(
         json!({"ok": true, "expected": expected, "edit": {"changes": changes_out}, "creates": creates}),

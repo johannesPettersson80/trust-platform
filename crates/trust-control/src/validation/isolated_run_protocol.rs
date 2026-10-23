@@ -582,8 +582,8 @@ fn check_frozen_conditions(
     }
     if let Some(selected) = &request.simulation_override {
         let digest = format!(
-            "sha256:{:x}",
-            Sha256::digest(selected.simulation_toml.as_bytes())
+            "sha256:{}",
+            hex::encode(Sha256::digest(selected.simulation_toml.as_bytes()))
         );
         if conditions.model_revision != selected.model_revision
             || conditions.model_provenance.as_deref() != Some(selected.model_provenance.as_str())

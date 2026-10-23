@@ -82,6 +82,14 @@ fn dispatch_native_split_date_positional_writes_outputs_and_checks_arity() {
     let err = dispatch_stdlib(&mut runtime, &mut frame, "SPLIT_DATE", &short_args)
         .expect_err("SPLIT_DATE requires all positional outputs");
     assert_invalid_argument_count(err, 4, 3);
+    assert_eq!(
+        runtime.storage.get_global("YEAR_SHORT"),
+        Some(&Value::DInt(-1))
+    );
+    assert_eq!(
+        runtime.storage.get_global("MONTH_SHORT"),
+        Some(&Value::DInt(-1))
+    );
 }
 
 #[test]
@@ -201,7 +209,7 @@ fn resolve_native_symbol_specs_caches_resolved_function_id() {
         preparse_native_symbol_spec(&SmolStr::new("Add|E:a")),
         preparse_native_symbol_spec(&SmolStr::new("Len|E:in")),
     ];
-    let mut function_ids = rustc_hash::FxHashMap::default();
+    let mut function_ids = HashMap::new();
     function_ids.insert(SmolStr::new("ADD"), 7);
 
     super::resolve_native_symbol_specs(&mut specs, &function_ids);
@@ -282,7 +290,11 @@ fn bind_vm_call_arguments_keeps_omitted_middle_named_input_as_null() {
         ],
         false,
     );
-    let (locals, out_bindings) = super::bind_vm_call_arguments(
+    let trust_runtime_core::vm::hosted::call::bindings::BoundVmCall {
+        locals,
+        out_bindings,
+        ..
+    } = super::bind_vm_call_arguments(
         &mut runtime,
         &module,
         &empty_caller_frame(),
@@ -301,7 +313,8 @@ fn bind_vm_call_arguments_keeps_omitted_middle_named_input_as_null() {
 #[test]
 fn bind_stdlib_named_values_rejects_duplicate_named_argument() {
     let mut runtime = Runtime::new();
-    let params = crate::stdlib::StdParams::Fixed(vec![SmolStr::new("IN"), SmolStr::new("N")]);
+    let params =
+        crate::stdlib::StdParams::Fixed(vec![SmolStr::new("IN"), SmolStr::new("N")].into());
     let err = super::bind_stdlib_named_values(
         &mut runtime,
         &empty_caller_frame(),
@@ -389,7 +402,7 @@ fn dispatch_native_stdlib_binds_fixed_and_variadic_positional_values() {
 fn bind_stdlib_positional_values_enforces_fixed_plus_variadic_minimum() {
     let mut runtime = Runtime::new();
     let params = StdParams::Variadic {
-        fixed: vec![SmolStr::new("K")],
+        fixed: vec![SmolStr::new("K")].into(),
         prefix: SmolStr::new("IN"),
         start: 0,
         min: 2,
@@ -411,7 +424,7 @@ fn bind_stdlib_positional_values_enforces_fixed_plus_variadic_minimum() {
 #[test]
 fn bind_stdlib_named_values_fixed_reorders_by_parameter_order() {
     let mut runtime = Runtime::new();
-    let params = StdParams::Fixed(vec![SmolStr::new("IN"), SmolStr::new("N")]);
+    let params = StdParams::Fixed(vec![SmolStr::new("IN"), SmolStr::new("N")].into());
     let values = super::bind_stdlib_named_values(
         &mut runtime,
         &empty_caller_frame(),
@@ -430,7 +443,7 @@ fn bind_stdlib_named_values_fixed_reorders_by_parameter_order() {
 fn bind_stdlib_named_values_variadic_reorders_suffixes() {
     let mut runtime = Runtime::new();
     let params = StdParams::Variadic {
-        fixed: Vec::new(),
+        fixed: Vec::new().into(),
         prefix: SmolStr::new("IN"),
         start: 1,
         min: 2,
@@ -453,7 +466,7 @@ fn bind_stdlib_named_values_variadic_reorders_suffixes() {
 fn bind_stdlib_named_values_variadic_reports_exact_count_edges() {
     let mut runtime = Runtime::new();
     let params = StdParams::Variadic {
-        fixed: vec![SmolStr::new("K")],
+        fixed: vec![SmolStr::new("K")].into(),
         prefix: SmolStr::new("IN"),
         start: 0,
         min: 2,
@@ -501,7 +514,7 @@ fn bind_stdlib_named_values_variadic_reports_exact_count_edges() {
 fn bind_stdlib_named_values_variadic_rejects_hole() {
     let mut runtime = Runtime::new();
     let params = crate::stdlib::StdParams::Variadic {
-        fixed: vec![SmolStr::new("IN")],
+        fixed: vec![SmolStr::new("IN")].into(),
         prefix: SmolStr::new("IN"),
         start: 2,
         min: 2,

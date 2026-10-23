@@ -258,8 +258,8 @@ fn lesson60_run(gains: (f64, f64), model: (f64, f64, f64), updates: u64) -> Vec<
         let mut writes = Vec::new();
         if step == 1 {
             assert!(runtime
-                .storage_mut()
-                .set_instance_var(p1, "Auto", Value::Bool(true)));
+                .write_instance(p1, "Auto", Value::Bool(true))
+                .is_ok());
             set_program_record(
                 &mut runtime,
                 p1,
@@ -273,8 +273,8 @@ fn lesson60_run(gains: (f64, f64), model: (f64, f64, f64), updates: u64) -> Vec<
             ] {
                 assert!(
                     runtime
-                        .storage_mut()
-                        .set_instance_var(p1, name, Value::LReal(value)),
+                        .write_instance(p1, name, Value::LReal(value))
+                        .is_ok(),
                     "{name}"
                 );
             }
@@ -328,8 +328,8 @@ fn lesson60_the_controller_starts_in_manual_and_holds_its_output() {
     assert!((number(&runtime, "%IL0") - 35.0).abs() < 1e-9);
     let p1 = program(&runtime);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "Auto", Value::Bool(true)));
+        .write_instance(p1, "Auto", Value::Bool(true))
+        .is_ok());
     scan_every(&mut runtime, &mut simulation, &debug, 5000, 100, &[]);
     let command = number(&runtime, "%QL0");
     assert!(

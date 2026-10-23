@@ -231,7 +231,7 @@ impl super::PlantInstance {
             .zip(values)
             .filter_map(|(target, value)| target.address().map(|address| (address, value)))
             .map(|(address, value)| {
-                super::numeric_io::encode_numeric(runtime.io(), address, *value)
+                super::numeric_io::encode_numeric(&runtime.io(), address, *value)
                     .map(|encoded| (address.clone(), encoded))
             })
             .chain(
@@ -246,13 +246,13 @@ impl super::PlantInstance {
                         let applied = (self.actuators[channel].current_applied()
                             - self.config.input_offset[channel])
                             / self.config.input_scale[channel];
-                        super::numeric_io::encode_numeric(runtime.io(), address, applied)
+                        super::numeric_io::encode_numeric(&runtime.io(), address, applied)
                             .map(|encoded| (address.clone(), encoded))
                     }),
             )
             .collect::<Result<Vec<_>, _>>()
             .and_then(|pending| {
-                runtime.io_mut().write_batch(&pending)?;
+                runtime.write_io_batch(&pending)?;
                 Ok(pending)
             });
         let pending = match pending_result {
@@ -274,7 +274,7 @@ impl super::PlantInstance {
                     .count()
         );
         for (reference, value) in stored {
-            if !runtime.storage_mut().write_by_ref(reference, value) {
+            if runtime.write_reference(&reference, value).is_err() {
                 let fault = self.feedback_fault(RuntimeError::SimulationFault(
                     "a symbolic plant feedback target could not be written".into(),
                 ));

@@ -145,7 +145,7 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
             json.dumps(fixture_schema(), indent=2) + "\n"
         )
         (self.root / "docs/specs/11-runtime-engine.md").write_text(
-            "dynamic allocation in hot path is absent.\nNo heap allocation during execution.\n"
+            "Allocation-free control paths are an acceptance requirement for the bounded\nprofiles in specification 34, including fault/first-use paths.\n"
         )
         (self.root / "crates/trust-runtime/tests/runtime_safety_fail_closed.rs").write_text(
             "// fixture\n"
@@ -297,7 +297,7 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
         taxonomy = fixture_taxonomy()
         missing_phrase = fixture_taxonomy()
         missing_phrase["spec_gap_reviews"]["scan_cycle_allocation_policy"]["required_text"] = [
-            "No heap allocation during execution."
+            "profiles in specification 34, including fault/first-use paths."
         ]
         bad_gap = fixture_spec_gaps()
         bad_gap["SPEC_GAP_IEC_TIMER_RESTART_TIMEBASE_001"]["resolution_status"] = "resolved"
@@ -329,6 +329,14 @@ class RuntimeAnomalyContractTests(unittest.TestCase):
                     spec_gaps=bad_gap,
                 )
             )
+        )
+
+    def test_allocation_review_rejects_obsolete_unqualified_contract(self) -> None:
+        (self.root / "docs/specs/11-runtime-engine.md").write_text(
+            "dynamic allocation in hot path is absent.\nNo heap allocation during execution.\n"
+        )
+        self.assertTrue(
+            any("source is missing required text" in item for item in self.validate(fixture_taxonomy()))
         )
 
     def test_resolved_restart_review_binds_active_non_claim_source(self) -> None:

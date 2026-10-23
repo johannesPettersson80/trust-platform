@@ -7,8 +7,11 @@ use smol_str::SmolStr;
 
 use crate::value::Value;
 
+#[cfg(test)]
 pub(super) use trust_runtime_core::cycle::ReadyTask;
-pub(super) use trust_runtime_core::retain::{RestartMode, RetainPolicy};
+#[cfg(test)]
+pub(super) use trust_runtime_core::retain::RestartMode;
+pub(super) use trust_runtime_core::retain::RetainPolicy;
 
 /// Snapshot of retained values for restart, persistence, and hot reload.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -37,15 +40,14 @@ impl RetainSnapshot {
 pub(crate) enum GlobalInitValue {
     Value(Value),
     FunctionBlock {
+        // Only the historical restart fixture resolves constructors by name.
+        // Production serialization uses GlobalVarMeta::type_id and its registry.
+        #[cfg(test)]
         type_name: SmolStr,
     },
     Class {
+        #[cfg(test)]
         type_name: SmolStr,
-    },
-    /// An array of function block or class instances, re-created element by element from the declared type, with the
-    /// declaration's element initializers.
-    InstanceArray {
-        initializer: Option<crate::program_model::Expr>,
     },
 }
 

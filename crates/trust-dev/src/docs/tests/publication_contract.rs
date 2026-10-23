@@ -458,7 +458,8 @@ fn docs_command_uses_project_relative_source_identity() {
     .expect("generate documentation");
 
     let markdown = std::fs::read_to_string(output.join("api.md")).expect("read markdown");
-    assert!(markdown.contains("- Source: `src/nested/cell.st`:1"));
+    let portable_markdown = markdown.replace('\\', "/");
+    assert!(portable_markdown.contains("- Source: `src/nested/cell.st`:1"));
     assert!(!markdown.contains(&project.to_string_lossy().to_string()));
     let _ = std::fs::remove_dir_all(project);
 }

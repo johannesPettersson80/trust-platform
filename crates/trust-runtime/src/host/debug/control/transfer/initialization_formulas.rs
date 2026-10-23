@@ -56,10 +56,10 @@ pub(super) fn validate(binding: &Binding, symbol: &str, formula: &Formula) -> Re
         {
             return Err("invalid initialization weight".into());
         }
-        if let Some(symbol) = symbol {
-            if guard(binding, symbol)?.unit != "1" {
-                return Err("initialization weights must be dimensionless".into());
-            }
+        if let Some(symbol) = symbol
+            && guard(binding, symbol)?.unit != "1"
+        {
+            return Err("initialization weights must be dimensionless".into());
         }
         Ok(())
     };

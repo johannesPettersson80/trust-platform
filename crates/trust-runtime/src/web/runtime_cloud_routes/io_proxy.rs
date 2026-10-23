@@ -124,10 +124,7 @@ pub(super) fn handle_get_io_config(
 
     if target_runtime == local_runtime {
         let response = match load_io_config(ctx.bundle_root) {
-            Ok(config) => json_response(
-                200,
-                serde_json::to_value(config).unwrap_or_else(|_| json!({})),
-            ),
+            Ok(config) => json_response(200, redacted_io_config(&config)),
             Err(error) => json_response(
                 500,
                 json!({
@@ -164,28 +161,8 @@ pub(super) fn handle_get_io_config(
                 .body_mut()
                 .read_to_string()
                 .unwrap_or_default();
-            if (200..300).contains(&status) {
-                let value = serde_json::from_str::<serde_json::Value>(&text)
-                    .unwrap_or_else(|_| json!({ "ok": false, "error": "invalid remote response" }));
-                json_response(status, value)
-            } else {
-                let mut value =
-                    serde_json::from_str::<serde_json::Value>(&text).unwrap_or_else(|_| json!({}));
-                if !value.is_object() {
-                    value = json!({ "ok": false, "error": format!("http status {status}") });
-                }
-                value["ok"] = serde_json::Value::Bool(false);
-                if value.get("denial_code").is_none() {
-                    value["denial_code"] = serde_json::to_value(
-                        runtime_cloud_map_remote_http_status(status, action_type.as_str()),
-                    )
-                    .unwrap_or(serde_json::Value::String("transport_failure".to_string()));
-                }
-                if value.get("error").is_none() {
-                    value["error"] = serde_json::Value::String(format!("http status {status}"));
-                }
-                json_response(status, value)
-            }
+            let (status, value) = remote_read_result(status, &text, &action_type);
+            json_response(status, value)
         }
         Err(error) => json_response(
             503,
@@ -323,33 +300,8 @@ pub(super) fn handle_post_io_config(
                 .body_mut()
                 .read_to_string()
                 .unwrap_or_default();
-            if !(200..300).contains(&status) {
-                json_response(
-                    status,
-                    json!({
-                        "ok": false,
-                        "denial_code": runtime_cloud_map_remote_http_status(status, action_type.as_str()),
-                        "error": if text.trim().is_empty() { format!("http status {status}") } else { text },
-                    }),
-                )
-            } else if text.trim().to_ascii_lowercase().starts_with("error:") {
-                json_response(
-                    400,
-                    json!({
-                        "ok": false,
-                        "denial_code": ReasonCode::ContractViolation,
-                        "error": text.trim(),
-                    }),
-                )
-            } else {
-                json_response(
-                    status,
-                    json!({
-                        "ok": true,
-                        "message": if text.trim().is_empty() { "I/O config saved." } else { text.trim() },
-                    }),
-                )
-            }
+            let (status, value) = remote_write_result(status, &text, &action_type);
+            json_response(status, value)
         }
         Err(error) => json_response(
             503,
@@ -361,4 +313,93 @@ pub(super) fn handle_post_io_config(
         ),
     };
     let _ = request.respond(response);
+}
+
+fn remote_read_result(status: u16, text: &str, action: &str) -> (u16, serde_json::Value) {
+    if !(200..300).contains(&status) {
+        return remote_error(status, action);
+    }
+    match serde_json::from_str::<IoConfigResponse>(text) {
+        Ok(config) => (status, redacted_io_config(&config)),
+        Err(_) => (
+            502,
+            json!({ "ok": false, "error": "invalid remote I/O response" }),
+        ),
+    }
+}
+
+fn remote_write_result(status: u16, text: &str, action: &str) -> (u16, serde_json::Value) {
+    if !(200..300).contains(&status) {
+        return remote_error(status, action);
+    }
+    let rejected = text.trim().to_ascii_lowercase().starts_with("error:")
+        || serde_json::from_str::<serde_json::Value>(text)
+            .ok()
+            .is_some_and(|value| value.get("ok") == Some(&json!(false)));
+    if rejected {
+        (
+            400,
+            json!({ "ok": false, "denial_code": ReasonCode::ContractViolation,
+                     "error": "remote I/O configuration was rejected" }),
+        )
+    } else {
+        (
+            status,
+            json!({ "ok": true, "message": "I/O config saved." }),
+        )
+    }
+}
+
+fn remote_error(status: u16, action: &str) -> (u16, serde_json::Value) {
+    (
+        status,
+        json!({
+            "ok": false,
+            "denial_code": runtime_cloud_map_remote_http_status(status, action),
+            "error": format!("remote I/O request failed with http status {status}"),
+        }),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn remote_io_answers_never_forward_credentials_or_error_snippets() {
+        let config = json!({
+            "driver": "mqtt", "params": {"password": "stored-secret"},
+            "drivers": [{"name": "mqtt", "params": {"password": "stored-secret"}}],
+            "safe_state": [], "supported_drivers": ["mqtt"], "source": "project",
+            "use_system_io": false, "error": "untrusted extra stored-secret"
+        });
+        let (status, body) = remote_read_result(200, &config.to_string(), "io.read");
+        assert_eq!(status, 200);
+        assert_eq!(body["params"]["password"], SECRET_MARKER);
+        assert!(!body.to_string().contains("stored-secret"));
+        for status in [200, 400, 500] {
+            for text in [
+                "error: stored-secret",
+                "{\"ok\":false,\"error\":\"stored-secret\"}",
+                "stored-secret",
+            ] {
+                assert!(!remote_read_result(status, text, "io.read")
+                    .1
+                    .to_string()
+                    .contains("stored-secret"));
+                assert!(!remote_write_result(status, text, "io.write")
+                    .1
+                    .to_string()
+                    .contains("stored-secret"));
+            }
+        }
+        assert_eq!(
+            remote_write_result(200, "error: stored-secret", "io.write").0,
+            400
+        );
+        assert_eq!(
+            remote_write_result(200, "{\"ok\":false}", "io.write").0,
+            400
+        );
+    }
 }

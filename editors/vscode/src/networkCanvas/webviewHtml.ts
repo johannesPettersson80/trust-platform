@@ -1,16 +1,19 @@
-import * as vscode from "vscode";
 import * as path from "path";
+import * as vscode from "vscode";
 
-/** Builds the CSP-constrained host document; React owns all content after bootstrap. */
 export function networkCanvasWebviewHtml(
   webview: vscode.Webview,
   context: vscode.ExtensionContext
 ): string {
   const scriptUri = webview.asWebviewUri(
-    vscode.Uri.file(path.join(context.extensionPath, "media", "networkCanvasWebview.js"))
+    vscode.Uri.file(
+      path.join(context.extensionPath, "media", "networkCanvasWebview.js")
+    )
   );
   const styleUri = webview.asWebviewUri(
-    vscode.Uri.file(path.join(context.extensionPath, "media", "networkCanvasWebview.css"))
+    vscode.Uri.file(
+      path.join(context.extensionPath, "media", "networkCanvasWebview.css")
+    )
   );
   const csp = `default-src 'none'; img-src ${webview.cspSource} data: https:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'unsafe-eval'; font-src ${webview.cspSource} data:;`;
   return `<!DOCTYPE html>
@@ -36,9 +39,15 @@ export function networkCanvasWebviewHtml(
         background: var(--trust-canvas, var(--vscode-editor-background, #0f1116));
         color: var(--trust-text-muted, var(--vscode-descriptionForeground, #949cab));
       }
-      .initial-loading__icon { width: 38px; height: 38px; color: var(--trust-text-subtle, var(--vscode-disabledForeground, #6b7480)); }
+      .initial-loading__icon {
+        width: 38px; height: 38px;
+        color: var(--trust-text-subtle, var(--vscode-disabledForeground, #6b7480));
+      }
       .initial-loading__title { font-size: 13.5px; font-weight: 600; }
-      .initial-loading__detail { max-width: 300px; font-size: 12px; color: var(--trust-text-subtle, var(--vscode-disabledForeground, #6b7480)); }
+      .initial-loading__detail {
+        max-width: 300px; font-size: 12px;
+        color: var(--trust-text-subtle, var(--vscode-disabledForeground, #6b7480));
+      }
     </style>
   </head>
   <body>

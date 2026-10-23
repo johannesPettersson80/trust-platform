@@ -1,4 +1,4 @@
-//! Simulation-time rules of the resource loop (specification 33, §6.1), driven by a deterministic host clock.
+//! Simulation-time rules of the resource loop (specification 46, §6.1), driven by a deterministic host clock.
 //!
 //! `ManualClock` blocks in `sleep_until` until another thread advances it, so these tests use a host clock
 //! whose every wake-up returns late, the same pattern as the late-wake-up test in `runner_loop.rs`.
@@ -72,34 +72,42 @@ impl Clock for HostClock {
             }
             None => false,
         };
-        if resume_now {
-            if let Some((_, sender)) = state.resume_after_sleeps.take() {
-                let _ = sender.send(ResourceCommand::Resume);
-            }
+        if resume_now && let Some((_, sender)) = state.resume_after_sleeps.take() {
+            let _ = sender.send(ResourceCommand::Resume);
         }
     }
 
     fn wake(&self) {}
 }
 
-/// Runs the resource loop until `cycles` cycles have run, then stops it with a fault. `on_cycle` receives the
-/// index of each cycle and the runtime, whose process time the cycle sees.
+/// Runs the resource loop until `cycles` cycles have run, then stops it as STOP does: a faulted
+/// resource keeps serving until it is stopped. `on_cycle` receives the index of each cycle and the
+/// runtime, whose process time the cycle sees.
 fn run_cycles(
     runner: ResourceRunner<HostClock>,
     cycles: usize,
     mut on_cycle: impl FnMut(usize, &mut Runtime),
 ) {
     let mut run = 0_usize;
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_after = Arc::clone(&stop);
+    let state = Arc::new(Mutex::new(ResourceState::Boot));
+    let last_error = Arc::new(Mutex::new(None));
+    let supervision = Arc::new(super::supervisor::ScanSupervision::new(
+        Arc::clone(&state),
+        Arc::clone(&last_error),
+    ));
     run_resource_loop_core(
         runner,
-        Arc::new(AtomicBool::new(false)),
-        Arc::new(Mutex::new(ResourceState::Boot)),
-        Arc::new(Mutex::new(None)),
+        stop,
+        state,
+        last_error,
+        supervision,
         move |runtime| {
             on_cycle(run, runtime);
             run += 1;
             if run == cycles {
-                return Err(RuntimeError::SimulationFault("test stop".into()));
+                stop_after.store(true, std::sync::atomic::Ordering::SeqCst);
             }
             Ok(())
         },
@@ -113,7 +121,7 @@ fn millis(values: &[i64]) -> Vec<i64> {
 #[test]
 fn late_simulated_cycles_advance_one_interval_each_and_none_are_skipped() {
     let runner = ResourceRunner::new(
-        Runtime::new(),
+        crate::runtime::empty_runtime(),
         HostClock::with_late_ms(5),
         Duration::from_millis(10),
     )
@@ -134,8 +142,12 @@ fn late_simulated_cycles_advance_one_interval_each_and_none_are_skipped() {
 fn pausing_holds_simulation_time_and_resuming_continues_without_a_jump() {
     let host = HostClock::with_late_ms(0);
     let (command_tx, command_rx) = std::sync::mpsc::channel();
-    let mut runner = ResourceRunner::new(Runtime::new(), host.clone(), Duration::from_millis(10))
-        .with_simulation_speed(SimulationSpeed::new(1), None);
+    let mut runner = ResourceRunner::new(
+        crate::runtime::empty_runtime(),
+        host.clone(),
+        Duration::from_millis(10),
+    )
+    .with_simulation_speed(SimulationSpeed::new(1), None);
     runner.command_rx = Some(command_rx);
     let seen = Arc::new(Mutex::new(Vec::new()));
     let recorded = Arc::clone(&seen);
@@ -163,8 +175,12 @@ fn pausing_holds_simulation_time_and_resuming_continues_without_a_jump() {
 fn a_speed_change_repaces_the_next_cycles_and_never_moves_simulation_time() {
     let host = HostClock::with_late_ms(0);
     let speed = SimulationSpeed::new(1);
-    let runner = ResourceRunner::new(Runtime::new(), host.clone(), Duration::from_millis(10))
-        .with_simulation_speed(speed.clone(), None);
+    let runner = ResourceRunner::new(
+        crate::runtime::empty_runtime(),
+        host.clone(),
+        Duration::from_millis(10),
+    )
+    .with_simulation_speed(speed.clone(), None);
     let seen = Arc::new(Mutex::new(Vec::new()));
     let recorded = Arc::clone(&seen);
     run_cycles(runner, 12, move |cycle, runtime| {
@@ -238,7 +254,7 @@ fn a_warm_restart_continues_simulation_time_from_its_last_value() {
 fn achieved_speed_reports_the_rate_of_a_host_that_cannot_keep_up() {
     let sink = Arc::new(Mutex::new(RuntimeMetrics::new()));
     let runner = ResourceRunner::new(
-        Runtime::new(),
+        crate::runtime::empty_runtime(),
         HostClock::with_late_ms(5),
         Duration::from_millis(10),
     )
@@ -270,7 +286,7 @@ fn achieved_speed_reports_the_rate_of_a_host_that_cannot_keep_up() {
 #[test]
 fn without_simulation_process_time_follows_the_wall_clock_and_late_cycles_keep_the_grid() {
     let runner = ResourceRunner::new(
-        Runtime::new(),
+        crate::runtime::empty_runtime(),
         HostClock::with_late_ms(5),
         Duration::from_millis(10),
     );

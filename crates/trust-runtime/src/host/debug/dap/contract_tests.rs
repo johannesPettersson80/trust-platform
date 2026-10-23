@@ -29,6 +29,7 @@ fn io_entry(name: Option<&str>, address: &str, value: IoSnapshotValue) -> IoSnap
         name: name.map(Into::into),
         address: IoAddress::parse(address).expect("address"),
         value_type: None,
+        value_type_name: None,
         value,
         source: None,
     }

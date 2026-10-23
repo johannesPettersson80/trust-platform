@@ -433,8 +433,10 @@ fn plant_save_fingerprint(params: &PlantSaveParams) -> String {
         "plant": params.plant,
     });
     format!(
-        "sha256:{:x}",
-        Sha256::digest(serde_json::to_vec(&validated_input).unwrap_or_default())
+        "sha256:{}",
+        hex::encode(Sha256::digest(
+            serde_json::to_vec(&validated_input).unwrap_or_default()
+        ))
     )
 }
 
@@ -700,8 +702,8 @@ fn temporary_save_path(path: &Path, operation_id: &str) -> PathBuf {
         .unwrap_or("simulation.toml");
     let operation_hash = Sha256::digest(operation_id.as_bytes());
     path.with_file_name(format!(
-        ".{name}.{:x}-{}.tmp",
-        operation_hash,
+        ".{name}.{}-{}.tmp",
+        hex::encode(operation_hash),
         std::process::id()
     ))
 }
@@ -764,14 +766,14 @@ fn saved_plant_descriptors(document: &toml::Value) -> Vec<Value> {
 }
 
 fn content_revision(bytes: &[u8]) -> String {
-    format!("sha256:{:x}", Sha256::digest(bytes))
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
 }
 
 pub(super) fn project_identity(project_root: &Path) -> String {
     let canonical = fs::canonicalize(project_root).unwrap_or_else(|_| project_root.to_path_buf());
     format!(
-        "project:sha256:{:x}",
-        Sha256::digest(canonical.to_string_lossy().as_bytes())
+        "project:sha256:{}",
+        hex::encode(Sha256::digest(canonical.to_string_lossy().as_bytes()))
     )
 }
 

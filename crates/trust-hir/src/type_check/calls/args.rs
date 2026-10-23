@@ -300,6 +300,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
             match param.direction {
                 ParamDirection::In => {
+                    let errors_before = self.checker.diagnostics.error_count();
                     let context_literal = self
                         .checker
                         .is_contextual_int_literal(param.type_id, &arg.expr)
@@ -328,6 +329,10 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             arg.range,
                             self.invalid_argument_type_message(param, arg_type),
                         );
+                    }
+                    if self.checker.diagnostics.error_count() == errors_before {
+                        self.checker
+                            .check_untyped_literal_range(param.type_id, &arg.expr, true);
                     }
                 }
                 ParamDirection::Out => {
@@ -422,6 +427,7 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
             match param.direction {
                 ParamDirection::In => {
+                    let errors_before = self.checker.diagnostics.error_count();
                     let context_literal = self
                         .checker
                         .is_contextual_int_literal(param.type_id, &arg.expr)
@@ -450,6 +456,10 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                             arg.range,
                             self.invalid_argument_type_message(param, arg_type),
                         );
+                    }
+                    if self.checker.diagnostics.error_count() == errors_before {
+                        self.checker
+                            .check_untyped_literal_range(param.type_id, &arg.expr, true);
                     }
                 }
                 ParamDirection::Out => {

@@ -308,3 +308,47 @@ mod tests {
         );
     }
 }
+
+impl PartialAccess {
+    /// Decode the shared STBC partial-selection tags; zero means no selection.
+    pub fn from_wire(kind: u8, index: u32) -> Result<Option<Self>, PartialAccessError> {
+        if kind == 0 {
+            return if index == 0 {
+                Ok(None)
+            } else {
+                Err(PartialAccessError::TypeMismatch)
+            };
+        }
+        let index = u8::try_from(index).map_err(|_| PartialAccessError::TypeMismatch)?;
+        Ok(Some(match kind {
+            1 => Self::Bit(index),
+            2 => Self::Byte(index),
+            3 => Self::Word(index),
+            4 => Self::DWord(index),
+            _ => return Err(PartialAccessError::TypeMismatch),
+        }))
+    }
+}
+
+#[cfg(test)]
+mod wire_tests {
+    use super::*;
+    #[test]
+    fn wire_partial_selection_is_closed_and_checked() {
+        assert_eq!(PartialAccess::from_wire(0, 0), Ok(None));
+        for (tag, expected) in [
+            (1, PartialAccess::Bit(3)),
+            (2, PartialAccess::Byte(3)),
+            (3, PartialAccess::Word(3)),
+            (4, PartialAccess::DWord(3)),
+        ] {
+            assert_eq!(PartialAccess::from_wire(tag, 3), Ok(Some(expected)));
+        }
+        for (tag, index) in [(0, 1), (5, 0), (1, 256)] {
+            assert_eq!(
+                PartialAccess::from_wire(tag, index),
+                Err(PartialAccessError::TypeMismatch)
+            );
+        }
+    }
+}

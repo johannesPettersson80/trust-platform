@@ -1,0 +1,7 @@
+[gate-progress state=started phase=B-R1-mutation-contracts target=scena-rust-builder pid=1503474 elapsed=0.0s timeout=7200s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-b-evidence/run-3/review-index python3 -m unittest scripts.verification.mutation_program_contract_tests']
+....................
+----------------------------------------------------------------------
+Ran 20 tests in 2.625s
+
+OK
+[gate-progress state=finished phase=B-R1-mutation-contracts target=scena-rust-builder pid=1503474 elapsed=2.8s timeout=7200s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-b-evidence/run-3/review-index python3 -m unittest scripts.verification.mutation_program_contract_tests' status=0]

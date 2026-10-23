@@ -11,7 +11,8 @@ publish = false
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-thiserror.workspace = true
+hex.workspace = true
+thiserror = { workspace = true, features = ["std"] }
 toml.workspace = true
 
 [lints]

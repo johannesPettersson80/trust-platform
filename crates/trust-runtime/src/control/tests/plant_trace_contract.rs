@@ -48,29 +48,20 @@ time_constant_s = 5.0
         .expect("active config");
     let mut controller = crate::simulation::SimulationController::new(config)
         .with_active_configuration_revision(revision.clone());
-    let mut runtime = crate::Runtime::new();
-    for (name, address) in [
-        ("command-a", "%QW0"),
-        ("feedback-a", "%IW0"),
-        ("command-b", "%QW2"),
-        ("feedback-b", "%IW2"),
-    ] {
-        runtime.io_mut().bind_typed(
-            name,
-            crate::io::IoAddress::parse(address).unwrap(),
-            trust_hir::TypeId::WORD,
-        );
-    }
+    let mut runtime = crate::runtime::bound_runtime(&[
+        ("%QW0", "WORD"),
+        ("%IW0", "WORD"),
+        ("%QW2", "WORD"),
+        ("%IW2", "WORD"),
+    ]);
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &crate::io::IoAddress::parse("%QW0").unwrap(),
             crate::value::Value::Word(100),
         )
         .unwrap();
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &crate::io::IoAddress::parse("%QW2").unwrap(),
             crate::value::Value::Word(200),
         )

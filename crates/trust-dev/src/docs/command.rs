@@ -10,9 +10,14 @@ pub fn run_docs(
             Err(_) => std::env::current_dir().context("failed to resolve current directory")?,
         },
     };
-    let sources_root = resolve_sources_root(&project_root, None)?;
+    // `resolve_sources_root` canonicalizes its result. Canonicalize the project
+    // identity used for display paths as well, otherwise platforms whose temp
+    // directories have a symlinked prefix leak an absolute source path.
+    let source_identity_root = std::fs::canonicalize(&project_root)
+        .unwrap_or_else(|_| project_root.clone());
+    let sources_root = resolve_sources_root(&source_identity_root, None)?;
 
-    let sources = load_sources(&project_root, &sources_root)?;
+    let sources = load_sources(&source_identity_root, &sources_root)?;
     if sources.is_empty() {
         anyhow::bail!("no ST sources found under {}", sources_root.display());
     }

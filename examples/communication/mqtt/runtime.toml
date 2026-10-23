@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "CommRes"
+name = "CommMqttRes"
 cycle_interval_ms = 100
 
 [runtime.control]

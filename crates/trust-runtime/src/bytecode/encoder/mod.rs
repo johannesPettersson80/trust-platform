@@ -3,10 +3,21 @@
 #![allow(missing_docs)]
 
 mod codegen;
+mod construction;
 mod consts;
 mod debug;
+mod export;
+use export::export_with_sources;
 mod io;
+mod legacy_import;
 mod locals;
+pub(crate) use legacy_import::build_legacy_with_type_projection;
+pub(crate) fn format_authoring_io_address(address: &crate::io::IoAddress) -> SmolStr {
+    util::format_io_address(address)
+}
+pub(crate) fn authoring_value_type(value: &crate::value::Value) -> Option<TypeId> {
+    consts::type_id_for_value(value)
+}
 mod pou;
 mod refs;
 mod types;
@@ -17,22 +28,49 @@ use std::collections::{HashMap, HashSet};
 use smol_str::SmolStr;
 
 use crate::memory::InstanceId;
+use crate::runtime::BytecodeAuthoringView;
 use crate::value::ValueRef;
 use trust_hir::TypeId;
 
 use self::util::normalize_name;
-use super::encode::compute_type_offsets_for_entries;
 use super::{
     BytecodeError, BytecodeModule, BytecodeVersion, ConstEntry, ConstPool, DebugMap,
     InterfaceMethod, MethodEntry, RefEntry, RefTable, Section, SectionData, SectionId, StringTable,
-    TypeEntry, TypeTable, SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
+    TypeEntry, TypeTable,
 };
+use trust_runtime_core::bytecode::compute_type_offsets_for_entries;
 
-/// Build a bytecode module from the current host runtime state.
+/// Explicit compatibility production owns startup values on a non-executable builder.
+pub(crate) fn build_legacy_module_from_builder(
+    builder: &crate::RuntimeBuilder,
+    sources: &[&str],
+    paths: &[&str],
+) -> Result<BytecodeModule, BytecodeError> {
+    BytecodeEncoder::with_sources_and_paths_view(builder.into(), sources, paths).build()
+}
+
+#[cfg(test)]
+pub(crate) fn build_legacy_fixture_module(
+    fixture: &crate::runtime::LegacyRuntimeFixture,
+    sources: Option<&[&str]>,
+) -> Result<BytecodeModule, BytecodeError> {
+    let mut encoder = BytecodeEncoder::from_view(fixture.into());
+    encoder.sources = sources;
+    encoder.build()
+}
+
+/// Export the installation's immutable artifact without optional source maps.
 pub fn build_module_from_runtime(
     runtime: &crate::Runtime,
 ) -> Result<BytecodeModule, BytecodeError> {
-    BytecodeEncoder::new(runtime).build()
+    let mut module = runtime.deployment_artifact()?.clone();
+    module.sections.retain(|section| {
+        !matches!(
+            SectionId::from_raw(section.id),
+            Some(SectionId::DebugMap | SectionId::DebugStringTable)
+        )
+    });
+    Ok(module)
 }
 
 /// Build a bytecode module from runtime state and source text used for debug maps.
@@ -40,7 +78,7 @@ pub fn build_module_from_runtime_with_sources(
     runtime: &crate::Runtime,
     sources: &[&str],
 ) -> Result<BytecodeModule, BytecodeError> {
-    BytecodeEncoder::with_sources(runtime, sources).build()
+    export_with_sources(runtime, sources, None)
 }
 
 /// Build a bytecode module from runtime state, source text, and source paths used for debug maps.
@@ -49,7 +87,56 @@ pub fn build_module_from_runtime_with_sources_and_paths(
     sources: &[&str],
     paths: &[&str],
 ) -> Result<BytecodeModule, BytecodeError> {
-    BytecodeEncoder::with_sources_and_paths(runtime, sources, paths).build()
+    export_with_sources(runtime, sources, Some(paths))
+}
+
+/// Encode declarations before startup values are materialized.
+#[cfg(test)]
+pub(crate) fn build_module_from_declarations(
+    input: &crate::harness::LoweredApplication,
+) -> Result<BytecodeModule, BytecodeError> {
+    build_module_with_type_projection(input).map(|projected| projected.module)
+}
+
+/// Artifact and the two source-owned tooling associations produced with it.
+pub(crate) struct ProjectedModule {
+    pub(crate) module: BytecodeModule,
+    pub(crate) artifact_types: Vec<Option<TypeId>>,
+    pub(crate) io_display_names: Vec<Option<SmolStr>>,
+}
+
+pub(crate) fn build_module_with_type_projection(
+    input: &crate::harness::LoweredApplication,
+) -> Result<ProjectedModule, BytecodeError> {
+    build_module_with_type_projection_for_version(input, BytecodeVersion::SOURCE_FREE)
+}
+
+pub(crate) fn build_module_with_type_projection_for_version(
+    input: &crate::harness::LoweredApplication,
+    version: BytecodeVersion,
+) -> Result<ProjectedModule, BytecodeError> {
+    let sources: Vec<_> = input
+        .source_metadata
+        .iter()
+        .map(|source| source.text.as_str())
+        .collect();
+    let labels: Vec<_> = input
+        .source_metadata
+        .iter()
+        .map(|source| {
+            source
+                .path
+                .clone()
+                .unwrap_or_else(|| format!("file_{}", source.file_id))
+        })
+        .collect();
+    let paths: Vec<_> = labels.iter().map(String::as_str).collect();
+    let mut encoder =
+        BytecodeEncoder::with_sources_and_paths_view((&input.builder).into(), &sources, &paths);
+    encoder.authoring = Some(input);
+    encoder.output_version = Some(version);
+    encoder.pou_ids = PouIdMap::build(&encoder.runtime, &input.program_defs);
+    encoder.build_with_type_projection()
 }
 
 impl BytecodeModule {
@@ -116,6 +203,7 @@ impl MethodKey {
 struct PouIdMap {
     next_id: u32,
     programs: HashMap<SmolStr, u32>,
+    program_instances: HashMap<SmolStr, u32>,
     function_blocks: HashMap<SmolStr, u32>,
     functions: HashMap<SmolStr, u32>,
     classes: HashMap<SmolStr, u32>,
@@ -123,17 +211,21 @@ struct PouIdMap {
 }
 
 impl PouIdMap {
-    fn build(runtime: &crate::Runtime) -> Self {
+    fn build(
+        runtime: &BytecodeAuthoringView<'_>,
+        programs: &indexmap::IndexMap<SmolStr, crate::task::ProgramDef>,
+    ) -> Self {
         let mut map = Self {
             next_id: 0,
             programs: HashMap::new(),
+            program_instances: HashMap::new(),
             function_blocks: HashMap::new(),
             functions: HashMap::new(),
             classes: HashMap::new(),
             methods: HashMap::new(),
         };
 
-        for name in runtime.programs().keys() {
+        for name in programs.keys() {
             let key = normalize_name(name);
             let id = map.alloc();
             map.programs.insert(key, id);
@@ -179,7 +271,14 @@ impl PouIdMap {
 
     fn program_id(&self, name: &SmolStr) -> Option<u32> {
         let key = normalize_name(name);
-        self.programs.get(&key).copied()
+        self.programs
+            .get(&key)
+            .or_else(|| self.program_instances.get(&key))
+            .copied()
+    }
+
+    fn program_instance_id(&self, name: &SmolStr) -> Option<u32> {
+        self.program_instances.get(&normalize_name(name)).copied()
     }
 
     fn function_block_id(&self, name: &SmolStr) -> Option<u32> {
@@ -208,7 +307,11 @@ impl PouIdMap {
 }
 
 struct BytecodeEncoder<'a> {
-    runtime: &'a crate::Runtime,
+    output_version: Option<BytecodeVersion>,
+    legacy: Option<legacy_import::LegacySeed>,
+    authoring: Option<&'a crate::harness::LoweredApplication>,
+    construction: construction::ConstructionModel,
+    runtime: BytecodeAuthoringView<'a>,
     sources: Option<&'a [&'a str]>,
     paths: Option<&'a [&'a str]>,
     file_path_indices: HashMap<u32, u32>,
@@ -231,11 +334,17 @@ struct BytecodeEncoder<'a> {
 
 #[derive(Clone, Default)]
 struct CodegenContext {
+    initializer: bool,
     instance_id: Option<InstanceId>,
+    owner_name: Option<SmolStr>,
     return_name: Option<SmolStr>,
     using: Vec<SmolStr>,
     locals: HashMap<SmolStr, ValueRef>,
     static_refs: HashMap<SmolStr, ValueRef>,
+    static_ordinals: HashMap<SmolStr, usize>,
+    static_self_fields: HashMap<SmolStr, (SmolStr, usize)>,
+    visible_locals: Option<usize>,
+    visible_statics: Option<usize>,
     self_fields: HashMap<SmolStr, SmolStr>,
     for_temp_pairs: Vec<(SmolStr, SmolStr)>,
     next_for_temp: usize,
@@ -258,22 +367,28 @@ impl CodegenContext {
         self_fields: HashMap<SmolStr, SmolStr>,
         for_temp_pairs: Vec<(SmolStr, SmolStr)>,
     ) -> Self {
-        if let Some(return_name) = return_name.as_ref() {
-            if let Some((_, leaf)) = return_name.rsplit_once('.') {
-                let qualified_key = normalize_name(return_name);
-                if let Some(reference) = locals.get(&qualified_key).cloned() {
-                    locals
-                        .entry(normalize_name(&SmolStr::new(leaf)))
-                        .or_insert(reference);
-                }
+        if let Some(return_name) = return_name.as_ref()
+            && let Some((_, leaf)) = return_name.rsplit_once('.')
+        {
+            let qualified_key = normalize_name(return_name);
+            if let Some(reference) = locals.get(&qualified_key).cloned() {
+                locals
+                    .entry(normalize_name(&SmolStr::new(leaf)))
+                    .or_insert(reference);
             }
         }
         Self {
+            initializer: false,
             instance_id,
+            owner_name: None,
             return_name,
             using,
             locals,
             static_refs,
+            static_ordinals: HashMap::new(),
+            static_self_fields: HashMap::new(),
+            visible_locals: None,
+            visible_statics: None,
             self_fields,
             for_temp_pairs,
             next_for_temp: 0,
@@ -283,17 +398,30 @@ impl CodegenContext {
 
     fn local_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
         let key = normalize_name(name);
-        self.locals.get(&key)
+        self.locals.get(&key).filter(|reference| {
+            self.visible_locals
+                .is_none_or(|count| reference.offset < count)
+        })
     }
 
     fn static_ref(&self, name: &SmolStr) -> Option<&ValueRef> {
         let key = normalize_name(name);
-        self.static_refs.get(&key)
+        self.static_refs.get(&key).filter(|_| {
+            self.visible_statics.is_none_or(|count| {
+                self.static_ordinals
+                    .get(&key)
+                    .is_some_and(|position| *position < count)
+            })
+        })
     }
 
     fn self_field_name(&self, name: &SmolStr) -> Option<&SmolStr> {
         let key = normalize_name(name);
-        self.self_fields.get(&key)
+        self.static_self_fields
+            .get(&key)
+            .filter(|(_, position)| self.visible_statics.is_none_or(|count| *position < count))
+            .map(|(name, _)| name)
+            .or_else(|| self.self_fields.get(&key))
     }
 
     fn next_for_temp_pair(&mut self) -> Option<(SmolStr, SmolStr)> {
@@ -349,12 +477,26 @@ enum AccessKind {
 }
 
 impl<'a> BytecodeEncoder<'a> {
-    fn new(runtime: &'a crate::Runtime) -> Self {
+    fn programs(&self) -> &'a indexmap::IndexMap<SmolStr, crate::task::ProgramDef> {
+        self.authoring
+            .map_or_else(|| self.runtime.programs(), |input| &input.program_defs)
+    }
+
+    #[cfg(test)]
+    fn new(builder: &'a crate::RuntimeBuilder) -> Self {
+        Self::from_view(builder.into())
+    }
+
+    fn from_view(runtime: BytecodeAuthoringView<'a>) -> Self {
         let stdlib_fbs: HashSet<SmolStr> = crate::stdlib::fbs::standard_function_blocks()
             .into_iter()
             .map(|fb| normalize_name(&fb.name))
             .collect();
         Self {
+            output_version: None,
+            authoring: None,
+            construction: construction::ConstructionModel::default(),
+            legacy: None,
             runtime,
             sources: None,
             paths: None,
@@ -368,7 +510,7 @@ impl<'a> BytecodeEncoder<'a> {
             ref_map: HashMap::new(),
             local_var_meta: Vec::new(),
             next_local_frame_id: 0,
-            pou_ids: PouIdMap::build(runtime),
+            pou_ids: PouIdMap::build(&runtime, runtime.programs()),
             stdlib_fbs,
             method_tables: HashMap::new(),
             method_stack: Vec::new(),
@@ -377,30 +519,61 @@ impl<'a> BytecodeEncoder<'a> {
         }
     }
 
-    fn with_sources(runtime: &'a crate::Runtime, sources: &'a [&'a str]) -> Self {
-        let mut encoder = Self::new(runtime);
-        encoder.sources = Some(sources);
-        encoder
-    }
-
-    fn with_sources_and_paths(
-        runtime: &'a crate::Runtime,
+    fn with_sources_and_paths_view(
+        runtime: BytecodeAuthoringView<'a>,
         sources: &'a [&'a str],
         paths: &'a [&'a str],
     ) -> Self {
-        let mut encoder = Self::with_sources(runtime, sources);
+        let mut encoder = Self::from_view(runtime);
+        encoder.sources = Some(sources);
         encoder.paths = Some(paths);
         encoder
     }
 
-    fn build(mut self) -> Result<BytecodeModule, BytecodeError> {
+    fn build(self) -> Result<BytecodeModule, BytecodeError> {
+        self.build_with_type_projection()
+            .map(|projected| projected.module)
+    }
+
+    fn build_with_type_projection(mut self) -> Result<ProjectedModule, BytecodeError> {
         self.collect_decl_types()?;
-        let (pou_index, pou_bodies, debug_entries) = self.build_pou_index_and_bodies()?;
+        let source_free = self.authoring.is_some();
+        if source_free {
+            self.reserve_source_globals()?;
+            self.collect_instance_templates()?;
+            self.construct_persistent_roots()?;
+            self.collect_source_io()?;
+            self.collect_source_configuration()?;
+        }
+        let (pou_index, mut pou_bodies, debug_entries) = self.build_pou_index_and_bodies()?;
+        if source_free {
+            self.collect_declaration_actions(&pou_index)?;
+            self.emit_initializer_bodies(&mut pou_bodies)?;
+        }
         let resource_meta = self.build_resource_meta()?;
         let io_map = self.build_io_map()?;
-        let var_meta = self.build_var_meta()?;
+        let io_display_names = if source_free {
+            self.construction.io.bindings()
+        } else {
+            self.runtime.io().bindings()
+        }
+        .iter()
+        .map(|binding| binding.display_name.clone())
+        .collect();
+        let var_meta = if source_free {
+            self.build_source_var_meta()?
+        } else {
+            self.build_var_meta()?
+        };
         let retain_init = self.build_retain_init(&var_meta)?;
-        let type_offsets = compute_type_offsets_for_entries(&self.types);
+        let type_offsets = compute_type_offsets_for_entries(&self.types)?;
+        let mut artifact_types = vec![None; self.types.len()];
+        for (&type_id, &index) in &self.type_map {
+            let entry = artifact_types.get_mut(index as usize).ok_or_else(|| {
+                BytecodeError::InvalidSection("type projection index out of bounds".into())
+            })?;
+            *entry = Some(type_id);
+        }
         let type_table = TypeTable {
             offsets: type_offsets,
             entries: self.types,
@@ -485,14 +658,78 @@ impl<'a> BytecodeEncoder<'a> {
             });
         }
 
-        let mut module = BytecodeModule::new(BytecodeVersion::new(
-            SUPPORTED_MAJOR_VERSION,
-            SUPPORTED_MINOR_VERSION,
-        ));
-        module.sections = sections;
-        module.validate()?;
-        Ok(module)
+        let version = if source_free {
+            self.output_version.unwrap_or(BytecodeVersion::SOURCE_FREE)
+        } else {
+            BytecodeVersion::LEGACY
+        };
+        let flags = crate::bytecode::HEADER_FLAG_CRC32
+            | if version == BytecodeVersion::SOURCE_FREE
+                && self.runtime.storage_abi() == crate::value::StorageAbi::LegacyTemporal32
+            {
+                crate::bytecode::HEADER_FLAG_LEGACY_TEMPORAL32
+            } else {
+                0
+            };
+        finish_module(sections, source_free, self.construction, version, flags).map(|module| {
+            ProjectedModule {
+                module,
+                artifact_types,
+                io_display_names,
+            }
+        })
     }
+}
+
+fn finish_module(
+    mut sections: Vec<Section>,
+    source_free: bool,
+    construction: construction::ConstructionModel,
+    version: BytecodeVersion,
+    flags: u32,
+) -> Result<BytecodeModule, BytecodeError> {
+    if source_free {
+        sections.extend([
+            Section {
+                id: SectionId::StorageLayout.as_raw(),
+                flags: 0,
+                data: SectionData::StorageLayout(construction.layout),
+            },
+            Section {
+                id: SectionId::ConstructionRoots.as_raw(),
+                flags: 0,
+                data: SectionData::ConstructionRoots(construction.roots),
+            },
+            Section {
+                id: SectionId::Initializers.as_raw(),
+                flags: 0,
+                data: SectionData::Initializers(construction.initializers),
+            },
+            Section {
+                id: SectionId::AccessBindings.as_raw(),
+                flags: 0,
+                data: SectionData::AccessBindings(construction.access),
+            },
+        ]);
+    }
+    let mut module = BytecodeModule::new(version);
+    module.flags = flags;
+    module.sections = sections;
+    if source_free {
+        let demands = trust_runtime_core::bytecode::construction_demands(
+            module.view(),
+            trust_runtime_core::bytecode::ValidationLimits::default(),
+        )?;
+        if let Some(SectionData::StorageLayout(layout)) =
+            module.section_mut(SectionId::StorageLayout)
+        {
+            for (entry, demand) in layout.entries.iter_mut().zip(demands) {
+                entry.construction_nodes = demand;
+            }
+        }
+    }
+    module.validate()?;
+    Ok(module)
 }
 
 #[cfg(test)]

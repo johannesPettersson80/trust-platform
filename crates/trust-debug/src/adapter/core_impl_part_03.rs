@@ -60,7 +60,7 @@ impl DebugAdapter {
         let cycle_time = cycle_time_hint(self.session.metadata());
         let cycle_interval = wall_interval_for_cycle(cycle_time);
         let speed = self.session.simulation_speed();
-        // The achieved speed is reported for a simulated target only (specification 33, §6.1 item 3).
+        // The achieved speed is reported for a simulated target only (specification 46, §6.1 item 3).
         let achieved_sink = if self.session.simulation_facts().enabled {
             self.control_server
                 .as_ref()
@@ -96,8 +96,7 @@ impl DebugAdapter {
                 execute_simulator_cycle(&mut runtime, &mut simulation, cycle_time);
                 if let (Some((snapshot_sink, seen_ms)), Some(snapshot)) =
                     (&control_snapshot_sink, control_for_cycle.latest_io_snapshot())
-                {
-                    if let Ok(mut current) = snapshot_sink.lock() {
+                    && let Ok(mut current) = snapshot_sink.lock() {
                         *current = Some(snapshot);
                         seen_ms.store(
                             std::time::SystemTime::now()
@@ -107,7 +106,6 @@ impl DebugAdapter {
                             Ordering::Relaxed,
                         );
                     }
-                }
                 drop(simulation);
                 drop(runtime);
 

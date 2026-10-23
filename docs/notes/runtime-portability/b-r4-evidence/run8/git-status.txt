@@ -1,0 +1,163 @@
+ M .gitattributes
+ M .gitignore
+ M CHANGELOG.md
+ M Cargo.lock
+ M Cargo.toml
+ M crates/trust-runtime-core/Cargo.toml
+ M crates/trust-runtime-core/src/bytecode/decode.rs
+ M crates/trust-runtime-core/src/bytecode/decode/module_decode.rs
+ M crates/trust-runtime-core/src/bytecode/decode/section_validate.rs
+ M crates/trust-runtime-core/src/bytecode/decode/string_type_decode.rs
+ M crates/trust-runtime-core/src/bytecode/encode.rs
+ M crates/trust-runtime-core/src/bytecode/mod.rs
+ M crates/trust-runtime-core/src/bytecode/reasons.rs
+ M crates/trust-runtime-core/src/bytecode/validate.rs
+ M crates/trust-runtime-core/src/bytecode/validate/budget.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/aliases.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/declarations.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/demand.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/edges.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/initializers.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/initializers/recipes.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/lookups.rs
+ M crates/trust-runtime-core/src/bytecode/validate/construction/roots.rs
+ M crates/trust-runtime-core/src/bytecode/validate/context.rs
+ M crates/trust-runtime-core/src/bytecode/validate/instructions.rs
+ M crates/trust-runtime-core/src/bytecode/validate/meta_debug.rs
+ M crates/trust-runtime-core/src/bytecode/validate/module_validate.rs
+ M crates/trust-runtime-core/src/bytecode/validate/param_direction.rs
+ M crates/trust-runtime-core/src/bytecode/validate/pou_and_instr.rs
+ M crates/trust-runtime-core/src/bytecode/validate/resource_io.rs
+ M crates/trust-runtime-core/src/bytecode/validate/resource_limits.rs
+ M crates/trust-runtime-core/src/bytecode/validate/stack_shape.rs
+ M crates/trust-runtime-core/src/bytecode/validate/tables_consts.rs
+ M crates/trust-runtime-core/src/cycle.rs
+ M crates/trust-runtime-core/src/datetime.rs
+ M crates/trust-runtime-core/src/error.rs
+ M crates/trust-runtime-core/src/lib.rs
+ M crates/trust-runtime-core/src/memory.rs
+ M crates/trust-runtime-core/src/memory/cache.rs
+ M crates/trust-runtime-core/src/memory/execution_frames.rs
+ M crates/trust-runtime-core/src/memory/instances.rs
+ M crates/trust-runtime-core/src/memory/storage.rs
+ M crates/trust-runtime-core/src/program_model/ops/numeric_arith.rs
+ M crates/trust-runtime-core/src/program_model/ops/time_ops.rs
+ M crates/trust-runtime-core/src/stdlib/assertions.rs
+ M crates/trust-runtime-core/src/stdlib/bit.rs
+ M crates/trust-runtime-core/src/stdlib/comparison.rs
+ M crates/trust-runtime-core/src/stdlib/conversions/bitstring.rs
+ M crates/trust-runtime-core/src/stdlib/conversions/numeric.rs
+ M crates/trust-runtime-core/src/stdlib/conversions/string.rs
+ M crates/trust-runtime-core/src/stdlib/helpers.rs
+ M crates/trust-runtime-core/src/stdlib/mod.rs
+ M crates/trust-runtime-core/src/stdlib/numeric.rs
+ M crates/trust-runtime-core/src/stdlib/registration.rs
+ M crates/trust-runtime-core/src/stdlib/selection.rs
+ M crates/trust-runtime-core/src/stdlib/string.rs
+ M crates/trust-runtime-core/src/stdlib/time.rs
+ M crates/trust-runtime-core/src/stdlib/validate.rs
+ M crates/trust-runtime-core/src/vm/budget.rs
+ M crates/trust-runtime-core/src/vm/call/bindings.rs
+ M crates/trust-runtime-core/src/vm/call/bindings/targets.rs
+ M crates/trust-runtime-core/src/vm/call/context.rs
+ M crates/trust-runtime-core/src/vm/call/mod.rs
+ M crates/trust-runtime-core/src/vm/const_pool.rs
+ M crates/trust-runtime-core/src/vm/construction/values.rs
+ M crates/trust-runtime-core/src/vm/construction/values/scalar.rs
+ M crates/trust-runtime-core/src/vm/construction/values/tests.rs
+ M crates/trust-runtime-core/src/vm/context.rs
+ M crates/trust-runtime-core/src/vm/dispatch.rs
+ M crates/trust-runtime-core/src/vm/edge.rs
+ M crates/trust-runtime-core/src/vm/engine/budget_tests.rs
+ M crates/trust-runtime-core/src/vm/engine/context.rs
+ M crates/trust-runtime-core/src/vm/engine/cycle.rs
+ M crates/trust-runtime-core/src/vm/engine/initialization/construction.rs
+ M crates/trust-runtime-core/src/vm/engine/initialization/mod.rs
+ M crates/trust-runtime-core/src/vm/engine/initialization/staging.rs
+ M crates/trust-runtime-core/src/vm/engine/initialization/tests.rs
+ M crates/trust-runtime-core/src/vm/engine/initialization/values.rs
+ M crates/trust-runtime-core/src/vm/engine/io.rs
+ M crates/trust-runtime-core/src/vm/engine/io/staging.rs
+ M crates/trust-runtime-core/src/vm/engine/mod.rs
+ M crates/trust-runtime-core/src/vm/engine/output_transaction.rs
+ M crates/trust-runtime-core/src/vm/engine/policy.rs
+ M crates/trust-runtime-core/src/vm/engine/retained_graph.rs
+ M crates/trust-runtime-core/src/vm/errors.rs
+ M crates/trust-runtime-core/src/vm/frames.rs
+ M crates/trust-runtime-core/src/vm/mod.rs
+ M crates/trust-runtime-core/src/vm/module.rs
+ M crates/trust-runtime-core/src/vm/prepared.rs
+ M crates/trust-runtime-core/src/vm/prepared/admission.rs
+ M crates/trust-runtime-core/src/vm/prepared/budget.rs
+ M crates/trust-runtime-core/src/vm/prepared/indexes.rs
+ M crates/trust-runtime-core/src/vm/prepared/indexes/actions.rs
+ M crates/trust-runtime-core/src/vm/prepared/indexes/declarations.rs
+ M crates/trust-runtime-core/src/vm/prepared/indexes/tests.rs
+ M crates/trust-runtime-core/src/vm/stack.rs
+ M crates/trust-runtime-core/tests/bytecode_portable_load.rs
+ M crates/trust-runtime/src/host/eval/expr/call/tests.rs
+ M crates/trust-runtime/src/host/eval/expr/eval.rs
+ M crates/trust-runtime/src/host/helper_eval/storage_expr.rs
+ M crates/trust-runtime/src/runtime/vm/call/tests/stdlib_binding.rs
+ M crates/trust-runtime/src/runtime/vm/context.rs
+ M crates/trust-runtime/src/runtime/vm/dispatch.rs
+ M crates/trust-runtime/src/runtime/vm/local_init/expr.rs
+ M crates/trust-runtime/src/runtime/vm/register_ir/interpreter.rs
+ M crates/trust-runtime/src/runtime/vm/register_ir/profile.rs
+ M crates/trust-runtime/src/runtime/vm/register_ir/tier1/execute.rs
+ M crates/trust-runtime/src/stdlib/mod.rs
+ M crates/trust-runtime/tests/borrowed_reference_allocations.rs
+ M crates/trust-runtime/tests/source_free_execution_cost.rs
+ M crates/trust-runtime/tests/stdlib_conversion_contract.rs
+ M deny.toml
+ M docs/diagrams/architecture/runtime-bytecode-vm-execution.puml
+ M docs/diagrams/generated/runtime-bytecode-vm-execution.svg
+ M docs/diagrams/manifest.json
+ M docs/internal/testing/checklists/runtime-portability-implementation-checklist.md
+ M docs/specs/34-runtime-portability.md
+ M scripts/supply_chain_gate.sh
+ M verification/mutation-program.toml
+ M xtask/Cargo.toml
+ M xtask/config/full_map_policy.json
+ M xtask/src/full_map.rs
+ M xtask/src/main.rs
+?? crates/trust-platform-stm32f4/
+?? crates/trust-runtime-core/src/bytecode/diagnostics.rs
+?? crates/trust-runtime-core/src/crc32.rs
+?? crates/trust-runtime-core/src/error/
+?? crates/trust-runtime-core/src/memory/live.rs
+?? crates/trust-runtime-core/src/memory/live_tests.rs
+?? crates/trust-runtime-core/src/sort.rs
+?? crates/trust-runtime-core/src/stdlib/parameters.rs
+?? crates/trust-runtime-core/src/stdlib/registration-baseline.txt
+?? crates/trust-runtime-core/src/vm/call/continuation.rs
+?? crates/trust-runtime-core/src/vm/dispatch/
+?? crates/trust-runtime-core/src/vm/engine/continuation_tests.rs
+?? crates/trust-runtime-core/src/vm/engine/destinations.rs
+?? crates/trust-runtime-core/src/vm/engine/identities.rs
+?? crates/trust-runtime-core/src/vm/engine/keys.rs
+?? crates/trust-runtime-core/src/vm/engine/ordered.rs
+?? crates/trust-runtime-core/src/vm/engine/storage_tests.rs
+?? crates/trust-runtime-core/src/vm/prepared/indexes/groups.rs
+?? crates/trust-runtime-core/src/vm/prepared/indexes/sort.rs
+?? crates/trust-runtime-core/tests/preparation_allocation_profile.rs
+?? crates/trust-runtime-core/tests/preparation_transport.rs
+?? crates/trust-runtime/examples/portability_gpio_fixture.rs
+?? crates/trust-runtime/tests/fixtures/portability/f401/
+?? crates/trust-runtime/tests/portability_f401_gpio.rs
+?? docs/notes/runtime-portability/b-evidence/
+?? docs/notes/runtime-portability/b-execution.md
+?? docs/notes/runtime-portability/b-r1-evidence/
+?? docs/notes/runtime-portability/b-r1-execution.md
+?? docs/notes/runtime-portability/b-r1-review/
+?? docs/notes/runtime-portability/b-r2-evidence/
+?? docs/notes/runtime-portability/b-r2-execution.md
+?? docs/notes/runtime-portability/b-r3-evidence/
+?? docs/notes/runtime-portability/b-r3-execution.md
+?? docs/notes/runtime-portability/b-r4-evidence/
+?? docs/notes/runtime-portability/b-r4-execution.md
+?? docs/notes/runtime-portability/b-review/
+?? firmware/
+?? scripts/firmware-cargo-audit-yanked-allowlist.json
+?? xtask/src/portability/

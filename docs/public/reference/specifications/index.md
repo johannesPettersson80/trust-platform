@@ -10,6 +10,7 @@ instead of sending readers to GitHub.
 | --- | --- |
 | “What does IEC Structured Text itself allow?” | the language chapters `01` through `09` |
 | “How does truST execute ST programs?” | [10 Runtime Semantics](10-runtime-semantics.md) |
+| “How does the runtime support STM32 and ESP32?” | [34 Runtime Portability](34-runtime-portability.md) |
 | “How is the runtime platform structured?” | [11 Runtime Engine](11-runtime-engine.md) |
 | “What does the bytecode container look like?” | [12 Bytecode](12-bytecode.md) |
 | “How does debugging behave?” | [13 Debug Adapter](13-debug-adapter.md) |
@@ -24,6 +25,7 @@ instead of sending readers to GitHub.
 | “How do source discovery and project-scoped commits behave?” | [22 Developer Workflows](22-developer-workflows.md) |
 | “Which connector status values are canonical?” | [23 Connector Status](23-connector-status.md) |
 | “What evidence is required for release claims?” | [24 Release Evidence](24-release-evidence.md) |
+| “How are MQTT tag mappings configured and published?” | [32 MQTT I/O](32-mqtt-io.md) |
 
 Use specification pages for exact behavior and contracts. Use [Program](../../develop/index.md)
 for task-oriented programming docs.
@@ -47,6 +49,7 @@ for task-oriented programming docs.
 - [10 Runtime Semantics](10-runtime-semantics.md)
 - [11 Runtime Engine](11-runtime-engine.md)
 - [12 Bytecode](12-bytecode.md)
+- [34 Runtime Portability](34-runtime-portability.md)
 
 ### Tooling
 
@@ -69,7 +72,10 @@ for task-oriented programming docs.
 - [22 Developer Workflows](22-developer-workflows.md)
 - [23 Connector Status](23-connector-status.md)
 - [24 Release Evidence](24-release-evidence.md)
+- [32 MQTT I/O](32-mqtt-io.md)
 
-## Full Source Index
+## Published Source Index
 
---8<-- "docs/specs/README.md:3"
+This public site publishes the specifications listed above. Later internal
+contract specifications remain maintained in `docs/specs/` but are not part of
+the public reference set.

@@ -214,10 +214,10 @@ impl Commands {
             within_limits(&permission, number)
                 .map_err(|reason| refuse(Some(plan.clone()), reason))?;
         }
-        if let Some((permit, reason)) = &plan.interlock {
-            if let Some(refusal) = self.interlocked(permit, reason.as_ref()) {
-                return Err(refuse(Some(plan.clone()), refusal));
-            }
+        if let Some((permit, reason)) = &plan.interlock
+            && let Some(refusal) = self.interlocked(permit, reason.as_ref())
+        {
+            return Err(refuse(Some(plan.clone()), refusal));
         }
         let mut ended = None;
         match if crate::hmi::remote_values::remote_path(&plan.path).is_some() {
@@ -230,7 +230,7 @@ impl Commands {
             // The end is scheduled with the pulse's start, in the runtime (§21.5 item 1).
             let (report, wait) = pulse::end_report(self, session, request, id, &plan);
             ended = Some(wait);
-            self.control_state.resource.hmi_exchange().write_pulse(
+            crate::control::hmi_ports::hmi_exchange(&self.control_state).write_pulse(
                 plan.path.clone(),
                 plan.action.clone(),
                 WRITE_TIMEOUT,

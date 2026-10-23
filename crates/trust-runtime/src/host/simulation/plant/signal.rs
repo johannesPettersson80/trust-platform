@@ -1,4 +1,4 @@
-//! Plant command sources and feedback targets (Specification 33 §13.1–§13.3): a process-image address, the
+//! Plant command sources and feedback targets (Specification 46 §13.1–§13.3): a process-image address, the
 //! symbolic path of a compiled program variable that has no address, or (feedback only) `pid:` and the path of a
 //! Control.PID instance whose measurement the plant gives.
 
@@ -82,7 +82,7 @@ impl PlantSignal {
 
     pub(super) fn read(&self, runtime: &Runtime) -> Result<f64, RuntimeError> {
         match self {
-            Self::Address(address) => super::numeric_io::read_numeric(runtime.io(), address),
+            Self::Address(address) => super::numeric_io::read_numeric(&runtime.io(), address),
             Self::Symbol(symbol) => super::numeric_io::decode_storage(&resolve(runtime, symbol)?.1),
             Self::Controller(path) => runtime
                 .controller_measurement(controller_instance(runtime, path)?)

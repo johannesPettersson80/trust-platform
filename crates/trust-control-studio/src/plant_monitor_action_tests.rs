@@ -1,4 +1,4 @@
-//! The plant summary against a fake runtime (specification 34, §20.4; specification 35, §0.1a): the one `plant.status` read the engine
+//! The plant summary against a fake runtime (specification 47, §20.4; specification 35, §0.1a): the one `plant.status` read the engine
 //! makes, the reasons of a read that fails, and the runtime that is never read when its state forbids it.
 
 use std::net::TcpListener;

@@ -500,7 +500,7 @@ END_PROGRAM
 
 #[test]
 fn default_initializer_dependency_precedence_is_recursive_and_non_destructive() {
-    let runtime = runtime(&[(
+    let files = [(
         "main.st",
         r#"
 TYPE BaseValue : INT := INT#2;
@@ -517,12 +517,22 @@ END_VAR
 PROGRAM Main
 END_PROGRAM
 "#,
-    )]);
+    )];
+    let lowered = crate::harness::lower_application(&source_files(&files), true)
+        .expect("lower initializer declarations");
+    let runtime = runtime(&files);
 
     assert!(
-        runtime
+        lowered
+            .builder
             .initializer_catalog()
-            .type_default(runtime.registry().lookup("PacketDefault").expect("type"))
+            .type_default(
+                lowered
+                    .builder
+                    .registry()
+                    .lookup("PacketDefault")
+                    .expect("type")
+            )
             .is_some(),
         "PacketDefault must retain its TYPE-level aggregate initializer"
     );

@@ -1,0 +1,7 @@
+[gate-progress state=started phase=A3-source-fixture target=scena-rust-builder pid=582209 elapsed=0.0s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-a3/crates/trust-runtime)
+[gate-progress state=running phase=A3-source-fixture target=scena-rust-builder pid=582209 elapsed=30.0s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture']
+    Finished `dev` profile [unoptimized] target(s) in 37.13s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a3/debug/examples/portability_fixture`
+Error: CompileError { message: "error[E106]: reserved keyword 'Step' cannot be used as identifier (at 26..30)\nerror[E106]: reserved keyword 'Step' cannot be used as identifier (at 252..256)\nerror[E202]: variable initializer must be a literal or constant expression: mutable dependency 'value' (at 323..329)" }
+[gate-progress state=finished phase=A3-source-fixture target=scena-rust-builder pid=582209 elapsed=37.4s timeout=5400s command='cargo run --locked -p trust-runtime --example portability_fixture' status=1]

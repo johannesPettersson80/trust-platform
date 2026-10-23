@@ -43,6 +43,18 @@ FILLER_PATTERNS = [
     (re.compile(r"\bthis page documents\b", re.I), "use direct reference prose"),
     (re.compile(r"\bthis page renders\b", re.I), "use direct reference prose"),
 ]
+EXTERNAL_SYSTEM_PROTOCOLS = {
+    "Modbus TCP": ("Modbus TCP",),
+    "MQTT": ("MQTT",),
+    "OPC UA": ("OPC UA",),
+    "Beckhoff ADS": ("Beckhoff ADS", "ADS"),
+}
+PROTOCOL_OVERVIEW_PAGES = [
+    "concepts/communication-planes.md",
+    "connect/protocol-matrix.md",
+    "connect/add-a-device.md",
+    "connect/external-systems/index.md",
+]
 
 
 def nav_paths() -> set[str]:
@@ -208,12 +220,27 @@ def check_public_filler_phrases(failures: list[str]) -> None:
                     failures.append(f"{source}:{index}: {message}: {stripped}")
 
 
+def check_external_protocol_overview_sync(failures: list[str]) -> None:
+    for relative_path in PROTOCOL_OVERVIEW_PAGES:
+        source = DOCS_ROOT / relative_path
+        if not source.exists():
+            failures.append(f"{source}: required protocol overview page is missing")
+            continue
+        text = source.read_text(encoding="utf-8")
+        for protocol, accepted_labels in EXTERNAL_SYSTEM_PROTOCOLS.items():
+            if not any(label in text for label in accepted_labels):
+                failures.append(
+                    f"{source}: missing external-system protocol listing for {protocol}"
+                )
+
+
 def main() -> int:
     failures: list[str] = []
     check_public_links_in_nav(failures)
     check_snippet_h1_collisions(failures)
     check_blank_line_before_colon_lists(failures)
     check_public_filler_phrases(failures)
+    check_external_protocol_overview_sync(failures)
 
     if failures:
         print("public docs IA check failed:", file=sys.stderr)

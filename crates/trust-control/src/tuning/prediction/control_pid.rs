@@ -1,4 +1,4 @@
-//! The `Control.PID` law that Control Studio predicts with: Specification 32 §3 in the discrete form of its
+//! The `Control.PID` law that Control Studio predicts with: Specification 45 §3 in the discrete form of its
 //! update, as `controllerCandidate.ts` computes it (C0 and C1 of the Control Studio specification).
 //!
 //! The positional form (`P` or `PD`) runs when the integral gain is exactly zero, the incremental form
@@ -20,18 +20,18 @@ use crate::tuning::structure::is_exactly_zero;
 /// The sentence for a cycle time that is not finite and positive.
 pub const CYCLE_TIME_NOT_POSITIVE: &str = "Control.PID cycle time must be finite and positive.";
 
-/// The operating modes of the law (spec 32 §2.1).
+/// The operating modes of the law (spec 45 §2.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ControlPidMode {
     /// The controller equations calculate the output.
     Auto,
-    /// The manual output is the nominal output before limiting (spec 32 §3.8).
+    /// The manual output is the nominal output before limiting (spec 45 §3.8).
     Manual,
     /// The tracking output replaces the retained nominal output before the controller equations (§3.7).
     Track,
 }
 
-/// The retained state of the law (spec 32 §2.5): the seven values that an initialization sets.
+/// The retained state of the law (spec 45 §2.5): the seven values that an initialization sets.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ControlPidState {
@@ -69,7 +69,7 @@ impl ControlPidState {
     }
 }
 
-/// One sample of the law (spec 32 §2.6).
+/// One sample of the law (spec 45 §2.6).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ControlPidInput {
     /// The current setpoint `r`.
@@ -88,7 +88,7 @@ pub struct ControlPidInput {
     pub cycle_time_seconds: f64,
 }
 
-/// The output of one update and the state it leaves (spec 32 §3.15).
+/// The output of one update and the state it leaves (spec 45 §3.15).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ControlPidStep {
     /// The limited controller output.
@@ -97,7 +97,7 @@ pub struct ControlPidStep {
     pub state: ControlPidState,
 }
 
-/// One update of the law (spec 32 §3.4 to §3.15), for the mode of the input.
+/// One update of the law (spec 45 §3.4 to §3.15), for the mode of the input.
 ///
 /// # Errors
 /// Returns the refusal of the parameter record (`tuning::candidate::validate_parameters`), or the sentence

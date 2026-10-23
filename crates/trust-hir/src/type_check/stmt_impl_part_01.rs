@@ -25,11 +25,9 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
     fn check_expression(&mut self, node: &SyntaxNode) -> TypeId {
         self.checker.expr().check_expression(node)
     }
-
 
     fn check_assignment(&mut self, node: &SyntaxNode) {
         let children: Vec<_> = node.children().collect();
@@ -52,10 +50,10 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
 
         let resolved_target = self.checker.assignment_target_symbol(target);
-        if let Some(resolved) = &resolved_target {
-            if !resolved.accessible {
-                return;
-            }
+        if let Some(resolved) = &resolved_target
+            && !resolved.accessible
+        {
+            return;
         }
 
         // Check target is not a constant
@@ -97,8 +95,11 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             .checker
             .type_of_assignment_target(target, resolved_target.as_ref());
         let value_type = self.check_expression(value);
+        let errors_before = self.checker.diagnostics.error_count();
 
-        let is_context_int = self.checker.is_contextual_int_literal(target_type, value);
+        let is_context_int = self
+            .checker
+            .is_contextual_base_int_literal(target_type, value);
         let is_context_real = self.checker.is_contextual_real_literal(target_type, value);
         let is_context_char = self.checker.is_contextual_char_literal(target_type, value);
         if self.checker.is_assignable(target_type, value_type)
@@ -106,7 +107,9 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             || is_context_real
             || is_context_char
         {
-            let checked_type = if is_context_int || is_context_real || is_context_char {
+            // A contextual integer literal is checked against a subrange target by its own value;
+            // passing the target here would make the subrange check accept any value.
+            let checked_type = if is_context_real || is_context_char {
                 target_type
             } else {
                 value_type
@@ -127,8 +130,11 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                 format!("cannot assign '{}' to '{}'", value_name, target_name),
             );
         }
+        if self.checker.diagnostics.error_count() == errors_before {
+            self.checker
+                .check_untyped_literal_range(target_type, value, false);
+        }
     }
-
 
     fn check_if_stmt(&mut self, node: &SyntaxNode) {
         let incoming = self.checker.return_value_definitely_assigned;
@@ -146,13 +152,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         for child in node.children() {
             match child.kind() {
                 SyntaxKind::ElsifBranch | SyntaxKind::ElseBranch => {
-                    if child.kind() == SyntaxKind::ElsifBranch {
-                        if let Some(expr) = first_expression_child(&child) {
-                            let cond_type = self.check_expression(&expr);
-                            self.checker
-                                .expr()
-                                .check_boolean(cond_type, expr.text_range());
-                        }
+                    if child.kind() == SyntaxKind::ElsifBranch
+                        && let Some(expr) = first_expression_child(&child)
+                    {
+                        let cond_type = self.check_expression(&expr);
+                        self.checker
+                            .expr()
+                            .check_boolean(cond_type, expr.text_range());
                     }
                     branch_states.push(self.check_statement_children_with_state(&child, incoming));
                 }
@@ -170,5 +176,4 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         self.checker.return_value_definitely_assigned =
             branch_states.into_iter().all(std::convert::identity);
     }
-
 }

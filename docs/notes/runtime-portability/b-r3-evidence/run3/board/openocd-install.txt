@@ -1,0 +1,43 @@
+Open On-Chip Debugger 0.12.0+dev-snapshot (2026-02-16-16:07)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+srst_only separate srst_nogate srst_open_drain connect_deassert_srst
+Info : STLINK V2J30M19 (API v2) VID:PID 0483:374B
+Info : Target voltage: 3.253997
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : clock speed 1800 kHz
+Info : stlink_dap_op_connect(connect)
+Info : SWD DPIDR 0x2ba01477
+Info : [stm32f4x.cpu] Cortex-M4 r0p1 processor detected
+Info : [stm32f4x.cpu] target has 6 breakpoints, 4 watchpoints
+Info : [stm32f4x.cpu] Examination succeed
+Info : [stm32f4x.cpu] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+[stm32f4x.cpu] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x08002364 msp: 0x20002160
+Info : Unable to match requested speed 8000 kHz, using 4000 kHz
+Info : Unable to match requested speed 8000 kHz, using 4000 kHz
+dumped 524288 bytes in 16.874756s (30.341 KiB/s)
+FLASH_OPTCR=0xfffaaed
+RCC_CSR=0xe000000
+Info : device id = 0x10016433
+Info : flash size = 512 KiB
+erased sectors 0 through 0 on flash bank 0 in 0.345105s
+erased sectors 4 through 7 on flash bank 0 in 6.918687s
+Info : Flash write discontinued at 0x08003f20, next section at 0x08010000
+wrote 458360 bytes from file /home/johannes/projects/.artifacts/runtime-portability-b/b-r3/final-board/firmware.elf in 11.348575s (39.443 KiB/s)
+verified 458360 bytes in 0.881403s (507.846 KiB/s)
+dumped 16384 bytes in 0.483830s (33.069 KiB/s)
+dumped 458752 bytes in 13.895182s (32.241 KiB/s)
+erased sectors 1 through 1 on flash bank 0 in 0.361879s
+wrote 14760 bytes from file /home/johannes/projects/.artifacts/runtime-portability-b/b-r3/final-board/application.bin in 0.481221s (29.953 KiB/s)
+verified 14760 bytes in 0.050942s (282.950 KiB/s)
+dumped 16384 bytes in 0.472957s (33.830 KiB/s)
+dumped 16384 bytes in 0.491968s (32.522 KiB/s)
+dumped 458752 bytes in 13.728277s (32.633 KiB/s)
+dumped 32768 bytes in 1.039320s (30.789 KiB/s)
+shutdown command invoked

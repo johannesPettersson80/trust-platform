@@ -318,12 +318,11 @@ impl SuppliedModelAnalysis {
             sample_time_seconds,
             ..
         } = model
+            && self.grid.maximum_frequency >= PI / *sample_time_seconds
         {
-            if self.grid.maximum_frequency >= PI / *sample_time_seconds {
-                return Err(refuse(
-                    "the frequencies of a discrete model stay below its Nyquist frequency (N4.3)",
-                ));
-            }
+            return Err(refuse(
+                "the frequencies of a discrete model stay below its Nyquist frequency (N4.3)",
+            ));
         }
         self.result.check(model, &self.grid)?;
         if let Some(response) = &self.response {

@@ -1,0 +1,10 @@
+[
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/run-1/builder-batch.sh",
+    "sha256": "ec1c521655d3e68d1e46609489fd3f33ec5b8e53e888be71a316cd7d41e649f3"
+  },
+  {
+    "path": "/home/johannes/projects/.artifacts/runtime-portability-b/run-1/board-batch.sh",
+    "sha256": "eb96ad0c8f92ad76684a986ecf70a3f6ce95f0457328efa63ed2bea01ac6bf76"
+  }
+]

@@ -126,3 +126,55 @@ END_PROGRAM
         other => panic!("unexpected shared value {other:?}"),
     }
 }
+
+#[test]
+fn shared_globals_reject_incompatible_destination_before_starting_a_thread() {
+    let source = r#"
+CONFIGURATION C
+VAR_GLOBAL shared : INT := 1; END_VAR
+PROGRAM P : Main;
+END_CONFIGURATION
+PROGRAM Main END_PROGRAM
+"#;
+    let source_runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let shared = SharedGlobals::from_runtime(vec!["shared".into()], &source_runtime).unwrap();
+    let destination = TestHarness::from_source(&source.replace("INT := 1", "BOOL := FALSE"))
+        .unwrap()
+        .into_runtime();
+    let starts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let observed = std::sync::Arc::clone(&starts);
+    let runner = ResourceRunner::new(destination, ManualClock::new(), Duration::from_millis(10))
+        .with_thread_init_hook(std::sync::Arc::new(move || {
+            observed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(())
+        }));
+    let result = runner.spawn_with_shared("incompatible-shared", shared);
+    assert!(matches!(
+        result,
+        Err(trust_runtime::error::RuntimeError::TypeMismatch)
+    ));
+    assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 0);
+}
+
+#[test]
+fn shared_globals_reject_read_only_destination_before_run() {
+    let source = r#"
+CONFIGURATION C
+VAR_GLOBAL shared : INT := 1; END_VAR
+PROGRAM P : Main;
+END_CONFIGURATION
+PROGRAM Main END_PROGRAM
+"#;
+    let source_runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let shared = SharedGlobals::from_runtime(vec!["shared".into()], &source_runtime).unwrap();
+    let destination =
+        TestHarness::from_source(&source.replace("VAR_GLOBAL", "VAR_GLOBAL CONSTANT"))
+            .unwrap()
+            .into_runtime();
+    let result = ResourceRunner::new(destination, ManualClock::new(), Duration::from_millis(10))
+        .spawn_with_shared("read-only-shared", shared);
+    assert!(matches!(
+        result,
+        Err(trust_runtime::error::RuntimeError::ConstantWrite)
+    ));
+}

@@ -72,18 +72,18 @@ fn check_end(
         .find(|object| object.id == id)
         .ok_or_else(|| format!("the page has no object \"{id}\""))?;
     // An unknown component type is the object's own problem.
-    if let Some(component) = catalogue.component(&object.kind) {
-        if !component.ports.iter().any(|known| known == port) {
-            return Err(if component.ports.is_empty() {
-                format!("a {} has no ports", component.kind)
-            } else {
-                format!(
-                    "a {} has no port \"{port}\"; it has {}",
-                    component.kind,
-                    listed(&component.ports)
-                )
-            });
-        }
+    if let Some(component) = catalogue.component(&object.kind)
+        && !component.ports.iter().any(|known| known == port)
+    {
+        return Err(if component.ports.is_empty() {
+            format!("a {} has no ports", component.kind)
+        } else {
+            format!(
+                "a {} has no port \"{port}\"; it has {}",
+                component.kind,
+                listed(&component.ports)
+            )
+        });
     }
     if !taken.insert(end.to_string()) {
         return Err(format!("the port {end} already has a pipe"));

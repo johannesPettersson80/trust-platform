@@ -110,6 +110,14 @@ impl Plant {
         self.harness.set_input(name, value);
     }
 
+    fn try_set(
+        &mut self,
+        name: &str,
+        value: Value,
+    ) -> Result<(), trust_runtime::harness::BoundaryError> {
+        self.harness.try_set_input(name, value)
+    }
+
     fn read(&self, path: &str) -> Value {
         let path = MemberPath::parse(&format!("Main.{path}")).expect("a path");
         resolve_member(&path, self.harness.runtime().storage())
@@ -302,12 +310,9 @@ fn limit_alarms_raise_beyond_their_limit_and_clear_inside_the_deadband() {
     plant.set("Level", Value::LReal(14.0));
     plant.scan();
     assert!(plant.flag("Low.Active"), "inside the deadband");
-    plant.set("Level", Value::LReal(f64::NAN));
-    plant.scan();
-    assert!(
-        plant.flag("High.Active") && plant.flag("Low.Active"),
-        "a broken measurement is beyond both limits"
-    );
+    // A non-finite value counts as beyond both limits (specification 40), but truST never stores
+    // one (specification 10, finite REAL policy): the runtime refuses the write.
+    assert!(plant.try_set("Level", Value::LReal(f64::NAN)).is_err());
 }
 
 #[test]

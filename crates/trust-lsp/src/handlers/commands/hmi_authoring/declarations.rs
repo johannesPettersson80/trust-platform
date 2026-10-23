@@ -32,7 +32,7 @@ impl Declarations {
             digest.update(source.text.as_bytes());
             digest.update([0]);
         }
-        let key = format!("{:x}", digest.finalize());
+        let key = hex::encode(digest.finalize()).to_string();
         let mut cache = CACHE
             .get_or_init(Default::default)
             .lock()
@@ -261,15 +261,15 @@ impl Declarations {
                 Some(node)
             })
             .collect();
-        if let Some(reference) = self.symbols.extends_reference(owner) {
-            if let trust_hir::semantic::SemanticOutcome::Resolved(base) = reference.outcome() {
-                for member in self.children(*base, path, blocked, depth + 1) {
-                    if !found
-                        .iter()
-                        .any(|node| node.name.eq_ignore_ascii_case(&member.name))
-                    {
-                        found.push(member);
-                    }
+        if let Some(reference) = self.symbols.extends_reference(owner)
+            && let trust_hir::semantic::SemanticOutcome::Resolved(base) = reference.outcome()
+        {
+            for member in self.children(*base, path, blocked, depth + 1) {
+                if !found
+                    .iter()
+                    .any(|node| node.name.eq_ignore_ascii_case(&member.name))
+                {
+                    found.push(member);
                 }
             }
         }

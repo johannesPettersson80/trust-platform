@@ -33,10 +33,8 @@ pub(super) fn history(url: &str, control_state: &ControlState, now_ms: u64) -> (
     };
     let since_ms = now_ms.saturating_sub(span * 1_000);
     let since = u128::from(since_ms);
-    let exchange = control_state.resource.hmi_exchange();
-    let historian = control_state
-        .historian
-        .as_ref()
+    let exchange = crate::control::hmi_ports::hmi_exchange(control_state);
+    let historian = crate::control::hmi_ports::historian(control_state)
         .filter(|historian| historian.config().enabled);
     let mut samples = Map::new();
     for path in paths {

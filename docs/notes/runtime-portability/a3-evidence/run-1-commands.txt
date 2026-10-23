@@ -1,0 +1,22 @@
+bash /home/johannes/.cache/trust-portability-a3-setup/format-once.sh 
+python3 /home/johannes/.cache/trust-portability-a3-setup/refresh-mutation-selectors.py 
+python3 /home/johannes/.cache/trust-portability-a3-setup/freeze-source.py 
+cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load --test bytecode_validation_budget --test bytecode_validation_scale --test bytecode_source_free --test io_address -- --nocapture --test-threads=1 
+env RUSTFLAGS=-Dwarnings\ -C\ linker=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld\ -C\ link-self-contained=yes cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --target i686-unknown-linux-musl --lib --test bytecode_decode_resource_bounds --test bytecode_source_free --test io_address -- --nocapture --test-threads=1 
+cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf 
+cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf 
+cargo tree --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf -e features\,no-dev 
+cargo tree --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf -e features\,no-dev 
+cargo run --locked -p trust-runtime --example portability_fixture 
+cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_source_free_authoring -- --nocapture --test-threads=1 --skip saved_two_point_zero_fixture_matches_source_and_portable_reader 
+cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_container --test bytecode_metadata --test bytecode_decode_resource_bounds --test bytecode_sections --test process_image --test bytecode_validation --test bytecode_optional_sections --test bytecode_encoder --test bytecode_roundtrip --test bytecode_verification_cases --test bytecode_vm_core --test bytecode_vm_differential --test runtime_core_behavior_lock --test api_smoke --test debug_control --test complete_program --test runtime_reliability --test vars_access --test var_init --test struct_initializers --test runtime_restart --test tasks --test scheduler_resource --test pou_interface --test pou_oop -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1 
+cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings 
+bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+bash scripts/supply_chain_gate.sh 
+cargo run --locked -p xtask -- architecture-doctor --full-map 
+bash /home/johannes/.cache/trust-portability-a3-setup/format-once.sh --check 
+git diff --check 
+python3 /home/johannes/.cache/trust-portability-a3-setup/prepare-metadata-index.py 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a3-evidence/run-1/review-index python3 scripts/validate_verification_metadata.py 

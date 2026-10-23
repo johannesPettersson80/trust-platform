@@ -1,5 +1,5 @@
 CONFIGURATION BatteryEnergyStorageFacadeOopConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE BatteryEnergyStorageFacadeOop ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Cabinet WITH MainTask : Main;
 END_RESOURCE

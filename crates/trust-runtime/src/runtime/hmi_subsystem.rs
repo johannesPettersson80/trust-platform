@@ -1,6 +1,6 @@
-//! The program's `Hmi.Display` calls (specification 39, §18 Phase 5): after each task in which the
-//! program called the block, the runtime serves the HMI exchange, so the screens follow the
-//! interval and priority of the task the user chose for them.
+//! The program's `Hmi.Display` calls (specification 39, §18 Phase 5): at the end of each scan in
+//! which the program called the block, between scans, the runtime serves the HMI exchange, so the
+//! screens follow the interval and priority of the task the user chose for them.
 
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ use crate::hmi::member_paths::find_ignoring_case;
 use crate::memory::InstanceId;
 use crate::value::Value;
 
-use super::core::Runtime;
+use super::installed::Runtime;
 
 /// The block a program calls to serve its screens.
 pub(crate) const DISPLAY_BLOCK: &str = "Hmi.Display";
@@ -61,13 +61,14 @@ impl Runtime {
         self.hmi.exchange.clone()
     }
 
-    /// After a task: serves the exchange when the program called `Hmi.Display` in it. A program
-    /// without the block is not searched.
-    pub(super) fn serve_hmi_after_task(&mut self) -> Result<(), crate::error::RuntimeError> {
+    /// After a scan: serves the exchange when the program called `Hmi.Display` in it. A program
+    /// without the block is not searched. A method command that faults faults the resource:
+    /// its PLC code ran and its effect is unknown.
+    pub(super) fn serve_hmi_after_cycle(&mut self) -> Result<(), crate::error::RuntimeError> {
         let Some(exchange) = self.hmi.exchange.clone() else {
             return Ok(());
         };
-        if find_ignoring_case(&self.function_blocks, DISPLAY_BLOCK).is_none() {
+        if find_ignoring_case(self.function_blocks(), DISPLAY_BLOCK).is_none() {
             return Ok(());
         }
         self.find_displays();
@@ -75,7 +76,7 @@ impl Runtime {
         for index in 0..self.hmi.displays.len() {
             let id = self.hmi.displays[index];
             let calls = match self
-                .storage
+                .storage()
                 .get_instance(id)
                 .and_then(|instance| find_ignoring_case(&instance.variables, "Calls"))
             {
@@ -97,12 +98,12 @@ impl Runtime {
 
     /// Finds the blocks once a second, and at once when a known one is gone (an online change).
     fn find_displays(&mut self) {
-        let now_ms = self.current_time.as_millis();
+        let now_ms = self.current_time().as_millis();
         let gone = self
             .hmi
             .displays
             .iter()
-            .any(|id| self.storage.get_instance(*id).is_none());
+            .any(|id| self.state.storage().get_instance(*id).is_none());
         let due = self
             .hmi
             .walked_ms
@@ -110,16 +111,17 @@ impl Runtime {
         if !(gone || due) {
             return;
         }
-        let programs = &self.programs;
+        let metadata = std::sync::Arc::clone(&self.metadata);
+        let programs = metadata.program_templates();
         let is_program = |name: &str| find_ignoring_case(programs, name).is_some();
         let holdings = crate::hmi::instance_holdings::Holdings::new(
-            &self.function_blocks,
-            &self.classes,
-            &self.programs,
-            &self.registry,
+            metadata.function_blocks(),
+            metadata.classes(),
+            metadata.program_templates(),
+            metadata.registry(),
         );
         self.hmi.displays = instances_of(
-            &self.storage,
+            self.state.storage(),
             &holdings,
             DISPLAY_BLOCK,
             MAX_DISPLAYS,

@@ -50,14 +50,14 @@ pub(crate) fn alarm_record(event: &AlarmEvent, run_id: u64, seq: u64) -> Option<
     record
         .slots
         .push(text_slot(KEY_SOURCE_PATH, &event.path, &mut partial));
-    if matches!(event.kind, EventKind::Raised | EventKind::Cleared) {
-        if let Some(correlation) = event.correlation {
-            record.slots.push(Slot::new(
-                KEY_CORRELATION_ID,
-                TY_UDINT,
-                correlation.to_le_bytes().to_vec(),
-            ));
-        }
+    if matches!(event.kind, EventKind::Raised | EventKind::Cleared)
+        && let Some(correlation) = event.correlation
+    {
+        record.slots.push(Slot::new(
+            KEY_CORRELATION_ID,
+            TY_UDINT,
+            correlation.to_le_bytes().to_vec(),
+        ));
     }
     if event.kind == EventKind::Raised {
         let severity: u16 = match event.priority {

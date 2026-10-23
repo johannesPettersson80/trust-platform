@@ -48,11 +48,9 @@ END_CONFIGURATION
     {
         let runtime = harness.runtime_mut();
         runtime
-            .storage_mut()
-            .set_instance_var(fb_id, "IN", Value::Bool(true));
-        runtime
-            .storage_mut()
-            .set_global("trigger", Value::Bool(true));
+            .write_instance(fb_id, "IN", Value::Bool(true))
+            .unwrap();
+        runtime.write_global("trigger", Value::Bool(true)).unwrap();
     }
 
     harness.cycle();

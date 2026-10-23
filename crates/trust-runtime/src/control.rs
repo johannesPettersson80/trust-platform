@@ -15,6 +15,7 @@ mod experiment_handlers;
 mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
+pub(crate) mod hmi_ports;
 mod io_handlers;
 mod operation_registry;
 mod parameter_handlers;
@@ -24,6 +25,7 @@ mod policy;
 mod program_handlers;
 mod recording_handlers;
 mod relay_state;
+mod resource_queue;
 pub mod search;
 mod signal_handlers;
 mod status_handlers;
@@ -249,6 +251,8 @@ pub struct ControlState {
     pub debug_enabled: Arc<AtomicBool>,
     pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
     pub historian: Option<Arc<crate::historian::HistorianService>>,
+    pub openot_persistence_status:
+        Option<Arc<Mutex<crate::openot_persistence::OpenOtPersistenceStatus>>>,
     pub pairing: Option<Arc<PairingStore>>,
     pub ads_doctor_jobs: Arc<Mutex<AdsDoctorJobStore>>,
     pub ads_client_config: Arc<Mutex<Option<crate::ads::AdsClientConfig>>>,
@@ -348,12 +352,12 @@ fn file_for_path<'a>(
 
     let mut candidates = Vec::new();
     candidates.push(path.to_path_buf());
-    if let Some(root) = project_root {
-        if path.is_relative() {
-            candidates.push(root.join(path));
-            if path.components().count() == 1 {
-                candidates.push(root.join("src").join(path));
-            }
+    if let Some(root) = project_root
+        && path.is_relative()
+    {
+        candidates.push(root.join(path));
+        if path.components().count() == 1 {
+            candidates.push(root.join("src").join(path));
         }
     }
 
@@ -361,13 +365,12 @@ fn file_for_path<'a>(
         if let Some(file) = files.iter().find(|file| file.path == *candidate) {
             return Some(file);
         }
-        if let Ok(canonical) = std::fs::canonicalize(candidate) {
-            if let Some(file) = files
+        if let Ok(canonical) = std::fs::canonicalize(candidate)
+            && let Some(file) = files
                 .iter()
                 .find(|file| canonical_path_eq(&file.path, &canonical))
-            {
-                return Some(file);
-            }
+        {
+            return Some(file);
         }
     }
 
@@ -441,10 +444,10 @@ pub(crate) fn dispatch_web_control_request_port(
     client: Option<&str>,
     request_token: Option<&str>,
 ) -> ControlResponse {
-    if payload.get("auth").is_none() {
-        if let Some(token) = request_token {
-            payload["auth"] = serde_json::Value::String(token.to_string());
-        }
+    if payload.get("auth").is_none()
+        && let Some(token) = request_token
+    {
+        payload["auth"] = serde_json::Value::String(token.to_string());
     }
     prepare_request_value(payload, state, client)
 }
@@ -748,10 +751,10 @@ fn classify_comm_credential_channel(client: Option<&str>) -> &'static str {
     if client == "unix" || client == "loopback" {
         return "trusted_same_host";
     }
-    if let Ok(addr) = client.parse::<SocketAddr>() {
-        if addr.ip().is_loopback() {
-            return "trusted_same_host";
-        }
+    if let Ok(addr) = client.parse::<SocketAddr>()
+        && addr.ip().is_loopback()
+    {
+        return "trusted_same_host";
     }
     "untrusted_remote_plain_tcp"
 }

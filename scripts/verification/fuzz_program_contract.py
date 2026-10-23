@@ -21,7 +21,7 @@ from .test_catalog_validation import check_supported_schema_keywords
 FUZZ_PROGRAM_PATH = "verification/fuzz-program.toml"
 FUZZ_PROGRAM_SCHEMA_PATH = "verification/schemas/fuzz-program.schema.json"
 FUZZ_PROGRAM_SCHEMA_SEMANTIC_DIGEST = (
-    "070f17cccd8417e3464aad205ccfa45d0657e061e46e4c8c35aca6434ae8b55b"
+    "cb49f9de10f85318d8dc5f32f5a172e96ac07917921dc1d80acf3294cc351fed"
 )
 REVIEWED_PROGRAM_TITLE = "PLC fuzz and malformed-input program inventory"
 REQUIRED_SURFACE_IDS = (
@@ -131,6 +131,8 @@ TARGET_ID_ORDER = (
     "FUZZ_TARGET_HIR_LOWERING",
     "FUZZ_TARGET_PLCOPEN_XML",
     "FUZZ_TARGET_BYTECODE_CONTAINER",
+    "FUZZ_TARGET_BYTECODE_ADMISSION",
+    "FUZZ_TARGET_BYTECODE_REPREPARE",
     "FUZZ_TARGET_RUNTIME_CONFIG",
     "FUZZ_TARGET_LSP_INCREMENTAL",
     "FUZZ_TARGET_ADS_AMS_FRAME",
@@ -242,6 +244,12 @@ REVIEWED_TARGET_CONTRACTS = {
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("plcopen_xml", "direct"),)
     ),
     "FUZZ_TARGET_BYTECODE_CONTAINER": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("bytecode_container_instructions", "direct"),)
+    ),
+    "FUZZ_TARGET_BYTECODE_ADMISSION": _target_contract(
+        "cargo_fuzz", "manual_extended", (), "manual_only", (), (("bytecode_container_instructions", "direct"),)
+    ),
+    "FUZZ_TARGET_BYTECODE_REPREPARE": _target_contract(
         "cargo_fuzz", "manual_extended", (), "manual_only", (), (("bytecode_container_instructions", "direct"),)
     ),
     "FUZZ_TARGET_RUNTIME_CONFIG": _target_contract(
@@ -369,6 +377,30 @@ REVIEWED_TARGET_IDENTITIES = {
         "artifact_storage": "machine_local_ignored",
         "last_reviewed": "2026-07-17",
     },
+    "FUZZ_TARGET_BYTECODE_ADMISSION": {
+        "name": "bytecode_admission",
+        "path": "fuzz/fuzz_targets/bytecode_admission.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run bytecode_admission",
+        "owner": "trust-runtime",
+        "corpus_path": "fuzz/corpus/bytecode_admission",
+        "artifact_path": "fuzz/artifacts/bytecode_admission",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-10-15",
+    },
+    "FUZZ_TARGET_BYTECODE_REPREPARE": {
+        "name": "bytecode_reprepare",
+        "path": "fuzz/fuzz_targets/bytecode_reprepare.rs",
+        "manifest_path": "fuzz/Cargo.toml",
+        "command": "cd fuzz && cargo fuzz run bytecode_reprepare",
+        "owner": "trust-runtime",
+        "corpus_path": "fuzz/corpus/bytecode_reprepare",
+        "artifact_path": "fuzz/artifacts/bytecode_reprepare",
+        "corpus_storage": "machine_local_ignored",
+        "artifact_storage": "machine_local_ignored",
+        "last_reviewed": "2026-10-15",
+    },
     "FUZZ_TARGET_RUNTIME_CONFIG": {
         "name": "runtime_config",
         "path": "fuzz/fuzz_targets/runtime_config.rs",
@@ -491,6 +523,8 @@ REVIEWED_ASSOCIATION_RATIONALES = {
     ("FUZZ_TARGET_HIR_LOWERING", "hir_lowering_input"): "The target sends generated Structured Text through the production source-to-bytecode lowering harness.",
     ("FUZZ_TARGET_PLCOPEN_XML", "plcopen_xml"): "The target sends bounded arbitrary XML bytes through the production PLCopen import path in an isolated temporary project.",
     ("FUZZ_TARGET_BYTECODE_CONTAINER", "bytecode_container_instructions"): "The target sends bounded arbitrary bytes through the production bytecode container decoder and validator.",
+    ("FUZZ_TARGET_BYTECODE_ADMISSION", "bytecode_container_instructions"): "The target repairs the CRC32 so mutated containers reach the full validator, preparation under explicit limits and instantiation, and requires the register and stack executors to agree for three cycles.",
+    ("FUZZ_TARGET_BYTECODE_REPREPARE", "bytecode_container_instructions"): "The target requires repeated preparation of the same bytes to agree, and an admitted module to round-trip through decode and encode to identical bytes.",
     ("FUZZ_TARGET_RUNTIME_CONFIG", "config_files"): "The target sends bounded valid UTF-8 documents through the production runtime configuration parser.",
     ("FUZZ_TARGET_LSP_INCREMENTAL", "lsp_incremental_edits"): "The target sends generated UTF-16 positions and replacement text through the production LSP document-edit implementation.",
     ("FUZZ_TARGET_ADS_AMS_FRAME", "protocol_payloads"): "The target feeds arbitrary byte slices into AMS frame decoding.",
@@ -591,8 +625,8 @@ def validate_fuzz_program_schema_contract(schema: object) -> list[str]:
         if root_properties.get("targets") != {
             "type": "array",
             "items": {"$ref": "#/$defs/target"},
-            "minItems": 16,
-            "maxItems": 16,
+            "minItems": 18,
+            "maxItems": 18,
         }:
             failures.append("fuzz-program schema targets array contract drifted")
     definitions = schema.get("$defs")

@@ -2,9 +2,11 @@ use std::sync::atomic::Ordering;
 
 use crate::io::{IoDriverHealth, IoDriverStatus};
 use crate::simulation::speed::speed_facts;
-use serde_json::json;
+use serde_json::{json, Value};
 
-use super::types::{runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams};
+use super::types::{
+    debug_stop_reason_label, runtime_event_to_json, HistorianAlertsParams, HistorianQueryParams,
+};
 use super::{ControlResponse, ControlState};
 
 #[cfg(test)]
@@ -22,6 +24,18 @@ mod historian_contract_tests;
 pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
     let status = state.resource.state();
     let error = state.resource.last_error().map(|err| err.to_string());
+    // A debugger hold keeps the scan paused even while the resource reports
+    // running; faults and clean stops keep their own state.
+    let debug_hold = state.debug.hold_reason();
+    let faulted_or_stopped = matches!(
+        status,
+        crate::scheduler::ResourceState::Faulted | crate::scheduler::ResourceState::Stopped
+    );
+    let state_label = match debug_hold {
+        Some(_) if !faulted_or_stopped => "paused".to_string(),
+        _ => format!("{status:?}").to_ascii_lowercase(),
+    };
+    let debug_hold_label = debug_hold.map(debug_stop_reason_label);
     let Ok(settings) = state.settings.lock().map(|guard| guard.clone()) else {
         return unavailable(id, "runtime settings");
     };
@@ -74,16 +88,21 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
         simulation.time_scale,
         metrics.simulation_achieved_time_scale,
     );
+    let openot_persistence = match openot_persistence_status_json(state) {
+        Ok(status) => status,
+        Err(surface) => return unavailable(id, surface),
+    };
     ControlResponse::ok(
         id,
         json!({
-            "state": format!("{status:?}").to_ascii_lowercase(),
+            "state": state_label,
             "fault": error,
             "resource": state.resource_name.as_str(),
             "plc_name": state.resource_name.as_str(),
             "uptime_ms": metrics.uptime_ms,
             "debug_enabled": state.debug_enabled.load(Ordering::Relaxed),
             "control_mode": control_mode,
+            "debug_hold": debug_hold_label.map(|label| json!({"reason": label})),
             "execution_backend": execution_backend,
             "execution_backend_source": execution_backend_source,
             "simulation_mode": simulation.mode_label.as_str(),
@@ -99,6 +118,7 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
             "tasks": tasks,
             "session_epoch": state.debug.runtime_epoch(),
             "program_revision": program_revision,
+            "openot_persistence": openot_persistence,
             "metrics": {
                 "cycle_ms": {
                     "min": metrics.cycle.min_ms,
@@ -171,6 +191,93 @@ pub(super) fn handle_status(id: u64, state: &ControlState) -> ControlResponse {
             "io_drivers": io_health,
         }),
     )
+}
+
+fn openot_persistence_status_json(state: &ControlState) -> Result<Value, &'static str> {
+    Ok(match state.openot_persistence_status.as_ref() {
+        Some(status) => {
+            let status = status.lock().map_err(|_| "OpenOT persistence status")?;
+            let mut warnings = Vec::new();
+            if status.head_abs > status.cursor_abs {
+                warnings.push("lag");
+            }
+            if status.documents_retried > 0 {
+                warnings.push("retrying");
+            }
+            if status.unresolved > 0 {
+                warnings.push("placeholder");
+            }
+            if status.loss_range_count > 0 {
+                warnings.push("loss");
+            }
+            if status.remote_pending > 0 {
+                warnings.push("spool_pressure");
+            }
+            if status.state == crate::openot_persistence::OpenOtPersistenceState::Faulted
+                && status.last_error.is_some()
+            {
+                warnings.push("schema_or_storage_fault");
+            }
+            if matches!(
+                status.state,
+                crate::openot_persistence::OpenOtPersistenceState::Stopped
+                    | crate::openot_persistence::OpenOtPersistenceState::Faulted
+            ) && (status.pending > 0 || status.remote_pending > 0)
+            {
+                warnings.push("shutdown_pending");
+            }
+            json!({
+                "state": status.state.as_str(),
+                "backend": status.backend,
+                "schema_generation": status.schema_version,
+                "documents_read": status.documents_read,
+                "documents_committed": status.documents_committed,
+                "documents_duplicated": status.documents_duplicated,
+                "remote_pending": status.remote_pending,
+                "projection_rows_committed": status.projection_rows_committed,
+                "unclassified_event_count": status.unclassified_event_count,
+                "reconciled_part_count": status.reconciled_part_count,
+                "pending_part_count": status.pending_part_count,
+                "documents_retried": status.documents_retried,
+                "pending": status.pending,
+                "rejected": status.rejected,
+                "unresolved": status.unresolved,
+                "loss_range_count": status.loss_range_count,
+                "lost_record_count": status.lost_record_count,
+                "cursor_abs": status.cursor_abs,
+                "head_abs": status.head_abs,
+                "cursor_lag": status.head_abs.saturating_sub(status.cursor_abs),
+                "last_success_time_ns": status.last_success_time_ns,
+                "last_error": status.last_error,
+                "warnings": warnings,
+            })
+        }
+        None => json!({
+            "state": "disabled",
+            "backend": null,
+            "schema_generation": null,
+            "documents_read": 0,
+            "documents_committed": 0,
+            "documents_duplicated": 0,
+            "remote_pending": 0,
+            "projection_rows_committed": 0,
+            "unclassified_event_count": 0,
+            "reconciled_part_count": 0,
+            "pending_part_count": 0,
+            "documents_retried": 0,
+            "pending": 0,
+            "rejected": 0,
+            "unresolved": 0,
+            "loss_range_count": 0,
+            "lost_record_count": 0,
+            "cursor_abs": 0,
+            "head_abs": 0,
+            "cursor_lag": 0,
+            "last_success_time_ns": null,
+            "last_error": null,
+            "warnings": [],
+        }),
+    })
 }
 
 pub(super) fn handle_health(id: u64, state: &ControlState) -> ControlResponse {

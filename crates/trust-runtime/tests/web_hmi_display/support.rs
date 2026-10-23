@@ -169,7 +169,7 @@ pub fn set_simulation(running: &Running, enabled: bool, time_scale: u32) {
 }
 
 /// Sets the achieved simulation speed of the runtime's one resource; `None` clears it, as the
-/// scheduler does until it has measured a speed (specification 33, §6.1, item 3).
+/// scheduler does until it has measured a speed (specification 46, §6.1, item 3).
 pub fn set_achieved_speed(running: &Running, achieved: Option<f64>) {
     running
         .control
@@ -328,6 +328,7 @@ fn start_inner(
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         historian,
+        openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(
             trust_runtime::control::AdsDoctorJobStore::default(),

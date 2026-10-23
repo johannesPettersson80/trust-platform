@@ -1,0 +1,55 @@
+{
+  "reviewer": "/root/br1_collections_sort",
+  "identity_sha256": "679875ccfa66ec78bc3c7b64e52e8fe6d47190407f5f7b469650af9df34b362f",
+  "note": "Prior script review remains applicable; explicit time_ops include fragment added to format allocation and reviewed.",
+  "files": [
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/baseline.map",
+      "sha256": "8e309b32489157aabc4ac3986a1f8a5b2d2adf9ee2a708c41c745022b874ccb0"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/board-batch.sh",
+      "sha256": "1a086f032a2a25a09d2ed7d238611369fe31632065336c477ceb26a78503673d"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/builder-batch.sh",
+      "sha256": "eaaaa8c8bf06bb9b43a31a5e7dbc6084bf43799bf87d0b492393c282bdd41e13"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/builder-preparation.sh",
+      "sha256": "1b8997746efbb758b8128063877ab606ef4342c1d5087dc71ea4435026056564"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/canonical.sha256",
+      "sha256": "0a31687edc1f6cd7ca2e3909b5dbd9ff18a55f1c3e6512db1703a196992c92b3"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/environment.sh",
+      "sha256": "5ca68b9582275df41b0c6c838271c3adf2d3bf3d2c5b605336769159cfc70775"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/fixture-sha256.txt",
+      "sha256": "6d108a02c9c614873d97eff800a09a1b7db461440479925c2822725a592b03a6"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/format-once.sh",
+      "sha256": "e11d350b37e641d69d89e2fad4ec588875300a410b025f072b8884a96e8eb454"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/freeze-source.py",
+      "sha256": "e13e946bfa16d19407e86e3afc93f9a1881764072574282aef2752daaad1c3a8"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/measure.sh",
+      "sha256": "adc43e4807adba9c6061031c14384d97fa3d7f21ff9bfa0724f427b5ecbe78c5"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/prepare-metadata-index.py",
+      "sha256": "c60ce0dd28c51f6ebca70885b15f7df772d63918d57d3add53f71057736c31af"
+    },
+    {
+      "path": "/home/johannes/projects/.artifacts/runtime-portability-b/b-r3/setup-m1/refresh-unsafe-location.py",
+      "sha256": "9db3f27aea3eaee4b8e11256c36e9f5eda118551e8de2433ea5c128f523b49ac"
+    }
+  ]
+}

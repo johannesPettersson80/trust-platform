@@ -70,7 +70,7 @@ impl HmiFiles {
             return None;
         }
         let file = format!("hmi/texts/{language}.toml");
-        let text = std::fs::read_to_string(self.root.join(&file)).ok()?;
+        let text = read_text(&self.root, &file)?;
         Some(crate::hmi::page_files::parse_texts(&file, &text))
     }
 
@@ -106,7 +106,13 @@ impl HmiFiles {
     }
 
     pub(super) fn screen(&self) -> Result<HmiScreen, Vec<PageFileError>> {
-        let text = read(&self.root.join(SCREEN_FILE), SCREEN_FILE)?;
+        let text = read_text(&self.root, SCREEN_FILE).ok_or_else(|| {
+            vec![PageFileError {
+                file: SCREEN_FILE.to_string(),
+                line: 1,
+                message: "the file cannot be read".to_string(),
+            }]
+        })?;
         parse_screen(SCREEN_FILE, &text)
     }
 
@@ -191,7 +197,7 @@ impl HmiFiles {
                     return None;
                 }
                 let file = format!("{PANELS_FOLDER}/{name}");
-                let text = std::fs::read_to_string(entry.path()).ok()?;
+                let text = read_text(&self.root, &file)?;
                 let panel = crate::hmi::page_files::parse_faceplate(&file, &text).ok()?;
                 let docked = panel
                     .panel
@@ -270,11 +276,8 @@ impl HmiFiles {
             return None;
         }
         let file = format!("{folder}/{name}.toml");
-        let path = self.root.join(&file);
-        if !path.is_file() {
-            return None;
-        }
-        Some(read(&path, &file).and_then(|text| parse(&file, &text)))
+        let text = read_text(&self.root, &file)?;
+        Some(parse(&file, &text))
     }
 }
 
@@ -303,12 +306,7 @@ pub(super) fn errors_json(errors: &[PageFileError]) -> Value {
     )
 }
 
-fn read(path: &std::path::Path, file: &str) -> Result<String, Vec<PageFileError>> {
-    std::fs::read_to_string(path).map_err(|error| {
-        vec![PageFileError {
-            file: file.to_string(),
-            line: 1,
-            message: format!("the file cannot be read: {error}"),
-        }]
-    })
+/// A text file of the project's `hmi/` folder; never a link, nothing outside the folder.
+fn read_text(root: &std::path::Path, file: &str) -> Option<String> {
+    String::from_utf8(crate::hmi::bundle::read_hmi_file(root, file)?).ok()
 }

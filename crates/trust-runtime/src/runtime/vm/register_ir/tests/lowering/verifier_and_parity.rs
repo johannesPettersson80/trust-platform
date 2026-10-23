@@ -10,6 +10,8 @@ fn register_ir_verifier_rejects_unknown_block_target() {
         target: BlockTarget::Block(9999),
     });
     lowered.blocks[0].instruction_costs.push(0);
+    // The deliberately injected verifier edge has no original bytecode step.
+    lowered.blocks[0].instruction_cost_steps.push(vec![0]);
     let err = verify_register_program(&lowered).expect_err("verification should fail");
     let RuntimeError::Bytecode {
         detail: message, ..
@@ -36,6 +38,7 @@ fn register_ir_verifier_rejects_undefined_source_register() {
             entry_stack_depth: 0,
             bytecode_instruction_count: 1,
             instruction_costs: vec![1],
+            instruction_cost_steps: vec![vec![1]],
             instructions: vec![RegisterInstr::StoreRef {
                 ref_idx: 0,
                 src: RegisterId(0),
@@ -60,6 +63,7 @@ fn register_ir_verifier_rejects_move_destination_out_of_bounds() {
             entry_stack_depth: 1,
             bytecode_instruction_count: 1,
             instruction_costs: vec![1],
+            instruction_cost_steps: vec![vec![1]],
             instructions: vec![RegisterInstr::Move {
                 src: RegisterId(0),
                 dest: RegisterId(1),
@@ -84,6 +88,7 @@ fn register_ir_verifier_rejects_missing_instruction_costs() {
             entry_stack_depth: 0,
             bytecode_instruction_count: 1,
             instruction_costs: vec![],
+            instruction_cost_steps: vec![],
             instructions: vec![RegisterInstr::Return],
         }],
     };
@@ -105,6 +110,7 @@ fn register_ir_verifier_rejects_original_instruction_count_drift() {
             entry_stack_depth: 0,
             bytecode_instruction_count: 2,
             instruction_costs: vec![1],
+            instruction_cost_steps: vec![vec![1]],
             instructions: vec![RegisterInstr::Return],
         }],
     };
@@ -119,58 +125,16 @@ fn register_ir_lowering_rejects_invalid_jump_target() {
             PROGRAM Main
             END_PROGRAM
         "#;
-    let mut bytecode = bytecode_module_from_source(source).expect("compile bytecode");
-    let main_id = {
-        let strings = match bytecode.section(SectionId::StringTable) {
-            Some(SectionData::StringTable(strings)) => strings,
-            _ => panic!("missing string table"),
-        };
-        let index = match bytecode.section(SectionId::PouIndex) {
-            Some(SectionData::PouIndex(index)) => index,
-            _ => panic!("missing pou index"),
-        };
-        index
-            .entries
-            .iter()
-            .find(|entry| strings.entries[entry.name_idx as usize].eq_ignore_ascii_case("MAIN"))
-            .map(|entry| entry.id)
-            .expect("main entry id")
-    };
+    let (mut vm_module, pou_id) = vm_module_and_main_pou(source);
+    // Admission now rejects malformed bytecode before materialization. Inject the
+    // fault into an already constructed test module to exercise lowering itself.
+    let mut bad_body = vec![0x02];
+    bad_body.extend_from_slice(&4096_i32.to_le_bytes());
+    bad_body.push(0x06);
+    vm_module
+        .replace_legacy_pou_body(pou_id, &bad_body)
+        .expect("main POU");
 
-    let mut body = Vec::new();
-    body.push(0x02);
-    body.extend_from_slice(&(4096_i32).to_le_bytes());
-    body.push(0x06);
-
-    let new_offset =
-        if let Some(SectionData::PouBodies(code)) = bytecode.section_mut(SectionId::PouBodies) {
-            let offset = code.len() as u32;
-            code.extend_from_slice(&body);
-            offset
-        } else {
-            panic!("missing POU_BODIES");
-        };
-    if let Some(SectionData::PouIndex(index)) = bytecode.section_mut(SectionId::PouIndex) {
-        for entry in &mut index.entries {
-            if entry.id == main_id {
-                entry.code_offset = new_offset;
-                entry.code_length = body.len() as u32;
-            }
-        }
-    } else {
-        panic!("missing POU_INDEX");
-    }
-    bytecode.sections.retain(|section| {
-        section.id != SectionId::DebugMap.as_raw()
-            && section.id != SectionId::DebugStringTable.as_raw()
-    });
-
-    let vm_module = VmModule::from_bytecode(&bytecode).expect("decode vm module");
-    let pou_id = vm_module
-        .program_ids
-        .get(&SmolStr::new("MAIN"))
-        .copied()
-        .expect("main pou id");
     let err = lower_pou_to_register_ir(&vm_module, pou_id).expect_err("invalid jump must fail");
     let RuntimeError::Bytecode {
         detail: message, ..

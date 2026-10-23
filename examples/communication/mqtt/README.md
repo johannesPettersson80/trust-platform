@@ -74,6 +74,22 @@ Point maps also support `u16`, `i16`, `u32`, `i32`, and `f32` values with
 `text`, `json`, `binary_le`, or `binary_be` payloads and optional
 `scale`/`offset`.
 
+To map MQTT topics directly to named program-instance variables, use
+`mappings`. The direction is relative to the PLC, so `write` publishes a PLC
+value and `read` subscribes and writes the received value into the PLC:
+
+```toml
+[[io.params.mappings]]
+tag = "MainInstance.Green"
+topic = "traffic/north/green"
+direction = "write"
+```
+
+Mappings are resolved when the runtime starts. An unknown tag, unsupported
+non-scalar type, invalid direction, or unknown MQTT parameter rejects startup
+before the MQTT worker starts. See `../mqtt_traffic_light` for a complete
+project based on the traffic-light tutorial.
+
 For Sparkplug B outbound node metrics, add a Sparkplug profile and stable metric
 names to typed output points:
 

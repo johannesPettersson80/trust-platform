@@ -16,7 +16,7 @@ mkdir -p "${OUT_DIR}"
 
 BUILD_MODE="$(trust_runtime_detect_host_codegen_mode)"
 
-if [[ ! -d "${CORPUS_DIR}" ]]; then
+if [[ ! -f "${CORPUS_DIR}/loop_arith/runtime.toml" ]]; then
   echo "[syntax-corpus] local corpus missing, bootstrapping ${CORPUS_DIR}"
   "${ROOT_DIR}/scripts/bootstrap_runtime_vm_syntax_corpus_local.sh" >/dev/null
 fi
@@ -163,8 +163,7 @@ for name in summary_meta['order']:
     if isinstance(tier1, dict):
         vm_highlight = (
             f"tier1 exec={tier1.get('block_executions', 0)} "
-            f"cf={tier1.get('compile_failures', 0)} "
-            f"deopt={tier1.get('deopt_count', 0)}"
+            f"cf={tier1.get('compile_failures', 0)}"
         )
     elif fallback_reasons:
         vm_highlight = f"fallback:{fallback_reasons[0].get('reason', 'unknown')}"

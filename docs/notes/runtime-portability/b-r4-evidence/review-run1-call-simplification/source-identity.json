@@ -1,0 +1,5 @@
+{
+  "crates/trust-runtime-core/src/vm/dispatch.rs": "580c6d5548b3bfc80b662a54c74bbc51eb612397d8ba36f6deeb59424c68e540",
+  "crates/trust-runtime-core/src/vm/dispatch/continuation.rs": "d46582b636a2ec605eea72155099749bb253fb48b52119f3d7e3894df0a07459",
+  "crates/trust-runtime-core/src/vm/frames.rs": "f8c041adf6a634ffaf8f5d71ef5045edfb61664b09ca97acd041f8551ede1f6a"
+}

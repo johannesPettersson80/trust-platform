@@ -1,9 +1,7 @@
 use crate::io::IoAddress;
 use crate::simulation::{SimulationConfig, SimulationController};
 use crate::value::{Duration, Value};
-use crate::Runtime;
 use std::sync::atomic::{AtomicU64, Ordering};
-use trust_hir::TypeId;
 
 static NEXT_FILE: AtomicU64 = AtomicU64::new(0);
 
@@ -45,22 +43,16 @@ outflow_coefficient_m2_sqrt_m_per_s = 0.020
         "the specified coupled tank model must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
-    for (name, address) in [
+    let mut runtime = super::lreal_bound_runtime(&[
         ("flow", "%QL0"),
         ("upstream", "%IL0"),
         ("downstream", "%IL8"),
-    ] {
-        runtime
-            .io_mut()
-            .bind_typed(name, IoAddress::parse(address).unwrap(), TypeId::LREAL);
-    }
+    ]);
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &IoAddress::parse("%QL0").unwrap(),
             Value::LWord(input.to_bits()),
         )

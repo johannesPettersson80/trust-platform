@@ -271,13 +271,12 @@ impl DebugControl {
         {
             return Err("program revision changed".into());
         }
-        if let Some(watch) = state.signals.watch.as_ref() {
-            if watch.loop_revision == request.loop_revision
-                && watch.program_revision == revision
-                && watch.bindings == request.bindings
-            {
-                return Ok(watch.latest.clone().unwrap_or_else(||json!({"program_revision":revision,"loop_revision":request.loop_revision,"bindings":request.bindings,"available":false,"reason":"Waiting for the next coherent runtime scan."})));
-            }
+        if let Some(watch) = state.signals.watch.as_ref()
+            && watch.loop_revision == request.loop_revision
+            && watch.program_revision == revision
+            && watch.bindings == request.bindings
+        {
+            return Ok(watch.latest.clone().unwrap_or_else(||json!({"program_revision":revision,"loop_revision":request.loop_revision,"bindings":request.bindings,"available":false,"reason":"Waiting for the next coherent runtime scan."})));
         }
         let snapshot = state
             .latest_io_snapshot

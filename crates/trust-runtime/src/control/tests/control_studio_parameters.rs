@@ -236,11 +236,14 @@ fn generic_parameter_direct_address_binding_is_not_mutated_as_symbolic_storage()
         .storage()
         .resolved_instance_field_ref(*id, "Kp")
         .unwrap();
-    harness.runtime_mut().io_mut().bind_ref_typed(
-        reference,
-        crate::io::IoAddress::parse("%QL0").unwrap(),
-        trust_hir::TypeId::LREAL,
-    );
+    harness
+        .runtime_mut()
+        .bind_checked_io(
+            reference,
+            crate::io::IoAddress::parse("%QL0").unwrap(),
+            "Main.Kp".into(),
+        )
+        .expect("bind the parameter");
     let before = generic_status(&state);
     assert!(generic_apply(&state, &before).ok);
     let cycle = harness.cycle();
@@ -299,18 +302,14 @@ fn generic_parameter_external_value_race_retains_rejection_and_invalidates_rollb
 
 #[test]
 fn generic_parameter_transaction_waits_for_owning_task_and_controller_observes_complete_set() {
-    let (state, mut harness) = generic_fixture();
-    harness
-        .runtime_mut()
-        .register_task(crate::task::TaskConfig {
-            name: "MainTask".into(),
-            interval: crate::value::Duration::from_millis(20),
-            single: None,
-            priority: 1,
-            programs: vec!["Main".into()],
-            fb_instances: vec![],
-        });
-    *state.metadata.lock().unwrap() = harness.runtime().metadata_snapshot();
+    // Main runs only in MainTask, whose first activation is one interval after the start.
+    let (state, mut harness) = generic_fixture_for(
+        "PROGRAM MainProgram VAR Kp : LREAL := 2.0; Ki : LREAL := 0.5; Manual : BOOL := TRUE; \
+         Observed : LREAL; END_VAR Observed := Kp + Ki; END_PROGRAM \
+         CONFIGURATION Plant RESOURCE Controller ON PLC \
+         TASK MainTask (INTERVAL := T#20ms, PRIORITY := 1); \
+         PROGRAM Main WITH MainTask : MainProgram; END_RESOURCE END_CONFIGURATION",
+    );
     let mut binding = generic_binding();
     binding["task_name"] = json!("MainTask");
     let status = handle_request_value(

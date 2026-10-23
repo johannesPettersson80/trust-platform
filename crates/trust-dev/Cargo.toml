@@ -9,18 +9,18 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-base64 = "0.22"
+base64 = "0.23.1"
 clap.workspace = true
 dialoguer.workspace = true
-glob.workspace = true
 owo-colors.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-smol_str.workspace = true
+smol_str = { workspace = true, features = ["std"] }
 toml.workspace = true
 trust-runtime.workspace = true
 trust-syntax.workspace = true
 trust-wasm-analysis.workspace = true
 
 [dev-dependencies]
+trust-runtime-core = { workspace = true, default-features = false, features = ["test-support"] }
 verification-cases.workspace = true

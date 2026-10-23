@@ -1,0 +1,27 @@
+Open On-Chip Debugger 0.12.0+dev-snapshot (2026-02-16-16:07)
+Licensed under GNU GPL v2
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+srst_only separate srst_nogate srst_open_drain connect_deassert_srst
+Info : STLINK V2J30M19 (API v2) VID:PID 0483:374B
+Info : Target voltage: 3.257143
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : Unable to match requested speed 2000 kHz, using 1800 kHz
+Info : clock speed 1800 kHz
+Info : stlink_dap_op_connect(connect)
+Info : SWD DPIDR 0x2ba01477
+Info : [stm32f4x.cpu] Cortex-M4 r0p1 processor detected
+Info : [stm32f4x.cpu] target has 6 breakpoints, 4 watchpoints
+Info : [stm32f4x.cpu] Examination succeed
+Info : [stm32f4x.cpu] starting gdb server on 3333
+Info : Listening on port 3333 for gdb connections
+Warn : [stm32f4x.cpu] target was in unknown state when halt was requested
+SYSTICK=0x0 0x0 0x0 0x40002904
+SCB=0x803 0x8000000 0xfa050000 0x0
+NVIC_ENABLE=0x0 0x0 0x0
+NVIC_PENDING=0x0 0x0 0x0
+TOP_STACK=0xcccccccc 0xcccccccc 0xe000ed88 0xf00000 0xf00000 0x0 0x0 0x801a14b 0x806ef68 0x61000000 0x0 0x0 0x20017ff0 0x801024b 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0xcccccccc 0x20017ff8 0x8014d2d 0x0 0x8010059
+FLASH_STATUS=0x0 0x80000000
+lr (/32): 0xfffffff9
+xpsr (/32): 0x61000003
+shutdown command invoked

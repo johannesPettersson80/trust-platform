@@ -38,8 +38,8 @@ fn lesson76_run(start_rad: f64, periods_ms: &[u64], readings: &[(usize, &str, f6
     let debug = runtime.enable_debug();
     let p1 = program(&runtime);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "InitialAngleRad", Value::LReal(start_rad)));
+        .write_instance(p1, "InitialAngleRad", Value::LReal(start_rad))
+        .is_ok());
     let mut record = Vec::new();
     let mut now = 0;
     for (step, period) in std::iter::once(&20).chain(periods_ms.iter()).enumerate() {
@@ -193,11 +193,9 @@ fn lesson77_run(
     let (mut runtime, mut simulation) = setup(LESSON77);
     let debug = runtime.enable_debug();
     let p1 = program(&runtime);
-    assert!(runtime.storage_mut().set_instance_var(
-        p1,
-        "GravityEstimateNm",
-        Value::LReal(estimate_nm)
-    ));
+    assert!(runtime
+        .write_instance(p1, "GravityEstimateNm", Value::LReal(estimate_nm))
+        .is_ok());
     let mut record = Vec::new();
     let mut now = 0;
     for (step, period) in std::iter::once(&20).chain(periods_ms.iter()).enumerate() {

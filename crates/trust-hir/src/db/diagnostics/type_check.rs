@@ -100,18 +100,14 @@ fn type_check_pou_with_expression_types(
         return;
     }
 
-    if node.kind() == SyntaxKind::Method {
-        if let Some(symbol_id) = context.symbol_id {
-            if let Some(symbol) = symbols.get(symbol_id) {
-                if let Some(parent_id) = symbol.parent {
-                    if let Some(parent) = symbols.get(parent_id) {
-                        if matches!(&parent.kind, SymbolKind::Interface) {
-                            return;
-                        }
-                    }
-                }
-            }
-        }
+    if node.kind() == SyntaxKind::Method
+        && let Some(symbol_id) = context.symbol_id
+        && let Some(symbol) = symbols.get(symbol_id)
+        && let Some(parent_id) = symbol.parent
+        && let Some(parent) = symbols.get(parent_id)
+        && matches!(&parent.kind, SymbolKind::Interface)
+    {
+        return;
     }
 
     // Create type checker

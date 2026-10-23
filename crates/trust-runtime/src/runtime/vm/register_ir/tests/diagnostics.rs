@@ -99,11 +99,10 @@ fn diagnostic_find_fallback_opcodes_in_corpus() {
                             _ => continue,
                         };
                         if let Some(VmRef::Local { path, .. }) =
-                            vm_module.refs.get(ref_idx as usize)
+                            vm_module.refs().get(ref_idx as usize)
+                            && !path.is_empty()
                         {
-                            if !path.is_empty() {
-                                complex_refs.push(ref_idx);
-                            }
+                            complex_refs.push(ref_idx);
                         }
                     }
                     panic!(
@@ -121,7 +120,8 @@ fn diagnostic_find_fallback_opcodes_in_corpus() {
 #[test]
 fn diagnostic_execute_corpus_through_register_ir() {
     use crate::execution_backend::ExecutionBackend;
-    use crate::harness::{bytecode_bytes_from_source, TestHarness};
+    use crate::runtime::legacy_harness::legacy_bytes_from_source as bytecode_bytes_from_source;
+    use crate::runtime::LegacyTestHarness as TestHarness;
     use crate::RestartMode;
 
     let fixtures: &[(&str, &str)] = &[
@@ -233,7 +233,8 @@ fn diagnostic_execute_corpus_through_register_ir() {
 #[test]
 fn diagnostic_register_ir_callee_path_populates_lowering_cache() {
     use crate::execution_backend::ExecutionBackend;
-    use crate::harness::{bytecode_bytes_from_source, TestHarness};
+    use crate::runtime::legacy_harness::legacy_bytes_from_source as bytecode_bytes_from_source;
+    use crate::runtime::LegacyTestHarness as TestHarness;
     use crate::RestartMode;
 
     let source = r#"

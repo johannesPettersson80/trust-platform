@@ -1,22 +1,50 @@
 use alloc::{format, vec::Vec};
 
-use crate::bytecode::{TypeData, TypeTable};
+use crate::bytecode::{TypeData, TypeKind, TypeTable};
 use crate::error::{RuntimeError, StableErrorCode};
+use crate::value::StorageAbi;
 
 const POINTER_REFERENCE_HANDLE_SIZE_BYTES: u64 = core::mem::size_of::<usize>() as u64;
 const SIZEOF_TYPE_MAX_DEPTH: usize = 128;
 
 /// Compute `SIZEOF` for a bytecode type-table entry.
 pub fn sizeof_type_from_table(types: &TypeTable, type_idx: u32) -> Result<u64, RuntimeError> {
-    let mut stack = Vec::new();
-    sizeof_type_from_table_inner(types, type_idx, &mut stack)
+    sizeof_type_from_table_with(types, type_idx, &mut |_| Ok(()))
 }
 
+/// Shared type-size traversal with caller-owned work/deadline charging.
+pub fn sizeof_type_from_table_with(
+    types: &TypeTable,
+    type_idx: u32,
+    visit: &mut impl FnMut(usize) -> Result<(), RuntimeError>,
+) -> Result<u64, RuntimeError> {
+    sizeof_type_from_table_with_abi(types, type_idx, StorageAbi::default(), visit)
+}
+
+/// Type-size traversal using the ABI admitted with this artifact, with charged work.
+pub fn sizeof_type_from_table_with_abi(
+    types: &TypeTable,
+    type_idx: u32,
+    abi: StorageAbi,
+    visit: &mut impl FnMut(usize) -> Result<(), RuntimeError>,
+) -> Result<u64, RuntimeError> {
+    let mut stack = Vec::new();
+    // Portable callers share one recursive walk instead of emitting its body
+    // for each budget owner. Hosted callers retain their specialized callback.
+    #[cfg(not(feature = "std"))]
+    let visit: &mut dyn FnMut(usize) -> Result<(), RuntimeError> = visit;
+    sizeof_type_from_table_inner(types, type_idx, abi, &mut stack, visit)
+}
+
+#[cfg_attr(not(feature = "std"), inline(never))]
 fn sizeof_type_from_table_inner(
     types: &TypeTable,
     type_idx: u32,
+    abi: StorageAbi,
     stack: &mut Vec<u32>,
+    visit: &mut (impl FnMut(usize) -> Result<(), RuntimeError> + ?Sized),
 ) -> Result<u64, RuntimeError> {
+    visit(1 + stack.len())?;
     if stack.len() >= SIZEOF_TYPE_MAX_DEPTH {
         return Err(RuntimeError::bytecode(
             StableErrorCode::VmBytecodeDecode,
@@ -42,22 +70,51 @@ fn sizeof_type_from_table_inner(
         TypeData::Primitive {
             prim_id,
             max_length,
-        } => sizeof_primitive_type(*prim_id, *max_length),
+        } => sizeof_primitive_type_with_abi(*prim_id, *max_length, abi),
         TypeData::Array { elem_type_id, dims } => {
+            visit(dims.len())?;
             if dims
                 .iter()
                 .any(|(lower, upper)| *lower == 0 && *upper == i64::MAX)
             {
                 return Err(RuntimeError::TypeMismatch);
             }
-            let elem_size = sizeof_type_from_table_inner(types, *elem_type_id, stack)?;
+            let elem_size = sizeof_type_from_table_inner(types, *elem_type_id, abi, stack, visit)?;
             let len = type_array_len(dims).ok_or(RuntimeError::TypeMismatch)?;
             elem_size.checked_mul(len).ok_or(RuntimeError::Overflow)
         }
         TypeData::Struct { fields } => {
+            if abi == StorageAbi::UniformTemporal64
+                && matches!(
+                    entry.kind,
+                    TypeKind::OverlappingStruct | TypeKind::LocatedStruct
+                )
+            {
+                let mut end = 0u64;
+                for field in fields {
+                    let offset = field.bit_offset.ok_or(RuntimeError::TypeMismatch)?;
+                    let size =
+                        sizeof_type_from_table_inner(types, field.type_id, abi, stack, visit)?;
+                    let boolean = is_bool_type(types, field.type_id, visit)?;
+                    if offset % 8 != 0 && !boolean {
+                        return Err(RuntimeError::TypeMismatch);
+                    }
+                    let bits = if boolean {
+                        1
+                    } else {
+                        size.checked_mul(8).ok_or(RuntimeError::Overflow)?
+                    };
+                    end = end.max(
+                        u64::from(offset)
+                            .checked_add(bits)
+                            .ok_or(RuntimeError::Overflow)?,
+                    );
+                }
+                return Ok(end.div_ceil(8));
+            }
             let mut total = 0u64;
             for field in fields {
-                let size = sizeof_type_from_table_inner(types, field.type_id, stack)?;
+                let size = sizeof_type_from_table_inner(types, field.type_id, abi, stack, visit)?;
                 total = total.checked_add(size).ok_or(RuntimeError::Overflow)?;
             }
             Ok(total)
@@ -65,19 +122,19 @@ fn sizeof_type_from_table_inner(
         TypeData::Union { fields } => {
             let mut max_size = 0u64;
             for field in fields {
-                let size = sizeof_type_from_table_inner(types, field.type_id, stack)?;
+                let size = sizeof_type_from_table_inner(types, field.type_id, abi, stack, visit)?;
                 max_size = max_size.max(size);
             }
             Ok(max_size)
         }
         TypeData::Enum { base_type_id, .. } => {
-            sizeof_type_from_table_inner(types, *base_type_id, stack)
+            sizeof_type_from_table_inner(types, *base_type_id, abi, stack, visit)
         }
         TypeData::Alias { target_type_id } => {
-            sizeof_type_from_table_inner(types, *target_type_id, stack)
+            sizeof_type_from_table_inner(types, *target_type_id, abi, stack, visit)
         }
         TypeData::Subrange { base_type_id, .. } => {
-            sizeof_type_from_table_inner(types, *base_type_id, stack)
+            sizeof_type_from_table_inner(types, *base_type_id, abi, stack, visit)
         }
         TypeData::Reference { .. } => Ok(POINTER_REFERENCE_HANDLE_SIZE_BYTES),
         TypeData::Pou { .. } | TypeData::Interface { .. } => Err(RuntimeError::TypeMismatch),
@@ -86,13 +143,38 @@ fn sizeof_type_from_table_inner(
     result
 }
 
-fn sizeof_primitive_type(prim_id: u16, max_length: u16) -> Result<u64, RuntimeError> {
+fn is_bool_type(
+    types: &TypeTable,
+    mut id: u32,
+    visit: &mut (impl FnMut(usize) -> Result<(), RuntimeError> + ?Sized),
+) -> Result<bool, RuntimeError> {
+    for _ in 0..SIZEOF_TYPE_MAX_DEPTH {
+        visit(1)?;
+        match types.entries.get(id as usize).map(|entry| &entry.data) {
+            Some(TypeData::Alias { target_type_id }) => id = *target_type_id,
+            Some(TypeData::Primitive { prim_id: 1, .. }) => return Ok(true),
+            Some(_) => return Ok(false),
+            None => return Err(RuntimeError::TypeMismatch),
+        }
+    }
+    Err(RuntimeError::TypeMismatch)
+}
+
+pub(crate) fn sizeof_primitive_type(prim_id: u16, max_length: u16) -> Result<u64, RuntimeError> {
+    sizeof_primitive_type_with_abi(prim_id, max_length, StorageAbi::default())
+}
+
+fn sizeof_primitive_type_with_abi(
+    prim_id: u16,
+    max_length: u16,
+    abi: StorageAbi,
+) -> Result<u64, RuntimeError> {
     match prim_id {
         1 | 2 | 6 | 10 | 26 => Ok(1),
         3 | 7 | 11 | 27 => Ok(2),
         4 | 8 | 12 | 14 => Ok(4),
         5 | 9 | 13 | 15 => Ok(8),
-        16 | 18 | 20 | 22 => Ok(4),
+        16 | 18 | 20 | 22 => Ok(abi.short_temporal_bytes()),
         17 | 19 | 21 | 23 => Ok(8),
         24 => {
             if max_length == 0 {

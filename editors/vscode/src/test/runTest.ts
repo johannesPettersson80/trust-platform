@@ -13,7 +13,7 @@ function cargoExecutable(repoRoot: string): string {
 }
 
 function buildRustPackages(repoRoot: string, packages: string[]): void {
-  execFileSync(cargoExecutable(repoRoot), ["build", ...packages.flatMap(name => ["-p", name])], {
+  execFileSync(cargoExecutable(repoRoot), ["build", "--locked", ...packages.flatMap(name => ["-p", name])], {
     cwd: repoRoot,
     stdio: "inherit",
   });
@@ -120,6 +120,7 @@ async function main(): Promise<void> {
   fs.writeFileSync(path.join(userDataDir, "User", "settings.json"), JSON.stringify({ "files.enableTrash": false }));
   try {
     await runTests({
+      version: process.env.TRUST_VSCODE_TEST_VERSION,
       extensionDevelopmentPath,
       extensionTestsPath,
       launchArgs: [
@@ -321,6 +322,7 @@ async function main(): Promise<void> {
         || path.join(renderedEvidenceRoot, `${renderedTestFullTitle.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}.png`);
 
       await runTests({
+        version: process.env.TRUST_VSCODE_TEST_VERSION,
         extensionDevelopmentPath,
         extensionTestsPath,
         launchArgs: [

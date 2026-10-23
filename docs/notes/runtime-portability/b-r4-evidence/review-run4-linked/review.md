@@ -1,0 +1,9 @@
+# B-R4 run4 linked construction-frame review
+
+Independent artifact inspection by `/root/br1_static_registry`; no compilation, tests, linker, validator or board operation. Copied retained measurement and disassembled the existing ELF. ELF SHA5c0da1f439ae538b0f44f9bebdeac7d7c128aa5b368aa10899ba6ceac8dc49c4 matches the reported run4 image.
+
+Own native frames, including saved registers: construct632→536; node672→328. New helpers: Apply-Struct344, array304, struct576, enum328, subrange200. Main fixture2488, instantiate1824, evaluate_initializer968 and execute_with_buffers2336 remain unchanged. Footprint reports upper free16640,64 bytes more than run3 and256 above the minimum. This is a footprint and local-frame improvement, not physical stack acceptance.
+
+For the source-supported Main.counter→Counter.history ARRAY→INT active path documented in review-run3-instantiation-stack, three construct/node pairs save3×440=1320, while the newly separate active array helper adds304. Net reduction in that feasible path's fixed frames is1016:16344→15328. The node calls to construct_array and initialize_instance are ordinary bl calls with its frame still live, so these frames were not tail-eliminated.15328 remains above the maximum14336 usage allowed by the existing2KiB headroom criterion, even before leaf helpers/interrupts. Root was notified before physical replay; this candidate alone does not structurally close the requirement on that path.
+
+A next narrow measured-owner candidate is a non-inline boundary on start_call, currently inlined in the2336-byte dispatcher. Initializer DEFAULT_TYPED paths do not execute native user calls, yet keep that dispatcher's common frame while constructing child values. Separating call-binding/continuation temporaries may lower both nested dispatcher frames without a new interpreter or changed semantics. This remains a measurement hypothesis, not a credited saving. No limit or functionality cut is proposed.

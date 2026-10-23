@@ -9,7 +9,8 @@ cycle_interval_ms = 100
 execution_backend = "vm"
 
 [runtime.control]
-endpoint = "unix:///tmp/trust-openot-multi-program.sock"
+endpoint = "tcp://127.0.0.1:0"
+auth_token = "openot-example-local-token"
 mode = "production"
 debug_enabled = false
 
@@ -22,10 +23,25 @@ tls = false
 [runtime.openot]
 enabled = true
 path = "openot-multi-program.shm"
-capacity = 4096
+capacity = 65536
 fence_mode = "fenced"
 source = "st-fb"
-producer_instances = ["Filler.OotProducer", "Quality.OotProducer"]
+producer_instances = ["Filler.OotProducer", "BatchControl.OotProducer", "OperatorAudit.OotProducer", "SignatureAudit.OotProducer", "TypedValues.OotProducer", "ConditionLifecycle.OotProducer"]
+
+[runtime.openot.persistence]
+enabled = true
+backend = "sqlite"
+batch_size = 256
+flush_interval_ms = 250
+queue_capacity = 4096
+shutdown_timeout_ms = 5000
+retry_initial_ms = 250
+retry_max_ms = 30000
+retry_multiplier = 2
+retry_max_attempts = 20
+
+[runtime.openot.persistence.sqlite]
+path = "history/trust-logging.sqlite3"
 
 [runtime.log]
 level = "info"

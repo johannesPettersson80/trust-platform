@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "Cpu0"
+name = "AirportBaggageCommandObserverOop"
 cycle_interval_ms = 50
 
 [runtime.control]

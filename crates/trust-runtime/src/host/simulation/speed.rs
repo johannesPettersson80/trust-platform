@@ -1,4 +1,4 @@
-//! The simulation facts a status answer reports about the target and its speed (specification 35, A2.4 and B9.2; specification 33,
+//! The simulation facts a status answer reports about the target and its speed (specification 35, A2.4 and B9.2; specification 46,
 //! §6.1). The runtime computes them here once. The status answer carries the speed words, the runtime's HMI display shows the same
 //! speed from the same facts (it translates only the phrase for a speed that is behind), and the engine names the target from them.
 
@@ -45,7 +45,7 @@ impl SpeedFacts {
 
 /// The facts of a status answer, from the runtime's own state: whether simulation is enabled, whether every attached I/O is
 /// simulated, the configured speed and the achieved speed (`None` until it is measured). Without simulation, and for a configured
-/// speed of 0, the speed is 1 (specification 33, §6.1, item 5).
+/// speed of 0, the speed is 1 (specification 46, §6.1, item 5).
 #[must_use]
 pub fn speed_facts(
     enabled: bool,

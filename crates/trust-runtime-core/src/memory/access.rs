@@ -1,0 +1,58 @@
+use super::*;
+
+#[derive(Debug, Clone)]
+pub struct AccessBinding {
+    pub name: SmolStr,
+    pub reference: ValueRef,
+    pub partial: Option<PartialAccess>,
+    pub writable: bool,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct AccessMap {
+    bindings: IndexMap<SmolStr, AccessBinding>,
+}
+
+impl AccessMap {
+    pub fn bind(&mut self, name: SmolStr, reference: ValueRef, partial: Option<PartialAccess>) {
+        self.bind_with_mode(name, reference, partial, true);
+    }
+
+    pub fn bind_with_mode(
+        &mut self,
+        name: SmolStr,
+        reference: ValueRef,
+        partial: Option<PartialAccess>,
+        writable: bool,
+    ) {
+        let binding = AccessBinding {
+            name: name.clone(),
+            reference,
+            partial,
+            writable,
+        };
+        self.bindings.insert(name, binding);
+    }
+
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<&AccessBinding> {
+        self.bindings.get(name)
+    }
+
+    /// Inspect declared aliases in insertion order without changing their bindings.
+    pub fn bindings(&self) -> impl Iterator<Item = &AccessBinding> {
+        self.bindings.values()
+    }
+}
+
+pub(super) fn ref_for_map(
+    map: &IndexMap<SmolStr, Value>,
+    location: MemoryLocation,
+    name: &str,
+) -> Option<crate::value::ValueRef> {
+    map.get_index_of(name).map(|offset| crate::value::ValueRef {
+        location,
+        offset,
+        path: RefPath::new(),
+    })
+}

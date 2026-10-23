@@ -1,6 +1,6 @@
 //! The live-value stream of the runtime display (specification 39, §11.1): the expected update
 //! period, then once per period every path's value with the runtime's cycle count. The simulation
-//! the header shows is sent when it changes (specification 33, §6.1).
+//! the header shows is sent when it changes (specification 46, §6.1).
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -140,12 +140,12 @@ impl Stream {
                     alarm_generation = None;
                 }
             }
-            // The simulation the header shows (specification 33, §6.1), sent when it changes.
-            if let Some(now) = simulation_status(&control) {
-                if shown_simulation.as_ref() != Some(&now) {
-                    send(&mut socket, &json!({ "simulation": &now }))?;
-                    shown_simulation = Some(now);
-                }
+            // The simulation the header shows (specification 46, §6.1), sent when it changes.
+            if let Some(now) = simulation_status(&control)
+                && shown_simulation.as_ref() != Some(&now)
+            {
+                send(&mut socket, &json!({ "simulation": &now }))?;
+                shown_simulation = Some(now);
             }
 
             // Values arrive as often as the program calls Hmi.Display; the page is told.
@@ -223,7 +223,7 @@ fn session_message(session: Option<&SessionInfo>) -> Value {
     }
 }
 
-/// The simulation fields `control.status` reports (specification 33, §6.1): whether simulation is
+/// The simulation fields `control.status` reports (specification 46, §6.1): whether simulation is
 /// on, the configured speed, and the achieved speed (`null` until it is measured). They are read
 /// from the state `control.status` reads, so the header and the status agree. `speed_configured` is
 /// the configured speed when it is above 1x, and `speed_achieved` the achieved speed as text when it

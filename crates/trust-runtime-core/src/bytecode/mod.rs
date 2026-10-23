@@ -1,7 +1,27 @@
-//! Portable bytecode metadata records.
+//! Portable bytecode container, decoding, validation and metadata.
 
+mod diagnostics;
+pub use diagnostics::SectionDiagnostic;
+
+/// Hosted compatibility text; portable builds retain structured diagnostic context.
+#[cfg(feature = "std")]
+pub type SectionDetail = SmolStr;
+/// Portable lazy-rendered section reason and context.
+#[cfg(not(feature = "std"))]
+pub type SectionDetail = SectionDiagnostic;
+
+mod decode;
+pub use decode::DecodeStats;
+mod disassemble;
+mod encode;
 mod format;
 mod limits;
+mod reasons;
+pub use reasons::RejectionReason;
+mod metadata;
+mod module;
+mod validate;
+pub use validate::construction_demands;
 
 use alloc::vec::Vec;
 use smol_str::SmolStr;
@@ -10,8 +30,10 @@ use thiserror::Error;
 use crate::error_code::StableErrorCode;
 use crate::task::TaskConfig;
 
+pub use encode::compute_type_offsets_for_entries;
 pub use format::*;
 pub use limits::*;
+pub use module::{BytecodeModule, BytecodeModuleView, ValidatedBytecode};
 
 /// Bytecode format version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,9 +50,47 @@ impl BytecodeVersion {
     pub const fn new(major: u16, minor: u16) -> Self {
         Self { major, minor }
     }
+    /// Legacy default producer format during the A3/A4 migration.
+    pub const LEGACY: Self = Self::new(1, 1);
+    /// Previous source-free construction format with legacy short temporal widths.
+    pub const SOURCE_FREE_V2: Self = Self::new(2, 0);
+    /// Current source-free format with uniform eight-byte temporal storage.
+    pub const SOURCE_FREE: Self = Self::new(3, 0);
+
+    /// Explicit supported pairs; a known major does not admit an unknown minor ABI.
+    pub const fn is_supported(self) -> bool {
+        matches!((self.major, self.minor), (1, 0 | 1) | (2 | 3, 0))
+    }
+
+    /// Whether this pair contains complete source-free construction metadata.
+    pub const fn is_source_free(self) -> bool {
+        matches!((self.major, self.minor), (2 | 3, 0))
+    }
+
+    /// Common payloads of 2.0/3.0 retain the extended 1.1 record layout.
+    pub const fn uses_extended_layout(self) -> bool {
+        matches!((self.major, self.minor), (1, 1) | (2 | 3, 0))
+    }
+
+    /// Whether relative structure offsets may be serialized by this version.
+    pub const fn has_relative_layouts(self) -> bool {
+        matches!((self.major, self.minor), (3, 0))
+    }
+
+    /// Derive storage interpretation from an explicitly supported artifact pair.
+    pub const fn storage_abi(self) -> Result<crate::value::StorageAbi, BytecodeError> {
+        match (self.major, self.minor) {
+            (1, 0 | 1) | (2, 0) => Ok(crate::value::StorageAbi::LegacyTemporal32),
+            (3, 0) => Ok(crate::value::StorageAbi::UniformTemporal64),
+            _ => Err(BytecodeError::UnsupportedVersion {
+                major: self.major,
+                minor: self.minor,
+            }),
+        }
+    }
 }
 
-/// Supported major bytecode version.
+/// Default legacy producer major; current source-free producers use `SOURCE_FREE`.
 pub const SUPPORTED_MAJOR_VERSION: u16 = 1;
 /// Supported minor bytecode version.
 pub const SUPPORTED_MINOR_VERSION: u16 = 1;
@@ -49,6 +109,12 @@ pub enum BytecodeError {
         /// Observed minor version.
         minor: u16,
     },
+    /// Decoder reservations exceed the admitted allocation budget.
+    #[error("decoder memory limit exceeded")]
+    DecodeMemoryLimit,
+    /// Decoder processing exceeds the admitted work budget.
+    #[error("decoder work limit exceeded")]
+    DecodeWorkLimit,
     /// Header fields are internally inconsistent.
     #[error("invalid bytecode header: {0}")]
     InvalidHeader(SmolStr),
@@ -77,7 +143,7 @@ pub enum BytecodeError {
     UnexpectedEof,
     /// A section payload is malformed.
     #[error("invalid section data: {0}")]
-    InvalidSection(SmolStr),
+    InvalidSection(SectionDetail),
     /// A required section is missing.
     #[error("missing required section: {0}")]
     MissingSection(SmolStr),
@@ -105,6 +171,8 @@ impl BytecodeError {
     #[must_use]
     pub const fn stable_code(&self) -> StableErrorCode {
         match self {
+            Self::DecodeMemoryLimit => StableErrorCode::BytecodeDecodeMemoryLimit,
+            Self::DecodeWorkLimit => StableErrorCode::BytecodeDecodeWorkLimit,
             Self::InvalidMagic => StableErrorCode::BytecodeInvalidMagic,
             Self::UnsupportedVersion { .. } => StableErrorCode::BytecodeUnsupportedVersion,
             Self::InvalidHeader(_) => StableErrorCode::BytecodeInvalidHeader,
@@ -152,58 +220,64 @@ impl<'a> BytecodeReader<'a> {
 
     /// Read a borrowed byte range of length `len`.
     pub fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], BytecodeError> {
-        if self.cursor + len > self.data.len() {
-            return Err(BytecodeError::UnexpectedEof);
-        }
-        let start = self.cursor;
-        self.cursor += len;
-        Ok(&self.data[start..start + len])
+        let end = self
+            .cursor
+            .checked_add(len)
+            .ok_or(BytecodeError::UnexpectedEof)?;
+        let bytes = self
+            .data
+            .get(self.cursor..end)
+            .ok_or(BytecodeError::UnexpectedEof)?;
+        self.cursor = end;
+        Ok(bytes)
+    }
+
+    // Convert the proved length once. Indexing an opaque returned slice one
+    // byte at a time otherwise emits a separate panic path for every byte.
+    fn read_array<const N: usize>(&mut self) -> Result<[u8; N], BytecodeError> {
+        self.read_bytes(N)?
+            .try_into()
+            .map_err(|_| BytecodeError::UnexpectedEof)
     }
 
     /// Read one unsigned byte.
     pub fn read_u8(&mut self) -> Result<u8, BytecodeError> {
-        Ok(self.read_bytes(1)?[0])
+        Ok(self.read_array::<1>()?[0])
     }
 
     /// Read a little-endian `u16`.
     pub fn read_u16(&mut self) -> Result<u16, BytecodeError> {
-        let bytes = self.read_bytes(2)?;
-        Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
+        Ok(u16::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `u32`.
     pub fn read_u32(&mut self) -> Result<u32, BytecodeError> {
-        let bytes = self.read_bytes(4)?;
-        Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        Ok(u32::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `u64`.
     pub fn read_u64(&mut self) -> Result<u64, BytecodeError> {
-        let bytes = self.read_bytes(8)?;
-        Ok(u64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]))
+        Ok(u64::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `i32`.
     pub fn read_i32(&mut self) -> Result<i32, BytecodeError> {
-        let bytes = self.read_bytes(4)?;
-        Ok(i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        Ok(i32::from_le_bytes(self.read_array()?))
     }
 
     /// Read a little-endian `i64`.
     pub fn read_i64(&mut self) -> Result<i64, BytecodeError> {
-        let bytes = self.read_bytes(8)?;
-        Ok(i64::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]))
+        Ok(i64::from_le_bytes(self.read_array()?))
     }
 }
 
-/// Return `value` rounded up to the next 4-byte boundary.
+/// Return the next 4-byte boundary, or `None` when rounding would overflow.
 #[must_use]
-pub const fn align4(value: usize) -> usize {
-    (value + 3) & !3
+pub const fn align4(value: usize) -> Option<usize> {
+    match value.checked_add(3) {
+        Some(value) => Some(value & !3),
+        None => None,
+    }
 }
 
 /// Pad `bytes` with zeroes until it reaches `target` length.
@@ -336,6 +410,18 @@ mod tests {
     }
 
     #[test]
+    fn bytecode_reader_rejects_length_overflow_without_advancing() {
+        let mut reader = super::BytecodeReader::new(&[1, 2]);
+        assert_eq!(reader.read_u8().unwrap(), 1);
+        assert_eq!(
+            reader.read_bytes(usize::MAX),
+            Err(super::BytecodeError::UnexpectedEof)
+        );
+        assert_eq!(reader.pos(), 1);
+        assert_eq!(reader.read_u8().unwrap(), 2);
+    }
+
+    #[test]
     fn bytecode_error_variants_have_exact_stable_codes() {
         let errors = [
             (super::BytecodeError::InvalidMagic, "bytecode_invalid_magic"),
@@ -412,10 +498,11 @@ mod tests {
 
     #[test]
     fn bytecode_alignment_helpers_preserve_zero_padding_contract() {
-        assert_eq!(super::align4(0), 0);
-        assert_eq!(super::align4(1), 4);
-        assert_eq!(super::align4(4), 4);
-        assert_eq!(super::align4(5), 8);
+        assert_eq!(super::align4(0), Some(0));
+        assert_eq!(super::align4(1), Some(4));
+        assert_eq!(super::align4(4), Some(4));
+        assert_eq!(super::align4(5), Some(8));
+        assert_eq!(super::align4(usize::MAX), None);
 
         let mut bytes = vec![1, 2, 3];
         super::pad_to(&mut bytes, 6);
@@ -442,3 +529,6 @@ mod tests {
         assert!(!super::PouKind::Function.is_class_like());
     }
 }
+
+#[cfg(test)]
+mod reader_tests;

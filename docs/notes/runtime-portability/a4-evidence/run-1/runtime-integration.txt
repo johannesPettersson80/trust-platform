@@ -1,0 +1,61 @@
+[gate-progress state=started phase=A4-runtime-integration target=scena-rust-builder pid=2168458 elapsed=0.0s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --test runtime_core_compiler_free_load --test bytecode_source_free_authoring --test source_free_assignment --test source_free_cycle_contract --test source_free_restart_graph --test source_free_readonly --test bytecode_container --test bytecode_metadata --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_optional_sections --test bytecode_encoder --test bytecode_roundtrip --test bytecode_validation --test bytecode_verification_cases --test bytecode_vm_core --test bytecode_vm_differential --test phase11_seam_contract --test runtime_core_behavior_lock --test vm_resource_limit_cases --test runtime_restart --test runtime_restart_trace_cases --test vars_retain --test vars_access --test tasks --test tasks_fb --test scheduler_resource --test var_init --test init_fail_closed --test initializer_architecture --test user_type_runtime_contract --test struct_initializers --test pou_interface --test pou_oop --test portable_numeric_contract --test stdlib_core_contract --test stdlib_conversion_contract --test stdlib_helper_contract --test stdlib_fb_contract --test stdlib_split_locals --test stdlib_enum_validate --test stdlib_assertions --test stdlib_numeric --test stdlib_numeric_full --test stdlib_conv --test stdlib_conv_full --test stdlib_bit_full --test stdlib_select --test stdlib_select_full --test stdlib_string --test stdlib_string_full --test string_binding_bounds --test process_image --test io_address --test io_cycle --test io_struct_array --test io_wildcard --test io_fb_vars --test io_hierarchy --test io_driver --test api_smoke --test debug_control --test complete_program --test runtime_reliability -- --nocapture --test-threads=1']
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+   Compiling tokio-native-tls v0.3.1
+   Compiling embassy-time v0.4.0
+   Compiling embedded-io-async v0.6.1
+   Compiling url v1.7.2
+   Compiling mysql v28.0.2
+   Compiling mysql_common v0.37.3
+   Compiling inotify v0.11.1
+   Compiling crc v3.4.0
+   Compiling profiling v1.0.18
+   Compiling open-ot-shm v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+   Compiling enumflags2 v0.7.12
+error: unused import: `InstanceId`
+ --> crates/trust-runtime-core/src/vm/dispatch_refs.rs:4:21
+  |
+4 | use crate::memory::{InstanceId, MemoryLocation};
+  |                     ^^^^^^^^^^
+  |
+  = note: `-D unused-imports` implied by `-D warnings`
+  = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+   Compiling zerocopy v0.7.35
+   Compiling io-enum v1.2.1
+   Compiling rustls v0.20.9
+   Compiling clap v4.6.1
+   Compiling zenoh v1.7.2
+   Compiling async-io v2.6.0
+   Compiling zenoh-transport v1.7.2
+   Compiling nix v0.29.0
+error[E0063]: missing field `parameter_values_present` in initializer of `vm::frames::VmFrame`
+  --> crates/trust-runtime-core/src/vm/call/mod.rs:47:17
+   |
+47 |     let frame = VmFrame {
+   |                 ^^^^^^^ missing `parameter_values_present`
+
+   Compiling ethercrab-wire v0.2.0
+   Compiling zenoh-plugin-trait v1.7.2
+   Compiling ratatui-crossterm v0.1.0
+   Compiling libsqlite3-sys v0.38.2
+   Compiling rand v0.9.4
+   Compiling ratatui-macros v0.7.0
+   Compiling io-uring v0.7.12
+   Compiling smlang v0.8.0
+   Compiling petgraph v0.8.3
+error: unused variable: `declaration`
+   --> crates/trust-runtime-core/src/vm/engine/initialization/construction.rs:285:18
+    |
+285 |         for (id, declaration) in
+    |                  ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_declaration`
+    |
+    = note: `-D unused-variables` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(unused_variables)]`
+
+   Compiling timerfd v1.6.0
+   Compiling open-ot-definition v0.1.0 (https://github.com/johannesPettersson80/open-ot-experiments.git?rev=137f0e765f085c262651f479be35298b836ac891#137f0e76)
+   Compiling toml v1.1.2+spec-1.1.0
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `trust-runtime-core` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+[gate-progress state=finished phase=A4-runtime-integration target=scena-rust-builder pid=2168458 elapsed=4.1s timeout=5400s command='cargo test --locked --no-fail-fast -p trust-runtime --test runtime_core_compiler_free_load --test bytecode_source_free_authoring --test source_free_assignment --test source_free_cycle_contract --test source_free_restart_graph --test source_free_readonly --test bytecode_container --test bytecode_metadata --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_optional_sections --test bytecode_encoder --test bytecode_roundtrip --test bytecode_validation --test bytecode_verification_cases --test bytecode_vm_core --test bytecode_vm_differential --test phase11_seam_contract --test runtime_core_behavior_lock --test vm_resource_limit_cases --test runtime_restart --test runtime_restart_trace_cases --test vars_retain --test vars_access --test tasks --test tasks_fb --test scheduler_resource --test var_init --test init_fail_closed --test initializer_architecture --test user_type_runtime_contract --test struct_initializers --test pou_interface --test pou_oop --test portable_numeric_contract --test stdlib_core_contract --test stdlib_conversion_contract --test stdlib_helper_contract --test stdlib_fb_contract --test stdlib_split_locals --test stdlib_enum_validate --test stdlib_assertions --test stdlib_numeric --test stdlib_numeric_full --test stdlib_conv --test stdlib_conv_full --test stdlib_bit_full --test stdlib_select --test stdlib_select_full --test stdlib_string --test stdlib_string_full --test string_binding_bounds --test process_image --test io_address --test io_cycle --test io_struct_array --test io_wildcard --test io_fb_vars --test io_hierarchy --test io_driver --test api_smoke --test debug_control --test complete_program --test runtime_reliability -- --nocapture --test-threads=1' status=101]

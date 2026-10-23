@@ -20,8 +20,7 @@ fn temp_simulation_path(name: &str) -> PathBuf {
 
 fn write_lreal(runtime: &mut Runtime, address: &IoAddress, value: f64) {
     runtime
-        .io_mut()
-        .write(address, Value::LWord(value.to_bits()))
+        .write_io(address, Value::LWord(value.to_bits()))
         .expect("write LREAL process-image bits");
 }
 
@@ -73,15 +72,13 @@ initial_state = [{initial}]
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "model {model} must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -125,15 +122,13 @@ output_bias = 0.0
 
     let config = SimulationConfig::load(&path).expect("load first-order plant");
     let mut simulation = SimulationController::new(config);
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").expect("command address");
     let feedback = IoAddress::parse("%IL0").expect("feedback address");
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
 
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
@@ -257,19 +252,15 @@ friction_smoothing_rad_s = 0.01
         "robot-joint configuration must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let torque = IoAddress::parse("%QL0").unwrap();
     let angle = IoAddress::parse("%IL0").unwrap();
     let rate = IoAddress::parse("%IL8").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("torque", torque.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("angle", angle.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("rate", rate.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (torque.clone(), TypeId::LREAL),
+        (angle.clone(), TypeId::LREAL),
+        (rate.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -345,15 +336,13 @@ width = 2.0
         "backlash configuration must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("ideal_position", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("load_position", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -503,19 +492,17 @@ d = [[0.0, 0.0], [0.0, 0.0]]
         "MIMO state-space model must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command_0 = IoAddress::parse("%QL0").unwrap();
     let command_1 = IoAddress::parse("%QL8").unwrap();
     let feedback_0 = IoAddress::parse("%IL0").unwrap();
     let feedback_1 = IoAddress::parse("%IL8").unwrap();
-    for (name, address) in [
-        ("command_0", command_0.clone()),
-        ("command_1", command_1.clone()),
-        ("feedback_0", feedback_0.clone()),
-        ("feedback_1", feedback_1.clone()),
-    ] {
-        runtime.io_mut().bind_typed(name, address, TypeId::LREAL);
-    }
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command_0.clone(), TypeId::LREAL),
+        (command_1.clone(), TypeId::LREAL),
+        (feedback_0.clone(), TypeId::LREAL),
+        (feedback_1.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
 
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
@@ -557,23 +544,20 @@ gain = 0.5
     .unwrap();
     let mut simulation =
         SimulationController::new(SimulationConfig::load(&path).expect("integer plant config"));
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QD0").unwrap();
     let feedback = IoAddress::parse("%IW0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::DINT);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::INT);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::DINT),
+        (feedback.clone(), TypeId::INT),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
 
     for (step, command_value, expected) in [(1, 5_i32, 2_i16), (2, 7, 4), (3, -5, -2)] {
         runtime
-            .io_mut()
-            .write(&command, Value::DWord(command_value as u32))
+            .write_io(&command, Value::DWord(command_value as u32))
             .unwrap();
         let now = Duration::from_millis(step * 100);
         simulation.apply_post_cycle(now, &runtime).unwrap();
@@ -613,19 +597,15 @@ d = [[1.0], [100000.0]]
     .unwrap();
     let mut simulation =
         SimulationController::new(SimulationConfig::load(&path).expect("atomic plant config"));
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback_real = IoAddress::parse("%IL0").unwrap();
     let feedback_int = IoAddress::parse("%IW8").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback_real", feedback_real.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback_int", feedback_int.clone(), TypeId::INT);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback_real.clone(), TypeId::LREAL),
+        (feedback_int.clone(), TypeId::INT),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -674,15 +654,13 @@ initial_delayed_input = 0.0
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "FOPDT configuration must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -739,15 +717,13 @@ maximum = 1.0
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -799,15 +775,13 @@ initial_applied = 0.0
         "actuator configuration must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -860,15 +834,13 @@ initial_applied = 0.0
         "stiction configuration must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -936,15 +908,13 @@ initial_applied = 0.0
         "installed characteristic must load: {loaded:?}"
     );
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -995,15 +965,13 @@ maximum = 1.0
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command, TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command, TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1068,14 +1036,12 @@ maximum = 1.0
         )
         .unwrap();
         let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-        let mut runtime = Runtime::new();
         let feedback = IoAddress::parse("%IL0").unwrap();
-        runtime
-            .io_mut()
-            .bind_typed("command", IoAddress::parse("%QL0").unwrap(), TypeId::LREAL);
-        runtime
-            .io_mut()
-            .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+        let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+            (IoAddress::parse("%QL0").unwrap(), TypeId::LREAL),
+            (feedback.clone(), TypeId::LREAL),
+        ])
+        .expect("compile the plant's bindings");
         simulation
             .apply_pre_cycle(Duration::ZERO, &mut runtime)
             .unwrap();
@@ -1119,15 +1085,13 @@ gain = 1.0
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback, TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback, TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1212,19 +1176,17 @@ value = 1.1
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "parameter effect must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let nominal_command = IoAddress::parse("%QL0").unwrap();
     let mismatch_command = IoAddress::parse("%QL8").unwrap();
     let nominal_feedback = IoAddress::parse("%IL0").unwrap();
     let mismatch_feedback = IoAddress::parse("%IL8").unwrap();
-    for (name, address) in [
-        ("nominal-command", nominal_command.clone()),
-        ("mismatch-command", mismatch_command.clone()),
-        ("nominal-feedback", nominal_feedback.clone()),
-        ("mismatch-feedback", mismatch_feedback.clone()),
-    ] {
-        runtime.io_mut().bind_typed(name, address, TypeId::LREAL);
-    }
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (nominal_command.clone(), TypeId::LREAL),
+        (mismatch_command.clone(), TypeId::LREAL),
+        (nominal_feedback.clone(), TypeId::LREAL),
+        (mismatch_feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1273,15 +1235,13 @@ value = 2.0
     let scalar = SimulationConfig::load(&scalar_path);
     assert!(scalar.is_ok(), "time-constant effect must load: {scalar:?}");
     let mut simulation = SimulationController::new(scalar.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1381,15 +1341,13 @@ gain = 2.0
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
 
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
@@ -1649,15 +1607,13 @@ maximum = 0.2
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "sensor pipeline must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1732,15 +1688,13 @@ quantum = 0.001
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "imperfect sensor must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command, TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command, TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1790,15 +1744,13 @@ dropout_policy = "hold_last"
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "dropout must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1848,15 +1800,13 @@ dropout_policy = "fault"
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1899,15 +1849,13 @@ gain = 1.0
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -1965,15 +1913,13 @@ kind = "reset_plant"
     )
     .unwrap();
     let mut simulation = SimulationController::new(SimulationConfig::load(&path).unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -2035,15 +1981,13 @@ value = 2.0
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "state event must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command, TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command, TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -2105,15 +2049,13 @@ value = 2.0
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "device events must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -2350,15 +2292,13 @@ value = 4.0
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "uncertainty pipeline must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -2405,15 +2345,13 @@ end_s = 0.4
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "hold effect must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -2484,15 +2422,13 @@ out_of_range = "fault"
 
     let config = SimulationConfig::load(&path).expect("validity bounds must load");
     let mut simulation = SimulationController::new(config);
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -2553,15 +2489,13 @@ value = 2.0
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "state uncertainty must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command, TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command, TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
@@ -2617,14 +2551,12 @@ bias = 1.0
     let loaded = SimulationConfig::load(&path);
     assert!(loaded.is_ok(), "analytic effects must load: {loaded:?}");
     let mut simulation = SimulationController::new(loaded.unwrap());
-    let mut runtime = Runtime::new();
     let feedback = IoAddress::parse("%IL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", IoAddress::parse("%QL0").unwrap(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", feedback.clone(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (IoAddress::parse("%QL0").unwrap(), TypeId::LREAL),
+        (feedback.clone(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();

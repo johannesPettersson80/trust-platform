@@ -69,7 +69,10 @@ suite("Control Studio trajectory feedforward setup form", () => {
     } finally { view.close(); }
   });
 
-  test("posts the PID law as an own-law draft, with the planned trajectory, the feedforward term and the two feedforward gains", () => {
+  test("posts the PID law as an own-law draft, with the planned trajectory, the feedforward term and the two feedforward gains", function () {
+    // The fill is about thirty-seven edits through JSDOM, each re-rendering the form: the budget the range test below
+    // explains.
+    this.timeout(10000);
     const view = open(trajectoryModel);
     try {
       view.set("structure", "trajectory-feedforward");
@@ -81,7 +84,10 @@ suite("Control Studio trajectory feedforward setup form", () => {
     } finally { view.close(); }
   });
 
-  test("keeps the PID law PID whatever the own law choice holds, since the trajectory's law is PID", () => {
+  test("keeps the PID law PID whatever the own law choice holds, since the trajectory's law is PID", function () {
+    // The fill is about thirty-seven edits through JSDOM, each re-rendering the form: the budget the range test below
+    // explains.
+    this.timeout(10000);
     const view = open(trajectoryModel);
     try {
       view.set("structure", "trajectory-feedforward");
@@ -93,7 +99,10 @@ suite("Control Studio trajectory feedforward setup form", () => {
     } finally { view.close(); }
   });
 
-  test("posts a missing planned trajectory blank, so the engine names it", () => {
+  test("posts a missing planned trajectory blank, so the engine names it", function () {
+    // The fill is about thirty-seven edits through JSDOM, each re-rendering the form: the budget the range test below
+    // explains.
+    this.timeout(10000);
     const view = open(trajectoryModel);
     try {
       view.set("structure", "trajectory-feedforward");

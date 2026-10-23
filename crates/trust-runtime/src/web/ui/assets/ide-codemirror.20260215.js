@@ -1,14588 +1,12010 @@
-let ss = [], $o = [];
+//#region node_modules/@marijn/find-cluster-break/src/index.js
+var e = [], t = [];
 (() => {
-  let s = "lc,34,7n,7,7b,19,,,,2,,2,,,20,b,1c,l,g,,2t,7,2,6,2,2,,4,z,,u,r,2j,b,1m,9,9,,o,4,,9,,3,,5,17,3,3b,f,,w,1j,,,,4,8,4,,3,7,a,2,t,,1m,,,,2,4,8,,9,,a,2,q,,2,2,1l,,4,2,4,2,2,3,3,,u,2,3,,b,2,1l,,4,5,,2,4,,k,2,m,6,,,1m,,,2,,4,8,,7,3,a,2,u,,1n,,,,c,,9,,14,,3,,1l,3,5,3,,4,7,2,b,2,t,,1m,,2,,2,,3,,5,2,7,2,b,2,s,2,1l,2,,,2,4,8,,9,,a,2,t,,20,,4,,2,3,,,8,,29,,2,7,c,8,2q,,2,9,b,6,22,2,r,,,,,,1j,e,,5,,2,5,b,,10,9,,2u,4,,6,,2,2,2,p,2,4,3,g,4,d,,2,2,6,,f,,jj,3,qa,3,t,3,t,2,u,2,1s,2,,7,8,,2,b,9,,19,3,3b,2,y,,3a,3,4,2,9,,6,3,63,2,2,,1m,,,7,,,,,2,8,6,a,2,,1c,h,1r,4,1c,7,,,5,,14,9,c,2,w,4,2,2,,3,1k,,,2,3,,,3,1m,8,2,2,48,3,,d,,7,4,,6,,3,2,5i,1m,,5,ek,,5f,x,2da,3,3x,,2o,w,fe,6,2x,2,n9w,4,,a,w,2,28,2,7k,,3,,4,,p,2,5,,47,2,q,i,d,,12,8,p,b,1a,3,1c,,2,4,2,2,13,,1v,6,2,2,2,2,c,,8,,1b,,1f,,,3,2,2,5,2,,,16,2,8,,6m,,2,,4,,fn4,,kh,g,g,g,a6,2,gt,,6a,,45,5,1ae,3,,2,5,4,14,3,4,,4l,2,fx,4,ar,2,49,b,4w,,1i,f,1k,3,1d,4,2,2,1x,3,10,5,,8,1q,,c,2,1g,9,a,4,2,,2n,3,2,,,2,6,,4g,,3,8,l,2,1l,2,,,,,m,,e,7,3,5,5f,8,2,3,,,n,,29,,2,6,,,2,,,2,,2,6j,,2,4,6,2,,2,r,2,2d,8,2,,,2,2y,,,,2,6,,,2t,3,2,4,,5,77,9,,2,6t,,a,2,,,4,,40,4,2,2,4,,w,a,14,6,2,4,8,,9,6,2,3,1a,d,,2,ba,7,,6,,,2a,m,2,7,,2,,2,3e,6,3,,,2,,7,,,20,2,3,,,,9n,2,f0b,5,1n,7,t4,,1r,4,29,,f5k,2,43q,,,3,4,5,8,8,2,7,u,4,44,3,1iz,1j,4,1e,8,,e,,m,5,,f,11s,7,,h,2,7,,2,,5,79,7,c5,4,15s,7,31,7,240,5,gx7k,2o,3k,6o".split(",").map((t) => t ? parseInt(t, 36) : 1);
-  for (let t = 0, e = 0; t < s.length; t++)
-    (t % 2 ? $o : ss).push(e = e + s[t]);
+	let n = "lc,34,7n,7,7b,19,,,,2,,2,,,20,b,1c,l,g,,2t,7,2,6,2,2,,4,z,,u,r,2j,b,1m,9,9,,o,4,,9,,3,,5,17,3,3b,f,,w,1j,,,,4,8,4,,3,7,a,2,t,,1m,,,,2,4,8,,9,,a,2,q,,2,2,1l,,4,2,4,2,2,3,3,,u,2,3,,b,2,1l,,4,5,,2,4,,k,2,m,6,,,1m,,,2,,4,8,,7,3,a,2,u,,1n,,,,c,,9,,14,,3,,1l,3,5,3,,4,7,2,b,2,t,,1m,,2,,2,,3,,5,2,7,2,b,2,s,2,1l,2,,,2,4,8,,9,,a,2,t,,20,,4,,2,3,,,8,,29,,2,7,c,8,2q,,2,9,b,6,22,2,r,,,,,,1j,e,,5,,2,5,b,,10,9,,2u,4,,6,,2,2,2,p,2,4,3,g,4,d,,2,2,6,,f,,jj,3,qa,3,t,3,t,2,u,2,1s,2,,7,8,,2,b,9,,19,3,3b,2,y,,3a,3,4,2,9,,6,3,63,2,2,,1m,,,7,,,,,2,8,6,a,2,,1c,h,1r,4,1c,7,,,5,,14,9,c,2,w,4,2,2,,3,1k,,,2,3,,,3,1m,8,2,2,48,3,,d,,7,4,,6,,3,2,5i,1m,,5,ek,,5f,x,2da,3,3x,,2o,w,fe,6,2x,2,n9w,4,,a,w,2,28,2,7k,,3,,4,,p,2,5,,47,2,q,i,d,,12,8,p,b,1a,3,1c,,2,4,2,2,13,,1v,6,2,2,2,2,c,,8,,1b,,1f,,,3,2,2,5,2,,,16,2,8,,6m,,2,,4,,fn4,,kh,g,g,g,a6,2,gt,,6a,,45,5,1ae,3,,2,5,4,14,3,4,,4l,2,fx,4,ar,2,49,b,4w,,1i,f,1k,3,1d,4,2,2,1x,3,10,5,,8,1q,,c,2,1g,9,a,4,2,,2n,3,2,,,2,6,,4g,,3,8,l,2,1l,2,,,,,m,,e,7,3,5,5f,8,2,3,,,n,,29,,2,6,,,2,,,2,,2,6j,,2,4,6,2,,2,r,2,2d,8,2,,,2,2y,,,,2,6,,,2t,3,2,4,,5,77,9,,2,6t,,a,2,,,4,,40,4,2,2,4,,w,a,14,6,2,4,8,,9,6,2,3,1a,d,,2,ba,7,,6,,,2a,m,2,7,,2,,2,3e,6,3,,,2,,7,,,20,2,3,,,,9n,2,f0b,5,1n,7,t4,,1r,4,29,,f5k,2,43q,,,3,4,5,8,8,2,7,u,4,44,3,1iz,1j,4,1e,8,,e,,m,5,,f,11s,7,,h,2,7,,2,,5,79,7,c5,4,15s,7,31,7,240,5,gx7k,2o,3k,6o".split(",").map((e) => e ? parseInt(e, 36) : 1);
+	for (let r = 0, i = 0; r < n.length; r++) (r % 2 ? t : e).push(i += n[r]);
 })();
-function nh(s) {
-  if (s < 768) return !1;
-  for (let t = 0, e = ss.length; ; ) {
-    let i = t + e >> 1;
-    if (s < ss[i]) e = i;
-    else if (s >= $o[i]) t = i + 1;
-    else return !0;
-    if (t == e) return !1;
-  }
+function n(n) {
+	if (n < 768) return !1;
+	for (let r = 0, i = e.length;;) {
+		let a = r + i >> 1;
+		if (n < e[a]) i = a;
+		else if (n >= t[a]) r = a + 1;
+		else return !0;
+		if (r == i) return !1;
+	}
 }
-function vr(s) {
-  return s >= 127462 && s <= 127487;
+function r(e) {
+	return e >= 127462 && e <= 127487;
 }
-const kr = 8205;
-function sh(s, t, e = !0, i = !0) {
-  return (e ? Uo : rh)(s, t, i);
+var i = 8205;
+function a(e, t, n = !0, r = !0) {
+	return (n ? o : s)(e, t, r);
 }
-function Uo(s, t, e) {
-  if (t == s.length) return t;
-  t && jo(s.charCodeAt(t)) && Go(s.charCodeAt(t - 1)) && t--;
-  let i = Nn(s, t);
-  for (t += Sr(i); t < s.length; ) {
-    let n = Nn(s, t);
-    if (i == kr || n == kr || e && nh(n))
-      t += Sr(n), i = n;
-    else if (vr(n)) {
-      let r = 0, o = t - 2;
-      for (; o >= 0 && vr(Nn(s, o)); )
-        r++, o -= 2;
-      if (r % 2 == 0) break;
-      t += 2;
-    } else
-      break;
-  }
-  return t;
+function o(e, t, a) {
+	if (t == e.length) return t;
+	t && l(e.charCodeAt(t)) && u(e.charCodeAt(t - 1)) && t--;
+	let o = c(e, t);
+	for (t += d(o); t < e.length;) {
+		let s = c(e, t);
+		if (o == i || s == i || a && n(s)) t += d(s), o = s;
+		else if (r(s)) {
+			let n = 0, i = t - 2;
+			for (; i >= 0 && r(c(e, i));) n++, i -= 2;
+			if (n % 2 == 0) break;
+			t += 2;
+		} else break;
+	}
+	return t;
 }
-function rh(s, t, e) {
-  for (; t > 0; ) {
-    let i = Uo(s, t - 2, e);
-    if (i < t) return i;
-    t--;
-  }
-  return 0;
+function s(e, t, n) {
+	for (; t > 0;) {
+		let r = o(e, t - 2, n);
+		if (r < t) return r;
+		t--;
+	}
+	return 0;
 }
-function Nn(s, t) {
-  let e = s.charCodeAt(t);
-  if (!Go(e) || t + 1 == s.length) return e;
-  let i = s.charCodeAt(t + 1);
-  return jo(i) ? (e - 55296 << 10) + (i - 56320) + 65536 : e;
+function c(e, t) {
+	let n = e.charCodeAt(t);
+	if (!u(n) || t + 1 == e.length) return n;
+	let r = e.charCodeAt(t + 1);
+	return l(r) ? (n - 55296 << 10) + (r - 56320) + 65536 : n;
 }
-function jo(s) {
-  return s >= 56320 && s < 57344;
+function l(e) {
+	return e >= 56320 && e < 57344;
 }
-function Go(s) {
-  return s >= 55296 && s < 56320;
+function u(e) {
+	return e >= 55296 && e < 56320;
 }
-function Sr(s) {
-  return s < 65536 ? 1 : 2;
+function d(e) {
+	return e < 65536 ? 1 : 2;
 }
-class P {
-  /**
-  Get the line description around the given position.
-  */
-  lineAt(t) {
-    if (t < 0 || t > this.length)
-      throw new RangeError(`Invalid position ${t} in document of length ${this.length}`);
-    return this.lineInner(t, !1, 1, 0);
-  }
-  /**
-  Get the description for the given (1-based) line number.
-  */
-  line(t) {
-    if (t < 1 || t > this.lines)
-      throw new RangeError(`Invalid line number ${t} in ${this.lines}-line document`);
-    return this.lineInner(t, !0, 1, 0);
-  }
-  /**
-  Replace a range of the text with the given content.
-  */
-  replace(t, e, i) {
-    [t, e] = Pe(this, t, e);
-    let n = [];
-    return this.decompose(
-      0,
-      t,
-      n,
-      2
-      /* Open.To */
-    ), i.length && i.decompose(
-      0,
-      i.length,
-      n,
-      3
-      /* Open.To */
-    ), this.decompose(
-      e,
-      this.length,
-      n,
-      1
-      /* Open.From */
-    ), Nt.from(n, this.length - (e - t) + i.length);
-  }
-  /**
-  Append another document to this one.
-  */
-  append(t) {
-    return this.replace(this.length, this.length, t);
-  }
-  /**
-  Retrieve the text between the given points.
-  */
-  slice(t, e = this.length) {
-    [t, e] = Pe(this, t, e);
-    let i = [];
-    return this.decompose(t, e, i, 0), Nt.from(i, e - t);
-  }
-  /**
-  Test whether this text is equal to another instance.
-  */
-  eq(t) {
-    if (t == this)
-      return !0;
-    if (t.length != this.length || t.lines != this.lines)
-      return !1;
-    let e = this.scanIdentical(t, 1), i = this.length - this.scanIdentical(t, -1), n = new Qe(this), r = new Qe(t);
-    for (let o = e, l = e; ; ) {
-      if (n.next(o), r.next(o), o = 0, n.lineBreak != r.lineBreak || n.done != r.done || n.value != r.value)
-        return !1;
-      if (l += n.value.length, n.done || l >= i)
-        return !0;
-    }
-  }
-  /**
-  Iterate over the text. When `dir` is `-1`, iteration happens
-  from end to start. This will return lines and the breaks between
-  them as separate strings.
-  */
-  iter(t = 1) {
-    return new Qe(this, t);
-  }
-  /**
-  Iterate over a range of the text. When `from` > `to`, the
-  iterator will run in reverse.
-  */
-  iterRange(t, e = this.length) {
-    return new Jo(this, t, e);
-  }
-  /**
-  Return a cursor that iterates over the given range of lines,
-  _without_ returning the line breaks between, and yielding empty
-  strings for empty lines.
-  
-  When `from` and `to` are given, they should be 1-based line numbers.
-  */
-  iterLines(t, e) {
-    let i;
-    if (t == null)
-      i = this.iter();
-    else {
-      e == null && (e = this.lines + 1);
-      let n = this.line(t).from;
-      i = this.iterRange(n, Math.max(n, e == this.lines + 1 ? this.length : e <= 1 ? 0 : this.line(e - 1).to));
-    }
-    return new _o(i);
-  }
-  /**
-  Return the document as a string, using newline characters to
-  separate lines.
-  */
-  toString() {
-    return this.sliceString(0);
-  }
-  /**
-  Convert the document to an array of lines (which can be
-  deserialized again via [`Text.of`](https://codemirror.net/6/docs/ref/#state.Text^of)).
-  */
-  toJSON() {
-    let t = [];
-    return this.flatten(t), t;
-  }
-  /**
-  @internal
-  */
-  constructor() {
-  }
-  /**
-  Create a `Text` instance for the given array of lines.
-  */
-  static of(t) {
-    if (t.length == 0)
-      throw new RangeError("A document must have at least one line");
-    return t.length == 1 && !t[0] ? P.empty : t.length <= 32 ? new j(t) : Nt.from(j.split(t, []));
-  }
-}
-class j extends P {
-  constructor(t, e = oh(t)) {
-    super(), this.text = t, this.length = e;
-  }
-  get lines() {
-    return this.text.length;
-  }
-  get children() {
-    return null;
-  }
-  lineInner(t, e, i, n) {
-    for (let r = 0; ; r++) {
-      let o = this.text[r], l = n + o.length;
-      if ((e ? i : l) >= t)
-        return new lh(n, l, i, o);
-      n = l + 1, i++;
-    }
-  }
-  decompose(t, e, i, n) {
-    let r = t <= 0 && e >= this.length ? this : new j(Cr(this.text, t, e), Math.min(e, this.length) - Math.max(0, t));
-    if (n & 1) {
-      let o = i.pop(), l = $i(r.text, o.text.slice(), 0, r.length);
-      if (l.length <= 32)
-        i.push(new j(l, o.length + r.length));
-      else {
-        let a = l.length >> 1;
-        i.push(new j(l.slice(0, a)), new j(l.slice(a)));
-      }
-    } else
-      i.push(r);
-  }
-  replace(t, e, i) {
-    if (!(i instanceof j))
-      return super.replace(t, e, i);
-    [t, e] = Pe(this, t, e);
-    let n = $i(this.text, $i(i.text, Cr(this.text, 0, t)), e), r = this.length + i.length - (e - t);
-    return n.length <= 32 ? new j(n, r) : Nt.from(j.split(n, []), r);
-  }
-  sliceString(t, e = this.length, i = `
-`) {
-    [t, e] = Pe(this, t, e);
-    let n = "";
-    for (let r = 0, o = 0; r <= e && o < this.text.length; o++) {
-      let l = this.text[o], a = r + l.length;
-      r > t && o && (n += i), t < a && e > r && (n += l.slice(Math.max(0, t - r), e - r)), r = a + 1;
-    }
-    return n;
-  }
-  flatten(t) {
-    for (let e of this.text)
-      t.push(e);
-  }
-  scanIdentical() {
-    return 0;
-  }
-  static split(t, e) {
-    let i = [], n = -1;
-    for (let r of t)
-      i.push(r), n += r.length + 1, i.length == 32 && (e.push(new j(i, n)), i = [], n = -1);
-    return n > -1 && e.push(new j(i, n)), e;
-  }
-}
-class Nt extends P {
-  constructor(t, e) {
-    super(), this.children = t, this.length = e, this.lines = 0;
-    for (let i of t)
-      this.lines += i.lines;
-  }
-  lineInner(t, e, i, n) {
-    for (let r = 0; ; r++) {
-      let o = this.children[r], l = n + o.length, a = i + o.lines - 1;
-      if ((e ? a : l) >= t)
-        return o.lineInner(t, e, i, n);
-      n = l + 1, i = a + 1;
-    }
-  }
-  decompose(t, e, i, n) {
-    for (let r = 0, o = 0; o <= e && r < this.children.length; r++) {
-      let l = this.children[r], a = o + l.length;
-      if (t <= a && e >= o) {
-        let h = n & ((o <= t ? 1 : 0) | (a >= e ? 2 : 0));
-        o >= t && a <= e && !h ? i.push(l) : l.decompose(t - o, e - o, i, h);
-      }
-      o = a + 1;
-    }
-  }
-  replace(t, e, i) {
-    if ([t, e] = Pe(this, t, e), i.lines < this.lines)
-      for (let n = 0, r = 0; n < this.children.length; n++) {
-        let o = this.children[n], l = r + o.length;
-        if (t >= r && e <= l) {
-          let a = o.replace(t - r, e - r, i), h = this.lines - o.lines + a.lines;
-          if (a.lines < h >> 4 && a.lines > h >> 6) {
-            let f = this.children.slice();
-            return f[n] = a, new Nt(f, this.length - (e - t) + i.length);
-          }
-          return super.replace(r, l, a);
-        }
-        r = l + 1;
-      }
-    return super.replace(t, e, i);
-  }
-  sliceString(t, e = this.length, i = `
-`) {
-    [t, e] = Pe(this, t, e);
-    let n = "";
-    for (let r = 0, o = 0; r < this.children.length && o <= e; r++) {
-      let l = this.children[r], a = o + l.length;
-      o > t && r && (n += i), t < a && e > o && (n += l.sliceString(t - o, e - o, i)), o = a + 1;
-    }
-    return n;
-  }
-  flatten(t) {
-    for (let e of this.children)
-      e.flatten(t);
-  }
-  scanIdentical(t, e) {
-    if (!(t instanceof Nt))
-      return 0;
-    let i = 0, [n, r, o, l] = e > 0 ? [0, 0, this.children.length, t.children.length] : [this.children.length - 1, t.children.length - 1, -1, -1];
-    for (; ; n += e, r += e) {
-      if (n == o || r == l)
-        return i;
-      let a = this.children[n], h = t.children[r];
-      if (a != h)
-        return i + a.scanIdentical(h, e);
-      i += a.length + 1;
-    }
-  }
-  static from(t, e = t.reduce((i, n) => i + n.length + 1, -1)) {
-    let i = 0;
-    for (let d of t)
-      i += d.lines;
-    if (i < 32) {
-      let d = [];
-      for (let p of t)
-        p.flatten(d);
-      return new j(d, e);
-    }
-    let n = Math.max(
-      32,
-      i >> 5
-      /* Tree.BranchShift */
-    ), r = n << 1, o = n >> 1, l = [], a = 0, h = -1, f = [];
-    function c(d) {
-      let p;
-      if (d.lines > r && d instanceof Nt)
-        for (let m of d.children)
-          c(m);
-      else d.lines > o && (a > o || !a) ? (u(), l.push(d)) : d instanceof j && a && (p = f[f.length - 1]) instanceof j && d.lines + p.lines <= 32 ? (a += d.lines, h += d.length + 1, f[f.length - 1] = new j(p.text.concat(d.text), p.length + 1 + d.length)) : (a + d.lines > n && u(), a += d.lines, h += d.length + 1, f.push(d));
-    }
-    function u() {
-      a != 0 && (l.push(f.length == 1 ? f[0] : Nt.from(f, h)), h = -1, a = f.length = 0);
-    }
-    for (let d of t)
-      c(d);
-    return u(), l.length == 1 ? l[0] : new Nt(l, e);
-  }
-}
-P.empty = /* @__PURE__ */ new j([""], 0);
-function oh(s) {
-  let t = -1;
-  for (let e of s)
-    t += e.length + 1;
-  return t;
-}
-function $i(s, t, e = 0, i = 1e9) {
-  for (let n = 0, r = 0, o = !0; r < s.length && n <= i; r++) {
-    let l = s[r], a = n + l.length;
-    a >= e && (a > i && (l = l.slice(0, i - n)), n < e && (l = l.slice(e - n)), o ? (t[t.length - 1] += l, o = !1) : t.push(l)), n = a + 1;
-  }
-  return t;
-}
-function Cr(s, t, e) {
-  return $i(s, [""], t, e);
-}
-class Qe {
-  constructor(t, e = 1) {
-    this.dir = e, this.done = !1, this.lineBreak = !1, this.value = "", this.nodes = [t], this.offsets = [e > 0 ? 1 : (t instanceof j ? t.text.length : t.children.length) << 1];
-  }
-  nextInner(t, e) {
-    for (this.done = this.lineBreak = !1; ; ) {
-      let i = this.nodes.length - 1, n = this.nodes[i], r = this.offsets[i], o = r >> 1, l = n instanceof j ? n.text.length : n.children.length;
-      if (o == (e > 0 ? l : 0)) {
-        if (i == 0)
-          return this.done = !0, this.value = "", this;
-        e > 0 && this.offsets[i - 1]++, this.nodes.pop(), this.offsets.pop();
-      } else if ((r & 1) == (e > 0 ? 0 : 1)) {
-        if (this.offsets[i] += e, t == 0)
-          return this.lineBreak = !0, this.value = `
-`, this;
-        t--;
-      } else if (n instanceof j) {
-        let a = n.text[o + (e < 0 ? -1 : 0)];
-        if (this.offsets[i] += e, a.length > Math.max(0, t))
-          return this.value = t == 0 ? a : e > 0 ? a.slice(t) : a.slice(0, a.length - t), this;
-        t -= a.length;
-      } else {
-        let a = n.children[o + (e < 0 ? -1 : 0)];
-        t > a.length ? (t -= a.length, this.offsets[i] += e) : (e < 0 && this.offsets[i]--, this.nodes.push(a), this.offsets.push(e > 0 ? 1 : (a instanceof j ? a.text.length : a.children.length) << 1));
-      }
-    }
-  }
-  next(t = 0) {
-    return t < 0 && (this.nextInner(-t, -this.dir), t = this.value.length), this.nextInner(t, this.dir);
-  }
-}
-class Jo {
-  constructor(t, e, i) {
-    this.value = "", this.done = !1, this.cursor = new Qe(t, e > i ? -1 : 1), this.pos = e > i ? t.length : 0, this.from = Math.min(e, i), this.to = Math.max(e, i);
-  }
-  nextInner(t, e) {
-    if (e < 0 ? this.pos <= this.from : this.pos >= this.to)
-      return this.value = "", this.done = !0, this;
-    t += Math.max(0, e < 0 ? this.pos - this.to : this.from - this.pos);
-    let i = e < 0 ? this.pos - this.from : this.to - this.pos;
-    t > i && (t = i), i -= t;
-    let { value: n } = this.cursor.next(t);
-    return this.pos += (n.length + t) * e, this.value = n.length <= i ? n : e < 0 ? n.slice(n.length - i) : n.slice(0, i), this.done = !this.value, this;
-  }
-  next(t = 0) {
-    return t < 0 ? t = Math.max(t, this.from - this.pos) : t > 0 && (t = Math.min(t, this.to - this.pos)), this.nextInner(t, this.cursor.dir);
-  }
-  get lineBreak() {
-    return this.cursor.lineBreak && this.value != "";
-  }
-}
-class _o {
-  constructor(t) {
-    this.inner = t, this.afterBreak = !0, this.value = "", this.done = !1;
-  }
-  next(t = 0) {
-    let { done: e, lineBreak: i, value: n } = this.inner.next(t);
-    return e && this.afterBreak ? (this.value = "", this.afterBreak = !1) : e ? (this.done = !0, this.value = "") : i ? this.afterBreak ? this.value = "" : (this.afterBreak = !0, this.next()) : (this.value = n, this.afterBreak = !1), this;
-  }
-  get lineBreak() {
-    return !1;
-  }
-}
-typeof Symbol < "u" && (P.prototype[Symbol.iterator] = function() {
-  return this.iter();
-}, Qe.prototype[Symbol.iterator] = Jo.prototype[Symbol.iterator] = _o.prototype[Symbol.iterator] = function() {
-  return this;
-});
-class lh {
-  /**
-  @internal
-  */
-  constructor(t, e, i, n) {
-    this.from = t, this.to = e, this.number = i, this.text = n;
-  }
-  /**
-  The length of the line (not including any line break after it).
-  */
-  get length() {
-    return this.to - this.from;
-  }
-}
-function Pe(s, t, e) {
-  return t = Math.max(0, Math.min(s.length, t)), [t, Math.max(t, Math.min(s.length, e))];
-}
-function nt(s, t, e = !0, i = !0) {
-  return sh(s, t, e, i);
-}
-function ah(s) {
-  return s >= 56320 && s < 57344;
-}
-function hh(s) {
-  return s >= 55296 && s < 56320;
-}
-function ue(s, t) {
-  let e = s.charCodeAt(t);
-  if (!hh(e) || t + 1 == s.length)
-    return e;
-  let i = s.charCodeAt(t + 1);
-  return ah(i) ? (e - 55296 << 10) + (i - 56320) + 65536 : e;
-}
-function fh(s) {
-  return s <= 65535 ? String.fromCharCode(s) : (s -= 65536, String.fromCharCode((s >> 10) + 55296, (s & 1023) + 56320));
-}
-function Ce(s) {
-  return s < 65536 ? 1 : 2;
-}
-const rs = /\r\n?|\n/;
-var ht = /* @__PURE__ */ (function(s) {
-  return s[s.Simple = 0] = "Simple", s[s.TrackDel = 1] = "TrackDel", s[s.TrackBefore = 2] = "TrackBefore", s[s.TrackAfter = 3] = "TrackAfter", s;
-})(ht || (ht = {}));
-class Kt {
-  // Sections are encoded as pairs of integers. The first is the
-  // length in the current document, and the second is -1 for
-  // unaffected sections, and the length of the replacement content
-  // otherwise. So an insertion would be (0, n>0), a deletion (n>0,
-  // 0), and a replacement two positive numbers.
-  /**
-  @internal
-  */
-  constructor(t) {
-    this.sections = t;
-  }
-  /**
-  The length of the document before the change.
-  */
-  get length() {
-    let t = 0;
-    for (let e = 0; e < this.sections.length; e += 2)
-      t += this.sections[e];
-    return t;
-  }
-  /**
-  The length of the document after the change.
-  */
-  get newLength() {
-    let t = 0;
-    for (let e = 0; e < this.sections.length; e += 2) {
-      let i = this.sections[e + 1];
-      t += i < 0 ? this.sections[e] : i;
-    }
-    return t;
-  }
-  /**
-  False when there are actual changes in this set.
-  */
-  get empty() {
-    return this.sections.length == 0 || this.sections.length == 2 && this.sections[1] < 0;
-  }
-  /**
-  Iterate over the unchanged parts left by these changes. `posA`
-  provides the position of the range in the old document, `posB`
-  the new position in the changed document.
-  */
-  iterGaps(t) {
-    for (let e = 0, i = 0, n = 0; e < this.sections.length; ) {
-      let r = this.sections[e++], o = this.sections[e++];
-      o < 0 ? (t(i, n, r), n += r) : n += o, i += r;
-    }
-  }
-  /**
-  Iterate over the ranges changed by these changes. (See
-  [`ChangeSet.iterChanges`](https://codemirror.net/6/docs/ref/#state.ChangeSet.iterChanges) for a
-  variant that also provides you with the inserted text.)
-  `fromA`/`toA` provides the extent of the change in the starting
-  document, `fromB`/`toB` the extent of the replacement in the
-  changed document.
-  
-  When `individual` is true, adjacent changes (which are kept
-  separate for [position mapping](https://codemirror.net/6/docs/ref/#state.ChangeDesc.mapPos)) are
-  reported separately.
-  */
-  iterChangedRanges(t, e = !1) {
-    os(this, t, e);
-  }
-  /**
-  Get a description of the inverted form of these changes.
-  */
-  get invertedDesc() {
-    let t = [];
-    for (let e = 0; e < this.sections.length; ) {
-      let i = this.sections[e++], n = this.sections[e++];
-      n < 0 ? t.push(i, n) : t.push(n, i);
-    }
-    return new Kt(t);
-  }
-  /**
-  Compute the combined effect of applying another set of changes
-  after this one. The length of the document after this set should
-  match the length before `other`.
-  */
-  composeDesc(t) {
-    return this.empty ? t : t.empty ? this : Yo(this, t);
-  }
-  /**
-  Map this description, which should start with the same document
-  as `other`, over another set of changes, so that it can be
-  applied after it. When `before` is true, map as if the changes
-  in `this` happened before the ones in `other`.
-  */
-  mapDesc(t, e = !1) {
-    return t.empty ? this : ls(this, t, e);
-  }
-  mapPos(t, e = -1, i = ht.Simple) {
-    let n = 0, r = 0;
-    for (let o = 0; o < this.sections.length; ) {
-      let l = this.sections[o++], a = this.sections[o++], h = n + l;
-      if (a < 0) {
-        if (h > t)
-          return r + (t - n);
-        r += l;
-      } else {
-        if (i != ht.Simple && h >= t && (i == ht.TrackDel && n < t && h > t || i == ht.TrackBefore && n < t || i == ht.TrackAfter && h > t))
-          return null;
-        if (h > t || h == t && e < 0 && !l)
-          return t == n || e < 0 ? r : r + a;
-        r += a;
-      }
-      n = h;
-    }
-    if (t > n)
-      throw new RangeError(`Position ${t} is out of range for changeset of length ${n}`);
-    return r;
-  }
-  /**
-  Check whether these changes touch a given range. When one of the
-  changes entirely covers the range, the string `"cover"` is
-  returned.
-  */
-  touchesRange(t, e = t) {
-    for (let i = 0, n = 0; i < this.sections.length && n <= e; ) {
-      let r = this.sections[i++], o = this.sections[i++], l = n + r;
-      if (o >= 0 && n <= e && l >= t)
-        return n < t && l > e ? "cover" : !0;
-      n = l;
-    }
-    return !1;
-  }
-  /**
-  @internal
-  */
-  toString() {
-    let t = "";
-    for (let e = 0; e < this.sections.length; ) {
-      let i = this.sections[e++], n = this.sections[e++];
-      t += (t ? " " : "") + i + (n >= 0 ? ":" + n : "");
-    }
-    return t;
-  }
-  /**
-  Serialize this change desc to a JSON-representable value.
-  */
-  toJSON() {
-    return this.sections;
-  }
-  /**
-  Create a change desc from its JSON representation (as produced
-  by [`toJSON`](https://codemirror.net/6/docs/ref/#state.ChangeDesc.toJSON).
-  */
-  static fromJSON(t) {
-    if (!Array.isArray(t) || t.length % 2 || t.some((e) => typeof e != "number"))
-      throw new RangeError("Invalid JSON representation of ChangeDesc");
-    return new Kt(t);
-  }
-  /**
-  @internal
-  */
-  static create(t) {
-    return new Kt(t);
-  }
-}
-class _ extends Kt {
-  constructor(t, e) {
-    super(t), this.inserted = e;
-  }
-  /**
-  Apply the changes to a document, returning the modified
-  document.
-  */
-  apply(t) {
-    if (this.length != t.length)
-      throw new RangeError("Applying change set to a document with the wrong length");
-    return os(this, (e, i, n, r, o) => t = t.replace(n, n + (i - e), o), !1), t;
-  }
-  mapDesc(t, e = !1) {
-    return ls(this, t, e, !0);
-  }
-  /**
-  Given the document as it existed _before_ the changes, return a
-  change set that represents the inverse of this set, which could
-  be used to go from the document created by the changes back to
-  the document as it existed before the changes.
-  */
-  invert(t) {
-    let e = this.sections.slice(), i = [];
-    for (let n = 0, r = 0; n < e.length; n += 2) {
-      let o = e[n], l = e[n + 1];
-      if (l >= 0) {
-        e[n] = l, e[n + 1] = o;
-        let a = n >> 1;
-        for (; i.length < a; )
-          i.push(P.empty);
-        i.push(o ? t.slice(r, r + o) : P.empty);
-      }
-      r += o;
-    }
-    return new _(e, i);
-  }
-  /**
-  Combine two subsequent change sets into a single set. `other`
-  must start in the document produced by `this`. If `this` goes
-  `docA` → `docB` and `other` represents `docB` → `docC`, the
-  returned value will represent the change `docA` → `docC`.
-  */
-  compose(t) {
-    return this.empty ? t : t.empty ? this : Yo(this, t, !0);
-  }
-  /**
-  Given another change set starting in the same document, maps this
-  change set over the other, producing a new change set that can be
-  applied to the document produced by applying `other`. When
-  `before` is `true`, order changes as if `this` comes before
-  `other`, otherwise (the default) treat `other` as coming first.
-  
-  Given two changes `A` and `B`, `A.compose(B.map(A))` and
-  `B.compose(A.map(B, true))` will produce the same document. This
-  provides a basic form of [operational
-  transformation](https://en.wikipedia.org/wiki/Operational_transformation),
-  and can be used for collaborative editing.
-  */
-  map(t, e = !1) {
-    return t.empty ? this : ls(this, t, e, !0);
-  }
-  /**
-  Iterate over the changed ranges in the document, calling `f` for
-  each, with the range in the original document (`fromA`-`toA`)
-  and the range that replaces it in the new document
-  (`fromB`-`toB`).
-  
-  When `individual` is true, adjacent changes are reported
-  separately.
-  */
-  iterChanges(t, e = !1) {
-    os(this, t, e);
-  }
-  /**
-  Get a [change description](https://codemirror.net/6/docs/ref/#state.ChangeDesc) for this change
-  set.
-  */
-  get desc() {
-    return Kt.create(this.sections);
-  }
-  /**
-  @internal
-  */
-  filter(t) {
-    let e = [], i = [], n = [], r = new ri(this);
-    t: for (let o = 0, l = 0; ; ) {
-      let a = o == t.length ? 1e9 : t[o++];
-      for (; l < a || l == a && r.len == 0; ) {
-        if (r.done)
-          break t;
-        let f = Math.min(r.len, a - l);
-        it(n, f, -1);
-        let c = r.ins == -1 ? -1 : r.off == 0 ? r.ins : 0;
-        it(e, f, c), c > 0 && ee(i, e, r.text), r.forward(f), l += f;
-      }
-      let h = t[o++];
-      for (; l < h; ) {
-        if (r.done)
-          break t;
-        let f = Math.min(r.len, h - l);
-        it(e, f, -1), it(n, f, r.ins == -1 ? -1 : r.off == 0 ? r.ins : 0), r.forward(f), l += f;
-      }
-    }
-    return {
-      changes: new _(e, i),
-      filtered: Kt.create(n)
-    };
-  }
-  /**
-  Serialize this change set to a JSON-representable value.
-  */
-  toJSON() {
-    let t = [];
-    for (let e = 0; e < this.sections.length; e += 2) {
-      let i = this.sections[e], n = this.sections[e + 1];
-      n < 0 ? t.push(i) : n == 0 ? t.push([i]) : t.push([i].concat(this.inserted[e >> 1].toJSON()));
-    }
-    return t;
-  }
-  /**
-  Create a change set for the given changes, for a document of the
-  given length, using `lineSep` as line separator.
-  */
-  static of(t, e, i) {
-    let n = [], r = [], o = 0, l = null;
-    function a(f = !1) {
-      if (!f && !n.length)
-        return;
-      o < e && it(n, e - o, -1);
-      let c = new _(n, r);
-      l = l ? l.compose(c.map(l)) : c, n = [], r = [], o = 0;
-    }
-    function h(f) {
-      if (Array.isArray(f))
-        for (let c of f)
-          h(c);
-      else if (f instanceof _) {
-        if (f.length != e)
-          throw new RangeError(`Mismatched change set length (got ${f.length}, expected ${e})`);
-        a(), l = l ? l.compose(f.map(l)) : f;
-      } else {
-        let { from: c, to: u = c, insert: d } = f;
-        if (c > u || c < 0 || u > e)
-          throw new RangeError(`Invalid change range ${c} to ${u} (in doc of length ${e})`);
-        let p = d ? typeof d == "string" ? P.of(d.split(i || rs)) : d : P.empty, m = p.length;
-        if (c == u && m == 0)
-          return;
-        c < o && a(), c > o && it(n, c - o, -1), it(n, u - c, m), ee(r, n, p), o = u;
-      }
-    }
-    return h(t), a(!l), l;
-  }
-  /**
-  Create an empty changeset of the given length.
-  */
-  static empty(t) {
-    return new _(t ? [t, -1] : [], []);
-  }
-  /**
-  Create a changeset from its JSON representation (as produced by
-  [`toJSON`](https://codemirror.net/6/docs/ref/#state.ChangeSet.toJSON).
-  */
-  static fromJSON(t) {
-    if (!Array.isArray(t))
-      throw new RangeError("Invalid JSON representation of ChangeSet");
-    let e = [], i = [];
-    for (let n = 0; n < t.length; n++) {
-      let r = t[n];
-      if (typeof r == "number")
-        e.push(r, -1);
-      else {
-        if (!Array.isArray(r) || typeof r[0] != "number" || r.some((o, l) => l && typeof o != "string"))
-          throw new RangeError("Invalid JSON representation of ChangeSet");
-        if (r.length == 1)
-          e.push(r[0], 0);
-        else {
-          for (; i.length < n; )
-            i.push(P.empty);
-          i[n] = P.of(r.slice(1)), e.push(r[0], i[n].length);
-        }
-      }
-    }
-    return new _(e, i);
-  }
-  /**
-  @internal
-  */
-  static createSet(t, e) {
-    return new _(t, e);
-  }
-}
-function it(s, t, e, i = !1) {
-  if (t == 0 && e <= 0)
-    return;
-  let n = s.length - 2;
-  n >= 0 && e <= 0 && e == s[n + 1] ? s[n] += t : n >= 0 && t == 0 && s[n] == 0 ? s[n + 1] += e : i ? (s[n] += t, s[n + 1] += e) : s.push(t, e);
-}
-function ee(s, t, e) {
-  if (e.length == 0)
-    return;
-  let i = t.length - 2 >> 1;
-  if (i < s.length)
-    s[s.length - 1] = s[s.length - 1].append(e);
-  else {
-    for (; s.length < i; )
-      s.push(P.empty);
-    s.push(e);
-  }
-}
-function os(s, t, e) {
-  let i = s.inserted;
-  for (let n = 0, r = 0, o = 0; o < s.sections.length; ) {
-    let l = s.sections[o++], a = s.sections[o++];
-    if (a < 0)
-      n += l, r += l;
-    else {
-      let h = n, f = r, c = P.empty;
-      for (; h += l, f += a, a && i && (c = c.append(i[o - 2 >> 1])), !(e || o == s.sections.length || s.sections[o + 1] < 0); )
-        l = s.sections[o++], a = s.sections[o++];
-      t(n, h, r, f, c), n = h, r = f;
-    }
-  }
-}
-function ls(s, t, e, i = !1) {
-  let n = [], r = i ? [] : null, o = new ri(s), l = new ri(t);
-  for (let a = -1; ; ) {
-    if (o.done && l.len || l.done && o.len)
-      throw new Error("Mismatched change set lengths");
-    if (o.ins == -1 && l.ins == -1) {
-      let h = Math.min(o.len, l.len);
-      it(n, h, -1), o.forward(h), l.forward(h);
-    } else if (l.ins >= 0 && (o.ins < 0 || a == o.i || o.off == 0 && (l.len < o.len || l.len == o.len && !e))) {
-      let h = l.len;
-      for (it(n, l.ins, -1); h; ) {
-        let f = Math.min(o.len, h);
-        o.ins >= 0 && a < o.i && o.len <= f && (it(n, 0, o.ins), r && ee(r, n, o.text), a = o.i), o.forward(f), h -= f;
-      }
-      l.next();
-    } else if (o.ins >= 0) {
-      let h = 0, f = o.len;
-      for (; f; )
-        if (l.ins == -1) {
-          let c = Math.min(f, l.len);
-          h += c, f -= c, l.forward(c);
-        } else if (l.ins == 0 && l.len < f)
-          f -= l.len, l.next();
-        else
-          break;
-      it(n, h, a < o.i ? o.ins : 0), r && a < o.i && ee(r, n, o.text), a = o.i, o.forward(o.len - f);
-    } else {
-      if (o.done && l.done)
-        return r ? _.createSet(n, r) : Kt.create(n);
-      throw new Error("Mismatched change set lengths");
-    }
-  }
-}
-function Yo(s, t, e = !1) {
-  let i = [], n = e ? [] : null, r = new ri(s), o = new ri(t);
-  for (let l = !1; ; ) {
-    if (r.done && o.done)
-      return n ? _.createSet(i, n) : Kt.create(i);
-    if (r.ins == 0)
-      it(i, r.len, 0, l), r.next();
-    else if (o.len == 0 && !o.done)
-      it(i, 0, o.ins, l), n && ee(n, i, o.text), o.next();
-    else {
-      if (r.done || o.done)
-        throw new Error("Mismatched change set lengths");
-      {
-        let a = Math.min(r.len2, o.len), h = i.length;
-        if (r.ins == -1) {
-          let f = o.ins == -1 ? -1 : o.off ? 0 : o.ins;
-          it(i, a, f, l), n && f && ee(n, i, o.text);
-        } else o.ins == -1 ? (it(i, r.off ? 0 : r.len, a, l), n && ee(n, i, r.textBit(a))) : (it(i, r.off ? 0 : r.len, o.off ? 0 : o.ins, l), n && !o.off && ee(n, i, o.text));
-        l = (r.ins > a || o.ins >= 0 && o.len > a) && (l || i.length > h), r.forward2(a), o.forward(a);
-      }
-    }
-  }
-}
-class ri {
-  constructor(t) {
-    this.set = t, this.i = 0, this.next();
-  }
-  next() {
-    let { sections: t } = this.set;
-    this.i < t.length ? (this.len = t[this.i++], this.ins = t[this.i++]) : (this.len = 0, this.ins = -2), this.off = 0;
-  }
-  get done() {
-    return this.ins == -2;
-  }
-  get len2() {
-    return this.ins < 0 ? this.len : this.ins;
-  }
-  get text() {
-    let { inserted: t } = this.set, e = this.i - 2 >> 1;
-    return e >= t.length ? P.empty : t[e];
-  }
-  textBit(t) {
-    let { inserted: e } = this.set, i = this.i - 2 >> 1;
-    return i >= e.length && !t ? P.empty : e[i].slice(this.off, t == null ? void 0 : this.off + t);
-  }
-  forward(t) {
-    t == this.len ? this.next() : (this.len -= t, this.off += t);
-  }
-  forward2(t) {
-    this.ins == -1 ? this.forward(t) : t == this.ins ? this.next() : (this.ins -= t, this.off += t);
-  }
-}
-class ge {
-  constructor(t, e, i) {
-    this.from = t, this.to = e, this.flags = i;
-  }
-  /**
-  The anchor of the range—the side that doesn't move when you
-  extend it.
-  */
-  get anchor() {
-    return this.flags & 32 ? this.to : this.from;
-  }
-  /**
-  The head of the range, which is moved when the range is
-  [extended](https://codemirror.net/6/docs/ref/#state.SelectionRange.extend).
-  */
-  get head() {
-    return this.flags & 32 ? this.from : this.to;
-  }
-  /**
-  True when `anchor` and `head` are at the same position.
-  */
-  get empty() {
-    return this.from == this.to;
-  }
-  /**
-  If this is a cursor that is explicitly associated with the
-  character on one of its sides, this returns the side. -1 means
-  the character before its position, 1 the character after, and 0
-  means no association.
-  */
-  get assoc() {
-    return this.flags & 8 ? -1 : this.flags & 16 ? 1 : 0;
-  }
-  /**
-  The bidirectional text level associated with this cursor, if
-  any.
-  */
-  get bidiLevel() {
-    let t = this.flags & 7;
-    return t == 7 ? null : t;
-  }
-  /**
-  The goal column (stored vertical offset) associated with a
-  cursor. This is used to preserve the vertical position when
-  [moving](https://codemirror.net/6/docs/ref/#view.EditorView.moveVertically) across
-  lines of different length.
-  */
-  get goalColumn() {
-    let t = this.flags >> 6;
-    return t == 16777215 ? void 0 : t;
-  }
-  /**
-  Map this range through a change, producing a valid range in the
-  updated document.
-  */
-  map(t, e = -1) {
-    let i, n;
-    return this.empty ? i = n = t.mapPos(this.from, e) : (i = t.mapPos(this.from, 1), n = t.mapPos(this.to, -1)), i == this.from && n == this.to ? this : new ge(i, n, this.flags);
-  }
-  /**
-  Extend this range to cover at least `from` to `to`.
-  */
-  extend(t, e = t) {
-    if (t <= this.anchor && e >= this.anchor)
-      return b.range(t, e);
-    let i = Math.abs(t - this.anchor) > Math.abs(e - this.anchor) ? t : e;
-    return b.range(this.anchor, i);
-  }
-  /**
-  Compare this range to another range.
-  */
-  eq(t, e = !1) {
-    return this.anchor == t.anchor && this.head == t.head && this.goalColumn == t.goalColumn && (!e || !this.empty || this.assoc == t.assoc);
-  }
-  /**
-  Return a JSON-serializable object representing the range.
-  */
-  toJSON() {
-    return { anchor: this.anchor, head: this.head };
-  }
-  /**
-  Convert a JSON representation of a range to a `SelectionRange`
-  instance.
-  */
-  static fromJSON(t) {
-    if (!t || typeof t.anchor != "number" || typeof t.head != "number")
-      throw new RangeError("Invalid JSON representation for SelectionRange");
-    return b.range(t.anchor, t.head);
-  }
-  /**
-  @internal
-  */
-  static create(t, e, i) {
-    return new ge(t, e, i);
-  }
-}
-class b {
-  constructor(t, e) {
-    this.ranges = t, this.mainIndex = e;
-  }
-  /**
-  Map a selection through a change. Used to adjust the selection
-  position for changes.
-  */
-  map(t, e = -1) {
-    return t.empty ? this : b.create(this.ranges.map((i) => i.map(t, e)), this.mainIndex);
-  }
-  /**
-  Compare this selection to another selection. By default, ranges
-  are compared only by position. When `includeAssoc` is true,
-  cursor ranges must also have the same
-  [`assoc`](https://codemirror.net/6/docs/ref/#state.SelectionRange.assoc) value.
-  */
-  eq(t, e = !1) {
-    if (this.ranges.length != t.ranges.length || this.mainIndex != t.mainIndex)
-      return !1;
-    for (let i = 0; i < this.ranges.length; i++)
-      if (!this.ranges[i].eq(t.ranges[i], e))
-        return !1;
-    return !0;
-  }
-  /**
-  Get the primary selection range. Usually, you should make sure
-  your code applies to _all_ ranges, by using methods like
-  [`changeByRange`](https://codemirror.net/6/docs/ref/#state.EditorState.changeByRange).
-  */
-  get main() {
-    return this.ranges[this.mainIndex];
-  }
-  /**
-  Make sure the selection only has one range. Returns a selection
-  holding only the main range from this selection.
-  */
-  asSingle() {
-    return this.ranges.length == 1 ? this : new b([this.main], 0);
-  }
-  /**
-  Extend this selection with an extra range.
-  */
-  addRange(t, e = !0) {
-    return b.create([t].concat(this.ranges), e ? 0 : this.mainIndex + 1);
-  }
-  /**
-  Replace a given range with another range, and then normalize the
-  selection to merge and sort ranges if necessary.
-  */
-  replaceRange(t, e = this.mainIndex) {
-    let i = this.ranges.slice();
-    return i[e] = t, b.create(i, this.mainIndex);
-  }
-  /**
-  Convert this selection to an object that can be serialized to
-  JSON.
-  */
-  toJSON() {
-    return { ranges: this.ranges.map((t) => t.toJSON()), main: this.mainIndex };
-  }
-  /**
-  Create a selection from a JSON representation.
-  */
-  static fromJSON(t) {
-    if (!t || !Array.isArray(t.ranges) || typeof t.main != "number" || t.main >= t.ranges.length)
-      throw new RangeError("Invalid JSON representation for EditorSelection");
-    return new b(t.ranges.map((e) => ge.fromJSON(e)), t.main);
-  }
-  /**
-  Create a selection holding a single range.
-  */
-  static single(t, e = t) {
-    return new b([b.range(t, e)], 0);
-  }
-  /**
-  Sort and merge the given set of ranges, creating a valid
-  selection.
-  */
-  static create(t, e = 0) {
-    if (t.length == 0)
-      throw new RangeError("A selection needs at least one range");
-    for (let i = 0, n = 0; n < t.length; n++) {
-      let r = t[n];
-      if (r.empty ? r.from <= i : r.from < i)
-        return b.normalized(t.slice(), e);
-      i = r.to;
-    }
-    return new b(t, e);
-  }
-  /**
-  Create a cursor selection range at the given position. You can
-  safely ignore the optional arguments in most situations.
-  */
-  static cursor(t, e = 0, i, n) {
-    return ge.create(t, t, (e == 0 ? 0 : e < 0 ? 8 : 16) | (i == null ? 7 : Math.min(6, i)) | (n ?? 16777215) << 6);
-  }
-  /**
-  Create a selection range.
-  */
-  static range(t, e, i, n) {
-    let r = (i ?? 16777215) << 6 | (n == null ? 7 : Math.min(6, n));
-    return e < t ? ge.create(e, t, 48 | r) : ge.create(t, e, (e > t ? 8 : 0) | r);
-  }
-  /**
-  @internal
-  */
-  static normalized(t, e = 0) {
-    let i = t[e];
-    t.sort((n, r) => n.from - r.from), e = t.indexOf(i);
-    for (let n = 1; n < t.length; n++) {
-      let r = t[n], o = t[n - 1];
-      if (r.empty ? r.from <= o.to : r.from < o.to) {
-        let l = o.from, a = Math.max(r.to, o.to);
-        n <= e && e--, t.splice(--n, 2, r.anchor > r.head ? b.range(a, l) : b.range(l, a));
-      }
-    }
-    return new b(t, e);
-  }
-}
-function Xo(s, t) {
-  for (let e of s.ranges)
-    if (e.to > t)
-      throw new RangeError("Selection points outside of document");
-}
-let js = 0;
-class M {
-  constructor(t, e, i, n, r) {
-    this.combine = t, this.compareInput = e, this.compare = i, this.isStatic = n, this.id = js++, this.default = t([]), this.extensions = typeof r == "function" ? r(this) : r;
-  }
-  /**
-  Returns a facet reader for this facet, which can be used to
-  [read](https://codemirror.net/6/docs/ref/#state.EditorState.facet) it but not to define values for it.
-  */
-  get reader() {
-    return this;
-  }
-  /**
-  Define a new facet.
-  */
-  static define(t = {}) {
-    return new M(t.combine || ((e) => e), t.compareInput || ((e, i) => e === i), t.compare || (t.combine ? (e, i) => e === i : Gs), !!t.static, t.enables);
-  }
-  /**
-  Returns an extension that adds the given value to this facet.
-  */
-  of(t) {
-    return new Ui([], this, 0, t);
-  }
-  /**
-  Create an extension that computes a value for the facet from a
-  state. You must take care to declare the parts of the state that
-  this value depends on, since your function is only called again
-  for a new state when one of those parts changed.
-  
-  In cases where your value depends only on a single field, you'll
-  want to use the [`from`](https://codemirror.net/6/docs/ref/#state.Facet.from) method instead.
-  */
-  compute(t, e) {
-    if (this.isStatic)
-      throw new Error("Can't compute a static facet");
-    return new Ui(t, this, 1, e);
-  }
-  /**
-  Create an extension that computes zero or more values for this
-  facet from a state.
-  */
-  computeN(t, e) {
-    if (this.isStatic)
-      throw new Error("Can't compute a static facet");
-    return new Ui(t, this, 2, e);
-  }
-  from(t, e) {
-    return e || (e = (i) => i), this.compute([t], (i) => e(i.field(t)));
-  }
-}
-function Gs(s, t) {
-  return s == t || s.length == t.length && s.every((e, i) => e === t[i]);
-}
-class Ui {
-  constructor(t, e, i, n) {
-    this.dependencies = t, this.facet = e, this.type = i, this.value = n, this.id = js++;
-  }
-  dynamicSlot(t) {
-    var e;
-    let i = this.value, n = this.facet.compareInput, r = this.id, o = t[r] >> 1, l = this.type == 2, a = !1, h = !1, f = [];
-    for (let c of this.dependencies)
-      c == "doc" ? a = !0 : c == "selection" ? h = !0 : (((e = t[c.id]) !== null && e !== void 0 ? e : 1) & 1) == 0 && f.push(t[c.id]);
-    return {
-      create(c) {
-        return c.values[o] = i(c), 1;
-      },
-      update(c, u) {
-        if (a && u.docChanged || h && (u.docChanged || u.selection) || as(c, f)) {
-          let d = i(c);
-          if (l ? !Ar(d, c.values[o], n) : !n(d, c.values[o]))
-            return c.values[o] = d, 1;
-        }
-        return 0;
-      },
-      reconfigure: (c, u) => {
-        let d, p = u.config.address[r];
-        if (p != null) {
-          let m = Qi(u, p);
-          if (this.dependencies.every((g) => g instanceof M ? u.facet(g) === c.facet(g) : g instanceof pt ? u.field(g, !1) == c.field(g, !1) : !0) || (l ? Ar(d = i(c), m, n) : n(d = i(c), m)))
-            return c.values[o] = m, 0;
-        } else
-          d = i(c);
-        return c.values[o] = d, 1;
-      }
-    };
-  }
-}
-function Ar(s, t, e) {
-  if (s.length != t.length)
-    return !1;
-  for (let i = 0; i < s.length; i++)
-    if (!e(s[i], t[i]))
-      return !1;
-  return !0;
-}
-function as(s, t) {
-  let e = !1;
-  for (let i of t)
-    Ze(s, i) & 1 && (e = !0);
-  return e;
-}
-function ch(s, t, e) {
-  let i = e.map((a) => s[a.id]), n = e.map((a) => a.type), r = i.filter((a) => !(a & 1)), o = s[t.id] >> 1;
-  function l(a) {
-    let h = [];
-    for (let f = 0; f < i.length; f++) {
-      let c = Qi(a, i[f]);
-      if (n[f] == 2)
-        for (let u of c)
-          h.push(u);
-      else
-        h.push(c);
-    }
-    return t.combine(h);
-  }
-  return {
-    create(a) {
-      for (let h of i)
-        Ze(a, h);
-      return a.values[o] = l(a), 1;
-    },
-    update(a, h) {
-      if (!as(a, r))
-        return 0;
-      let f = l(a);
-      return t.compare(f, a.values[o]) ? 0 : (a.values[o] = f, 1);
-    },
-    reconfigure(a, h) {
-      let f = as(a, i), c = h.config.facets[t.id], u = h.facet(t);
-      if (c && !f && Gs(e, c))
-        return a.values[o] = u, 0;
-      let d = l(a);
-      return t.compare(d, u) ? (a.values[o] = u, 0) : (a.values[o] = d, 1);
-    }
-  };
-}
-const ki = /* @__PURE__ */ M.define({ static: !0 });
-class pt {
-  constructor(t, e, i, n, r) {
-    this.id = t, this.createF = e, this.updateF = i, this.compareF = n, this.spec = r, this.provides = void 0;
-  }
-  /**
-  Define a state field.
-  */
-  static define(t) {
-    let e = new pt(js++, t.create, t.update, t.compare || ((i, n) => i === n), t);
-    return t.provide && (e.provides = t.provide(e)), e;
-  }
-  create(t) {
-    let e = t.facet(ki).find((i) => i.field == this);
-    return (e?.create || this.createF)(t);
-  }
-  /**
-  @internal
-  */
-  slot(t) {
-    let e = t[this.id] >> 1;
-    return {
-      create: (i) => (i.values[e] = this.create(i), 1),
-      update: (i, n) => {
-        let r = i.values[e], o = this.updateF(r, n);
-        return this.compareF(r, o) ? 0 : (i.values[e] = o, 1);
-      },
-      reconfigure: (i, n) => {
-        let r = i.facet(ki), o = n.facet(ki), l;
-        return (l = r.find((a) => a.field == this)) && l != o.find((a) => a.field == this) ? (i.values[e] = l.create(i), 1) : n.config.address[this.id] != null ? (i.values[e] = n.field(this), 0) : (i.values[e] = this.create(i), 1);
-      }
-    };
-  }
-  /**
-  Returns an extension that enables this field and overrides the
-  way it is initialized. Can be useful when you need to provide a
-  non-default starting value for the field.
-  */
-  init(t) {
-    return [this, ki.of({ field: this, create: t })];
-  }
-  /**
-  State field instances can be used as
-  [`Extension`](https://codemirror.net/6/docs/ref/#state.Extension) values to enable the field in a
-  given state.
-  */
-  get extension() {
-    return this;
-  }
-}
-const pe = { lowest: 4, low: 3, default: 2, high: 1, highest: 0 };
-function $e(s) {
-  return (t) => new Qo(t, s);
-}
-const wn = {
-  /**
-  The highest precedence level, for extensions that should end up
-  near the start of the precedence ordering.
-  */
-  highest: /* @__PURE__ */ $e(pe.highest),
-  /**
-  A higher-than-default precedence, for extensions that should
-  come before those with default precedence.
-  */
-  high: /* @__PURE__ */ $e(pe.high),
-  /**
-  The default precedence, which is also used for extensions
-  without an explicit precedence.
-  */
-  default: /* @__PURE__ */ $e(pe.default),
-  /**
-  A lower-than-default precedence.
-  */
-  low: /* @__PURE__ */ $e(pe.low),
-  /**
-  The lowest precedence level. Meant for things that should end up
-  near the end of the extension order.
-  */
-  lowest: /* @__PURE__ */ $e(pe.lowest)
+//#endregion
+//#region node_modules/@codemirror/state/dist/index.js
+var f = class e {
+	lineAt(e) {
+		if (e < 0 || e > this.length) throw RangeError(`Invalid position ${e} in document of length ${this.length}`);
+		return this.lineInner(e, !1, 1, 0);
+	}
+	line(e) {
+		if (e < 1 || e > this.lines) throw RangeError(`Invalid line number ${e} in ${this.lines}-line document`);
+		return this.lineInner(e, !0, 1, 0);
+	}
+	replace(e, t, n) {
+		[e, t] = x(this, e, t);
+		let r = [];
+		return this.decompose(0, e, r, 2), n.length && n.decompose(0, n.length, r, 3), this.decompose(t, this.length, r, 1), m.from(r, this.length - (t - e) + n.length);
+	}
+	append(e) {
+		return this.replace(this.length, this.length, e);
+	}
+	slice(e, t = this.length) {
+		[e, t] = x(this, e, t);
+		let n = [];
+		return this.decompose(e, t, n, 0), m.from(n, t - e);
+	}
+	eq(e) {
+		if (e == this) return !0;
+		if (e.length != this.length || e.lines != this.lines) return !1;
+		let t = this.scanIdentical(e, 1), n = this.length - this.scanIdentical(e, -1), r = new v(this), i = new v(e);
+		for (let e = t, a = t;;) {
+			if (r.next(e), i.next(e), e = 0, r.lineBreak != i.lineBreak || r.done != i.done || r.value != i.value) return !1;
+			if (a += r.value.length, r.done || a >= n) return !0;
+		}
+	}
+	iter(e = 1) {
+		return new v(this, e);
+	}
+	iterRange(e, t = this.length) {
+		return new y(this, e, t);
+	}
+	iterLines(e, t) {
+		let n;
+		if (e == null) n = this.iter();
+		else {
+			t ?? (t = this.lines + 1);
+			let r = this.line(e).from;
+			n = this.iterRange(r, Math.max(r, t == this.lines + 1 ? this.length : t <= 1 ? 0 : this.line(t - 1).to));
+		}
+		return new ee(n);
+	}
+	toString() {
+		return this.sliceString(0);
+	}
+	toJSON() {
+		let e = [];
+		return this.flatten(e), e;
+	}
+	constructor() {}
+	static of(t) {
+		if (t.length == 0) throw RangeError("A document must have at least one line");
+		return t.length == 1 && !t[0] ? e.empty : t.length <= 32 ? new p(t) : m.from(p.split(t, []));
+	}
+}, p = class e extends f {
+	constructor(e, t = h(e)) {
+		super(), this.text = e, this.length = t;
+	}
+	get lines() {
+		return this.text.length;
+	}
+	get children() {
+		return null;
+	}
+	lineInner(e, t, n, r) {
+		for (let i = 0;; i++) {
+			let a = this.text[i], o = r + a.length;
+			if ((t ? n : o) >= e) return new b(r, o, n, a);
+			r = o + 1, n++;
+		}
+	}
+	decompose(t, n, r, i) {
+		let a = t <= 0 && n >= this.length ? this : new e(_(this.text, t, n), Math.min(n, this.length) - Math.max(0, t));
+		if (i & 1) {
+			let t = r.pop(), n = g(a.text, t.text.slice(), 0, a.length);
+			if (n.length <= 32) r.push(new e(n, t.length + a.length));
+			else {
+				let t = n.length >> 1;
+				r.push(new e(n.slice(0, t)), new e(n.slice(t)));
+			}
+		} else r.push(a);
+	}
+	replace(t, n, r) {
+		if (!(r instanceof e)) return super.replace(t, n, r);
+		[t, n] = x(this, t, n);
+		let i = g(this.text, g(r.text, _(this.text, 0, t)), n), a = this.length + r.length - (n - t);
+		return i.length <= 32 ? new e(i, a) : m.from(e.split(i, []), a);
+	}
+	sliceString(e, t = this.length, n = "\n") {
+		[e, t] = x(this, e, t);
+		let r = "";
+		for (let i = 0, a = 0; i <= t && a < this.text.length; a++) {
+			let o = this.text[a], s = i + o.length;
+			i > e && a && (r += n), e < s && t > i && (r += o.slice(Math.max(0, e - i), t - i)), i = s + 1;
+		}
+		return r;
+	}
+	flatten(e) {
+		for (let t of this.text) e.push(t);
+	}
+	scanIdentical() {
+		return 0;
+	}
+	static split(t, n) {
+		let r = [], i = -1;
+		for (let a of t) r.push(a), i += a.length + 1, r.length == 32 && (n.push(new e(r, i)), r = [], i = -1);
+		return i > -1 && n.push(new e(r, i)), n;
+	}
+}, m = class e extends f {
+	constructor(e, t) {
+		super(), this.children = e, this.length = t, this.lines = 0;
+		for (let t of e) this.lines += t.lines;
+	}
+	lineInner(e, t, n, r) {
+		for (let i = 0;; i++) {
+			let a = this.children[i], o = r + a.length, s = n + a.lines - 1;
+			if ((t ? s : o) >= e) return a.lineInner(e, t, n, r);
+			r = o + 1, n = s + 1;
+		}
+	}
+	decompose(e, t, n, r) {
+		for (let i = 0, a = 0; a <= t && i < this.children.length; i++) {
+			let o = this.children[i], s = a + o.length;
+			if (e <= s && t >= a) {
+				let i = r & (a <= e | (s >= t ? 2 : 0));
+				a >= e && s <= t && !i ? n.push(o) : o.decompose(e - a, t - a, n, i);
+			}
+			a = s + 1;
+		}
+	}
+	replace(t, n, r) {
+		if ([t, n] = x(this, t, n), r.lines < this.lines) for (let i = 0, a = 0; i < this.children.length; i++) {
+			let o = this.children[i], s = a + o.length;
+			if (t >= a && n <= s) {
+				let c = o.replace(t - a, n - a, r), l = this.lines - o.lines + c.lines;
+				if (c.lines < l >> 4 && c.lines > l >> 6) {
+					let a = this.children.slice();
+					return a[i] = c, new e(a, this.length - (n - t) + r.length);
+				}
+				return super.replace(a, s, c);
+			}
+			a = s + 1;
+		}
+		return super.replace(t, n, r);
+	}
+	sliceString(e, t = this.length, n = "\n") {
+		[e, t] = x(this, e, t);
+		let r = "";
+		for (let i = 0, a = 0; i < this.children.length && a <= t; i++) {
+			let o = this.children[i], s = a + o.length;
+			a > e && i && (r += n), e < s && t > a && (r += o.sliceString(e - a, t - a, n)), a = s + 1;
+		}
+		return r;
+	}
+	flatten(e) {
+		for (let t of this.children) t.flatten(e);
+	}
+	scanIdentical(t, n) {
+		if (!(t instanceof e)) return 0;
+		let r = 0, [i, a, o, s] = n > 0 ? [
+			0,
+			0,
+			this.children.length,
+			t.children.length
+		] : [
+			this.children.length - 1,
+			t.children.length - 1,
+			-1,
+			-1
+		];
+		for (;; i += n, a += n) {
+			if (i == o || a == s) return r;
+			let e = this.children[i], c = t.children[a];
+			if (e != c) return r + e.scanIdentical(c, n);
+			r += e.length + 1;
+		}
+	}
+	static from(t, n = t.reduce((e, t) => e + t.length + 1, -1)) {
+		let r = 0;
+		for (let e of t) r += e.lines;
+		if (r < 32) {
+			let e = [];
+			for (let n of t) n.flatten(e);
+			return new p(e, n);
+		}
+		let i = Math.max(32, r >> 5), a = i << 1, o = i >> 1, s = [], c = 0, l = -1, u = [];
+		function d(t) {
+			let n;
+			if (t.lines > a && t instanceof e) for (let e of t.children) d(e);
+			else t.lines > o && (c > o || !c) ? (f(), s.push(t)) : t instanceof p && c && (n = u[u.length - 1]) instanceof p && t.lines + n.lines <= 32 ? (c += t.lines, l += t.length + 1, u[u.length - 1] = new p(n.text.concat(t.text), n.length + 1 + t.length)) : (c + t.lines > i && f(), c += t.lines, l += t.length + 1, u.push(t));
+		}
+		function f() {
+			c != 0 && (s.push(u.length == 1 ? u[0] : e.from(u, l)), l = -1, c = u.length = 0);
+		}
+		for (let e of t) d(e);
+		return f(), s.length == 1 ? s[0] : new e(s, n);
+	}
 };
-class Qo {
-  constructor(t, e) {
-    this.inner = t, this.prec = e;
-  }
+f.empty = /*@__PURE__*/ new p([""], 0);
+function h(e) {
+	let t = -1;
+	for (let n of e) t += n.length + 1;
+	return t;
 }
-class xn {
-  /**
-  Create an instance of this compartment to add to your [state
-  configuration](https://codemirror.net/6/docs/ref/#state.EditorStateConfig.extensions).
-  */
-  of(t) {
-    return new hs(this, t);
-  }
-  /**
-  Create an [effect](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) that
-  reconfigures this compartment.
-  */
-  reconfigure(t) {
-    return xn.reconfigure.of({ compartment: this, extension: t });
-  }
-  /**
-  Get the current content of the compartment in the state, or
-  `undefined` if it isn't present.
-  */
-  get(t) {
-    return t.config.compartments.get(this);
-  }
+function g(e, t, n = 0, r = 1e9) {
+	for (let i = 0, a = 0, o = !0; a < e.length && i <= r; a++) {
+		let s = e[a], c = i + s.length;
+		c >= n && (c > r && (s = s.slice(0, r - i)), i < n && (s = s.slice(n - i)), o ? (t[t.length - 1] += s, o = !1) : t.push(s)), i = c + 1;
+	}
+	return t;
 }
-class hs {
-  constructor(t, e) {
-    this.compartment = t, this.inner = e;
-  }
+function _(e, t, n) {
+	return g(e, [""], t, n);
 }
-class Xi {
-  constructor(t, e, i, n, r, o) {
-    for (this.base = t, this.compartments = e, this.dynamicSlots = i, this.address = n, this.staticValues = r, this.facets = o, this.statusTemplate = []; this.statusTemplate.length < i.length; )
-      this.statusTemplate.push(
-        0
-        /* SlotStatus.Unresolved */
-      );
-  }
-  staticFacet(t) {
-    let e = this.address[t.id];
-    return e == null ? t.default : this.staticValues[e >> 1];
-  }
-  static resolve(t, e, i) {
-    let n = [], r = /* @__PURE__ */ Object.create(null), o = /* @__PURE__ */ new Map();
-    for (let u of uh(t, e, o))
-      u instanceof pt ? n.push(u) : (r[u.facet.id] || (r[u.facet.id] = [])).push(u);
-    let l = /* @__PURE__ */ Object.create(null), a = [], h = [];
-    for (let u of n)
-      l[u.id] = h.length << 1, h.push((d) => u.slot(d));
-    let f = i?.config.facets;
-    for (let u in r) {
-      let d = r[u], p = d[0].facet, m = f && f[u] || [];
-      if (d.every(
-        (g) => g.type == 0
-        /* Provider.Static */
-      ))
-        if (l[p.id] = a.length << 1 | 1, Gs(m, d))
-          a.push(i.facet(p));
-        else {
-          let g = p.combine(d.map((y) => y.value));
-          a.push(i && p.compare(g, i.facet(p)) ? i.facet(p) : g);
-        }
-      else {
-        for (let g of d)
-          g.type == 0 ? (l[g.id] = a.length << 1 | 1, a.push(g.value)) : (l[g.id] = h.length << 1, h.push((y) => g.dynamicSlot(y)));
-        l[p.id] = h.length << 1, h.push((g) => ch(g, p, d));
-      }
-    }
-    let c = h.map((u) => u(l));
-    return new Xi(t, o, c, l, a, r);
-  }
-}
-function uh(s, t, e) {
-  let i = [[], [], [], [], []], n = /* @__PURE__ */ new Map();
-  function r(o, l) {
-    let a = n.get(o);
-    if (a != null) {
-      if (a <= l)
-        return;
-      let h = i[a].indexOf(o);
-      h > -1 && i[a].splice(h, 1), o instanceof hs && e.delete(o.compartment);
-    }
-    if (n.set(o, l), Array.isArray(o))
-      for (let h of o)
-        r(h, l);
-    else if (o instanceof hs) {
-      if (e.has(o.compartment))
-        throw new RangeError("Duplicate use of compartment in extensions");
-      let h = t.get(o.compartment) || o.inner;
-      e.set(o.compartment, h), r(h, l);
-    } else if (o instanceof Qo)
-      r(o.inner, o.prec);
-    else if (o instanceof pt)
-      i[l].push(o), o.provides && r(o.provides, l);
-    else if (o instanceof Ui)
-      i[l].push(o), o.facet.extensions && r(o.facet.extensions, pe.default);
-    else {
-      let h = o.extension;
-      if (!h)
-        throw new Error(`Unrecognized extension value in extension set (${o}). This sometimes happens because multiple instances of @codemirror/state are loaded, breaking instanceof checks.`);
-      r(h, l);
-    }
-  }
-  return r(s, pe.default), i.reduce((o, l) => o.concat(l));
-}
-function Ze(s, t) {
-  if (t & 1)
-    return 2;
-  let e = t >> 1, i = s.status[e];
-  if (i == 4)
-    throw new Error("Cyclic dependency between fields and/or facets");
-  if (i & 2)
-    return i;
-  s.status[e] = 4;
-  let n = s.computeSlot(s, s.config.dynamicSlots[e]);
-  return s.status[e] = 2 | n;
-}
-function Qi(s, t) {
-  return t & 1 ? s.config.staticValues[t >> 1] : s.values[t >> 1];
-}
-const Zo = /* @__PURE__ */ M.define(), fs = /* @__PURE__ */ M.define({
-  combine: (s) => s.some((t) => t),
-  static: !0
-}), tl = /* @__PURE__ */ M.define({
-  combine: (s) => s.length ? s[0] : void 0,
-  static: !0
-}), el = /* @__PURE__ */ M.define(), il = /* @__PURE__ */ M.define(), nl = /* @__PURE__ */ M.define(), sl = /* @__PURE__ */ M.define({
-  combine: (s) => s.length ? s[0] : !1
+var v = class {
+	constructor(e, t = 1) {
+		this.dir = t, this.done = !1, this.lineBreak = !1, this.value = "", this.nodes = [e], this.offsets = [t > 0 ? 1 : (e instanceof p ? e.text.length : e.children.length) << 1];
+	}
+	nextInner(e, t) {
+		for (this.done = this.lineBreak = !1;;) {
+			let n = this.nodes.length - 1, r = this.nodes[n], i = this.offsets[n], a = i >> 1, o = r instanceof p ? r.text.length : r.children.length;
+			if (a == (t > 0 ? o : 0)) {
+				if (n == 0) return this.done = !0, this.value = "", this;
+				t > 0 && this.offsets[n - 1]++, this.nodes.pop(), this.offsets.pop();
+			} else if ((i & 1) == (t > 0 ? 0 : 1)) {
+				if (this.offsets[n] += t, e == 0) return this.lineBreak = !0, this.value = "\n", this;
+				e--;
+			} else if (r instanceof p) {
+				let i = r.text[a + (t < 0 ? -1 : 0)];
+				if (this.offsets[n] += t, i.length > Math.max(0, e)) return this.value = e == 0 ? i : t > 0 ? i.slice(e) : i.slice(0, i.length - e), this;
+				e -= i.length;
+			} else {
+				let i = r.children[a + (t < 0 ? -1 : 0)];
+				e > i.length ? (e -= i.length, this.offsets[n] += t) : (t < 0 && this.offsets[n]--, this.nodes.push(i), this.offsets.push(t > 0 ? 1 : (i instanceof p ? i.text.length : i.children.length) << 1));
+			}
+		}
+	}
+	next(e = 0) {
+		return e < 0 && (this.nextInner(-e, -this.dir), e = this.value.length), this.nextInner(e, this.dir);
+	}
+}, y = class {
+	constructor(e, t, n) {
+		this.value = "", this.done = !1, this.cursor = new v(e, t > n ? -1 : 1), this.pos = t > n ? e.length : 0, this.from = Math.min(t, n), this.to = Math.max(t, n);
+	}
+	nextInner(e, t) {
+		if (t < 0 ? this.pos <= this.from : this.pos >= this.to) return this.value = "", this.done = !0, this;
+		e += Math.max(0, t < 0 ? this.pos - this.to : this.from - this.pos);
+		let n = t < 0 ? this.pos - this.from : this.to - this.pos;
+		e > n && (e = n), n -= e;
+		let { value: r } = this.cursor.next(e);
+		return this.pos += (r.length + e) * t, this.value = r.length <= n ? r : t < 0 ? r.slice(r.length - n) : r.slice(0, n), this.done = !this.value, this;
+	}
+	next(e = 0) {
+		return e < 0 ? e = Math.max(e, this.from - this.pos) : e > 0 && (e = Math.min(e, this.to - this.pos)), this.nextInner(e, this.cursor.dir);
+	}
+	get lineBreak() {
+		return this.cursor.lineBreak && this.value != "";
+	}
+}, ee = class {
+	constructor(e) {
+		this.inner = e, this.afterBreak = !0, this.value = "", this.done = !1;
+	}
+	next(e = 0) {
+		let { done: t, lineBreak: n, value: r } = this.inner.next(e);
+		return t && this.afterBreak ? (this.value = "", this.afterBreak = !1) : t ? (this.done = !0, this.value = "") : n ? this.afterBreak ? this.value = "" : (this.afterBreak = !0, this.next()) : (this.value = r, this.afterBreak = !1), this;
+	}
+	get lineBreak() {
+		return !1;
+	}
+};
+typeof Symbol < "u" && (f.prototype[Symbol.iterator] = function() {
+	return this.iter();
+}, v.prototype[Symbol.iterator] = y.prototype[Symbol.iterator] = ee.prototype[Symbol.iterator] = function() {
+	return this;
 });
-class Yt {
-  /**
-  @internal
-  */
-  constructor(t, e) {
-    this.type = t, this.value = e;
-  }
-  /**
-  Define a new type of annotation.
-  */
-  static define() {
-    return new dh();
-  }
+var b = class {
+	constructor(e, t, n, r) {
+		this.from = e, this.to = t, this.number = n, this.text = r;
+	}
+	get length() {
+		return this.to - this.from;
+	}
+};
+function x(e, t, n) {
+	return t = Math.max(0, Math.min(e.length, t)), [t, Math.max(t, Math.min(e.length, n))];
 }
-class dh {
-  /**
-  Create an instance of this annotation.
-  */
-  of(t) {
-    return new Yt(this, t);
-  }
+function S(e, t, n = !0, r = !0) {
+	return a(e, t, n, r);
 }
-class ph {
-  /**
-  @internal
-  */
-  constructor(t) {
-    this.map = t;
-  }
-  /**
-  Create a [state effect](https://codemirror.net/6/docs/ref/#state.StateEffect) instance of this
-  type.
-  */
-  of(t) {
-    return new I(this, t);
-  }
+function te(e) {
+	return e >= 56320 && e < 57344;
 }
-class I {
-  /**
-  @internal
-  */
-  constructor(t, e) {
-    this.type = t, this.value = e;
-  }
-  /**
-  Map this effect through a position mapping. Will return
-  `undefined` when that ends up deleting the effect.
-  */
-  map(t) {
-    let e = this.type.map(this.value, t);
-    return e === void 0 ? void 0 : e == this.value ? this : new I(this.type, e);
-  }
-  /**
-  Tells you whether this effect object is of a given
-  [type](https://codemirror.net/6/docs/ref/#state.StateEffectType).
-  */
-  is(t) {
-    return this.type == t;
-  }
-  /**
-  Define a new effect type. The type parameter indicates the type
-  of values that his effect holds. It should be a type that
-  doesn't include `undefined`, since that is used in
-  [mapping](https://codemirror.net/6/docs/ref/#state.StateEffect.map) to indicate that an effect is
-  removed.
-  */
-  static define(t = {}) {
-    return new ph(t.map || ((e) => e));
-  }
-  /**
-  Map an array of effects through a change set.
-  */
-  static mapEffects(t, e) {
-    if (!t.length)
-      return t;
-    let i = [];
-    for (let n of t) {
-      let r = n.map(e);
-      r && i.push(r);
-    }
-    return i;
-  }
+function ne(e) {
+	return e >= 55296 && e < 56320;
 }
-I.reconfigure = /* @__PURE__ */ I.define();
-I.appendConfig = /* @__PURE__ */ I.define();
-class Y {
-  constructor(t, e, i, n, r, o) {
-    this.startState = t, this.changes = e, this.selection = i, this.effects = n, this.annotations = r, this.scrollIntoView = o, this._doc = null, this._state = null, i && Xo(i, e.newLength), r.some((l) => l.type == Y.time) || (this.annotations = r.concat(Y.time.of(Date.now())));
-  }
-  /**
-  @internal
-  */
-  static create(t, e, i, n, r, o) {
-    return new Y(t, e, i, n, r, o);
-  }
-  /**
-  The new document produced by the transaction. Contrary to
-  [`.state`](https://codemirror.net/6/docs/ref/#state.Transaction.state)`.doc`, accessing this won't
-  force the entire new state to be computed right away, so it is
-  recommended that [transaction
-  filters](https://codemirror.net/6/docs/ref/#state.EditorState^transactionFilter) use this getter
-  when they need to look at the new document.
-  */
-  get newDoc() {
-    return this._doc || (this._doc = this.changes.apply(this.startState.doc));
-  }
-  /**
-  The new selection produced by the transaction. If
-  [`this.selection`](https://codemirror.net/6/docs/ref/#state.Transaction.selection) is undefined,
-  this will [map](https://codemirror.net/6/docs/ref/#state.EditorSelection.map) the start state's
-  current selection through the changes made by the transaction.
-  */
-  get newSelection() {
-    return this.selection || this.startState.selection.map(this.changes);
-  }
-  /**
-  The new state created by the transaction. Computed on demand
-  (but retained for subsequent access), so it is recommended not to
-  access it in [transaction
-  filters](https://codemirror.net/6/docs/ref/#state.EditorState^transactionFilter) when possible.
-  */
-  get state() {
-    return this._state || this.startState.applyTransaction(this), this._state;
-  }
-  /**
-  Get the value of the given annotation type, if any.
-  */
-  annotation(t) {
-    for (let e of this.annotations)
-      if (e.type == t)
-        return e.value;
-  }
-  /**
-  Indicates whether the transaction changed the document.
-  */
-  get docChanged() {
-    return !this.changes.empty;
-  }
-  /**
-  Indicates whether this transaction reconfigures the state
-  (through a [configuration compartment](https://codemirror.net/6/docs/ref/#state.Compartment) or
-  with a top-level configuration
-  [effect](https://codemirror.net/6/docs/ref/#state.StateEffect^reconfigure).
-  */
-  get reconfigured() {
-    return this.startState.config != this.state.config;
-  }
-  /**
-  Returns true if the transaction has a [user
-  event](https://codemirror.net/6/docs/ref/#state.Transaction^userEvent) annotation that is equal to
-  or more specific than `event`. For example, if the transaction
-  has `"select.pointer"` as user event, `"select"` and
-  `"select.pointer"` will match it.
-  */
-  isUserEvent(t) {
-    let e = this.annotation(Y.userEvent);
-    return !!(e && (e == t || e.length > t.length && e.slice(0, t.length) == t && e[t.length] == "."));
-  }
+function re(e, t) {
+	let n = e.charCodeAt(t);
+	if (!ne(n) || t + 1 == e.length) return n;
+	let r = e.charCodeAt(t + 1);
+	return te(r) ? (n - 55296 << 10) + (r - 56320) + 65536 : n;
 }
-Y.time = /* @__PURE__ */ Yt.define();
-Y.userEvent = /* @__PURE__ */ Yt.define();
-Y.addToHistory = /* @__PURE__ */ Yt.define();
-Y.remote = /* @__PURE__ */ Yt.define();
-function mh(s, t) {
-  let e = [];
-  for (let i = 0, n = 0; ; ) {
-    let r, o;
-    if (i < s.length && (n == t.length || t[n] >= s[i]))
-      r = s[i++], o = s[i++];
-    else if (n < t.length)
-      r = t[n++], o = t[n++];
-    else
-      return e;
-    !e.length || e[e.length - 1] < r ? e.push(r, o) : e[e.length - 1] < o && (e[e.length - 1] = o);
-  }
+function ie(e) {
+	return e <= 65535 ? String.fromCharCode(e) : (e -= 65536, String.fromCharCode((e >> 10) + 55296, (e & 1023) + 56320));
 }
-function rl(s, t, e) {
-  var i;
-  let n, r, o;
-  return e ? (n = t.changes, r = _.empty(t.changes.length), o = s.changes.compose(t.changes)) : (n = t.changes.map(s.changes), r = s.changes.mapDesc(t.changes, !0), o = s.changes.compose(n)), {
-    changes: o,
-    selection: t.selection ? t.selection.map(r) : (i = s.selection) === null || i === void 0 ? void 0 : i.map(n),
-    effects: I.mapEffects(s.effects, n).concat(I.mapEffects(t.effects, r)),
-    annotations: s.annotations.length ? s.annotations.concat(t.annotations) : t.annotations,
-    scrollIntoView: s.scrollIntoView || t.scrollIntoView
-  };
+function ae(e) {
+	return e < 65536 ? 1 : 2;
 }
-function cs(s, t, e) {
-  let i = t.selection, n = De(t.annotations);
-  return t.userEvent && (n = n.concat(Y.userEvent.of(t.userEvent))), {
-    changes: t.changes instanceof _ ? t.changes : _.of(t.changes || [], e, s.facet(tl)),
-    selection: i && (i instanceof b ? i : b.single(i.anchor, i.head)),
-    effects: De(t.effects),
-    annotations: n,
-    scrollIntoView: !!t.scrollIntoView
-  };
+var oe = /\r\n?|\n/, C = /*@__PURE__*/ (function(e) {
+	return e[e.Simple = 0] = "Simple", e[e.TrackDel = 1] = "TrackDel", e[e.TrackBefore = 2] = "TrackBefore", e[e.TrackAfter = 3] = "TrackAfter", e;
+})(C || (C = {})), se = class e {
+	constructor(e) {
+		this.sections = e;
+	}
+	get length() {
+		let e = 0;
+		for (let t = 0; t < this.sections.length; t += 2) e += this.sections[t];
+		return e;
+	}
+	get newLength() {
+		let e = 0;
+		for (let t = 0; t < this.sections.length; t += 2) {
+			let n = this.sections[t + 1];
+			e += n < 0 ? this.sections[t] : n;
+		}
+		return e;
+	}
+	get empty() {
+		return this.sections.length == 0 || this.sections.length == 2 && this.sections[1] < 0;
+	}
+	iterGaps(e) {
+		for (let t = 0, n = 0, r = 0; t < this.sections.length;) {
+			let i = this.sections[t++], a = this.sections[t++];
+			a < 0 ? (e(n, r, i), r += i) : r += a, n += i;
+		}
+	}
+	iterChangedRanges(e, t = !1) {
+		ue(this, e, t);
+	}
+	get invertedDesc() {
+		let t = [];
+		for (let e = 0; e < this.sections.length;) {
+			let n = this.sections[e++], r = this.sections[e++];
+			r < 0 ? t.push(n, r) : t.push(r, n);
+		}
+		return new e(t);
+	}
+	composeDesc(e) {
+		return this.empty ? e : e.empty ? this : fe(this, e);
+	}
+	mapDesc(e, t = !1) {
+		return e.empty ? this : de(this, e, t);
+	}
+	mapPos(e, t = -1, n = C.Simple) {
+		let r = 0, i = 0;
+		for (let a = 0; a < this.sections.length;) {
+			let o = this.sections[a++], s = this.sections[a++], c = r + o;
+			if (s < 0) {
+				if (c > e) return i + (e - r);
+				i += o;
+			} else {
+				if (n != C.Simple && c >= e && (n == C.TrackDel && r < e && c > e || n == C.TrackBefore && r < e || n == C.TrackAfter && c > e)) return null;
+				if (c > e || c == e && t < 0 && !o) return e == r || t < 0 ? i : i + s;
+				i += s;
+			}
+			r = c;
+		}
+		if (e > r) throw RangeError(`Position ${e} is out of range for changeset of length ${r}`);
+		return i;
+	}
+	touchesRange(e, t = e) {
+		for (let n = 0, r = 0; n < this.sections.length && r <= t;) {
+			let i = this.sections[n++], a = this.sections[n++], o = r + i;
+			if (a >= 0 && r <= t && o >= e) return r < e && o > t ? "cover" : !0;
+			r = o;
+		}
+		return !1;
+	}
+	toString() {
+		let e = "";
+		for (let t = 0; t < this.sections.length;) {
+			let n = this.sections[t++], r = this.sections[t++];
+			e += (e ? " " : "") + n + (r >= 0 ? ":" + r : "");
+		}
+		return e;
+	}
+	toJSON() {
+		return this.sections;
+	}
+	static fromJSON(t) {
+		if (!Array.isArray(t) || t.length % 2 || t.some((e) => typeof e != "number")) throw RangeError("Invalid JSON representation of ChangeDesc");
+		return new e(t);
+	}
+	static create(t) {
+		return new e(t);
+	}
+}, ce = class e extends se {
+	constructor(e, t) {
+		super(e), this.inserted = t;
+	}
+	apply(e) {
+		if (this.length != e.length) throw RangeError("Applying change set to a document with the wrong length");
+		return ue(this, (t, n, r, i, a) => e = e.replace(r, r + (n - t), a), !1), e;
+	}
+	mapDesc(e, t = !1) {
+		return de(this, e, t, !0);
+	}
+	invert(t) {
+		let n = this.sections.slice(), r = [];
+		for (let e = 0, i = 0; e < n.length; e += 2) {
+			let a = n[e], o = n[e + 1];
+			if (o >= 0) {
+				n[e] = o, n[e + 1] = a;
+				let s = e >> 1;
+				for (; r.length < s;) r.push(f.empty);
+				r.push(a ? t.slice(i, i + a) : f.empty);
+			}
+			i += a;
+		}
+		return new e(n, r);
+	}
+	compose(e) {
+		return this.empty ? e : e.empty ? this : fe(this, e, !0);
+	}
+	map(e, t = !1) {
+		return e.empty ? this : de(this, e, t, !0);
+	}
+	iterChanges(e, t = !1) {
+		ue(this, e, t);
+	}
+	get desc() {
+		return se.create(this.sections);
+	}
+	filter(t) {
+		let n = [], r = [], i = [], a = new pe(this);
+		done: for (let e = 0, o = 0;;) {
+			let s = e == t.length ? 1e9 : t[e++];
+			for (; o < s || o == s && a.len == 0;) {
+				if (a.done) break done;
+				let e = Math.min(a.len, s - o);
+				w(i, e, -1);
+				let t = a.ins == -1 ? -1 : a.off == 0 ? a.ins : 0;
+				w(n, e, t), t > 0 && le(r, n, a.text), a.forward(e), o += e;
+			}
+			let c = t[e++];
+			for (; o < c;) {
+				if (a.done) break done;
+				let e = Math.min(a.len, c - o);
+				w(n, e, -1), w(i, e, a.ins == -1 ? -1 : a.off == 0 ? a.ins : 0), a.forward(e), o += e;
+			}
+		}
+		return {
+			changes: new e(n, r),
+			filtered: se.create(i)
+		};
+	}
+	toJSON() {
+		let e = [];
+		for (let t = 0; t < this.sections.length; t += 2) {
+			let n = this.sections[t], r = this.sections[t + 1];
+			r < 0 ? e.push(n) : r == 0 ? e.push([n]) : e.push([n].concat(this.inserted[t >> 1].toJSON()));
+		}
+		return e;
+	}
+	static of(t, n, r) {
+		let i = [], a = [], o = 0, s = null;
+		function c(t = !1) {
+			if (!t && !i.length) return;
+			o < n && w(i, n - o, -1);
+			let r = new e(i, a);
+			s = s ? s.compose(r.map(s)) : r, i = [], a = [], o = 0;
+		}
+		function l(t) {
+			if (Array.isArray(t)) for (let e of t) l(e);
+			else if (t instanceof e) {
+				if (t.length != n) throw RangeError(`Mismatched change set length (got ${t.length}, expected ${n})`);
+				c(), s = s ? s.compose(t.map(s)) : t;
+			} else {
+				let { from: e, to: s = e, insert: l } = t;
+				if (e > s || e < 0 || s > n) throw RangeError(`Invalid change range ${e} to ${s} (in doc of length ${n})`);
+				let u = l ? typeof l == "string" ? f.of(l.split(r || oe)) : l : f.empty, d = u.length;
+				if (e == s && d == 0) return;
+				e < o && c(), e > o && w(i, e - o, -1), w(i, s - e, d), le(a, i, u), o = s;
+			}
+		}
+		return l(t), c(!s), s;
+	}
+	static empty(t) {
+		return new e(t ? [t, -1] : [], []);
+	}
+	static fromJSON(t) {
+		if (!Array.isArray(t)) throw RangeError("Invalid JSON representation of ChangeSet");
+		let n = [], r = [];
+		for (let e = 0; e < t.length; e++) {
+			let i = t[e];
+			if (typeof i == "number") n.push(i, -1);
+			else if (!Array.isArray(i) || typeof i[0] != "number" || i.some((e, t) => t && typeof e != "string")) throw RangeError("Invalid JSON representation of ChangeSet");
+			else if (i.length == 1) n.push(i[0], 0);
+			else {
+				for (; r.length < e;) r.push(f.empty);
+				r[e] = f.of(i.slice(1)), n.push(i[0], r[e].length);
+			}
+		}
+		return new e(n, r);
+	}
+	static createSet(t, n) {
+		return new e(t, n);
+	}
+};
+function w(e, t, n, r = !1) {
+	if (t == 0 && n <= 0) return;
+	let i = e.length - 2;
+	i >= 0 && n <= 0 && n == e[i + 1] ? e[i] += t : i >= 0 && t == 0 && e[i] == 0 ? e[i + 1] += n : r ? (e[i] += t, e[i + 1] += n) : e.push(t, n);
 }
-function ol(s, t, e) {
-  let i = cs(s, t.length ? t[0] : {}, s.doc.length);
-  t.length && t[0].filter === !1 && (e = !1);
-  for (let r = 1; r < t.length; r++) {
-    t[r].filter === !1 && (e = !1);
-    let o = !!t[r].sequential;
-    i = rl(i, cs(s, t[r], o ? i.changes.newLength : s.doc.length), o);
-  }
-  let n = Y.create(s, i.changes, i.selection, i.effects, i.annotations, i.scrollIntoView);
-  return yh(e ? gh(n) : n);
+function le(e, t, n) {
+	if (n.length == 0) return;
+	let r = t.length - 2 >> 1;
+	if (r < e.length) e[e.length - 1] = e[e.length - 1].append(n);
+	else {
+		for (; e.length < r;) e.push(f.empty);
+		e.push(n);
+	}
 }
-function gh(s) {
-  let t = s.startState, e = !0;
-  for (let n of t.facet(el)) {
-    let r = n(s);
-    if (r === !1) {
-      e = !1;
-      break;
-    }
-    Array.isArray(r) && (e = e === !0 ? r : mh(e, r));
-  }
-  if (e !== !0) {
-    let n, r;
-    if (e === !1)
-      r = s.changes.invertedDesc, n = _.empty(t.doc.length);
-    else {
-      let o = s.changes.filter(e);
-      n = o.changes, r = o.filtered.mapDesc(o.changes).invertedDesc;
-    }
-    s = Y.create(t, n, s.selection && s.selection.map(r), I.mapEffects(s.effects, r), s.annotations, s.scrollIntoView);
-  }
-  let i = t.facet(il);
-  for (let n = i.length - 1; n >= 0; n--) {
-    let r = i[n](s);
-    r instanceof Y ? s = r : Array.isArray(r) && r.length == 1 && r[0] instanceof Y ? s = r[0] : s = ol(t, De(r), !1);
-  }
-  return s;
+function ue(e, t, n) {
+	let r = e.inserted;
+	for (let i = 0, a = 0, o = 0; o < e.sections.length;) {
+		let s = e.sections[o++], c = e.sections[o++];
+		if (c < 0) i += s, a += s;
+		else {
+			let l = i, u = a, d = f.empty;
+			for (; l += s, u += c, c && r && (d = d.append(r[o - 2 >> 1])), !(n || o == e.sections.length || e.sections[o + 1] < 0);) s = e.sections[o++], c = e.sections[o++];
+			t(i, l, a, u, d), i = l, a = u;
+		}
+	}
 }
-function yh(s) {
-  let t = s.startState, e = t.facet(nl), i = s;
-  for (let n = e.length - 1; n >= 0; n--) {
-    let r = e[n](s);
-    r && Object.keys(r).length && (i = rl(i, cs(t, r, s.changes.newLength), !0));
-  }
-  return i == s ? s : Y.create(t, s.changes, s.selection, i.effects, i.annotations, i.scrollIntoView);
+function de(e, t, n, r = !1) {
+	let i = [], a = r ? [] : null, o = new pe(e), s = new pe(t);
+	for (let e = -1;;) if (o.done && s.len || s.done && o.len) throw Error("Mismatched change set lengths");
+	else if (o.ins == -1 && s.ins == -1) {
+		let e = Math.min(o.len, s.len);
+		w(i, e, -1), o.forward(e), s.forward(e);
+	} else if (s.ins >= 0 && (o.ins < 0 || e == o.i || o.off == 0 && (s.len < o.len || s.len == o.len && !n))) {
+		let t = s.len;
+		for (w(i, s.ins, -1); t;) {
+			let n = Math.min(o.len, t);
+			o.ins >= 0 && e < o.i && o.len <= n && (w(i, 0, o.ins), a && le(a, i, o.text), e = o.i), o.forward(n), t -= n;
+		}
+		s.next();
+	} else if (o.ins >= 0) {
+		let t = 0, n = o.len;
+		for (; n;) if (s.ins == -1) {
+			let e = Math.min(n, s.len);
+			t += e, n -= e, s.forward(e);
+		} else if (s.ins == 0 && s.len < n) n -= s.len, s.next();
+		else break;
+		w(i, t, e < o.i ? o.ins : 0), a && e < o.i && le(a, i, o.text), e = o.i, o.forward(o.len - n);
+	} else if (o.done && s.done) return a ? ce.createSet(i, a) : se.create(i);
+	else throw Error("Mismatched change set lengths");
 }
-const bh = [];
-function De(s) {
-  return s == null ? bh : Array.isArray(s) ? s : [s];
+function fe(e, t, n = !1) {
+	let r = [], i = n ? [] : null, a = new pe(e), o = new pe(t);
+	for (let e = !1;;) if (a.done && o.done) return i ? ce.createSet(r, i) : se.create(r);
+	else if (a.ins == 0) w(r, a.len, 0, e), a.next();
+	else if (o.len == 0 && !o.done) w(r, 0, o.ins, e), i && le(i, r, o.text), o.next();
+	else if (a.done || o.done) throw Error("Mismatched change set lengths");
+	else {
+		let t = Math.min(a.len2, o.len), n = r.length;
+		if (a.ins == -1) {
+			let n = o.ins == -1 ? -1 : o.off ? 0 : o.ins;
+			w(r, t, n, e), i && n && le(i, r, o.text);
+		} else o.ins == -1 ? (w(r, a.off ? 0 : a.len, t, e), i && le(i, r, a.textBit(t))) : (w(r, a.off ? 0 : a.len, o.off ? 0 : o.ins, e), i && !o.off && le(i, r, o.text));
+		e = (a.ins > t || o.ins >= 0 && o.len > t) && (e || r.length > n), a.forward2(t), o.forward(t);
+	}
 }
-var Ut = /* @__PURE__ */ (function(s) {
-  return s[s.Word = 0] = "Word", s[s.Space = 1] = "Space", s[s.Other = 2] = "Other", s;
-})(Ut || (Ut = {}));
-const wh = /[\u00df\u0587\u0590-\u05f4\u0600-\u06ff\u3040-\u309f\u30a0-\u30ff\u3400-\u4db5\u4e00-\u9fcc\uac00-\ud7af]/;
-let us;
+var pe = class {
+	constructor(e) {
+		this.set = e, this.i = 0, this.next();
+	}
+	next() {
+		let { sections: e } = this.set;
+		this.i < e.length ? (this.len = e[this.i++], this.ins = e[this.i++]) : (this.len = 0, this.ins = -2), this.off = 0;
+	}
+	get done() {
+		return this.ins == -2;
+	}
+	get len2() {
+		return this.ins < 0 ? this.len : this.ins;
+	}
+	get text() {
+		let { inserted: e } = this.set, t = this.i - 2 >> 1;
+		return t >= e.length ? f.empty : e[t];
+	}
+	textBit(e) {
+		let { inserted: t } = this.set, n = this.i - 2 >> 1;
+		return n >= t.length && !e ? f.empty : t[n].slice(this.off, e == null ? void 0 : this.off + e);
+	}
+	forward(e) {
+		e == this.len ? this.next() : (this.len -= e, this.off += e);
+	}
+	forward2(e) {
+		this.ins == -1 ? this.forward(e) : e == this.ins ? this.next() : (this.ins -= e, this.off += e);
+	}
+}, me = class e {
+	constructor(e, t, n, r) {
+		this.from = e, this.to = t, this.flags = n, this.goalColumn = r;
+	}
+	get anchor() {
+		return this.flags & 32 ? this.to : this.from;
+	}
+	get head() {
+		return this.flags & 32 ? this.from : this.to;
+	}
+	get empty() {
+		return this.from == this.to;
+	}
+	get assoc() {
+		return this.flags & 8 ? -1 : this.flags & 16 ? 1 : 0;
+	}
+	get undirectional() {
+		return (this.flags & 64) > 0;
+	}
+	get bidiLevel() {
+		let e = this.flags & 7;
+		return e == 7 ? null : e;
+	}
+	map(t, n = -1) {
+		let r, i;
+		return this.empty ? r = i = t.mapPos(this.from, n) : (r = t.mapPos(this.from, 1), i = t.mapPos(this.to, -1)), r == this.from && i == this.to ? this : new e(r, i, this.flags, this.goalColumn);
+	}
+	extend(e, t = e, n = 0) {
+		if (e <= this.anchor && t >= this.anchor) return T.range(e, t, void 0, void 0, n);
+		let r = Math.abs(e - this.anchor) > Math.abs(t - this.anchor) ? e : t;
+		return T.range(this.anchor, r, void 0, void 0, n);
+	}
+	eq(e, t = !1) {
+		return this.anchor == e.anchor && this.head == e.head && this.goalColumn == e.goalColumn && (!t || !this.empty || this.assoc == e.assoc);
+	}
+	toJSON() {
+		return {
+			anchor: this.anchor,
+			head: this.head
+		};
+	}
+	static fromJSON(e) {
+		if (!e || typeof e.anchor != "number" || typeof e.head != "number") throw RangeError("Invalid JSON representation for SelectionRange");
+		return T.range(e.anchor, e.head);
+	}
+	static create(t, n, r, i) {
+		return new e(t, n, r, i);
+	}
+}, T = class e {
+	constructor(e, t) {
+		this.ranges = e, this.mainIndex = t;
+	}
+	map(t, n = -1) {
+		return t.empty ? this : e.create(this.ranges.map((e) => e.map(t, n)), this.mainIndex);
+	}
+	eq(e, t = !1) {
+		if (this.ranges.length != e.ranges.length || this.mainIndex != e.mainIndex) return !1;
+		for (let n = 0; n < this.ranges.length; n++) if (!this.ranges[n].eq(e.ranges[n], t)) return !1;
+		return !0;
+	}
+	get main() {
+		return this.ranges[this.mainIndex];
+	}
+	asSingle() {
+		return this.ranges.length == 1 ? this : new e([this.main], 0);
+	}
+	addRange(t, n = !0) {
+		return e.create([t].concat(this.ranges), n ? 0 : this.mainIndex + 1);
+	}
+	replaceRange(t, n = this.mainIndex) {
+		let r = this.ranges.slice();
+		return r[n] = t, e.create(r, this.mainIndex);
+	}
+	toJSON() {
+		return {
+			ranges: this.ranges.map((e) => e.toJSON()),
+			main: this.mainIndex
+		};
+	}
+	static fromJSON(t) {
+		if (!t || !Array.isArray(t.ranges) || typeof t.main != "number" || t.main >= t.ranges.length) throw RangeError("Invalid JSON representation for EditorSelection");
+		return new e(t.ranges.map((e) => me.fromJSON(e)), t.main);
+	}
+	static single(t, n = t) {
+		return new e([e.range(t, n)], 0);
+	}
+	static create(t, n = 0) {
+		if (t.length == 0) throw RangeError("A selection needs at least one range");
+		for (let r = 0, i = 0; i < t.length; i++) {
+			let a = t[i];
+			if (a.empty ? a.from <= r : a.from < r) return e.normalized(t.slice(), n);
+			r = a.to;
+		}
+		return new e(t, n);
+	}
+	static cursor(e, t = 0, n, r) {
+		return me.create(e, e, (t == 0 ? 0 : t < 0 ? 8 : 16) | (n == null ? 7 : Math.min(6, n)), r);
+	}
+	static range(e, t, n, r, i) {
+		let a = r == null ? 7 : Math.min(6, r);
+		return !i && e != t && (i = t < e ? 1 : -1), i && (a |= i < 0 ? 8 : 16), t < e ? me.create(t, e, a | 32, n) : me.create(e, t, a, n);
+	}
+	static undirectionalRange(e, t) {
+		return me.create(e, t, 64, void 0);
+	}
+	static normalized(t, n = 0) {
+		let r = t[n];
+		t.sort((e, t) => e.from - t.from), n = t.indexOf(r);
+		for (let r = 1; r < t.length; r++) {
+			let i = t[r], a = t[r - 1];
+			if (i.empty ? i.from <= a.to : i.from < a.to) {
+				let o = a.from, s = Math.max(i.to, a.to);
+				r <= n && n--, t.splice(--r, 2, i.anchor > i.head ? e.range(s, o) : e.range(o, s));
+			}
+		}
+		return new e(t, n);
+	}
+};
+function he(e, t) {
+	for (let n of e.ranges) if (n.to > t) throw RangeError("Selection points outside of document");
+}
+var ge = 0, E = class e {
+	constructor(e, t, n, r, i) {
+		this.combine = e, this.compareInput = t, this.compare = n, this.isStatic = r, this.id = ge++, this.default = e([]), this.extensions = typeof i == "function" ? i(this) : i;
+	}
+	get reader() {
+		return this;
+	}
+	static define(t = {}) {
+		return new e(t.combine || ((e) => e), t.compareInput || ((e, t) => e === t), t.compare || (t.combine ? (e, t) => e === t : _e), !!t.static, t.enables);
+	}
+	of(e) {
+		return new ve([], this, 0, e);
+	}
+	compute(e, t) {
+		if (this.isStatic) throw Error("Can't compute a static facet");
+		return new ve(e, this, 1, t);
+	}
+	computeN(e, t) {
+		if (this.isStatic) throw Error("Can't compute a static facet");
+		return new ve(e, this, 2, t);
+	}
+	from(e, t) {
+		return t || (t = (e) => e), this.compute([e], (n) => t(n.field(e)));
+	}
+};
+function _e(e, t) {
+	return e == t || e.length == t.length && e.every((e, n) => e === t[n]);
+}
+var ve = class {
+	constructor(e, t, n, r) {
+		this.dependencies = e, this.facet = t, this.type = n, this.value = r, this.id = ge++;
+	}
+	dynamicSlot(e) {
+		let t = this.value, n = this.facet.compareInput, r = this.id, i = e[r] >> 1, a = this.type == 2, o = !1, s = !1, c = [];
+		for (let t of this.dependencies) t == "doc" ? o = !0 : t == "selection" ? s = !0 : (e[t.id] ?? 1) & 1 || c.push(e[t.id]);
+		return {
+			create(e) {
+				return e.values[i] = t(e), 1;
+			},
+			update(e, r) {
+				if (o && r.docChanged || s && (r.docChanged || r.selection) || be(e, c)) {
+					let r = t(e);
+					if (a ? !ye(r, e.values[i], n) : !n(r, e.values[i])) return e.values[i] = r, 1;
+				}
+				return 0;
+			},
+			reconfigure: (e, o) => {
+				let s, c = o.config.address[r];
+				if (c != null) {
+					let r = Ne(o, c);
+					if (this.dependencies.every((t) => t instanceof E ? o.facet(t) === e.facet(t) : t instanceof Ce ? o.field(t, !1) == e.field(t, !1) : !0) || (a ? ye(s = t(e), r, n) : n(s = t(e), r))) return e.values[i] = r, 0;
+				} else s = t(e);
+				return e.values[i] = s, 1;
+			}
+		};
+	}
+	get extension() {
+		return this;
+	}
+};
+function ye(e, t, n) {
+	if (e.length != t.length) return !1;
+	for (let r = 0; r < e.length; r++) if (!n(e[r], t[r])) return !1;
+	return !0;
+}
+function be(e, t) {
+	let n = !1;
+	for (let r of t) Me(e, r) & 1 && (n = !0);
+	return n;
+}
+function xe(e, t, n) {
+	let r = n.map((t) => e[t.id]), i = n.map((e) => e.type), a = r.filter((e) => !(e & 1)), o = e[t.id] >> 1;
+	function s(e) {
+		let n = [];
+		for (let t = 0; t < r.length; t++) {
+			let a = Ne(e, r[t]);
+			if (i[t] == 2) for (let e of a) n.push(e);
+			else n.push(a);
+		}
+		return t.combine(n);
+	}
+	return {
+		create(e) {
+			for (let t of r) Me(e, t);
+			return e.values[o] = s(e), 1;
+		},
+		update(e, n) {
+			if (!be(e, a)) return 0;
+			let r = s(e);
+			return t.compare(r, e.values[o]) ? 0 : (e.values[o] = r, 1);
+		},
+		reconfigure(e, i) {
+			let a = be(e, r), c = i.config.facets[t.id], l = i.facet(t);
+			if (c && !a && _e(n, c)) return e.values[o] = l, 0;
+			let u = s(e);
+			return t.compare(u, l) ? (e.values[o] = l, 0) : (e.values[o] = u, 1);
+		}
+	};
+}
+var Se = /*@__PURE__*/ E.define({ static: !0 }), Ce = class e {
+	constructor(e, t, n, r, i) {
+		this.id = e, this.createF = t, this.updateF = n, this.compareF = r, this.spec = i, this.provides = void 0;
+	}
+	static define(t) {
+		let n = new e(ge++, t.create, t.update, t.compare || ((e, t) => e === t), t);
+		return t.provide && (n.provides = t.provide(n)), n;
+	}
+	create(e) {
+		return (e.facet(Se).find((e) => e.field == this)?.create || this.createF)(e);
+	}
+	slot(e) {
+		let t = e[this.id] >> 1;
+		return {
+			create: (e) => (e.values[t] = this.create(e), 1),
+			update: (e, n) => {
+				let r = e.values[t], i = this.updateF(r, n);
+				return this.compareF(r, i) ? 0 : (e.values[t] = i, 1);
+			},
+			reconfigure: (e, n) => {
+				let r = e.facet(Se), i = n.facet(Se), a;
+				return (a = r.find((e) => e.field == this)) && a != i.find((e) => e.field == this) ? (e.values[t] = a.create(e), 1) : n.config.address[this.id] == null ? (e.values[t] = this.create(e), 1) : (e.values[t] = n.field(this), 0);
+			}
+		};
+	}
+	init(e) {
+		return [this, Se.of({
+			field: this,
+			create: e
+		})];
+	}
+	get extension() {
+		return this;
+	}
+}, we = {
+	lowest: 4,
+	low: 3,
+	default: 2,
+	high: 1,
+	highest: 0
+};
+function Te(e) {
+	return (t) => new De(t, e);
+}
+var Ee = {
+	highest: /*@__PURE__*/ Te(we.highest),
+	high: /*@__PURE__*/ Te(we.high),
+	default: /*@__PURE__*/ Te(we.default),
+	low: /*@__PURE__*/ Te(we.low),
+	lowest: /*@__PURE__*/ Te(we.lowest)
+}, De = class {
+	constructor(e, t) {
+		this.inner = e, this.prec = t;
+	}
+	get extension() {
+		return this;
+	}
+}, Oe = class e {
+	of(e) {
+		return new ke(this, e);
+	}
+	reconfigure(t) {
+		return e.reconfigure.of({
+			compartment: this,
+			extension: t
+		});
+	}
+	get(e) {
+		return e.config.compartments.get(this);
+	}
+}, ke = class {
+	constructor(e, t) {
+		this.compartment = e, this.inner = t;
+	}
+	get extension() {
+		return this;
+	}
+}, Ae = class e {
+	constructor(e, t, n, r, i, a) {
+		for (this.base = e, this.compartments = t, this.dynamicSlots = n, this.address = r, this.staticValues = i, this.facets = a, this.statusTemplate = []; this.statusTemplate.length < n.length;) this.statusTemplate.push(0);
+	}
+	staticFacet(e) {
+		let t = this.address[e.id];
+		return t == null ? e.default : this.staticValues[t >> 1];
+	}
+	static resolve(t, n, r) {
+		let i = [], a = Object.create(null), o = /* @__PURE__ */ new Map();
+		for (let e of je(t, n, o)) e instanceof Ce ? i.push(e) : (a[e.facet.id] || (a[e.facet.id] = [])).push(e);
+		let s = Object.create(null), c = [], l = [];
+		for (let e of i) s[e.id] = l.length << 1, l.push((t) => e.slot(t));
+		let u = r?.config.facets;
+		for (let e in a) {
+			let t = a[e], n = t[0].facet, i = u && u[e] || [];
+			if (t.every((e) => e.type == 0)) {
+				if (s[n.id] = c.length << 1 | 1, _e(i, t)) c.push(r.facet(n));
+				else {
+					let e = n.combine(t.map((e) => e.value));
+					c.push(r && n.compare(e, r.facet(n)) ? r.facet(n) : e);
+				}
+			} else {
+				for (let e of t) e.type == 0 ? (s[e.id] = c.length << 1 | 1, c.push(e.value)) : (s[e.id] = l.length << 1, l.push((t) => e.dynamicSlot(t)));
+				s[n.id] = l.length << 1, l.push((e) => xe(e, n, t));
+			}
+		}
+		let d = l.map((e) => e(s));
+		return new e(t, o, d, s, c, a);
+	}
+};
+function je(e, t, n) {
+	let r = [
+		[],
+		[],
+		[],
+		[],
+		[]
+	], i = /* @__PURE__ */ new Map();
+	function a(e, o) {
+		let s = i.get(e);
+		if (s != null) {
+			if (s <= o) return;
+			let t = r[s].indexOf(e);
+			t > -1 && r[s].splice(t, 1), e instanceof ke && n.delete(e.compartment);
+		}
+		if (i.set(e, o), Array.isArray(e)) for (let t of e) a(t, o);
+		else if (e instanceof ke) {
+			if (n.has(e.compartment)) throw RangeError("Duplicate use of compartment in extensions");
+			let r = t.get(e.compartment) || e.inner;
+			n.set(e.compartment, r), a(r, o);
+		} else if (e instanceof De) a(e.inner, e.prec);
+		else if (e instanceof Ce) r[o].push(e), e.provides && a(e.provides, o);
+		else if (e instanceof ve) r[o].push(e), e.facet.extensions && a(e.facet.extensions, we.default);
+		else {
+			let t = e.extension;
+			if (!t) throw Error(`Unrecognized extension value in extension set (${e}).`);
+			if (t == e) throw Error(`Unrecognized extension value in extension set (${e}). This sometimes happens because multiple instances of @codemirror/state are loaded, breaking instanceof checks.`);
+			a(t, o);
+		}
+	}
+	return a(e, we.default), r.reduce((e, t) => e.concat(t));
+}
+function Me(e, t) {
+	if (t & 1) return 2;
+	let n = t >> 1, r = e.status[n];
+	if (r == 4) throw Error("Cyclic dependency between fields and/or facets");
+	if (r & 2) return r;
+	e.status[n] = 4;
+	let i = e.computeSlot(e, e.config.dynamicSlots[n]);
+	return e.status[n] = 2 | i;
+}
+function Ne(e, t) {
+	return t & 1 ? e.config.staticValues[t >> 1] : e.values[t >> 1];
+}
+var Pe = /*@__PURE__*/ E.define(), Fe = /*@__PURE__*/ E.define({
+	combine: (e) => e.some((e) => e),
+	static: !0
+}), Ie = /*@__PURE__*/ E.define({
+	combine: (e) => e.length ? e[0] : void 0,
+	static: !0
+}), Le = /*@__PURE__*/ E.define(), Re = /*@__PURE__*/ E.define(), ze = /*@__PURE__*/ E.define(), Be = /*@__PURE__*/ E.define({ combine: (e) => e.length ? e[0] : !1 }), Ve = class {
+	constructor(e, t) {
+		this.type = e, this.value = t;
+	}
+	static define() {
+		return new He();
+	}
+}, He = class {
+	of(e) {
+		return new Ve(this, e);
+	}
+}, Ue = class {
+	constructor(e) {
+		this.map = e;
+	}
+	of(e) {
+		return new D(this, e);
+	}
+}, D = class e {
+	constructor(e, t) {
+		this.type = e, this.value = t;
+	}
+	map(t) {
+		let n = this.type.map(this.value, t);
+		return n === void 0 ? void 0 : n == this.value ? this : new e(this.type, n);
+	}
+	is(e) {
+		return this.type == e;
+	}
+	static define(e = {}) {
+		return new Ue(e.map || ((e) => e));
+	}
+	static mapEffects(e, t) {
+		if (!e.length) return e;
+		let n = [];
+		for (let r of e) {
+			let e = r.map(t);
+			e && n.push(e);
+		}
+		return n;
+	}
+};
+D.reconfigure = /*@__PURE__*/ D.define(), D.appendConfig = /*@__PURE__*/ D.define();
+var O = class e {
+	constructor(t, n, r, i, a, o) {
+		this.startState = t, this.changes = n, this.selection = r, this.effects = i, this.annotations = a, this.scrollIntoView = o, this._doc = null, this._state = null, r && he(r, n.newLength), a.some((t) => t.type == e.time) || (this.annotations = a.concat(e.time.of(Date.now())));
+	}
+	static create(t, n, r, i, a, o) {
+		return new e(t, n, r, i, a, o);
+	}
+	get newDoc() {
+		return this._doc || (this._doc = this.changes.apply(this.startState.doc));
+	}
+	get newSelection() {
+		return this.selection || this.startState.selection.map(this.changes);
+	}
+	get state() {
+		return this._state || this.startState.applyTransaction(this), this._state;
+	}
+	annotation(e) {
+		for (let t of this.annotations) if (t.type == e) return t.value;
+	}
+	get docChanged() {
+		return !this.changes.empty;
+	}
+	get reconfigured() {
+		return this.startState.config != this.state.config;
+	}
+	isUserEvent(t) {
+		let n = this.annotation(e.userEvent);
+		return !!(n && (n == t || n.length > t.length && n.slice(0, t.length) == t && n[t.length] == "."));
+	}
+};
+O.time = /*@__PURE__*/ Ve.define(), O.userEvent = /*@__PURE__*/ Ve.define(), O.addToHistory = /*@__PURE__*/ Ve.define(), O.remote = /*@__PURE__*/ Ve.define();
+function We(e, t) {
+	let n = [];
+	for (let r = 0, i = 0;;) {
+		let a, o;
+		if (r < e.length && (i == t.length || t[i] >= e[r])) a = e[r++], o = e[r++];
+		else if (i < t.length) a = t[i++], o = t[i++];
+		else return n;
+		!n.length || n[n.length - 1] < a ? n.push(a, o) : n[n.length - 1] < o && (n[n.length - 1] = o);
+	}
+}
+function Ge(e, t, n) {
+	let r, i, a;
+	return n ? (r = t.changes, i = ce.empty(t.changes.length), a = e.changes.compose(t.changes)) : (r = t.changes.map(e.changes), i = e.changes.mapDesc(t.changes, !0), a = e.changes.compose(r)), {
+		changes: a,
+		selection: t.selection ? t.selection.map(i) : e.selection?.map(r),
+		effects: D.mapEffects(e.effects, r).concat(D.mapEffects(t.effects, i)),
+		annotations: e.annotations.length ? e.annotations.concat(t.annotations) : t.annotations,
+		scrollIntoView: e.scrollIntoView || t.scrollIntoView
+	};
+}
+function Ke(e, t, n) {
+	let r = t.selection, i = Ze(t.annotations);
+	return t.userEvent && (i = i.concat(O.userEvent.of(t.userEvent))), {
+		changes: t.changes instanceof ce ? t.changes : ce.of(t.changes || [], n, e.facet(Ie)),
+		selection: r && (r instanceof T ? r : T.single(r.anchor, r.head)),
+		effects: Ze(t.effects),
+		annotations: i,
+		scrollIntoView: !!t.scrollIntoView
+	};
+}
+function qe(e, t, n) {
+	let r = Ke(e, t.length ? t[0] : {}, e.doc.length);
+	t.length && t[0].filter === !1 && (n = !1);
+	for (let i = 1; i < t.length; i++) {
+		t[i].filter === !1 && (n = !1);
+		let a = !!t[i].sequential;
+		r = Ge(r, Ke(e, t[i], a ? r.changes.newLength : e.doc.length), a);
+	}
+	let i = O.create(e, r.changes, r.selection, r.effects, r.annotations, r.scrollIntoView);
+	return Ye(n ? Je(i) : i);
+}
+function Je(e) {
+	let t = e.startState, n = !0;
+	for (let r of t.facet(Le)) {
+		let t = r(e);
+		if (t === !1) {
+			n = !1;
+			break;
+		}
+		Array.isArray(t) && (n = n === !0 ? t : We(n, t));
+	}
+	if (n !== !0) {
+		let r, i;
+		if (n === !1) i = e.changes.invertedDesc, r = ce.empty(t.doc.length);
+		else {
+			let t = e.changes.filter(n);
+			r = t.changes, i = t.filtered.mapDesc(t.changes).invertedDesc;
+		}
+		e = O.create(t, r, e.selection && e.selection.map(i), D.mapEffects(e.effects, i), e.annotations, e.scrollIntoView);
+	}
+	let r = t.facet(Re);
+	for (let n = r.length - 1; n >= 0; n--) {
+		let i = r[n](e);
+		e = i instanceof O ? i : Array.isArray(i) && i.length == 1 && i[0] instanceof O ? i[0] : qe(t, Ze(i), !1);
+	}
+	return e;
+}
+function Ye(e) {
+	let t = e.startState, n = t.facet(ze), r = e;
+	for (let i = n.length - 1; i >= 0; i--) {
+		let a = n[i](e);
+		a && Object.keys(a).length && (r = Ge(r, Ke(t, a, e.changes.newLength), !0));
+	}
+	return r == e ? e : O.create(t, e.changes, e.selection, r.effects, r.annotations, r.scrollIntoView);
+}
+var Xe = [];
+function Ze(e) {
+	return e == null ? Xe : Array.isArray(e) ? e : [e];
+}
+var Qe = /*@__PURE__*/ (function(e) {
+	return e[e.Word = 0] = "Word", e[e.Space = 1] = "Space", e[e.Other = 2] = "Other", e;
+})(Qe || (Qe = {})), $e = /[\u00df\u0587\u0590-\u05f4\u0600-\u06ff\u3040-\u309f\u30a0-\u30ff\u3400-\u4db5\u4e00-\u9fcc\uac00-\ud7af]/, et;
 try {
-  us = /* @__PURE__ */ new RegExp("[\\p{Alphabetic}\\p{Number}_]", "u");
-} catch {
+	et = /*@__PURE__*/ RegExp("[\\p{Alphabetic}\\p{Number}_]", "u");
+} catch {}
+function tt(e) {
+	if (et) return et.test(e);
+	for (let t = 0; t < e.length; t++) {
+		let n = e[t];
+		if (/\w/.test(n) || n > "" && (n.toUpperCase() != n.toLowerCase() || $e.test(n))) return !0;
+	}
+	return !1;
 }
-function xh(s) {
-  if (us)
-    return us.test(s);
-  for (let t = 0; t < s.length; t++) {
-    let e = s[t];
-    if (/\w/.test(e) || e > "" && (e.toUpperCase() != e.toLowerCase() || wh.test(e)))
-      return !0;
-  }
-  return !1;
+function nt(e) {
+	return (t) => {
+		if (!/\S/.test(t)) return Qe.Space;
+		if (tt(t)) return Qe.Word;
+		for (let n = 0; n < e.length; n++) if (t.indexOf(e[n]) > -1) return Qe.Word;
+		return Qe.Other;
+	};
 }
-function vh(s) {
-  return (t) => {
-    if (!/\S/.test(t))
-      return Ut.Space;
-    if (xh(t))
-      return Ut.Word;
-    for (let e = 0; e < s.length; e++)
-      if (t.indexOf(s[e]) > -1)
-        return Ut.Word;
-    return Ut.Other;
-  };
-}
-class H {
-  constructor(t, e, i, n, r, o) {
-    this.config = t, this.doc = e, this.selection = i, this.values = n, this.status = t.statusTemplate.slice(), this.computeSlot = r, o && (o._state = this);
-    for (let l = 0; l < this.config.dynamicSlots.length; l++)
-      Ze(this, l << 1);
-    this.computeSlot = null;
-  }
-  field(t, e = !0) {
-    let i = this.config.address[t.id];
-    if (i == null) {
-      if (e)
-        throw new RangeError("Field is not present in this state");
-      return;
-    }
-    return Ze(this, i), Qi(this, i);
-  }
-  /**
-  Create a [transaction](https://codemirror.net/6/docs/ref/#state.Transaction) that updates this
-  state. Any number of [transaction specs](https://codemirror.net/6/docs/ref/#state.TransactionSpec)
-  can be passed. Unless
-  [`sequential`](https://codemirror.net/6/docs/ref/#state.TransactionSpec.sequential) is set, the
-  [changes](https://codemirror.net/6/docs/ref/#state.TransactionSpec.changes) (if any) of each spec
-  are assumed to start in the _current_ document (not the document
-  produced by previous specs), and its
-  [selection](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection) and
-  [effects](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) are assumed to refer
-  to the document created by its _own_ changes. The resulting
-  transaction contains the combined effect of all the different
-  specs. For [selection](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection), later
-  specs take precedence over earlier ones.
-  */
-  update(...t) {
-    return ol(this, t, !0);
-  }
-  /**
-  @internal
-  */
-  applyTransaction(t) {
-    let e = this.config, { base: i, compartments: n } = e;
-    for (let l of t.effects)
-      l.is(xn.reconfigure) ? (e && (n = /* @__PURE__ */ new Map(), e.compartments.forEach((a, h) => n.set(h, a)), e = null), n.set(l.value.compartment, l.value.extension)) : l.is(I.reconfigure) ? (e = null, i = l.value) : l.is(I.appendConfig) && (e = null, i = De(i).concat(l.value));
-    let r;
-    e ? r = t.startState.values.slice() : (e = Xi.resolve(i, n, this), r = new H(e, this.doc, this.selection, e.dynamicSlots.map(() => null), (a, h) => h.reconfigure(a, this), null).values);
-    let o = t.startState.facet(fs) ? t.newSelection : t.newSelection.asSingle();
-    new H(e, t.newDoc, o, r, (l, a) => a.update(l, t), t);
-  }
-  /**
-  Create a [transaction spec](https://codemirror.net/6/docs/ref/#state.TransactionSpec) that
-  replaces every selection range with the given content.
-  */
-  replaceSelection(t) {
-    return typeof t == "string" && (t = this.toText(t)), this.changeByRange((e) => ({
-      changes: { from: e.from, to: e.to, insert: t },
-      range: b.cursor(e.from + t.length)
-    }));
-  }
-  /**
-  Create a set of changes and a new selection by running the given
-  function for each range in the active selection. The function
-  can return an optional set of changes (in the coordinate space
-  of the start document), plus an updated range (in the coordinate
-  space of the document produced by the call's own changes). This
-  method will merge all the changes and ranges into a single
-  changeset and selection, and return it as a [transaction
-  spec](https://codemirror.net/6/docs/ref/#state.TransactionSpec), which can be passed to
-  [`update`](https://codemirror.net/6/docs/ref/#state.EditorState.update).
-  */
-  changeByRange(t) {
-    let e = this.selection, i = t(e.ranges[0]), n = this.changes(i.changes), r = [i.range], o = De(i.effects);
-    for (let l = 1; l < e.ranges.length; l++) {
-      let a = t(e.ranges[l]), h = this.changes(a.changes), f = h.map(n);
-      for (let u = 0; u < l; u++)
-        r[u] = r[u].map(f);
-      let c = n.mapDesc(h, !0);
-      r.push(a.range.map(c)), n = n.compose(f), o = I.mapEffects(o, f).concat(I.mapEffects(De(a.effects), c));
-    }
-    return {
-      changes: n,
-      selection: b.create(r, e.mainIndex),
-      effects: o
-    };
-  }
-  /**
-  Create a [change set](https://codemirror.net/6/docs/ref/#state.ChangeSet) from the given change
-  description, taking the state's document length and line
-  separator into account.
-  */
-  changes(t = []) {
-    return t instanceof _ ? t : _.of(t, this.doc.length, this.facet(H.lineSeparator));
-  }
-  /**
-  Using the state's [line
-  separator](https://codemirror.net/6/docs/ref/#state.EditorState^lineSeparator), create a
-  [`Text`](https://codemirror.net/6/docs/ref/#state.Text) instance from the given string.
-  */
-  toText(t) {
-    return P.of(t.split(this.facet(H.lineSeparator) || rs));
-  }
-  /**
-  Return the given range of the document as a string.
-  */
-  sliceDoc(t = 0, e = this.doc.length) {
-    return this.doc.sliceString(t, e, this.lineBreak);
-  }
-  /**
-  Get the value of a state [facet](https://codemirror.net/6/docs/ref/#state.Facet).
-  */
-  facet(t) {
-    let e = this.config.address[t.id];
-    return e == null ? t.default : (Ze(this, e), Qi(this, e));
-  }
-  /**
-  Convert this state to a JSON-serializable object. When custom
-  fields should be serialized, you can pass them in as an object
-  mapping property names (in the resulting object, which should
-  not use `doc` or `selection`) to fields.
-  */
-  toJSON(t) {
-    let e = {
-      doc: this.sliceDoc(),
-      selection: this.selection.toJSON()
-    };
-    if (t)
-      for (let i in t) {
-        let n = t[i];
-        n instanceof pt && this.config.address[n.id] != null && (e[i] = n.spec.toJSON(this.field(t[i]), this));
-      }
-    return e;
-  }
-  /**
-  Deserialize a state from its JSON representation. When custom
-  fields should be deserialized, pass the same object you passed
-  to [`toJSON`](https://codemirror.net/6/docs/ref/#state.EditorState.toJSON) when serializing as
-  third argument.
-  */
-  static fromJSON(t, e = {}, i) {
-    if (!t || typeof t.doc != "string")
-      throw new RangeError("Invalid JSON representation for EditorState");
-    let n = [];
-    if (i) {
-      for (let r in i)
-        if (Object.prototype.hasOwnProperty.call(t, r)) {
-          let o = i[r], l = t[r];
-          n.push(o.init((a) => o.spec.fromJSON(l, a)));
-        }
-    }
-    return H.create({
-      doc: t.doc,
-      selection: b.fromJSON(t.selection),
-      extensions: e.extensions ? n.concat([e.extensions]) : n
-    });
-  }
-  /**
-  Create a new state. You'll usually only need this when
-  initializing an editor—updated states are created by applying
-  transactions.
-  */
-  static create(t = {}) {
-    let e = Xi.resolve(t.extensions || [], /* @__PURE__ */ new Map()), i = t.doc instanceof P ? t.doc : P.of((t.doc || "").split(e.staticFacet(H.lineSeparator) || rs)), n = t.selection ? t.selection instanceof b ? t.selection : b.single(t.selection.anchor, t.selection.head) : b.single(0);
-    return Xo(n, i.length), e.staticFacet(fs) || (n = n.asSingle()), new H(e, i, n, e.dynamicSlots.map(() => null), (r, o) => o.create(r), null);
-  }
-  /**
-  The size (in columns) of a tab in the document, determined by
-  the [`tabSize`](https://codemirror.net/6/docs/ref/#state.EditorState^tabSize) facet.
-  */
-  get tabSize() {
-    return this.facet(H.tabSize);
-  }
-  /**
-  Get the proper [line-break](https://codemirror.net/6/docs/ref/#state.EditorState^lineSeparator)
-  string for this state.
-  */
-  get lineBreak() {
-    return this.facet(H.lineSeparator) || `
-`;
-  }
-  /**
-  Returns true when the editor is
-  [configured](https://codemirror.net/6/docs/ref/#state.EditorState^readOnly) to be read-only.
-  */
-  get readOnly() {
-    return this.facet(sl);
-  }
-  /**
-  Look up a translation for the given phrase (via the
-  [`phrases`](https://codemirror.net/6/docs/ref/#state.EditorState^phrases) facet), or return the
-  original string if no translation is found.
-  
-  If additional arguments are passed, they will be inserted in
-  place of markers like `$1` (for the first value) and `$2`, etc.
-  A single `$` is equivalent to `$1`, and `$$` will produce a
-  literal dollar sign.
-  */
-  phrase(t, ...e) {
-    for (let i of this.facet(H.phrases))
-      if (Object.prototype.hasOwnProperty.call(i, t)) {
-        t = i[t];
-        break;
-      }
-    return e.length && (t = t.replace(/\$(\$|\d*)/g, (i, n) => {
-      if (n == "$")
-        return "$";
-      let r = +(n || 1);
-      return !r || r > e.length ? i : e[r - 1];
-    })), t;
-  }
-  /**
-  Find the values for a given language data field, provided by the
-  the [`languageData`](https://codemirror.net/6/docs/ref/#state.EditorState^languageData) facet.
-  
-  Examples of language data fields are...
-  
-  - [`"commentTokens"`](https://codemirror.net/6/docs/ref/#commands.CommentTokens) for specifying
-    comment syntax.
-  - [`"autocomplete"`](https://codemirror.net/6/docs/ref/#autocomplete.autocompletion^config.override)
-    for providing language-specific completion sources.
-  - [`"wordChars"`](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) for adding
-    characters that should be considered part of words in this
-    language.
-  - [`"closeBrackets"`](https://codemirror.net/6/docs/ref/#autocomplete.CloseBracketConfig) controls
-    bracket closing behavior.
-  */
-  languageDataAt(t, e, i = -1) {
-    let n = [];
-    for (let r of this.facet(Zo))
-      for (let o of r(this, e, i))
-        Object.prototype.hasOwnProperty.call(o, t) && n.push(o[t]);
-    return n;
-  }
-  /**
-  Return a function that can categorize strings (expected to
-  represent a single [grapheme cluster](https://codemirror.net/6/docs/ref/#state.findClusterBreak))
-  into one of:
-  
-   - Word (contains an alphanumeric character or a character
-     explicitly listed in the local language's `"wordChars"`
-     language data, which should be a string)
-   - Space (contains only whitespace)
-   - Other (anything else)
-  */
-  charCategorizer(t) {
-    let e = this.languageDataAt("wordChars", t);
-    return vh(e.length ? e[0] : "");
-  }
-  /**
-  Find the word at the given position, meaning the range
-  containing all [word](https://codemirror.net/6/docs/ref/#state.CharCategory.Word) characters
-  around it. If no word characters are adjacent to the position,
-  this returns null.
-  */
-  wordAt(t) {
-    let { text: e, from: i, length: n } = this.doc.lineAt(t), r = this.charCategorizer(t), o = t - i, l = t - i;
-    for (; o > 0; ) {
-      let a = nt(e, o, !1);
-      if (r(e.slice(a, o)) != Ut.Word)
-        break;
-      o = a;
-    }
-    for (; l < n; ) {
-      let a = nt(e, l);
-      if (r(e.slice(l, a)) != Ut.Word)
-        break;
-      l = a;
-    }
-    return o == l ? null : b.range(o + i, l + i);
-  }
-}
-H.allowMultipleSelections = fs;
-H.tabSize = /* @__PURE__ */ M.define({
-  combine: (s) => s.length ? s[0] : 4
-});
-H.lineSeparator = tl;
-H.readOnly = sl;
-H.phrases = /* @__PURE__ */ M.define({
-  compare(s, t) {
-    let e = Object.keys(s), i = Object.keys(t);
-    return e.length == i.length && e.every((n) => s[n] == t[n]);
-  }
-});
-H.languageData = Zo;
-H.changeFilter = el;
-H.transactionFilter = il;
-H.transactionExtender = nl;
-xn.reconfigure = /* @__PURE__ */ I.define();
-function pi(s, t, e = {}) {
-  let i = {};
-  for (let n of s)
-    for (let r of Object.keys(n)) {
-      let o = n[r], l = i[r];
-      if (l === void 0)
-        i[r] = o;
-      else if (!(l === o || o === void 0)) if (Object.hasOwnProperty.call(e, r))
-        i[r] = e[r](l, o);
-      else
-        throw new Error("Config merge conflict for field " + r);
-    }
-  for (let n in t)
-    i[n] === void 0 && (i[n] = t[n]);
-  return i;
-}
-class se {
-  /**
-  Compare this value with another value. Used when comparing
-  rangesets. The default implementation compares by identity.
-  Unless you are only creating a fixed number of unique instances
-  of your value type, it is a good idea to implement this
-  properly.
-  */
-  eq(t) {
-    return this == t;
-  }
-  /**
-  Create a [range](https://codemirror.net/6/docs/ref/#state.Range) with this value.
-  */
-  range(t, e = t) {
-    return ds.create(t, e, this);
-  }
-}
-se.prototype.startSide = se.prototype.endSide = 0;
-se.prototype.point = !1;
-se.prototype.mapMode = ht.TrackDel;
-function Js(s, t) {
-  return s == t || s.constructor == t.constructor && s.eq(t);
-}
-let ds = class ll {
-  constructor(t, e, i) {
-    this.from = t, this.to = e, this.value = i;
-  }
-  /**
-  @internal
-  */
-  static create(t, e, i) {
-    return new ll(t, e, i);
-  }
+var k = class e {
+	constructor(e, t, n, r, i, a) {
+		this.config = e, this.doc = t, this.selection = n, this.values = r, this.status = e.statusTemplate.slice(), this.computeSlot = i, a && (a._state = this);
+		for (let e = 0; e < this.config.dynamicSlots.length; e++) Me(this, e << 1);
+		this.computeSlot = null;
+	}
+	field(e, t = !0) {
+		let n = this.config.address[e.id];
+		if (n == null) {
+			if (t) throw RangeError("Field is not present in this state");
+		} else return Me(this, n), Ne(this, n);
+	}
+	update(...e) {
+		return qe(this, e, !0);
+	}
+	applyTransaction(t) {
+		let n = this.config, { base: r, compartments: i } = n;
+		for (let e of t.effects) e.is(Oe.reconfigure) ? (n && (i = /* @__PURE__ */ new Map(), n.compartments.forEach((e, t) => i.set(t, e)), n = null), i.set(e.value.compartment, e.value.extension)) : e.is(D.reconfigure) ? (n = null, r = e.value) : e.is(D.appendConfig) && (n = null, r = Ze(r).concat(e.value));
+		let a;
+		n ? a = t.startState.values.slice() : (n = Ae.resolve(r, i, this), a = new e(n, this.doc, this.selection, n.dynamicSlots.map(() => null), (e, t) => t.reconfigure(e, this), null).values);
+		let o = t.startState.facet(Fe) ? t.newSelection : t.newSelection.asSingle();
+		new e(n, t.newDoc, o, a, (e, n) => n.update(e, t), t);
+	}
+	replaceSelection(e) {
+		return typeof e == "string" && (e = this.toText(e)), this.changeByRange((t) => ({
+			changes: {
+				from: t.from,
+				to: t.to,
+				insert: e
+			},
+			range: T.cursor(t.from + e.length, -1)
+		}));
+	}
+	changeByRange(e) {
+		let t = this.selection, n = e(t.ranges[0]), r = this.changes(n.changes), i = [n.range], a = Ze(n.effects);
+		for (let n = 1; n < t.ranges.length; n++) {
+			let o = e(t.ranges[n]), s = this.changes(o.changes), c = s.map(r);
+			for (let e = 0; e < n; e++) i[e] = i[e].map(c);
+			let l = r.mapDesc(s, !0);
+			i.push(o.range.map(l)), r = r.compose(c), a = D.mapEffects(a, c).concat(D.mapEffects(Ze(o.effects), l));
+		}
+		return {
+			changes: r,
+			selection: T.create(i, t.mainIndex),
+			effects: a
+		};
+	}
+	changes(t = []) {
+		return t instanceof ce ? t : ce.of(t, this.doc.length, this.facet(e.lineSeparator));
+	}
+	toText(t) {
+		return f.of(t.split(this.facet(e.lineSeparator) || oe));
+	}
+	sliceDoc(e = 0, t = this.doc.length) {
+		return this.doc.sliceString(e, t, this.lineBreak);
+	}
+	facet(e) {
+		let t = this.config.address[e.id];
+		return t == null ? e.default : (Me(this, t), Ne(this, t));
+	}
+	toJSON(e) {
+		let t = {
+			doc: this.sliceDoc(),
+			selection: this.selection.toJSON()
+		};
+		if (e) for (let n in e) {
+			let r = e[n];
+			r instanceof Ce && this.config.address[r.id] != null && (t[n] = r.spec.toJSON(this.field(e[n]), this));
+		}
+		return t;
+	}
+	static fromJSON(t, n = {}, r) {
+		if (!t || typeof t.doc != "string") throw RangeError("Invalid JSON representation for EditorState");
+		let i = [];
+		if (r) {
+			for (let e in r) if (Object.prototype.hasOwnProperty.call(t, e)) {
+				let n = r[e], a = t[e];
+				i.push(n.init((e) => n.spec.fromJSON(a, e)));
+			}
+		}
+		return e.create({
+			doc: t.doc,
+			selection: T.fromJSON(t.selection),
+			extensions: n.extensions ? i.concat([n.extensions]) : i
+		});
+	}
+	static create(t = {}) {
+		let n = Ae.resolve(t.extensions || [], /* @__PURE__ */ new Map()), r = t.doc instanceof f ? t.doc : f.of((t.doc || "").split(n.staticFacet(e.lineSeparator) || oe)), i = t.selection ? t.selection instanceof T ? t.selection : T.single(t.selection.anchor, t.selection.head) : T.single(0);
+		return he(i, r.length), n.staticFacet(Fe) || (i = i.asSingle()), new e(n, r, i, n.dynamicSlots.map(() => null), (e, t) => t.create(e), null);
+	}
+	get tabSize() {
+		return this.facet(e.tabSize);
+	}
+	get lineBreak() {
+		return this.facet(e.lineSeparator) || "\n";
+	}
+	get readOnly() {
+		return this.facet(Be);
+	}
+	phrase(t, ...n) {
+		for (let n of this.facet(e.phrases)) if (Object.prototype.hasOwnProperty.call(n, t)) {
+			t = n[t];
+			break;
+		}
+		return n.length && (t = t.replace(/\$(\$|\d*)/g, (e, t) => {
+			if (t == "$") return "$";
+			let r = +(t || 1);
+			return !r || r > n.length ? e : n[r - 1];
+		})), t;
+	}
+	languageDataAt(e, t, n = -1) {
+		let r = [];
+		for (let i of this.facet(Pe)) for (let a of i(this, t, n)) Object.prototype.hasOwnProperty.call(a, e) && r.push(a[e]);
+		return r;
+	}
+	charCategorizer(e) {
+		let t = this.languageDataAt("wordChars", e);
+		return nt(t.length ? t[0] : "");
+	}
+	wordAt(e) {
+		let { text: t, from: n, length: r } = this.doc.lineAt(e), i = this.charCategorizer(e), a = e - n, o = e - n;
+		for (; a > 0;) {
+			let e = S(t, a, !1);
+			if (i(t.slice(e, a)) != Qe.Word) break;
+			a = e;
+		}
+		for (; o < r;) {
+			let e = S(t, o);
+			if (i(t.slice(o, e)) != Qe.Word) break;
+			o = e;
+		}
+		return a == o ? null : T.range(a + n, o + n);
+	}
 };
-function ps(s, t) {
-  return s.from - t.from || s.value.startSide - t.value.startSide;
+k.allowMultipleSelections = Fe, k.tabSize = /*@__PURE__*/ E.define({ combine: (e) => e.length ? e[0] : 4 }), k.lineSeparator = Ie, k.readOnly = Be, k.phrases = /*@__PURE__*/ E.define({ compare(e, t) {
+	let n = Object.keys(e), r = Object.keys(t);
+	return n.length == r.length && n.every((n) => e[n] == t[n]);
+} }), k.languageData = Pe, k.changeFilter = Le, k.transactionFilter = Re, k.transactionExtender = ze, Oe.reconfigure = /*@__PURE__*/ D.define();
+function rt(e, t, n = {}) {
+	let r = {};
+	for (let t of e) for (let e of Object.keys(t)) {
+		let i = t[e], a = r[e];
+		if (a === void 0) r[e] = i;
+		else if (a !== i && i !== void 0) {
+			if (Object.hasOwnProperty.call(n, e)) r[e] = n[e](a, i);
+			else throw Error("Config merge conflict for field " + e);
+		}
+	}
+	for (let e in t) r[e] === void 0 && (r[e] = t[e]);
+	return r;
 }
-class _s {
-  constructor(t, e, i, n) {
-    this.from = t, this.to = e, this.value = i, this.maxPoint = n;
-  }
-  get length() {
-    return this.to[this.to.length - 1];
-  }
-  // Find the index of the given position and side. Use the ranges'
-  // `from` pos when `end == false`, `to` when `end == true`.
-  findIndex(t, e, i, n = 0) {
-    let r = i ? this.to : this.from;
-    for (let o = n, l = r.length; ; ) {
-      if (o == l)
-        return o;
-      let a = o + l >> 1, h = r[a] - t || (i ? this.value[a].endSide : this.value[a].startSide) - e;
-      if (a == o)
-        return h >= 0 ? o : l;
-      h >= 0 ? l = a : o = a + 1;
-    }
-  }
-  between(t, e, i, n) {
-    for (let r = this.findIndex(e, -1e9, !0), o = this.findIndex(i, 1e9, !1, r); r < o; r++)
-      if (n(this.from[r] + t, this.to[r] + t, this.value[r]) === !1)
-        return !1;
-  }
-  map(t, e) {
-    let i = [], n = [], r = [], o = -1, l = -1;
-    for (let a = 0; a < this.value.length; a++) {
-      let h = this.value[a], f = this.from[a] + t, c = this.to[a] + t, u, d;
-      if (f == c) {
-        let p = e.mapPos(f, h.startSide, h.mapMode);
-        if (p == null || (u = d = p, h.startSide != h.endSide && (d = e.mapPos(f, h.endSide), d < u)))
-          continue;
-      } else if (u = e.mapPos(f, h.startSide), d = e.mapPos(c, h.endSide), u > d || u == d && h.startSide > 0 && h.endSide <= 0)
-        continue;
-      (d - u || h.endSide - h.startSide) < 0 || (o < 0 && (o = u), h.point && (l = Math.max(l, d - u)), i.push(h), n.push(u - o), r.push(d - o));
-    }
-    return { mapped: i.length ? new _s(n, r, i, l) : null, pos: o };
-  }
-}
-class L {
-  constructor(t, e, i, n) {
-    this.chunkPos = t, this.chunk = e, this.nextLayer = i, this.maxPoint = n;
-  }
-  /**
-  @internal
-  */
-  static create(t, e, i, n) {
-    return new L(t, e, i, n);
-  }
-  /**
-  @internal
-  */
-  get length() {
-    let t = this.chunk.length - 1;
-    return t < 0 ? 0 : Math.max(this.chunkEnd(t), this.nextLayer.length);
-  }
-  /**
-  The number of ranges in the set.
-  */
-  get size() {
-    if (this.isEmpty)
-      return 0;
-    let t = this.nextLayer.size;
-    for (let e of this.chunk)
-      t += e.value.length;
-    return t;
-  }
-  /**
-  @internal
-  */
-  chunkEnd(t) {
-    return this.chunkPos[t] + this.chunk[t].length;
-  }
-  /**
-  Update the range set, optionally adding new ranges or filtering
-  out existing ones.
-  
-  (Note: The type parameter is just there as a kludge to work
-  around TypeScript variance issues that prevented `RangeSet<X>`
-  from being a subtype of `RangeSet<Y>` when `X` is a subtype of
-  `Y`.)
-  */
-  update(t) {
-    let { add: e = [], sort: i = !1, filterFrom: n = 0, filterTo: r = this.length } = t, o = t.filter;
-    if (e.length == 0 && !o)
-      return this;
-    if (i && (e = e.slice().sort(ps)), this.isEmpty)
-      return e.length ? L.of(e) : this;
-    let l = new al(this, null, -1).goto(0), a = 0, h = [], f = new oi();
-    for (; l.value || a < e.length; )
-      if (a < e.length && (l.from - e[a].from || l.startSide - e[a].value.startSide) >= 0) {
-        let c = e[a++];
-        f.addInner(c.from, c.to, c.value) || h.push(c);
-      } else l.rangeIndex == 1 && l.chunkIndex < this.chunk.length && (a == e.length || this.chunkEnd(l.chunkIndex) < e[a].from) && (!o || n > this.chunkEnd(l.chunkIndex) || r < this.chunkPos[l.chunkIndex]) && f.addChunk(this.chunkPos[l.chunkIndex], this.chunk[l.chunkIndex]) ? l.nextChunk() : ((!o || n > l.to || r < l.from || o(l.from, l.to, l.value)) && (f.addInner(l.from, l.to, l.value) || h.push(ds.create(l.from, l.to, l.value))), l.next());
-    return f.finishInner(this.nextLayer.isEmpty && !h.length ? L.empty : this.nextLayer.update({ add: h, filter: o, filterFrom: n, filterTo: r }));
-  }
-  /**
-  Map this range set through a set of changes, return the new set.
-  */
-  map(t) {
-    if (t.empty || this.isEmpty)
-      return this;
-    let e = [], i = [], n = -1;
-    for (let o = 0; o < this.chunk.length; o++) {
-      let l = this.chunkPos[o], a = this.chunk[o], h = t.touchesRange(l, l + a.length);
-      if (h === !1)
-        n = Math.max(n, a.maxPoint), e.push(a), i.push(t.mapPos(l));
-      else if (h === !0) {
-        let { mapped: f, pos: c } = a.map(l, t);
-        f && (n = Math.max(n, f.maxPoint), e.push(f), i.push(c));
-      }
-    }
-    let r = this.nextLayer.map(t);
-    return e.length == 0 ? r : new L(i, e, r || L.empty, n);
-  }
-  /**
-  Iterate over the ranges that touch the region `from` to `to`,
-  calling `f` for each. There is no guarantee that the ranges will
-  be reported in any specific order. When the callback returns
-  `false`, iteration stops.
-  */
-  between(t, e, i) {
-    if (!this.isEmpty) {
-      for (let n = 0; n < this.chunk.length; n++) {
-        let r = this.chunkPos[n], o = this.chunk[n];
-        if (e >= r && t <= r + o.length && o.between(r, t - r, e - r, i) === !1)
-          return;
-      }
-      this.nextLayer.between(t, e, i);
-    }
-  }
-  /**
-  Iterate over the ranges in this set, in order, including all
-  ranges that end at or after `from`.
-  */
-  iter(t = 0) {
-    return li.from([this]).goto(t);
-  }
-  /**
-  @internal
-  */
-  get isEmpty() {
-    return this.nextLayer == this;
-  }
-  /**
-  Iterate over the ranges in a collection of sets, in order,
-  starting from `from`.
-  */
-  static iter(t, e = 0) {
-    return li.from(t).goto(e);
-  }
-  /**
-  Iterate over two groups of sets, calling methods on `comparator`
-  to notify it of possible differences.
-  */
-  static compare(t, e, i, n, r = -1) {
-    let o = t.filter((c) => c.maxPoint > 0 || !c.isEmpty && c.maxPoint >= r), l = e.filter((c) => c.maxPoint > 0 || !c.isEmpty && c.maxPoint >= r), a = Mr(o, l, i), h = new Ue(o, a, r), f = new Ue(l, a, r);
-    i.iterGaps((c, u, d) => Tr(h, c, f, u, d, n)), i.empty && i.length == 0 && Tr(h, 0, f, 0, 0, n);
-  }
-  /**
-  Compare the contents of two groups of range sets, returning true
-  if they are equivalent in the given range.
-  */
-  static eq(t, e, i = 0, n) {
-    n == null && (n = 999999999);
-    let r = t.filter((f) => !f.isEmpty && e.indexOf(f) < 0), o = e.filter((f) => !f.isEmpty && t.indexOf(f) < 0);
-    if (r.length != o.length)
-      return !1;
-    if (!r.length)
-      return !0;
-    let l = Mr(r, o), a = new Ue(r, l, 0).goto(i), h = new Ue(o, l, 0).goto(i);
-    for (; ; ) {
-      if (a.to != h.to || !ms(a.active, h.active) || a.point && (!h.point || !Js(a.point, h.point)))
-        return !1;
-      if (a.to > n)
-        return !0;
-      a.next(), h.next();
-    }
-  }
-  /**
-  Iterate over a group of range sets at the same time, notifying
-  the iterator about the ranges covering every given piece of
-  content. Returns the open count (see
-  [`SpanIterator.span`](https://codemirror.net/6/docs/ref/#state.SpanIterator.span)) at the end
-  of the iteration.
-  */
-  static spans(t, e, i, n, r = -1) {
-    let o = new Ue(t, null, r).goto(e), l = e, a = o.openStart;
-    for (; ; ) {
-      let h = Math.min(o.to, i);
-      if (o.point) {
-        let f = o.activeForPoint(o.to), c = o.pointFrom < e ? f.length + 1 : o.point.startSide < 0 ? f.length : Math.min(f.length, a);
-        n.point(l, h, o.point, f, c, o.pointRank), a = Math.min(o.openEnd(h), f.length);
-      } else h > l && (n.span(l, h, o.active, a), a = o.openEnd(h));
-      if (o.to > i)
-        return a + (o.point && o.to > i ? 1 : 0);
-      l = o.to, o.next();
-    }
-  }
-  /**
-  Create a range set for the given range or array of ranges. By
-  default, this expects the ranges to be _sorted_ (by start
-  position and, if two start at the same position,
-  `value.startSide`). You can pass `true` as second argument to
-  cause the method to sort them.
-  */
-  static of(t, e = !1) {
-    let i = new oi();
-    for (let n of t instanceof ds ? [t] : e ? kh(t) : t)
-      i.add(n.from, n.to, n.value);
-    return i.finish();
-  }
-  /**
-  Join an array of range sets into a single set.
-  */
-  static join(t) {
-    if (!t.length)
-      return L.empty;
-    let e = t[t.length - 1];
-    for (let i = t.length - 2; i >= 0; i--)
-      for (let n = t[i]; n != L.empty; n = n.nextLayer)
-        e = new L(n.chunkPos, n.chunk, e, Math.max(n.maxPoint, e.maxPoint));
-    return e;
-  }
-}
-L.empty = /* @__PURE__ */ new L([], [], null, -1);
-function kh(s) {
-  if (s.length > 1)
-    for (let t = s[0], e = 1; e < s.length; e++) {
-      let i = s[e];
-      if (ps(t, i) > 0)
-        return s.slice().sort(ps);
-      t = i;
-    }
-  return s;
-}
-L.empty.nextLayer = L.empty;
-class oi {
-  finishChunk(t) {
-    this.chunks.push(new _s(this.from, this.to, this.value, this.maxPoint)), this.chunkPos.push(this.chunkStart), this.chunkStart = -1, this.setMaxPoint = Math.max(this.setMaxPoint, this.maxPoint), this.maxPoint = -1, t && (this.from = [], this.to = [], this.value = []);
-  }
-  /**
-  Create an empty builder.
-  */
-  constructor() {
-    this.chunks = [], this.chunkPos = [], this.chunkStart = -1, this.last = null, this.lastFrom = -1e9, this.lastTo = -1e9, this.from = [], this.to = [], this.value = [], this.maxPoint = -1, this.setMaxPoint = -1, this.nextLayer = null;
-  }
-  /**
-  Add a range. Ranges should be added in sorted (by `from` and
-  `value.startSide`) order.
-  */
-  add(t, e, i) {
-    this.addInner(t, e, i) || (this.nextLayer || (this.nextLayer = new oi())).add(t, e, i);
-  }
-  /**
-  @internal
-  */
-  addInner(t, e, i) {
-    let n = t - this.lastTo || i.startSide - this.last.endSide;
-    if (n <= 0 && (t - this.lastFrom || i.startSide - this.last.startSide) < 0)
-      throw new Error("Ranges must be added sorted by `from` position and `startSide`");
-    return n < 0 ? !1 : (this.from.length == 250 && this.finishChunk(!0), this.chunkStart < 0 && (this.chunkStart = t), this.from.push(t - this.chunkStart), this.to.push(e - this.chunkStart), this.last = i, this.lastFrom = t, this.lastTo = e, this.value.push(i), i.point && (this.maxPoint = Math.max(this.maxPoint, e - t)), !0);
-  }
-  /**
-  @internal
-  */
-  addChunk(t, e) {
-    if ((t - this.lastTo || e.value[0].startSide - this.last.endSide) < 0)
-      return !1;
-    this.from.length && this.finishChunk(!0), this.setMaxPoint = Math.max(this.setMaxPoint, e.maxPoint), this.chunks.push(e), this.chunkPos.push(t);
-    let i = e.value.length - 1;
-    return this.last = e.value[i], this.lastFrom = e.from[i] + t, this.lastTo = e.to[i] + t, !0;
-  }
-  /**
-  Finish the range set. Returns the new set. The builder can't be
-  used anymore after this has been called.
-  */
-  finish() {
-    return this.finishInner(L.empty);
-  }
-  /**
-  @internal
-  */
-  finishInner(t) {
-    if (this.from.length && this.finishChunk(!1), this.chunks.length == 0)
-      return t;
-    let e = L.create(this.chunkPos, this.chunks, this.nextLayer ? this.nextLayer.finishInner(t) : t, this.setMaxPoint);
-    return this.from = null, e;
-  }
-}
-function Mr(s, t, e) {
-  let i = /* @__PURE__ */ new Map();
-  for (let r of s)
-    for (let o = 0; o < r.chunk.length; o++)
-      r.chunk[o].maxPoint <= 0 && i.set(r.chunk[o], r.chunkPos[o]);
-  let n = /* @__PURE__ */ new Set();
-  for (let r of t)
-    for (let o = 0; o < r.chunk.length; o++) {
-      let l = i.get(r.chunk[o]);
-      l != null && (e ? e.mapPos(l) : l) == r.chunkPos[o] && !e?.touchesRange(l, l + r.chunk[o].length) && n.add(r.chunk[o]);
-    }
-  return n;
-}
-class al {
-  constructor(t, e, i, n = 0) {
-    this.layer = t, this.skip = e, this.minPoint = i, this.rank = n;
-  }
-  get startSide() {
-    return this.value ? this.value.startSide : 0;
-  }
-  get endSide() {
-    return this.value ? this.value.endSide : 0;
-  }
-  goto(t, e = -1e9) {
-    return this.chunkIndex = this.rangeIndex = 0, this.gotoInner(t, e, !1), this;
-  }
-  gotoInner(t, e, i) {
-    for (; this.chunkIndex < this.layer.chunk.length; ) {
-      let n = this.layer.chunk[this.chunkIndex];
-      if (!(this.skip && this.skip.has(n) || this.layer.chunkEnd(this.chunkIndex) < t || n.maxPoint < this.minPoint))
-        break;
-      this.chunkIndex++, i = !1;
-    }
-    if (this.chunkIndex < this.layer.chunk.length) {
-      let n = this.layer.chunk[this.chunkIndex].findIndex(t - this.layer.chunkPos[this.chunkIndex], e, !0);
-      (!i || this.rangeIndex < n) && this.setRangeIndex(n);
-    }
-    this.next();
-  }
-  forward(t, e) {
-    (this.to - t || this.endSide - e) < 0 && this.gotoInner(t, e, !0);
-  }
-  next() {
-    for (; ; )
-      if (this.chunkIndex == this.layer.chunk.length) {
-        this.from = this.to = 1e9, this.value = null;
-        break;
-      } else {
-        let t = this.layer.chunkPos[this.chunkIndex], e = this.layer.chunk[this.chunkIndex], i = t + e.from[this.rangeIndex];
-        if (this.from = i, this.to = t + e.to[this.rangeIndex], this.value = e.value[this.rangeIndex], this.setRangeIndex(this.rangeIndex + 1), this.minPoint < 0 || this.value.point && this.to - this.from >= this.minPoint)
-          break;
-      }
-  }
-  setRangeIndex(t) {
-    if (t == this.layer.chunk[this.chunkIndex].value.length) {
-      if (this.chunkIndex++, this.skip)
-        for (; this.chunkIndex < this.layer.chunk.length && this.skip.has(this.layer.chunk[this.chunkIndex]); )
-          this.chunkIndex++;
-      this.rangeIndex = 0;
-    } else
-      this.rangeIndex = t;
-  }
-  nextChunk() {
-    this.chunkIndex++, this.rangeIndex = 0, this.next();
-  }
-  compare(t) {
-    return this.from - t.from || this.startSide - t.startSide || this.rank - t.rank || this.to - t.to || this.endSide - t.endSide;
-  }
-}
-class li {
-  constructor(t) {
-    this.heap = t;
-  }
-  static from(t, e = null, i = -1) {
-    let n = [];
-    for (let r = 0; r < t.length; r++)
-      for (let o = t[r]; !o.isEmpty; o = o.nextLayer)
-        o.maxPoint >= i && n.push(new al(o, e, i, r));
-    return n.length == 1 ? n[0] : new li(n);
-  }
-  get startSide() {
-    return this.value ? this.value.startSide : 0;
-  }
-  goto(t, e = -1e9) {
-    for (let i of this.heap)
-      i.goto(t, e);
-    for (let i = this.heap.length >> 1; i >= 0; i--)
-      Hn(this.heap, i);
-    return this.next(), this;
-  }
-  forward(t, e) {
-    for (let i of this.heap)
-      i.forward(t, e);
-    for (let i = this.heap.length >> 1; i >= 0; i--)
-      Hn(this.heap, i);
-    (this.to - t || this.value.endSide - e) < 0 && this.next();
-  }
-  next() {
-    if (this.heap.length == 0)
-      this.from = this.to = 1e9, this.value = null, this.rank = -1;
-    else {
-      let t = this.heap[0];
-      this.from = t.from, this.to = t.to, this.value = t.value, this.rank = t.rank, t.value && t.next(), Hn(this.heap, 0);
-    }
-  }
-}
-function Hn(s, t) {
-  for (let e = s[t]; ; ) {
-    let i = (t << 1) + 1;
-    if (i >= s.length)
-      break;
-    let n = s[i];
-    if (i + 1 < s.length && n.compare(s[i + 1]) >= 0 && (n = s[i + 1], i++), e.compare(n) < 0)
-      break;
-    s[i] = e, s[t] = n, t = i;
-  }
-}
-class Ue {
-  constructor(t, e, i) {
-    this.minPoint = i, this.active = [], this.activeTo = [], this.activeRank = [], this.minActive = -1, this.point = null, this.pointFrom = 0, this.pointRank = 0, this.to = -1e9, this.endSide = 0, this.openStart = -1, this.cursor = li.from(t, e, i);
-  }
-  goto(t, e = -1e9) {
-    return this.cursor.goto(t, e), this.active.length = this.activeTo.length = this.activeRank.length = 0, this.minActive = -1, this.to = t, this.endSide = e, this.openStart = -1, this.next(), this;
-  }
-  forward(t, e) {
-    for (; this.minActive > -1 && (this.activeTo[this.minActive] - t || this.active[this.minActive].endSide - e) < 0; )
-      this.removeActive(this.minActive);
-    this.cursor.forward(t, e);
-  }
-  removeActive(t) {
-    Si(this.active, t), Si(this.activeTo, t), Si(this.activeRank, t), this.minActive = Or(this.active, this.activeTo);
-  }
-  addActive(t) {
-    let e = 0, { value: i, to: n, rank: r } = this.cursor;
-    for (; e < this.activeRank.length && (r - this.activeRank[e] || n - this.activeTo[e]) > 0; )
-      e++;
-    Ci(this.active, e, i), Ci(this.activeTo, e, n), Ci(this.activeRank, e, r), t && Ci(t, e, this.cursor.from), this.minActive = Or(this.active, this.activeTo);
-  }
-  // After calling this, if `this.point` != null, the next range is a
-  // point. Otherwise, it's a regular range, covered by `this.active`.
-  next() {
-    let t = this.to, e = this.point;
-    this.point = null;
-    let i = this.openStart < 0 ? [] : null;
-    for (; ; ) {
-      let n = this.minActive;
-      if (n > -1 && (this.activeTo[n] - this.cursor.from || this.active[n].endSide - this.cursor.startSide) < 0) {
-        if (this.activeTo[n] > t) {
-          this.to = this.activeTo[n], this.endSide = this.active[n].endSide;
-          break;
-        }
-        this.removeActive(n), i && Si(i, n);
-      } else if (this.cursor.value)
-        if (this.cursor.from > t) {
-          this.to = this.cursor.from, this.endSide = this.cursor.startSide;
-          break;
-        } else {
-          let r = this.cursor.value;
-          if (!r.point)
-            this.addActive(i), this.cursor.next();
-          else if (e && this.cursor.to == this.to && this.cursor.from < this.cursor.to)
-            this.cursor.next();
-          else {
-            this.point = r, this.pointFrom = this.cursor.from, this.pointRank = this.cursor.rank, this.to = this.cursor.to, this.endSide = r.endSide, this.cursor.next(), this.forward(this.to, this.endSide);
-            break;
-          }
-        }
-      else {
-        this.to = this.endSide = 1e9;
-        break;
-      }
-    }
-    if (i) {
-      this.openStart = 0;
-      for (let n = i.length - 1; n >= 0 && i[n] < t; n--)
-        this.openStart++;
-    }
-  }
-  activeForPoint(t) {
-    if (!this.active.length)
-      return this.active;
-    let e = [];
-    for (let i = this.active.length - 1; i >= 0 && !(this.activeRank[i] < this.pointRank); i--)
-      (this.activeTo[i] > t || this.activeTo[i] == t && this.active[i].endSide >= this.point.endSide) && e.push(this.active[i]);
-    return e.reverse();
-  }
-  openEnd(t) {
-    let e = 0;
-    for (let i = this.activeTo.length - 1; i >= 0 && this.activeTo[i] > t; i--)
-      e++;
-    return e;
-  }
-}
-function Tr(s, t, e, i, n, r) {
-  s.goto(t), e.goto(i);
-  let o = i + n, l = i, a = i - t, h = !!r.boundChange;
-  for (let f = !1; ; ) {
-    let c = s.to + a - e.to, u = c || s.endSide - e.endSide, d = u < 0 ? s.to + a : e.to, p = Math.min(d, o);
-    if (s.point || e.point ? (s.point && e.point && Js(s.point, e.point) && ms(s.activeForPoint(s.to), e.activeForPoint(e.to)) || r.comparePoint(l, p, s.point, e.point), f = !1) : (f && r.boundChange(l), p > l && !ms(s.active, e.active) && r.compareRange(l, p, s.active, e.active), h && p < o && (c || s.openEnd(d) != e.openEnd(d)) && (f = !0)), d > o)
-      break;
-    l = d, u <= 0 && s.next(), u >= 0 && e.next();
-  }
-}
-function ms(s, t) {
-  if (s.length != t.length)
-    return !1;
-  for (let e = 0; e < s.length; e++)
-    if (s[e] != t[e] && !Js(s[e], t[e]))
-      return !1;
-  return !0;
-}
-function Si(s, t) {
-  for (let e = t, i = s.length - 1; e < i; e++)
-    s[e] = s[e + 1];
-  s.pop();
-}
-function Ci(s, t, e) {
-  for (let i = s.length - 1; i >= t; i--)
-    s[i + 1] = s[i];
-  s[t] = e;
-}
-function Or(s, t) {
-  let e = -1, i = 1e9;
-  for (let n = 0; n < t.length; n++)
-    (t[n] - i || s[n].endSide - s[e].endSide) < 0 && (e = n, i = t[n]);
-  return e;
-}
-function vn(s, t, e = s.length) {
-  let i = 0;
-  for (let n = 0; n < e && n < s.length; )
-    s.charCodeAt(n) == 9 ? (i += t - i % t, n++) : (i++, n = nt(s, n));
-  return i;
-}
-function Sh(s, t, e, i) {
-  for (let n = 0, r = 0; ; ) {
-    if (r >= t)
-      return n;
-    if (n == s.length)
-      break;
-    r += s.charCodeAt(n) == 9 ? e - r % e : 1, n = nt(s, n);
-  }
-  return s.length;
-}
-const gs = "ͼ", Dr = typeof Symbol > "u" ? "__" + gs : Symbol.for(gs), ys = typeof Symbol > "u" ? "__styleSet" + Math.floor(Math.random() * 1e8) : /* @__PURE__ */ Symbol("styleSet"), Br = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : {};
-class Ie {
-  // :: (Object<Style>, ?{finish: ?(string) → string})
-  // Create a style module from the given spec.
-  //
-  // When `finish` is given, it is called on regular (non-`@`)
-  // selectors (after `&` expansion) to compute the final selector.
-  constructor(t, e) {
-    this.rules = [];
-    let { finish: i } = e || {};
-    function n(o) {
-      return /^@/.test(o) ? [o] : o.split(/,\s*/);
-    }
-    function r(o, l, a, h) {
-      let f = [], c = /^@(\w+)\b/.exec(o[0]), u = c && c[1] == "keyframes";
-      if (c && l == null) return a.push(o[0] + ";");
-      for (let d in l) {
-        let p = l[d];
-        if (/&/.test(d))
-          r(
-            d.split(/,\s*/).map((m) => o.map((g) => m.replace(/&/, g))).reduce((m, g) => m.concat(g)),
-            p,
-            a
-          );
-        else if (p && typeof p == "object") {
-          if (!c) throw new RangeError("The value of a property (" + d + ") should be a primitive value.");
-          r(n(d), p, f, u);
-        } else p != null && f.push(d.replace(/_.*/, "").replace(/[A-Z]/g, (m) => "-" + m.toLowerCase()) + ": " + p + ";");
-      }
-      (f.length || u) && a.push((i && !c && !h ? o.map(i) : o).join(", ") + " {" + f.join(" ") + "}");
-    }
-    for (let o in t) r(n(o), t[o], this.rules);
-  }
-  // :: () → string
-  // Returns a string containing the module's CSS rules.
-  getRules() {
-    return this.rules.join(`
-`);
-  }
-  // :: () → string
-  // Generate a new unique CSS class name.
-  static newName() {
-    let t = Br[Dr] || 1;
-    return Br[Dr] = t + 1, gs + t.toString(36);
-  }
-  // :: (union<Document, ShadowRoot>, union<[StyleModule], StyleModule>, ?{nonce: ?string})
-  //
-  // Mount the given set of modules in the given DOM root, which ensures
-  // that the CSS rules defined by the module are available in that
-  // context.
-  //
-  // Rules are only added to the document once per root.
-  //
-  // Rule order will follow the order of the modules, so that rules from
-  // modules later in the array take precedence of those from earlier
-  // modules. If you call this function multiple times for the same root
-  // in a way that changes the order of already mounted modules, the old
-  // order will be changed.
-  //
-  // If a Content Security Policy nonce is provided, it is added to
-  // the `<style>` tag generated by the library.
-  static mount(t, e, i) {
-    let n = t[ys], r = i && i.nonce;
-    n ? r && n.setNonce(r) : n = new Ch(t, r), n.mount(Array.isArray(e) ? e : [e], t);
-  }
-}
-let Lr = /* @__PURE__ */ new Map();
-class Ch {
-  constructor(t, e) {
-    let i = t.ownerDocument || t, n = i.defaultView;
-    if (!t.head && t.adoptedStyleSheets && n.CSSStyleSheet) {
-      let r = Lr.get(i);
-      if (r) return t[ys] = r;
-      this.sheet = new n.CSSStyleSheet(), Lr.set(i, this);
-    } else
-      this.styleTag = i.createElement("style"), e && this.styleTag.setAttribute("nonce", e);
-    this.modules = [], t[ys] = this;
-  }
-  mount(t, e) {
-    let i = this.sheet, n = 0, r = 0;
-    for (let o = 0; o < t.length; o++) {
-      let l = t[o], a = this.modules.indexOf(l);
-      if (a < r && a > -1 && (this.modules.splice(a, 1), r--, a = -1), a == -1) {
-        if (this.modules.splice(r++, 0, l), i) for (let h = 0; h < l.rules.length; h++)
-          i.insertRule(l.rules[h], n++);
-      } else {
-        for (; r < a; ) n += this.modules[r++].rules.length;
-        n += l.rules.length, r++;
-      }
-    }
-    if (i)
-      e.adoptedStyleSheets.indexOf(this.sheet) < 0 && (e.adoptedStyleSheets = [this.sheet, ...e.adoptedStyleSheets]);
-    else {
-      let o = "";
-      for (let a = 0; a < this.modules.length; a++)
-        o += this.modules[a].getRules() + `
-`;
-      this.styleTag.textContent = o;
-      let l = e.head || e;
-      this.styleTag.parentNode != l && l.insertBefore(this.styleTag, l.firstChild);
-    }
-  }
-  setNonce(t) {
-    this.styleTag && this.styleTag.getAttribute("nonce") != t && this.styleTag.setAttribute("nonce", t);
-  }
-}
-var re = {
-  8: "Backspace",
-  9: "Tab",
-  10: "Enter",
-  12: "NumLock",
-  13: "Enter",
-  16: "Shift",
-  17: "Control",
-  18: "Alt",
-  20: "CapsLock",
-  27: "Escape",
-  32: " ",
-  33: "PageUp",
-  34: "PageDown",
-  35: "End",
-  36: "Home",
-  37: "ArrowLeft",
-  38: "ArrowUp",
-  39: "ArrowRight",
-  40: "ArrowDown",
-  44: "PrintScreen",
-  45: "Insert",
-  46: "Delete",
-  59: ";",
-  61: "=",
-  91: "Meta",
-  92: "Meta",
-  106: "*",
-  107: "+",
-  108: ",",
-  109: "-",
-  110: ".",
-  111: "/",
-  144: "NumLock",
-  145: "ScrollLock",
-  160: "Shift",
-  161: "Shift",
-  162: "Control",
-  163: "Control",
-  164: "Alt",
-  165: "Alt",
-  173: "-",
-  186: ";",
-  187: "=",
-  188: ",",
-  189: "-",
-  190: ".",
-  191: "/",
-  192: "`",
-  219: "[",
-  220: "\\",
-  221: "]",
-  222: "'"
-}, ai = {
-  48: ")",
-  49: "!",
-  50: "@",
-  51: "#",
-  52: "$",
-  53: "%",
-  54: "^",
-  55: "&",
-  56: "*",
-  57: "(",
-  59: ":",
-  61: "+",
-  173: "_",
-  186: ":",
-  187: "+",
-  188: "<",
-  189: "_",
-  190: ">",
-  191: "?",
-  192: "~",
-  219: "{",
-  220: "|",
-  221: "}",
-  222: '"'
-}, Ah = typeof navigator < "u" && /Mac/.test(navigator.platform), Mh = typeof navigator < "u" && /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(navigator.userAgent);
-for (var tt = 0; tt < 10; tt++) re[48 + tt] = re[96 + tt] = String(tt);
-for (var tt = 1; tt <= 24; tt++) re[tt + 111] = "F" + tt;
-for (var tt = 65; tt <= 90; tt++)
-  re[tt] = String.fromCharCode(tt + 32), ai[tt] = String.fromCharCode(tt);
-for (var Wn in re) ai.hasOwnProperty(Wn) || (ai[Wn] = re[Wn]);
-function Th(s) {
-  var t = Ah && s.metaKey && s.shiftKey && !s.ctrlKey && !s.altKey || Mh && s.shiftKey && s.key && s.key.length == 1 || s.key == "Unidentified", e = !t && s.key || (s.shiftKey ? ai : re)[s.keyCode] || s.key || "Unidentified";
-  return e == "Esc" && (e = "Escape"), e == "Del" && (e = "Delete"), e == "Left" && (e = "ArrowLeft"), e == "Up" && (e = "ArrowUp"), e == "Right" && (e = "ArrowRight"), e == "Down" && (e = "ArrowDown"), e;
-}
-function Ht() {
-  var s = arguments[0];
-  typeof s == "string" && (s = document.createElement(s));
-  var t = 1, e = arguments[1];
-  if (e && typeof e == "object" && e.nodeType == null && !Array.isArray(e)) {
-    for (var i in e) if (Object.prototype.hasOwnProperty.call(e, i)) {
-      var n = e[i];
-      typeof n == "string" ? s.setAttribute(i, n) : n != null && (s[i] = n);
-    }
-    t++;
-  }
-  for (; t < arguments.length; t++) hl(s, arguments[t]);
-  return s;
-}
-function hl(s, t) {
-  if (typeof t == "string")
-    s.appendChild(document.createTextNode(t));
-  else if (t != null) if (t.nodeType != null)
-    s.appendChild(t);
-  else if (Array.isArray(t))
-    for (var e = 0; e < t.length; e++) hl(s, t[e]);
-  else
-    throw new RangeError("Unsupported child node: " + t);
-}
-let rt = typeof navigator < "u" ? navigator : { userAgent: "", vendor: "", platform: "" }, bs = typeof document < "u" ? document : { documentElement: { style: {} } };
-const ws = /* @__PURE__ */ /Edge\/(\d+)/.exec(rt.userAgent), fl = /* @__PURE__ */ /MSIE \d/.test(rt.userAgent), xs = /* @__PURE__ */ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(rt.userAgent), kn = !!(fl || xs || ws), Er = !kn && /* @__PURE__ */ /gecko\/(\d+)/i.test(rt.userAgent), Vn = !kn && /* @__PURE__ */ /Chrome\/(\d+)/.exec(rt.userAgent), Oh = "webkitFontSmoothing" in bs.documentElement.style, vs = !kn && /* @__PURE__ */ /Apple Computer/.test(rt.vendor), Rr = vs && (/* @__PURE__ */ /Mobile\/\w+/.test(rt.userAgent) || rt.maxTouchPoints > 2);
-var k = {
-  mac: Rr || /* @__PURE__ */ /Mac/.test(rt.platform),
-  windows: /* @__PURE__ */ /Win/.test(rt.platform),
-  linux: /* @__PURE__ */ /Linux|X11/.test(rt.platform),
-  ie: kn,
-  ie_version: fl ? bs.documentMode || 6 : xs ? +xs[1] : ws ? +ws[1] : 0,
-  gecko: Er,
-  gecko_version: Er ? +(/* @__PURE__ */ /Firefox\/(\d+)/.exec(rt.userAgent) || [0, 0])[1] : 0,
-  chrome: !!Vn,
-  chrome_version: Vn ? +Vn[1] : 0,
-  ios: Rr,
-  android: /* @__PURE__ */ /Android\b/.test(rt.userAgent),
-  webkit_version: Oh ? +(/* @__PURE__ */ /\bAppleWebKit\/(\d+)/.exec(rt.userAgent) || [0, 0])[1] : 0,
-  safari: vs,
-  safari_version: vs ? +(/* @__PURE__ */ /\bVersion\/(\d+(\.\d+)?)/.exec(rt.userAgent) || [0, 0])[1] : 0,
-  tabSize: bs.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
+var it = class {
+	eq(e) {
+		return this == e;
+	}
+	range(e, t = e) {
+		return ot.create(e, t, this);
+	}
 };
-function Ys(s, t) {
-  for (let e in s)
-    e == "class" && t.class ? t.class += " " + s.class : e == "style" && t.style ? t.style += ";" + s.style : t[e] = s[e];
-  return t;
-}
-const Zi = /* @__PURE__ */ Object.create(null);
-function Xs(s, t, e) {
-  if (s == t)
-    return !0;
-  s || (s = Zi), t || (t = Zi);
-  let i = Object.keys(s), n = Object.keys(t);
-  if (i.length - 0 != n.length - 0)
-    return !1;
-  for (let r of i)
-    if (r != e && (n.indexOf(r) == -1 || s[r] !== t[r]))
-      return !1;
-  return !0;
-}
-function Dh(s, t) {
-  for (let e = s.attributes.length - 1; e >= 0; e--) {
-    let i = s.attributes[e].name;
-    t[i] == null && s.removeAttribute(i);
-  }
-  for (let e in t) {
-    let i = t[e];
-    e == "style" ? s.style.cssText = i : s.getAttribute(e) != i && s.setAttribute(e, i);
-  }
-}
-function Pr(s, t, e) {
-  let i = !1;
-  if (t)
-    for (let n in t)
-      e && n in e || (i = !0, n == "style" ? s.style.cssText = "" : s.removeAttribute(n));
-  if (e)
-    for (let n in e)
-      t && t[n] == e[n] || (i = !0, n == "style" ? s.style.cssText = e[n] : s.setAttribute(n, e[n]));
-  return i;
-}
-function Bh(s) {
-  let t = /* @__PURE__ */ Object.create(null);
-  for (let e = 0; e < s.attributes.length; e++) {
-    let i = s.attributes[e];
-    t[i.name] = i.value;
-  }
-  return t;
-}
-class mi {
-  /**
-  Compare this instance to another instance of the same type.
-  (TypeScript can't express this, but only instances of the same
-  specific class will be passed to this method.) This is used to
-  avoid redrawing widgets when they are replaced by a new
-  decoration of the same type. The default implementation just
-  returns `false`, which will cause new instances of the widget to
-  always be redrawn.
-  */
-  eq(t) {
-    return !1;
-  }
-  /**
-  Update a DOM element created by a widget of the same type (but
-  different, non-`eq` content) to reflect this widget. May return
-  true to indicate that it could update, false to indicate it
-  couldn't (in which case the widget will be redrawn). The default
-  implementation just returns false.
-  */
-  updateDOM(t, e) {
-    return !1;
-  }
-  /**
-  @internal
-  */
-  compare(t) {
-    return this == t || this.constructor == t.constructor && this.eq(t);
-  }
-  /**
-  The estimated height this widget will have, to be used when
-  estimating the height of content that hasn't been drawn. May
-  return -1 to indicate you don't know. The default implementation
-  returns -1.
-  */
-  get estimatedHeight() {
-    return -1;
-  }
-  /**
-  For inline widgets that are displayed inline (as opposed to
-  `inline-block`) and introduce line breaks (through `<br>` tags
-  or textual newlines), this must indicate the amount of line
-  breaks they introduce. Defaults to 0.
-  */
-  get lineBreaks() {
-    return 0;
-  }
-  /**
-  Can be used to configure which kinds of events inside the widget
-  should be ignored by the editor. The default is to ignore all
-  events.
-  */
-  ignoreEvent(t) {
-    return !0;
-  }
-  /**
-  Override the way screen coordinates for positions at/in the
-  widget are found. `pos` will be the offset into the widget, and
-  `side` the side of the position that is being queried—less than
-  zero for before, greater than zero for after, and zero for
-  directly at that position.
-  */
-  coordsAt(t, e, i) {
-    return null;
-  }
-  /**
-  @internal
-  */
-  get isHidden() {
-    return !1;
-  }
-  /**
-  @internal
-  */
-  get editable() {
-    return !1;
-  }
-  /**
-  This is called when the an instance of the widget is removed
-  from the editor view.
-  */
-  destroy(t) {
-  }
-}
-var ut = /* @__PURE__ */ (function(s) {
-  return s[s.Text = 0] = "Text", s[s.WidgetBefore = 1] = "WidgetBefore", s[s.WidgetAfter = 2] = "WidgetAfter", s[s.WidgetRange = 3] = "WidgetRange", s;
-})(ut || (ut = {}));
-class U extends se {
-  constructor(t, e, i, n) {
-    super(), this.startSide = t, this.endSide = e, this.widget = i, this.spec = n;
-  }
-  /**
-  @internal
-  */
-  get heightRelevant() {
-    return !1;
-  }
-  /**
-  Create a mark decoration, which influences the styling of the
-  content in its range. Nested mark decorations will cause nested
-  DOM elements to be created. Nesting order is determined by
-  precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), with
-  the higher-precedence decorations creating the inner DOM nodes.
-  Such elements are split on line boundaries and on the boundaries
-  of lower-precedence decorations.
-  */
-  static mark(t) {
-    return new gi(t);
-  }
-  /**
-  Create a widget decoration, which displays a DOM element at the
-  given position.
-  */
-  static widget(t) {
-    let e = Math.max(-1e4, Math.min(1e4, t.side || 0)), i = !!t.block;
-    return e += i && !t.inlineOrder ? e > 0 ? 3e8 : -4e8 : e > 0 ? 1e8 : -1e8, new xe(t, e, e, i, t.widget || null, !1);
-  }
-  /**
-  Create a replace decoration which replaces the given range with
-  a widget, or simply hides it.
-  */
-  static replace(t) {
-    let e = !!t.block, i, n;
-    if (t.isBlockGap)
-      i = -5e8, n = 4e8;
-    else {
-      let { start: r, end: o } = cl(t, e);
-      i = (r ? e ? -3e8 : -1 : 5e8) - 1, n = (o ? e ? 2e8 : 1 : -6e8) + 1;
-    }
-    return new xe(t, i, n, e, t.widget || null, !0);
-  }
-  /**
-  Create a line decoration, which can add DOM attributes to the
-  line starting at the given position.
-  */
-  static line(t) {
-    return new yi(t);
-  }
-  /**
-  Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
-  decorated range or ranges. If the ranges aren't already sorted,
-  pass `true` for `sort` to make the library sort them for you.
-  */
-  static set(t, e = !1) {
-    return L.of(t, e);
-  }
-  /**
-  @internal
-  */
-  hasHeight() {
-    return this.widget ? this.widget.estimatedHeight > -1 : !1;
-  }
-}
-U.none = L.empty;
-class gi extends U {
-  constructor(t) {
-    let { start: e, end: i } = cl(t);
-    super(e ? -1 : 5e8, i ? 1 : -6e8, null, t), this.tagName = t.tagName || "span", this.attrs = t.class && t.attributes ? Ys(t.attributes, { class: t.class }) : t.class ? { class: t.class } : t.attributes || Zi;
-  }
-  eq(t) {
-    return this == t || t instanceof gi && this.tagName == t.tagName && Xs(this.attrs, t.attrs);
-  }
-  range(t, e = t) {
-    if (t >= e)
-      throw new RangeError("Mark decorations may not be empty");
-    return super.range(t, e);
-  }
-}
-gi.prototype.point = !1;
-class yi extends U {
-  constructor(t) {
-    super(-2e8, -2e8, null, t);
-  }
-  eq(t) {
-    return t instanceof yi && this.spec.class == t.spec.class && Xs(this.spec.attributes, t.spec.attributes);
-  }
-  range(t, e = t) {
-    if (e != t)
-      throw new RangeError("Line decoration ranges must be zero-length");
-    return super.range(t, e);
-  }
-}
-yi.prototype.mapMode = ht.TrackBefore;
-yi.prototype.point = !0;
-class xe extends U {
-  constructor(t, e, i, n, r, o) {
-    super(e, i, r, t), this.block = n, this.isReplace = o, this.mapMode = n ? e <= 0 ? ht.TrackBefore : ht.TrackAfter : ht.TrackDel;
-  }
-  // Only relevant when this.block == true
-  get type() {
-    return this.startSide != this.endSide ? ut.WidgetRange : this.startSide <= 0 ? ut.WidgetBefore : ut.WidgetAfter;
-  }
-  get heightRelevant() {
-    return this.block || !!this.widget && (this.widget.estimatedHeight >= 5 || this.widget.lineBreaks > 0);
-  }
-  eq(t) {
-    return t instanceof xe && Lh(this.widget, t.widget) && this.block == t.block && this.startSide == t.startSide && this.endSide == t.endSide;
-  }
-  range(t, e = t) {
-    if (this.isReplace && (t > e || t == e && this.startSide > 0 && this.endSide <= 0))
-      throw new RangeError("Invalid range for replacement decoration");
-    if (!this.isReplace && e != t)
-      throw new RangeError("Widget decorations can only have zero-length ranges");
-    return super.range(t, e);
-  }
-}
-xe.prototype.point = !0;
-function cl(s, t = !1) {
-  let { inclusiveStart: e, inclusiveEnd: i } = s;
-  return e == null && (e = s.inclusive), i == null && (i = s.inclusive), { start: e ?? t, end: i ?? t };
-}
-function Lh(s, t) {
-  return s == t || !!(s && t && s.compare(t));
-}
-function Be(s, t, e, i = 0) {
-  let n = e.length - 1;
-  n >= 0 && e[n] + i >= s ? e[n] = Math.max(e[n], t) : e.push(s, t);
-}
-class hi extends se {
-  constructor(t, e) {
-    super(), this.tagName = t, this.attributes = e;
-  }
-  eq(t) {
-    return t == this || t instanceof hi && this.tagName == t.tagName && Xs(this.attributes, t.attributes);
-  }
-  /**
-  Create a block wrapper object with the given tag name and
-  attributes.
-  */
-  static create(t) {
-    return new hi(t.tagName, t.attributes || Zi);
-  }
-  /**
-  Create a range set from the given block wrapper ranges.
-  */
-  static set(t, e = !1) {
-    return L.of(t, e);
-  }
-}
-hi.prototype.startSide = hi.prototype.endSide = -1;
-function fi(s) {
-  let t;
-  return s.nodeType == 11 ? t = s.getSelection ? s : s.ownerDocument : t = s, t.getSelection();
-}
-function ks(s, t) {
-  return t ? s == t || s.contains(t.nodeType != 1 ? t.parentNode : t) : !1;
-}
-function ti(s, t) {
-  if (!t.anchorNode)
-    return !1;
-  try {
-    return ks(s, t.anchorNode);
-  } catch {
-    return !1;
-  }
-}
-function ji(s) {
-  return s.nodeType == 3 ? ci(s, 0, s.nodeValue.length).getClientRects() : s.nodeType == 1 ? s.getClientRects() : [];
-}
-function ei(s, t, e, i) {
-  return e ? Ir(s, t, e, i, -1) || Ir(s, t, e, i, 1) : !1;
-}
-function oe(s) {
-  for (var t = 0; ; t++)
-    if (s = s.previousSibling, !s)
-      return t;
-}
-function tn(s) {
-  return s.nodeType == 1 && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(s.nodeName);
-}
-function Ir(s, t, e, i, n) {
-  for (; ; ) {
-    if (s == e && t == i)
-      return !0;
-    if (t == (n < 0 ? 0 : Gt(s))) {
-      if (s.nodeName == "DIV")
-        return !1;
-      let r = s.parentNode;
-      if (!r || r.nodeType != 1)
-        return !1;
-      t = oe(s) + (n < 0 ? 0 : 1), s = r;
-    } else if (s.nodeType == 1) {
-      if (s = s.childNodes[t + (n < 0 ? -1 : 0)], s.nodeType == 1 && s.contentEditable == "false")
-        return !1;
-      t = n < 0 ? Gt(s) : 0;
-    } else
-      return !1;
-  }
-}
-function Gt(s) {
-  return s.nodeType == 3 ? s.nodeValue.length : s.childNodes.length;
-}
-function en(s, t) {
-  let e = t ? s.left : s.right;
-  return { left: e, right: e, top: s.top, bottom: s.bottom };
-}
-function Eh(s) {
-  let t = s.visualViewport;
-  return t ? {
-    left: 0,
-    right: t.width,
-    top: 0,
-    bottom: t.height
-  } : {
-    left: 0,
-    right: s.innerWidth,
-    top: 0,
-    bottom: s.innerHeight
-  };
-}
-function ul(s, t) {
-  let e = t.width / s.offsetWidth, i = t.height / s.offsetHeight;
-  return (e > 0.995 && e < 1.005 || !isFinite(e) || Math.abs(t.width - s.offsetWidth) < 1) && (e = 1), (i > 0.995 && i < 1.005 || !isFinite(i) || Math.abs(t.height - s.offsetHeight) < 1) && (i = 1), { scaleX: e, scaleY: i };
-}
-function Rh(s, t, e, i, n, r, o, l) {
-  let a = s.ownerDocument, h = a.defaultView || window;
-  for (let f = s, c = !1; f && !c; )
-    if (f.nodeType == 1) {
-      let u, d = f == a.body, p = 1, m = 1;
-      if (d)
-        u = Eh(h);
-      else {
-        if (/^(fixed|sticky)$/.test(getComputedStyle(f).position) && (c = !0), f.scrollHeight <= f.clientHeight && f.scrollWidth <= f.clientWidth) {
-          f = f.assignedSlot || f.parentNode;
-          continue;
-        }
-        let x = f.getBoundingClientRect();
-        ({ scaleX: p, scaleY: m } = ul(f, x)), u = {
-          left: x.left,
-          right: x.left + f.clientWidth * p,
-          top: x.top,
-          bottom: x.top + f.clientHeight * m
-        };
-      }
-      let g = 0, y = 0;
-      if (n == "nearest")
-        t.top < u.top ? (y = t.top - (u.top + o), e > 0 && t.bottom > u.bottom + y && (y = t.bottom - u.bottom + o)) : t.bottom > u.bottom && (y = t.bottom - u.bottom + o, e < 0 && t.top - y < u.top && (y = t.top - (u.top + o)));
-      else {
-        let x = t.bottom - t.top, w = u.bottom - u.top;
-        y = (n == "center" && x <= w ? t.top + x / 2 - w / 2 : n == "start" || n == "center" && e < 0 ? t.top - o : t.bottom - w + o) - u.top;
-      }
-      if (i == "nearest" ? t.left < u.left ? (g = t.left - (u.left + r), e > 0 && t.right > u.right + g && (g = t.right - u.right + r)) : t.right > u.right && (g = t.right - u.right + r, e < 0 && t.left < u.left + g && (g = t.left - (u.left + r))) : g = (i == "center" ? t.left + (t.right - t.left) / 2 - (u.right - u.left) / 2 : i == "start" == l ? t.left - r : t.right - (u.right - u.left) + r) - u.left, g || y)
-        if (d)
-          h.scrollBy(g, y);
-        else {
-          let x = 0, w = 0;
-          if (y) {
-            let C = f.scrollTop;
-            f.scrollTop += y / m, w = (f.scrollTop - C) * m;
-          }
-          if (g) {
-            let C = f.scrollLeft;
-            f.scrollLeft += g / p, x = (f.scrollLeft - C) * p;
-          }
-          t = {
-            left: t.left - x,
-            top: t.top - w,
-            right: t.right - x,
-            bottom: t.bottom - w
-          }, x && Math.abs(x - g) < 1 && (i = "nearest"), w && Math.abs(w - y) < 1 && (n = "nearest");
-        }
-      if (d)
-        break;
-      (t.top < u.top || t.bottom > u.bottom || t.left < u.left || t.right > u.right) && (t = {
-        left: Math.max(t.left, u.left),
-        right: Math.min(t.right, u.right),
-        top: Math.max(t.top, u.top),
-        bottom: Math.min(t.bottom, u.bottom)
-      }), f = f.assignedSlot || f.parentNode;
-    } else if (f.nodeType == 11)
-      f = f.host;
-    else
-      break;
-}
-function Ph(s) {
-  let t = s.ownerDocument, e, i;
-  for (let n = s.parentNode; n && !(n == t.body || e && i); )
-    if (n.nodeType == 1)
-      !i && n.scrollHeight > n.clientHeight && (i = n), !e && n.scrollWidth > n.clientWidth && (e = n), n = n.assignedSlot || n.parentNode;
-    else if (n.nodeType == 11)
-      n = n.host;
-    else
-      break;
-  return { x: e, y: i };
-}
-class Ih {
-  constructor() {
-    this.anchorNode = null, this.anchorOffset = 0, this.focusNode = null, this.focusOffset = 0;
-  }
-  eq(t) {
-    return this.anchorNode == t.anchorNode && this.anchorOffset == t.anchorOffset && this.focusNode == t.focusNode && this.focusOffset == t.focusOffset;
-  }
-  setRange(t) {
-    let { anchorNode: e, focusNode: i } = t;
-    this.set(e, Math.min(t.anchorOffset, e ? Gt(e) : 0), i, Math.min(t.focusOffset, i ? Gt(i) : 0));
-  }
-  set(t, e, i, n) {
-    this.anchorNode = t, this.anchorOffset = e, this.focusNode = i, this.focusOffset = n;
-  }
-}
-let de = null;
-k.safari && k.safari_version >= 26 && (de = !1);
-function dl(s) {
-  if (s.setActive)
-    return s.setActive();
-  if (de)
-    return s.focus(de);
-  let t = [];
-  for (let e = s; e && (t.push(e, e.scrollTop, e.scrollLeft), e != e.ownerDocument); e = e.parentNode)
-    ;
-  if (s.focus(de == null ? {
-    get preventScroll() {
-      return de = { preventScroll: !0 }, !0;
-    }
-  } : void 0), !de) {
-    de = !1;
-    for (let e = 0; e < t.length; ) {
-      let i = t[e++], n = t[e++], r = t[e++];
-      i.scrollTop != n && (i.scrollTop = n), i.scrollLeft != r && (i.scrollLeft = r);
-    }
-  }
-}
-let Nr;
-function ci(s, t, e = t) {
-  let i = Nr || (Nr = document.createRange());
-  return i.setEnd(s, e), i.setStart(s, t), i;
-}
-function Le(s, t, e, i) {
-  let n = { key: t, code: t, keyCode: e, which: e, cancelable: !0 };
-  i && ({ altKey: n.altKey, ctrlKey: n.ctrlKey, shiftKey: n.shiftKey, metaKey: n.metaKey } = i);
-  let r = new KeyboardEvent("keydown", n);
-  r.synthetic = !0, s.dispatchEvent(r);
-  let o = new KeyboardEvent("keyup", n);
-  return o.synthetic = !0, s.dispatchEvent(o), r.defaultPrevented || o.defaultPrevented;
-}
-function Nh(s) {
-  for (; s; ) {
-    if (s && (s.nodeType == 9 || s.nodeType == 11 && s.host))
-      return s;
-    s = s.assignedSlot || s.parentNode;
-  }
-  return null;
-}
-function Hh(s, t) {
-  let e = t.focusNode, i = t.focusOffset;
-  if (!e || t.anchorNode != e || t.anchorOffset != i)
-    return !1;
-  for (i = Math.min(i, Gt(e)); ; )
-    if (i) {
-      if (e.nodeType != 1)
-        return !1;
-      let n = e.childNodes[i - 1];
-      n.contentEditable == "false" ? i-- : (e = n, i = Gt(e));
-    } else {
-      if (e == s)
-        return !0;
-      i = oe(e), e = e.parentNode;
-    }
-}
-function pl(s) {
-  return s.scrollTop > Math.max(1, s.scrollHeight - s.clientHeight - 4);
-}
-function ml(s, t) {
-  for (let e = s, i = t; ; ) {
-    if (e.nodeType == 3 && i > 0)
-      return { node: e, offset: i };
-    if (e.nodeType == 1 && i > 0) {
-      if (e.contentEditable == "false")
-        return null;
-      e = e.childNodes[i - 1], i = Gt(e);
-    } else if (e.parentNode && !tn(e))
-      i = oe(e), e = e.parentNode;
-    else
-      return null;
-  }
-}
-function gl(s, t) {
-  for (let e = s, i = t; ; ) {
-    if (e.nodeType == 3 && i < e.nodeValue.length)
-      return { node: e, offset: i };
-    if (e.nodeType == 1 && i < e.childNodes.length) {
-      if (e.contentEditable == "false")
-        return null;
-      e = e.childNodes[i], i = 0;
-    } else if (e.parentNode && !tn(e))
-      i = oe(e) + 1, e = e.parentNode;
-    else
-      return null;
-  }
-}
-class Mt {
-  constructor(t, e, i = !0) {
-    this.node = t, this.offset = e, this.precise = i;
-  }
-  static before(t, e) {
-    return new Mt(t.parentNode, oe(t), e);
-  }
-  static after(t, e) {
-    return new Mt(t.parentNode, oe(t) + 1, e);
-  }
-}
-var K = /* @__PURE__ */ (function(s) {
-  return s[s.LTR = 0] = "LTR", s[s.RTL = 1] = "RTL", s;
-})(K || (K = {}));
-const ve = K.LTR, Qs = K.RTL;
-function yl(s) {
-  let t = [];
-  for (let e = 0; e < s.length; e++)
-    t.push(1 << +s[e]);
-  return t;
-}
-const Wh = /* @__PURE__ */ yl("88888888888888888888888888888888888666888888787833333333337888888000000000000000000000000008888880000000000000000000000000088888888888888888888888888888888888887866668888088888663380888308888800000000000000000000000800000000000000000000000000000008"), Vh = /* @__PURE__ */ yl("4444448826627288999999999992222222222222222222222222222222222222222222222229999999999999999999994444444444644222822222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222999999949999999229989999223333333333"), Ss = /* @__PURE__ */ Object.create(null), Et = [];
-for (let s of ["()", "[]", "{}"]) {
-  let t = /* @__PURE__ */ s.charCodeAt(0), e = /* @__PURE__ */ s.charCodeAt(1);
-  Ss[t] = e, Ss[e] = -t;
-}
-function bl(s) {
-  return s <= 247 ? Wh[s] : 1424 <= s && s <= 1524 ? 2 : 1536 <= s && s <= 1785 ? Vh[s - 1536] : 1774 <= s && s <= 2220 ? 4 : 8192 <= s && s <= 8204 ? 256 : 64336 <= s && s <= 65023 ? 4 : 1;
-}
-const Fh = /[\u0590-\u05f4\u0600-\u06ff\u0700-\u08ac\ufb50-\ufdff]/;
-class Vt {
-  /**
-  The direction of this span.
-  */
-  get dir() {
-    return this.level % 2 ? Qs : ve;
-  }
-  /**
-  @internal
-  */
-  constructor(t, e, i) {
-    this.from = t, this.to = e, this.level = i;
-  }
-  /**
-  @internal
-  */
-  side(t, e) {
-    return this.dir == e == t ? this.to : this.from;
-  }
-  /**
-  @internal
-  */
-  forward(t, e) {
-    return t == (this.dir == e);
-  }
-  /**
-  @internal
-  */
-  static find(t, e, i, n) {
-    let r = -1;
-    for (let o = 0; o < t.length; o++) {
-      let l = t[o];
-      if (l.from <= e && l.to >= e) {
-        if (l.level == i)
-          return o;
-        (r < 0 || (n != 0 ? n < 0 ? l.from < e : l.to > e : t[r].level > l.level)) && (r = o);
-      }
-    }
-    if (r < 0)
-      throw new RangeError("Index out of range");
-    return r;
-  }
-}
-function wl(s, t) {
-  if (s.length != t.length)
-    return !1;
-  for (let e = 0; e < s.length; e++) {
-    let i = s[e], n = t[e];
-    if (i.from != n.from || i.to != n.to || i.direction != n.direction || !wl(i.inner, n.inner))
-      return !1;
-  }
-  return !0;
-}
-const W = [];
-function zh(s, t, e, i, n) {
-  for (let r = 0; r <= i.length; r++) {
-    let o = r ? i[r - 1].to : t, l = r < i.length ? i[r].from : e, a = r ? 256 : n;
-    for (let h = o, f = a, c = a; h < l; h++) {
-      let u = bl(s.charCodeAt(h));
-      u == 512 ? u = f : u == 8 && c == 4 && (u = 16), W[h] = u == 4 ? 2 : u, u & 7 && (c = u), f = u;
-    }
-    for (let h = o, f = a, c = a; h < l; h++) {
-      let u = W[h];
-      if (u == 128)
-        h < l - 1 && f == W[h + 1] && f & 24 ? u = W[h] = f : W[h] = 256;
-      else if (u == 64) {
-        let d = h + 1;
-        for (; d < l && W[d] == 64; )
-          d++;
-        let p = h && f == 8 || d < e && W[d] == 8 ? c == 1 ? 1 : 8 : 256;
-        for (let m = h; m < d; m++)
-          W[m] = p;
-        h = d - 1;
-      } else u == 8 && c == 1 && (W[h] = 1);
-      f = u, u & 7 && (c = u);
-    }
-  }
-}
-function Kh(s, t, e, i, n) {
-  let r = n == 1 ? 2 : 1;
-  for (let o = 0, l = 0, a = 0; o <= i.length; o++) {
-    let h = o ? i[o - 1].to : t, f = o < i.length ? i[o].from : e;
-    for (let c = h, u, d, p; c < f; c++)
-      if (d = Ss[u = s.charCodeAt(c)])
-        if (d < 0) {
-          for (let m = l - 3; m >= 0; m -= 3)
-            if (Et[m + 1] == -d) {
-              let g = Et[m + 2], y = g & 2 ? n : g & 4 ? g & 1 ? r : n : 0;
-              y && (W[c] = W[Et[m]] = y), l = m;
-              break;
-            }
-        } else {
-          if (Et.length == 189)
-            break;
-          Et[l++] = c, Et[l++] = u, Et[l++] = a;
-        }
-      else if ((p = W[c]) == 2 || p == 1) {
-        let m = p == n;
-        a = m ? 0 : 1;
-        for (let g = l - 3; g >= 0; g -= 3) {
-          let y = Et[g + 2];
-          if (y & 2)
-            break;
-          if (m)
-            Et[g + 2] |= 2;
-          else {
-            if (y & 4)
-              break;
-            Et[g + 2] |= 4;
-          }
-        }
-      }
-  }
-}
-function qh(s, t, e, i) {
-  for (let n = 0, r = i; n <= e.length; n++) {
-    let o = n ? e[n - 1].to : s, l = n < e.length ? e[n].from : t;
-    for (let a = o; a < l; ) {
-      let h = W[a];
-      if (h == 256) {
-        let f = a + 1;
-        for (; ; )
-          if (f == l) {
-            if (n == e.length)
-              break;
-            f = e[n++].to, l = n < e.length ? e[n].from : t;
-          } else if (W[f] == 256)
-            f++;
-          else
-            break;
-        let c = r == 1, u = (f < t ? W[f] : i) == 1, d = c == u ? c ? 1 : 2 : i;
-        for (let p = f, m = n, g = m ? e[m - 1].to : s; p > a; )
-          p == g && (p = e[--m].from, g = m ? e[m - 1].to : s), W[--p] = d;
-        a = f;
-      } else
-        r = h, a++;
-    }
-  }
-}
-function Cs(s, t, e, i, n, r, o) {
-  let l = i % 2 ? 2 : 1;
-  if (i % 2 == n % 2)
-    for (let a = t, h = 0; a < e; ) {
-      let f = !0, c = !1;
-      if (h == r.length || a < r[h].from) {
-        let m = W[a];
-        m != l && (f = !1, c = m == 16);
-      }
-      let u = !f && l == 1 ? [] : null, d = f ? i : i + 1, p = a;
-      t: for (; ; )
-        if (h < r.length && p == r[h].from) {
-          if (c)
-            break t;
-          let m = r[h];
-          if (!f)
-            for (let g = m.to, y = h + 1; ; ) {
-              if (g == e)
-                break t;
-              if (y < r.length && r[y].from == g)
-                g = r[y++].to;
-              else {
-                if (W[g] == l)
-                  break t;
-                break;
-              }
-            }
-          if (h++, u)
-            u.push(m);
-          else {
-            m.from > a && o.push(new Vt(a, m.from, d));
-            let g = m.direction == ve != !(d % 2);
-            As(s, g ? i + 1 : i, n, m.inner, m.from, m.to, o), a = m.to;
-          }
-          p = m.to;
-        } else {
-          if (p == e || (f ? W[p] != l : W[p] == l))
-            break;
-          p++;
-        }
-      u ? Cs(s, a, p, i + 1, n, u, o) : a < p && o.push(new Vt(a, p, d)), a = p;
-    }
-  else
-    for (let a = e, h = r.length; a > t; ) {
-      let f = !0, c = !1;
-      if (!h || a > r[h - 1].to) {
-        let m = W[a - 1];
-        m != l && (f = !1, c = m == 16);
-      }
-      let u = !f && l == 1 ? [] : null, d = f ? i : i + 1, p = a;
-      t: for (; ; )
-        if (h && p == r[h - 1].to) {
-          if (c)
-            break t;
-          let m = r[--h];
-          if (!f)
-            for (let g = m.from, y = h; ; ) {
-              if (g == t)
-                break t;
-              if (y && r[y - 1].to == g)
-                g = r[--y].from;
-              else {
-                if (W[g - 1] == l)
-                  break t;
-                break;
-              }
-            }
-          if (u)
-            u.push(m);
-          else {
-            m.to < a && o.push(new Vt(m.to, a, d));
-            let g = m.direction == ve != !(d % 2);
-            As(s, g ? i + 1 : i, n, m.inner, m.from, m.to, o), a = m.from;
-          }
-          p = m.from;
-        } else {
-          if (p == t || (f ? W[p - 1] != l : W[p - 1] == l))
-            break;
-          p--;
-        }
-      u ? Cs(s, p, a, i + 1, n, u, o) : p < a && o.push(new Vt(p, a, d)), a = p;
-    }
-}
-function As(s, t, e, i, n, r, o) {
-  let l = t % 2 ? 2 : 1;
-  zh(s, n, r, i, l), Kh(s, n, r, i, l), qh(n, r, i, l), Cs(s, n, r, t, e, i, o);
-}
-function $h(s, t, e) {
-  if (!s)
-    return [new Vt(0, 0, t == Qs ? 1 : 0)];
-  if (t == ve && !e.length && !Fh.test(s))
-    return xl(s.length);
-  if (e.length)
-    for (; s.length > W.length; )
-      W[W.length] = 256;
-  let i = [], n = t == ve ? 0 : 1;
-  return As(s, n, n, e, 0, s.length, i), i;
-}
-function xl(s) {
-  return [new Vt(0, s, 0)];
-}
-let vl = "";
-function Uh(s, t, e, i, n) {
-  var r;
-  let o = i.head - s.from, l = Vt.find(t, o, (r = i.bidiLevel) !== null && r !== void 0 ? r : -1, i.assoc), a = t[l], h = a.side(n, e);
-  if (o == h) {
-    let u = l += n ? 1 : -1;
-    if (u < 0 || u >= t.length)
-      return null;
-    a = t[l = u], o = a.side(!n, e), h = a.side(n, e);
-  }
-  let f = nt(s.text, o, a.forward(n, e));
-  (f < a.from || f > a.to) && (f = h), vl = s.text.slice(Math.min(o, f), Math.max(o, f));
-  let c = l == (n ? t.length - 1 : 0) ? null : t[l + (n ? 1 : -1)];
-  return c && f == h && c.level + (n ? 0 : 1) < a.level ? b.cursor(c.side(!n, e) + s.from, c.forward(n, e) ? 1 : -1, c.level) : b.cursor(f + s.from, a.forward(n, e) ? -1 : 1, a.level);
-}
-function jh(s, t, e) {
-  for (let i = t; i < e; i++) {
-    let n = bl(s.charCodeAt(i));
-    if (n == 1)
-      return ve;
-    if (n == 2 || n == 4)
-      return Qs;
-  }
-  return ve;
-}
-const kl = /* @__PURE__ */ M.define(), Sl = /* @__PURE__ */ M.define(), Cl = /* @__PURE__ */ M.define(), Al = /* @__PURE__ */ M.define(), Ms = /* @__PURE__ */ M.define(), Ml = /* @__PURE__ */ M.define(), Tl = /* @__PURE__ */ M.define(), Zs = /* @__PURE__ */ M.define(), tr = /* @__PURE__ */ M.define(), Ol = /* @__PURE__ */ M.define({
-  combine: (s) => s.some((t) => t)
-}), Gh = /* @__PURE__ */ M.define({
-  combine: (s) => s.some((t) => t)
-}), Dl = /* @__PURE__ */ M.define();
-class Ee {
-  constructor(t, e = "nearest", i = "nearest", n = 5, r = 5, o = !1) {
-    this.range = t, this.y = e, this.x = i, this.yMargin = n, this.xMargin = r, this.isSnapshot = o;
-  }
-  map(t) {
-    return t.empty ? this : new Ee(this.range.map(t), this.y, this.x, this.yMargin, this.xMargin, this.isSnapshot);
-  }
-  clip(t) {
-    return this.range.to <= t.doc.length ? this : new Ee(b.cursor(t.doc.length), this.y, this.x, this.yMargin, this.xMargin, this.isSnapshot);
-  }
-}
-const Ai = /* @__PURE__ */ I.define({ map: (s, t) => s.map(t) }), Bl = /* @__PURE__ */ I.define();
-function ot(s, t, e) {
-  let i = s.facet(Al);
-  i.length ? i[0](t) : window.onerror && window.onerror(String(t), e, void 0, void 0, t) || (e ? console.error(e + ":", t) : console.error(t));
-}
-const $t = /* @__PURE__ */ M.define({ combine: (s) => s.length ? s[0] : !0 });
-let Jh = 0;
-const Ae = /* @__PURE__ */ M.define({
-  combine(s) {
-    return s.filter((t, e) => {
-      for (let i = 0; i < e; i++)
-        if (s[i].plugin == t.plugin)
-          return !1;
-      return !0;
-    });
-  }
-});
-class vt {
-  constructor(t, e, i, n, r) {
-    this.id = t, this.create = e, this.domEventHandlers = i, this.domEventObservers = n, this.baseExtensions = r(this), this.extension = this.baseExtensions.concat(Ae.of({ plugin: this, arg: void 0 }));
-  }
-  /**
-  Create an extension for this plugin with the given argument.
-  */
-  of(t) {
-    return this.baseExtensions.concat(Ae.of({ plugin: this, arg: t }));
-  }
-  /**
-  Define a plugin from a constructor function that creates the
-  plugin's value, given an editor view.
-  */
-  static define(t, e) {
-    const { eventHandlers: i, eventObservers: n, provide: r, decorations: o } = e || {};
-    return new vt(Jh++, t, i, n, (l) => {
-      let a = [];
-      return o && a.push(Sn.of((h) => {
-        let f = h.plugin(l);
-        return f ? o(f) : U.none;
-      })), r && a.push(r(l)), a;
-    });
-  }
-  /**
-  Create a plugin for a class whose constructor takes a single
-  editor view as argument.
-  */
-  static fromClass(t, e) {
-    return vt.define((i, n) => new t(i, n), e);
-  }
-}
-class Fn {
-  constructor(t) {
-    this.spec = t, this.mustUpdate = null, this.value = null;
-  }
-  get plugin() {
-    return this.spec && this.spec.plugin;
-  }
-  update(t) {
-    if (this.value) {
-      if (this.mustUpdate) {
-        let e = this.mustUpdate;
-        if (this.mustUpdate = null, this.value.update)
-          try {
-            this.value.update(e);
-          } catch (i) {
-            if (ot(e.state, i, "CodeMirror plugin crashed"), this.value.destroy)
-              try {
-                this.value.destroy();
-              } catch {
-              }
-            this.deactivate();
-          }
-      }
-    } else if (this.spec)
-      try {
-        this.value = this.spec.plugin.create(t, this.spec.arg);
-      } catch (e) {
-        ot(t.state, e, "CodeMirror plugin crashed"), this.deactivate();
-      }
-    return this;
-  }
-  destroy(t) {
-    var e;
-    if (!((e = this.value) === null || e === void 0) && e.destroy)
-      try {
-        this.value.destroy();
-      } catch (i) {
-        ot(t.state, i, "CodeMirror plugin crashed");
-      }
-  }
-  deactivate() {
-    this.spec = this.value = null;
-  }
-}
-const Ll = /* @__PURE__ */ M.define(), er = /* @__PURE__ */ M.define(), Sn = /* @__PURE__ */ M.define(), El = /* @__PURE__ */ M.define(), ir = /* @__PURE__ */ M.define(), bi = /* @__PURE__ */ M.define(), Rl = /* @__PURE__ */ M.define();
-function Hr(s, t) {
-  let e = s.state.facet(Rl);
-  if (!e.length)
-    return e;
-  let i = e.map((r) => r instanceof Function ? r(s) : r), n = [];
-  return L.spans(i, t.from, t.to, {
-    point() {
-    },
-    span(r, o, l, a) {
-      let h = r - t.from, f = o - t.from, c = n;
-      for (let u = l.length - 1; u >= 0; u--, a--) {
-        let d = l[u].spec.bidiIsolate, p;
-        if (d == null && (d = jh(t.text, h, f)), a > 0 && c.length && (p = c[c.length - 1]).to == h && p.direction == d)
-          p.to = f, c = p.inner;
-        else {
-          let m = { from: h, to: f, direction: d, inner: [] };
-          c.push(m), c = m.inner;
-        }
-      }
-    }
-  }), n;
-}
-const Pl = /* @__PURE__ */ M.define();
-function nr(s) {
-  let t = 0, e = 0, i = 0, n = 0;
-  for (let r of s.state.facet(Pl)) {
-    let o = r(s);
-    o && (o.left != null && (t = Math.max(t, o.left)), o.right != null && (e = Math.max(e, o.right)), o.top != null && (i = Math.max(i, o.top)), o.bottom != null && (n = Math.max(n, o.bottom)));
-  }
-  return { left: t, right: e, top: i, bottom: n };
-}
-const _e = /* @__PURE__ */ M.define();
-class yt {
-  constructor(t, e, i, n) {
-    this.fromA = t, this.toA = e, this.fromB = i, this.toB = n;
-  }
-  join(t) {
-    return new yt(Math.min(this.fromA, t.fromA), Math.max(this.toA, t.toA), Math.min(this.fromB, t.fromB), Math.max(this.toB, t.toB));
-  }
-  addToSet(t) {
-    let e = t.length, i = this;
-    for (; e > 0; e--) {
-      let n = t[e - 1];
-      if (!(n.fromA > i.toA)) {
-        if (n.toA < i.fromA)
-          break;
-        i = i.join(n), t.splice(e - 1, 1);
-      }
-    }
-    return t.splice(e, 0, i), t;
-  }
-  // Extend a set to cover all the content in `ranges`, which is a
-  // flat array with each pair of numbers representing fromB/toB
-  // positions. These pairs are generated in unchanged ranges, so the
-  // offset between doc A and doc B is the same for their start and
-  // end points.
-  static extendWithRanges(t, e) {
-    if (e.length == 0)
-      return t;
-    let i = [];
-    for (let n = 0, r = 0, o = 0; ; ) {
-      let l = n < t.length ? t[n].fromB : 1e9, a = r < e.length ? e[r] : 1e9, h = Math.min(l, a);
-      if (h == 1e9)
-        break;
-      let f = h + o, c = h, u = f;
-      for (; ; )
-        if (r < e.length && e[r] <= c) {
-          let d = e[r + 1];
-          r += 2, c = Math.max(c, d);
-          for (let p = n; p < t.length && t[p].fromB <= c; p++)
-            o = t[p].toA - t[p].toB;
-          u = Math.max(u, d + o);
-        } else if (n < t.length && t[n].fromB <= c) {
-          let d = t[n++];
-          c = Math.max(c, d.toB), u = Math.max(u, d.toA), o = d.toA - d.toB;
-        } else
-          break;
-      i.push(new yt(f, u, h, c));
-    }
-    return i;
-  }
-}
-class nn {
-  constructor(t, e, i) {
-    this.view = t, this.state = e, this.transactions = i, this.flags = 0, this.startState = t.state, this.changes = _.empty(this.startState.doc.length);
-    for (let r of i)
-      this.changes = this.changes.compose(r.changes);
-    let n = [];
-    this.changes.iterChangedRanges((r, o, l, a) => n.push(new yt(r, o, l, a))), this.changedRanges = n;
-  }
-  /**
-  @internal
-  */
-  static create(t, e, i) {
-    return new nn(t, e, i);
-  }
-  /**
-  Tells you whether the [viewport](https://codemirror.net/6/docs/ref/#view.EditorView.viewport) or
-  [visible ranges](https://codemirror.net/6/docs/ref/#view.EditorView.visibleRanges) changed in this
-  update.
-  */
-  get viewportChanged() {
-    return (this.flags & 4) > 0;
-  }
-  /**
-  Returns true when
-  [`viewportChanged`](https://codemirror.net/6/docs/ref/#view.ViewUpdate.viewportChanged) is true
-  and the viewport change is not just the result of mapping it in
-  response to document changes.
-  */
-  get viewportMoved() {
-    return (this.flags & 8) > 0;
-  }
-  /**
-  Indicates whether the height of a block element in the editor
-  changed in this update.
-  */
-  get heightChanged() {
-    return (this.flags & 2) > 0;
-  }
-  /**
-  Returns true when the document was modified or the size of the
-  editor, or elements within the editor, changed.
-  */
-  get geometryChanged() {
-    return this.docChanged || (this.flags & 18) > 0;
-  }
-  /**
-  True when this update indicates a focus change.
-  */
-  get focusChanged() {
-    return (this.flags & 1) > 0;
-  }
-  /**
-  Whether the document changed in this update.
-  */
-  get docChanged() {
-    return !this.changes.empty;
-  }
-  /**
-  Whether the selection was explicitly set in this update.
-  */
-  get selectionSet() {
-    return this.transactions.some((t) => t.selection);
-  }
-  /**
-  @internal
-  */
-  get empty() {
-    return this.flags == 0 && this.transactions.length == 0;
-  }
-}
-const _h = [];
-class J {
-  constructor(t, e, i = 0) {
-    this.dom = t, this.length = e, this.flags = i, this.parent = null, t.cmTile = this;
-  }
-  get breakAfter() {
-    return this.flags & 1;
-  }
-  get children() {
-    return _h;
-  }
-  isWidget() {
-    return !1;
-  }
-  get isHidden() {
-    return !1;
-  }
-  isComposite() {
-    return !1;
-  }
-  isLine() {
-    return !1;
-  }
-  isText() {
-    return !1;
-  }
-  isBlock() {
-    return !1;
-  }
-  get domAttrs() {
-    return null;
-  }
-  sync(t) {
-    if (this.flags |= 2, this.flags & 4) {
-      this.flags &= -5;
-      let e = this.domAttrs;
-      e && Dh(this.dom, e);
-    }
-  }
-  toString() {
-    return this.constructor.name + (this.children.length ? `(${this.children})` : "") + (this.breakAfter ? "#" : "");
-  }
-  destroy() {
-    this.parent = null;
-  }
-  setDOM(t) {
-    this.dom = t, t.cmTile = this;
-  }
-  get posAtStart() {
-    return this.parent ? this.parent.posBefore(this) : 0;
-  }
-  get posAtEnd() {
-    return this.posAtStart + this.length;
-  }
-  posBefore(t, e = this.posAtStart) {
-    let i = e;
-    for (let n of this.children) {
-      if (n == t)
-        return i;
-      i += n.length + n.breakAfter;
-    }
-    throw new RangeError("Invalid child in posBefore");
-  }
-  posAfter(t) {
-    return this.posBefore(t) + t.length;
-  }
-  covers(t) {
-    return !0;
-  }
-  coordsIn(t, e) {
-    return null;
-  }
-  domPosFor(t, e) {
-    let i = oe(this.dom), n = this.length ? t > 0 : e > 0;
-    return new Mt(this.parent.dom, i + (n ? 1 : 0), t == 0 || t == this.length);
-  }
-  markDirty(t) {
-    this.flags &= -3, t && (this.flags |= 4), this.parent && this.parent.flags & 2 && this.parent.markDirty(!1);
-  }
-  get overrideDOMText() {
-    return null;
-  }
-  get root() {
-    for (let t = this; t; t = t.parent)
-      if (t instanceof An)
-        return t;
-    return null;
-  }
-  static get(t) {
-    return t.cmTile;
-  }
-}
-class Cn extends J {
-  constructor(t) {
-    super(t, 0), this._children = [];
-  }
-  isComposite() {
-    return !0;
-  }
-  get children() {
-    return this._children;
-  }
-  get lastChild() {
-    return this.children.length ? this.children[this.children.length - 1] : null;
-  }
-  append(t) {
-    this.children.push(t), t.parent = this;
-  }
-  sync(t) {
-    if (this.flags & 2)
-      return;
-    super.sync(t);
-    let e = this.dom, i = null, n, r = t?.node == e ? t : null, o = 0;
-    for (let l of this.children) {
-      if (l.sync(t), o += l.length + l.breakAfter, n = i ? i.nextSibling : e.firstChild, r && n != l.dom && (r.written = !0), l.dom.parentNode == e)
-        for (; n && n != l.dom; )
-          n = Wr(n);
-      else
-        e.insertBefore(l.dom, n);
-      i = l.dom;
-    }
-    for (n = i ? i.nextSibling : e.firstChild, r && n && (r.written = !0); n; )
-      n = Wr(n);
-    this.length = o;
-  }
-}
-function Wr(s) {
-  let t = s.nextSibling;
-  return s.parentNode.removeChild(s), t;
-}
-class An extends Cn {
-  constructor(t, e) {
-    super(e), this.view = t;
-  }
-  owns(t) {
-    for (; t; t = t.parent)
-      if (t == this)
-        return !0;
-    return !1;
-  }
-  isBlock() {
-    return !0;
-  }
-  nearest(t) {
-    for (; ; ) {
-      if (!t)
-        return null;
-      let e = J.get(t);
-      if (e && this.owns(e))
-        return e;
-      t = t.parentNode;
-    }
-  }
-  blockTiles(t) {
-    for (let e = [], i = this, n = 0, r = 0; ; )
-      if (n == i.children.length) {
-        if (!e.length)
-          return;
-        i = i.parent, i.breakAfter && r++, n = e.pop();
-      } else {
-        let o = i.children[n++];
-        if (o instanceof ne)
-          e.push(n), i = o, n = 0;
-        else {
-          let l = r + o.length, a = t(o, r);
-          if (a !== void 0)
-            return a;
-          r = l + o.breakAfter;
-        }
-      }
-  }
-  // Find the block at the given position. If side < -1, make sure to
-  // stay before block widgets at that position, if side > 1, after
-  // such widgets (used for selection drawing, which needs to be able
-  // to get coordinates for positions that aren't valid cursor positions).
-  resolveBlock(t, e) {
-    let i, n = -1, r, o = -1;
-    if (this.blockTiles((l, a) => {
-      let h = a + l.length;
-      if (t >= a && t <= h) {
-        if (l.isWidget() && e >= -1 && e <= 1) {
-          if (l.flags & 32)
-            return !0;
-          l.flags & 16 && (i = void 0);
-        }
-        (a < t || t == h && (e < -1 ? l.length : l.covers(1))) && (!i || !l.isWidget() && i.isWidget()) && (i = l, n = t - a), (h > t || t == a && (e > 1 ? l.length : l.covers(-1))) && (!r || !l.isWidget() && r.isWidget()) && (r = l, o = t - a);
-      }
-    }), !i && !r)
-      throw new Error("No tile at position " + t);
-    return i && e < 0 || !r ? { tile: i, offset: n } : { tile: r, offset: o };
-  }
-}
-class ne extends Cn {
-  constructor(t, e) {
-    super(t), this.wrapper = e;
-  }
-  isBlock() {
-    return !0;
-  }
-  covers(t) {
-    return this.children.length ? t < 0 ? this.children[0].covers(-1) : this.lastChild.covers(1) : !1;
-  }
-  get domAttrs() {
-    return this.wrapper.attributes;
-  }
-  static of(t, e) {
-    let i = new ne(e || document.createElement(t.tagName), t);
-    return e || (i.flags |= 4), i;
-  }
-}
-class Ne extends Cn {
-  constructor(t, e) {
-    super(t), this.attrs = e;
-  }
-  isLine() {
-    return !0;
-  }
-  static start(t, e, i) {
-    let n = new Ne(e || document.createElement("div"), t);
-    return (!e || !i) && (n.flags |= 4), n;
-  }
-  get domAttrs() {
-    return this.attrs;
-  }
-  // Find the tile associated with a given position in this line.
-  resolveInline(t, e, i) {
-    let n = null, r = -1, o = null, l = -1;
-    function a(f, c) {
-      for (let u = 0, d = 0; u < f.children.length && d <= c; u++) {
-        let p = f.children[u], m = d + p.length;
-        m >= c && (p.isComposite() ? a(p, c - d) : (!o || o.isHidden && (e > 0 || i && Xh(o, p))) && (m > c || p.flags & 32) ? (o = p, l = c - d) : (d < c || p.flags & 16 && !p.isHidden) && (n = p, r = c - d)), d = m;
-      }
-    }
-    a(this, t);
-    let h = (e < 0 ? n : o) || n || o;
-    return h ? { tile: h, offset: h == n ? r : l } : null;
-  }
-  coordsIn(t, e) {
-    let i = this.resolveInline(t, e, !0);
-    return i ? i.tile.coordsIn(Math.max(0, i.offset), e) : Yh(this);
-  }
-  domIn(t, e) {
-    let i = this.resolveInline(t, e);
-    if (i) {
-      let { tile: n, offset: r } = i;
-      if (this.dom.contains(n.dom))
-        return n.isText() ? new Mt(n.dom, Math.min(n.dom.nodeValue.length, r)) : n.domPosFor(r, n.flags & 16 ? 1 : n.flags & 32 ? -1 : e);
-      let o = i.tile.parent, l = !1;
-      for (let a of o.children) {
-        if (l)
-          return new Mt(a.dom, 0);
-        a == i.tile && (l = !0);
-      }
-    }
-    return new Mt(this.dom, 0);
-  }
-}
-function Yh(s) {
-  let t = s.dom.lastChild;
-  if (!t)
-    return s.dom.getBoundingClientRect();
-  let e = ji(t);
-  return e[e.length - 1] || null;
-}
-function Xh(s, t) {
-  let e = s.coordsIn(0, 1), i = t.coordsIn(0, 1);
-  return e && i && i.top < e.bottom;
-}
-class ft extends Cn {
-  constructor(t, e) {
-    super(t), this.mark = e;
-  }
-  get domAttrs() {
-    return this.mark.attrs;
-  }
-  static of(t, e) {
-    let i = new ft(e || document.createElement(t.tagName), t);
-    return e || (i.flags |= 4), i;
-  }
-}
-class ye extends J {
-  constructor(t, e) {
-    super(t, e.length), this.text = e;
-  }
-  sync(t) {
-    this.flags & 2 || (super.sync(t), this.dom.nodeValue != this.text && (t && t.node == this.dom && (t.written = !0), this.dom.nodeValue = this.text));
-  }
-  isText() {
-    return !0;
-  }
-  toString() {
-    return JSON.stringify(this.text);
-  }
-  coordsIn(t, e) {
-    let i = this.dom.nodeValue.length;
-    t > i && (t = i);
-    let n = t, r = t, o = 0;
-    t == 0 && e < 0 || t == i && e >= 0 ? k.chrome || k.gecko || (t ? (n--, o = 1) : r < i && (r++, o = -1)) : e < 0 ? n-- : r < i && r++;
-    let l = ci(this.dom, n, r).getClientRects();
-    if (!l.length)
-      return null;
-    let a = l[(o ? o < 0 : e >= 0) ? 0 : l.length - 1];
-    return k.safari && !o && a.width == 0 && (a = Array.prototype.find.call(l, (h) => h.width) || a), o ? en(a, o < 0) : a || null;
-  }
-  static of(t, e) {
-    let i = new ye(e || document.createTextNode(t), t);
-    return e || (i.flags |= 2), i;
-  }
-}
-class ke extends J {
-  constructor(t, e, i, n) {
-    super(t, e, n), this.widget = i;
-  }
-  isWidget() {
-    return !0;
-  }
-  get isHidden() {
-    return this.widget.isHidden;
-  }
-  covers(t) {
-    return this.flags & 48 ? !1 : (this.flags & (t < 0 ? 64 : 128)) > 0;
-  }
-  coordsIn(t, e) {
-    return this.coordsInWidget(t, e, !1);
-  }
-  coordsInWidget(t, e, i) {
-    let n = this.widget.coordsAt(this.dom, t, e);
-    if (n)
-      return n;
-    if (i)
-      return en(this.dom.getBoundingClientRect(), this.length ? t == 0 : e <= 0);
-    {
-      let r = this.dom.getClientRects(), o = null;
-      if (!r.length)
-        return null;
-      let l = this.flags & 16 ? !0 : this.flags & 32 ? !1 : t > 0;
-      for (let a = l ? r.length - 1 : 0; o = r[a], !(t > 0 ? a == 0 : a == r.length - 1 || o.top < o.bottom); a += l ? -1 : 1)
-        ;
-      return en(o, !l);
-    }
-  }
-  get overrideDOMText() {
-    if (!this.length)
-      return P.empty;
-    let { root: t } = this;
-    if (!t)
-      return P.empty;
-    let e = this.posAtStart;
-    return t.view.state.doc.slice(e, e + this.length);
-  }
-  destroy() {
-    super.destroy(), this.widget.destroy(this.dom);
-  }
-  static of(t, e, i, n, r) {
-    return r || (r = t.toDOM(e), t.editable || (r.contentEditable = "false")), new ke(r, i, t, n);
-  }
-}
-class sn extends J {
-  constructor(t) {
-    let e = document.createElement("img");
-    e.className = "cm-widgetBuffer", e.setAttribute("aria-hidden", "true"), super(e, 0, t);
-  }
-  get isHidden() {
-    return !0;
-  }
-  get overrideDOMText() {
-    return P.empty;
-  }
-  coordsIn(t) {
-    return this.dom.getBoundingClientRect();
-  }
-}
-class Qh {
-  constructor(t) {
-    this.index = 0, this.beforeBreak = !1, this.parents = [], this.tile = t;
-  }
-  // Advance by the given distance. If side is -1, stop leaving or
-  // entering tiles, or skipping zero-length tiles, once the distance
-  // has been traversed. When side is 1, leave, enter, or skip
-  // everything at the end position.
-  advance(t, e, i) {
-    let { tile: n, index: r, beforeBreak: o, parents: l } = this;
-    for (; t || e > 0; )
-      if (n.isComposite())
-        if (o) {
-          if (!t)
-            break;
-          i && i.break(), t--, o = !1;
-        } else if (r == n.children.length) {
-          if (!t && !l.length)
-            break;
-          i && i.leave(n), o = !!n.breakAfter, { tile: n, index: r } = l.pop(), r++;
-        } else {
-          let a = n.children[r], h = a.breakAfter;
-          (e > 0 ? a.length <= t : a.length < t) && (!i || i.skip(a, 0, a.length) !== !1 || !a.isComposite) ? (o = !!h, r++, t -= a.length) : (l.push({ tile: n, index: r }), n = a, r = 0, i && a.isComposite() && i.enter(a));
-        }
-      else if (r == n.length)
-        o = !!n.breakAfter, { tile: n, index: r } = l.pop(), r++;
-      else if (t) {
-        let a = Math.min(t, n.length - r);
-        i && i.skip(n, r, r + a), t -= a, r += a;
-      } else
-        break;
-    return this.tile = n, this.index = r, this.beforeBreak = o, this;
-  }
-  get root() {
-    return this.parents.length ? this.parents[0].tile : this.tile;
-  }
-}
-class Zh {
-  constructor(t, e, i, n) {
-    this.from = t, this.to = e, this.wrapper = i, this.rank = n;
-  }
-}
-class tf {
-  constructor(t, e, i) {
-    this.cache = t, this.root = e, this.blockWrappers = i, this.curLine = null, this.lastBlock = null, this.afterWidget = null, this.pos = 0, this.wrappers = [], this.wrapperPos = 0;
-  }
-  addText(t, e, i, n) {
-    var r;
-    this.flushBuffer();
-    let o = this.ensureMarks(e, i), l = o.lastChild;
-    if (l && l.isText() && !(l.flags & 8) && l.length + t.length < 512) {
-      this.cache.reused.set(
-        l,
-        2
-        /* Reused.DOM */
-      );
-      let a = o.children[o.children.length - 1] = new ye(l.dom, l.text + t);
-      a.parent = o;
-    } else
-      o.append(n || ye.of(t, (r = this.cache.find(ye)) === null || r === void 0 ? void 0 : r.dom));
-    this.pos += t.length, this.afterWidget = null;
-  }
-  addComposition(t, e) {
-    let i = this.curLine;
-    i.dom != e.line.dom && (i.setDOM(this.cache.reused.has(e.line) ? zn(e.line.dom) : e.line.dom), this.cache.reused.set(
-      e.line,
-      2
-      /* Reused.DOM */
-    ));
-    let n = i;
-    for (let l = e.marks.length - 1; l >= 0; l--) {
-      let a = e.marks[l], h = n.lastChild;
-      if (h instanceof ft && h.mark.eq(a.mark))
-        h.dom != a.dom && h.setDOM(zn(a.dom)), n = h;
-      else {
-        if (this.cache.reused.get(a)) {
-          let c = J.get(a.dom);
-          c && c.setDOM(zn(a.dom));
-        }
-        let f = ft.of(a.mark, a.dom);
-        n.append(f), n = f;
-      }
-      this.cache.reused.set(
-        a,
-        2
-        /* Reused.DOM */
-      );
-    }
-    let r = J.get(t.text);
-    r && this.cache.reused.set(
-      r,
-      2
-      /* Reused.DOM */
-    );
-    let o = new ye(t.text, t.text.nodeValue);
-    o.flags |= 8, n.append(o);
-  }
-  addInlineWidget(t, e, i) {
-    let n = this.afterWidget && t.flags & 48 && (this.afterWidget.flags & 48) == (t.flags & 48);
-    n || this.flushBuffer();
-    let r = this.ensureMarks(e, i);
-    !n && !(t.flags & 16) && r.append(this.getBuffer(1)), r.append(t), this.pos += t.length, this.afterWidget = t;
-  }
-  addMark(t, e, i) {
-    this.flushBuffer(), this.ensureMarks(e, i).append(t), this.pos += t.length, this.afterWidget = null;
-  }
-  addBlockWidget(t) {
-    this.getBlockPos().append(t), this.pos += t.length, this.lastBlock = t, this.endLine();
-  }
-  continueWidget(t) {
-    let e = this.afterWidget || this.lastBlock;
-    e.length += t, this.pos += t;
-  }
-  addLineStart(t, e) {
-    var i;
-    t || (t = Il);
-    let n = Ne.start(t, e || ((i = this.cache.find(Ne)) === null || i === void 0 ? void 0 : i.dom), !!e);
-    this.getBlockPos().append(this.lastBlock = this.curLine = n);
-  }
-  addLine(t) {
-    this.getBlockPos().append(t), this.pos += t.length, this.lastBlock = t, this.endLine();
-  }
-  addBreak() {
-    this.lastBlock.flags |= 1, this.endLine(), this.pos++;
-  }
-  addLineStartIfNotCovered(t) {
-    this.blockPosCovered() || this.addLineStart(t);
-  }
-  ensureLine(t) {
-    this.curLine || this.addLineStart(t);
-  }
-  ensureMarks(t, e) {
-    var i;
-    let n = this.curLine;
-    for (let r = t.length - 1; r >= 0; r--) {
-      let o = t[r], l;
-      if (e > 0 && (l = n.lastChild) && l instanceof ft && l.mark.eq(o))
-        n = l, e--;
-      else {
-        let a = ft.of(o, (i = this.cache.find(ft, (h) => h.mark.eq(o))) === null || i === void 0 ? void 0 : i.dom);
-        n.append(a), n = a, e = 0;
-      }
-    }
-    return n;
-  }
-  endLine() {
-    if (this.curLine) {
-      this.flushBuffer();
-      let t = this.curLine.lastChild;
-      (!t || !Vr(this.curLine, !1) || t.dom.nodeName != "BR" && t.isWidget() && !(k.ios && Vr(this.curLine, !0))) && this.curLine.append(this.cache.findWidget(
-        Kn,
-        0,
-        32
-        /* TileFlag.After */
-      ) || new ke(
-        Kn.toDOM(),
-        0,
-        Kn,
-        32
-        /* TileFlag.After */
-      )), this.curLine = this.afterWidget = null;
-    }
-  }
-  updateBlockWrappers() {
-    this.wrapperPos > this.pos + 1e4 && (this.blockWrappers.goto(this.pos), this.wrappers.length = 0);
-    for (let t = this.wrappers.length - 1; t >= 0; t--)
-      this.wrappers[t].to < this.pos && this.wrappers.splice(t, 1);
-    for (let t = this.blockWrappers; t.value && t.from <= this.pos; t.next())
-      if (t.to >= this.pos) {
-        let e = new Zh(t.from, t.to, t.value, t.rank), i = this.wrappers.length;
-        for (; i > 0 && (this.wrappers[i - 1].rank - e.rank || this.wrappers[i - 1].to - e.to) < 0; )
-          i--;
-        this.wrappers.splice(i, 0, e);
-      }
-    this.wrapperPos = this.pos;
-  }
-  getBlockPos() {
-    var t;
-    this.updateBlockWrappers();
-    let e = this.root;
-    for (let i of this.wrappers) {
-      let n = e.lastChild;
-      if (i.from < this.pos && n instanceof ne && n.wrapper.eq(i.wrapper))
-        e = n;
-      else {
-        let r = ne.of(i.wrapper, (t = this.cache.find(ne, (o) => o.wrapper.eq(i.wrapper))) === null || t === void 0 ? void 0 : t.dom);
-        e.append(r), e = r;
-      }
-    }
-    return e;
-  }
-  blockPosCovered() {
-    let t = this.lastBlock;
-    return t != null && !t.breakAfter && (!t.isWidget() || (t.flags & 160) > 0);
-  }
-  getBuffer(t) {
-    let e = 2 | (t < 0 ? 16 : 32), i = this.cache.find(
-      sn,
-      void 0,
-      1
-      /* Reused.Full */
-    );
-    return i && (i.flags = e), i || new sn(e);
-  }
-  flushBuffer() {
-    this.afterWidget && !(this.afterWidget.flags & 32) && (this.afterWidget.parent.append(this.getBuffer(-1)), this.afterWidget = null);
-  }
-}
-class ef {
-  constructor(t) {
-    this.skipCount = 0, this.text = "", this.textOff = 0, this.cursor = t.iter();
-  }
-  skip(t) {
-    this.textOff + t <= this.text.length ? this.textOff += t : (this.skipCount += t - (this.text.length - this.textOff), this.text = "", this.textOff = 0);
-  }
-  next(t) {
-    if (this.textOff == this.text.length) {
-      let { value: n, lineBreak: r, done: o } = this.cursor.next(this.skipCount);
-      if (this.skipCount = 0, o)
-        throw new Error("Ran out of text content when drawing inline views");
-      this.text = n;
-      let l = this.textOff = Math.min(t, n.length);
-      return r ? null : n.slice(0, l);
-    }
-    let e = Math.min(this.text.length, this.textOff + t), i = this.text.slice(this.textOff, e);
-    return this.textOff = e, i;
-  }
-}
-const rn = [ke, Ne, ye, ft, sn, ne, An];
-for (let s = 0; s < rn.length; s++)
-  rn[s].bucket = s;
-class nf {
-  constructor(t) {
-    this.view = t, this.buckets = rn.map(() => []), this.index = rn.map(() => 0), this.reused = /* @__PURE__ */ new Map();
-  }
-  // Put a tile in the cache.
-  add(t) {
-    let e = t.constructor.bucket, i = this.buckets[e];
-    i.length < 6 ? i.push(t) : i[
-      this.index[e] = (this.index[e] + 1) % 6
-      /* C.Bucket */
-    ] = t;
-  }
-  find(t, e, i = 2) {
-    let n = t.bucket, r = this.buckets[n], o = this.index[n];
-    for (let l = r.length - 1; l >= 0; l--) {
-      let a = (l + o) % r.length, h = r[a];
-      if ((!e || e(h)) && !this.reused.has(h))
-        return r.splice(a, 1), a < o && this.index[n]--, this.reused.set(h, i), h;
-    }
-    return null;
-  }
-  findWidget(t, e, i) {
-    let n = this.buckets[0];
-    if (n.length)
-      for (let r = 0, o = 0; ; r++) {
-        if (r == n.length) {
-          if (o)
-            return null;
-          o = 1, r = 0;
-        }
-        let l = n[r];
-        if (!this.reused.has(l) && (o == 0 ? l.widget.compare(t) : l.widget.constructor == t.constructor && t.updateDOM(l.dom, this.view)))
-          return n.splice(r, 1), r < this.index[0] && this.index[0]--, l.widget == t && l.length == e && (l.flags & 497) == i ? (this.reused.set(
-            l,
-            1
-            /* Reused.Full */
-          ), l) : (this.reused.set(
-            l,
-            2
-            /* Reused.DOM */
-          ), new ke(l.dom, e, t, l.flags & -498 | i));
-      }
-  }
-  reuse(t) {
-    return this.reused.set(
-      t,
-      1
-      /* Reused.Full */
-    ), t;
-  }
-  maybeReuse(t, e = 2) {
-    if (!this.reused.has(t))
-      return this.reused.set(t, e), t.dom;
-  }
-  clear() {
-    for (let t = 0; t < this.buckets.length; t++)
-      this.buckets[t].length = this.index[t] = 0;
-  }
-}
-class sf {
-  constructor(t, e, i, n, r) {
-    this.view = t, this.decorations = n, this.disallowBlockEffectsFor = r, this.openWidget = !1, this.openMarks = 0, this.cache = new nf(t), this.text = new ef(t.state.doc), this.builder = new tf(this.cache, new An(t, t.contentDOM), L.iter(i)), this.cache.reused.set(
-      e,
-      2
-      /* Reused.DOM */
-    ), this.old = new Qh(e), this.reuseWalker = {
-      skip: (o, l, a) => {
-        if (this.cache.add(o), o.isComposite())
-          return !1;
-      },
-      enter: (o) => this.cache.add(o),
-      leave: () => {
-      },
-      break: () => {
-      }
-    };
-  }
-  run(t, e) {
-    let i = e && this.getCompositionContext(e.text);
-    for (let n = 0, r = 0, o = 0; ; ) {
-      let l = o < t.length ? t[o++] : null, a = l ? l.fromA : this.old.root.length;
-      if (a > n) {
-        let h = a - n;
-        this.preserve(h, !o, !l), n = a, r += h;
-      }
-      if (!l)
-        break;
-      e && l.fromA <= e.range.fromA && l.toA >= e.range.toA ? (this.forward(l.fromA, e.range.fromA, e.range.fromA < e.range.toA ? 1 : -1), this.emit(r, e.range.fromB), this.cache.clear(), this.builder.addComposition(e, i), this.text.skip(e.range.toB - e.range.fromB), this.forward(e.range.fromA, l.toA), this.emit(e.range.toB, l.toB)) : (this.forward(l.fromA, l.toA), this.emit(r, l.toB)), r = l.toB, n = l.toA;
-    }
-    return this.builder.curLine && this.builder.endLine(), this.builder.root;
-  }
-  preserve(t, e, i) {
-    let n = lf(this.old), r = this.openMarks;
-    this.old.advance(t, i ? 1 : -1, {
-      skip: (o, l, a) => {
-        if (o.isWidget())
-          if (this.openWidget)
-            this.builder.continueWidget(a - l);
-          else {
-            let h = a > 0 || l < o.length ? ke.of(o.widget, this.view, a - l, o.flags & 496, this.cache.maybeReuse(o)) : this.cache.reuse(o);
-            h.flags & 256 ? (h.flags &= -2, this.builder.addBlockWidget(h)) : (this.builder.ensureLine(null), this.builder.addInlineWidget(h, n, r), r = n.length);
-          }
-        else if (o.isText())
-          this.builder.ensureLine(null), !l && a == o.length ? this.builder.addText(o.text, n, r, this.cache.reuse(o)) : (this.cache.add(o), this.builder.addText(o.text.slice(l, a), n, r)), r = n.length;
-        else if (o.isLine())
-          o.flags &= -2, this.cache.reused.set(
-            o,
-            1
-            /* Reused.Full */
-          ), this.builder.addLine(o);
-        else if (o instanceof sn)
-          this.cache.add(o);
-        else if (o instanceof ft)
-          this.builder.ensureLine(null), this.builder.addMark(o, n, r), this.cache.reused.set(
-            o,
-            1
-            /* Reused.Full */
-          ), r = n.length;
-        else
-          return !1;
-        this.openWidget = !1;
-      },
-      enter: (o) => {
-        o.isLine() ? this.builder.addLineStart(o.attrs, this.cache.maybeReuse(o)) : (this.cache.add(o), o instanceof ft && n.unshift(o.mark)), this.openWidget = !1;
-      },
-      leave: (o) => {
-        o.isLine() ? n.length && (n.length = r = 0) : o instanceof ft && (n.shift(), r = Math.min(r, n.length));
-      },
-      break: () => {
-        this.builder.addBreak(), this.openWidget = !1;
-      }
-    }), this.text.skip(t);
-  }
-  emit(t, e) {
-    let i = null, n = this.builder, r = 0, o = L.spans(this.decorations, t, e, {
-      point: (l, a, h, f, c, u) => {
-        if (h instanceof xe) {
-          if (this.disallowBlockEffectsFor[u]) {
-            if (h.block)
-              throw new RangeError("Block decorations may not be specified via plugins");
-            if (a > this.view.state.doc.lineAt(l).to)
-              throw new RangeError("Decorations that replace line breaks may not be specified via plugins");
-          }
-          if (r = f.length, c > f.length)
-            n.continueWidget(a - l);
-          else {
-            let d = h.widget || (h.block ? He.block : He.inline), p = rf(h), m = this.cache.findWidget(d, a - l, p) || ke.of(d, this.view, a - l, p);
-            h.block ? (h.startSide > 0 && n.addLineStartIfNotCovered(i), n.addBlockWidget(m)) : (n.ensureLine(i), n.addInlineWidget(m, f, c));
-          }
-          i = null;
-        } else
-          i = of(i, h);
-        a > l && this.text.skip(a - l);
-      },
-      span: (l, a, h, f) => {
-        for (let c = l; c < a; ) {
-          let u = this.text.next(Math.min(512, a - c));
-          u == null ? (n.addLineStartIfNotCovered(i), n.addBreak(), c++) : (n.ensureLine(i), n.addText(u, h, c == l ? f : h.length), c += u.length), i = null;
-        }
-      }
-    });
-    n.addLineStartIfNotCovered(i), this.openWidget = o > r, this.openMarks = o;
-  }
-  forward(t, e, i = 1) {
-    e - t <= 10 ? this.old.advance(e - t, i, this.reuseWalker) : (this.old.advance(5, -1, this.reuseWalker), this.old.advance(e - t - 10, -1), this.old.advance(5, i, this.reuseWalker));
-  }
-  getCompositionContext(t) {
-    let e = [], i = null;
-    for (let n = t.parentNode; ; n = n.parentNode) {
-      let r = J.get(n);
-      if (n == this.view.contentDOM)
-        break;
-      r instanceof ft ? e.push(r) : r?.isLine() ? i = r : n.nodeName == "DIV" && !i && n != this.view.contentDOM ? i = new Ne(n, Il) : e.push(ft.of(new gi({ tagName: n.nodeName.toLowerCase(), attributes: Bh(n) }), n));
-    }
-    return { line: i, marks: e };
-  }
-}
-function Vr(s, t) {
-  let e = (i) => {
-    for (let n of i.children)
-      if ((t ? n.isText() : n.length) || e(n))
-        return !0;
-    return !1;
-  };
-  return e(s);
-}
-function rf(s) {
-  let t = s.isReplace ? (s.startSide < 0 ? 64 : 0) | (s.endSide > 0 ? 128 : 0) : s.startSide > 0 ? 32 : 16;
-  return s.block && (t |= 256), t;
-}
-const Il = { class: "cm-line" };
-function of(s, t) {
-  let e = t.spec.attributes, i = t.spec.class;
-  return !e && !i || (s || (s = { class: "cm-line" }), e && Ys(e, s), i && (s.class += " " + i)), s;
-}
-function lf(s) {
-  let t = [];
-  for (let e = s.parents.length; e > 1; e--) {
-    let i = e == s.parents.length ? s.tile : s.parents[e].tile;
-    i instanceof ft && t.push(i.mark);
-  }
-  return t;
-}
-function zn(s) {
-  let t = J.get(s);
-  return t && t.setDOM(s.cloneNode()), s;
-}
-class He extends mi {
-  constructor(t) {
-    super(), this.tag = t;
-  }
-  eq(t) {
-    return t.tag == this.tag;
-  }
-  toDOM() {
-    return document.createElement(this.tag);
-  }
-  updateDOM(t) {
-    return t.nodeName.toLowerCase() == this.tag;
-  }
-  get isHidden() {
-    return !0;
-  }
-}
-He.inline = /* @__PURE__ */ new He("span");
-He.block = /* @__PURE__ */ new He("div");
-const Kn = /* @__PURE__ */ new class extends mi {
-  toDOM() {
-    return document.createElement("br");
-  }
-  get isHidden() {
-    return !0;
-  }
-  get editable() {
-    return !0;
-  }
-}();
-class Fr {
-  constructor(t) {
-    this.view = t, this.decorations = [], this.blockWrappers = [], this.dynamicDecorationMap = [!1], this.domChanged = null, this.hasComposition = null, this.editContextFormatting = U.none, this.lastCompositionAfterCursor = !1, this.minWidth = 0, this.minWidthFrom = 0, this.minWidthTo = 0, this.impreciseAnchor = null, this.impreciseHead = null, this.forceSelection = !1, this.lastUpdate = Date.now(), this.updateDeco(), this.tile = new An(t, t.contentDOM), this.updateInner([new yt(0, 0, 0, t.state.doc.length)], null);
-  }
-  // Update the document view to a given state.
-  update(t) {
-    var e;
-    let i = t.changedRanges;
-    this.minWidth > 0 && i.length && (i.every(({ fromA: f, toA: c }) => c < this.minWidthFrom || f > this.minWidthTo) ? (this.minWidthFrom = t.changes.mapPos(this.minWidthFrom, 1), this.minWidthTo = t.changes.mapPos(this.minWidthTo, 1)) : this.minWidth = this.minWidthFrom = this.minWidthTo = 0), this.updateEditContextFormatting(t);
-    let n = -1;
-    this.view.inputState.composing >= 0 && !this.view.observer.editContext && (!((e = this.domChanged) === null || e === void 0) && e.newSel ? n = this.domChanged.newSel.head : !gf(t.changes, this.hasComposition) && !t.selectionSet && (n = t.state.selection.main.head));
-    let r = n > -1 ? hf(this.view, t.changes, n) : null;
-    if (this.domChanged = null, this.hasComposition) {
-      let { from: f, to: c } = this.hasComposition;
-      i = new yt(f, c, t.changes.mapPos(f, -1), t.changes.mapPos(c, 1)).addToSet(i.slice());
-    }
-    this.hasComposition = r ? { from: r.range.fromB, to: r.range.toB } : null, (k.ie || k.chrome) && !r && t && t.state.doc.lines != t.startState.doc.lines && (this.forceSelection = !0);
-    let o = this.decorations, l = this.blockWrappers;
-    this.updateDeco();
-    let a = uf(o, this.decorations, t.changes);
-    a.length && (i = yt.extendWithRanges(i, a));
-    let h = pf(l, this.blockWrappers, t.changes);
-    return h.length && (i = yt.extendWithRanges(i, h)), r && !i.some((f) => f.fromA <= r.range.fromA && f.toA >= r.range.toA) && (i = r.range.addToSet(i.slice())), this.tile.flags & 2 && i.length == 0 ? !1 : (this.updateInner(i, r), t.transactions.length && (this.lastUpdate = Date.now()), !0);
-  }
-  // Used by update and the constructor do perform the actual DOM
-  // update
-  updateInner(t, e) {
-    this.view.viewState.mustMeasureContent = !0;
-    let { observer: i } = this.view;
-    i.ignore(() => {
-      if (e || t.length) {
-        let o = this.tile, l = new sf(this.view, o, this.blockWrappers, this.decorations, this.dynamicDecorationMap);
-        this.tile = l.run(t, e), Ts(o, l.cache.reused);
-      }
-      this.tile.dom.style.height = this.view.viewState.contentHeight / this.view.scaleY + "px", this.tile.dom.style.flexBasis = this.minWidth ? this.minWidth + "px" : "";
-      let r = k.chrome || k.ios ? { node: i.selectionRange.focusNode, written: !1 } : void 0;
-      this.tile.sync(r), r && (r.written || i.selectionRange.focusNode != r.node || !this.tile.dom.contains(r.node)) && (this.forceSelection = !0), this.tile.dom.style.height = "";
-    });
-    let n = [];
-    if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length)
-      for (let r of this.tile.children)
-        r.isWidget() && r.widget instanceof qn && n.push(r.dom);
-    i.updateGaps(n);
-  }
-  updateEditContextFormatting(t) {
-    this.editContextFormatting = this.editContextFormatting.map(t.changes);
-    for (let e of t.transactions)
-      for (let i of e.effects)
-        i.is(Bl) && (this.editContextFormatting = i.value);
-  }
-  // Sync the DOM selection to this.state.selection
-  updateSelection(t = !1, e = !1) {
-    (t || !this.view.observer.selectionRange.focusNode) && this.view.observer.readSelectionRange();
-    let { dom: i } = this.tile, n = this.view.root.activeElement, r = n == i, o = !r && !(this.view.state.facet($t) || i.tabIndex > -1) && ti(i, this.view.observer.selectionRange) && !(n && i.contains(n));
-    if (!(r || e || o))
-      return;
-    let l = this.forceSelection;
-    this.forceSelection = !1;
-    let a = this.view.state.selection.main, h, f;
-    if (a.empty ? f = h = this.inlineDOMNearPos(a.anchor, a.assoc || 1) : (f = this.inlineDOMNearPos(a.head, a.head == a.from ? 1 : -1), h = this.inlineDOMNearPos(a.anchor, a.anchor == a.from ? 1 : -1)), k.gecko && a.empty && !this.hasComposition && af(h)) {
-      let u = document.createTextNode("");
-      this.view.observer.ignore(() => h.node.insertBefore(u, h.node.childNodes[h.offset] || null)), h = f = new Mt(u, 0), l = !0;
-    }
-    let c = this.view.observer.selectionRange;
-    (l || !c.focusNode || (!ei(h.node, h.offset, c.anchorNode, c.anchorOffset) || !ei(f.node, f.offset, c.focusNode, c.focusOffset)) && !this.suppressWidgetCursorChange(c, a)) && (this.view.observer.ignore(() => {
-      k.android && k.chrome && i.contains(c.focusNode) && mf(c.focusNode, i) && (i.blur(), i.focus({ preventScroll: !0 }));
-      let u = fi(this.view.root);
-      if (u) if (a.empty) {
-        if (k.gecko) {
-          let d = ff(h.node, h.offset);
-          if (d && d != 3) {
-            let p = (d == 1 ? ml : gl)(h.node, h.offset);
-            p && (h = new Mt(p.node, p.offset));
-          }
-        }
-        u.collapse(h.node, h.offset), a.bidiLevel != null && u.caretBidiLevel !== void 0 && (u.caretBidiLevel = a.bidiLevel);
-      } else if (u.extend) {
-        u.collapse(h.node, h.offset);
-        try {
-          u.extend(f.node, f.offset);
-        } catch {
-        }
-      } else {
-        let d = document.createRange();
-        a.anchor > a.head && ([h, f] = [f, h]), d.setEnd(f.node, f.offset), d.setStart(h.node, h.offset), u.removeAllRanges(), u.addRange(d);
-      }
-      o && this.view.root.activeElement == i && (i.blur(), n && n.focus());
-    }), this.view.observer.setSelectionRange(h, f)), this.impreciseAnchor = h.precise ? null : new Mt(c.anchorNode, c.anchorOffset), this.impreciseHead = f.precise ? null : new Mt(c.focusNode, c.focusOffset);
-  }
-  // If a zero-length widget is inserted next to the cursor during
-  // composition, avoid moving it across it and disrupting the
-  // composition.
-  suppressWidgetCursorChange(t, e) {
-    return this.hasComposition && e.empty && ei(t.focusNode, t.focusOffset, t.anchorNode, t.anchorOffset) && this.posFromDOM(t.focusNode, t.focusOffset) == e.head;
-  }
-  enforceCursorAssoc() {
-    if (this.hasComposition)
-      return;
-    let { view: t } = this, e = t.state.selection.main, i = fi(t.root), { anchorNode: n, anchorOffset: r } = t.observer.selectionRange;
-    if (!i || !e.empty || !e.assoc || !i.modify)
-      return;
-    let o = this.lineAt(e.head, e.assoc);
-    if (!o)
-      return;
-    let l = o.posAtStart;
-    if (e.head == l || e.head == l + o.length)
-      return;
-    let a = this.coordsAt(e.head, -1), h = this.coordsAt(e.head, 1);
-    if (!a || !h || a.bottom > h.top)
-      return;
-    let f = this.domAtPos(e.head + e.assoc, e.assoc);
-    i.collapse(f.node, f.offset), i.modify("move", e.assoc < 0 ? "forward" : "backward", "lineboundary"), t.observer.readSelectionRange();
-    let c = t.observer.selectionRange;
-    t.docView.posFromDOM(c.anchorNode, c.anchorOffset) != e.from && i.collapse(n, r);
-  }
-  posFromDOM(t, e) {
-    let i = this.tile.nearest(t);
-    if (!i)
-      return this.tile.dom.compareDocumentPosition(t) & 2 ? 0 : this.view.state.doc.length;
-    let n = i.posAtStart;
-    if (i.isComposite()) {
-      let r;
-      if (t == i.dom)
-        r = i.dom.childNodes[e];
-      else {
-        let o = Gt(t) == 0 ? 0 : e == 0 ? -1 : 1;
-        for (; ; ) {
-          let l = t.parentNode;
-          if (l == i.dom)
-            break;
-          o == 0 && l.firstChild != l.lastChild && (t == l.firstChild ? o = -1 : o = 1), t = l;
-        }
-        o < 0 ? r = t : r = t.nextSibling;
-      }
-      if (r == i.dom.firstChild)
-        return n;
-      for (; r && !J.get(r); )
-        r = r.nextSibling;
-      if (!r)
-        return n + i.length;
-      for (let o = 0, l = n; ; o++) {
-        let a = i.children[o];
-        if (a.dom == r)
-          return l;
-        l += a.length + a.breakAfter;
-      }
-    } else return i.isText() ? t == i.dom ? n + e : n + (e ? i.length : 0) : n;
-  }
-  domAtPos(t, e) {
-    let { tile: i, offset: n } = this.tile.resolveBlock(t, e);
-    return i.isWidget() ? i.domPosFor(t, e) : i.domIn(n, e);
-  }
-  inlineDOMNearPos(t, e) {
-    let i, n = -1, r = !1, o, l = -1, a = !1;
-    return this.tile.blockTiles((h, f) => {
-      if (h.isWidget()) {
-        if (h.flags & 32 && f >= t)
-          return !0;
-        h.flags & 16 && (r = !0);
-      } else {
-        let c = f + h.length;
-        if (f <= t && (i = h, n = t - f, r = c < t), c >= t && !o && (o = h, l = t - f, a = f > t), f > t && o)
-          return !0;
-      }
-    }), !i && !o ? this.domAtPos(t, e) : (r && o ? i = null : a && i && (o = null), i && e < 0 || !o ? i.domIn(n, e) : o.domIn(l, e));
-  }
-  coordsAt(t, e) {
-    let { tile: i, offset: n } = this.tile.resolveBlock(t, e);
-    return i.isWidget() ? i.widget instanceof qn ? null : i.coordsInWidget(n, e, !0) : i.coordsIn(n, e);
-  }
-  lineAt(t, e) {
-    let { tile: i } = this.tile.resolveBlock(t, e);
-    return i.isLine() ? i : null;
-  }
-  coordsForChar(t) {
-    let { tile: e, offset: i } = this.tile.resolveBlock(t, 1);
-    if (!e.isLine())
-      return null;
-    function n(r, o) {
-      if (r.isComposite())
-        for (let l of r.children) {
-          if (l.length >= o) {
-            let a = n(l, o);
-            if (a)
-              return a;
-          }
-          if (o -= l.length, o < 0)
-            break;
-        }
-      else if (r.isText() && o < r.length) {
-        let l = nt(r.text, o);
-        if (l == o)
-          return null;
-        let a = ci(r.dom, o, l).getClientRects();
-        for (let h = 0; h < a.length; h++) {
-          let f = a[h];
-          if (h == a.length - 1 || f.top < f.bottom && f.left < f.right)
-            return f;
-        }
-      }
-      return null;
-    }
-    return n(e, i);
-  }
-  measureVisibleLineHeights(t) {
-    let e = [], { from: i, to: n } = t, r = this.view.contentDOM.clientWidth, o = r > Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1, l = -1, a = this.view.textDirection == K.LTR, h = 0, f = (c, u, d) => {
-      for (let p = 0; p < c.children.length && !(u > n); p++) {
-        let m = c.children[p], g = u + m.length, y = m.dom.getBoundingClientRect(), { height: x } = y;
-        if (d && !p && (h += y.top - d.top), m instanceof ne)
-          g > i && f(m, u, y);
-        else if (u >= i && (h > 0 && e.push(-h), e.push(x + h), h = 0, o)) {
-          let w = m.dom.lastChild, C = w ? ji(w) : [];
-          if (C.length) {
-            let S = C[C.length - 1], T = a ? S.right - y.left : y.right - S.left;
-            T > l && (l = T, this.minWidth = r, this.minWidthFrom = u, this.minWidthTo = g);
-          }
-        }
-        d && p == c.children.length - 1 && (h += d.bottom - y.bottom), u = g + m.breakAfter;
-      }
-    };
-    return f(this.tile, 0, null), e;
-  }
-  textDirectionAt(t) {
-    let { tile: e } = this.tile.resolveBlock(t, 1);
-    return getComputedStyle(e.dom).direction == "rtl" ? K.RTL : K.LTR;
-  }
-  measureTextSize() {
-    let t = this.tile.blockTiles((o) => {
-      if (o.isLine() && o.children.length && o.length <= 20) {
-        let l = 0, a;
-        for (let h of o.children) {
-          if (!h.isText() || /[^ -~]/.test(h.text))
-            return;
-          let f = ji(h.dom);
-          if (f.length != 1)
-            return;
-          l += f[0].width, a = f[0].height;
-        }
-        if (l)
-          return {
-            lineHeight: o.dom.getBoundingClientRect().height,
-            charWidth: l / o.length,
-            textHeight: a
-          };
-      }
-    });
-    if (t)
-      return t;
-    let e = document.createElement("div"), i, n, r;
-    return e.className = "cm-line", e.style.width = "99999px", e.style.position = "absolute", e.textContent = "abc def ghi jkl mno pqr stu", this.view.observer.ignore(() => {
-      this.tile.dom.appendChild(e);
-      let o = ji(e.firstChild)[0];
-      i = e.getBoundingClientRect().height, n = o && o.width ? o.width / 27 : 7, r = o && o.height ? o.height : i, e.remove();
-    }), { lineHeight: i, charWidth: n, textHeight: r };
-  }
-  computeBlockGapDeco() {
-    let t = [], e = this.view.viewState;
-    for (let i = 0, n = 0; ; n++) {
-      let r = n == e.viewports.length ? null : e.viewports[n], o = r ? r.from - 1 : this.view.state.doc.length;
-      if (o > i) {
-        let l = (e.lineBlockAt(o).bottom - e.lineBlockAt(i).top) / this.view.scaleY;
-        t.push(U.replace({
-          widget: new qn(l),
-          block: !0,
-          inclusive: !0,
-          isBlockGap: !0
-        }).range(i, o));
-      }
-      if (!r)
-        break;
-      i = r.to + 1;
-    }
-    return U.set(t);
-  }
-  updateDeco() {
-    let t = 1, e = this.view.state.facet(Sn).map((r) => (this.dynamicDecorationMap[t++] = typeof r == "function") ? r(this.view) : r), i = !1, n = this.view.state.facet(ir).map((r, o) => {
-      let l = typeof r == "function";
-      return l && (i = !0), l ? r(this.view) : r;
-    });
-    for (n.length && (this.dynamicDecorationMap[t++] = i, e.push(L.join(n))), this.decorations = [
-      this.editContextFormatting,
-      ...e,
-      this.computeBlockGapDeco(),
-      this.view.viewState.lineGapDeco
-    ]; t < this.decorations.length; )
-      this.dynamicDecorationMap[t++] = !1;
-    this.blockWrappers = this.view.state.facet(El).map((r) => typeof r == "function" ? r(this.view) : r);
-  }
-  scrollIntoView(t) {
-    if (t.isSnapshot) {
-      let h = this.view.viewState.lineBlockAt(t.range.head);
-      this.view.scrollDOM.scrollTop = h.top - t.yMargin, this.view.scrollDOM.scrollLeft = t.xMargin;
-      return;
-    }
-    for (let h of this.view.state.facet(Dl))
-      try {
-        if (h(this.view, t.range, t))
-          return !0;
-      } catch (f) {
-        ot(this.view.state, f, "scroll handler");
-      }
-    let { range: e } = t, i = this.coordsAt(e.head, e.empty ? e.assoc : e.head > e.anchor ? -1 : 1), n;
-    if (!i)
-      return;
-    !e.empty && (n = this.coordsAt(e.anchor, e.anchor > e.head ? -1 : 1)) && (i = {
-      left: Math.min(i.left, n.left),
-      top: Math.min(i.top, n.top),
-      right: Math.max(i.right, n.right),
-      bottom: Math.max(i.bottom, n.bottom)
-    });
-    let r = nr(this.view), o = {
-      left: i.left - r.left,
-      top: i.top - r.top,
-      right: i.right + r.right,
-      bottom: i.bottom + r.bottom
-    }, { offsetWidth: l, offsetHeight: a } = this.view.scrollDOM;
-    Rh(this.view.scrollDOM, o, e.head < e.anchor ? -1 : 1, t.x, t.y, Math.max(Math.min(t.xMargin, l), -l), Math.max(Math.min(t.yMargin, a), -a), this.view.textDirection == K.LTR);
-  }
-  lineHasWidget(t) {
-    let e = (i) => i.isWidget() || i.children.some(e);
-    return e(this.tile.resolveBlock(t, 1).tile);
-  }
-  destroy() {
-    Ts(this.tile);
-  }
-}
-function Ts(s, t) {
-  let e = t?.get(s);
-  if (e != 1) {
-    e == null && s.destroy();
-    for (let i of s.children)
-      Ts(i, t);
-  }
-}
-function af(s) {
-  return s.node.nodeType == 1 && s.node.firstChild && (s.offset == 0 || s.node.childNodes[s.offset - 1].contentEditable == "false") && (s.offset == s.node.childNodes.length || s.node.childNodes[s.offset].contentEditable == "false");
-}
-function Nl(s, t) {
-  let e = s.observer.selectionRange;
-  if (!e.focusNode)
-    return null;
-  let i = ml(e.focusNode, e.focusOffset), n = gl(e.focusNode, e.focusOffset), r = i || n;
-  if (n && i && n.node != i.node) {
-    let l = J.get(n.node);
-    if (!l || l.isText() && l.text != n.node.nodeValue)
-      r = n;
-    else if (s.docView.lastCompositionAfterCursor) {
-      let a = J.get(i.node);
-      !a || a.isText() && a.text != i.node.nodeValue || (r = n);
-    }
-  }
-  if (s.docView.lastCompositionAfterCursor = r != i, !r)
-    return null;
-  let o = t - r.offset;
-  return { from: o, to: o + r.node.nodeValue.length, node: r.node };
-}
-function hf(s, t, e) {
-  let i = Nl(s, e);
-  if (!i)
-    return null;
-  let { node: n, from: r, to: o } = i, l = n.nodeValue;
-  if (/[\n\r]/.test(l) || s.state.doc.sliceString(i.from, i.to) != l)
-    return null;
-  let a = t.invertedDesc;
-  return { range: new yt(a.mapPos(r), a.mapPos(o), r, o), text: n };
-}
-function ff(s, t) {
-  return s.nodeType != 1 ? 0 : (t && s.childNodes[t - 1].contentEditable == "false" ? 1 : 0) | (t < s.childNodes.length && s.childNodes[t].contentEditable == "false" ? 2 : 0);
-}
-let cf = class {
-  constructor() {
-    this.changes = [];
-  }
-  compareRange(t, e) {
-    Be(t, e, this.changes);
-  }
-  comparePoint(t, e) {
-    Be(t, e, this.changes);
-  }
-  boundChange(t) {
-    Be(t, t, this.changes);
-  }
+it.prototype.startSide = it.prototype.endSide = 0, it.prototype.point = !1, it.prototype.mapMode = C.TrackDel;
+function at(e, t) {
+	return e == t || e.constructor == t.constructor && e.eq(t);
+}
+var ot = class e {
+	constructor(e, t, n) {
+		this.from = e, this.to = t, this.value = n;
+	}
+	static create(t, n, r) {
+		return new e(t, n, r);
+	}
 };
-function uf(s, t, e) {
-  let i = new cf();
-  return L.compare(s, t, e, i), i.changes;
+function st(e, t) {
+	return e.from - t.from || e.value.startSide - t.value.startSide;
 }
-class df {
-  constructor() {
-    this.changes = [];
-  }
-  compareRange(t, e) {
-    Be(t, e, this.changes);
-  }
-  comparePoint() {
-  }
-  boundChange(t) {
-    Be(t, t, this.changes);
-  }
-}
-function pf(s, t, e) {
-  let i = new df();
-  return L.compare(s, t, e, i), i.changes;
-}
-function mf(s, t) {
-  for (let e = s; e && e != t; e = e.assignedSlot || e.parentNode)
-    if (e.nodeType == 1 && e.contentEditable == "false")
-      return !0;
-  return !1;
-}
-function gf(s, t) {
-  let e = !1;
-  return t && s.iterChangedRanges((i, n) => {
-    i < t.to && n > t.from && (e = !0);
-  }), e;
-}
-class qn extends mi {
-  constructor(t) {
-    super(), this.height = t;
-  }
-  toDOM() {
-    let t = document.createElement("div");
-    return t.className = "cm-gap", this.updateDOM(t), t;
-  }
-  eq(t) {
-    return t.height == this.height;
-  }
-  updateDOM(t) {
-    return t.style.height = this.height + "px", !0;
-  }
-  get editable() {
-    return !0;
-  }
-  get estimatedHeight() {
-    return this.height;
-  }
-  ignoreEvent() {
-    return !1;
-  }
-}
-function yf(s, t, e = 1) {
-  let i = s.charCategorizer(t), n = s.doc.lineAt(t), r = t - n.from;
-  if (n.length == 0)
-    return b.cursor(t);
-  r == 0 ? e = 1 : r == n.length && (e = -1);
-  let o = r, l = r;
-  e < 0 ? o = nt(n.text, r, !1) : l = nt(n.text, r);
-  let a = i(n.text.slice(o, l));
-  for (; o > 0; ) {
-    let h = nt(n.text, o, !1);
-    if (i(n.text.slice(h, o)) != a)
-      break;
-    o = h;
-  }
-  for (; l < n.length; ) {
-    let h = nt(n.text, l);
-    if (i(n.text.slice(l, h)) != a)
-      break;
-    l = h;
-  }
-  return b.range(o + n.from, l + n.from);
-}
-function bf(s, t, e, i, n) {
-  let r = Math.round((i - t.left) * s.defaultCharacterWidth);
-  if (s.lineWrapping && e.height > s.defaultLineHeight * 1.5) {
-    let l = s.viewState.heightOracle.textHeight, a = Math.floor((n - e.top - (s.defaultLineHeight - l) * 0.5) / l);
-    r += a * s.viewState.heightOracle.lineLength;
-  }
-  let o = s.state.sliceDoc(e.from, e.to);
-  return e.from + Sh(o, r, s.state.tabSize);
-}
-function wf(s, t, e) {
-  let i = s.lineBlockAt(t);
-  if (Array.isArray(i.type)) {
-    let n;
-    for (let r of i.type) {
-      if (r.from > t)
-        break;
-      if (!(r.to < t)) {
-        if (r.from < t && r.to > t)
-          return r;
-        (!n || r.type == ut.Text && (n.type != r.type || (e < 0 ? r.from < t : r.to > t))) && (n = r);
-      }
-    }
-    return n || i;
-  }
-  return i;
-}
-function xf(s, t, e, i) {
-  let n = wf(s, t.head, t.assoc || -1), r = !i || n.type != ut.Text || !(s.lineWrapping || n.widgetLineBreaks) ? null : s.coordsAtPos(t.assoc < 0 && t.head > n.from ? t.head - 1 : t.head);
-  if (r) {
-    let o = s.dom.getBoundingClientRect(), l = s.textDirectionAt(n.from), a = s.posAtCoords({
-      x: e == (l == K.LTR) ? o.right - 1 : o.left + 1,
-      y: (r.top + r.bottom) / 2
-    });
-    if (a != null)
-      return b.cursor(a, e ? -1 : 1);
-  }
-  return b.cursor(e ? n.to : n.from, e ? -1 : 1);
-}
-function zr(s, t, e, i) {
-  let n = s.state.doc.lineAt(t.head), r = s.bidiSpans(n), o = s.textDirectionAt(n.from);
-  for (let l = t, a = null; ; ) {
-    let h = Uh(n, r, o, l, e), f = vl;
-    if (!h) {
-      if (n.number == (e ? s.state.doc.lines : 1))
-        return l;
-      f = `
-`, n = s.state.doc.line(n.number + (e ? 1 : -1)), r = s.bidiSpans(n), h = s.visualLineSide(n, !e);
-    }
-    if (a) {
-      if (!a(f))
-        return l;
-    } else {
-      if (!i)
-        return h;
-      a = i(f);
-    }
-    l = h;
-  }
-}
-function vf(s, t, e) {
-  let i = s.state.charCategorizer(t), n = i(e);
-  return (r) => {
-    let o = i(r);
-    return n == Ut.Space && (n = o), n == o;
-  };
-}
-function kf(s, t, e, i) {
-  let n = t.head, r = e ? 1 : -1;
-  if (n == (e ? s.state.doc.length : 0))
-    return b.cursor(n, t.assoc);
-  let o = t.goalColumn, l, a = s.contentDOM.getBoundingClientRect(), h = s.coordsAtPos(n, (t.empty ? t.assoc : 0) || (e ? 1 : -1)), f = s.documentTop;
-  if (h)
-    o == null && (o = h.left - a.left), l = r < 0 ? h.top : h.bottom;
-  else {
-    let p = s.viewState.lineBlockAt(n);
-    o == null && (o = Math.min(a.right - a.left, s.defaultCharacterWidth * (n - p.from))), l = (r < 0 ? p.top : p.bottom) + f;
-  }
-  let c = a.left + o, u = i ?? s.viewState.heightOracle.textHeight >> 1, d = Os(s, { x: c, y: l + u * r }, !1, r);
-  return b.cursor(d.pos, d.assoc, void 0, o);
-}
-function ii(s, t, e) {
-  for (; ; ) {
-    let i = 0;
-    for (let n of s)
-      n.between(t - 1, t + 1, (r, o, l) => {
-        if (t > r && t < o) {
-          let a = i || e || (t - r < o - t ? -1 : 1);
-          t = a < 0 ? r : o, i = a;
-        }
-      });
-    if (!i)
-      return t;
-  }
-}
-function Hl(s, t) {
-  let e = null;
-  for (let i = 0; i < t.ranges.length; i++) {
-    let n = t.ranges[i], r = null;
-    if (n.empty) {
-      let o = ii(s, n.from, 0);
-      o != n.from && (r = b.cursor(o, -1));
-    } else {
-      let o = ii(s, n.from, -1), l = ii(s, n.to, 1);
-      (o != n.from || l != n.to) && (r = b.range(n.from == n.anchor ? o : l, n.from == n.head ? o : l));
-    }
-    r && (e || (e = t.ranges.slice()), e[i] = r);
-  }
-  return e ? b.create(e, t.mainIndex) : t;
-}
-function $n(s, t, e) {
-  let i = ii(s.state.facet(bi).map((n) => n(s)), e.from, t.head > e.from ? -1 : 1);
-  return i == e.from ? e : b.cursor(i, i < e.from ? 1 : -1);
-}
-class Wt {
-  constructor(t, e) {
-    this.pos = t, this.assoc = e;
-  }
-}
-function Os(s, t, e, i) {
-  let n = s.contentDOM.getBoundingClientRect(), r = n.top + s.viewState.paddingTop, { x: o, y: l } = t, a = l - r, h;
-  for (; ; ) {
-    if (a < 0)
-      return new Wt(0, 1);
-    if (a > s.viewState.docHeight)
-      return new Wt(s.state.doc.length, -1);
-    if (h = s.elementAtHeight(a), i == null)
-      break;
-    if (h.type == ut.Text) {
-      if (i < 0 ? h.to < s.viewport.from : h.from > s.viewport.to)
-        break;
-      let u = s.docView.coordsAt(i < 0 ? h.from : h.to, i > 0 ? -1 : 1);
-      if (u && (i < 0 ? u.top <= a + r : u.bottom >= a + r))
-        break;
-    }
-    let c = s.viewState.heightOracle.textHeight / 2;
-    a = i > 0 ? h.bottom + c : h.top - c;
-  }
-  if (s.viewport.from >= h.to || s.viewport.to <= h.from) {
-    if (e)
-      return null;
-    if (h.type == ut.Text) {
-      let c = bf(s, n, h, o, l);
-      return new Wt(c, c == h.from ? 1 : -1);
-    }
-  }
-  if (h.type != ut.Text)
-    return a < (h.top + h.bottom) / 2 ? new Wt(h.from, 1) : new Wt(h.to, -1);
-  let f = s.docView.lineAt(h.from, 2);
-  return (!f || f.length != h.length) && (f = s.docView.lineAt(h.from, -2)), new Sf(s, o, l, s.textDirectionAt(h.from)).scanTile(f, h.from);
-}
-class Sf {
-  constructor(t, e, i, n) {
-    this.view = t, this.x = e, this.y = i, this.baseDir = n, this.line = null, this.spans = null;
-  }
-  bidiSpansAt(t) {
-    return (!this.line || this.line.from > t || this.line.to < t) && (this.line = this.view.state.doc.lineAt(t), this.spans = this.view.bidiSpans(this.line)), this;
-  }
-  baseDirAt(t, e) {
-    let { line: i, spans: n } = this.bidiSpansAt(t);
-    return n[Vt.find(n, t - i.from, -1, e)].level == this.baseDir;
-  }
-  dirAt(t, e) {
-    let { line: i, spans: n } = this.bidiSpansAt(t);
-    return n[Vt.find(n, t - i.from, -1, e)].dir;
-  }
-  // Used to short-circuit bidi tests for content with a uniform direction
-  bidiIn(t, e) {
-    let { spans: i, line: n } = this.bidiSpansAt(t);
-    return i.length > 1 || i.length && (i[0].level != this.baseDir || i[0].to + n.from < e);
-  }
-  // Scan through the rectangles for the content of a tile with inline
-  // content, looking for one that overlaps the queried position
-  // vertically andis
-  // closest horizontally. The caller is responsible for dividing its
-  // content into N pieces, and pass an array with N+1 positions
-  // (including the position after the last piece). For a text tile,
-  // these will be character clusters, for a composite tile, these
-  // will be child tiles.
-  scan(t, e) {
-    let i = 0, n = t.length - 1, r = /* @__PURE__ */ new Set(), o = this.bidiIn(t[0], t[n]), l, a, h = -1, f = 1e9, c;
-    t: for (; i < n; ) {
-      let d = n - i, p = i + n >> 1;
-      e: if (r.has(p)) {
-        let g = i + Math.floor(Math.random() * d);
-        for (let y = 0; y < d; y++) {
-          if (!r.has(g)) {
-            p = g;
-            break e;
-          }
-          g++, g == n && (g = i);
-        }
-        break t;
-      }
-      r.add(p);
-      let m = e(p);
-      if (m)
-        for (let g = 0; g < m.length; g++) {
-          let y = m[g], x = 0;
-          if (y.bottom < this.y)
-            (!l || l.bottom < y.bottom) && (l = y), x = 1;
-          else if (y.top > this.y)
-            (!a || a.top > y.top) && (a = y), x = -1;
-          else {
-            let w = y.left > this.x ? this.x - y.left : y.right < this.x ? this.x - y.right : 0, C = Math.abs(w);
-            C < f && (h = p, f = C, c = y), w && (x = w < 0 == (this.baseDir == K.LTR) ? -1 : 1);
-          }
-          x == -1 && (!o || this.baseDirAt(t[p], 1)) ? n = p : x == 1 && (!o || this.baseDirAt(t[p + 1], -1)) && (i = p + 1);
-        }
-    }
-    if (!c) {
-      let d = l && (!a || this.y - l.bottom < a.top - this.y) ? l : a;
-      return this.y = (d.top + d.bottom) / 2, this.scan(t, e);
-    }
-    let u = (o ? this.dirAt(t[h], 1) : this.baseDir) == K.LTR;
-    return {
-      i: h,
-      // Test whether x is closes to the start or end of this element
-      after: this.x > (c.left + c.right) / 2 == u
-    };
-  }
-  scanText(t, e) {
-    let i = [];
-    for (let r = 0; r < t.length; r = nt(t.text, r))
-      i.push(e + r);
-    i.push(e + t.length);
-    let n = this.scan(i, (r) => {
-      let o = i[r] - e, l = i[r + 1] - e;
-      return ci(t.dom, o, l).getClientRects();
-    });
-    return n.after ? new Wt(i[n.i + 1], -1) : new Wt(i[n.i], 1);
-  }
-  scanTile(t, e) {
-    if (!t.length)
-      return new Wt(e, 1);
-    if (t.children.length == 1) {
-      let l = t.children[0];
-      if (l.isText())
-        return this.scanText(l, e);
-      if (l.isComposite())
-        return this.scanTile(l, e);
-    }
-    let i = [e];
-    for (let l = 0, a = e; l < t.children.length; l++)
-      i.push(a += t.children[l].length);
-    let n = this.scan(i, (l) => {
-      let a = t.children[l];
-      return a.flags & 48 ? null : (a.dom.nodeType == 1 ? a.dom : ci(a.dom, 0, a.length)).getClientRects();
-    }), r = t.children[n.i], o = i[n.i];
-    return r.isText() ? this.scanText(r, o) : r.isComposite() ? this.scanTile(r, o) : n.after ? new Wt(i[n.i + 1], -1) : new Wt(o, 1);
-  }
-}
-const Ye = "￿";
-class Cf {
-  constructor(t, e) {
-    this.points = t, this.view = e, this.text = "", this.lineSeparator = e.state.facet(H.lineSeparator);
-  }
-  append(t) {
-    this.text += t;
-  }
-  lineBreak() {
-    this.text += Ye;
-  }
-  readRange(t, e) {
-    if (!t)
-      return this;
-    let i = t.parentNode;
-    for (let n = t; ; ) {
-      this.findPointBefore(i, n);
-      let r = this.text.length;
-      this.readNode(n);
-      let o = J.get(n), l = n.nextSibling;
-      if (l == e) {
-        o?.breakAfter && !l && i != this.view.contentDOM && this.lineBreak();
-        break;
-      }
-      let a = J.get(l);
-      (o && a ? o.breakAfter : (o ? o.breakAfter : tn(n)) || tn(l) && (n.nodeName != "BR" || o?.isWidget()) && this.text.length > r) && !Mf(l, e) && this.lineBreak(), n = l;
-    }
-    return this.findPointBefore(i, e), this;
-  }
-  readTextNode(t) {
-    let e = t.nodeValue;
-    for (let i of this.points)
-      i.node == t && (i.pos = this.text.length + Math.min(i.offset, e.length));
-    for (let i = 0, n = this.lineSeparator ? null : /\r\n?|\n/g; ; ) {
-      let r = -1, o = 1, l;
-      if (this.lineSeparator ? (r = e.indexOf(this.lineSeparator, i), o = this.lineSeparator.length) : (l = n.exec(e)) && (r = l.index, o = l[0].length), this.append(e.slice(i, r < 0 ? e.length : r)), r < 0)
-        break;
-      if (this.lineBreak(), o > 1)
-        for (let a of this.points)
-          a.node == t && a.pos > this.text.length && (a.pos -= o - 1);
-      i = r + o;
-    }
-  }
-  readNode(t) {
-    let e = J.get(t), i = e && e.overrideDOMText;
-    if (i != null) {
-      this.findPointInside(t, i.length);
-      for (let n = i.iter(); !n.next().done; )
-        n.lineBreak ? this.lineBreak() : this.append(n.value);
-    } else t.nodeType == 3 ? this.readTextNode(t) : t.nodeName == "BR" ? t.nextSibling && this.lineBreak() : t.nodeType == 1 && this.readRange(t.firstChild, null);
-  }
-  findPointBefore(t, e) {
-    for (let i of this.points)
-      i.node == t && t.childNodes[i.offset] == e && (i.pos = this.text.length);
-  }
-  findPointInside(t, e) {
-    for (let i of this.points)
-      (t.nodeType == 3 ? i.node == t : t.contains(i.node)) && (i.pos = this.text.length + (Af(t, i.node, i.offset) ? e : 0));
-  }
-}
-function Af(s, t, e) {
-  for (; ; ) {
-    if (!t || e < Gt(t))
-      return !1;
-    if (t == s)
-      return !0;
-    e = oe(t) + 1, t = t.parentNode;
-  }
-}
-function Mf(s, t) {
-  let e;
-  for (; !(s == t || !s); s = s.nextSibling) {
-    let i = J.get(s);
-    if (!i?.isWidget())
-      return !1;
-    i && (e || (e = [])).push(i);
-  }
-  if (e)
-    for (let i of e) {
-      let n = i.overrideDOMText;
-      if (n?.length)
-        return !1;
-    }
-  return !0;
-}
-class Kr {
-  constructor(t, e) {
-    this.node = t, this.offset = e, this.pos = -1;
-  }
-}
-class Tf {
-  constructor(t, e, i, n) {
-    this.typeOver = n, this.bounds = null, this.text = "", this.domChanged = e > -1;
-    let { impreciseHead: r, impreciseAnchor: o } = t.docView;
-    if (t.state.readOnly && e > -1)
-      this.newSel = null;
-    else if (e > -1 && (this.bounds = Wl(t.docView.tile, e, i, 0))) {
-      let l = r || o ? [] : Df(t), a = new Cf(l, t);
-      a.readRange(this.bounds.startDOM, this.bounds.endDOM), this.text = a.text, this.newSel = Bf(l, this.bounds.from);
-    } else {
-      let l = t.observer.selectionRange, a = r && r.node == l.focusNode && r.offset == l.focusOffset || !ks(t.contentDOM, l.focusNode) ? t.state.selection.main.head : t.docView.posFromDOM(l.focusNode, l.focusOffset), h = o && o.node == l.anchorNode && o.offset == l.anchorOffset || !ks(t.contentDOM, l.anchorNode) ? t.state.selection.main.anchor : t.docView.posFromDOM(l.anchorNode, l.anchorOffset), f = t.viewport;
-      if ((k.ios || k.chrome) && t.state.selection.main.empty && a != h && (f.from > 0 || f.to < t.state.doc.length)) {
-        let c = Math.min(a, h), u = Math.max(a, h), d = f.from - c, p = f.to - u;
-        (d == 0 || d == 1 || c == 0) && (p == 0 || p == -1 || u == t.state.doc.length) && (a = 0, h = t.state.doc.length);
-      }
-      t.inputState.composing > -1 && t.state.selection.ranges.length > 1 ? this.newSel = t.state.selection.replaceRange(b.range(h, a)) : this.newSel = b.single(h, a);
-    }
-  }
-}
-function Wl(s, t, e, i) {
-  if (s.isComposite()) {
-    let n = -1, r = -1, o = -1, l = -1;
-    for (let a = 0, h = i, f = i; a < s.children.length; a++) {
-      let c = s.children[a], u = h + c.length;
-      if (h < t && u > e)
-        return Wl(c, t, e, h);
-      if (u >= t && n == -1 && (n = a, r = h), h > e && c.dom.parentNode == s.dom) {
-        o = a, l = f;
-        break;
-      }
-      f = u, h = u + c.breakAfter;
-    }
-    return {
-      from: r,
-      to: l < 0 ? i + s.length : l,
-      startDOM: (n ? s.children[n - 1].dom.nextSibling : null) || s.dom.firstChild,
-      endDOM: o < s.children.length && o >= 0 ? s.children[o].dom : null
-    };
-  } else return s.isText() ? { from: i, to: i + s.length, startDOM: s.dom, endDOM: s.dom.nextSibling } : null;
-}
-function Vl(s, t) {
-  let e, { newSel: i } = t, n = s.state.selection.main, r = s.inputState.lastKeyTime > Date.now() - 100 ? s.inputState.lastKeyCode : -1;
-  if (t.bounds) {
-    let { from: o, to: l } = t.bounds, a = n.from, h = null;
-    (r === 8 || k.android && t.text.length < l - o) && (a = n.to, h = "end");
-    let f = Fl(s.state.doc.sliceString(o, l, Ye), t.text, a - o, h);
-    f && (k.chrome && r == 13 && f.toB == f.from + 2 && t.text.slice(f.from, f.toB) == Ye + Ye && f.toB--, e = {
-      from: o + f.from,
-      to: o + f.toA,
-      insert: P.of(t.text.slice(f.from, f.toB).split(Ye))
-    });
-  } else i && (!s.hasFocus && s.state.facet($t) || on(i, n)) && (i = null);
-  if (!e && !i)
-    return !1;
-  if (!e && t.typeOver && !n.empty && i && i.main.empty ? e = { from: n.from, to: n.to, insert: s.state.doc.slice(n.from, n.to) } : (k.mac || k.android) && e && e.from == e.to && e.from == n.head - 1 && /^\. ?$/.test(e.insert.toString()) && s.contentDOM.getAttribute("autocorrect") == "off" ? (i && e.insert.length == 2 && (i = b.single(i.main.anchor - 1, i.main.head - 1)), e = { from: e.from, to: e.to, insert: P.of([e.insert.toString().replace(".", " ")]) }) : e && e.from >= n.from && e.to <= n.to && (e.from != n.from || e.to != n.to) && n.to - n.from - (e.to - e.from) <= 4 ? e = {
-    from: n.from,
-    to: n.to,
-    insert: s.state.doc.slice(n.from, e.from).append(e.insert).append(s.state.doc.slice(e.to, n.to))
-  } : s.state.doc.lineAt(n.from).to < n.to && s.docView.lineHasWidget(n.to) && s.inputState.insertingTextAt > Date.now() - 50 ? e = {
-    from: n.from,
-    to: n.to,
-    insert: s.state.toText(s.inputState.insertingText)
-  } : k.chrome && e && e.from == e.to && e.from == n.head && e.insert.toString() == `
- ` && s.lineWrapping && (i && (i = b.single(i.main.anchor - 1, i.main.head - 1)), e = { from: n.from, to: n.to, insert: P.of([" "]) }), e)
-    return sr(s, e, i, r);
-  if (i && !on(i, n)) {
-    let o = !1, l = "select";
-    return s.inputState.lastSelectionTime > Date.now() - 50 && (s.inputState.lastSelectionOrigin == "select" && (o = !0), l = s.inputState.lastSelectionOrigin, l == "select.pointer" && (i = Hl(s.state.facet(bi).map((a) => a(s)), i))), s.dispatch({ selection: i, scrollIntoView: o, userEvent: l }), !0;
-  } else
-    return !1;
-}
-function sr(s, t, e, i = -1) {
-  if (k.ios && s.inputState.flushIOSKey(t))
-    return !0;
-  let n = s.state.selection.main;
-  if (k.android && (t.to == n.to && // GBoard will sometimes remove a space it just inserted
-  // after a completion when you press enter
-  (t.from == n.from || t.from == n.from - 1 && s.state.sliceDoc(t.from, n.from) == " ") && t.insert.length == 1 && t.insert.lines == 2 && Le(s.contentDOM, "Enter", 13) || (t.from == n.from - 1 && t.to == n.to && t.insert.length == 0 || i == 8 && t.insert.length < t.to - t.from && t.to > n.head) && Le(s.contentDOM, "Backspace", 8) || t.from == n.from && t.to == n.to + 1 && t.insert.length == 0 && Le(s.contentDOM, "Delete", 46)))
-    return !0;
-  let r = t.insert.toString();
-  s.inputState.composing >= 0 && s.inputState.composing++;
-  let o, l = () => o || (o = Of(s, t, e));
-  return s.state.facet(Ml).some((a) => a(s, t.from, t.to, r, l)) || s.dispatch(l()), !0;
-}
-function Of(s, t, e) {
-  let i, n = s.state, r = n.selection.main, o = -1;
-  if (t.from == t.to && t.from < r.from || t.from > r.to) {
-    let a = t.from < r.from ? -1 : 1, h = a < 0 ? r.from : r.to, f = ii(n.facet(bi).map((c) => c(s)), h, a);
-    t.from == f && (o = f);
-  }
-  if (o > -1)
-    i = {
-      changes: t,
-      selection: b.cursor(t.from + t.insert.length, -1)
-    };
-  else if (t.from >= r.from && t.to <= r.to && t.to - t.from >= (r.to - r.from) / 3 && (!e || e.main.empty && e.main.from == t.from + t.insert.length) && s.inputState.composing < 0) {
-    let a = r.from < t.from ? n.sliceDoc(r.from, t.from) : "", h = r.to > t.to ? n.sliceDoc(t.to, r.to) : "";
-    i = n.replaceSelection(s.state.toText(a + t.insert.sliceString(0, void 0, s.state.lineBreak) + h));
-  } else {
-    let a = n.changes(t), h = e && e.main.to <= a.newLength ? e.main : void 0;
-    if (n.selection.ranges.length > 1 && (s.inputState.composing >= 0 || s.inputState.compositionPendingChange) && t.to <= r.to + 10 && t.to >= r.to - 10) {
-      let f = s.state.sliceDoc(t.from, t.to), c, u = e && Nl(s, e.main.head);
-      if (u) {
-        let p = t.insert.length - (t.to - t.from);
-        c = { from: u.from, to: u.to - p };
-      } else
-        c = s.state.doc.lineAt(r.head);
-      let d = r.to - t.to;
-      i = n.changeByRange((p) => {
-        if (p.from == r.from && p.to == r.to)
-          return { changes: a, range: h || p.map(a) };
-        let m = p.to - d, g = m - f.length;
-        if (s.state.sliceDoc(g, m) != f || // Unfortunately, there's no way to make multiple
-        // changes in the same node work without aborting
-        // composition, so cursors in the composition range are
-        // ignored.
-        m >= c.from && g <= c.to)
-          return { range: p };
-        let y = n.changes({ from: g, to: m, insert: t.insert }), x = p.to - r.to;
-        return {
-          changes: y,
-          range: h ? b.range(Math.max(0, h.anchor + x), Math.max(0, h.head + x)) : p.map(y)
-        };
-      });
-    } else
-      i = {
-        changes: a,
-        selection: h && n.selection.replaceRange(h)
-      };
-  }
-  let l = "input.type";
-  return (s.composing || s.inputState.compositionPendingChange && s.inputState.compositionEndedAt > Date.now() - 50) && (s.inputState.compositionPendingChange = !1, l += ".compose", s.inputState.compositionFirstChange && (l += ".start", s.inputState.compositionFirstChange = !1)), n.update(i, { userEvent: l, scrollIntoView: !0 });
-}
-function Fl(s, t, e, i) {
-  let n = Math.min(s.length, t.length), r = 0;
-  for (; r < n && s.charCodeAt(r) == t.charCodeAt(r); )
-    r++;
-  if (r == n && s.length == t.length)
-    return null;
-  let o = s.length, l = t.length;
-  for (; o > 0 && l > 0 && s.charCodeAt(o - 1) == t.charCodeAt(l - 1); )
-    o--, l--;
-  if (i == "end") {
-    let a = Math.max(0, r - Math.min(o, l));
-    e -= o + a - r;
-  }
-  if (o < r && s.length < t.length) {
-    let a = e <= r && e >= o ? r - e : 0;
-    r -= a, l = r + (l - o), o = r;
-  } else if (l < r) {
-    let a = e <= r && e >= l ? r - e : 0;
-    r -= a, o = r + (o - l), l = r;
-  }
-  return { from: r, toA: o, toB: l };
-}
-function Df(s) {
-  let t = [];
-  if (s.root.activeElement != s.contentDOM)
-    return t;
-  let { anchorNode: e, anchorOffset: i, focusNode: n, focusOffset: r } = s.observer.selectionRange;
-  return e && (t.push(new Kr(e, i)), (n != e || r != i) && t.push(new Kr(n, r))), t;
-}
-function Bf(s, t) {
-  if (s.length == 0)
-    return null;
-  let e = s[0].pos, i = s.length == 2 ? s[1].pos : e;
-  return e > -1 && i > -1 ? b.single(e + t, i + t) : null;
-}
-function on(s, t) {
-  return t.head == s.main.head && t.anchor == s.main.anchor;
-}
-class Lf {
-  setSelectionOrigin(t) {
-    this.lastSelectionOrigin = t, this.lastSelectionTime = Date.now();
-  }
-  constructor(t) {
-    this.view = t, this.lastKeyCode = 0, this.lastKeyTime = 0, this.lastTouchTime = 0, this.lastFocusTime = 0, this.lastScrollTop = 0, this.lastScrollLeft = 0, this.pendingIOSKey = void 0, this.tabFocusMode = -1, this.lastSelectionOrigin = null, this.lastSelectionTime = 0, this.lastContextMenu = 0, this.scrollHandlers = [], this.handlers = /* @__PURE__ */ Object.create(null), this.composing = -1, this.compositionFirstChange = null, this.compositionEndedAt = 0, this.compositionPendingKey = !1, this.compositionPendingChange = !1, this.insertingText = "", this.insertingTextAt = 0, this.mouseSelection = null, this.draggedContent = null, this.handleEvent = this.handleEvent.bind(this), this.notifiedFocused = t.hasFocus, k.safari && t.contentDOM.addEventListener("input", () => null), k.gecko && jf(t.contentDOM.ownerDocument);
-  }
-  handleEvent(t) {
-    !Vf(this.view, t) || this.ignoreDuringComposition(t) || t.type == "keydown" && this.keydown(t) || (this.view.updateState != 0 ? Promise.resolve().then(() => this.runHandlers(t.type, t)) : this.runHandlers(t.type, t));
-  }
-  runHandlers(t, e) {
-    let i = this.handlers[t];
-    if (i) {
-      for (let n of i.observers)
-        n(this.view, e);
-      for (let n of i.handlers) {
-        if (e.defaultPrevented)
-          break;
-        if (n(this.view, e)) {
-          e.preventDefault();
-          break;
-        }
-      }
-    }
-  }
-  ensureHandlers(t) {
-    let e = Ef(t), i = this.handlers, n = this.view.contentDOM;
-    for (let r in e)
-      if (r != "scroll") {
-        let o = !e[r].handlers.length, l = i[r];
-        l && o != !l.handlers.length && (n.removeEventListener(r, this.handleEvent), l = null), l || n.addEventListener(r, this.handleEvent, { passive: o });
-      }
-    for (let r in i)
-      r != "scroll" && !e[r] && n.removeEventListener(r, this.handleEvent);
-    this.handlers = e;
-  }
-  keydown(t) {
-    if (this.lastKeyCode = t.keyCode, this.lastKeyTime = Date.now(), t.keyCode == 9 && this.tabFocusMode > -1 && (!this.tabFocusMode || Date.now() <= this.tabFocusMode))
-      return !0;
-    if (this.tabFocusMode > 0 && t.keyCode != 27 && Kl.indexOf(t.keyCode) < 0 && (this.tabFocusMode = -1), k.android && k.chrome && !t.synthetic && (t.keyCode == 13 || t.keyCode == 8))
-      return this.view.observer.delayAndroidKey(t.key, t.keyCode), !0;
-    let e;
-    return k.ios && !t.synthetic && !t.altKey && !t.metaKey && ((e = zl.find((i) => i.keyCode == t.keyCode)) && !t.ctrlKey || Rf.indexOf(t.key) > -1 && t.ctrlKey && !t.shiftKey) ? (this.pendingIOSKey = e || t, setTimeout(() => this.flushIOSKey(), 250), !0) : (t.keyCode != 229 && this.view.observer.forceFlush(), !1);
-  }
-  flushIOSKey(t) {
-    let e = this.pendingIOSKey;
-    return !e || e.key == "Enter" && t && t.from < t.to && /^\S+$/.test(t.insert.toString()) ? !1 : (this.pendingIOSKey = void 0, Le(this.view.contentDOM, e.key, e.keyCode, e instanceof KeyboardEvent ? e : void 0));
-  }
-  ignoreDuringComposition(t) {
-    return !/^key/.test(t.type) || t.synthetic ? !1 : this.composing > 0 ? !0 : k.safari && !k.ios && this.compositionPendingKey && Date.now() - this.compositionEndedAt < 100 ? (this.compositionPendingKey = !1, !0) : !1;
-  }
-  startMouseSelection(t) {
-    this.mouseSelection && this.mouseSelection.destroy(), this.mouseSelection = t;
-  }
-  update(t) {
-    this.view.observer.update(t), this.mouseSelection && this.mouseSelection.update(t), this.draggedContent && t.docChanged && (this.draggedContent = this.draggedContent.map(t.changes)), t.transactions.length && (this.lastKeyCode = this.lastSelectionTime = 0);
-  }
-  destroy() {
-    this.mouseSelection && this.mouseSelection.destroy();
-  }
-}
-function qr(s, t) {
-  return (e, i) => {
-    try {
-      return t.call(s, i, e);
-    } catch (n) {
-      ot(e.state, n);
-    }
-  };
-}
-function Ef(s) {
-  let t = /* @__PURE__ */ Object.create(null);
-  function e(i) {
-    return t[i] || (t[i] = { observers: [], handlers: [] });
-  }
-  for (let i of s) {
-    let n = i.spec, r = n && n.plugin.domEventHandlers, o = n && n.plugin.domEventObservers;
-    if (r)
-      for (let l in r) {
-        let a = r[l];
-        a && e(l).handlers.push(qr(i.value, a));
-      }
-    if (o)
-      for (let l in o) {
-        let a = o[l];
-        a && e(l).observers.push(qr(i.value, a));
-      }
-  }
-  for (let i in Ot)
-    e(i).handlers.push(Ot[i]);
-  for (let i in kt)
-    e(i).observers.push(kt[i]);
-  return t;
-}
-const zl = [
-  { key: "Backspace", keyCode: 8, inputType: "deleteContentBackward" },
-  { key: "Enter", keyCode: 13, inputType: "insertParagraph" },
-  { key: "Enter", keyCode: 13, inputType: "insertLineBreak" },
-  { key: "Delete", keyCode: 46, inputType: "deleteContentForward" }
-], Rf = "dthko", Kl = [16, 17, 18, 20, 91, 92, 224, 225], Mi = 6;
-function Ti(s) {
-  return Math.max(0, s) * 0.7 + 8;
-}
-function Pf(s, t) {
-  return Math.max(Math.abs(s.clientX - t.clientX), Math.abs(s.clientY - t.clientY));
-}
-class If {
-  constructor(t, e, i, n) {
-    this.view = t, this.startEvent = e, this.style = i, this.mustSelect = n, this.scrollSpeed = { x: 0, y: 0 }, this.scrolling = -1, this.lastEvent = e, this.scrollParents = Ph(t.contentDOM), this.atoms = t.state.facet(bi).map((o) => o(t));
-    let r = t.contentDOM.ownerDocument;
-    r.addEventListener("mousemove", this.move = this.move.bind(this)), r.addEventListener("mouseup", this.up = this.up.bind(this)), this.extend = e.shiftKey, this.multiple = t.state.facet(H.allowMultipleSelections) && Nf(t, e), this.dragging = Wf(t, e) && Ul(e) == 1 ? null : !1;
-  }
-  start(t) {
-    this.dragging === !1 && this.select(t);
-  }
-  move(t) {
-    if (t.buttons == 0)
-      return this.destroy();
-    if (this.dragging || this.dragging == null && Pf(this.startEvent, t) < 10)
-      return;
-    this.select(this.lastEvent = t);
-    let e = 0, i = 0, n = 0, r = 0, o = this.view.win.innerWidth, l = this.view.win.innerHeight;
-    this.scrollParents.x && ({ left: n, right: o } = this.scrollParents.x.getBoundingClientRect()), this.scrollParents.y && ({ top: r, bottom: l } = this.scrollParents.y.getBoundingClientRect());
-    let a = nr(this.view);
-    t.clientX - a.left <= n + Mi ? e = -Ti(n - t.clientX) : t.clientX + a.right >= o - Mi && (e = Ti(t.clientX - o)), t.clientY - a.top <= r + Mi ? i = -Ti(r - t.clientY) : t.clientY + a.bottom >= l - Mi && (i = Ti(t.clientY - l)), this.setScrollSpeed(e, i);
-  }
-  up(t) {
-    this.dragging == null && this.select(this.lastEvent), this.dragging || t.preventDefault(), this.destroy();
-  }
-  destroy() {
-    this.setScrollSpeed(0, 0);
-    let t = this.view.contentDOM.ownerDocument;
-    t.removeEventListener("mousemove", this.move), t.removeEventListener("mouseup", this.up), this.view.inputState.mouseSelection = this.view.inputState.draggedContent = null;
-  }
-  setScrollSpeed(t, e) {
-    this.scrollSpeed = { x: t, y: e }, t || e ? this.scrolling < 0 && (this.scrolling = setInterval(() => this.scroll(), 50)) : this.scrolling > -1 && (clearInterval(this.scrolling), this.scrolling = -1);
-  }
-  scroll() {
-    let { x: t, y: e } = this.scrollSpeed;
-    t && this.scrollParents.x && (this.scrollParents.x.scrollLeft += t, t = 0), e && this.scrollParents.y && (this.scrollParents.y.scrollTop += e, e = 0), (t || e) && this.view.win.scrollBy(t, e), this.dragging === !1 && this.select(this.lastEvent);
-  }
-  select(t) {
-    let { view: e } = this, i = Hl(this.atoms, this.style.get(t, this.extend, this.multiple));
-    (this.mustSelect || !i.eq(e.state.selection, this.dragging === !1)) && this.view.dispatch({
-      selection: i,
-      userEvent: "select.pointer"
-    }), this.mustSelect = !1;
-  }
-  update(t) {
-    t.transactions.some((e) => e.isUserEvent("input.type")) ? this.destroy() : this.style.update(t) && setTimeout(() => this.select(this.lastEvent), 20);
-  }
-}
-function Nf(s, t) {
-  let e = s.state.facet(kl);
-  return e.length ? e[0](t) : k.mac ? t.metaKey : t.ctrlKey;
-}
-function Hf(s, t) {
-  let e = s.state.facet(Sl);
-  return e.length ? e[0](t) : k.mac ? !t.altKey : !t.ctrlKey;
-}
-function Wf(s, t) {
-  let { main: e } = s.state.selection;
-  if (e.empty)
-    return !1;
-  let i = fi(s.root);
-  if (!i || i.rangeCount == 0)
-    return !0;
-  let n = i.getRangeAt(0).getClientRects();
-  for (let r = 0; r < n.length; r++) {
-    let o = n[r];
-    if (o.left <= t.clientX && o.right >= t.clientX && o.top <= t.clientY && o.bottom >= t.clientY)
-      return !0;
-  }
-  return !1;
-}
-function Vf(s, t) {
-  if (!t.bubbles)
-    return !0;
-  if (t.defaultPrevented)
-    return !1;
-  for (let e = t.target, i; e != s.contentDOM; e = e.parentNode)
-    if (!e || e.nodeType == 11 || (i = J.get(e)) && i.isWidget() && !i.isHidden && i.widget.ignoreEvent(t))
-      return !1;
-  return !0;
-}
-const Ot = /* @__PURE__ */ Object.create(null), kt = /* @__PURE__ */ Object.create(null), ql = k.ie && k.ie_version < 15 || k.ios && k.webkit_version < 604;
-function Ff(s) {
-  let t = s.dom.parentNode;
-  if (!t)
-    return;
-  let e = t.appendChild(document.createElement("textarea"));
-  e.style.cssText = "position: fixed; left: -10000px; top: 10px", e.focus(), setTimeout(() => {
-    s.focus(), e.remove(), $l(s, e.value);
-  }, 50);
-}
-function Mn(s, t, e) {
-  for (let i of s.facet(t))
-    e = i(e, s);
-  return e;
-}
-function $l(s, t) {
-  t = Mn(s.state, Zs, t);
-  let { state: e } = s, i, n = 1, r = e.toText(t), o = r.lines == e.selection.ranges.length;
-  if (Ds != null && e.selection.ranges.every((a) => a.empty) && Ds == r.toString()) {
-    let a = -1;
-    i = e.changeByRange((h) => {
-      let f = e.doc.lineAt(h.from);
-      if (f.from == a)
-        return { range: h };
-      a = f.from;
-      let c = e.toText((o ? r.line(n++).text : t) + e.lineBreak);
-      return {
-        changes: { from: f.from, insert: c },
-        range: b.cursor(h.from + c.length)
-      };
-    });
-  } else o ? i = e.changeByRange((a) => {
-    let h = r.line(n++);
-    return {
-      changes: { from: a.from, to: a.to, insert: h.text },
-      range: b.cursor(a.from + h.length)
-    };
-  }) : i = e.replaceSelection(r);
-  s.dispatch(i, {
-    userEvent: "input.paste",
-    scrollIntoView: !0
-  });
-}
-kt.scroll = (s) => {
-  s.inputState.lastScrollTop = s.scrollDOM.scrollTop, s.inputState.lastScrollLeft = s.scrollDOM.scrollLeft;
+var ct = class e {
+	constructor(e, t, n, r) {
+		this.from = e, this.to = t, this.value = n, this.maxPoint = r;
+	}
+	get length() {
+		return lt(this.to);
+	}
+	findIndex(e, t, n, r = 0) {
+		let i = n ? this.to : this.from;
+		for (let a = r, o = i.length;;) {
+			if (a == o) return a;
+			let r = a + o >> 1, s = i[r] - e || (n ? this.value[r].endSide : this.value[r].startSide) - t;
+			if (r == a) return s >= 0 ? a : o;
+			s >= 0 ? o = r : a = r + 1;
+		}
+	}
+	between(e, t, n, r) {
+		for (let i = this.findIndex(t, -1e9, !0), a = this.findIndex(n, 1e9, !1, i); i < a; i++) if (r(this.from[i] + e, this.to[i] + e, this.value[i]) === !1) return !1;
+	}
+	map(t, n, r, i, a) {
+		let o = [], s = [], c = [], l = -1, u = -1;
+		iter: for (let e = 0; e < this.value.length; e++) {
+			let d = this.value[e], f = this.from[e] + t, p = this.to[e] + t, m, h;
+			if (f == p) {
+				let e = n.mapPos(f, d.startSide, d.mapMode);
+				if (e == null || (m = h = e, d.startSide != d.endSide && (h = n.mapPos(f, d.endSide), h < m))) continue;
+			} else if (m = n.mapPos(f, d.startSide), h = n.mapPos(p, d.endSide), m > h || m == h && d.startSide > 0 && d.endSide <= 0) continue;
+			if (!((h - m || d.endSide - d.startSide) < 0)) {
+				if (l < 0 && (l = m), d.point && (u = Math.max(u, h - m)), (m - r || d.startSide - i) >= 0) o.push(d), s.push(m - l), c.push(h - l), r = h, i = d.endSide;
+				else {
+					if (m == h) for (let e = o.length; e > 0; e--) {
+						if ((m - (c[e - 1] + l) || d.startSide - o[e - 1].endSide) >= 0) {
+							o.splice(e, 0, d), s.splice(e, 0, m - l), c.splice(e, 0, h - l);
+							continue iter;
+						}
+						if ((m - (s[e - 1] + l) || d.endSide - o[e - 1].startSide) > 0) break;
+					}
+					a(m, h, d);
+				}
+			}
+		}
+		return {
+			mapped: o.length ? new e(s, c, o, u) : null,
+			pos: l
+		};
+	}
+}, A = class e {
+	constructor(e, t, n, r) {
+		this.chunkPos = e, this.chunk = t, this.nextLayer = n, this.maxPoint = r;
+	}
+	static create(t, n, r, i) {
+		return new e(t, n, r, i);
+	}
+	get length() {
+		let e = this.chunk.length - 1;
+		return e < 0 ? 0 : Math.max(this.chunkEnd(e), this.nextLayer.length);
+	}
+	get size() {
+		if (this.isEmpty) return 0;
+		let e = this.nextLayer.size;
+		for (let t of this.chunk) e += t.value.length;
+		return e;
+	}
+	chunkEnd(e) {
+		return this.chunkPos[e] + this.chunk[e].length;
+	}
+	update(t) {
+		let { add: n = [], sort: r = !1, filterFrom: i = 0, filterTo: a = this.length } = t, o = t.filter;
+		if (n.length == 0 && !o) return this;
+		if (r && (n = n.slice().sort(st)), this.isEmpty) return n.length ? e.of(n) : this;
+		let s = new pt(this, null, -1).goto(0), c = 0, l = [], u = new dt();
+		for (; s.value || c < n.length;) if (c < n.length && (s.from - n[c].from || s.startSide - n[c].value.startSide) >= 0) {
+			let e = n[c++];
+			u.addInner(e.from, e.to, e.value, !1) || l.push(e);
+		} else s.rangeIndex == 1 && s.chunkIndex < this.chunk.length && (c == n.length || this.chunkEnd(s.chunkIndex) < n[c].from) && (!o || i > this.chunkEnd(s.chunkIndex) || a < this.chunkPos[s.chunkIndex]) && u.addChunk(this.chunkPos[s.chunkIndex], this.chunk[s.chunkIndex]) ? s.nextChunk() : ((!o || i > s.to || a < s.from || o(s.from, s.to, s.value)) && (u.addInner(s.from, s.to, s.value, !1) || l.push(ot.create(s.from, s.to, s.value))), s.next());
+		return u.finishInner(this.nextLayer.isEmpty && !l.length ? e.empty : this.nextLayer.update({
+			add: l,
+			filter: o,
+			filterFrom: i,
+			filterTo: a
+		}));
+	}
+	map(t) {
+		if (t.empty || this.isEmpty) return this;
+		let n = [], r = [], i = -1, a, o = (e, t, n) => {
+			a || (a = new dt()), a.addRange(e, t, n, !1);
+		};
+		for (let e = 0; e < this.chunk.length; e++) {
+			let a = this.chunkPos[e], s = this.chunk[e], c = t.touchesRange(a, a + s.length);
+			if (c === !1) i = Math.max(i, s.maxPoint), n.push(s), r.push(t.mapPos(a));
+			else if (c === !0) {
+				let [e, c] = n.length ? [lt(r) + lt(n).length, lt(lt(n).value).endSide] : [-1, -1], { mapped: l, pos: u } = s.map(a, t, e, c, o);
+				l && (i = Math.max(i, l.maxPoint), n.push(l), r.push(u));
+			}
+		}
+		let s = this.nextLayer.map(t);
+		return a && (s = a.finishInner(s)), n.length == 0 ? s : new e(r, n, s || e.empty, i);
+	}
+	between(e, t, n) {
+		if (!this.isEmpty) {
+			for (let r = 0; r < this.chunk.length; r++) {
+				let i = this.chunkPos[r], a = this.chunk[r];
+				if (t >= i && e <= i + a.length && a.between(i, e - i, t - i, n) === !1) return;
+			}
+			this.nextLayer.between(e, t, n);
+		}
+	}
+	iter(e = 0) {
+		return mt.from([this]).goto(e);
+	}
+	get isEmpty() {
+		return this.nextLayer == this;
+	}
+	static iter(e, t = 0) {
+		return mt.from(e).goto(t);
+	}
+	static compare(e, t, n, r, i = -1) {
+		let a = e.filter((e) => e.maxPoint > 0 || !e.isEmpty && e.maxPoint >= i), o = t.filter((e) => e.maxPoint > 0 || !e.isEmpty && e.maxPoint >= i), s = ft(a, o, n), c = new gt(a, s, i), l = new gt(o, s, i);
+		n.iterGaps((e, t, n) => _t(c, e, l, t, n, r)), n.empty && n.length == 0 && _t(c, 0, l, 0, 0, r);
+	}
+	static eq(e, t, n = 0, r) {
+		r ?? (r = 1e9 - 1);
+		let i = e.filter((e) => !e.isEmpty && t.indexOf(e) < 0), a = t.filter((t) => !t.isEmpty && e.indexOf(t) < 0);
+		if (i.length != a.length) return !1;
+		if (!i.length) return !0;
+		let o = ft(i, a), s = new gt(i, o, 0).goto(n), c = new gt(a, o, 0).goto(n);
+		for (;;) {
+			if (s.to != c.to || !vt(s.active, c.active) || s.point && (!c.point || !at(s.point, c.point))) return !1;
+			if (s.to > r) return !0;
+			s.next(), c.next();
+		}
+	}
+	static spans(e, t, n, r, i = -1) {
+		let a = new gt(e, null, i).goto(t), o = t, s = a.openStart;
+		for (;;) {
+			let e = Math.min(a.to, n);
+			if (a.point) {
+				let n = a.activeForPoint(a.to), i = a.pointFrom < t ? n.length + 1 : a.point.startSide < 0 ? n.length : Math.min(n.length, s);
+				r.point(o, e, a.point, n, i, a.pointRank), s = Math.min(a.openEnd(e), n.length);
+			} else e > o && (r.span(o, e, a.active, s), s = a.openEnd(e));
+			if (a.to > n) return s + (a.point && a.to > n ? 1 : 0);
+			o = a.to, a.next();
+		}
+	}
+	static of(e, t = !1) {
+		let n = new dt();
+		for (let r of e instanceof ot ? [e] : t ? ut(e) : e) n.add(r.from, r.to, r.value);
+		return n.finish();
+	}
+	static join(t) {
+		if (!t.length) return e.empty;
+		let n = lt(t);
+		for (let r = t.length - 2; r >= 0; r--) for (let i = t[r]; i != e.empty; i = i.nextLayer) n = new e(i.chunkPos, i.chunk, n, Math.max(i.maxPoint, n.maxPoint));
+		return n;
+	}
 };
-Ot.keydown = (s, t) => (s.inputState.setSelectionOrigin("select"), t.keyCode == 27 && s.inputState.tabFocusMode != 0 && (s.inputState.tabFocusMode = Date.now() + 2e3), !1);
-kt.touchstart = (s, t) => {
-  s.inputState.lastTouchTime = Date.now(), s.inputState.setSelectionOrigin("select.pointer");
+A.empty = /*@__PURE__*/ new A([], [], null, -1);
+function lt(e) {
+	return e[e.length - 1];
+}
+function ut(e) {
+	if (e.length > 1) for (let t = e[0], n = 1; n < e.length; n++) {
+		let r = e[n];
+		if (st(t, r) > 0) return e.slice().sort(st);
+		t = r;
+	}
+	return e;
+}
+A.empty.nextLayer = A.empty;
+var dt = class e {
+	finishChunk(e) {
+		this.chunks.push(new ct(this.from, this.to, this.value, this.maxPoint)), this.chunkPos.push(this.chunkStart), this.chunkStart = -1, this.setMaxPoint = Math.max(this.setMaxPoint, this.maxPoint), this.maxPoint = -1, e && (this.from = [], this.to = [], this.value = []);
+	}
+	constructor() {
+		this.chunks = [], this.chunkPos = [], this.chunkStart = -1, this.last = null, this.lastFrom = -1e9, this.lastTo = -1e9, this.from = [], this.to = [], this.value = [], this.maxPoint = -1, this.setMaxPoint = -1, this.nextLayer = null;
+	}
+	add(e, t, n) {
+		this.addRange(e, t, n, !0);
+	}
+	addRange(t, n, r, i) {
+		this.addInner(t, n, r, i) || (this.nextLayer || (this.nextLayer = new e())).addRange(t, n, r, i);
+	}
+	addInner(e, t, n, r) {
+		let i = e - this.lastTo || n.startSide - this.last.endSide;
+		if (r && i <= 0 && (e - this.lastFrom || n.startSide - this.last.startSide) < 0) throw Error("Ranges must be added sorted by `from` position and `startSide`");
+		return i < 0 ? !1 : (this.from.length == 250 && this.finishChunk(!0), this.chunkStart < 0 && (this.chunkStart = e), this.from.push(e - this.chunkStart), this.to.push(t - this.chunkStart), this.last = n, this.lastFrom = e, this.lastTo = t, this.value.push(n), n.point && (this.maxPoint = Math.max(this.maxPoint, t - e)), !0);
+	}
+	addChunk(e, t) {
+		if ((e - this.lastTo || t.value[0].startSide - this.last.endSide) < 0) return !1;
+		this.from.length && this.finishChunk(!0), this.setMaxPoint = Math.max(this.setMaxPoint, t.maxPoint), this.chunks.push(t), this.chunkPos.push(e);
+		let n = t.value.length - 1;
+		return this.last = t.value[n], this.lastFrom = t.from[n] + e, this.lastTo = t.to[n] + e, !0;
+	}
+	finish() {
+		return this.finishInner(A.empty);
+	}
+	finishInner(e) {
+		if (this.from.length && this.finishChunk(!1), this.chunks.length == 0) return e;
+		let t = A.create(this.chunkPos, this.chunks, this.nextLayer ? this.nextLayer.finishInner(e) : e, this.setMaxPoint);
+		return this.from = null, t;
+	}
 };
-kt.touchmove = (s) => {
-  s.inputState.setSelectionOrigin("select.pointer");
+function ft(e, t, n) {
+	let r = /* @__PURE__ */ new Map();
+	for (let t of e) for (let e = 0; e < t.chunk.length; e++) t.chunk[e].maxPoint <= 0 && r.set(t.chunk[e], t.chunkPos[e]);
+	let i = /* @__PURE__ */ new Set();
+	for (let e of t) for (let t = 0; t < e.chunk.length; t++) {
+		let a = r.get(e.chunk[t]);
+		a != null && (n ? n.mapPos(a) : a) == e.chunkPos[t] && !n?.touchesRange(a, a + e.chunk[t].length) && i.add(e.chunk[t]);
+	}
+	return i;
+}
+var pt = class {
+	constructor(e, t, n, r = 0) {
+		this.layer = e, this.skip = t, this.minPoint = n, this.rank = r;
+	}
+	get startSide() {
+		return this.value ? this.value.startSide : 0;
+	}
+	get endSide() {
+		return this.value ? this.value.endSide : 0;
+	}
+	goto(e, t = -1e9) {
+		return this.chunkIndex = this.rangeIndex = 0, this.gotoInner(e, t, !1), this;
+	}
+	gotoInner(e, t, n) {
+		for (; this.chunkIndex < this.layer.chunk.length;) {
+			let t = this.layer.chunk[this.chunkIndex];
+			if (!(this.skip && this.skip.has(t) || this.layer.chunkEnd(this.chunkIndex) < e || t.maxPoint < this.minPoint)) break;
+			this.chunkIndex++, n = !1;
+		}
+		if (this.chunkIndex < this.layer.chunk.length) {
+			let r = this.layer.chunk[this.chunkIndex].findIndex(e - this.layer.chunkPos[this.chunkIndex], t, !0);
+			(!n || this.rangeIndex < r) && this.setRangeIndex(r);
+		}
+		this.next();
+	}
+	forward(e, t) {
+		(this.to - e || this.endSide - t) < 0 && this.gotoInner(e, t, !0);
+	}
+	next() {
+		for (;;) if (this.chunkIndex == this.layer.chunk.length) {
+			this.from = this.to = 1e9, this.value = null;
+			break;
+		} else {
+			let e = this.layer.chunkPos[this.chunkIndex], t = this.layer.chunk[this.chunkIndex], n = e + t.from[this.rangeIndex];
+			if (this.from = n, this.to = e + t.to[this.rangeIndex], this.value = t.value[this.rangeIndex], this.setRangeIndex(this.rangeIndex + 1), this.minPoint < 0 || this.value.point && this.to - this.from >= this.minPoint) break;
+		}
+	}
+	setRangeIndex(e) {
+		if (e == this.layer.chunk[this.chunkIndex].value.length) {
+			if (this.chunkIndex++, this.skip) for (; this.chunkIndex < this.layer.chunk.length && this.skip.has(this.layer.chunk[this.chunkIndex]);) this.chunkIndex++;
+			this.rangeIndex = 0;
+		} else this.rangeIndex = e;
+	}
+	nextChunk() {
+		this.chunkIndex++, this.rangeIndex = 0, this.next();
+	}
+	compare(e) {
+		return this.from - e.from || this.startSide - e.startSide || this.rank - e.rank || this.to - e.to || this.endSide - e.endSide;
+	}
+}, mt = class e {
+	constructor(e) {
+		this.heap = e;
+	}
+	static from(t, n = null, r = -1) {
+		let i = [];
+		for (let e = 0; e < t.length; e++) for (let a = t[e]; !a.isEmpty; a = a.nextLayer) a.maxPoint >= r && i.push(new pt(a, n, r, e));
+		return i.length == 1 ? i[0] : new e(i);
+	}
+	get startSide() {
+		return this.value ? this.value.startSide : 0;
+	}
+	goto(e, t = -1e9) {
+		for (let n of this.heap) n.goto(e, t);
+		for (let e = this.heap.length >> 1; e >= 0; e--) ht(this.heap, e);
+		return this.next(), this;
+	}
+	forward(e, t) {
+		for (let n of this.heap) n.forward(e, t);
+		for (let e = this.heap.length >> 1; e >= 0; e--) ht(this.heap, e);
+		(this.to - e || this.value.endSide - t) < 0 && this.next();
+	}
+	next() {
+		if (this.heap.length == 0) this.from = this.to = 1e9, this.value = null, this.rank = -1;
+		else {
+			let e = this.heap[0];
+			this.from = e.from, this.to = e.to, this.value = e.value, this.rank = e.rank, e.value && e.next(), ht(this.heap, 0);
+		}
+	}
 };
-Ot.mousedown = (s, t) => {
-  if (s.observer.flush(), s.inputState.lastTouchTime > Date.now() - 2e3)
-    return !1;
-  let e = null;
-  for (let i of s.state.facet(Cl))
-    if (e = i(s, t), e)
-      break;
-  if (!e && t.button == 0 && (e = Kf(s, t)), e) {
-    let i = !s.hasFocus;
-    s.inputState.startMouseSelection(new If(s, t, e, i)), i && s.observer.ignore(() => {
-      dl(s.contentDOM);
-      let r = s.root.activeElement;
-      r && !r.contains(s.contentDOM) && r.blur();
-    });
-    let n = s.inputState.mouseSelection;
-    if (n)
-      return n.start(t), n.dragging === !1;
-  } else
-    s.inputState.setSelectionOrigin("select.pointer");
-  return !1;
+function ht(e, t) {
+	for (let n = e[t];;) {
+		let r = (t << 1) + 1;
+		if (r >= e.length) break;
+		let i = e[r];
+		if (r + 1 < e.length && i.compare(e[r + 1]) >= 0 && (i = e[r + 1], r++), n.compare(i) < 0) break;
+		e[r] = n, e[t] = i, t = r;
+	}
+}
+var gt = class {
+	constructor(e, t, n) {
+		this.minPoint = n, this.active = [], this.activeTo = [], this.activeRank = [], this.minActive = -1, this.point = null, this.pointFrom = 0, this.pointRank = 0, this.to = -1e9, this.endSide = 0, this.openStart = -1, this.cursor = mt.from(e, t, n);
+	}
+	goto(e, t = -1e9) {
+		return this.cursor.goto(e, t), this.active.length = this.activeTo.length = this.activeRank.length = 0, this.minActive = -1, this.to = e, this.endSide = t, this.openStart = -1, this.next(), this;
+	}
+	forward(e, t) {
+		for (; this.minActive > -1 && (this.activeTo[this.minActive] - e || this.active[this.minActive].endSide - t) < 0;) this.removeActive(this.minActive);
+		this.cursor.forward(e, t);
+	}
+	removeActive(e) {
+		yt(this.active, e), yt(this.activeTo, e), yt(this.activeRank, e), this.minActive = xt(this.active, this.activeTo);
+	}
+	addActive(e) {
+		let t = 0, { value: n, to: r, rank: i } = this.cursor;
+		for (; t < this.activeRank.length && (i - this.activeRank[t] || r - this.activeTo[t]) > 0;) t++;
+		bt(this.active, t, n), bt(this.activeTo, t, r), bt(this.activeRank, t, i), e && bt(e, t, this.cursor.from), this.minActive = xt(this.active, this.activeTo);
+	}
+	next() {
+		let e = this.to, t = this.point;
+		this.point = null;
+		let n = this.openStart < 0 ? [] : null;
+		for (;;) {
+			let r = this.minActive;
+			if (r > -1 && (this.activeTo[r] - this.cursor.from || this.active[r].endSide - this.cursor.startSide) < 0) {
+				if (this.activeTo[r] > e) {
+					this.to = this.activeTo[r], this.endSide = this.active[r].endSide;
+					break;
+				}
+				this.removeActive(r), n && yt(n, r);
+			} else if (!this.cursor.value) {
+				this.to = this.endSide = 1e9;
+				break;
+			} else if (this.cursor.from > e) {
+				this.to = this.cursor.from, this.endSide = this.cursor.startSide;
+				break;
+			} else {
+				let e = this.cursor.value;
+				if (!e.point) this.addActive(n), this.cursor.next();
+				else if (t && this.cursor.to == this.to && this.cursor.from < this.cursor.to) this.cursor.next();
+				else {
+					this.point = e, this.pointFrom = this.cursor.from, this.pointRank = this.cursor.rank, this.to = this.cursor.to, this.endSide = e.endSide, this.cursor.next(), this.forward(this.to, this.endSide);
+					break;
+				}
+			}
+		}
+		if (n) {
+			this.openStart = 0;
+			for (let t = n.length - 1; t >= 0 && n[t] < e; t--) this.openStart++;
+		}
+	}
+	activeForPoint(e) {
+		if (!this.active.length) return this.active;
+		let t = [];
+		for (let n = this.active.length - 1; n >= 0 && !(this.activeRank[n] < this.pointRank); n--) (this.activeTo[n] > e || this.activeTo[n] == e && this.active[n].endSide >= this.point.endSide) && t.push(this.active[n]);
+		return t.reverse();
+	}
+	openEnd(e) {
+		let t = 0;
+		for (let n = this.activeTo.length - 1; n >= 0 && this.activeTo[n] > e; n--) t++;
+		return t;
+	}
 };
-function $r(s, t, e, i) {
-  if (i == 1)
-    return b.cursor(t, e);
-  if (i == 2)
-    return yf(s.state, t, e);
-  {
-    let n = s.docView.lineAt(t, e), r = s.state.doc.lineAt(n ? n.posAtEnd : t), o = n ? n.posAtStart : r.from, l = n ? n.posAtEnd : r.to;
-    return l < s.state.doc.length && l == r.to && l++, b.range(o, l);
-  }
+function _t(e, t, n, r, i, a) {
+	e.goto(t), n.goto(r);
+	let o = r + i, s = r, c = r - t, l = !!a.boundChange;
+	for (let t = !1;;) {
+		let r = e.to + c - n.to, i = r || e.endSide - n.endSide, u = i < 0 ? e.to + c : n.to, d = Math.min(u, o);
+		if (e.point || n.point ? (e.point && n.point && at(e.point, n.point) && vt(e.activeForPoint(e.to), n.activeForPoint(n.to)) || a.comparePoint(s, d, e.point, n.point), t = !1) : (t && (a.boundChange(s), t = !1), d > s && !vt(e.active, n.active) && a.compareRange(s, d, e.active, n.active), l && d < o && (r || e.openEnd(u) != n.openEnd(u)) && (t = !0)), u > o) break;
+		s = u, i <= 0 && e.next(), i >= 0 && n.next();
+	}
 }
-const zf = k.ie && k.ie_version <= 11;
-let Ur = null, jr = 0, Gr = 0;
-function Ul(s) {
-  if (!zf)
-    return s.detail;
-  let t = Ur, e = Gr;
-  return Ur = s, Gr = Date.now(), jr = !t || e > Date.now() - 400 && Math.abs(t.clientX - s.clientX) < 2 && Math.abs(t.clientY - s.clientY) < 2 ? (jr + 1) % 3 : 1;
+function vt(e, t) {
+	if (e.length != t.length) return !1;
+	for (let n = 0; n < e.length; n++) if (e[n] != t[n] && !at(e[n], t[n])) return !1;
+	return !0;
 }
-function Kf(s, t) {
-  let e = s.posAndSideAtCoords({ x: t.clientX, y: t.clientY }, !1), i = Ul(t), n = s.state.selection;
-  return {
-    update(r) {
-      r.docChanged && (e.pos = r.changes.mapPos(e.pos), n = n.map(r.changes));
-    },
-    get(r, o, l) {
-      let a = s.posAndSideAtCoords({ x: r.clientX, y: r.clientY }, !1), h, f = $r(s, a.pos, a.assoc, i);
-      if (e.pos != a.pos && !o) {
-        let c = $r(s, e.pos, e.assoc, i), u = Math.min(c.from, f.from), d = Math.max(c.to, f.to);
-        f = u < f.from ? b.range(u, d) : b.range(d, u);
-      }
-      return o ? n.replaceRange(n.main.extend(f.from, f.to)) : l && i == 1 && n.ranges.length > 1 && (h = qf(n, a.pos)) ? h : l ? n.addRange(f) : b.create([f]);
-    }
-  };
+function yt(e, t) {
+	for (let n = t, r = e.length - 1; n < r; n++) e[n] = e[n + 1];
+	e.pop();
 }
-function qf(s, t) {
-  for (let e = 0; e < s.ranges.length; e++) {
-    let { from: i, to: n } = s.ranges[e];
-    if (i <= t && n >= t)
-      return b.create(s.ranges.slice(0, e).concat(s.ranges.slice(e + 1)), s.mainIndex == e ? 0 : s.mainIndex - (s.mainIndex > e ? 1 : 0));
-  }
-  return null;
+function bt(e, t, n) {
+	for (let n = e.length - 1; n >= t; n--) e[n + 1] = e[n];
+	e[t] = n;
 }
-Ot.dragstart = (s, t) => {
-  let { selection: { main: e } } = s.state;
-  if (t.target.draggable) {
-    let n = s.docView.tile.nearest(t.target);
-    if (n && n.isWidget()) {
-      let r = n.posAtStart, o = r + n.length;
-      (r >= e.to || o <= e.from) && (e = b.range(r, o));
-    }
-  }
-  let { inputState: i } = s;
-  return i.mouseSelection && (i.mouseSelection.dragging = !0), i.draggedContent = e, t.dataTransfer && (t.dataTransfer.setData("Text", Mn(s.state, tr, s.state.sliceDoc(e.from, e.to))), t.dataTransfer.effectAllowed = "copyMove"), !1;
+function xt(e, t) {
+	let n = -1, r = 1e9;
+	for (let i = 0; i < t.length; i++) (t[i] - r || e[i].endSide - e[n].endSide) < 0 && (n = i, r = t[i]);
+	return n;
+}
+function St(e, t, n = e.length) {
+	let r = 0;
+	for (let i = 0; i < n && i < e.length;) e.charCodeAt(i) == 9 ? (r += t - r % t, i++) : (r++, i = S(e, i));
+	return r;
+}
+function Ct(e, t, n, r) {
+	for (let r = 0, i = 0;;) {
+		if (i >= t) return r;
+		if (r == e.length) break;
+		i += e.charCodeAt(r) == 9 ? n - i % n : 1, r = S(e, r);
+	}
+	return r === !0 ? -1 : e.length;
+}
+for (var wt = "ͼ", Tt = typeof Symbol > "u" ? "__ͼ" : Symbol.for(wt), Et = typeof Symbol > "u" ? "__styleSet" + Math.floor(Math.random() * 1e8) : Symbol("styleSet"), Dt = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : {}, Ot = class {
+	constructor(e, t) {
+		this.rules = [];
+		let { finish: n } = t || {};
+		function r(e) {
+			return /^@/.test(e) ? [e] : e.split(/,\s*/);
+		}
+		function i(e, t, a, o) {
+			let s = [], c = /^@(\w+)\b/.exec(e[0]), l = c && c[1] == "keyframes";
+			if (c && t == null) return a.push(e[0] + ";");
+			for (let n in t) {
+				let o = t[n];
+				if (/&/.test(n)) i(n.split(/,\s*/).map((t) => e.map((e) => t.replace(/&/, e))).reduce((e, t) => e.concat(t)), o, a);
+				else if (o && typeof o == "object") {
+					if (!c) throw RangeError("The value of a property (" + n + ") should be a primitive value.");
+					i(r(n), o, s, l);
+				} else o != null && s.push(n.replace(/_.*/, "").replace(/[A-Z]/g, (e) => "-" + e.toLowerCase()) + ": " + o + ";");
+			}
+			(s.length || l) && a.push((n && !c && !o ? e.map(n) : e).join(", ") + " {" + s.join(" ") + "}");
+		}
+		for (let t in e) i(r(t), e[t], this.rules);
+	}
+	getRules() {
+		return this.rules.join("\n");
+	}
+	static newName() {
+		let e = Dt[Tt] || 1;
+		return Dt[Tt] = e + 1, wt + e.toString(36);
+	}
+	static mount(e, t, n) {
+		let r = e[Et], i = n && n.nonce;
+		r ? i && r.setNonce(i) : r = new At(e, i), r.mount(Array.isArray(t) ? t : [t], e);
+	}
+}, kt = /* @__PURE__ */ new Map(), At = class {
+	constructor(e, t) {
+		let n = e.ownerDocument || e, r = n.defaultView;
+		if (!e.head && e.adoptedStyleSheets && r.CSSStyleSheet) {
+			let t = kt.get(n);
+			if (t) return e[Et] = t;
+			this.sheet = new r.CSSStyleSheet(), kt.set(n, this);
+		} else this.styleTag = n.createElement("style"), t && this.styleTag.setAttribute("nonce", t);
+		this.modules = [], e[Et] = this;
+	}
+	mount(e, t) {
+		let n = this.sheet, r = 0, i = 0;
+		for (let t = 0; t < e.length; t++) {
+			let a = e[t], o = this.modules.indexOf(a);
+			if (o < i && o > -1 && (this.modules.splice(o, 1), i--, o = -1), o == -1) {
+				if (this.modules.splice(i++, 0, a), n) for (let e = 0; e < a.rules.length; e++) n.insertRule(a.rules[e], r++);
+			} else {
+				for (; i < o;) r += this.modules[i++].rules.length;
+				r += a.rules.length, i++;
+			}
+		}
+		if (n) t.adoptedStyleSheets.indexOf(this.sheet) < 0 && (t.adoptedStyleSheets = [this.sheet, ...t.adoptedStyleSheets]);
+		else {
+			let e = "";
+			for (let t = 0; t < this.modules.length; t++) e += this.modules[t].getRules() + "\n";
+			this.styleTag.textContent = e;
+			let n = t.head || t;
+			this.styleTag.parentNode != n && n.insertBefore(this.styleTag, n.firstChild);
+		}
+	}
+	setNonce(e) {
+		this.styleTag && this.styleTag.getAttribute("nonce") != e && this.styleTag.setAttribute("nonce", e);
+	}
+}, jt = {
+	8: "Backspace",
+	9: "Tab",
+	10: "Enter",
+	12: "NumLock",
+	13: "Enter",
+	16: "Shift",
+	17: "Control",
+	18: "Alt",
+	20: "CapsLock",
+	27: "Escape",
+	32: " ",
+	33: "PageUp",
+	34: "PageDown",
+	35: "End",
+	36: "Home",
+	37: "ArrowLeft",
+	38: "ArrowUp",
+	39: "ArrowRight",
+	40: "ArrowDown",
+	44: "PrintScreen",
+	45: "Insert",
+	46: "Delete",
+	59: ";",
+	61: "=",
+	91: "Meta",
+	92: "Meta",
+	106: "*",
+	107: "+",
+	108: ",",
+	109: "-",
+	110: ".",
+	111: "/",
+	144: "NumLock",
+	145: "ScrollLock",
+	160: "Shift",
+	161: "Shift",
+	162: "Control",
+	163: "Control",
+	164: "Alt",
+	165: "Alt",
+	173: "-",
+	186: ";",
+	187: "=",
+	188: ",",
+	189: "-",
+	190: ".",
+	191: "/",
+	192: "`",
+	219: "[",
+	220: "\\",
+	221: "]",
+	222: "'"
+}, Mt = {
+	48: ")",
+	49: "!",
+	50: "@",
+	51: "#",
+	52: "$",
+	53: "%",
+	54: "^",
+	55: "&",
+	56: "*",
+	57: "(",
+	59: ":",
+	61: "+",
+	173: "_",
+	186: ":",
+	187: "+",
+	188: "<",
+	189: "_",
+	190: ">",
+	191: "?",
+	192: "~",
+	219: "{",
+	220: "|",
+	221: "}",
+	222: "\""
+}, Nt = typeof navigator < "u" && /Mac/.test(navigator.platform), Pt = typeof navigator < "u" && /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(navigator.userAgent), j = 0; j < 10; j++) jt[48 + j] = jt[96 + j] = String(j);
+for (var j = 1; j <= 24; j++) jt[j + 111] = "F" + j;
+for (var j = 65; j <= 90; j++) jt[j] = String.fromCharCode(j + 32), Mt[j] = String.fromCharCode(j);
+for (var Ft in jt) Mt.hasOwnProperty(Ft) || (Mt[Ft] = jt[Ft]);
+function It(e) {
+	var t = !(Nt && e.metaKey && e.shiftKey && !e.ctrlKey && !e.altKey || Pt && e.shiftKey && e.key && e.key.length == 1 || e.key == "Unidentified") && e.key || (e.shiftKey ? Mt : jt)[e.keyCode] || e.key || "Unidentified";
+	return t == "Esc" && (t = "Escape"), t == "Del" && (t = "Delete"), t == "Left" && (t = "ArrowLeft"), t == "Up" && (t = "ArrowUp"), t == "Right" && (t = "ArrowRight"), t == "Down" && (t = "ArrowDown"), t;
+}
+//#endregion
+//#region node_modules/crelt/index.js
+function Lt() {
+	var e = arguments[0];
+	typeof e == "string" && (e = document.createElement(e));
+	var t = 1, n = arguments[1];
+	if (n && typeof n == "object" && n.nodeType == null && !Array.isArray(n)) {
+		for (var r in n) if (Object.prototype.hasOwnProperty.call(n, r)) {
+			var i = n[r];
+			typeof i == "string" ? e.setAttribute(r, i) : i != null && (e[r] = i);
+		}
+		t++;
+	}
+	for (; t < arguments.length; t++) Rt(e, arguments[t]);
+	return e;
+}
+function Rt(e, t) {
+	if (typeof t == "string") e.appendChild(document.createTextNode(t));
+	else if (t != null) {
+		if (t.nodeType != null) e.appendChild(t);
+		else if (Array.isArray(t)) for (var n = 0; n < t.length; n++) Rt(e, t[n]);
+		else throw RangeError("Unsupported child node: " + t);
+	}
+}
+//#endregion
+//#region node_modules/@codemirror/view/dist/index.js
+var M = typeof navigator < "u" ? navigator : {
+	userAgent: "",
+	vendor: "",
+	platform: ""
+}, zt = typeof document < "u" ? document : { documentElement: { style: {} } }, Bt = /*@__PURE__*/ /Edge\/(\d+)/.exec(M.userAgent), Vt = /*@__PURE__*/ /MSIE \d/.test(M.userAgent), Ht = /*@__PURE__*/ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(M.userAgent), Ut = !!(Vt || Ht || Bt), Wt = !Ut && /*@__PURE__*/ /gecko\/(\d+)/i.test(M.userAgent), Gt = !Ut && /*@__PURE__*/ /Chrome\/(\d+)/.exec(M.userAgent), Kt = "webkitFontSmoothing" in zt.documentElement.style, qt = !Ut && /*@__PURE__*/ /Apple Computer/.test(M.vendor), Jt = qt && (/*@__PURE__*/ /Mobile\/\w+/.test(M.userAgent) || M.maxTouchPoints > 2), N = {
+	mac: Jt || /*@__PURE__*/ /Mac/.test(M.platform),
+	windows: /*@__PURE__*/ /Win/.test(M.platform),
+	linux: /*@__PURE__*/ /Linux|X11/.test(M.platform),
+	ie: Ut,
+	ie_version: Vt ? zt.documentMode || 6 : Ht ? +Ht[1] : Bt ? +Bt[1] : 0,
+	gecko: Wt,
+	gecko_version: Wt ? +(/*@__PURE__*/ /Firefox\/(\d+)/.exec(M.userAgent) || [0, 0])[1] : 0,
+	chrome: !!Gt,
+	chrome_version: Gt ? +Gt[1] : 0,
+	ios: Jt,
+	android: /*@__PURE__*/ /Android\b/.test(M.userAgent),
+	webkit: Kt,
+	webkit_version: Kt ? +(/*@__PURE__*/ /\bAppleWebKit\/(\d+)/.exec(M.userAgent) || [0, 0])[1] : 0,
+	safari: qt,
+	safari_version: qt ? +(/*@__PURE__*/ /\bVersion\/(\d+(\.\d+)?)/.exec(M.userAgent) || [0, 0])[1] : 0,
+	tabSize: zt.documentElement.style.tabSize == null ? "-moz-tab-size" : "tab-size"
 };
-Ot.dragend = (s) => (s.inputState.draggedContent = null, !1);
-function Jr(s, t, e, i) {
-  if (e = Mn(s.state, Zs, e), !e)
-    return;
-  let n = s.posAtCoords({ x: t.clientX, y: t.clientY }, !1), { draggedContent: r } = s.inputState, o = i && r && Hf(s, t) ? { from: r.from, to: r.to } : null, l = { from: n, insert: e }, a = s.state.changes(o ? [o, l] : l);
-  s.focus(), s.dispatch({
-    changes: a,
-    selection: { anchor: a.mapPos(n, -1), head: a.mapPos(n, 1) },
-    userEvent: o ? "move.drop" : "input.drop"
-  }), s.inputState.draggedContent = null;
+function Yt(e, t) {
+	for (let n in e) n == "class" && t.class ? t.class += " " + e.class : n == "style" && t.style ? t.style += ";" + e.style : t[n] = e[n];
+	return t;
 }
-Ot.drop = (s, t) => {
-  if (!t.dataTransfer)
-    return !1;
-  if (s.state.readOnly)
-    return !0;
-  let e = t.dataTransfer.files;
-  if (e && e.length) {
-    let i = Array(e.length), n = 0, r = () => {
-      ++n == e.length && Jr(s, t, i.filter((o) => o != null).join(s.state.lineBreak), !1);
-    };
-    for (let o = 0; o < e.length; o++) {
-      let l = new FileReader();
-      l.onerror = r, l.onload = () => {
-        /[\x00-\x08\x0e-\x1f]{2}/.test(l.result) || (i[o] = l.result), r();
-      }, l.readAsText(e[o]);
-    }
-    return !0;
-  } else {
-    let i = t.dataTransfer.getData("Text");
-    if (i)
-      return Jr(s, t, i, !0), !0;
-  }
-  return !1;
+var Xt = /*@__PURE__*/ Object.create(null);
+function Zt(e, t, n) {
+	if (e == t) return !0;
+	e || (e = Xt), t || (t = Xt);
+	let r = Object.keys(e), i = Object.keys(t);
+	if (r.length - 0 != i.length - 0) return !1;
+	for (let a of r) if (a != n && (i.indexOf(a) == -1 || e[a] !== t[a])) return !1;
+	return !0;
+}
+function Qt(e, t) {
+	for (let n = e.attributes.length - 1; n >= 0; n--) {
+		let r = e.attributes[n].name;
+		t[r] ?? e.removeAttribute(r);
+	}
+	for (let n in t) {
+		let r = t[n];
+		n == "style" ? e.style.cssText = r : e.getAttribute(n) != r && e.setAttribute(n, r);
+	}
+}
+function $t(e, t, n) {
+	let r = !1;
+	if (t) for (let i in t) n && i in n || (r = !0, i == "style" ? e.style.cssText = "" : e.removeAttribute(i));
+	if (n) for (let i in n) t && t[i] == n[i] || (r = !0, i == "style" ? e.style.cssText = n[i] : e.setAttribute(i, n[i]));
+	return r;
+}
+function en(e) {
+	let t = Object.create(null);
+	for (let n = 0; n < e.attributes.length; n++) {
+		let r = e.attributes[n];
+		t[r.name] = r.value;
+	}
+	return t;
+}
+var tn = class {
+	eq(e) {
+		return !1;
+	}
+	updateDOM(e, t, n) {
+		return !1;
+	}
+	compare(e) {
+		return this == e || this.constructor == e.constructor && this.eq(e);
+	}
+	get estimatedHeight() {
+		return -1;
+	}
+	get lineBreaks() {
+		return 0;
+	}
+	ignoreEvent(e) {
+		return !0;
+	}
+	coordsAt(e, t, n) {
+		return null;
+	}
+	get isHidden() {
+		return !1;
+	}
+	get editable() {
+		return !1;
+	}
+	destroy(e) {}
+}, P = /*@__PURE__*/ (function(e) {
+	return e[e.Text = 0] = "Text", e[e.WidgetBefore = 1] = "WidgetBefore", e[e.WidgetAfter = 2] = "WidgetAfter", e[e.WidgetRange = 3] = "WidgetRange", e;
+})(P || (P = {})), F = class extends it {
+	constructor(e, t, n, r) {
+		super(), this.startSide = e, this.endSide = t, this.widget = n, this.spec = r;
+	}
+	get heightRelevant() {
+		return !1;
+	}
+	static mark(e) {
+		return new nn(e);
+	}
+	static widget(e) {
+		let t = Math.max(-1e4, Math.min(1e4, e.side || 0)), n = !!e.block;
+		return t += n && !e.inlineOrder ? t > 0 ? 3e8 : -4e8 : t > 0 ? 1e8 : -1e8, new an(e, t, t, n, e.widget || null, !1);
+	}
+	static replace(e) {
+		let t = !!e.block, n, r;
+		if (e.isBlockGap) n = -5e8, r = 4e8;
+		else {
+			let { start: i, end: a } = on(e, t);
+			n = (i ? t ? -3e8 : -1 : 5e8) - 1, r = (a ? t ? 2e8 : 1 : -6e8) + 1;
+		}
+		return new an(e, n, r, t, e.widget || null, !0);
+	}
+	static line(e) {
+		return new rn(e);
+	}
+	static set(e, t = !1) {
+		return A.of(e, t);
+	}
+	hasHeight() {
+		return this.widget ? this.widget.estimatedHeight > -1 : !1;
+	}
 };
-Ot.paste = (s, t) => {
-  if (s.state.readOnly)
-    return !0;
-  s.observer.flush();
-  let e = ql ? null : t.clipboardData;
-  return e ? ($l(s, e.getData("text/plain") || e.getData("text/uri-list")), !0) : (Ff(s), !1);
+F.none = A.empty;
+var nn = class e extends F {
+	constructor(e) {
+		let { start: t, end: n } = on(e);
+		super(t ? -1 : 5e8, n ? 1 : -6e8, null, e), this.tagName = e.tagName || "span", this.attrs = e.class && e.attributes ? Yt(e.attributes, { class: e.class }) : e.class ? { class: e.class } : e.attributes || Xt;
+	}
+	eq(t) {
+		return this == t || t instanceof e && this.tagName == t.tagName && Zt(this.attrs, t.attrs);
+	}
+	range(e, t = e) {
+		if (e >= t) throw RangeError("Mark decorations may not be empty");
+		return super.range(e, t);
+	}
 };
-function $f(s, t) {
-  let e = s.dom.parentNode;
-  if (!e)
-    return;
-  let i = e.appendChild(document.createElement("textarea"));
-  i.style.cssText = "position: fixed; left: -10000px; top: 10px", i.value = t, i.focus(), i.selectionEnd = t.length, i.selectionStart = 0, setTimeout(() => {
-    i.remove(), s.focus();
-  }, 50);
-}
-function Uf(s) {
-  let t = [], e = [], i = !1;
-  for (let n of s.selection.ranges)
-    n.empty || (t.push(s.sliceDoc(n.from, n.to)), e.push(n));
-  if (!t.length) {
-    let n = -1;
-    for (let { from: r } of s.selection.ranges) {
-      let o = s.doc.lineAt(r);
-      o.number > n && (t.push(o.text), e.push({ from: o.from, to: Math.min(s.doc.length, o.to + 1) })), n = o.number;
-    }
-    i = !0;
-  }
-  return { text: Mn(s, tr, t.join(s.lineBreak)), ranges: e, linewise: i };
-}
-let Ds = null;
-Ot.copy = Ot.cut = (s, t) => {
-  if (!ti(s.contentDOM, s.observer.selectionRange))
-    return !1;
-  let { text: e, ranges: i, linewise: n } = Uf(s.state);
-  if (!e && !n)
-    return !1;
-  Ds = n ? e : null, t.type == "cut" && !s.state.readOnly && s.dispatch({
-    changes: i,
-    scrollIntoView: !0,
-    userEvent: "delete.cut"
-  });
-  let r = ql ? null : t.clipboardData;
-  return r ? (r.clearData(), r.setData("text/plain", e), !0) : ($f(s, e), !1);
+nn.prototype.point = !1;
+var rn = class e extends F {
+	constructor(e) {
+		super(-2e8, -2e8, null, e);
+	}
+	eq(t) {
+		return t instanceof e && this.spec.class == t.spec.class && Zt(this.spec.attributes, t.spec.attributes);
+	}
+	range(e, t = e) {
+		if (t != e) throw RangeError("Line decoration ranges must be zero-length");
+		return super.range(e, t);
+	}
 };
-const jl = /* @__PURE__ */ Yt.define();
-function Gl(s, t) {
-  let e = [];
-  for (let i of s.facet(Tl)) {
-    let n = i(s, t);
-    n && e.push(n);
-  }
-  return e.length ? s.update({ effects: e, annotations: jl.of(!0) }) : null;
-}
-function Jl(s) {
-  setTimeout(() => {
-    let t = s.hasFocus;
-    if (t != s.inputState.notifiedFocused) {
-      let e = Gl(s.state, t);
-      e ? s.dispatch(e) : s.update([]);
-    }
-  }, 10);
-}
-kt.focus = (s) => {
-  s.inputState.lastFocusTime = Date.now(), !s.scrollDOM.scrollTop && (s.inputState.lastScrollTop || s.inputState.lastScrollLeft) && (s.scrollDOM.scrollTop = s.inputState.lastScrollTop, s.scrollDOM.scrollLeft = s.inputState.lastScrollLeft), Jl(s);
+rn.prototype.mapMode = C.TrackBefore, rn.prototype.point = !0;
+var an = class e extends F {
+	constructor(e, t, n, r, i, a) {
+		super(t, n, i, e), this.block = r, this.isReplace = a, this.mapMode = r ? t <= 0 ? C.TrackBefore : C.TrackAfter : C.TrackDel;
+	}
+	get type() {
+		return this.startSide == this.endSide ? this.startSide <= 0 ? P.WidgetBefore : P.WidgetAfter : P.WidgetRange;
+	}
+	get heightRelevant() {
+		return this.block || !!this.widget && (this.widget.estimatedHeight >= 5 || this.widget.lineBreaks > 0);
+	}
+	eq(t) {
+		return t instanceof e && sn(this.widget, t.widget) && this.block == t.block && this.startSide == t.startSide && this.endSide == t.endSide;
+	}
+	range(e, t = e) {
+		if (this.isReplace && (e > t || e == t && this.startSide > 0 && this.endSide <= 0)) throw RangeError("Invalid range for replacement decoration");
+		if (!this.isReplace && t != e) throw RangeError("Widget decorations can only have zero-length ranges");
+		return super.range(e, t);
+	}
 };
-kt.blur = (s) => {
-  s.observer.clearSelectionRange(), Jl(s);
+an.prototype.point = !0;
+function on(e, t = !1) {
+	let { inclusiveStart: n, inclusiveEnd: r } = e;
+	return n ?? (n = e.inclusive), r ?? (r = e.inclusive), {
+		start: n ?? t,
+		end: r ?? t
+	};
+}
+function sn(e, t) {
+	return e == t || !!(e && t && e.compare(t));
+}
+function cn(e, t, n, r = 0) {
+	let i = n.length - 1;
+	i >= 0 && n[i] + r >= e ? n[i] = Math.max(n[i], t) : n.push(e, t);
+}
+var ln = class e extends it {
+	constructor(e, t, n) {
+		super(), this.tagName = e, this.attributes = t, this.rank = n;
+	}
+	eq(t) {
+		return t == this || t instanceof e && this.tagName == t.tagName && Zt(this.attributes, t.attributes);
+	}
+	static create(t) {
+		return new e(t.tagName, t.attributes || Xt, t.rank == null ? 50 : Math.max(0, Math.min(t.rank, 100)));
+	}
+	static set(e, t = !1) {
+		return A.of(e, t);
+	}
 };
-kt.compositionstart = kt.compositionupdate = (s) => {
-  s.observer.editContext || (s.inputState.compositionFirstChange == null && (s.inputState.compositionFirstChange = !0), s.inputState.composing < 0 && (s.inputState.composing = 0));
+ln.prototype.startSide = ln.prototype.endSide = -1;
+var I = (e) => e.nodeType == 1, un = (e) => e.nodeType == 3;
+function dn(e) {
+	let t;
+	return t = e.nodeType == 11 ? e.getSelection ? e : e.ownerDocument : e, t.getSelection();
+}
+function fn(e, t) {
+	return t ? e == t || e.contains(t.nodeType == 1 ? t : t.parentNode) : !1;
+}
+function pn(e, t) {
+	if (!t.anchorNode) return !1;
+	try {
+		return fn(e, t.anchorNode);
+	} catch {
+		return !1;
+	}
+}
+function mn(e) {
+	return un(e) ? jn(e, 0, e.nodeValue.length).getClientRects() : I(e) ? e.getClientRects() : [];
+}
+function hn(e, t, n, r) {
+	return n ? vn(e, t, n, r, -1) || vn(e, t, n, r, 1) : !1;
+}
+function gn(e) {
+	for (var t = 0;; t++) if (e = e.previousSibling, !e) return t;
+}
+function _n(e) {
+	return I(e) && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(e.nodeName);
+}
+function vn(e, t, n, r, i) {
+	for (;;) {
+		if (e == n && t == r) return !0;
+		if (t == (i < 0 ? 0 : yn(e))) {
+			if (e.nodeName == "DIV") return !1;
+			let n = e.parentNode;
+			if (!n || !I(n)) return !1;
+			t = gn(e) + (i < 0 ? 0 : 1), e = n;
+		} else if (I(e)) {
+			if (e = e.childNodes[t + (i < 0 ? -1 : 0)], I(e) && (e.nodeName == "IMG" || e.nodeName == "BR" || e.contentEditable == "false")) return !1;
+			t = i < 0 ? yn(e) : 0;
+		} else return !1;
+	}
+}
+function yn(e) {
+	return un(e) ? e.nodeValue.length : e.childNodes.length;
+}
+function bn(e, t) {
+	let { left: n, right: r } = e;
+	if (n == r) return e;
+	let i = t ? n : r;
+	return {
+		left: i,
+		right: i,
+		top: e.top,
+		bottom: e.bottom
+	};
+}
+function xn(e) {
+	let t = e.visualViewport;
+	return t ? {
+		left: 0,
+		right: t.width,
+		top: 0,
+		bottom: t.height
+	} : {
+		left: 0,
+		right: e.innerWidth,
+		top: 0,
+		bottom: e.innerHeight
+	};
+}
+function Sn(e, t) {
+	let n = t.width / e.offsetWidth, r = t.height / e.offsetHeight;
+	return (n > .995 && n < 1.005 || !isFinite(n) || Math.abs(t.width - e.offsetWidth) < 1) && (n = 1), (r > .995 && r < 1.005 || !isFinite(r) || Math.abs(t.height - e.offsetHeight) < 1) && (r = 1), {
+		scaleX: n,
+		scaleY: r
+	};
+}
+function Cn(e, t, n, r, i, a, o, s) {
+	let c = e.ownerDocument, l = c.defaultView || window;
+	for (let u = e, d = !1; u && !d;) if (I(u)) {
+		let e, f = u == c.body, p = 1, m = 1;
+		if (f) e = xn(l);
+		else {
+			if (/^(fixed|sticky)$/.test(getComputedStyle(u).position) && (d = !0), u.scrollHeight <= u.clientHeight && u.scrollWidth <= u.clientWidth) {
+				u = u.assignedSlot || u.parentNode;
+				continue;
+			}
+			let t = u.getBoundingClientRect();
+			({scaleX: p, scaleY: m} = Sn(u, t)), e = {
+				left: t.left,
+				right: t.left + u.clientWidth * p,
+				top: t.top,
+				bottom: t.top + u.clientHeight * m
+			};
+		}
+		let h = 0, g = 0;
+		if (i == "nearest") t.top < e.top + o ? (g = t.top - (e.top + o), n > 0 && t.bottom > e.bottom + g && (g = t.bottom - e.bottom + o)) : t.bottom > e.bottom - o && (g = t.bottom - e.bottom + o, n < 0 && t.top - g < e.top && (g = t.top - (e.top + o)));
+		else {
+			let r = t.bottom - t.top, a = e.bottom - e.top;
+			g = (i == "center" && r <= a ? t.top + r / 2 - a / 2 : i == "start" || i == "center" && n < 0 ? t.top - o : t.bottom - a + o) - e.top;
+		}
+		if (r == "nearest" ? t.left < e.left + a ? (h = t.left - (e.left + a), n > 0 && t.right > e.right + h && (h = t.right - e.right + a)) : t.right > e.right - a && (h = t.right - e.right + a, n < 0 && t.left < e.left + h && (h = t.left - (e.left + a))) : h = (r == "center" ? t.left + (t.right - t.left) / 2 - (e.right - e.left) / 2 : r == "start" == s ? t.left - a : t.right - (e.right - e.left) + a) - e.left, h || g) {
+			if (f) l.scrollBy(h, g);
+			else {
+				let e = 0, n = 0;
+				if (g) {
+					let e = u.scrollTop;
+					u.scrollTop += g / m, n = (u.scrollTop - e) * m;
+				}
+				if (h) {
+					let t = u.scrollLeft;
+					u.scrollLeft += h / p, e = (u.scrollLeft - t) * p;
+				}
+				t = {
+					left: t.left - e,
+					top: t.top - n,
+					right: t.right - e,
+					bottom: t.bottom - n
+				}, e && Math.abs(e - h) < 1 && (r = "nearest"), n && Math.abs(n - g) < 1 && (i = "nearest");
+			}
+		}
+		if (f) break;
+		(t.top < e.top || t.bottom > e.bottom || t.left < e.left || t.right > e.right) && (t = {
+			left: Math.max(t.left, e.left),
+			right: Math.min(t.right, e.right),
+			top: Math.max(t.top, e.top),
+			bottom: Math.min(t.bottom, e.bottom)
+		}), u = u.assignedSlot || u.parentNode;
+	} else if (u.nodeType == 11) u = u.host;
+	else break;
+}
+function wn(e, t = !0) {
+	let n = e.ownerDocument, r = null, i = null;
+	for (let a = e.parentNode; a && !(a == n.body || (!t || r) && i);) if (I(a)) !i && a.scrollHeight > a.clientHeight && (i = a), t && !r && a.scrollWidth > a.clientWidth && (r = a), a = a.assignedSlot || a.parentNode;
+	else if (a.nodeType == 11) a = a.host;
+	else break;
+	return {
+		x: r,
+		y: i
+	};
+}
+var Tn = class {
+	constructor() {
+		this.anchorNode = null, this.anchorOffset = 0, this.focusNode = null, this.focusOffset = 0;
+	}
+	eq(e) {
+		return this.anchorNode == e.anchorNode && this.anchorOffset == e.anchorOffset && this.focusNode == e.focusNode && this.focusOffset == e.focusOffset;
+	}
+	setRange(e) {
+		let { anchorNode: t, focusNode: n } = e;
+		this.set(t, Math.min(e.anchorOffset, t ? yn(t) : 0), n, Math.min(e.focusOffset, n ? yn(n) : 0));
+	}
+	set(e, t, n, r) {
+		this.anchorNode = e, this.anchorOffset = t, this.focusNode = n, this.focusOffset = r;
+	}
 };
-kt.compositionend = (s) => {
-  s.observer.editContext || (s.inputState.composing = -1, s.inputState.compositionEndedAt = Date.now(), s.inputState.compositionPendingKey = !0, s.inputState.compositionPendingChange = s.observer.pendingRecords().length > 0, s.inputState.compositionFirstChange = null, k.chrome && k.android ? s.observer.flushSoon() : s.inputState.compositionPendingChange ? Promise.resolve().then(() => s.observer.flush()) : setTimeout(() => {
-    s.inputState.composing < 0 && s.docView.hasComposition && s.update([]);
-  }, 50));
+function En(e) {
+	let t = [];
+	for (let n = e; n; n = n.nodeType == 11 ? n.host : n.parentNode) I(n) && t.push({
+		node: n,
+		left: n.scrollLeft,
+		top: n.scrollTop
+	});
+	return t;
+}
+function Dn(e, t = !0) {
+	for (let { node: n, left: r, top: i } of e) t && n.scrollTop != i && (n.scrollTop = i), n.scrollLeft != r && (n.scrollLeft = r);
+}
+var On = null;
+N.safari && N.safari_version >= 26 && (On = !1);
+function kn(e) {
+	if (e.setActive) return e.setActive();
+	if (On) return e.focus(On);
+	let t = En(e);
+	e.focus(On == null ? { get preventScroll() {
+		return On = { preventScroll: !0 }, !0;
+	} } : void 0), On || (On = !1, Dn(t));
+}
+var An;
+function jn(e, t, n = t) {
+	let r = An || (An = document.createRange());
+	return r.setEnd(e, n), r.setStart(e, t), r;
+}
+function Mn(e, t, n, r) {
+	let i = {
+		key: t,
+		code: t,
+		keyCode: n,
+		which: n,
+		cancelable: !0
+	};
+	r && ({altKey: i.altKey, ctrlKey: i.ctrlKey, shiftKey: i.shiftKey, metaKey: i.metaKey} = r);
+	let a = new KeyboardEvent("keydown", i);
+	a.synthetic = !0, e.dispatchEvent(a);
+	let o = new KeyboardEvent("keyup", i);
+	return o.synthetic = !0, e.dispatchEvent(o), a.defaultPrevented || o.defaultPrevented;
+}
+function Nn(e) {
+	for (; e;) {
+		if (e && (e.nodeType == 9 || e.nodeType == 11 && e.host)) return e;
+		e = e.assignedSlot || e.parentNode;
+	}
+	return null;
+}
+function Pn(e, t) {
+	let n = t.focusNode, r = t.focusOffset;
+	if (!n || t.anchorNode != n || t.anchorOffset != r) return !1;
+	for (r = Math.min(r, yn(n));;) if (r) {
+		if (!I(n)) return !1;
+		let e = n.childNodes[r - 1];
+		e.contentEditable == "false" ? r-- : (n = e, r = yn(n));
+	} else if (n == e) return !0;
+	else r = gn(n), n = n.parentNode;
+}
+function Fn(e) {
+	return e instanceof Window ? e.pageYOffset > Math.max(0, e.document.documentElement.scrollHeight - e.innerHeight - 4) : e.scrollTop > Math.max(1, e.scrollHeight - e.clientHeight - 4);
+}
+function In(e, t) {
+	for (let n = e, r = t;;) if (un(n) && r > 0) return {
+		node: n,
+		offset: r
+	};
+	else if (I(n) && r > 0) {
+		if (n.contentEditable == "false") return null;
+		n = n.childNodes[r - 1], r = yn(n);
+	} else if (n.parentNode && !_n(n)) r = gn(n), n = n.parentNode;
+	else return null;
+}
+function Ln(e, t) {
+	for (let n = e, r = t;;) if (un(n) && r < n.nodeValue.length) return {
+		node: n,
+		offset: r
+	};
+	else if (I(n) && r < n.childNodes.length) {
+		if (n.contentEditable == "false") return null;
+		n = n.childNodes[r], r = 0;
+	} else if (n.parentNode && !_n(n)) r = gn(n) + 1, n = n.parentNode;
+	else return null;
+}
+var Rn = class e {
+	constructor(e, t, n = !0) {
+		this.node = e, this.offset = t, this.precise = n;
+	}
+	static before(t, n) {
+		return new e(t.parentNode, gn(t), n);
+	}
+	static after(t, n) {
+		return new e(t.parentNode, gn(t) + 1, n);
+	}
+}, L = /*@__PURE__*/ (function(e) {
+	return e[e.LTR = 0] = "LTR", e[e.RTL = 1] = "RTL", e;
+})(L || (L = {})), zn = L.LTR, Bn = L.RTL;
+function Vn(e) {
+	let t = [];
+	for (let n = 0; n < e.length; n++) t.push(1 << e[n]);
+	return t;
+}
+var Hn = /*@__PURE__*/ Vn("88888888888888888888888888888888888666888888787833333333337888888000000000000000000000000008888880000000000000000000000000088888888888888888888888888888888888887866668888088888663380888308888800000000000000000000000800000000000000000000000000000008"), Un = /*@__PURE__*/ Vn("4444448826627288999999999992222222222222222222222222222222222222222222222229999999999999999999994444444444644222822222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222999999949999999229989999223333333333"), Wn = /*@__PURE__*/ Object.create(null), Gn = [];
+for (let e of [
+	"()",
+	"[]",
+	"{}"
+]) {
+	let t = /*@__PURE__*/ e.charCodeAt(0), n = /*@__PURE__*/ e.charCodeAt(1);
+	Wn[t] = n, Wn[n] = -t;
+}
+function Kn(e) {
+	return e <= 247 ? Hn[e] : 1424 <= e && e <= 1524 ? 2 : 1536 <= e && e <= 1785 ? Un[e - 1536] : 1774 <= e && e <= 2220 ? 4 : 8192 <= e && e <= 8204 ? 256 : 64336 <= e && e <= 65023 ? 4 : 1;
+}
+var qn = /[\u0590-\u05f4\u0600-\u06ff\u0700-\u08ac\ufb50-\ufdff]/, Jn = class {
+	get dir() {
+		return this.level % 2 ? Bn : zn;
+	}
+	constructor(e, t, n) {
+		this.from = e, this.to = t, this.level = n;
+	}
+	side(e, t) {
+		return this.dir == t == e ? this.to : this.from;
+	}
+	forward(e, t) {
+		return e == (this.dir == t);
+	}
+	static find(e, t, n, r) {
+		let i = -1;
+		for (let a = 0; a < e.length; a++) {
+			let o = e[a];
+			if (o.from <= t && o.to >= t) {
+				if (o.level == n) return a;
+				(i < 0 || (r == 0 ? e[i].level > o.level : r < 0 ? o.from < t : o.to > t)) && (i = a);
+			}
+		}
+		if (i < 0) throw RangeError("Index out of range");
+		return i;
+	}
 };
-kt.contextmenu = (s) => {
-  s.inputState.lastContextMenu = Date.now();
+function Yn(e, t) {
+	if (e.length != t.length) return !1;
+	for (let n = 0; n < e.length; n++) {
+		let r = e[n], i = t[n];
+		if (r.from != i.from || r.to != i.to || r.direction != i.direction || !Yn(r.inner, i.inner)) return !1;
+	}
+	return !0;
+}
+var R = [];
+function Xn(e, t, n, r, i) {
+	for (let a = 0; a <= r.length; a++) {
+		let o = a ? r[a - 1].to : t, s = a < r.length ? r[a].from : n, c = a ? 256 : i;
+		for (let t = o, n = c, r = c; t < s; t++) {
+			let i = Kn(e.charCodeAt(t));
+			i == 512 ? i = n : i == 8 && r == 4 && (i = 16), R[t] = i == 4 ? 2 : i, i & 7 && (r = i), n = i;
+		}
+		for (let e = o, t = c, r = c; e < s; e++) {
+			let i = R[e];
+			if (i == 128) e < s - 1 && t == R[e + 1] && t & 24 ? i = R[e] = t : R[e] = 256;
+			else if (i == 64) {
+				let i = e + 1;
+				for (; i < s && R[i] == 64;) i++;
+				let a = e && t == 8 || i < n && R[i] == 8 ? r == 1 ? 1 : 8 : 256;
+				for (let t = e; t < i; t++) R[t] = a;
+				e = i - 1;
+			} else i == 8 && r == 1 && (R[e] = 1);
+			t = i, i & 7 && (r = i);
+		}
+	}
+}
+function Zn(e, t, n, r, i) {
+	let a = i == 1 ? 2 : 1;
+	for (let o = 0, s = 0, c = 0; o <= r.length; o++) {
+		let l = o ? r[o - 1].to : t, u = o < r.length ? r[o].from : n;
+		for (let t = l, n, r, o; t < u; t++) if (r = Wn[n = e.charCodeAt(t)]) {
+			if (r < 0) {
+				for (let e = s - 3; e >= 0; e -= 3) if (Gn[e + 1] == -r) {
+					let n = Gn[e + 2], r = n & 2 ? i : n & 4 ? n & 1 ? a : i : 0;
+					r && (R[t] = R[Gn[e]] = r), s = e;
+					break;
+				}
+			} else if (Gn.length == 189) break;
+			else Gn[s++] = t, Gn[s++] = n, Gn[s++] = c;
+		} else if ((o = R[t]) == 2 || o == 1) {
+			let e = o == i;
+			c = +!e;
+			for (let t = s - 3; t >= 0; t -= 3) {
+				let n = Gn[t + 2];
+				if (n & 2) break;
+				if (e) Gn[t + 2] |= 2;
+				else {
+					if (n & 4) break;
+					Gn[t + 2] |= 4;
+				}
+			}
+		}
+	}
+}
+function Qn(e, t, n, r) {
+	for (let i = 0, a = r; i <= n.length; i++) {
+		let o = i ? n[i - 1].to : e, s = i < n.length ? n[i].from : t;
+		for (let c = o; c < s;) {
+			let o = R[c];
+			if (o == 256) {
+				let o = c + 1;
+				for (;;) if (o == s) {
+					if (i == n.length) break;
+					o = n[i++].to, s = i < n.length ? n[i].from : t;
+				} else if (R[o] == 256) o++;
+				else break;
+				let l = a == 1, u = l == ((o < t ? R[o] : r) == 1) ? l ? 1 : 2 : r;
+				for (let t = o, r = i, a = r ? n[r - 1].to : e; t > c;) t == a && (t = n[--r].from, a = r ? n[r - 1].to : e), R[--t] = u;
+				c = o;
+			} else a = o, c++;
+		}
+	}
+}
+function $n(e, t, n, r, i, a, o) {
+	let s = r % 2 ? 2 : 1;
+	if (r % 2 == i % 2) for (let c = t, l = 0; c < n;) {
+		let t = !0, u = !1;
+		if (l == a.length || c < a[l].from) {
+			let e = R[c];
+			e != s && (t = !1, u = e == 16);
+		}
+		let d = !t && s == 1 ? [] : null, f = t ? r : r + 1, p = c;
+		run: for (;;) if (l < a.length && p == a[l].from) {
+			if (u) break run;
+			let m = a[l];
+			if (!t) for (let e = m.to, t = l + 1;;) {
+				if (e == n) break run;
+				if (t < a.length && a[t].from == e) e = a[t++].to;
+				else if (R[e] == s) break run;
+				else break;
+			}
+			l++, d ? d.push(m) : (m.from > c && o.push(new Jn(c, m.from, f)), er(e, m.direction == zn == !(f % 2) ? r : r + 1, i, m.inner, m.from, m.to, o), c = m.to), p = m.to;
+		} else if (p == n || (t ? R[p] != s : R[p] == s)) break;
+		else p++;
+		d ? $n(e, c, p, r + 1, i, d, o) : c < p && o.push(new Jn(c, p, f)), c = p;
+	}
+	else for (let c = n, l = a.length; c > t;) {
+		let n = !0, u = !1;
+		if (!l || c > a[l - 1].to) {
+			let e = R[c - 1];
+			e != s && (n = !1, u = e == 16);
+		}
+		let d = !n && s == 1 ? [] : null, f = n ? r : r + 1, p = c;
+		run: for (;;) if (l && p == a[l - 1].to) {
+			if (u) break run;
+			let m = a[--l];
+			if (!n) for (let e = m.from, n = l;;) {
+				if (e == t) break run;
+				if (n && a[n - 1].to == e) e = a[--n].from;
+				else if (R[e - 1] == s) break run;
+				else break;
+			}
+			d ? d.push(m) : (m.to < c && o.push(new Jn(m.to, c, f)), er(e, m.direction == zn == !(f % 2) ? r : r + 1, i, m.inner, m.from, m.to, o), c = m.from), p = m.from;
+		} else if (p == t || (n ? R[p - 1] != s : R[p - 1] == s)) break;
+		else p--;
+		d ? $n(e, p, c, r + 1, i, d, o) : p < c && o.push(new Jn(p, c, f)), c = p;
+	}
+}
+function er(e, t, n, r, i, a, o) {
+	let s = t % 2 ? 2 : 1;
+	Xn(e, i, a, r, s), Zn(e, i, a, r, s), Qn(i, a, r, s), $n(e, i, a, t, n, r, o);
+}
+function tr(e, t, n) {
+	if (!e) return [new Jn(0, 0, +(t == Bn))];
+	if (t == zn && !n.length && !qn.test(e)) return nr(e.length);
+	if (n.length) for (; e.length > R.length;) R[R.length] = 256;
+	let r = [], i = t == zn ? 0 : 1;
+	return er(e, i, i, n, 0, e.length, r), r;
+}
+function nr(e) {
+	return [new Jn(0, e, 0)];
+}
+var rr = "";
+function ir(e, t, n, r, i) {
+	if (!e.length) return null;
+	let a = r.head - e.from, o;
+	if (r.head == e.from && r.assoc < 0) {
+		if (!i) return null;
+		a = t[o = 0].side(!1, n);
+	} else if (r.head == e.to && r.assoc > 0) {
+		if (i) return null;
+		a = t[o = t.length - 1].side(!0, n);
+	} else o = Jn.find(t, a, r.bidiLevel ?? -1, r.assoc);
+	let s = t[o], c = s.side(i, n);
+	if (a == c) {
+		let e = o += i ? 1 : -1;
+		if (e < 0 || e >= t.length) return null;
+		s = t[o = e], a = s.side(!i, n), c = s.side(i, n);
+	}
+	let l = S(e.text, a, s.forward(i, n));
+	(l < s.from || l > s.to) && (l = c), rr = e.text.slice(Math.min(a, l), Math.max(a, l));
+	let u = o == (i ? t.length - 1 : 0) ? null : t[o + (i ? 1 : -1)];
+	if (l == c) {
+		if (!u) return i ? T.cursor(e.to, 1) : T.cursor(e.from, -1);
+		if (u.level + +!i < s.level) return T.cursor(u.side(!i, n) + e.from, u.forward(i, n) ? 1 : -1, u.level);
+	}
+	return T.cursor(l + e.from, s.forward(i, n) ? -1 : 1, s.level);
+}
+function ar(e, t, n) {
+	for (let r = t; r < n; r++) {
+		let t = Kn(e.charCodeAt(r));
+		if (t == 1) return zn;
+		if (t == 2 || t == 4) return Bn;
+	}
+	return zn;
+}
+var or = /*@__PURE__*/ E.define(), sr = /*@__PURE__*/ E.define(), cr = /*@__PURE__*/ E.define(), lr = /*@__PURE__*/ E.define(), ur = /*@__PURE__*/ E.define(), dr = /*@__PURE__*/ E.define(), fr = /*@__PURE__*/ E.define(), pr = /*@__PURE__*/ E.define(), mr = /*@__PURE__*/ E.define(), hr = /*@__PURE__*/ E.define({ combine: (e) => e.some((e) => e) }), gr = /*@__PURE__*/ E.define({ combine: (e) => e.some((e) => e) }), _r = /*@__PURE__*/ E.define(), vr = class e {
+	constructor(e, t, n, r, i, a = !1) {
+		this.range = e, this.y = t, this.x = n, this.yMargin = r, this.xMargin = i, this.isSnapshot = a;
+	}
+	map(t) {
+		return t.empty ? this : new e(this.range.map(t), this.y, this.x, this.yMargin, this.xMargin, this.isSnapshot);
+	}
+	clip(t) {
+		return this.range.to <= t.doc.length ? this : new e(T.cursor(t.doc.length), this.y, this.x, this.yMargin, this.xMargin, this.isSnapshot);
+	}
+}, yr = /*@__PURE__*/ D.define({ map: (e, t) => e.map(t) }), br = /*@__PURE__*/ D.define();
+function z(e, t, n) {
+	let r = e.facet(lr);
+	r.length ? r[0](t) : window.onerror && window.onerror(String(t), n, void 0, void 0, t) || (n ? console.error(n + ":", t) : console.error(t));
+}
+var xr = /*@__PURE__*/ E.define({ combine: (e) => !e.length || e[0] }), Sr = 0, Cr = /*@__PURE__*/ E.define({ combine(e) {
+	return e.filter((t, n) => {
+		for (let r = 0; r < n; r++) if (e[r].plugin == t.plugin) return !1;
+		return !0;
+	});
+} }), wr = class e {
+	constructor(e, t, n, r, i) {
+		this.id = e, this.create = t, this.domEventHandlers = n, this.domEventObservers = r, this.baseExtensions = i(this), this.extension = this.baseExtensions.concat(Cr.of({
+			plugin: this,
+			arg: void 0
+		}));
+	}
+	of(e) {
+		return this.baseExtensions.concat(Cr.of({
+			plugin: this,
+			arg: e
+		}));
+	}
+	static define(t, n) {
+		let { eventHandlers: r, eventObservers: i, provide: a, decorations: o } = n || {};
+		return new e(Sr++, t, r, i, (e) => {
+			let t = [];
+			return o && t.push(Or.of((t) => {
+				let n = t.plugin(e);
+				return n ? o(n) : F.none;
+			})), a && t.push(a(e)), t;
+		});
+	}
+	static fromClass(t, n) {
+		return e.define((e, n) => new t(e, n), n);
+	}
+}, Tr = class {
+	constructor(e) {
+		this.spec = e, this.mustUpdate = null, this.value = null;
+	}
+	get plugin() {
+		return this.spec && this.spec.plugin;
+	}
+	update(e) {
+		if (!this.value) {
+			if (this.spec) try {
+				this.value = this.spec.plugin.create(e, this.spec.arg);
+			} catch (t) {
+				z(e.state, t, "CodeMirror plugin crashed"), this.deactivate();
+			}
+		} else if (this.mustUpdate) {
+			let e = this.mustUpdate;
+			if (this.mustUpdate = null, this.value.update) try {
+				this.value.update(e);
+			} catch (t) {
+				if (z(e.state, t, "CodeMirror plugin crashed"), this.value.destroy) try {
+					this.value.destroy();
+				} catch {}
+				this.deactivate();
+			}
+		}
+		return this;
+	}
+	destroy(e) {
+		if (this.value?.destroy) try {
+			this.value.destroy();
+		} catch (t) {
+			z(e.state, t, "CodeMirror plugin crashed");
+		}
+	}
+	deactivate() {
+		this.spec = this.value = null;
+	}
+}, Er = /*@__PURE__*/ E.define(), Dr = /*@__PURE__*/ E.define(), Or = /*@__PURE__*/ E.define(), kr = /*@__PURE__*/ E.define(), Ar = /*@__PURE__*/ E.define(), jr = /*@__PURE__*/ E.define(), Mr = /*@__PURE__*/ E.define();
+function Nr(e, t) {
+	let n = e.state.facet(Mr);
+	if (!n.length) return n;
+	let r = n.map((t) => t instanceof Function ? t(e) : t), i = [];
+	return A.spans(r, t.from, t.to, {
+		point() {},
+		span(e, n, r, a) {
+			let o = e - t.from, s = n - t.from, c = i;
+			for (let e = r.length - 1; e >= 0; e--, a--) {
+				let n = r[e].spec.bidiIsolate, i;
+				if (n ?? (n = ar(t.text, o, s)), a > 0 && c.length && (i = c[c.length - 1]).to == o && i.direction == n) i.to = s, c = i.inner;
+				else {
+					let e = {
+						from: o,
+						to: s,
+						direction: n,
+						inner: []
+					};
+					c.push(e), c = e.inner;
+				}
+			}
+		}
+	}), i;
+}
+var Pr = /*@__PURE__*/ E.define();
+function Fr(e) {
+	let t = 0, n = 0, r = 0, i = 0;
+	for (let a of e.state.facet(Pr)) {
+		let o = a(e);
+		o && (o.left != null && (t = Math.max(t, o.left)), o.right != null && (n = Math.max(n, o.right)), o.top != null && (r = Math.max(r, o.top)), o.bottom != null && (i = Math.max(i, o.bottom)));
+	}
+	return {
+		left: t,
+		right: n,
+		top: r,
+		bottom: i
+	};
+}
+var Ir = /*@__PURE__*/ E.define(), Lr = class e {
+	constructor(e, t, n, r) {
+		this.fromA = e, this.toA = t, this.fromB = n, this.toB = r;
+	}
+	join(t) {
+		return new e(Math.min(this.fromA, t.fromA), Math.max(this.toA, t.toA), Math.min(this.fromB, t.fromB), Math.max(this.toB, t.toB));
+	}
+	addToSet(e) {
+		let t = e.length, n = this;
+		for (; t > 0; t--) {
+			let r = e[t - 1];
+			if (!(r.fromA > n.toA)) {
+				if (r.toA < n.fromA) break;
+				n = n.join(r), e.splice(t - 1, 1);
+			}
+		}
+		return e.splice(t, 0, n), e;
+	}
+	static extendWithRanges(t, n) {
+		if (n.length == 0) return t;
+		let r = [];
+		for (let i = 0, a = 0, o = 0;;) {
+			let s = i < t.length ? t[i].fromB : 1e9, c = a < n.length ? n[a] : 1e9, l = Math.min(s, c);
+			if (l == 1e9) break;
+			let u = l + o, d = l, f = u;
+			for (;;) if (a < n.length && n[a] <= d) {
+				let e = n[a + 1];
+				a += 2, d = Math.max(d, e);
+				for (let e = i; e < t.length && t[e].fromB <= d; e++) o = t[e].toA - t[e].toB;
+				f = Math.max(f, e + o);
+			} else if (i < t.length && t[i].fromB <= d) {
+				let e = t[i++];
+				d = Math.max(d, e.toB), f = Math.max(f, e.toA), o = e.toA - e.toB;
+			} else break;
+			r.push(new e(u, f, l, d));
+		}
+		return r;
+	}
+}, Rr = class e {
+	constructor(e, t, n) {
+		this.view = e, this.state = t, this.transactions = n, this.flags = 0, this.startState = e.state, this.changes = ce.empty(this.startState.doc.length);
+		for (let e of n) this.changes = this.changes.compose(e.changes);
+		let r = [];
+		this.changes.iterChangedRanges((e, t, n, i) => r.push(new Lr(e, t, n, i))), this.changedRanges = r;
+	}
+	static create(t, n, r) {
+		return new e(t, n, r);
+	}
+	get viewportChanged() {
+		return (this.flags & 4) > 0;
+	}
+	get viewportMoved() {
+		return (this.flags & 8) > 0;
+	}
+	get heightChanged() {
+		return (this.flags & 2) > 0;
+	}
+	get geometryChanged() {
+		return this.docChanged || (this.flags & 18) > 0;
+	}
+	get focusChanged() {
+		return (this.flags & 1) > 0;
+	}
+	get docChanged() {
+		return !this.changes.empty;
+	}
+	get selectionSet() {
+		return this.transactions.some((e) => e.selection);
+	}
+	get empty() {
+		return this.flags == 0 && this.transactions.length == 0;
+	}
+}, zr = [], B = class {
+	constructor(e, t, n = 0) {
+		this.dom = e, this.length = t, this.flags = n, this.parent = null, e.cmTile = this;
+	}
+	get breakAfter() {
+		return this.flags & 1;
+	}
+	get children() {
+		return zr;
+	}
+	isWidget() {
+		return !1;
+	}
+	get isHidden() {
+		return !1;
+	}
+	isComposite() {
+		return !1;
+	}
+	isLine() {
+		return !1;
+	}
+	isText() {
+		return !1;
+	}
+	isBlock() {
+		return !1;
+	}
+	get domAttrs() {
+		return null;
+	}
+	sync(e) {
+		if (this.flags |= 2, this.flags & 4) {
+			this.flags &= -5;
+			let e = this.domAttrs;
+			e && Qt(this.dom, e);
+		}
+	}
+	toString() {
+		return this.constructor.name + (this.children.length ? `(${this.children})` : "") + (this.breakAfter ? "#" : "");
+	}
+	destroy() {
+		this.parent = null;
+	}
+	setDOM(e) {
+		this.dom = e, e.cmTile = this;
+	}
+	get posAtStart() {
+		return this.parent ? this.parent.posBefore(this) : 0;
+	}
+	get posAtEnd() {
+		return this.posAtStart + this.length;
+	}
+	posBefore(e, t = this.posAtStart) {
+		let n = t;
+		for (let t of this.children) {
+			if (t == e) return n;
+			n += t.length + t.breakAfter;
+		}
+		throw RangeError("Invalid child in posBefore");
+	}
+	posAfter(e) {
+		return this.posBefore(e) + e.length;
+	}
+	covers(e) {
+		return !0;
+	}
+	coordsIn(e, t, n) {
+		return null;
+	}
+	domPosFor(e, t) {
+		let n = gn(this.dom), r = this.length ? e > 0 : t > 0;
+		return new Rn(this.parent.dom, n + +!!r, e == 0 || e == this.length);
+	}
+	markDirty(e) {
+		this.flags &= -3, e && (this.flags |= 4), this.parent && this.parent.flags & 2 && this.parent.markDirty(!1);
+	}
+	get overrideDOMText() {
+		return null;
+	}
+	get root() {
+		for (let e = this; e; e = e.parent) if (e instanceof Hr) return e;
+		return null;
+	}
+	static get(e) {
+		return e.cmTile;
+	}
+}, Br = class extends B {
+	constructor(e) {
+		super(e, 0), this._children = [];
+	}
+	isComposite() {
+		return !0;
+	}
+	get children() {
+		return this._children;
+	}
+	get lastChild() {
+		return this.children.length ? this.children[this.children.length - 1] : null;
+	}
+	append(e) {
+		this.children.push(e), e.parent = this;
+	}
+	sync(e) {
+		if (this.flags & 2) return;
+		super.sync(e);
+		let t = this.dom, n = null, r, i = e?.node == t ? e : null, a = 0;
+		for (let o of this.children) {
+			if (o.sync(e), a += o.length + o.breakAfter, r = n ? n.nextSibling : t.firstChild, i && r != o.dom && (i.written = !0), o.dom.parentNode == t) for (; r && r != o.dom;) r = Vr(r);
+			else t.insertBefore(o.dom, r);
+			n = o.dom;
+		}
+		for (r = n ? n.nextSibling : t.firstChild, i && r && (i.written = !0); r;) r = Vr(r);
+		this.length = a;
+	}
 };
-Ot.beforeinput = (s, t) => {
-  var e, i;
-  if ((t.inputType == "insertText" || t.inputType == "insertCompositionText") && (s.inputState.insertingText = t.data, s.inputState.insertingTextAt = Date.now()), t.inputType == "insertReplacementText" && s.observer.editContext) {
-    let r = (e = t.dataTransfer) === null || e === void 0 ? void 0 : e.getData("text/plain"), o = t.getTargetRanges();
-    if (r && o.length) {
-      let l = o[0], a = s.posAtDOM(l.startContainer, l.startOffset), h = s.posAtDOM(l.endContainer, l.endOffset);
-      return sr(s, { from: a, to: h, insert: s.state.toText(r) }, null), !0;
-    }
-  }
-  let n;
-  if (k.chrome && k.android && (n = zl.find((r) => r.inputType == t.inputType)) && (s.observer.delayAndroidKey(n.key, n.keyCode), n.key == "Backspace" || n.key == "Delete")) {
-    let r = ((i = window.visualViewport) === null || i === void 0 ? void 0 : i.height) || 0;
-    setTimeout(() => {
-      var o;
-      (((o = window.visualViewport) === null || o === void 0 ? void 0 : o.height) || 0) > r + 10 && s.hasFocus && (s.contentDOM.blur(), s.focus());
-    }, 100);
-  }
-  return k.ios && t.inputType == "deleteContentForward" && s.observer.flushSoon(), k.safari && t.inputType == "insertText" && s.inputState.composing >= 0 && setTimeout(() => kt.compositionend(s, t), 20), !1;
+function Vr(e) {
+	let t = e.nextSibling;
+	return e.parentNode.removeChild(e), t;
+}
+var Hr = class extends Br {
+	constructor(e, t) {
+		super(t), this.view = e;
+	}
+	owns(e) {
+		for (; e; e = e.parent) if (e == this) return !0;
+		return !1;
+	}
+	isBlock() {
+		return !0;
+	}
+	nearest(e) {
+		for (;;) {
+			if (!e) return null;
+			let t = B.get(e);
+			if (t && this.owns(t)) return t;
+			e = e.parentNode;
+		}
+	}
+	blockTiles(e) {
+		for (let t = [], n = this, r = 0, i = 0;;) if (r == n.children.length) {
+			if (!t.length) return;
+			n = n.parent, n.breakAfter && i++, r = t.pop();
+		} else {
+			let a = n.children[r++];
+			if (a instanceof Ur) t.push(r), n = a, r = 0;
+			else {
+				let t = i + a.length, n = e(a, i);
+				if (n !== void 0) return n;
+				i = t + a.breakAfter;
+			}
+		}
+	}
+	resolveBlock(e, t) {
+		let n, r = -1, i, a = -1;
+		if (this.blockTiles((o, s) => {
+			let c = s + o.length;
+			if (e >= s && e <= c) {
+				if (o.isWidget() && t >= -1 && t <= 1) {
+					if (o.flags & 32) return !0;
+					o.flags & 16 && (n = void 0);
+				}
+				(s < e || e == c && (t < -1 ? o.length : o.covers(1))) && (!n || !o.isWidget() && n.isWidget()) && (n = o, r = e - s), (c > e || e == s && (t > 1 ? o.length : o.covers(-1))) && (!i || !o.isWidget() && i.isWidget()) && (i = o, a = e - s);
+			}
+		}), !n && !i) throw Error("No tile at position " + e);
+		return n && t < 0 || !i ? {
+			tile: n,
+			offset: r
+		} : {
+			tile: i,
+			offset: a
+		};
+	}
+}, Ur = class e extends Br {
+	constructor(e, t) {
+		super(e), this.wrapper = t;
+	}
+	isBlock() {
+		return !0;
+	}
+	covers(e) {
+		return this.children.length ? e < 0 ? this.children[0].covers(-1) : this.lastChild.covers(1) : !1;
+	}
+	get domAttrs() {
+		return this.wrapper.attributes;
+	}
+	static of(t, n) {
+		let r = new e(n || document.createElement(t.tagName), t);
+		return n || (r.flags |= 4), r;
+	}
+}, Wr = class e extends Br {
+	constructor(e, t) {
+		super(e), this.attrs = t;
+	}
+	isLine() {
+		return !0;
+	}
+	static start(t, n, r) {
+		let i = new e(n || document.createElement("div"), t);
+		return (!n || !r) && (i.flags |= 4), i;
+	}
+	get domAttrs() {
+		return this.attrs;
+	}
+	resolveInline(e, t, n = !1) {
+		let r = null, i = -1, a = null, o = -1;
+		function s(e, c) {
+			for (let l = 0, u = 0; l < e.children.length && u <= c; l++) {
+				let d = e.children[l], f = u + d.length;
+				f >= c && (d.isComposite() ? s(d, c - u) : (!a || n && a.isHidden && (t > 0 && !(a.flags & 32) || n && Kr(a, d))) && (f > c || d.flags & 32 && t <= 1) ? (a = d, o = c - u) : (u < c || d.flags & 16 && !(n && d.isHidden) && t >= -1) && (r = d, i = c - u)), u = f;
+			}
+		}
+		s(this, e);
+		let c = (t < 0 ? r : a) || r || a;
+		return c ? {
+			tile: c,
+			offset: c == r ? i : o
+		} : null;
+	}
+	coordsIn(e, t, n) {
+		let r = this.resolveInline(e, t, !0);
+		return r ? r.tile.coordsIn(Math.max(0, r.offset), t, n) : Gr(this);
+	}
+	domIn(e, t) {
+		let n = this.resolveInline(e, t);
+		if (n) {
+			let { tile: e, offset: r } = n;
+			if (this.dom.contains(e.dom)) return e.isText() ? new Rn(e.dom, Math.min(e.dom.nodeValue.length, r)) : e.domPosFor(r, e.flags & 16 ? 1 : e.flags & 32 ? -1 : t);
+			let i = n.tile.parent, a = !1;
+			for (let e of i.children) {
+				if (a) return new Rn(e.dom, 0);
+				e == n.tile && (a = !0);
+			}
+		}
+		return new Rn(this.dom, 0);
+	}
 };
-const _r = /* @__PURE__ */ new Set();
-function jf(s) {
-  _r.has(s) || (_r.add(s), s.addEventListener("copy", () => {
-  }), s.addEventListener("cut", () => {
-  }));
-}
-const Yr = ["pre-wrap", "normal", "pre-line", "break-spaces"];
-let We = !1;
-function Xr() {
-  We = !1;
-}
-class Gf {
-  constructor(t) {
-    this.lineWrapping = t, this.doc = P.empty, this.heightSamples = {}, this.lineHeight = 14, this.charWidth = 7, this.textHeight = 14, this.lineLength = 30;
-  }
-  heightForGap(t, e) {
-    let i = this.doc.lineAt(e).number - this.doc.lineAt(t).number + 1;
-    return this.lineWrapping && (i += Math.max(0, Math.ceil((e - t - i * this.lineLength * 0.5) / this.lineLength))), this.lineHeight * i;
-  }
-  heightForLine(t) {
-    return this.lineWrapping ? (1 + Math.max(0, Math.ceil((t - this.lineLength) / Math.max(1, this.lineLength - 5)))) * this.lineHeight : this.lineHeight;
-  }
-  setDoc(t) {
-    return this.doc = t, this;
-  }
-  mustRefreshForWrapping(t) {
-    return Yr.indexOf(t) > -1 != this.lineWrapping;
-  }
-  mustRefreshForHeights(t) {
-    let e = !1;
-    for (let i = 0; i < t.length; i++) {
-      let n = t[i];
-      n < 0 ? i++ : this.heightSamples[Math.floor(n * 10)] || (e = !0, this.heightSamples[Math.floor(n * 10)] = !0);
-    }
-    return e;
-  }
-  refresh(t, e, i, n, r, o) {
-    let l = Yr.indexOf(t) > -1, a = Math.abs(e - this.lineHeight) > 0.3 || this.lineWrapping != l || Math.abs(i - this.charWidth) > 0.1;
-    if (this.lineWrapping = l, this.lineHeight = e, this.charWidth = i, this.textHeight = n, this.lineLength = r, a) {
-      this.heightSamples = {};
-      for (let h = 0; h < o.length; h++) {
-        let f = o[h];
-        f < 0 ? h++ : this.heightSamples[Math.floor(f * 10)] = !0;
-      }
-    }
-    return a;
-  }
-}
-class Jf {
-  constructor(t, e) {
-    this.from = t, this.heights = e, this.index = 0;
-  }
-  get more() {
-    return this.index < this.heights.length;
-  }
-}
-class At {
-  /**
-  @internal
-  */
-  constructor(t, e, i, n, r) {
-    this.from = t, this.length = e, this.top = i, this.height = n, this._content = r;
-  }
-  /**
-  The type of element this is. When querying lines, this may be
-  an array of all the blocks that make up the line.
-  */
-  get type() {
-    return typeof this._content == "number" ? ut.Text : Array.isArray(this._content) ? this._content : this._content.type;
-  }
-  /**
-  The end of the element as a document position.
-  */
-  get to() {
-    return this.from + this.length;
-  }
-  /**
-  The bottom position of the element.
-  */
-  get bottom() {
-    return this.top + this.height;
-  }
-  /**
-  If this is a widget block, this will return the widget
-  associated with it.
-  */
-  get widget() {
-    return this._content instanceof xe ? this._content.widget : null;
-  }
-  /**
-  If this is a textblock, this holds the number of line breaks
-  that appear in widgets inside the block.
-  */
-  get widgetLineBreaks() {
-    return typeof this._content == "number" ? this._content : 0;
-  }
-  /**
-  @internal
-  */
-  join(t) {
-    let e = (Array.isArray(this._content) ? this._content : [this]).concat(Array.isArray(t._content) ? t._content : [t]);
-    return new At(this.from, this.length + t.length, this.top, this.height + t.height, e);
-  }
-}
-var F = /* @__PURE__ */ (function(s) {
-  return s[s.ByPos = 0] = "ByPos", s[s.ByHeight = 1] = "ByHeight", s[s.ByPosNoHeight = 2] = "ByPosNoHeight", s;
-})(F || (F = {}));
-const Gi = 1e-3;
-class lt {
-  constructor(t, e, i = 2) {
-    this.length = t, this.height = e, this.flags = i;
-  }
-  get outdated() {
-    return (this.flags & 2) > 0;
-  }
-  set outdated(t) {
-    this.flags = (t ? 2 : 0) | this.flags & -3;
-  }
-  setHeight(t) {
-    this.height != t && (Math.abs(this.height - t) > Gi && (We = !0), this.height = t);
-  }
-  // Base case is to replace a leaf node, which simply builds a tree
-  // from the new nodes and returns that (HeightMapBranch and
-  // HeightMapGap override this to actually use from/to)
-  replace(t, e, i) {
-    return lt.of(i);
-  }
-  // Again, these are base cases, and are overridden for branch and gap nodes.
-  decomposeLeft(t, e) {
-    e.push(this);
-  }
-  decomposeRight(t, e) {
-    e.push(this);
-  }
-  applyChanges(t, e, i, n) {
-    let r = this, o = i.doc;
-    for (let l = n.length - 1; l >= 0; l--) {
-      let { fromA: a, toA: h, fromB: f, toB: c } = n[l], u = r.lineAt(a, F.ByPosNoHeight, i.setDoc(e), 0, 0), d = u.to >= h ? u : r.lineAt(h, F.ByPosNoHeight, i, 0, 0);
-      for (c += d.to - h, h = d.to; l > 0 && u.from <= n[l - 1].toA; )
-        a = n[l - 1].fromA, f = n[l - 1].fromB, l--, a < u.from && (u = r.lineAt(a, F.ByPosNoHeight, i, 0, 0));
-      f += u.from - a, a = u.from;
-      let p = rr.build(i.setDoc(o), t, f, c);
-      r = ln(r, r.replace(a, h, p));
-    }
-    return r.updateHeight(i, 0);
-  }
-  static empty() {
-    return new dt(0, 0, 0);
-  }
-  // nodes uses null values to indicate the position of line breaks.
-  // There are never line breaks at the start or end of the array, or
-  // two line breaks next to each other, and the array isn't allowed
-  // to be empty (same restrictions as return value from the builder).
-  static of(t) {
-    if (t.length == 1)
-      return t[0];
-    let e = 0, i = t.length, n = 0, r = 0;
-    for (; ; )
-      if (e == i)
-        if (n > r * 2) {
-          let l = t[e - 1];
-          l.break ? t.splice(--e, 1, l.left, null, l.right) : t.splice(--e, 1, l.left, l.right), i += 1 + l.break, n -= l.size;
-        } else if (r > n * 2) {
-          let l = t[i];
-          l.break ? t.splice(i, 1, l.left, null, l.right) : t.splice(i, 1, l.left, l.right), i += 2 + l.break, r -= l.size;
-        } else
-          break;
-      else if (n < r) {
-        let l = t[e++];
-        l && (n += l.size);
-      } else {
-        let l = t[--i];
-        l && (r += l.size);
-      }
-    let o = 0;
-    return t[e - 1] == null ? (o = 1, e--) : t[e] == null && (o = 1, i++), new Yf(lt.of(t.slice(0, e)), o, lt.of(t.slice(i)));
-  }
-}
-function ln(s, t) {
-  return s == t ? s : (s.constructor != t.constructor && (We = !0), t);
-}
-lt.prototype.size = 1;
-const _f = /* @__PURE__ */ U.replace({});
-class _l extends lt {
-  constructor(t, e, i) {
-    super(t, e), this.deco = i, this.spaceAbove = 0;
-  }
-  mainBlock(t, e) {
-    return new At(e, this.length, t + this.spaceAbove, this.height - this.spaceAbove, this.deco || 0);
-  }
-  blockAt(t, e, i, n) {
-    return this.spaceAbove && t < i + this.spaceAbove ? new At(n, 0, i, this.spaceAbove, _f) : this.mainBlock(i, n);
-  }
-  lineAt(t, e, i, n, r) {
-    let o = this.mainBlock(n, r);
-    return this.spaceAbove ? this.blockAt(0, i, n, r).join(o) : o;
-  }
-  forEachLine(t, e, i, n, r, o) {
-    t <= r + this.length && e >= r && o(this.lineAt(0, F.ByPos, i, n, r));
-  }
-  setMeasuredHeight(t) {
-    let e = t.heights[t.index++];
-    e < 0 ? (this.spaceAbove = -e, e = t.heights[t.index++]) : this.spaceAbove = 0, this.setHeight(e);
-  }
-  updateHeight(t, e = 0, i = !1, n) {
-    return n && n.from <= e && n.more && this.setMeasuredHeight(n), this.outdated = !1, this;
-  }
-  toString() {
-    return `block(${this.length})`;
-  }
-}
-class dt extends _l {
-  constructor(t, e, i) {
-    super(t, e, null), this.collapsed = 0, this.widgetHeight = 0, this.breaks = 0, this.spaceAbove = i;
-  }
-  mainBlock(t, e) {
-    return new At(e, this.length, t + this.spaceAbove, this.height - this.spaceAbove, this.breaks);
-  }
-  replace(t, e, i) {
-    let n = i[0];
-    return i.length == 1 && (n instanceof dt || n instanceof Z && n.flags & 4) && Math.abs(this.length - n.length) < 10 ? (n instanceof Z ? n = new dt(n.length, this.height, this.spaceAbove) : n.height = this.height, this.outdated || (n.outdated = !1), n) : lt.of(i);
-  }
-  updateHeight(t, e = 0, i = !1, n) {
-    return n && n.from <= e && n.more ? this.setMeasuredHeight(n) : (i || this.outdated) && (this.spaceAbove = 0, this.setHeight(Math.max(this.widgetHeight, t.heightForLine(this.length - this.collapsed)) + this.breaks * t.lineHeight)), this.outdated = !1, this;
-  }
-  toString() {
-    return `line(${this.length}${this.collapsed ? -this.collapsed : ""}${this.widgetHeight ? ":" + this.widgetHeight : ""})`;
-  }
-}
-class Z extends lt {
-  constructor(t) {
-    super(t, 0);
-  }
-  heightMetrics(t, e) {
-    let i = t.doc.lineAt(e).number, n = t.doc.lineAt(e + this.length).number, r = n - i + 1, o, l = 0;
-    if (t.lineWrapping) {
-      let a = Math.min(this.height, t.lineHeight * r);
-      o = a / r, this.length > r + 1 && (l = (this.height - a) / (this.length - r - 1));
-    } else
-      o = this.height / r;
-    return { firstLine: i, lastLine: n, perLine: o, perChar: l };
-  }
-  blockAt(t, e, i, n) {
-    let { firstLine: r, lastLine: o, perLine: l, perChar: a } = this.heightMetrics(e, n);
-    if (e.lineWrapping) {
-      let h = n + (t < e.lineHeight ? 0 : Math.round(Math.max(0, Math.min(1, (t - i) / this.height)) * this.length)), f = e.doc.lineAt(h), c = l + f.length * a, u = Math.max(i, t - c / 2);
-      return new At(f.from, f.length, u, c, 0);
-    } else {
-      let h = Math.max(0, Math.min(o - r, Math.floor((t - i) / l))), { from: f, length: c } = e.doc.line(r + h);
-      return new At(f, c, i + l * h, l, 0);
-    }
-  }
-  lineAt(t, e, i, n, r) {
-    if (e == F.ByHeight)
-      return this.blockAt(t, i, n, r);
-    if (e == F.ByPosNoHeight) {
-      let { from: d, to: p } = i.doc.lineAt(t);
-      return new At(d, p - d, 0, 0, 0);
-    }
-    let { firstLine: o, perLine: l, perChar: a } = this.heightMetrics(i, r), h = i.doc.lineAt(t), f = l + h.length * a, c = h.number - o, u = n + l * c + a * (h.from - r - c);
-    return new At(h.from, h.length, Math.max(n, Math.min(u, n + this.height - f)), f, 0);
-  }
-  forEachLine(t, e, i, n, r, o) {
-    t = Math.max(t, r), e = Math.min(e, r + this.length);
-    let { firstLine: l, perLine: a, perChar: h } = this.heightMetrics(i, r);
-    for (let f = t, c = n; f <= e; ) {
-      let u = i.doc.lineAt(f);
-      if (f == t) {
-        let p = u.number - l;
-        c += a * p + h * (t - r - p);
-      }
-      let d = a + h * u.length;
-      o(new At(u.from, u.length, c, d, 0)), c += d, f = u.to + 1;
-    }
-  }
-  replace(t, e, i) {
-    let n = this.length - e;
-    if (n > 0) {
-      let r = i[i.length - 1];
-      r instanceof Z ? i[i.length - 1] = new Z(r.length + n) : i.push(null, new Z(n - 1));
-    }
-    if (t > 0) {
-      let r = i[0];
-      r instanceof Z ? i[0] = new Z(t + r.length) : i.unshift(new Z(t - 1), null);
-    }
-    return lt.of(i);
-  }
-  decomposeLeft(t, e) {
-    e.push(new Z(t - 1), null);
-  }
-  decomposeRight(t, e) {
-    e.push(null, new Z(this.length - t - 1));
-  }
-  updateHeight(t, e = 0, i = !1, n) {
-    let r = e + this.length;
-    if (n && n.from <= e + this.length && n.more) {
-      let o = [], l = Math.max(e, n.from), a = -1;
-      for (n.from > e && o.push(new Z(n.from - e - 1).updateHeight(t, e)); l <= r && n.more; ) {
-        let f = t.doc.lineAt(l).length;
-        o.length && o.push(null);
-        let c = n.heights[n.index++], u = 0;
-        c < 0 && (u = -c, c = n.heights[n.index++]), a == -1 ? a = c : Math.abs(c - a) >= Gi && (a = -2);
-        let d = new dt(f, c, u);
-        d.outdated = !1, o.push(d), l += f + 1;
-      }
-      l <= r && o.push(null, new Z(r - l).updateHeight(t, l));
-      let h = lt.of(o);
-      return (a < 0 || Math.abs(h.height - this.height) >= Gi || Math.abs(a - this.heightMetrics(t, e).perLine) >= Gi) && (We = !0), ln(this, h);
-    } else (i || this.outdated) && (this.setHeight(t.heightForGap(e, e + this.length)), this.outdated = !1);
-    return this;
-  }
-  toString() {
-    return `gap(${this.length})`;
-  }
-}
-class Yf extends lt {
-  constructor(t, e, i) {
-    super(t.length + e + i.length, t.height + i.height, e | (t.outdated || i.outdated ? 2 : 0)), this.left = t, this.right = i, this.size = t.size + i.size;
-  }
-  get break() {
-    return this.flags & 1;
-  }
-  blockAt(t, e, i, n) {
-    let r = i + this.left.height;
-    return t < r ? this.left.blockAt(t, e, i, n) : this.right.blockAt(t, e, r, n + this.left.length + this.break);
-  }
-  lineAt(t, e, i, n, r) {
-    let o = n + this.left.height, l = r + this.left.length + this.break, a = e == F.ByHeight ? t < o : t < l, h = a ? this.left.lineAt(t, e, i, n, r) : this.right.lineAt(t, e, i, o, l);
-    if (this.break || (a ? h.to < l : h.from > l))
-      return h;
-    let f = e == F.ByPosNoHeight ? F.ByPosNoHeight : F.ByPos;
-    return a ? h.join(this.right.lineAt(l, f, i, o, l)) : this.left.lineAt(l, f, i, n, r).join(h);
-  }
-  forEachLine(t, e, i, n, r, o) {
-    let l = n + this.left.height, a = r + this.left.length + this.break;
-    if (this.break)
-      t < a && this.left.forEachLine(t, e, i, n, r, o), e >= a && this.right.forEachLine(t, e, i, l, a, o);
-    else {
-      let h = this.lineAt(a, F.ByPos, i, n, r);
-      t < h.from && this.left.forEachLine(t, h.from - 1, i, n, r, o), h.to >= t && h.from <= e && o(h), e > h.to && this.right.forEachLine(h.to + 1, e, i, l, a, o);
-    }
-  }
-  replace(t, e, i) {
-    let n = this.left.length + this.break;
-    if (e < n)
-      return this.balanced(this.left.replace(t, e, i), this.right);
-    if (t > this.left.length)
-      return this.balanced(this.left, this.right.replace(t - n, e - n, i));
-    let r = [];
-    t > 0 && this.decomposeLeft(t, r);
-    let o = r.length;
-    for (let l of i)
-      r.push(l);
-    if (t > 0 && Qr(r, o - 1), e < this.length) {
-      let l = r.length;
-      this.decomposeRight(e, r), Qr(r, l);
-    }
-    return lt.of(r);
-  }
-  decomposeLeft(t, e) {
-    let i = this.left.length;
-    if (t <= i)
-      return this.left.decomposeLeft(t, e);
-    e.push(this.left), this.break && (i++, t >= i && e.push(null)), t > i && this.right.decomposeLeft(t - i, e);
-  }
-  decomposeRight(t, e) {
-    let i = this.left.length, n = i + this.break;
-    if (t >= n)
-      return this.right.decomposeRight(t - n, e);
-    t < i && this.left.decomposeRight(t, e), this.break && t < n && e.push(null), e.push(this.right);
-  }
-  balanced(t, e) {
-    return t.size > 2 * e.size || e.size > 2 * t.size ? lt.of(this.break ? [t, null, e] : [t, e]) : (this.left = ln(this.left, t), this.right = ln(this.right, e), this.setHeight(t.height + e.height), this.outdated = t.outdated || e.outdated, this.size = t.size + e.size, this.length = t.length + this.break + e.length, this);
-  }
-  updateHeight(t, e = 0, i = !1, n) {
-    let { left: r, right: o } = this, l = e + r.length + this.break, a = null;
-    return n && n.from <= e + r.length && n.more ? a = r = r.updateHeight(t, e, i, n) : r.updateHeight(t, e, i), n && n.from <= l + o.length && n.more ? a = o = o.updateHeight(t, l, i, n) : o.updateHeight(t, l, i), a ? this.balanced(r, o) : (this.height = this.left.height + this.right.height, this.outdated = !1, this);
-  }
-  toString() {
-    return this.left + (this.break ? " " : "-") + this.right;
-  }
-}
-function Qr(s, t) {
-  let e, i;
-  s[t] == null && (e = s[t - 1]) instanceof Z && (i = s[t + 1]) instanceof Z && s.splice(t - 1, 3, new Z(e.length + 1 + i.length));
-}
-const Xf = 5;
-class rr {
-  constructor(t, e) {
-    this.pos = t, this.oracle = e, this.nodes = [], this.lineStart = -1, this.lineEnd = -1, this.covering = null, this.writtenTo = t;
-  }
-  get isCovered() {
-    return this.covering && this.nodes[this.nodes.length - 1] == this.covering;
-  }
-  span(t, e) {
-    if (this.lineStart > -1) {
-      let i = Math.min(e, this.lineEnd), n = this.nodes[this.nodes.length - 1];
-      n instanceof dt ? n.length += i - this.pos : (i > this.pos || !this.isCovered) && this.nodes.push(new dt(i - this.pos, -1, 0)), this.writtenTo = i, e > i && (this.nodes.push(null), this.writtenTo++, this.lineStart = -1);
-    }
-    this.pos = e;
-  }
-  point(t, e, i) {
-    if (t < e || i.heightRelevant) {
-      let n = i.widget ? i.widget.estimatedHeight : 0, r = i.widget ? i.widget.lineBreaks : 0;
-      n < 0 && (n = this.oracle.lineHeight);
-      let o = e - t;
-      i.block ? this.addBlock(new _l(o, n, i)) : (o || r || n >= Xf) && this.addLineDeco(n, r, o);
-    } else e > t && this.span(t, e);
-    this.lineEnd > -1 && this.lineEnd < this.pos && (this.lineEnd = this.oracle.doc.lineAt(this.pos).to);
-  }
-  enterLine() {
-    if (this.lineStart > -1)
-      return;
-    let { from: t, to: e } = this.oracle.doc.lineAt(this.pos);
-    this.lineStart = t, this.lineEnd = e, this.writtenTo < t && ((this.writtenTo < t - 1 || this.nodes[this.nodes.length - 1] == null) && this.nodes.push(this.blankContent(this.writtenTo, t - 1)), this.nodes.push(null)), this.pos > t && this.nodes.push(new dt(this.pos - t, -1, 0)), this.writtenTo = this.pos;
-  }
-  blankContent(t, e) {
-    let i = new Z(e - t);
-    return this.oracle.doc.lineAt(t).to == e && (i.flags |= 4), i;
-  }
-  ensureLine() {
-    this.enterLine();
-    let t = this.nodes.length ? this.nodes[this.nodes.length - 1] : null;
-    if (t instanceof dt)
-      return t;
-    let e = new dt(0, -1, 0);
-    return this.nodes.push(e), e;
-  }
-  addBlock(t) {
-    this.enterLine();
-    let e = t.deco;
-    e && e.startSide > 0 && !this.isCovered && this.ensureLine(), this.nodes.push(t), this.writtenTo = this.pos = this.pos + t.length, e && e.endSide > 0 && (this.covering = t);
-  }
-  addLineDeco(t, e, i) {
-    let n = this.ensureLine();
-    n.length += i, n.collapsed += i, n.widgetHeight = Math.max(n.widgetHeight, t), n.breaks += e, this.writtenTo = this.pos = this.pos + i;
-  }
-  finish(t) {
-    let e = this.nodes.length == 0 ? null : this.nodes[this.nodes.length - 1];
-    this.lineStart > -1 && !(e instanceof dt) && !this.isCovered ? this.nodes.push(new dt(0, -1, 0)) : (this.writtenTo < this.pos || e == null) && this.nodes.push(this.blankContent(this.writtenTo, this.pos));
-    let i = t;
-    for (let n of this.nodes)
-      n instanceof dt && n.updateHeight(this.oracle, i), i += n ? n.length : 1;
-    return this.nodes;
-  }
-  // Always called with a region that on both sides either stretches
-  // to a line break or the end of the document.
-  // The returned array uses null to indicate line breaks, but never
-  // starts or ends in a line break, or has multiple line breaks next
-  // to each other.
-  static build(t, e, i, n) {
-    let r = new rr(i, t);
-    return L.spans(e, i, n, r, 0), r.finish(i);
-  }
-}
-function Qf(s, t, e) {
-  let i = new Zf();
-  return L.compare(s, t, e, i, 0), i.changes;
-}
-class Zf {
-  constructor() {
-    this.changes = [];
-  }
-  compareRange() {
-  }
-  comparePoint(t, e, i, n) {
-    (t < e || i && i.heightRelevant || n && n.heightRelevant) && Be(t, e, this.changes, 5);
-  }
-}
-function tc(s, t) {
-  let e = s.getBoundingClientRect(), i = s.ownerDocument, n = i.defaultView || window, r = Math.max(0, e.left), o = Math.min(n.innerWidth, e.right), l = Math.max(0, e.top), a = Math.min(n.innerHeight, e.bottom);
-  for (let h = s.parentNode; h && h != i.body; )
-    if (h.nodeType == 1) {
-      let f = h, c = window.getComputedStyle(f);
-      if ((f.scrollHeight > f.clientHeight || f.scrollWidth > f.clientWidth) && c.overflow != "visible") {
-        let u = f.getBoundingClientRect();
-        r = Math.max(r, u.left), o = Math.min(o, u.right), l = Math.max(l, u.top), a = Math.min(h == s.parentNode ? n.innerHeight : a, u.bottom);
-      }
-      h = c.position == "absolute" || c.position == "fixed" ? f.offsetParent : f.parentNode;
-    } else if (h.nodeType == 11)
-      h = h.host;
-    else
-      break;
-  return {
-    left: r - e.left,
-    right: Math.max(r, o) - e.left,
-    top: l - (e.top + t),
-    bottom: Math.max(l, a) - (e.top + t)
-  };
-}
-function ec(s) {
-  let t = s.getBoundingClientRect(), e = s.ownerDocument.defaultView || window;
-  return t.left < e.innerWidth && t.right > 0 && t.top < e.innerHeight && t.bottom > 0;
-}
-function ic(s, t) {
-  let e = s.getBoundingClientRect();
-  return {
-    left: 0,
-    right: e.right - e.left,
-    top: t,
-    bottom: e.bottom - (e.top + t)
-  };
-}
-class Un {
-  constructor(t, e, i, n) {
-    this.from = t, this.to = e, this.size = i, this.displaySize = n;
-  }
-  static same(t, e) {
-    if (t.length != e.length)
-      return !1;
-    for (let i = 0; i < t.length; i++) {
-      let n = t[i], r = e[i];
-      if (n.from != r.from || n.to != r.to || n.size != r.size)
-        return !1;
-    }
-    return !0;
-  }
-  draw(t, e) {
-    return U.replace({
-      widget: new nc(this.displaySize * (e ? t.scaleY : t.scaleX), e)
-    }).range(this.from, this.to);
-  }
-}
-class nc extends mi {
-  constructor(t, e) {
-    super(), this.size = t, this.vertical = e;
-  }
-  eq(t) {
-    return t.size == this.size && t.vertical == this.vertical;
-  }
-  toDOM() {
-    let t = document.createElement("div");
-    return this.vertical ? t.style.height = this.size + "px" : (t.style.width = this.size + "px", t.style.height = "2px", t.style.display = "inline-block"), t;
-  }
-  get estimatedHeight() {
-    return this.vertical ? this.size : -1;
-  }
-}
-class Zr {
-  constructor(t) {
-    this.state = t, this.pixelViewport = { left: 0, right: window.innerWidth, top: 0, bottom: 0 }, this.inView = !0, this.paddingTop = 0, this.paddingBottom = 0, this.contentDOMWidth = 0, this.contentDOMHeight = 0, this.editorHeight = 0, this.editorWidth = 0, this.scrollTop = 0, this.scrolledToBottom = !1, this.scaleX = 1, this.scaleY = 1, this.scrollAnchorPos = 0, this.scrollAnchorHeight = -1, this.scaler = to, this.scrollTarget = null, this.printing = !1, this.mustMeasureContent = !0, this.defaultTextDirection = K.LTR, this.visibleRanges = [], this.mustEnforceCursorAssoc = !1;
-    let e = t.facet(er).some((i) => typeof i != "function" && i.class == "cm-lineWrapping");
-    this.heightOracle = new Gf(e), this.stateDeco = eo(t), this.heightMap = lt.empty().applyChanges(this.stateDeco, P.empty, this.heightOracle.setDoc(t.doc), [new yt(0, 0, 0, t.doc.length)]);
-    for (let i = 0; i < 2 && (this.viewport = this.getViewport(0, null), !!this.updateForViewport()); i++)
-      ;
-    this.updateViewportLines(), this.lineGaps = this.ensureLineGaps([]), this.lineGapDeco = U.set(this.lineGaps.map((i) => i.draw(this, !1))), this.computeVisibleRanges();
-  }
-  updateForViewport() {
-    let t = [this.viewport], { main: e } = this.state.selection;
-    for (let i = 0; i <= 1; i++) {
-      let n = i ? e.head : e.anchor;
-      if (!t.some(({ from: r, to: o }) => n >= r && n <= o)) {
-        let { from: r, to: o } = this.lineBlockAt(n);
-        t.push(new Oi(r, o));
-      }
-    }
-    return this.viewports = t.sort((i, n) => i.from - n.from), this.updateScaler();
-  }
-  updateScaler() {
-    let t = this.scaler;
-    return this.scaler = this.heightMap.height <= 7e6 ? to : new or(this.heightOracle, this.heightMap, this.viewports), t.eq(this.scaler) ? 0 : 2;
-  }
-  updateViewportLines() {
-    this.viewportLines = [], this.heightMap.forEachLine(this.viewport.from, this.viewport.to, this.heightOracle.setDoc(this.state.doc), 0, 0, (t) => {
-      this.viewportLines.push(Xe(t, this.scaler));
-    });
-  }
-  update(t, e = null) {
-    this.state = t.state;
-    let i = this.stateDeco;
-    this.stateDeco = eo(this.state);
-    let n = t.changedRanges, r = yt.extendWithRanges(n, Qf(i, this.stateDeco, t ? t.changes : _.empty(this.state.doc.length))), o = this.heightMap.height, l = this.scrolledToBottom ? null : this.scrollAnchorAt(this.scrollTop);
-    Xr(), this.heightMap = this.heightMap.applyChanges(this.stateDeco, t.startState.doc, this.heightOracle.setDoc(this.state.doc), r), (this.heightMap.height != o || We) && (t.flags |= 2), l ? (this.scrollAnchorPos = t.changes.mapPos(l.from, -1), this.scrollAnchorHeight = l.top) : (this.scrollAnchorPos = -1, this.scrollAnchorHeight = o);
-    let a = r.length ? this.mapViewport(this.viewport, t.changes) : this.viewport;
-    (e && (e.range.head < a.from || e.range.head > a.to) || !this.viewportIsAppropriate(a)) && (a = this.getViewport(0, e));
-    let h = a.from != this.viewport.from || a.to != this.viewport.to;
-    this.viewport = a, t.flags |= this.updateForViewport(), (h || !t.changes.empty || t.flags & 2) && this.updateViewportLines(), (this.lineGaps.length || this.viewport.to - this.viewport.from > 4e3) && this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, t.changes))), t.flags |= this.computeVisibleRanges(t.changes), e && (this.scrollTarget = e), !this.mustEnforceCursorAssoc && (t.selectionSet || t.focusChanged) && t.view.lineWrapping && t.state.selection.main.empty && t.state.selection.main.assoc && !t.state.facet(Gh) && (this.mustEnforceCursorAssoc = !0);
-  }
-  measure(t) {
-    let e = t.contentDOM, i = window.getComputedStyle(e), n = this.heightOracle, r = i.whiteSpace;
-    this.defaultTextDirection = i.direction == "rtl" ? K.RTL : K.LTR;
-    let o = this.heightOracle.mustRefreshForWrapping(r) || this.mustMeasureContent, l = e.getBoundingClientRect(), a = o || this.mustMeasureContent || this.contentDOMHeight != l.height;
-    this.contentDOMHeight = l.height, this.mustMeasureContent = !1;
-    let h = 0, f = 0;
-    if (l.width && l.height) {
-      let { scaleX: C, scaleY: S } = ul(e, l);
-      (C > 5e-3 && Math.abs(this.scaleX - C) > 5e-3 || S > 5e-3 && Math.abs(this.scaleY - S) > 5e-3) && (this.scaleX = C, this.scaleY = S, h |= 16, o = a = !0);
-    }
-    let c = (parseInt(i.paddingTop) || 0) * this.scaleY, u = (parseInt(i.paddingBottom) || 0) * this.scaleY;
-    (this.paddingTop != c || this.paddingBottom != u) && (this.paddingTop = c, this.paddingBottom = u, h |= 18), this.editorWidth != t.scrollDOM.clientWidth && (n.lineWrapping && (a = !0), this.editorWidth = t.scrollDOM.clientWidth, h |= 16);
-    let d = t.scrollDOM.scrollTop * this.scaleY;
-    this.scrollTop != d && (this.scrollAnchorHeight = -1, this.scrollTop = d), this.scrolledToBottom = pl(t.scrollDOM);
-    let p = (this.printing ? ic : tc)(e, this.paddingTop), m = p.top - this.pixelViewport.top, g = p.bottom - this.pixelViewport.bottom;
-    this.pixelViewport = p;
-    let y = this.pixelViewport.bottom > this.pixelViewport.top && this.pixelViewport.right > this.pixelViewport.left;
-    if (y != this.inView && (this.inView = y, y && (a = !0)), !this.inView && !this.scrollTarget && !ec(t.dom))
-      return 0;
-    let x = l.width;
-    if ((this.contentDOMWidth != x || this.editorHeight != t.scrollDOM.clientHeight) && (this.contentDOMWidth = l.width, this.editorHeight = t.scrollDOM.clientHeight, h |= 16), a) {
-      let C = t.docView.measureVisibleLineHeights(this.viewport);
-      if (n.mustRefreshForHeights(C) && (o = !0), o || n.lineWrapping && Math.abs(x - this.contentDOMWidth) > n.charWidth) {
-        let { lineHeight: S, charWidth: T, textHeight: A } = t.docView.measureTextSize();
-        o = S > 0 && n.refresh(r, S, T, A, Math.max(5, x / T), C), o && (t.docView.minWidth = 0, h |= 16);
-      }
-      m > 0 && g > 0 ? f = Math.max(m, g) : m < 0 && g < 0 && (f = Math.min(m, g)), Xr();
-      for (let S of this.viewports) {
-        let T = S.from == this.viewport.from ? C : t.docView.measureVisibleLineHeights(S);
-        this.heightMap = (o ? lt.empty().applyChanges(this.stateDeco, P.empty, this.heightOracle, [new yt(0, 0, 0, t.state.doc.length)]) : this.heightMap).updateHeight(n, 0, o, new Jf(S.from, T));
-      }
-      We && (h |= 2);
-    }
-    let w = !this.viewportIsAppropriate(this.viewport, f) || this.scrollTarget && (this.scrollTarget.range.head < this.viewport.from || this.scrollTarget.range.head > this.viewport.to);
-    return w && (h & 2 && (h |= this.updateScaler()), this.viewport = this.getViewport(f, this.scrollTarget), h |= this.updateForViewport()), (h & 2 || w) && this.updateViewportLines(), (this.lineGaps.length || this.viewport.to - this.viewport.from > 4e3) && this.updateLineGaps(this.ensureLineGaps(o ? [] : this.lineGaps, t)), h |= this.computeVisibleRanges(), this.mustEnforceCursorAssoc && (this.mustEnforceCursorAssoc = !1, t.docView.enforceCursorAssoc()), h;
-  }
-  get visibleTop() {
-    return this.scaler.fromDOM(this.pixelViewport.top);
-  }
-  get visibleBottom() {
-    return this.scaler.fromDOM(this.pixelViewport.bottom);
-  }
-  getViewport(t, e) {
-    let i = 0.5 - Math.max(-0.5, Math.min(0.5, t / 1e3 / 2)), n = this.heightMap, r = this.heightOracle, { visibleTop: o, visibleBottom: l } = this, a = new Oi(n.lineAt(o - i * 1e3, F.ByHeight, r, 0, 0).from, n.lineAt(l + (1 - i) * 1e3, F.ByHeight, r, 0, 0).to);
-    if (e) {
-      let { head: h } = e.range;
-      if (h < a.from || h > a.to) {
-        let f = Math.min(this.editorHeight, this.pixelViewport.bottom - this.pixelViewport.top), c = n.lineAt(h, F.ByPos, r, 0, 0), u;
-        e.y == "center" ? u = (c.top + c.bottom) / 2 - f / 2 : e.y == "start" || e.y == "nearest" && h < a.from ? u = c.top : u = c.bottom - f, a = new Oi(n.lineAt(u - 1e3 / 2, F.ByHeight, r, 0, 0).from, n.lineAt(u + f + 1e3 / 2, F.ByHeight, r, 0, 0).to);
-      }
-    }
-    return a;
-  }
-  mapViewport(t, e) {
-    let i = e.mapPos(t.from, -1), n = e.mapPos(t.to, 1);
-    return new Oi(this.heightMap.lineAt(i, F.ByPos, this.heightOracle, 0, 0).from, this.heightMap.lineAt(n, F.ByPos, this.heightOracle, 0, 0).to);
-  }
-  // Checks if a given viewport covers the visible part of the
-  // document and not too much beyond that.
-  viewportIsAppropriate({ from: t, to: e }, i = 0) {
-    if (!this.inView)
-      return !0;
-    let { top: n } = this.heightMap.lineAt(t, F.ByPos, this.heightOracle, 0, 0), { bottom: r } = this.heightMap.lineAt(e, F.ByPos, this.heightOracle, 0, 0), { visibleTop: o, visibleBottom: l } = this;
-    return (t == 0 || n <= o - Math.max(10, Math.min(
-      -i,
-      250
-      /* VP.MaxCoverMargin */
-    ))) && (e == this.state.doc.length || r >= l + Math.max(10, Math.min(
-      i,
-      250
-      /* VP.MaxCoverMargin */
-    ))) && n > o - 2 * 1e3 && r < l + 2 * 1e3;
-  }
-  mapLineGaps(t, e) {
-    if (!t.length || e.empty)
-      return t;
-    let i = [];
-    for (let n of t)
-      e.touchesRange(n.from, n.to) || i.push(new Un(e.mapPos(n.from), e.mapPos(n.to), n.size, n.displaySize));
-    return i;
-  }
-  // Computes positions in the viewport where the start or end of a
-  // line should be hidden, trying to reuse existing line gaps when
-  // appropriate to avoid unneccesary redraws.
-  // Uses crude character-counting for the positioning and sizing,
-  // since actual DOM coordinates aren't always available and
-  // predictable. Relies on generous margins (see LG.Margin) to hide
-  // the artifacts this might produce from the user.
-  ensureLineGaps(t, e) {
-    let i = this.heightOracle.lineWrapping, n = i ? 1e4 : 2e3, r = n >> 1, o = n << 1;
-    if (this.defaultTextDirection != K.LTR && !i)
-      return [];
-    let l = [], a = (f, c, u, d) => {
-      if (c - f < r)
-        return;
-      let p = this.state.selection.main, m = [p.from];
-      p.empty || m.push(p.to);
-      for (let y of m)
-        if (y > f && y < c) {
-          a(f, y - 10, u, d), a(y + 10, c, u, d);
-          return;
-        }
-      let g = rc(t, (y) => y.from >= u.from && y.to <= u.to && Math.abs(y.from - f) < r && Math.abs(y.to - c) < r && !m.some((x) => y.from < x && y.to > x));
-      if (!g) {
-        if (c < u.to && e && i && e.visibleRanges.some((w) => w.from <= c && w.to >= c)) {
-          let w = e.moveToLineBoundary(b.cursor(c), !1, !0).head;
-          w > f && (c = w);
-        }
-        let y = this.gapSize(u, f, c, d), x = i || y < 2e6 ? y : 2e6;
-        g = new Un(f, c, y, x);
-      }
-      l.push(g);
-    }, h = (f) => {
-      if (f.length < o || f.type != ut.Text)
-        return;
-      let c = sc(f.from, f.to, this.stateDeco);
-      if (c.total < o)
-        return;
-      let u = this.scrollTarget ? this.scrollTarget.range.head : null, d, p;
-      if (i) {
-        let m = n / this.heightOracle.lineLength * this.heightOracle.lineHeight, g, y;
-        if (u != null) {
-          let x = Bi(c, u), w = ((this.visibleBottom - this.visibleTop) / 2 + m) / f.height;
-          g = x - w, y = x + w;
-        } else
-          g = (this.visibleTop - f.top - m) / f.height, y = (this.visibleBottom - f.top + m) / f.height;
-        d = Di(c, g), p = Di(c, y);
-      } else {
-        let m = c.total * this.heightOracle.charWidth, g = n * this.heightOracle.charWidth, y = 0;
-        if (m > 2e6)
-          for (let T of t)
-            T.from >= f.from && T.from < f.to && T.size != T.displaySize && T.from * this.heightOracle.charWidth + y < this.pixelViewport.left && (y = T.size - T.displaySize);
-        let x = this.pixelViewport.left + y, w = this.pixelViewport.right + y, C, S;
-        if (u != null) {
-          let T = Bi(c, u), A = ((w - x) / 2 + g) / m;
-          C = T - A, S = T + A;
-        } else
-          C = (x - g) / m, S = (w + g) / m;
-        d = Di(c, C), p = Di(c, S);
-      }
-      d > f.from && a(f.from, d, f, c), p < f.to && a(p, f.to, f, c);
-    };
-    for (let f of this.viewportLines)
-      Array.isArray(f.type) ? f.type.forEach(h) : h(f);
-    return l;
-  }
-  gapSize(t, e, i, n) {
-    let r = Bi(n, i) - Bi(n, e);
-    return this.heightOracle.lineWrapping ? t.height * r : n.total * this.heightOracle.charWidth * r;
-  }
-  updateLineGaps(t) {
-    Un.same(t, this.lineGaps) || (this.lineGaps = t, this.lineGapDeco = U.set(t.map((e) => e.draw(this, this.heightOracle.lineWrapping))));
-  }
-  computeVisibleRanges(t) {
-    let e = this.stateDeco;
-    this.lineGaps.length && (e = e.concat(this.lineGapDeco));
-    let i = [];
-    L.spans(e, this.viewport.from, this.viewport.to, {
-      span(r, o) {
-        i.push({ from: r, to: o });
-      },
-      point() {
-      }
-    }, 20);
-    let n = 0;
-    if (i.length != this.visibleRanges.length)
-      n = 12;
-    else
-      for (let r = 0; r < i.length && !(n & 8); r++) {
-        let o = this.visibleRanges[r], l = i[r];
-        (o.from != l.from || o.to != l.to) && (n |= 4, t && t.mapPos(o.from, -1) == l.from && t.mapPos(o.to, 1) == l.to || (n |= 8));
-      }
-    return this.visibleRanges = i, n;
-  }
-  lineBlockAt(t) {
-    return t >= this.viewport.from && t <= this.viewport.to && this.viewportLines.find((e) => e.from <= t && e.to >= t) || Xe(this.heightMap.lineAt(t, F.ByPos, this.heightOracle, 0, 0), this.scaler);
-  }
-  lineBlockAtHeight(t) {
-    return t >= this.viewportLines[0].top && t <= this.viewportLines[this.viewportLines.length - 1].bottom && this.viewportLines.find((e) => e.top <= t && e.bottom >= t) || Xe(this.heightMap.lineAt(this.scaler.fromDOM(t), F.ByHeight, this.heightOracle, 0, 0), this.scaler);
-  }
-  scrollAnchorAt(t) {
-    let e = this.lineBlockAtHeight(t + 8);
-    return e.from >= this.viewport.from || this.viewportLines[0].top - t > 200 ? e : this.viewportLines[0];
-  }
-  elementAtHeight(t) {
-    return Xe(this.heightMap.blockAt(this.scaler.fromDOM(t), this.heightOracle, 0, 0), this.scaler);
-  }
-  get docHeight() {
-    return this.scaler.toDOM(this.heightMap.height);
-  }
-  get contentHeight() {
-    return this.docHeight + this.paddingTop + this.paddingBottom;
-  }
-}
-class Oi {
-  constructor(t, e) {
-    this.from = t, this.to = e;
-  }
-}
-function sc(s, t, e) {
-  let i = [], n = s, r = 0;
-  return L.spans(e, s, t, {
-    span() {
-    },
-    point(o, l) {
-      o > n && (i.push({ from: n, to: o }), r += o - n), n = l;
-    }
-  }, 20), n < t && (i.push({ from: n, to: t }), r += t - n), { total: r, ranges: i };
-}
-function Di({ total: s, ranges: t }, e) {
-  if (e <= 0)
-    return t[0].from;
-  if (e >= 1)
-    return t[t.length - 1].to;
-  let i = Math.floor(s * e);
-  for (let n = 0; ; n++) {
-    let { from: r, to: o } = t[n], l = o - r;
-    if (i <= l)
-      return r + i;
-    i -= l;
-  }
-}
-function Bi(s, t) {
-  let e = 0;
-  for (let { from: i, to: n } of s.ranges) {
-    if (t <= n) {
-      e += t - i;
-      break;
-    }
-    e += n - i;
-  }
-  return e / s.total;
-}
-function rc(s, t) {
-  for (let e of s)
-    if (t(e))
-      return e;
-}
-const to = {
-  toDOM(s) {
-    return s;
-  },
-  fromDOM(s) {
-    return s;
-  },
-  scale: 1,
-  eq(s) {
-    return s == this;
-  }
-};
-function eo(s) {
-  let t = s.facet(Sn).filter((i) => typeof i != "function"), e = s.facet(ir).filter((i) => typeof i != "function");
-  return e.length && t.push(L.join(e)), t;
-}
-class or {
-  constructor(t, e, i) {
-    let n = 0, r = 0, o = 0;
-    this.viewports = i.map(({ from: l, to: a }) => {
-      let h = e.lineAt(l, F.ByPos, t, 0, 0).top, f = e.lineAt(a, F.ByPos, t, 0, 0).bottom;
-      return n += f - h, { from: l, to: a, top: h, bottom: f, domTop: 0, domBottom: 0 };
-    }), this.scale = (7e6 - n) / (e.height - n);
-    for (let l of this.viewports)
-      l.domTop = o + (l.top - r) * this.scale, o = l.domBottom = l.domTop + (l.bottom - l.top), r = l.bottom;
-  }
-  toDOM(t) {
-    for (let e = 0, i = 0, n = 0; ; e++) {
-      let r = e < this.viewports.length ? this.viewports[e] : null;
-      if (!r || t < r.top)
-        return n + (t - i) * this.scale;
-      if (t <= r.bottom)
-        return r.domTop + (t - r.top);
-      i = r.bottom, n = r.domBottom;
-    }
-  }
-  fromDOM(t) {
-    for (let e = 0, i = 0, n = 0; ; e++) {
-      let r = e < this.viewports.length ? this.viewports[e] : null;
-      if (!r || t < r.domTop)
-        return i + (t - n) / this.scale;
-      if (t <= r.domBottom)
-        return r.top + (t - r.domTop);
-      i = r.bottom, n = r.domBottom;
-    }
-  }
-  eq(t) {
-    return t instanceof or ? this.scale == t.scale && this.viewports.length == t.viewports.length && this.viewports.every((e, i) => e.from == t.viewports[i].from && e.to == t.viewports[i].to) : !1;
-  }
-}
-function Xe(s, t) {
-  if (t.scale == 1)
-    return s;
-  let e = t.toDOM(s.top), i = t.toDOM(s.bottom);
-  return new At(s.from, s.length, e, i - e, Array.isArray(s._content) ? s._content.map((n) => Xe(n, t)) : s._content);
-}
-const Li = /* @__PURE__ */ M.define({ combine: (s) => s.join(" ") }), Bs = /* @__PURE__ */ M.define({ combine: (s) => s.indexOf(!0) > -1 }), Ls = /* @__PURE__ */ Ie.newName(), Yl = /* @__PURE__ */ Ie.newName(), Xl = /* @__PURE__ */ Ie.newName(), Ql = { "&light": "." + Yl, "&dark": "." + Xl };
-function Es(s, t, e) {
-  return new Ie(t, {
-    finish(i) {
-      return /&/.test(i) ? i.replace(/&\w*/, (n) => {
-        if (n == "&")
-          return s;
-        if (!e || !e[n])
-          throw new RangeError(`Unsupported selector: ${n}`);
-        return e[n];
-      }) : s + " " + i;
-    }
-  });
-}
-const oc = /* @__PURE__ */ Es("." + Ls, {
-  "&": {
-    position: "relative !important",
-    boxSizing: "border-box",
-    "&.cm-focused": {
-      // Provide a simple default outline to make sure a focused
-      // editor is visually distinct. Can't leave the default behavior
-      // because that will apply to the content element, which is
-      // inside the scrollable container and doesn't include the
-      // gutters. We also can't use an 'auto' outline, since those
-      // are, for some reason, drawn behind the element content, which
-      // will cause things like the active line background to cover
-      // the outline (#297).
-      outline: "1px dotted #212121"
-    },
-    display: "flex !important",
-    flexDirection: "column"
-  },
-  ".cm-scroller": {
-    display: "flex !important",
-    alignItems: "flex-start !important",
-    fontFamily: "monospace",
-    lineHeight: 1.4,
-    height: "100%",
-    overflowX: "auto",
-    position: "relative",
-    zIndex: 0,
-    overflowAnchor: "none"
-  },
-  ".cm-content": {
-    margin: 0,
-    flexGrow: 2,
-    flexShrink: 0,
-    display: "block",
-    whiteSpace: "pre",
-    wordWrap: "normal",
-    // https://github.com/codemirror/dev/issues/456
-    boxSizing: "border-box",
-    minHeight: "100%",
-    padding: "4px 0",
-    outline: "none",
-    "&[contenteditable=true]": {
-      WebkitUserModify: "read-write-plaintext-only"
-    }
-  },
-  ".cm-lineWrapping": {
-    whiteSpace_fallback: "pre-wrap",
-    // For IE
-    whiteSpace: "break-spaces",
-    wordBreak: "break-word",
-    // For Safari, which doesn't support overflow-wrap: anywhere
-    overflowWrap: "anywhere",
-    flexShrink: 1
-  },
-  "&light .cm-content": { caretColor: "black" },
-  "&dark .cm-content": { caretColor: "white" },
-  ".cm-line": {
-    display: "block",
-    padding: "0 2px 0 6px"
-  },
-  ".cm-layer": {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    contain: "size style",
-    "& > *": {
-      position: "absolute"
-    }
-  },
-  "&light .cm-selectionBackground": {
-    background: "#d9d9d9"
-  },
-  "&dark .cm-selectionBackground": {
-    background: "#222"
-  },
-  "&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    background: "#d7d4f0"
-  },
-  "&dark.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    background: "#233"
-  },
-  ".cm-cursorLayer": {
-    pointerEvents: "none"
-  },
-  "&.cm-focused > .cm-scroller > .cm-cursorLayer": {
-    animation: "steps(1) cm-blink 1.2s infinite"
-  },
-  // Two animations defined so that we can switch between them to
-  // restart the animation without forcing another style
-  // recomputation.
-  "@keyframes cm-blink": { "0%": {}, "50%": { opacity: 0 }, "100%": {} },
-  "@keyframes cm-blink2": { "0%": {}, "50%": { opacity: 0 }, "100%": {} },
-  ".cm-cursor, .cm-dropCursor": {
-    borderLeft: "1.2px solid black",
-    marginLeft: "-0.6px",
-    pointerEvents: "none"
-  },
-  ".cm-cursor": {
-    display: "none"
-  },
-  "&dark .cm-cursor": {
-    borderLeftColor: "#ddd"
-  },
-  ".cm-dropCursor": {
-    position: "absolute"
-  },
-  "&.cm-focused > .cm-scroller > .cm-cursorLayer .cm-cursor": {
-    display: "block"
-  },
-  ".cm-iso": {
-    unicodeBidi: "isolate"
-  },
-  ".cm-announced": {
-    position: "fixed",
-    top: "-10000px"
-  },
-  "@media print": {
-    ".cm-announced": { display: "none" }
-  },
-  "&light .cm-activeLine": { backgroundColor: "#cceeff44" },
-  "&dark .cm-activeLine": { backgroundColor: "#99eeff33" },
-  "&light .cm-specialChar": { color: "red" },
-  "&dark .cm-specialChar": { color: "#f78" },
-  ".cm-gutters": {
-    flexShrink: 0,
-    display: "flex",
-    height: "100%",
-    boxSizing: "border-box",
-    zIndex: 200
-  },
-  ".cm-gutters-before": { insetInlineStart: 0 },
-  ".cm-gutters-after": { insetInlineEnd: 0 },
-  "&light .cm-gutters": {
-    backgroundColor: "#f5f5f5",
-    color: "#6c6c6c",
-    border: "0px solid #ddd",
-    "&.cm-gutters-before": { borderRightWidth: "1px" },
-    "&.cm-gutters-after": { borderLeftWidth: "1px" }
-  },
-  "&dark .cm-gutters": {
-    backgroundColor: "#333338",
-    color: "#ccc"
-  },
-  ".cm-gutter": {
-    display: "flex !important",
-    // Necessary -- prevents margin collapsing
-    flexDirection: "column",
-    flexShrink: 0,
-    boxSizing: "border-box",
-    minHeight: "100%",
-    overflow: "hidden"
-  },
-  ".cm-gutterElement": {
-    boxSizing: "border-box"
-  },
-  ".cm-lineNumbers .cm-gutterElement": {
-    padding: "0 3px 0 5px",
-    minWidth: "20px",
-    textAlign: "right",
-    whiteSpace: "nowrap"
-  },
-  "&light .cm-activeLineGutter": {
-    backgroundColor: "#e2f2ff"
-  },
-  "&dark .cm-activeLineGutter": {
-    backgroundColor: "#222227"
-  },
-  ".cm-panels": {
-    boxSizing: "border-box",
-    position: "sticky",
-    left: 0,
-    right: 0,
-    zIndex: 300
-  },
-  "&light .cm-panels": {
-    backgroundColor: "#f5f5f5",
-    color: "black"
-  },
-  "&light .cm-panels-top": {
-    borderBottom: "1px solid #ddd"
-  },
-  "&light .cm-panels-bottom": {
-    borderTop: "1px solid #ddd"
-  },
-  "&dark .cm-panels": {
-    backgroundColor: "#333338",
-    color: "white"
-  },
-  ".cm-dialog": {
-    padding: "2px 19px 4px 6px",
-    position: "relative",
-    "& label": { fontSize: "80%" }
-  },
-  ".cm-dialog-close": {
-    position: "absolute",
-    top: "3px",
-    right: "4px",
-    backgroundColor: "inherit",
-    border: "none",
-    font: "inherit",
-    fontSize: "14px",
-    padding: "0"
-  },
-  ".cm-tab": {
-    display: "inline-block",
-    overflow: "hidden",
-    verticalAlign: "bottom"
-  },
-  ".cm-widgetBuffer": {
-    verticalAlign: "text-top",
-    height: "1em",
-    width: 0,
-    display: "inline"
-  },
-  ".cm-placeholder": {
-    color: "#888",
-    display: "inline-block",
-    verticalAlign: "top",
-    userSelect: "none"
-  },
-  ".cm-highlightSpace": {
-    backgroundImage: "radial-gradient(circle at 50% 55%, #aaa 20%, transparent 5%)",
-    backgroundPosition: "center"
-  },
-  ".cm-highlightTab": {
-    backgroundImage: `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20"><path stroke="%23888" stroke-width="1" fill="none" d="M1 10H196L190 5M190 15L196 10M197 4L197 16"/></svg>')`,
-    backgroundSize: "auto 100%",
-    backgroundPosition: "right 90%",
-    backgroundRepeat: "no-repeat"
-  },
-  ".cm-trailingSpace": {
-    backgroundColor: "#ff332255"
-  },
-  ".cm-button": {
-    verticalAlign: "middle",
-    color: "inherit",
-    fontSize: "70%",
-    padding: ".2em 1em",
-    borderRadius: "1px"
-  },
-  "&light .cm-button": {
-    backgroundImage: "linear-gradient(#eff1f5, #d9d9df)",
-    border: "1px solid #888",
-    "&:active": {
-      backgroundImage: "linear-gradient(#b4b4b4, #d0d3d6)"
-    }
-  },
-  "&dark .cm-button": {
-    backgroundImage: "linear-gradient(#393939, #111)",
-    border: "1px solid #888",
-    "&:active": {
-      backgroundImage: "linear-gradient(#111, #333)"
-    }
-  },
-  ".cm-textfield": {
-    verticalAlign: "middle",
-    color: "inherit",
-    fontSize: "70%",
-    border: "1px solid silver",
-    padding: ".2em .5em"
-  },
-  "&light .cm-textfield": {
-    backgroundColor: "white"
-  },
-  "&dark .cm-textfield": {
-    border: "1px solid #555",
-    backgroundColor: "inherit"
-  }
-}, Ql), lc = {
-  childList: !0,
-  characterData: !0,
-  subtree: !0,
-  attributes: !0,
-  characterDataOldValue: !0
-}, jn = k.ie && k.ie_version <= 11;
-class ac {
-  constructor(t) {
-    this.view = t, this.active = !1, this.editContext = null, this.selectionRange = new Ih(), this.selectionChanged = !1, this.delayedFlush = -1, this.resizeTimeout = -1, this.queue = [], this.delayedAndroidKey = null, this.flushingAndroidKey = -1, this.lastChange = 0, this.scrollTargets = [], this.intersection = null, this.resizeScroll = null, this.intersecting = !1, this.gapIntersection = null, this.gaps = [], this.printQuery = null, this.parentCheck = -1, this.dom = t.contentDOM, this.observer = new MutationObserver((e) => {
-      for (let i of e)
-        this.queue.push(i);
-      (k.ie && k.ie_version <= 11 || k.ios && t.composing) && e.some((i) => i.type == "childList" && i.removedNodes.length || i.type == "characterData" && i.oldValue.length > i.target.nodeValue.length) ? this.flushSoon() : this.flush();
-    }), window.EditContext && k.android && t.constructor.EDIT_CONTEXT !== !1 && // Chrome <126 doesn't support inverted selections in edit context (#1392)
-    !(k.chrome && k.chrome_version < 126) && (this.editContext = new fc(t), t.state.facet($t) && (t.contentDOM.editContext = this.editContext.editContext)), jn && (this.onCharData = (e) => {
-      this.queue.push({
-        target: e.target,
-        type: "characterData",
-        oldValue: e.prevValue
-      }), this.flushSoon();
-    }), this.onSelectionChange = this.onSelectionChange.bind(this), this.onResize = this.onResize.bind(this), this.onPrint = this.onPrint.bind(this), this.onScroll = this.onScroll.bind(this), window.matchMedia && (this.printQuery = window.matchMedia("print")), typeof ResizeObserver == "function" && (this.resizeScroll = new ResizeObserver(() => {
-      var e;
-      ((e = this.view.docView) === null || e === void 0 ? void 0 : e.lastUpdate) < Date.now() - 75 && this.onResize();
-    }), this.resizeScroll.observe(t.scrollDOM)), this.addWindowListeners(this.win = t.win), this.start(), typeof IntersectionObserver == "function" && (this.intersection = new IntersectionObserver((e) => {
-      this.parentCheck < 0 && (this.parentCheck = setTimeout(this.listenForScroll.bind(this), 1e3)), e.length > 0 && e[e.length - 1].intersectionRatio > 0 != this.intersecting && (this.intersecting = !this.intersecting, this.intersecting != this.view.inView && this.onScrollChanged(document.createEvent("Event")));
-    }, { threshold: [0, 1e-3] }), this.intersection.observe(this.dom), this.gapIntersection = new IntersectionObserver((e) => {
-      e.length > 0 && e[e.length - 1].intersectionRatio > 0 && this.onScrollChanged(document.createEvent("Event"));
-    }, {})), this.listenForScroll(), this.readSelectionRange();
-  }
-  onScrollChanged(t) {
-    this.view.inputState.runHandlers("scroll", t), this.intersecting && this.view.measure();
-  }
-  onScroll(t) {
-    this.intersecting && this.flush(!1), this.editContext && this.view.requestMeasure(this.editContext.measureReq), this.onScrollChanged(t);
-  }
-  onResize() {
-    this.resizeTimeout < 0 && (this.resizeTimeout = setTimeout(() => {
-      this.resizeTimeout = -1, this.view.requestMeasure();
-    }, 50));
-  }
-  onPrint(t) {
-    (t.type == "change" || !t.type) && !t.matches || (this.view.viewState.printing = !0, this.view.measure(), setTimeout(() => {
-      this.view.viewState.printing = !1, this.view.requestMeasure();
-    }, 500));
-  }
-  updateGaps(t) {
-    if (this.gapIntersection && (t.length != this.gaps.length || this.gaps.some((e, i) => e != t[i]))) {
-      this.gapIntersection.disconnect();
-      for (let e of t)
-        this.gapIntersection.observe(e);
-      this.gaps = t;
-    }
-  }
-  onSelectionChange(t) {
-    let e = this.selectionChanged;
-    if (!this.readSelectionRange() || this.delayedAndroidKey)
-      return;
-    let { view: i } = this, n = this.selectionRange;
-    if (i.state.facet($t) ? i.root.activeElement != this.dom : !ti(this.dom, n))
-      return;
-    let r = n.anchorNode && i.docView.tile.nearest(n.anchorNode);
-    if (r && r.isWidget() && r.widget.ignoreEvent(t)) {
-      e || (this.selectionChanged = !1);
-      return;
-    }
-    (k.ie && k.ie_version <= 11 || k.android && k.chrome) && !i.state.selection.main.empty && // (Selection.isCollapsed isn't reliable on IE)
-    n.focusNode && ei(n.focusNode, n.focusOffset, n.anchorNode, n.anchorOffset) ? this.flushSoon() : this.flush(!1);
-  }
-  readSelectionRange() {
-    let { view: t } = this, e = fi(t.root);
-    if (!e)
-      return !1;
-    let i = k.safari && t.root.nodeType == 11 && t.root.activeElement == this.dom && hc(this.view, e) || e;
-    if (!i || this.selectionRange.eq(i))
-      return !1;
-    let n = ti(this.dom, i);
-    return n && !this.selectionChanged && t.inputState.lastFocusTime > Date.now() - 200 && t.inputState.lastTouchTime < Date.now() - 300 && Hh(this.dom, i) ? (this.view.inputState.lastFocusTime = 0, t.docView.updateSelection(), !1) : (this.selectionRange.setRange(i), n && (this.selectionChanged = !0), !0);
-  }
-  setSelectionRange(t, e) {
-    this.selectionRange.set(t.node, t.offset, e.node, e.offset), this.selectionChanged = !1;
-  }
-  clearSelectionRange() {
-    this.selectionRange.set(null, 0, null, 0);
-  }
-  listenForScroll() {
-    this.parentCheck = -1;
-    let t = 0, e = null;
-    for (let i = this.dom; i; )
-      if (i.nodeType == 1)
-        !e && t < this.scrollTargets.length && this.scrollTargets[t] == i ? t++ : e || (e = this.scrollTargets.slice(0, t)), e && e.push(i), i = i.assignedSlot || i.parentNode;
-      else if (i.nodeType == 11)
-        i = i.host;
-      else
-        break;
-    if (t < this.scrollTargets.length && !e && (e = this.scrollTargets.slice(0, t)), e) {
-      for (let i of this.scrollTargets)
-        i.removeEventListener("scroll", this.onScroll);
-      for (let i of this.scrollTargets = e)
-        i.addEventListener("scroll", this.onScroll);
-    }
-  }
-  ignore(t) {
-    if (!this.active)
-      return t();
-    try {
-      return this.stop(), t();
-    } finally {
-      this.start(), this.clear();
-    }
-  }
-  start() {
-    this.active || (this.observer.observe(this.dom, lc), jn && this.dom.addEventListener("DOMCharacterDataModified", this.onCharData), this.active = !0);
-  }
-  stop() {
-    this.active && (this.active = !1, this.observer.disconnect(), jn && this.dom.removeEventListener("DOMCharacterDataModified", this.onCharData));
-  }
-  // Throw away any pending changes
-  clear() {
-    this.processRecords(), this.queue.length = 0, this.selectionChanged = !1;
-  }
-  // Chrome Android, especially in combination with GBoard, not only
-  // doesn't reliably fire regular key events, but also often
-  // surrounds the effect of enter or backspace with a bunch of
-  // composition events that, when interrupted, cause text duplication
-  // or other kinds of corruption. This hack makes the editor back off
-  // from handling DOM changes for a moment when such a key is
-  // detected (via beforeinput or keydown), and then tries to flush
-  // them or, if that has no effect, dispatches the given key.
-  delayAndroidKey(t, e) {
-    var i;
-    if (!this.delayedAndroidKey) {
-      let n = () => {
-        let r = this.delayedAndroidKey;
-        r && (this.clearDelayedAndroidKey(), this.view.inputState.lastKeyCode = r.keyCode, this.view.inputState.lastKeyTime = Date.now(), !this.flush() && r.force && Le(this.dom, r.key, r.keyCode));
-      };
-      this.flushingAndroidKey = this.view.win.requestAnimationFrame(n);
-    }
-    (!this.delayedAndroidKey || t == "Enter") && (this.delayedAndroidKey = {
-      key: t,
-      keyCode: e,
-      // Only run the key handler when no changes are detected if
-      // this isn't coming right after another change, in which case
-      // it is probably part of a weird chain of updates, and should
-      // be ignored if it returns the DOM to its previous state.
-      force: this.lastChange < Date.now() - 50 || !!(!((i = this.delayedAndroidKey) === null || i === void 0) && i.force)
-    });
-  }
-  clearDelayedAndroidKey() {
-    this.win.cancelAnimationFrame(this.flushingAndroidKey), this.delayedAndroidKey = null, this.flushingAndroidKey = -1;
-  }
-  flushSoon() {
-    this.delayedFlush < 0 && (this.delayedFlush = this.view.win.requestAnimationFrame(() => {
-      this.delayedFlush = -1, this.flush();
-    }));
-  }
-  forceFlush() {
-    this.delayedFlush >= 0 && (this.view.win.cancelAnimationFrame(this.delayedFlush), this.delayedFlush = -1), this.flush();
-  }
-  pendingRecords() {
-    for (let t of this.observer.takeRecords())
-      this.queue.push(t);
-    return this.queue;
-  }
-  processRecords() {
-    let t = this.pendingRecords();
-    t.length && (this.queue = []);
-    let e = -1, i = -1, n = !1;
-    for (let r of t) {
-      let o = this.readMutation(r);
-      o && (o.typeOver && (n = !0), e == -1 ? { from: e, to: i } = o : (e = Math.min(o.from, e), i = Math.max(o.to, i)));
-    }
-    return { from: e, to: i, typeOver: n };
-  }
-  readChange() {
-    let { from: t, to: e, typeOver: i } = this.processRecords(), n = this.selectionChanged && ti(this.dom, this.selectionRange);
-    if (t < 0 && !n)
-      return null;
-    t > -1 && (this.lastChange = Date.now()), this.view.inputState.lastFocusTime = 0, this.selectionChanged = !1;
-    let r = new Tf(this.view, t, e, i);
-    return this.view.docView.domChanged = { newSel: r.newSel ? r.newSel.main : null }, r;
-  }
-  // Apply pending changes, if any
-  flush(t = !0) {
-    if (this.delayedFlush >= 0 || this.delayedAndroidKey)
-      return !1;
-    t && this.readSelectionRange();
-    let e = this.readChange();
-    if (!e)
-      return this.view.requestMeasure(), !1;
-    let i = this.view.state, n = Vl(this.view, e);
-    return this.view.state == i && (e.domChanged || e.newSel && !on(this.view.state.selection, e.newSel.main)) && this.view.update([]), n;
-  }
-  readMutation(t) {
-    let e = this.view.docView.tile.nearest(t.target);
-    if (!e || e.isWidget())
-      return null;
-    if (e.markDirty(t.type == "attributes"), t.type == "childList") {
-      let i = io(e, t.previousSibling || t.target.previousSibling, -1), n = io(e, t.nextSibling || t.target.nextSibling, 1);
-      return {
-        from: i ? e.posAfter(i) : e.posAtStart,
-        to: n ? e.posBefore(n) : e.posAtEnd,
-        typeOver: !1
-      };
-    } else return t.type == "characterData" ? { from: e.posAtStart, to: e.posAtEnd, typeOver: t.target.nodeValue == t.oldValue } : null;
-  }
-  setWindow(t) {
-    t != this.win && (this.removeWindowListeners(this.win), this.win = t, this.addWindowListeners(this.win));
-  }
-  addWindowListeners(t) {
-    t.addEventListener("resize", this.onResize), this.printQuery ? this.printQuery.addEventListener ? this.printQuery.addEventListener("change", this.onPrint) : this.printQuery.addListener(this.onPrint) : t.addEventListener("beforeprint", this.onPrint), t.addEventListener("scroll", this.onScroll), t.document.addEventListener("selectionchange", this.onSelectionChange);
-  }
-  removeWindowListeners(t) {
-    t.removeEventListener("scroll", this.onScroll), t.removeEventListener("resize", this.onResize), this.printQuery ? this.printQuery.removeEventListener ? this.printQuery.removeEventListener("change", this.onPrint) : this.printQuery.removeListener(this.onPrint) : t.removeEventListener("beforeprint", this.onPrint), t.document.removeEventListener("selectionchange", this.onSelectionChange);
-  }
-  update(t) {
-    this.editContext && (this.editContext.update(t), t.startState.facet($t) != t.state.facet($t) && (t.view.contentDOM.editContext = t.state.facet($t) ? this.editContext.editContext : null));
-  }
-  destroy() {
-    var t, e, i;
-    this.stop(), (t = this.intersection) === null || t === void 0 || t.disconnect(), (e = this.gapIntersection) === null || e === void 0 || e.disconnect(), (i = this.resizeScroll) === null || i === void 0 || i.disconnect();
-    for (let n of this.scrollTargets)
-      n.removeEventListener("scroll", this.onScroll);
-    this.removeWindowListeners(this.win), clearTimeout(this.parentCheck), clearTimeout(this.resizeTimeout), this.win.cancelAnimationFrame(this.delayedFlush), this.win.cancelAnimationFrame(this.flushingAndroidKey), this.editContext && (this.view.contentDOM.editContext = null, this.editContext.destroy());
-  }
-}
-function io(s, t, e) {
-  for (; t; ) {
-    let i = J.get(t);
-    if (i && i.parent == s)
-      return i;
-    let n = t.parentNode;
-    t = n != s.dom ? n : e > 0 ? t.nextSibling : t.previousSibling;
-  }
-  return null;
-}
-function no(s, t) {
-  let e = t.startContainer, i = t.startOffset, n = t.endContainer, r = t.endOffset, o = s.docView.domAtPos(s.state.selection.main.anchor, 1);
-  return ei(o.node, o.offset, n, r) && ([e, i, n, r] = [n, r, e, i]), { anchorNode: e, anchorOffset: i, focusNode: n, focusOffset: r };
-}
-function hc(s, t) {
-  if (t.getComposedRanges) {
-    let n = t.getComposedRanges(s.root)[0];
-    if (n)
-      return no(s, n);
-  }
-  let e = null;
-  function i(n) {
-    n.preventDefault(), n.stopImmediatePropagation(), e = n.getTargetRanges()[0];
-  }
-  return s.contentDOM.addEventListener("beforeinput", i, !0), s.dom.ownerDocument.execCommand("indent"), s.contentDOM.removeEventListener("beforeinput", i, !0), e ? no(s, e) : null;
-}
-class fc {
-  constructor(t) {
-    this.from = 0, this.to = 0, this.pendingContextChange = null, this.handlers = /* @__PURE__ */ Object.create(null), this.composing = null, this.resetRange(t.state);
-    let e = this.editContext = new window.EditContext({
-      text: t.state.doc.sliceString(this.from, this.to),
-      selectionStart: this.toContextPos(Math.max(this.from, Math.min(this.to, t.state.selection.main.anchor))),
-      selectionEnd: this.toContextPos(t.state.selection.main.head)
-    });
-    this.handlers.textupdate = (i) => {
-      let n = t.state.selection.main, { anchor: r, head: o } = n, l = this.toEditorPos(i.updateRangeStart), a = this.toEditorPos(i.updateRangeEnd);
-      t.inputState.composing >= 0 && !this.composing && (this.composing = { contextBase: i.updateRangeStart, editorBase: l, drifted: !1 });
-      let h = a - l > i.text.length;
-      l == this.from && r < this.from ? l = r : a == this.to && r > this.to && (a = r);
-      let f = Fl(t.state.sliceDoc(l, a), i.text, (h ? n.from : n.to) - l, h ? "end" : null);
-      if (!f) {
-        let u = b.single(this.toEditorPos(i.selectionStart), this.toEditorPos(i.selectionEnd));
-        on(u, n) || t.dispatch({ selection: u, userEvent: "select" });
-        return;
-      }
-      let c = {
-        from: f.from + l,
-        to: f.toA + l,
-        insert: P.of(i.text.slice(f.from, f.toB).split(`
-`))
-      };
-      if ((k.mac || k.android) && c.from == o - 1 && /^\. ?$/.test(i.text) && t.contentDOM.getAttribute("autocorrect") == "off" && (c = { from: l, to: a, insert: P.of([i.text.replace(".", " ")]) }), this.pendingContextChange = c, !t.state.readOnly) {
-        let u = this.to - this.from + (c.to - c.from + c.insert.length);
-        sr(t, c, b.single(this.toEditorPos(i.selectionStart, u), this.toEditorPos(i.selectionEnd, u)));
-      }
-      this.pendingContextChange && (this.revertPending(t.state), this.setSelection(t.state)), c.from < c.to && !c.insert.length && t.inputState.composing >= 0 && !/[\\p{Alphabetic}\\p{Number}_]/.test(e.text.slice(Math.max(0, i.updateRangeStart - 1), Math.min(e.text.length, i.updateRangeStart + 1))) && this.handlers.compositionend(i);
-    }, this.handlers.characterboundsupdate = (i) => {
-      let n = [], r = null;
-      for (let o = this.toEditorPos(i.rangeStart), l = this.toEditorPos(i.rangeEnd); o < l; o++) {
-        let a = t.coordsForChar(o);
-        r = a && new DOMRect(a.left, a.top, a.right - a.left, a.bottom - a.top) || r || new DOMRect(), n.push(r);
-      }
-      e.updateCharacterBounds(i.rangeStart, n);
-    }, this.handlers.textformatupdate = (i) => {
-      let n = [];
-      for (let r of i.getTextFormats()) {
-        let o = r.underlineStyle, l = r.underlineThickness;
-        if (!/none/i.test(o) && !/none/i.test(l)) {
-          let a = this.toEditorPos(r.rangeStart), h = this.toEditorPos(r.rangeEnd);
-          if (a < h) {
-            let f = `text-decoration: underline ${/^[a-z]/.test(o) ? o + " " : o == "Dashed" ? "dashed " : o == "Squiggle" ? "wavy " : ""}${/thin/i.test(l) ? 1 : 2}px`;
-            n.push(U.mark({ attributes: { style: f } }).range(a, h));
-          }
-        }
-      }
-      t.dispatch({ effects: Bl.of(U.set(n)) });
-    }, this.handlers.compositionstart = () => {
-      t.inputState.composing < 0 && (t.inputState.composing = 0, t.inputState.compositionFirstChange = !0);
-    }, this.handlers.compositionend = () => {
-      if (t.inputState.composing = -1, t.inputState.compositionFirstChange = null, this.composing) {
-        let { drifted: i } = this.composing;
-        this.composing = null, i && this.reset(t.state);
-      }
-    };
-    for (let i in this.handlers)
-      e.addEventListener(i, this.handlers[i]);
-    this.measureReq = { read: (i) => {
-      this.editContext.updateControlBounds(i.contentDOM.getBoundingClientRect());
-      let n = fi(i.root);
-      n && n.rangeCount && this.editContext.updateSelectionBounds(n.getRangeAt(0).getBoundingClientRect());
-    } };
-  }
-  applyEdits(t) {
-    let e = 0, i = !1, n = this.pendingContextChange;
-    return t.changes.iterChanges((r, o, l, a, h) => {
-      if (i)
-        return;
-      let f = h.length - (o - r);
-      if (n && o >= n.to)
-        if (n.from == r && n.to == o && n.insert.eq(h)) {
-          n = this.pendingContextChange = null, e += f, this.to += f;
-          return;
-        } else
-          n = null, this.revertPending(t.state);
-      if (r += e, o += e, o <= this.from)
-        this.from += f, this.to += f;
-      else if (r < this.to) {
-        if (r < this.from || o > this.to || this.to - this.from + h.length > 3e4) {
-          i = !0;
-          return;
-        }
-        this.editContext.updateText(this.toContextPos(r), this.toContextPos(o), h.toString()), this.to += f;
-      }
-      e += f;
-    }), n && !i && this.revertPending(t.state), !i;
-  }
-  update(t) {
-    let e = this.pendingContextChange, i = t.startState.selection.main;
-    this.composing && (this.composing.drifted || !t.changes.touchesRange(i.from, i.to) && t.transactions.some((n) => !n.isUserEvent("input.type") && n.changes.touchesRange(this.from, this.to))) ? (this.composing.drifted = !0, this.composing.editorBase = t.changes.mapPos(this.composing.editorBase)) : !this.applyEdits(t) || !this.rangeIsValid(t.state) ? (this.pendingContextChange = null, this.reset(t.state)) : (t.docChanged || t.selectionSet || e) && this.setSelection(t.state), (t.geometryChanged || t.docChanged || t.selectionSet) && t.view.requestMeasure(this.measureReq);
-  }
-  resetRange(t) {
-    let { head: e } = t.selection.main;
-    this.from = Math.max(
-      0,
-      e - 1e4
-      /* CxVp.Margin */
-    ), this.to = Math.min(
-      t.doc.length,
-      e + 1e4
-      /* CxVp.Margin */
-    );
-  }
-  reset(t) {
-    this.resetRange(t), this.editContext.updateText(0, this.editContext.text.length, t.doc.sliceString(this.from, this.to)), this.setSelection(t);
-  }
-  revertPending(t) {
-    let e = this.pendingContextChange;
-    this.pendingContextChange = null, this.editContext.updateText(this.toContextPos(e.from), this.toContextPos(e.from + e.insert.length), t.doc.sliceString(e.from, e.to));
-  }
-  setSelection(t) {
-    let { main: e } = t.selection, i = this.toContextPos(Math.max(this.from, Math.min(this.to, e.anchor))), n = this.toContextPos(e.head);
-    (this.editContext.selectionStart != i || this.editContext.selectionEnd != n) && this.editContext.updateSelection(i, n);
-  }
-  rangeIsValid(t) {
-    let { head: e } = t.selection.main;
-    return !(this.from > 0 && e - this.from < 500 || this.to < t.doc.length && this.to - e < 500 || this.to - this.from > 1e4 * 3);
-  }
-  toEditorPos(t, e = this.to - this.from) {
-    t = Math.min(t, e);
-    let i = this.composing;
-    return i && i.drifted ? i.editorBase + (t - i.contextBase) : t + this.from;
-  }
-  toContextPos(t) {
-    let e = this.composing;
-    return e && e.drifted ? e.contextBase + (t - e.editorBase) : t - this.from;
-  }
-  destroy() {
-    for (let t in this.handlers)
-      this.editContext.removeEventListener(t, this.handlers[t]);
-  }
-}
-class O {
-  /**
-  The current editor state.
-  */
-  get state() {
-    return this.viewState.state;
-  }
-  /**
-  To be able to display large documents without consuming too much
-  memory or overloading the browser, CodeMirror only draws the
-  code that is visible (plus a margin around it) to the DOM. This
-  property tells you the extent of the current drawn viewport, in
-  document positions.
-  */
-  get viewport() {
-    return this.viewState.viewport;
-  }
-  /**
-  When there are, for example, large collapsed ranges in the
-  viewport, its size can be a lot bigger than the actual visible
-  content. Thus, if you are doing something like styling the
-  content in the viewport, it is preferable to only do so for
-  these ranges, which are the subset of the viewport that is
-  actually drawn.
-  */
-  get visibleRanges() {
-    return this.viewState.visibleRanges;
-  }
-  /**
-  Returns false when the editor is entirely scrolled out of view
-  or otherwise hidden.
-  */
-  get inView() {
-    return this.viewState.inView;
-  }
-  /**
-  Indicates whether the user is currently composing text via
-  [IME](https://en.wikipedia.org/wiki/Input_method), and at least
-  one change has been made in the current composition.
-  */
-  get composing() {
-    return !!this.inputState && this.inputState.composing > 0;
-  }
-  /**
-  Indicates whether the user is currently in composing state. Note
-  that on some platforms, like Android, this will be the case a
-  lot, since just putting the cursor on a word starts a
-  composition there.
-  */
-  get compositionStarted() {
-    return !!this.inputState && this.inputState.composing >= 0;
-  }
-  /**
-  The document or shadow root that the view lives in.
-  */
-  get root() {
-    return this._root;
-  }
-  /**
-  @internal
-  */
-  get win() {
-    return this.dom.ownerDocument.defaultView || window;
-  }
-  /**
-  Construct a new view. You'll want to either provide a `parent`
-  option, or put `view.dom` into your document after creating a
-  view, so that the user can see the editor.
-  */
-  constructor(t = {}) {
-    var e;
-    this.plugins = [], this.pluginMap = /* @__PURE__ */ new Map(), this.editorAttrs = {}, this.contentAttrs = {}, this.bidiCache = [], this.destroyed = !1, this.updateState = 2, this.measureScheduled = -1, this.measureRequests = [], this.contentDOM = document.createElement("div"), this.scrollDOM = document.createElement("div"), this.scrollDOM.tabIndex = -1, this.scrollDOM.className = "cm-scroller", this.scrollDOM.appendChild(this.contentDOM), this.announceDOM = document.createElement("div"), this.announceDOM.className = "cm-announced", this.announceDOM.setAttribute("aria-live", "polite"), this.dom = document.createElement("div"), this.dom.appendChild(this.announceDOM), this.dom.appendChild(this.scrollDOM), t.parent && t.parent.appendChild(this.dom);
-    let { dispatch: i } = t;
-    this.dispatchTransactions = t.dispatchTransactions || i && ((n) => n.forEach((r) => i(r, this))) || ((n) => this.update(n)), this.dispatch = this.dispatch.bind(this), this._root = t.root || Nh(t.parent) || document, this.viewState = new Zr(t.state || H.create(t)), t.scrollTo && t.scrollTo.is(Ai) && (this.viewState.scrollTarget = t.scrollTo.value.clip(this.viewState.state)), this.plugins = this.state.facet(Ae).map((n) => new Fn(n));
-    for (let n of this.plugins)
-      n.update(this);
-    this.observer = new ac(this), this.inputState = new Lf(this), this.inputState.ensureHandlers(this.plugins), this.docView = new Fr(this), this.mountStyles(), this.updateAttrs(), this.updateState = 0, this.requestMeasure(), !((e = document.fonts) === null || e === void 0) && e.ready && document.fonts.ready.then(() => {
-      this.viewState.mustMeasureContent = !0, this.requestMeasure();
-    });
-  }
-  dispatch(...t) {
-    let e = t.length == 1 && t[0] instanceof Y ? t : t.length == 1 && Array.isArray(t[0]) ? t[0] : [this.state.update(...t)];
-    this.dispatchTransactions(e, this);
-  }
-  /**
-  Update the view for the given array of transactions. This will
-  update the visible document and selection to match the state
-  produced by the transactions, and notify view plugins of the
-  change. You should usually call
-  [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead, which uses this
-  as a primitive.
-  */
-  update(t) {
-    if (this.updateState != 0)
-      throw new Error("Calls to EditorView.update are not allowed while an update is in progress");
-    let e = !1, i = !1, n, r = this.state;
-    for (let u of t) {
-      if (u.startState != r)
-        throw new RangeError("Trying to update state with a transaction that doesn't start from the previous state.");
-      r = u.state;
-    }
-    if (this.destroyed) {
-      this.viewState.state = r;
-      return;
-    }
-    let o = this.hasFocus, l = 0, a = null;
-    t.some((u) => u.annotation(jl)) ? (this.inputState.notifiedFocused = o, l = 1) : o != this.inputState.notifiedFocused && (this.inputState.notifiedFocused = o, a = Gl(r, o), a || (l = 1));
-    let h = this.observer.delayedAndroidKey, f = null;
-    if (h ? (this.observer.clearDelayedAndroidKey(), f = this.observer.readChange(), (f && !this.state.doc.eq(r.doc) || !this.state.selection.eq(r.selection)) && (f = null)) : this.observer.clear(), r.facet(H.phrases) != this.state.facet(H.phrases))
-      return this.setState(r);
-    n = nn.create(this, r, t), n.flags |= l;
-    let c = this.viewState.scrollTarget;
-    try {
-      this.updateState = 2;
-      for (let u of t) {
-        if (c && (c = c.map(u.changes)), u.scrollIntoView) {
-          let { main: d } = u.state.selection;
-          c = new Ee(d.empty ? d : b.cursor(d.head, d.head > d.anchor ? -1 : 1));
-        }
-        for (let d of u.effects)
-          d.is(Ai) && (c = d.value.clip(this.state));
-      }
-      this.viewState.update(n, c), this.bidiCache = an.update(this.bidiCache, n.changes), n.empty || (this.updatePlugins(n), this.inputState.update(n)), e = this.docView.update(n), this.state.facet(_e) != this.styleModules && this.mountStyles(), i = this.updateAttrs(), this.showAnnouncements(t), this.docView.updateSelection(e, t.some((u) => u.isUserEvent("select.pointer")));
-    } finally {
-      this.updateState = 0;
-    }
-    if (n.startState.facet(Li) != n.state.facet(Li) && (this.viewState.mustMeasureContent = !0), (e || i || c || this.viewState.mustEnforceCursorAssoc || this.viewState.mustMeasureContent) && this.requestMeasure(), e && this.docViewUpdate(), !n.empty)
-      for (let u of this.state.facet(Ms))
-        try {
-          u(n);
-        } catch (d) {
-          ot(this.state, d, "update listener");
-        }
-    (a || f) && Promise.resolve().then(() => {
-      a && this.state == a.startState && this.dispatch(a), f && !Vl(this, f) && h.force && Le(this.contentDOM, h.key, h.keyCode);
-    });
-  }
-  /**
-  Reset the view to the given state. (This will cause the entire
-  document to be redrawn and all view plugins to be reinitialized,
-  so you should probably only use it when the new state isn't
-  derived from the old state. Otherwise, use
-  [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead.)
-  */
-  setState(t) {
-    if (this.updateState != 0)
-      throw new Error("Calls to EditorView.setState are not allowed while an update is in progress");
-    if (this.destroyed) {
-      this.viewState.state = t;
-      return;
-    }
-    this.updateState = 2;
-    let e = this.hasFocus;
-    try {
-      for (let i of this.plugins)
-        i.destroy(this);
-      this.viewState = new Zr(t), this.plugins = t.facet(Ae).map((i) => new Fn(i)), this.pluginMap.clear();
-      for (let i of this.plugins)
-        i.update(this);
-      this.docView.destroy(), this.docView = new Fr(this), this.inputState.ensureHandlers(this.plugins), this.mountStyles(), this.updateAttrs(), this.bidiCache = [];
-    } finally {
-      this.updateState = 0;
-    }
-    e && this.focus(), this.requestMeasure();
-  }
-  updatePlugins(t) {
-    let e = t.startState.facet(Ae), i = t.state.facet(Ae);
-    if (e != i) {
-      let n = [];
-      for (let r of i) {
-        let o = e.indexOf(r);
-        if (o < 0)
-          n.push(new Fn(r));
-        else {
-          let l = this.plugins[o];
-          l.mustUpdate = t, n.push(l);
-        }
-      }
-      for (let r of this.plugins)
-        r.mustUpdate != t && r.destroy(this);
-      this.plugins = n, this.pluginMap.clear();
-    } else
-      for (let n of this.plugins)
-        n.mustUpdate = t;
-    for (let n = 0; n < this.plugins.length; n++)
-      this.plugins[n].update(this);
-    e != i && this.inputState.ensureHandlers(this.plugins);
-  }
-  docViewUpdate() {
-    for (let t of this.plugins) {
-      let e = t.value;
-      if (e && e.docViewUpdate)
-        try {
-          e.docViewUpdate(this);
-        } catch (i) {
-          ot(this.state, i, "doc view update listener");
-        }
-    }
-  }
-  /**
-  @internal
-  */
-  measure(t = !0) {
-    if (this.destroyed)
-      return;
-    if (this.measureScheduled > -1 && this.win.cancelAnimationFrame(this.measureScheduled), this.observer.delayedAndroidKey) {
-      this.measureScheduled = -1, this.requestMeasure();
-      return;
-    }
-    this.measureScheduled = 0, t && this.observer.forceFlush();
-    let e = null, i = this.scrollDOM, n = i.scrollTop * this.scaleY, { scrollAnchorPos: r, scrollAnchorHeight: o } = this.viewState;
-    Math.abs(n - this.viewState.scrollTop) > 1 && (o = -1), this.viewState.scrollAnchorHeight = -1;
-    try {
-      for (let l = 0; ; l++) {
-        if (o < 0)
-          if (pl(i))
-            r = -1, o = this.viewState.heightMap.height;
-          else {
-            let d = this.viewState.scrollAnchorAt(n);
-            r = d.from, o = d.top;
-          }
-        this.updateState = 1;
-        let a = this.viewState.measure(this);
-        if (!a && !this.measureRequests.length && this.viewState.scrollTarget == null)
-          break;
-        if (l > 5) {
-          console.warn(this.measureRequests.length ? "Measure loop restarted more than 5 times" : "Viewport failed to stabilize");
-          break;
-        }
-        let h = [];
-        a & 4 || ([this.measureRequests, h] = [h, this.measureRequests]);
-        let f = h.map((d) => {
-          try {
-            return d.read(this);
-          } catch (p) {
-            return ot(this.state, p), so;
-          }
-        }), c = nn.create(this, this.state, []), u = !1;
-        c.flags |= a, e ? e.flags |= a : e = c, this.updateState = 2, c.empty || (this.updatePlugins(c), this.inputState.update(c), this.updateAttrs(), u = this.docView.update(c), u && this.docViewUpdate());
-        for (let d = 0; d < h.length; d++)
-          if (f[d] != so)
-            try {
-              let p = h[d];
-              p.write && p.write(f[d], this);
-            } catch (p) {
-              ot(this.state, p);
-            }
-        if (u && this.docView.updateSelection(!0), !c.viewportChanged && this.measureRequests.length == 0) {
-          if (this.viewState.editorHeight)
-            if (this.viewState.scrollTarget) {
-              this.docView.scrollIntoView(this.viewState.scrollTarget), this.viewState.scrollTarget = null, o = -1;
-              continue;
-            } else {
-              let p = (r < 0 ? this.viewState.heightMap.height : this.viewState.lineBlockAt(r).top) - o;
-              if (p > 1 || p < -1) {
-                n = n + p, i.scrollTop = n / this.scaleY, o = -1;
-                continue;
-              }
-            }
-          break;
-        }
-      }
-    } finally {
-      this.updateState = 0, this.measureScheduled = -1;
-    }
-    if (e && !e.empty)
-      for (let l of this.state.facet(Ms))
-        l(e);
-  }
-  /**
-  Get the CSS classes for the currently active editor themes.
-  */
-  get themeClasses() {
-    return Ls + " " + (this.state.facet(Bs) ? Xl : Yl) + " " + this.state.facet(Li);
-  }
-  updateAttrs() {
-    let t = ro(this, Ll, {
-      class: "cm-editor" + (this.hasFocus ? " cm-focused " : " ") + this.themeClasses
-    }), e = {
-      spellcheck: "false",
-      autocorrect: "off",
-      autocapitalize: "off",
-      writingsuggestions: "false",
-      translate: "no",
-      contenteditable: this.state.facet($t) ? "true" : "false",
-      class: "cm-content",
-      style: `${k.tabSize}: ${this.state.tabSize}`,
-      role: "textbox",
-      "aria-multiline": "true"
-    };
-    this.state.readOnly && (e["aria-readonly"] = "true"), ro(this, er, e);
-    let i = this.observer.ignore(() => {
-      let n = Pr(this.contentDOM, this.contentAttrs, e), r = Pr(this.dom, this.editorAttrs, t);
-      return n || r;
-    });
-    return this.editorAttrs = t, this.contentAttrs = e, i;
-  }
-  showAnnouncements(t) {
-    let e = !0;
-    for (let i of t)
-      for (let n of i.effects)
-        if (n.is(O.announce)) {
-          e && (this.announceDOM.textContent = ""), e = !1;
-          let r = this.announceDOM.appendChild(document.createElement("div"));
-          r.textContent = n.value;
-        }
-  }
-  mountStyles() {
-    this.styleModules = this.state.facet(_e);
-    let t = this.state.facet(O.cspNonce);
-    Ie.mount(this.root, this.styleModules.concat(oc).reverse(), t ? { nonce: t } : void 0);
-  }
-  readMeasured() {
-    if (this.updateState == 2)
-      throw new Error("Reading the editor layout isn't allowed during an update");
-    this.updateState == 0 && this.measureScheduled > -1 && this.measure(!1);
-  }
-  /**
-  Schedule a layout measurement, optionally providing callbacks to
-  do custom DOM measuring followed by a DOM write phase. Using
-  this is preferable reading DOM layout directly from, for
-  example, an event handler, because it'll make sure measuring and
-  drawing done by other components is synchronized, avoiding
-  unnecessary DOM layout computations.
-  */
-  requestMeasure(t) {
-    if (this.measureScheduled < 0 && (this.measureScheduled = this.win.requestAnimationFrame(() => this.measure())), t) {
-      if (this.measureRequests.indexOf(t) > -1)
-        return;
-      if (t.key != null) {
-        for (let e = 0; e < this.measureRequests.length; e++)
-          if (this.measureRequests[e].key === t.key) {
-            this.measureRequests[e] = t;
-            return;
-          }
-      }
-      this.measureRequests.push(t);
-    }
-  }
-  /**
-  Get the value of a specific plugin, if present. Note that
-  plugins that crash can be dropped from a view, so even when you
-  know you registered a given plugin, it is recommended to check
-  the return value of this method.
-  */
-  plugin(t) {
-    let e = this.pluginMap.get(t);
-    return (e === void 0 || e && e.plugin != t) && this.pluginMap.set(t, e = this.plugins.find((i) => i.plugin == t) || null), e && e.update(this).value;
-  }
-  /**
-  The top position of the document, in screen coordinates. This
-  may be negative when the editor is scrolled down. Points
-  directly to the top of the first line, not above the padding.
-  */
-  get documentTop() {
-    return this.contentDOM.getBoundingClientRect().top + this.viewState.paddingTop;
-  }
-  /**
-  Reports the padding above and below the document.
-  */
-  get documentPadding() {
-    return { top: this.viewState.paddingTop, bottom: this.viewState.paddingBottom };
-  }
-  /**
-  If the editor is transformed with CSS, this provides the scale
-  along the X axis. Otherwise, it will just be 1. Note that
-  transforms other than translation and scaling are not supported.
-  */
-  get scaleX() {
-    return this.viewState.scaleX;
-  }
-  /**
-  Provide the CSS transformed scale along the Y axis.
-  */
-  get scaleY() {
-    return this.viewState.scaleY;
-  }
-  /**
-  Find the text line or block widget at the given vertical
-  position (which is interpreted as relative to the [top of the
-  document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop)).
-  */
-  elementAtHeight(t) {
-    return this.readMeasured(), this.viewState.elementAtHeight(t);
-  }
-  /**
-  Find the line block (see
-  [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt)) at the given
-  height, again interpreted relative to the [top of the
-  document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop).
-  */
-  lineBlockAtHeight(t) {
-    return this.readMeasured(), this.viewState.lineBlockAtHeight(t);
-  }
-  /**
-  Get the extent and vertical position of all [line
-  blocks](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) in the viewport. Positions
-  are relative to the [top of the
-  document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop);
-  */
-  get viewportLineBlocks() {
-    return this.viewState.viewportLines;
-  }
-  /**
-  Find the line block around the given document position. A line
-  block is a range delimited on both sides by either a
-  non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^replace) line break, or the
-  start/end of the document. It will usually just hold a line of
-  text, but may be broken into multiple textblocks by block
-  widgets.
-  */
-  lineBlockAt(t) {
-    return this.viewState.lineBlockAt(t);
-  }
-  /**
-  The editor's total content height.
-  */
-  get contentHeight() {
-    return this.viewState.contentHeight;
-  }
-  /**
-  Move a cursor position by [grapheme
-  cluster](https://codemirror.net/6/docs/ref/#state.findClusterBreak). `forward` determines whether
-  the motion is away from the line start, or towards it. In
-  bidirectional text, the line is traversed in visual order, using
-  the editor's [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
-  When the start position was the last one on the line, the
-  returned position will be across the line break. If there is no
-  further line, the original position is returned.
-  
-  By default, this method moves over a single cluster. The
-  optional `by` argument can be used to move across more. It will
-  be called with the first cluster as argument, and should return
-  a predicate that determines, for each subsequent cluster,
-  whether it should also be moved over.
-  */
-  moveByChar(t, e, i) {
-    return $n(this, t, zr(this, t, e, i));
-  }
-  /**
-  Move a cursor position across the next group of either
-  [letters](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) or non-letter
-  non-whitespace characters.
-  */
-  moveByGroup(t, e) {
-    return $n(this, t, zr(this, t, e, (i) => vf(this, t.head, i)));
-  }
-  /**
-  Get the cursor position visually at the start or end of a line.
-  Note that this may differ from the _logical_ position at its
-  start or end (which is simply at `line.from`/`line.to`) if text
-  at the start or end goes against the line's base text direction.
-  */
-  visualLineSide(t, e) {
-    let i = this.bidiSpans(t), n = this.textDirectionAt(t.from), r = i[e ? i.length - 1 : 0];
-    return b.cursor(r.side(e, n) + t.from, r.forward(!e, n) ? 1 : -1);
-  }
-  /**
-  Move to the next line boundary in the given direction. If
-  `includeWrap` is true, line wrapping is on, and there is a
-  further wrap point on the current line, the wrap point will be
-  returned. Otherwise this function will return the start or end
-  of the line.
-  */
-  moveToLineBoundary(t, e, i = !0) {
-    return xf(this, t, e, i);
-  }
-  /**
-  Move a cursor position vertically. When `distance` isn't given,
-  it defaults to moving to the next line (including wrapped
-  lines). Otherwise, `distance` should provide a positive distance
-  in pixels.
-  
-  When `start` has a
-  [`goalColumn`](https://codemirror.net/6/docs/ref/#state.SelectionRange.goalColumn), the vertical
-  motion will use that as a target horizontal position. Otherwise,
-  the cursor's own horizontal position is used. The returned
-  cursor will have its goal column set to whichever column was
-  used.
-  */
-  moveVertically(t, e, i) {
-    return $n(this, t, kf(this, t, e, i));
-  }
-  /**
-  Find the DOM parent node and offset (child offset if `node` is
-  an element, character offset when it is a text node) at the
-  given document position.
-  
-  Note that for positions that aren't currently in
-  `visibleRanges`, the resulting DOM position isn't necessarily
-  meaningful (it may just point before or after a placeholder
-  element).
-  */
-  domAtPos(t, e = 1) {
-    return this.docView.domAtPos(t, e);
-  }
-  /**
-  Find the document position at the given DOM node. Can be useful
-  for associating positions with DOM events. Will raise an error
-  when `node` isn't part of the editor content.
-  */
-  posAtDOM(t, e = 0) {
-    return this.docView.posFromDOM(t, e);
-  }
-  posAtCoords(t, e = !0) {
-    this.readMeasured();
-    let i = Os(this, t, e);
-    return i && i.pos;
-  }
-  posAndSideAtCoords(t, e = !0) {
-    return this.readMeasured(), Os(this, t, e);
-  }
-  /**
-  Get the screen coordinates at the given document position.
-  `side` determines whether the coordinates are based on the
-  element before (-1) or after (1) the position (if no element is
-  available on the given side, the method will transparently use
-  another strategy to get reasonable coordinates).
-  */
-  coordsAtPos(t, e = 1) {
-    this.readMeasured();
-    let i = this.docView.coordsAt(t, e);
-    if (!i || i.left == i.right)
-      return i;
-    let n = this.state.doc.lineAt(t), r = this.bidiSpans(n), o = r[Vt.find(r, t - n.from, -1, e)];
-    return en(i, o.dir == K.LTR == e > 0);
-  }
-  /**
-  Return the rectangle around a given character. If `pos` does not
-  point in front of a character that is in the viewport and
-  rendered (i.e. not replaced, not a line break), this will return
-  null. For space characters that are a line wrap point, this will
-  return the position before the line break.
-  */
-  coordsForChar(t) {
-    return this.readMeasured(), this.docView.coordsForChar(t);
-  }
-  /**
-  The default width of a character in the editor. May not
-  accurately reflect the width of all characters (given variable
-  width fonts or styling of invididual ranges).
-  */
-  get defaultCharacterWidth() {
-    return this.viewState.heightOracle.charWidth;
-  }
-  /**
-  The default height of a line in the editor. May not be accurate
-  for all lines.
-  */
-  get defaultLineHeight() {
-    return this.viewState.heightOracle.lineHeight;
-  }
-  /**
-  The text direction
-  ([`direction`](https://developer.mozilla.org/en-US/docs/Web/CSS/direction)
-  CSS property) of the editor's content element.
-  */
-  get textDirection() {
-    return this.viewState.defaultTextDirection;
-  }
-  /**
-  Find the text direction of the block at the given position, as
-  assigned by CSS. If
-  [`perLineTextDirection`](https://codemirror.net/6/docs/ref/#view.EditorView^perLineTextDirection)
-  isn't enabled, or the given position is outside of the viewport,
-  this will always return the same as
-  [`textDirection`](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection). Note that
-  this may trigger a DOM layout.
-  */
-  textDirectionAt(t) {
-    return !this.state.facet(Ol) || t < this.viewport.from || t > this.viewport.to ? this.textDirection : (this.readMeasured(), this.docView.textDirectionAt(t));
-  }
-  /**
-  Whether this editor [wraps lines](https://codemirror.net/6/docs/ref/#view.EditorView.lineWrapping)
-  (as determined by the
-  [`white-space`](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space)
-  CSS property of its content element).
-  */
-  get lineWrapping() {
-    return this.viewState.heightOracle.lineWrapping;
-  }
-  /**
-  Returns the bidirectional text structure of the given line
-  (which should be in the current document) as an array of span
-  objects. The order of these spans matches the [text
-  direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection)—if that is
-  left-to-right, the leftmost spans come first, otherwise the
-  rightmost spans come first.
-  */
-  bidiSpans(t) {
-    if (t.length > cc)
-      return xl(t.length);
-    let e = this.textDirectionAt(t.from), i;
-    for (let r of this.bidiCache)
-      if (r.from == t.from && r.dir == e && (r.fresh || wl(r.isolates, i = Hr(this, t))))
-        return r.order;
-    i || (i = Hr(this, t));
-    let n = $h(t.text, e, i);
-    return this.bidiCache.push(new an(t.from, t.to, e, i, !0, n)), n;
-  }
-  /**
-  Check whether the editor has focus.
-  */
-  get hasFocus() {
-    var t;
-    return (this.dom.ownerDocument.hasFocus() || k.safari && ((t = this.inputState) === null || t === void 0 ? void 0 : t.lastContextMenu) > Date.now() - 3e4) && this.root.activeElement == this.contentDOM;
-  }
-  /**
-  Put focus on the editor.
-  */
-  focus() {
-    this.observer.ignore(() => {
-      dl(this.contentDOM), this.docView.updateSelection();
-    });
-  }
-  /**
-  Update the [root](https://codemirror.net/6/docs/ref/##view.EditorViewConfig.root) in which the editor lives. This is only
-  necessary when moving the editor's existing DOM to a new window or shadow root.
-  */
-  setRoot(t) {
-    this._root != t && (this._root = t, this.observer.setWindow((t.nodeType == 9 ? t : t.ownerDocument).defaultView || window), this.mountStyles());
-  }
-  /**
-  Clean up this editor view, removing its element from the
-  document, unregistering event handlers, and notifying
-  plugins. The view instance can no longer be used after
-  calling this.
-  */
-  destroy() {
-    this.root.activeElement == this.contentDOM && this.contentDOM.blur();
-    for (let t of this.plugins)
-      t.destroy(this);
-    this.plugins = [], this.inputState.destroy(), this.docView.destroy(), this.dom.remove(), this.observer.destroy(), this.measureScheduled > -1 && this.win.cancelAnimationFrame(this.measureScheduled), this.destroyed = !0;
-  }
-  /**
-  Returns an effect that can be
-  [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a transaction to
-  cause it to scroll the given position or range into view.
-  */
-  static scrollIntoView(t, e = {}) {
-    return Ai.of(new Ee(typeof t == "number" ? b.cursor(t) : t, e.y, e.x, e.yMargin, e.xMargin));
-  }
-  /**
-  Return an effect that resets the editor to its current (at the
-  time this method was called) scroll position. Note that this
-  only affects the editor's own scrollable element, not parents.
-  See also
-  [`EditorViewConfig.scrollTo`](https://codemirror.net/6/docs/ref/#view.EditorViewConfig.scrollTo).
-  
-  The effect should be used with a document identical to the one
-  it was created for. Failing to do so is not an error, but may
-  not scroll to the expected position. You can
-  [map](https://codemirror.net/6/docs/ref/#state.StateEffect.map) the effect to account for changes.
-  */
-  scrollSnapshot() {
-    let { scrollTop: t, scrollLeft: e } = this.scrollDOM, i = this.viewState.scrollAnchorAt(t);
-    return Ai.of(new Ee(b.cursor(i.from), "start", "start", i.top - t, e, !0));
-  }
-  /**
-  Enable or disable tab-focus mode, which disables key bindings
-  for Tab and Shift-Tab, letting the browser's default
-  focus-changing behavior go through instead. This is useful to
-  prevent trapping keyboard users in your editor.
-  
-  Without argument, this toggles the mode. With a boolean, it
-  enables (true) or disables it (false). Given a number, it
-  temporarily enables the mode until that number of milliseconds
-  have passed or another non-Tab key is pressed.
-  */
-  setTabFocusMode(t) {
-    t == null ? this.inputState.tabFocusMode = this.inputState.tabFocusMode < 0 ? 0 : -1 : typeof t == "boolean" ? this.inputState.tabFocusMode = t ? 0 : -1 : this.inputState.tabFocusMode != 0 && (this.inputState.tabFocusMode = Date.now() + t);
-  }
-  /**
-  Returns an extension that can be used to add DOM event handlers.
-  The value should be an object mapping event names to handler
-  functions. For any given event, such functions are ordered by
-  extension precedence, and the first handler to return true will
-  be assumed to have handled that event, and no other handlers or
-  built-in behavior will be activated for it. These are registered
-  on the [content element](https://codemirror.net/6/docs/ref/#view.EditorView.contentDOM), except
-  for `scroll` handlers, which will be called any time the
-  editor's [scroll element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of
-  its parent nodes is scrolled.
-  */
-  static domEventHandlers(t) {
-    return vt.define(() => ({}), { eventHandlers: t });
-  }
-  /**
-  Create an extension that registers DOM event observers. Contrary
-  to event [handlers](https://codemirror.net/6/docs/ref/#view.EditorView^domEventHandlers),
-  observers can't be prevented from running by a higher-precedence
-  handler returning true. They also don't prevent other handlers
-  and observers from running when they return true, and should not
-  call `preventDefault`.
-  */
-  static domEventObservers(t) {
-    return vt.define(() => ({}), { eventObservers: t });
-  }
-  /**
-  Create a theme extension. The first argument can be a
-  [`style-mod`](https://github.com/marijnh/style-mod#documentation)
-  style spec providing the styles for the theme. These will be
-  prefixed with a generated class for the style.
-  
-  Because the selectors will be prefixed with a scope class, rule
-  that directly match the editor's [wrapper
-  element](https://codemirror.net/6/docs/ref/#view.EditorView.dom)—to which the scope class will be
-  added—need to be explicitly differentiated by adding an `&` to
-  the selector for that element—for example
-  `&.cm-focused`.
-  
-  When `dark` is set to true, the theme will be marked as dark,
-  which will cause the `&dark` rules from [base
-  themes](https://codemirror.net/6/docs/ref/#view.EditorView^baseTheme) to be used (as opposed to
-  `&light` when a light theme is active).
-  */
-  static theme(t, e) {
-    let i = Ie.newName(), n = [Li.of(i), _e.of(Es(`.${i}`, t))];
-    return e && e.dark && n.push(Bs.of(!0)), n;
-  }
-  /**
-  Create an extension that adds styles to the base theme. Like
-  with [`theme`](https://codemirror.net/6/docs/ref/#view.EditorView^theme), use `&` to indicate the
-  place of the editor wrapper element when directly targeting
-  that. You can also use `&dark` or `&light` instead to only
-  target editors with a dark or light theme.
-  */
-  static baseTheme(t) {
-    return wn.lowest(_e.of(Es("." + Ls, t, Ql)));
-  }
-  /**
-  Retrieve an editor view instance from the view's DOM
-  representation.
-  */
-  static findFromDOM(t) {
-    var e;
-    let i = t.querySelector(".cm-content"), n = i && J.get(i) || J.get(t);
-    return ((e = n?.root) === null || e === void 0 ? void 0 : e.view) || null;
-  }
-}
-O.styleModule = _e;
-O.inputHandler = Ml;
-O.clipboardInputFilter = Zs;
-O.clipboardOutputFilter = tr;
-O.scrollHandler = Dl;
-O.focusChangeEffect = Tl;
-O.perLineTextDirection = Ol;
-O.exceptionSink = Al;
-O.updateListener = Ms;
-O.editable = $t;
-O.mouseSelectionStyle = Cl;
-O.dragMovesSelection = Sl;
-O.clickAddsSelectionRange = kl;
-O.decorations = Sn;
-O.blockWrappers = El;
-O.outerDecorations = ir;
-O.atomicRanges = bi;
-O.bidiIsolatedRanges = Rl;
-O.scrollMargins = Pl;
-O.darkTheme = Bs;
-O.cspNonce = /* @__PURE__ */ M.define({ combine: (s) => s.length ? s[0] : "" });
-O.contentAttributes = er;
-O.editorAttributes = Ll;
-O.lineWrapping = /* @__PURE__ */ O.contentAttributes.of({ class: "cm-lineWrapping" });
-O.announce = /* @__PURE__ */ I.define();
-const cc = 4096, so = {};
-class an {
-  constructor(t, e, i, n, r, o) {
-    this.from = t, this.to = e, this.dir = i, this.isolates = n, this.fresh = r, this.order = o;
-  }
-  static update(t, e) {
-    if (e.empty && !t.some((r) => r.fresh))
-      return t;
-    let i = [], n = t.length ? t[t.length - 1].dir : K.LTR;
-    for (let r = Math.max(0, t.length - 10); r < t.length; r++) {
-      let o = t[r];
-      o.dir == n && !e.touchesRange(o.from, o.to) && i.push(new an(e.mapPos(o.from, 1), e.mapPos(o.to, -1), o.dir, o.isolates, !1, o.order));
-    }
-    return i;
-  }
-}
-function ro(s, t, e) {
-  for (let i = s.state.facet(t), n = i.length - 1; n >= 0; n--) {
-    let r = i[n], o = typeof r == "function" ? r(s) : r;
-    o && Ys(o, e);
-  }
-  return e;
-}
-const uc = k.mac ? "mac" : k.windows ? "win" : k.linux ? "linux" : "key";
-function dc(s, t) {
-  const e = s.split(/-(?!$)/);
-  let i = e[e.length - 1];
-  i == "Space" && (i = " ");
-  let n, r, o, l;
-  for (let a = 0; a < e.length - 1; ++a) {
-    const h = e[a];
-    if (/^(cmd|meta|m)$/i.test(h))
-      l = !0;
-    else if (/^a(lt)?$/i.test(h))
-      n = !0;
-    else if (/^(c|ctrl|control)$/i.test(h))
-      r = !0;
-    else if (/^s(hift)?$/i.test(h))
-      o = !0;
-    else if (/^mod$/i.test(h))
-      t == "mac" ? l = !0 : r = !0;
-    else
-      throw new Error("Unrecognized modifier name: " + h);
-  }
-  return n && (i = "Alt-" + i), r && (i = "Ctrl-" + i), l && (i = "Meta-" + i), o && (i = "Shift-" + i), i;
-}
-function Ei(s, t, e) {
-  return t.altKey && (s = "Alt-" + s), t.ctrlKey && (s = "Ctrl-" + s), t.metaKey && (s = "Meta-" + s), e !== !1 && t.shiftKey && (s = "Shift-" + s), s;
-}
-const pc = /* @__PURE__ */ wn.default(/* @__PURE__ */ O.domEventHandlers({
-  keydown(s, t) {
-    return bc(mc(t.state), s, t, "editor");
-  }
-})), Zl = /* @__PURE__ */ M.define({ enables: pc }), oo = /* @__PURE__ */ new WeakMap();
-function mc(s) {
-  let t = s.facet(Zl), e = oo.get(t);
-  return e || oo.set(t, e = yc(t.reduce((i, n) => i.concat(n), []))), e;
-}
-let te = null;
-const gc = 4e3;
-function yc(s, t = uc) {
-  let e = /* @__PURE__ */ Object.create(null), i = /* @__PURE__ */ Object.create(null), n = (o, l) => {
-    let a = i[o];
-    if (a == null)
-      i[o] = l;
-    else if (a != l)
-      throw new Error("Key binding " + o + " is used both as a regular binding and as a multi-stroke prefix");
-  }, r = (o, l, a, h, f) => {
-    var c, u;
-    let d = e[o] || (e[o] = /* @__PURE__ */ Object.create(null)), p = l.split(/ (?!$)/).map((y) => dc(y, t));
-    for (let y = 1; y < p.length; y++) {
-      let x = p.slice(0, y).join(" ");
-      n(x, !0), d[x] || (d[x] = {
-        preventDefault: !0,
-        stopPropagation: !1,
-        run: [(w) => {
-          let C = te = { view: w, prefix: x, scope: o };
-          return setTimeout(() => {
-            te == C && (te = null);
-          }, gc), !0;
-        }]
-      });
-    }
-    let m = p.join(" ");
-    n(m, !1);
-    let g = d[m] || (d[m] = {
-      preventDefault: !1,
-      stopPropagation: !1,
-      run: ((u = (c = d._any) === null || c === void 0 ? void 0 : c.run) === null || u === void 0 ? void 0 : u.slice()) || []
-    });
-    a && g.run.push(a), h && (g.preventDefault = !0), f && (g.stopPropagation = !0);
-  };
-  for (let o of s) {
-    let l = o.scope ? o.scope.split(" ") : ["editor"];
-    if (o.any)
-      for (let h of l) {
-        let f = e[h] || (e[h] = /* @__PURE__ */ Object.create(null));
-        f._any || (f._any = { preventDefault: !1, stopPropagation: !1, run: [] });
-        let { any: c } = o;
-        for (let u in f)
-          f[u].run.push((d) => c(d, Rs));
-      }
-    let a = o[t] || o.key;
-    if (a)
-      for (let h of l)
-        r(h, a, o.run, o.preventDefault, o.stopPropagation), o.shift && r(h, "Shift-" + a, o.shift, o.preventDefault, o.stopPropagation);
-  }
-  return e;
-}
-let Rs = null;
-function bc(s, t, e, i) {
-  Rs = t;
-  let n = Th(t), r = ue(n, 0), o = Ce(r) == n.length && n != " ", l = "", a = !1, h = !1, f = !1;
-  te && te.view == e && te.scope == i && (l = te.prefix + " ", Kl.indexOf(t.keyCode) < 0 && (h = !0, te = null));
-  let c = /* @__PURE__ */ new Set(), u = (g) => {
-    if (g) {
-      for (let y of g.run)
-        if (!c.has(y) && (c.add(y), y(e)))
-          return g.stopPropagation && (f = !0), !0;
-      g.preventDefault && (g.stopPropagation && (f = !0), h = !0);
-    }
-    return !1;
-  }, d = s[i], p, m;
-  return d && (u(d[l + Ei(n, t, !o)]) ? a = !0 : o && (t.altKey || t.metaKey || t.ctrlKey) && // Ctrl-Alt may be used for AltGr on Windows
-  !(k.windows && t.ctrlKey && t.altKey) && // Alt-combinations on macOS tend to be typed characters
-  !(k.mac && t.altKey && !(t.ctrlKey || t.metaKey)) && (p = re[t.keyCode]) && p != n ? (u(d[l + Ei(p, t, !0)]) || t.shiftKey && (m = ai[t.keyCode]) != n && m != p && u(d[l + Ei(m, t, !1)])) && (a = !0) : o && t.shiftKey && u(d[l + Ei(n, t, !0)]) && (a = !0), !a && u(d._any) && (a = !0)), h && (a = !0), a && f && t.stopPropagation(), Rs = null, a;
-}
-const Ri = "-10000px";
-class ta {
-  constructor(t, e, i, n) {
-    this.facet = e, this.createTooltipView = i, this.removeTooltipView = n, this.input = t.state.facet(e), this.tooltips = this.input.filter((o) => o);
-    let r = null;
-    this.tooltipViews = this.tooltips.map((o) => r = i(o, r));
-  }
-  update(t, e) {
-    var i;
-    let n = t.state.facet(this.facet), r = n.filter((a) => a);
-    if (n === this.input) {
-      for (let a of this.tooltipViews)
-        a.update && a.update(t);
-      return !1;
-    }
-    let o = [], l = e ? [] : null;
-    for (let a = 0; a < r.length; a++) {
-      let h = r[a], f = -1;
-      if (h) {
-        for (let c = 0; c < this.tooltips.length; c++) {
-          let u = this.tooltips[c];
-          u && u.create == h.create && (f = c);
-        }
-        if (f < 0)
-          o[a] = this.createTooltipView(h, a ? o[a - 1] : null), l && (l[a] = !!h.above);
-        else {
-          let c = o[a] = this.tooltipViews[f];
-          l && (l[a] = e[f]), c.update && c.update(t);
-        }
-      }
-    }
-    for (let a of this.tooltipViews)
-      o.indexOf(a) < 0 && (this.removeTooltipView(a), (i = a.destroy) === null || i === void 0 || i.call(a));
-    return e && (l.forEach((a, h) => e[h] = a), e.length = l.length), this.input = n, this.tooltips = r, this.tooltipViews = o, !0;
-  }
-}
-function wc(s) {
-  let t = s.dom.ownerDocument.documentElement;
-  return { top: 0, left: 0, bottom: t.clientHeight, right: t.clientWidth };
-}
-const Gn = /* @__PURE__ */ M.define({
-  combine: (s) => {
-    var t, e, i;
-    return {
-      position: k.ios ? "absolute" : ((t = s.find((n) => n.position)) === null || t === void 0 ? void 0 : t.position) || "fixed",
-      parent: ((e = s.find((n) => n.parent)) === null || e === void 0 ? void 0 : e.parent) || null,
-      tooltipSpace: ((i = s.find((n) => n.tooltipSpace)) === null || i === void 0 ? void 0 : i.tooltipSpace) || wc
-    };
-  }
-}), lo = /* @__PURE__ */ new WeakMap(), lr = /* @__PURE__ */ vt.fromClass(class {
-  constructor(s) {
-    this.view = s, this.above = [], this.inView = !0, this.madeAbsolute = !1, this.lastTransaction = 0, this.measureTimeout = -1;
-    let t = s.state.facet(Gn);
-    this.position = t.position, this.parent = t.parent, this.classes = s.themeClasses, this.createContainer(), this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this }, this.resizeObserver = typeof ResizeObserver == "function" ? new ResizeObserver(() => this.measureSoon()) : null, this.manager = new ta(s, Tn, (e, i) => this.createTooltip(e, i), (e) => {
-      this.resizeObserver && this.resizeObserver.unobserve(e.dom), e.dom.remove();
-    }), this.above = this.manager.tooltips.map((e) => !!e.above), this.intersectionObserver = typeof IntersectionObserver == "function" ? new IntersectionObserver((e) => {
-      Date.now() > this.lastTransaction - 50 && e.length > 0 && e[e.length - 1].intersectionRatio < 1 && this.measureSoon();
-    }, { threshold: [1] }) : null, this.observeIntersection(), s.win.addEventListener("resize", this.measureSoon = this.measureSoon.bind(this)), this.maybeMeasure();
-  }
-  createContainer() {
-    this.parent ? (this.container = document.createElement("div"), this.container.style.position = "relative", this.container.className = this.view.themeClasses, this.parent.appendChild(this.container)) : this.container = this.view.dom;
-  }
-  observeIntersection() {
-    if (this.intersectionObserver) {
-      this.intersectionObserver.disconnect();
-      for (let s of this.manager.tooltipViews)
-        this.intersectionObserver.observe(s.dom);
-    }
-  }
-  measureSoon() {
-    this.measureTimeout < 0 && (this.measureTimeout = setTimeout(() => {
-      this.measureTimeout = -1, this.maybeMeasure();
-    }, 50));
-  }
-  update(s) {
-    s.transactions.length && (this.lastTransaction = Date.now());
-    let t = this.manager.update(s, this.above);
-    t && this.observeIntersection();
-    let e = t || s.geometryChanged, i = s.state.facet(Gn);
-    if (i.position != this.position && !this.madeAbsolute) {
-      this.position = i.position;
-      for (let n of this.manager.tooltipViews)
-        n.dom.style.position = this.position;
-      e = !0;
-    }
-    if (i.parent != this.parent) {
-      this.parent && this.container.remove(), this.parent = i.parent, this.createContainer();
-      for (let n of this.manager.tooltipViews)
-        this.container.appendChild(n.dom);
-      e = !0;
-    } else this.parent && this.view.themeClasses != this.classes && (this.classes = this.container.className = this.view.themeClasses);
-    e && this.maybeMeasure();
-  }
-  createTooltip(s, t) {
-    let e = s.create(this.view), i = t ? t.dom : null;
-    if (e.dom.classList.add("cm-tooltip"), s.arrow && !e.dom.querySelector(".cm-tooltip > .cm-tooltip-arrow")) {
-      let n = document.createElement("div");
-      n.className = "cm-tooltip-arrow", e.dom.appendChild(n);
-    }
-    return e.dom.style.position = this.position, e.dom.style.top = Ri, e.dom.style.left = "0px", this.container.insertBefore(e.dom, i), e.mount && e.mount(this.view), this.resizeObserver && this.resizeObserver.observe(e.dom), e;
-  }
-  destroy() {
-    var s, t, e;
-    this.view.win.removeEventListener("resize", this.measureSoon);
-    for (let i of this.manager.tooltipViews)
-      i.dom.remove(), (s = i.destroy) === null || s === void 0 || s.call(i);
-    this.parent && this.container.remove(), (t = this.resizeObserver) === null || t === void 0 || t.disconnect(), (e = this.intersectionObserver) === null || e === void 0 || e.disconnect(), clearTimeout(this.measureTimeout);
-  }
-  readMeasure() {
-    let s = 1, t = 1, e = !1;
-    if (this.position == "fixed" && this.manager.tooltipViews.length) {
-      let { dom: r } = this.manager.tooltipViews[0];
-      if (k.safari) {
-        let o = r.getBoundingClientRect();
-        e = Math.abs(o.top + 1e4) > 1 || Math.abs(o.left) > 1;
-      } else
-        e = !!r.offsetParent && r.offsetParent != this.container.ownerDocument.body;
-    }
-    if (e || this.position == "absolute")
-      if (this.parent) {
-        let r = this.parent.getBoundingClientRect();
-        r.width && r.height && (s = r.width / this.parent.offsetWidth, t = r.height / this.parent.offsetHeight);
-      } else
-        ({ scaleX: s, scaleY: t } = this.view.viewState);
-    let i = this.view.scrollDOM.getBoundingClientRect(), n = nr(this.view);
-    return {
-      visible: {
-        left: i.left + n.left,
-        top: i.top + n.top,
-        right: i.right - n.right,
-        bottom: i.bottom - n.bottom
-      },
-      parent: this.parent ? this.container.getBoundingClientRect() : this.view.dom.getBoundingClientRect(),
-      pos: this.manager.tooltips.map((r, o) => {
-        let l = this.manager.tooltipViews[o];
-        return l.getCoords ? l.getCoords(r.pos) : this.view.coordsAtPos(r.pos);
-      }),
-      size: this.manager.tooltipViews.map(({ dom: r }) => r.getBoundingClientRect()),
-      space: this.view.state.facet(Gn).tooltipSpace(this.view),
-      scaleX: s,
-      scaleY: t,
-      makeAbsolute: e
-    };
-  }
-  writeMeasure(s) {
-    var t;
-    if (s.makeAbsolute) {
-      this.madeAbsolute = !0, this.position = "absolute";
-      for (let l of this.manager.tooltipViews)
-        l.dom.style.position = "absolute";
-    }
-    let { visible: e, space: i, scaleX: n, scaleY: r } = s, o = [];
-    for (let l = 0; l < this.manager.tooltips.length; l++) {
-      let a = this.manager.tooltips[l], h = this.manager.tooltipViews[l], { dom: f } = h, c = s.pos[l], u = s.size[l];
-      if (!c || a.clip !== !1 && (c.bottom <= Math.max(e.top, i.top) || c.top >= Math.min(e.bottom, i.bottom) || c.right < Math.max(e.left, i.left) - 0.1 || c.left > Math.min(e.right, i.right) + 0.1)) {
-        f.style.top = Ri;
-        continue;
-      }
-      let d = a.arrow ? h.dom.querySelector(".cm-tooltip-arrow") : null, p = d ? 7 : 0, m = u.right - u.left, g = (t = lo.get(h)) !== null && t !== void 0 ? t : u.bottom - u.top, y = h.offset || vc, x = this.view.textDirection == K.LTR, w = u.width > i.right - i.left ? x ? i.left : i.right - u.width : x ? Math.max(i.left, Math.min(c.left - (d ? 14 : 0) + y.x, i.right - m)) : Math.min(Math.max(i.left, c.left - m + (d ? 14 : 0) - y.x), i.right - m), C = this.above[l];
-      !a.strictSide && (C ? c.top - g - p - y.y < i.top : c.bottom + g + p + y.y > i.bottom) && C == i.bottom - c.bottom > c.top - i.top && (C = this.above[l] = !C);
-      let S = (C ? c.top - i.top : i.bottom - c.bottom) - p;
-      if (S < g && h.resize !== !1) {
-        if (S < this.view.defaultLineHeight) {
-          f.style.top = Ri;
-          continue;
-        }
-        lo.set(h, g), f.style.height = (g = S) / r + "px";
-      } else f.style.height && (f.style.height = "");
-      let T = C ? c.top - g - p - y.y : c.bottom + p + y.y, A = w + m;
-      if (h.overlap !== !0)
-        for (let N of o)
-          N.left < A && N.right > w && N.top < T + g && N.bottom > T && (T = C ? N.top - g - 2 - p : N.bottom + p + 2);
-      if (this.position == "absolute" ? (f.style.top = (T - s.parent.top) / r + "px", ao(f, (w - s.parent.left) / n)) : (f.style.top = T / r + "px", ao(f, w / n)), d) {
-        let N = c.left + (x ? y.x : -y.x) - (w + 14 - 7);
-        d.style.left = N / n + "px";
-      }
-      h.overlap !== !0 && o.push({ left: w, top: T, right: A, bottom: T + g }), f.classList.toggle("cm-tooltip-above", C), f.classList.toggle("cm-tooltip-below", !C), h.positioned && h.positioned(s.space);
-    }
-  }
-  maybeMeasure() {
-    if (this.manager.tooltips.length && (this.view.inView && this.view.requestMeasure(this.measureReq), this.inView != this.view.inView && (this.inView = this.view.inView, !this.inView)))
-      for (let s of this.manager.tooltipViews)
-        s.dom.style.top = Ri;
-  }
-}, {
-  eventObservers: {
-    scroll() {
-      this.maybeMeasure();
-    }
-  }
-});
-function ao(s, t) {
-  let e = parseInt(s.style.left, 10);
-  (isNaN(e) || Math.abs(t - e) > 1) && (s.style.left = t + "px");
-}
-const xc = /* @__PURE__ */ O.baseTheme({
-  ".cm-tooltip": {
-    zIndex: 500,
-    boxSizing: "border-box"
-  },
-  "&light .cm-tooltip": {
-    border: "1px solid #bbb",
-    backgroundColor: "#f5f5f5"
-  },
-  "&light .cm-tooltip-section:not(:first-child)": {
-    borderTop: "1px solid #bbb"
-  },
-  "&dark .cm-tooltip": {
-    backgroundColor: "#333338",
-    color: "white"
-  },
-  ".cm-tooltip-arrow": {
-    height: "7px",
-    width: "14px",
-    position: "absolute",
-    zIndex: -1,
-    overflow: "hidden",
-    "&:before, &:after": {
-      content: "''",
-      position: "absolute",
-      width: 0,
-      height: 0,
-      borderLeft: "7px solid transparent",
-      borderRight: "7px solid transparent"
-    },
-    ".cm-tooltip-above &": {
-      bottom: "-7px",
-      "&:before": {
-        borderTop: "7px solid #bbb"
-      },
-      "&:after": {
-        borderTop: "7px solid #f5f5f5",
-        bottom: "1px"
-      }
-    },
-    ".cm-tooltip-below &": {
-      top: "-7px",
-      "&:before": {
-        borderBottom: "7px solid #bbb"
-      },
-      "&:after": {
-        borderBottom: "7px solid #f5f5f5",
-        top: "1px"
-      }
-    }
-  },
-  "&dark .cm-tooltip .cm-tooltip-arrow": {
-    "&:before": {
-      borderTopColor: "#333338",
-      borderBottomColor: "#333338"
-    },
-    "&:after": {
-      borderTopColor: "transparent",
-      borderBottomColor: "transparent"
-    }
-  }
-}), vc = { x: 0, y: 0 }, Tn = /* @__PURE__ */ M.define({
-  enables: [lr, xc]
-}), hn = /* @__PURE__ */ M.define({
-  combine: (s) => s.reduce((t, e) => t.concat(e), [])
-});
-class On {
-  // Needs to be static so that host tooltip instances always match
-  static create(t) {
-    return new On(t);
-  }
-  constructor(t) {
-    this.view = t, this.mounted = !1, this.dom = document.createElement("div"), this.dom.classList.add("cm-tooltip-hover"), this.manager = new ta(t, hn, (e, i) => this.createHostedView(e, i), (e) => e.dom.remove());
-  }
-  createHostedView(t, e) {
-    let i = t.create(this.view);
-    return i.dom.classList.add("cm-tooltip-section"), this.dom.insertBefore(i.dom, e ? e.dom.nextSibling : this.dom.firstChild), this.mounted && i.mount && i.mount(this.view), i;
-  }
-  mount(t) {
-    for (let e of this.manager.tooltipViews)
-      e.mount && e.mount(t);
-    this.mounted = !0;
-  }
-  positioned(t) {
-    for (let e of this.manager.tooltipViews)
-      e.positioned && e.positioned(t);
-  }
-  update(t) {
-    this.manager.update(t);
-  }
-  destroy() {
-    var t;
-    for (let e of this.manager.tooltipViews)
-      (t = e.destroy) === null || t === void 0 || t.call(e);
-  }
-  passProp(t) {
-    let e;
-    for (let i of this.manager.tooltipViews) {
-      let n = i[t];
-      if (n !== void 0) {
-        if (e === void 0)
-          e = n;
-        else if (e !== n)
-          return;
-      }
-    }
-    return e;
-  }
-  get offset() {
-    return this.passProp("offset");
-  }
-  get getCoords() {
-    return this.passProp("getCoords");
-  }
-  get overlap() {
-    return this.passProp("overlap");
-  }
-  get resize() {
-    return this.passProp("resize");
-  }
-}
-const kc = /* @__PURE__ */ Tn.compute([hn], (s) => {
-  let t = s.facet(hn);
-  return t.length === 0 ? null : {
-    pos: Math.min(...t.map((e) => e.pos)),
-    end: Math.max(...t.map((e) => {
-      var i;
-      return (i = e.end) !== null && i !== void 0 ? i : e.pos;
-    })),
-    create: On.create,
-    above: t[0].above,
-    arrow: t.some((e) => e.arrow)
-  };
-});
-class Sc {
-  constructor(t, e, i, n, r) {
-    this.view = t, this.source = e, this.field = i, this.setHover = n, this.hoverTime = r, this.hoverTimeout = -1, this.restartTimeout = -1, this.pending = null, this.lastMove = { x: 0, y: 0, target: t.dom, time: 0 }, this.checkHover = this.checkHover.bind(this), t.dom.addEventListener("mouseleave", this.mouseleave = this.mouseleave.bind(this)), t.dom.addEventListener("mousemove", this.mousemove = this.mousemove.bind(this));
-  }
-  update() {
-    this.pending && (this.pending = null, clearTimeout(this.restartTimeout), this.restartTimeout = setTimeout(() => this.startHover(), 20));
-  }
-  get active() {
-    return this.view.state.field(this.field);
-  }
-  checkHover() {
-    if (this.hoverTimeout = -1, this.active.length)
-      return;
-    let t = Date.now() - this.lastMove.time;
-    t < this.hoverTime ? this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime - t) : this.startHover();
-  }
-  startHover() {
-    clearTimeout(this.restartTimeout);
-    let { view: t, lastMove: e } = this, i = t.docView.tile.nearest(e.target);
-    if (!i)
-      return;
-    let n, r = 1;
-    if (i.isWidget())
-      n = i.posAtStart;
-    else {
-      if (n = t.posAtCoords(e), n == null)
-        return;
-      let l = t.coordsAtPos(n);
-      if (!l || e.y < l.top || e.y > l.bottom || e.x < l.left - t.defaultCharacterWidth || e.x > l.right + t.defaultCharacterWidth)
-        return;
-      let a = t.bidiSpans(t.state.doc.lineAt(n)).find((f) => f.from <= n && f.to >= n), h = a && a.dir == K.RTL ? -1 : 1;
-      r = e.x < l.left ? -h : h;
-    }
-    let o = this.source(t, n, r);
-    if (o?.then) {
-      let l = this.pending = { pos: n };
-      o.then((a) => {
-        this.pending == l && (this.pending = null, a && !(Array.isArray(a) && !a.length) && t.dispatch({ effects: this.setHover.of(Array.isArray(a) ? a : [a]) }));
-      }, (a) => ot(t.state, a, "hover tooltip"));
-    } else o && !(Array.isArray(o) && !o.length) && t.dispatch({ effects: this.setHover.of(Array.isArray(o) ? o : [o]) });
-  }
-  get tooltip() {
-    let t = this.view.plugin(lr), e = t ? t.manager.tooltips.findIndex((i) => i.create == On.create) : -1;
-    return e > -1 ? t.manager.tooltipViews[e] : null;
-  }
-  mousemove(t) {
-    var e, i;
-    this.lastMove = { x: t.clientX, y: t.clientY, target: t.target, time: Date.now() }, this.hoverTimeout < 0 && (this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime));
-    let { active: n, tooltip: r } = this;
-    if (n.length && r && !Cc(r.dom, t) || this.pending) {
-      let { pos: o } = n[0] || this.pending, l = (i = (e = n[0]) === null || e === void 0 ? void 0 : e.end) !== null && i !== void 0 ? i : o;
-      (o == l ? this.view.posAtCoords(this.lastMove) != o : !Ac(this.view, o, l, t.clientX, t.clientY)) && (this.view.dispatch({ effects: this.setHover.of([]) }), this.pending = null);
-    }
-  }
-  mouseleave(t) {
-    clearTimeout(this.hoverTimeout), this.hoverTimeout = -1;
-    let { active: e } = this;
-    if (e.length) {
-      let { tooltip: i } = this;
-      i && i.dom.contains(t.relatedTarget) ? this.watchTooltipLeave(i.dom) : this.view.dispatch({ effects: this.setHover.of([]) });
-    }
-  }
-  watchTooltipLeave(t) {
-    let e = (i) => {
-      t.removeEventListener("mouseleave", e), this.active.length && !this.view.dom.contains(i.relatedTarget) && this.view.dispatch({ effects: this.setHover.of([]) });
-    };
-    t.addEventListener("mouseleave", e);
-  }
-  destroy() {
-    clearTimeout(this.hoverTimeout), clearTimeout(this.restartTimeout), this.view.dom.removeEventListener("mouseleave", this.mouseleave), this.view.dom.removeEventListener("mousemove", this.mousemove);
-  }
-}
-const Pi = 4;
-function Cc(s, t) {
-  let { left: e, right: i, top: n, bottom: r } = s.getBoundingClientRect(), o;
-  if (o = s.querySelector(".cm-tooltip-arrow")) {
-    let l = o.getBoundingClientRect();
-    n = Math.min(l.top, n), r = Math.max(l.bottom, r);
-  }
-  return t.clientX >= e - Pi && t.clientX <= i + Pi && t.clientY >= n - Pi && t.clientY <= r + Pi;
-}
-function Ac(s, t, e, i, n, r) {
-  let o = s.scrollDOM.getBoundingClientRect(), l = s.documentTop + s.documentPadding.top + s.contentHeight;
-  if (o.left > i || o.right < i || o.top > n || Math.min(o.bottom, l) < n)
-    return !1;
-  let a = s.posAtCoords({ x: i, y: n }, !1);
-  return a >= t && a <= e;
-}
-function Mc(s, t = {}) {
-  let e = I.define(), i = pt.define({
-    create() {
-      return [];
-    },
-    update(n, r) {
-      if (n.length && (t.hideOnChange && (r.docChanged || r.selection) ? n = [] : t.hideOn && (n = n.filter((o) => !t.hideOn(r, o))), r.docChanged)) {
-        let o = [];
-        for (let l of n) {
-          let a = r.changes.mapPos(l.pos, -1, ht.TrackDel);
-          if (a != null) {
-            let h = Object.assign(/* @__PURE__ */ Object.create(null), l);
-            h.pos = a, h.end != null && (h.end = r.changes.mapPos(h.end)), o.push(h);
-          }
-        }
-        n = o;
-      }
-      for (let o of r.effects)
-        o.is(e) && (n = o.value), o.is(Tc) && (n = []);
-      return n;
-    },
-    provide: (n) => hn.from(n)
-  });
-  return {
-    active: i,
-    extension: [
-      i,
-      vt.define((n) => new Sc(
-        n,
-        s,
-        i,
-        e,
-        t.hoverTime || 300
-        /* Hover.Time */
-      )),
-      kc
-    ]
-  };
-}
-function ea(s, t) {
-  let e = s.plugin(lr);
-  if (!e)
-    return null;
-  let i = e.manager.tooltips.indexOf(t);
-  return i < 0 ? null : e.manager.tooltipViews[i];
-}
-const Tc = /* @__PURE__ */ I.define(), ho = /* @__PURE__ */ M.define({
-  combine(s) {
-    let t, e;
-    for (let i of s)
-      t = t || i.topContainer, e = e || i.bottomContainer;
-    return { topContainer: t, bottomContainer: e };
-  }
-}), Oc = /* @__PURE__ */ vt.fromClass(class {
-  constructor(s) {
-    this.input = s.state.facet(Ps), this.specs = this.input.filter((e) => e), this.panels = this.specs.map((e) => e(s));
-    let t = s.state.facet(ho);
-    this.top = new Ii(s, !0, t.topContainer), this.bottom = new Ii(s, !1, t.bottomContainer), this.top.sync(this.panels.filter((e) => e.top)), this.bottom.sync(this.panels.filter((e) => !e.top));
-    for (let e of this.panels)
-      e.dom.classList.add("cm-panel"), e.mount && e.mount();
-  }
-  update(s) {
-    let t = s.state.facet(ho);
-    this.top.container != t.topContainer && (this.top.sync([]), this.top = new Ii(s.view, !0, t.topContainer)), this.bottom.container != t.bottomContainer && (this.bottom.sync([]), this.bottom = new Ii(s.view, !1, t.bottomContainer)), this.top.syncClasses(), this.bottom.syncClasses();
-    let e = s.state.facet(Ps);
-    if (e != this.input) {
-      let i = e.filter((a) => a), n = [], r = [], o = [], l = [];
-      for (let a of i) {
-        let h = this.specs.indexOf(a), f;
-        h < 0 ? (f = a(s.view), l.push(f)) : (f = this.panels[h], f.update && f.update(s)), n.push(f), (f.top ? r : o).push(f);
-      }
-      this.specs = i, this.panels = n, this.top.sync(r), this.bottom.sync(o);
-      for (let a of l)
-        a.dom.classList.add("cm-panel"), a.mount && a.mount();
-    } else
-      for (let i of this.panels)
-        i.update && i.update(s);
-  }
-  destroy() {
-    this.top.sync([]), this.bottom.sync([]);
-  }
-}, {
-  provide: (s) => O.scrollMargins.of((t) => {
-    let e = t.plugin(s);
-    return e && { top: e.top.scrollMargin(), bottom: e.bottom.scrollMargin() };
-  })
-});
-class Ii {
-  constructor(t, e, i) {
-    this.view = t, this.top = e, this.container = i, this.dom = void 0, this.classes = "", this.panels = [], this.syncClasses();
-  }
-  sync(t) {
-    for (let e of this.panels)
-      e.destroy && t.indexOf(e) < 0 && e.destroy();
-    this.panels = t, this.syncDOM();
-  }
-  syncDOM() {
-    if (this.panels.length == 0) {
-      this.dom && (this.dom.remove(), this.dom = void 0);
-      return;
-    }
-    if (!this.dom) {
-      this.dom = document.createElement("div"), this.dom.className = this.top ? "cm-panels cm-panels-top" : "cm-panels cm-panels-bottom", this.dom.style[this.top ? "top" : "bottom"] = "0";
-      let e = this.container || this.view.dom;
-      e.insertBefore(this.dom, this.top ? e.firstChild : null);
-    }
-    let t = this.dom.firstChild;
-    for (let e of this.panels)
-      if (e.dom.parentNode == this.dom) {
-        for (; t != e.dom; )
-          t = fo(t);
-        t = t.nextSibling;
-      } else
-        this.dom.insertBefore(e.dom, t);
-    for (; t; )
-      t = fo(t);
-  }
-  scrollMargin() {
-    return !this.dom || this.container ? 0 : Math.max(0, this.top ? this.dom.getBoundingClientRect().bottom - Math.max(0, this.view.scrollDOM.getBoundingClientRect().top) : Math.min(innerHeight, this.view.scrollDOM.getBoundingClientRect().bottom) - this.dom.getBoundingClientRect().top);
-  }
-  syncClasses() {
-    if (!(!this.container || this.classes == this.view.themeClasses)) {
-      for (let t of this.classes.split(" "))
-        t && this.container.classList.remove(t);
-      for (let t of (this.classes = this.view.themeClasses).split(" "))
-        t && this.container.classList.add(t);
-    }
-  }
-}
-function fo(s) {
-  let t = s.nextSibling;
-  return s.remove(), t;
-}
-const Ps = /* @__PURE__ */ M.define({
-  enables: Oc
-});
-class Jt extends se {
-  /**
-  @internal
-  */
-  compare(t) {
-    return this == t || this.constructor == t.constructor && this.eq(t);
-  }
-  /**
-  Compare this marker to another marker of the same type.
-  */
-  eq(t) {
-    return !1;
-  }
-  /**
-  Called if the marker has a `toDOM` method and its representation
-  was removed from a gutter.
-  */
-  destroy(t) {
-  }
-}
-Jt.prototype.elementClass = "";
-Jt.prototype.toDOM = void 0;
-Jt.prototype.mapMode = ht.TrackBefore;
-Jt.prototype.startSide = Jt.prototype.endSide = -1;
-Jt.prototype.point = !0;
-const Ji = /* @__PURE__ */ M.define(), Dc = /* @__PURE__ */ M.define(), Bc = {
-  class: "",
-  renderEmptyElements: !1,
-  elementStyle: "",
-  markers: () => L.empty,
-  lineMarker: () => null,
-  widgetMarker: () => null,
-  lineMarkerChange: null,
-  initialSpacer: null,
-  updateSpacer: null,
-  domEventHandlers: {},
-  side: "before"
-}, ni = /* @__PURE__ */ M.define();
-function Lc(s) {
-  return [ia(), ni.of({ ...Bc, ...s })];
-}
-const co = /* @__PURE__ */ M.define({
-  combine: (s) => s.some((t) => t)
-});
-function ia(s) {
-  return [
-    Ec
-  ];
-}
-const Ec = /* @__PURE__ */ vt.fromClass(class {
-  constructor(s) {
-    this.view = s, this.domAfter = null, this.prevViewport = s.viewport, this.dom = document.createElement("div"), this.dom.className = "cm-gutters cm-gutters-before", this.dom.setAttribute("aria-hidden", "true"), this.dom.style.minHeight = this.view.contentHeight / this.view.scaleY + "px", this.gutters = s.state.facet(ni).map((t) => new po(s, t)), this.fixed = !s.state.facet(co);
-    for (let t of this.gutters)
-      t.config.side == "after" ? this.getDOMAfter().appendChild(t.dom) : this.dom.appendChild(t.dom);
-    this.fixed && (this.dom.style.position = "sticky"), this.syncGutters(!1), s.scrollDOM.insertBefore(this.dom, s.contentDOM);
-  }
-  getDOMAfter() {
-    return this.domAfter || (this.domAfter = document.createElement("div"), this.domAfter.className = "cm-gutters cm-gutters-after", this.domAfter.setAttribute("aria-hidden", "true"), this.domAfter.style.minHeight = this.view.contentHeight / this.view.scaleY + "px", this.domAfter.style.position = this.fixed ? "sticky" : "", this.view.scrollDOM.appendChild(this.domAfter)), this.domAfter;
-  }
-  update(s) {
-    if (this.updateGutters(s)) {
-      let t = this.prevViewport, e = s.view.viewport, i = Math.min(t.to, e.to) - Math.max(t.from, e.from);
-      this.syncGutters(i < (e.to - e.from) * 0.8);
-    }
-    if (s.geometryChanged) {
-      let t = this.view.contentHeight / this.view.scaleY + "px";
-      this.dom.style.minHeight = t, this.domAfter && (this.domAfter.style.minHeight = t);
-    }
-    this.view.state.facet(co) != !this.fixed && (this.fixed = !this.fixed, this.dom.style.position = this.fixed ? "sticky" : "", this.domAfter && (this.domAfter.style.position = this.fixed ? "sticky" : "")), this.prevViewport = s.view.viewport;
-  }
-  syncGutters(s) {
-    let t = this.dom.nextSibling;
-    s && (this.dom.remove(), this.domAfter && this.domAfter.remove());
-    let e = L.iter(this.view.state.facet(Ji), this.view.viewport.from), i = [], n = this.gutters.map((r) => new Rc(r, this.view.viewport, -this.view.documentPadding.top));
-    for (let r of this.view.viewportLineBlocks)
-      if (i.length && (i = []), Array.isArray(r.type)) {
-        let o = !0;
-        for (let l of r.type)
-          if (l.type == ut.Text && o) {
-            Is(e, i, l.from);
-            for (let a of n)
-              a.line(this.view, l, i);
-            o = !1;
-          } else if (l.widget)
-            for (let a of n)
-              a.widget(this.view, l);
-      } else if (r.type == ut.Text) {
-        Is(e, i, r.from);
-        for (let o of n)
-          o.line(this.view, r, i);
-      } else if (r.widget)
-        for (let o of n)
-          o.widget(this.view, r);
-    for (let r of n)
-      r.finish();
-    s && (this.view.scrollDOM.insertBefore(this.dom, t), this.domAfter && this.view.scrollDOM.appendChild(this.domAfter));
-  }
-  updateGutters(s) {
-    let t = s.startState.facet(ni), e = s.state.facet(ni), i = s.docChanged || s.heightChanged || s.viewportChanged || !L.eq(s.startState.facet(Ji), s.state.facet(Ji), s.view.viewport.from, s.view.viewport.to);
-    if (t == e)
-      for (let n of this.gutters)
-        n.update(s) && (i = !0);
-    else {
-      i = !0;
-      let n = [];
-      for (let r of e) {
-        let o = t.indexOf(r);
-        o < 0 ? n.push(new po(this.view, r)) : (this.gutters[o].update(s), n.push(this.gutters[o]));
-      }
-      for (let r of this.gutters)
-        r.dom.remove(), n.indexOf(r) < 0 && r.destroy();
-      for (let r of n)
-        r.config.side == "after" ? this.getDOMAfter().appendChild(r.dom) : this.dom.appendChild(r.dom);
-      this.gutters = n;
-    }
-    return i;
-  }
-  destroy() {
-    for (let s of this.gutters)
-      s.destroy();
-    this.dom.remove(), this.domAfter && this.domAfter.remove();
-  }
-}, {
-  provide: (s) => O.scrollMargins.of((t) => {
-    let e = t.plugin(s);
-    if (!e || e.gutters.length == 0 || !e.fixed)
-      return null;
-    let i = e.dom.offsetWidth * t.scaleX, n = e.domAfter ? e.domAfter.offsetWidth * t.scaleX : 0;
-    return t.textDirection == K.LTR ? { left: i, right: n } : { right: i, left: n };
-  })
-});
-function uo(s) {
-  return Array.isArray(s) ? s : [s];
-}
-function Is(s, t, e) {
-  for (; s.value && s.from <= e; )
-    s.from == e && t.push(s.value), s.next();
-}
-class Rc {
-  constructor(t, e, i) {
-    this.gutter = t, this.height = i, this.i = 0, this.cursor = L.iter(t.markers, e.from);
-  }
-  addElement(t, e, i) {
-    let { gutter: n } = this, r = (e.top - this.height) / t.scaleY, o = e.height / t.scaleY;
-    if (this.i == n.elements.length) {
-      let l = new na(t, o, r, i);
-      n.elements.push(l), n.dom.appendChild(l.dom);
-    } else
-      n.elements[this.i].update(t, o, r, i);
-    this.height = e.bottom, this.i++;
-  }
-  line(t, e, i) {
-    let n = [];
-    Is(this.cursor, n, e.from), i.length && (n = n.concat(i));
-    let r = this.gutter.config.lineMarker(t, e, n);
-    r && n.unshift(r);
-    let o = this.gutter;
-    n.length == 0 && !o.config.renderEmptyElements || this.addElement(t, e, n);
-  }
-  widget(t, e) {
-    let i = this.gutter.config.widgetMarker(t, e.widget, e), n = i ? [i] : null;
-    for (let r of t.state.facet(Dc)) {
-      let o = r(t, e.widget, e);
-      o && (n || (n = [])).push(o);
-    }
-    n && this.addElement(t, e, n);
-  }
-  finish() {
-    let t = this.gutter;
-    for (; t.elements.length > this.i; ) {
-      let e = t.elements.pop();
-      t.dom.removeChild(e.dom), e.destroy();
-    }
-  }
-}
-class po {
-  constructor(t, e) {
-    this.view = t, this.config = e, this.elements = [], this.spacer = null, this.dom = document.createElement("div"), this.dom.className = "cm-gutter" + (this.config.class ? " " + this.config.class : "");
-    for (let i in e.domEventHandlers)
-      this.dom.addEventListener(i, (n) => {
-        let r = n.target, o;
-        if (r != this.dom && this.dom.contains(r)) {
-          for (; r.parentNode != this.dom; )
-            r = r.parentNode;
-          let a = r.getBoundingClientRect();
-          o = (a.top + a.bottom) / 2;
-        } else
-          o = n.clientY;
-        let l = t.lineBlockAtHeight(o - t.documentTop);
-        e.domEventHandlers[i](t, l, n) && n.preventDefault();
-      });
-    this.markers = uo(e.markers(t)), e.initialSpacer && (this.spacer = new na(t, 0, 0, [e.initialSpacer(t)]), this.dom.appendChild(this.spacer.dom), this.spacer.dom.style.cssText += "visibility: hidden; pointer-events: none");
-  }
-  update(t) {
-    let e = this.markers;
-    if (this.markers = uo(this.config.markers(t.view)), this.spacer && this.config.updateSpacer) {
-      let n = this.config.updateSpacer(this.spacer.markers[0], t);
-      n != this.spacer.markers[0] && this.spacer.update(t.view, 0, 0, [n]);
-    }
-    let i = t.view.viewport;
-    return !L.eq(this.markers, e, i.from, i.to) || (this.config.lineMarkerChange ? this.config.lineMarkerChange(t) : !1);
-  }
-  destroy() {
-    for (let t of this.elements)
-      t.destroy();
-  }
-}
-class na {
-  constructor(t, e, i, n) {
-    this.height = -1, this.above = 0, this.markers = [], this.dom = document.createElement("div"), this.dom.className = "cm-gutterElement", this.update(t, e, i, n);
-  }
-  update(t, e, i, n) {
-    this.height != e && (this.height = e, this.dom.style.height = e + "px"), this.above != i && (this.dom.style.marginTop = (this.above = i) ? i + "px" : ""), Pc(this.markers, n) || this.setMarkers(t, n);
-  }
-  setMarkers(t, e) {
-    let i = "cm-gutterElement", n = this.dom.firstChild;
-    for (let r = 0, o = 0; ; ) {
-      let l = o, a = r < e.length ? e[r++] : null, h = !1;
-      if (a) {
-        let f = a.elementClass;
-        f && (i += " " + f);
-        for (let c = o; c < this.markers.length; c++)
-          if (this.markers[c].compare(a)) {
-            l = c, h = !0;
-            break;
-          }
-      } else
-        l = this.markers.length;
-      for (; o < l; ) {
-        let f = this.markers[o++];
-        if (f.toDOM) {
-          f.destroy(n);
-          let c = n.nextSibling;
-          n.remove(), n = c;
-        }
-      }
-      if (!a)
-        break;
-      a.toDOM && (h ? n = n.nextSibling : this.dom.insertBefore(a.toDOM(t), n)), h && o++;
-    }
-    this.dom.className = i, this.markers = e;
-  }
-  destroy() {
-    this.setMarkers(null, []);
-  }
-}
-function Pc(s, t) {
-  if (s.length != t.length)
-    return !1;
-  for (let e = 0; e < s.length; e++)
-    if (!s[e].compare(t[e]))
-      return !1;
-  return !0;
-}
-const Ic = /* @__PURE__ */ M.define(), Nc = /* @__PURE__ */ M.define(), Me = /* @__PURE__ */ M.define({
-  combine(s) {
-    return pi(s, { formatNumber: String, domEventHandlers: {} }, {
-      domEventHandlers(t, e) {
-        let i = Object.assign({}, t);
-        for (let n in e) {
-          let r = i[n], o = e[n];
-          i[n] = r ? (l, a, h) => r(l, a, h) || o(l, a, h) : o;
-        }
-        return i;
-      }
-    });
-  }
-});
-class Jn extends Jt {
-  constructor(t) {
-    super(), this.number = t;
-  }
-  eq(t) {
-    return this.number == t.number;
-  }
-  toDOM() {
-    return document.createTextNode(this.number);
-  }
-}
-function _n(s, t) {
-  return s.state.facet(Me).formatNumber(t, s.state);
-}
-const Hc = /* @__PURE__ */ ni.compute([Me], (s) => ({
-  class: "cm-lineNumbers",
-  renderEmptyElements: !1,
-  markers(t) {
-    return t.state.facet(Ic);
-  },
-  lineMarker(t, e, i) {
-    return i.some((n) => n.toDOM) ? null : new Jn(_n(t, t.state.doc.lineAt(e.from).number));
-  },
-  widgetMarker: (t, e, i) => {
-    for (let n of t.state.facet(Nc)) {
-      let r = n(t, e, i);
-      if (r)
-        return r;
-    }
-    return null;
-  },
-  lineMarkerChange: (t) => t.startState.facet(Me) != t.state.facet(Me),
-  initialSpacer(t) {
-    return new Jn(_n(t, mo(t.state.doc.lines)));
-  },
-  updateSpacer(t, e) {
-    let i = _n(e.view, mo(e.view.state.doc.lines));
-    return i == t.number ? t : new Jn(i);
-  },
-  domEventHandlers: s.facet(Me).domEventHandlers,
-  side: "before"
-}));
-function Sp(s = {}) {
-  return [
-    Me.of(s),
-    ia(),
-    Hc
-  ];
-}
-function mo(s) {
-  let t = 9;
-  for (; t < s; )
-    t = t * 10 + 9;
-  return t;
-}
-const Wc = /* @__PURE__ */ new class extends Jt {
-  constructor() {
-    super(...arguments), this.elementClass = "cm-activeLineGutter";
-  }
-}(), Vc = /* @__PURE__ */ Ji.compute(["selection"], (s) => {
-  let t = [], e = -1;
-  for (let i of s.selection.ranges) {
-    let n = s.doc.lineAt(i.head).from;
-    n > e && (e = n, t.push(Wc.range(n)));
-  }
-  return L.of(t);
-});
-function Cp() {
-  return Vc;
-}
-const Fc = 1024;
-let zc = 0;
-class Yn {
-  constructor(t, e) {
-    this.from = t, this.to = e;
-  }
-}
-class R {
-  /**
-  Create a new node prop type.
-  */
-  constructor(t = {}) {
-    this.id = zc++, this.perNode = !!t.perNode, this.deserialize = t.deserialize || (() => {
-      throw new Error("This node type doesn't define a deserialize function");
-    }), this.combine = t.combine || null;
-  }
-  /**
-  This is meant to be used with
-  [`NodeSet.extend`](#common.NodeSet.extend) or
-  [`LRParser.configure`](#lr.ParserConfig.props) to compute
-  prop values for each node type in the set. Takes a [match
-  object](#common.NodeType^match) or function that returns undefined
-  if the node type doesn't get this prop, and the prop's value if
-  it does.
-  */
-  add(t) {
-    if (this.perNode)
-      throw new RangeError("Can't add per-node props to node types");
-    return typeof t != "function" && (t = St.match(t)), (e) => {
-      let i = t(e);
-      return i === void 0 ? null : [this, i];
-    };
-  }
-}
-R.closedBy = new R({ deserialize: (s) => s.split(" ") });
-R.openedBy = new R({ deserialize: (s) => s.split(" ") });
-R.group = new R({ deserialize: (s) => s.split(" ") });
-R.isolate = new R({ deserialize: (s) => {
-  if (s && s != "rtl" && s != "ltr" && s != "auto")
-    throw new RangeError("Invalid value for isolate: " + s);
-  return s || "auto";
-} });
-R.contextHash = new R({ perNode: !0 });
-R.lookAhead = new R({ perNode: !0 });
-R.mounted = new R({ perNode: !0 });
-class si {
-  constructor(t, e, i, n = !1) {
-    this.tree = t, this.overlay = e, this.parser = i, this.bracketed = n;
-  }
-  /**
-  @internal
-  */
-  static get(t) {
-    return t && t.props && t.props[R.mounted.id];
-  }
-}
-const Kc = /* @__PURE__ */ Object.create(null);
-class St {
-  /**
-  @internal
-  */
-  constructor(t, e, i, n = 0) {
-    this.name = t, this.props = e, this.id = i, this.flags = n;
-  }
-  /**
-  Define a node type.
-  */
-  static define(t) {
-    let e = t.props && t.props.length ? /* @__PURE__ */ Object.create(null) : Kc, i = (t.top ? 1 : 0) | (t.skipped ? 2 : 0) | (t.error ? 4 : 0) | (t.name == null ? 8 : 0), n = new St(t.name || "", e, t.id, i);
-    if (t.props) {
-      for (let r of t.props)
-        if (Array.isArray(r) || (r = r(n)), r) {
-          if (r[0].perNode)
-            throw new RangeError("Can't store a per-node prop on a node type");
-          e[r[0].id] = r[1];
-        }
-    }
-    return n;
-  }
-  /**
-  Retrieves a node prop for this type. Will return `undefined` if
-  the prop isn't present on this node.
-  */
-  prop(t) {
-    return this.props[t.id];
-  }
-  /**
-  True when this is the top node of a grammar.
-  */
-  get isTop() {
-    return (this.flags & 1) > 0;
-  }
-  /**
-  True when this node is produced by a skip rule.
-  */
-  get isSkipped() {
-    return (this.flags & 2) > 0;
-  }
-  /**
-  Indicates whether this is an error node.
-  */
-  get isError() {
-    return (this.flags & 4) > 0;
-  }
-  /**
-  When true, this node type doesn't correspond to a user-declared
-  named node, for example because it is used to cache repetition.
-  */
-  get isAnonymous() {
-    return (this.flags & 8) > 0;
-  }
-  /**
-  Returns true when this node's name or one of its
-  [groups](#common.NodeProp^group) matches the given string.
-  */
-  is(t) {
-    if (typeof t == "string") {
-      if (this.name == t)
-        return !0;
-      let e = this.prop(R.group);
-      return e ? e.indexOf(t) > -1 : !1;
-    }
-    return this.id == t;
-  }
-  /**
-  Create a function from node types to arbitrary values by
-  specifying an object whose property names are node or
-  [group](#common.NodeProp^group) names. Often useful with
-  [`NodeProp.add`](#common.NodeProp.add). You can put multiple
-  names, separated by spaces, in a single property name to map
-  multiple node names to a single value.
-  */
-  static match(t) {
-    let e = /* @__PURE__ */ Object.create(null);
-    for (let i in t)
-      for (let n of i.split(" "))
-        e[n] = t[i];
-    return (i) => {
-      for (let n = i.prop(R.group), r = -1; r < (n ? n.length : 0); r++) {
-        let o = e[r < 0 ? i.name : n[r]];
-        if (o)
-          return o;
-      }
-    };
-  }
-}
-St.none = new St(
-  "",
-  /* @__PURE__ */ Object.create(null),
-  0,
-  8
-  /* NodeFlag.Anonymous */
-);
-const Ni = /* @__PURE__ */ new WeakMap(), go = /* @__PURE__ */ new WeakMap();
-var G;
-(function(s) {
-  s[s.ExcludeBuffers = 1] = "ExcludeBuffers", s[s.IncludeAnonymous = 2] = "IncludeAnonymous", s[s.IgnoreMounts = 4] = "IgnoreMounts", s[s.IgnoreOverlays = 8] = "IgnoreOverlays", s[s.EnterBracketed = 16] = "EnterBracketed";
-})(G || (G = {}));
-class et {
-  /**
-  Construct a new tree. See also [`Tree.build`](#common.Tree^build).
-  */
-  constructor(t, e, i, n, r) {
-    if (this.type = t, this.children = e, this.positions = i, this.length = n, this.props = null, r && r.length) {
-      this.props = /* @__PURE__ */ Object.create(null);
-      for (let [o, l] of r)
-        this.props[typeof o == "number" ? o : o.id] = l;
-    }
-  }
-  /**
-  @internal
-  */
-  toString() {
-    let t = si.get(this);
-    if (t && !t.overlay)
-      return t.tree.toString();
-    let e = "";
-    for (let i of this.children) {
-      let n = i.toString();
-      n && (e && (e += ","), e += n);
-    }
-    return this.type.name ? (/\W/.test(this.type.name) && !this.type.isError ? JSON.stringify(this.type.name) : this.type.name) + (e.length ? "(" + e + ")" : "") : e;
-  }
-  /**
-  Get a [tree cursor](#common.TreeCursor) positioned at the top of
-  the tree. Mode can be used to [control](#common.IterMode) which
-  nodes the cursor visits.
-  */
-  cursor(t = 0) {
-    return new Hs(this.topNode, t);
-  }
-  /**
-  Get a [tree cursor](#common.TreeCursor) pointing into this tree
-  at the given position and side (see
-  [`moveTo`](#common.TreeCursor.moveTo).
-  */
-  cursorAt(t, e = 0, i = 0) {
-    let n = Ni.get(this) || this.topNode, r = new Hs(n);
-    return r.moveTo(t, e), Ni.set(this, r._tree), r;
-  }
-  /**
-  Get a [syntax node](#common.SyntaxNode) object for the top of the
-  tree.
-  */
-  get topNode() {
-    return new xt(this, 0, 0, null);
-  }
-  /**
-  Get the [syntax node](#common.SyntaxNode) at the given position.
-  If `side` is -1, this will move into nodes that end at the
-  position. If 1, it'll move into nodes that start at the
-  position. With 0, it'll only enter nodes that cover the position
-  from both sides.
-  
-  Note that this will not enter
-  [overlays](#common.MountedTree.overlay), and you often want
-  [`resolveInner`](#common.Tree.resolveInner) instead.
-  */
-  resolve(t, e = 0) {
-    let i = ui(Ni.get(this) || this.topNode, t, e, !1);
-    return Ni.set(this, i), i;
-  }
-  /**
-  Like [`resolve`](#common.Tree.resolve), but will enter
-  [overlaid](#common.MountedTree.overlay) nodes, producing a syntax node
-  pointing into the innermost overlaid tree at the given position
-  (with parent links going through all parent structure, including
-  the host trees).
-  */
-  resolveInner(t, e = 0) {
-    let i = ui(go.get(this) || this.topNode, t, e, !0);
-    return go.set(this, i), i;
-  }
-  /**
-  In some situations, it can be useful to iterate through all
-  nodes around a position, including those in overlays that don't
-  directly cover the position. This method gives you an iterator
-  that will produce all nodes, from small to big, around the given
-  position.
-  */
-  resolveStack(t, e = 0) {
-    return Uc(this, t, e);
-  }
-  /**
-  Iterate over the tree and its children, calling `enter` for any
-  node that touches the `from`/`to` region (if given) before
-  running over such a node's children, and `leave` (if given) when
-  leaving the node. When `enter` returns `false`, that node will
-  not have its children iterated over (or `leave` called).
-  */
-  iterate(t) {
-    let { enter: e, leave: i, from: n = 0, to: r = this.length } = t, o = t.mode || 0, l = (o & G.IncludeAnonymous) > 0;
-    for (let a = this.cursor(o | G.IncludeAnonymous); ; ) {
-      let h = !1;
-      if (a.from <= r && a.to >= n && (!l && a.type.isAnonymous || e(a) !== !1)) {
-        if (a.firstChild())
-          continue;
-        h = !0;
-      }
-      for (; h && i && (l || !a.type.isAnonymous) && i(a), !a.nextSibling(); ) {
-        if (!a.parent())
-          return;
-        h = !0;
-      }
-    }
-  }
-  /**
-  Get the value of the given [node prop](#common.NodeProp) for this
-  node. Works with both per-node and per-type props.
-  */
-  prop(t) {
-    return t.perNode ? this.props ? this.props[t.id] : void 0 : this.type.prop(t);
-  }
-  /**
-  Returns the node's [per-node props](#common.NodeProp.perNode) in a
-  format that can be passed to the [`Tree`](#common.Tree)
-  constructor.
-  */
-  get propValues() {
-    let t = [];
-    if (this.props)
-      for (let e in this.props)
-        t.push([+e, this.props[e]]);
-    return t;
-  }
-  /**
-  Balance the direct children of this tree, producing a copy of
-  which may have children grouped into subtrees with type
-  [`NodeType.none`](#common.NodeType^none).
-  */
-  balance(t = {}) {
-    return this.children.length <= 8 ? this : fr(St.none, this.children, this.positions, 0, this.children.length, 0, this.length, (e, i, n) => new et(this.type, e, i, n, this.propValues), t.makeTree || ((e, i, n) => new et(St.none, e, i, n)));
-  }
-  /**
-  Build a tree from a postfix-ordered buffer of node information,
-  or a cursor over such a buffer.
-  */
-  static build(t) {
-    return jc(t);
-  }
-}
-et.empty = new et(St.none, [], [], 0);
-class ar {
-  constructor(t, e) {
-    this.buffer = t, this.index = e;
-  }
-  get id() {
-    return this.buffer[this.index - 4];
-  }
-  get start() {
-    return this.buffer[this.index - 3];
-  }
-  get end() {
-    return this.buffer[this.index - 2];
-  }
-  get size() {
-    return this.buffer[this.index - 1];
-  }
-  get pos() {
-    return this.index;
-  }
-  next() {
-    this.index -= 4;
-  }
-  fork() {
-    return new ar(this.buffer, this.index);
-  }
-}
-class le {
-  /**
-  Create a tree buffer.
-  */
-  constructor(t, e, i) {
-    this.buffer = t, this.length = e, this.set = i;
-  }
-  /**
-  @internal
-  */
-  get type() {
-    return St.none;
-  }
-  /**
-  @internal
-  */
-  toString() {
-    let t = [];
-    for (let e = 0; e < this.buffer.length; )
-      t.push(this.childString(e)), e = this.buffer[e + 3];
-    return t.join(",");
-  }
-  /**
-  @internal
-  */
-  childString(t) {
-    let e = this.buffer[t], i = this.buffer[t + 3], n = this.set.types[e], r = n.name;
-    if (/\W/.test(r) && !n.isError && (r = JSON.stringify(r)), t += 4, i == t)
-      return r;
-    let o = [];
-    for (; t < i; )
-      o.push(this.childString(t)), t = this.buffer[t + 3];
-    return r + "(" + o.join(",") + ")";
-  }
-  /**
-  @internal
-  */
-  findChild(t, e, i, n, r) {
-    let { buffer: o } = this, l = -1;
-    for (let a = t; a != e && !(sa(r, n, o[a + 1], o[a + 2]) && (l = a, i > 0)); a = o[a + 3])
-      ;
-    return l;
-  }
-  /**
-  @internal
-  */
-  slice(t, e, i) {
-    let n = this.buffer, r = new Uint16Array(e - t), o = 0;
-    for (let l = t, a = 0; l < e; ) {
-      r[a++] = n[l++], r[a++] = n[l++] - i;
-      let h = r[a++] = n[l++] - i;
-      r[a++] = n[l++] - t, o = Math.max(o, h);
-    }
-    return new le(r, o, this.set);
-  }
-}
-function sa(s, t, e, i) {
-  switch (s) {
-    case -2:
-      return e < t;
-    case -1:
-      return i >= t && e < t;
-    case 0:
-      return e < t && i > t;
-    case 1:
-      return e <= t && i > t;
-    case 2:
-      return i > t;
-    case 4:
-      return !0;
-  }
-}
-function ui(s, t, e, i) {
-  for (var n; s.from == s.to || (e < 1 ? s.from >= t : s.from > t) || (e > -1 ? s.to <= t : s.to < t); ) {
-    let o = !i && s instanceof xt && s.index < 0 ? null : s.parent;
-    if (!o)
-      return s;
-    s = o;
-  }
-  let r = i ? 0 : G.IgnoreOverlays;
-  if (i)
-    for (let o = s, l = o.parent; l; o = l, l = o.parent)
-      o instanceof xt && o.index < 0 && ((n = l.enter(t, e, r)) === null || n === void 0 ? void 0 : n.from) != o.from && (s = l);
-  for (; ; ) {
-    let o = s.enter(t, e, r);
-    if (!o)
-      return s;
-    s = o;
-  }
-}
-class ra {
-  cursor(t = 0) {
-    return new Hs(this, t);
-  }
-  getChild(t, e = null, i = null) {
-    let n = yo(this, t, e, i);
-    return n.length ? n[0] : null;
-  }
-  getChildren(t, e = null, i = null) {
-    return yo(this, t, e, i);
-  }
-  resolve(t, e = 0) {
-    return ui(this, t, e, !1);
-  }
-  resolveInner(t, e = 0) {
-    return ui(this, t, e, !0);
-  }
-  matchContext(t) {
-    return Ns(this.parent, t);
-  }
-  enterUnfinishedNodesBefore(t) {
-    let e = this.childBefore(t), i = this;
-    for (; e; ) {
-      let n = e.lastChild;
-      if (!n || n.to != e.to)
-        break;
-      n.type.isError && n.from == n.to ? (i = e, e = n.prevSibling) : e = n;
-    }
-    return i;
-  }
-  get node() {
-    return this;
-  }
-  get next() {
-    return this.parent;
-  }
-}
-class xt extends ra {
-  constructor(t, e, i, n) {
-    super(), this._tree = t, this.from = e, this.index = i, this._parent = n;
-  }
-  get type() {
-    return this._tree.type;
-  }
-  get name() {
-    return this._tree.type.name;
-  }
-  get to() {
-    return this.from + this._tree.length;
-  }
-  nextChild(t, e, i, n, r = 0) {
-    for (let o = this; ; ) {
-      for (let { children: l, positions: a } = o._tree, h = e > 0 ? l.length : -1; t != h; t += e) {
-        let f = l[t], c = a[t] + o.from, u;
-        if (!(!(r & G.EnterBracketed && f instanceof et && (u = si.get(f)) && !u.overlay && u.bracketed && i >= c && i <= c + f.length) && !sa(n, i, c, c + f.length))) {
-          if (f instanceof le) {
-            if (r & G.ExcludeBuffers)
-              continue;
-            let d = f.findChild(0, f.buffer.length, e, i - c, n);
-            if (d > -1)
-              return new ie(new qc(o, f, t, c), null, d);
-          } else if (r & G.IncludeAnonymous || !f.type.isAnonymous || hr(f)) {
-            let d;
-            if (!(r & G.IgnoreMounts) && (d = si.get(f)) && !d.overlay)
-              return new xt(d.tree, c, t, o);
-            let p = new xt(f, c, t, o);
-            return r & G.IncludeAnonymous || !p.type.isAnonymous ? p : p.nextChild(e < 0 ? f.children.length - 1 : 0, e, i, n, r);
-          }
-        }
-      }
-      if (r & G.IncludeAnonymous || !o.type.isAnonymous || (o.index >= 0 ? t = o.index + e : t = e < 0 ? -1 : o._parent._tree.children.length, o = o._parent, !o))
-        return null;
-    }
-  }
-  get firstChild() {
-    return this.nextChild(
-      0,
-      1,
-      0,
-      4
-      /* Side.DontCare */
-    );
-  }
-  get lastChild() {
-    return this.nextChild(
-      this._tree.children.length - 1,
-      -1,
-      0,
-      4
-      /* Side.DontCare */
-    );
-  }
-  childAfter(t) {
-    return this.nextChild(
-      0,
-      1,
-      t,
-      2
-      /* Side.After */
-    );
-  }
-  childBefore(t) {
-    return this.nextChild(
-      this._tree.children.length - 1,
-      -1,
-      t,
-      -2
-      /* Side.Before */
-    );
-  }
-  prop(t) {
-    return this._tree.prop(t);
-  }
-  enter(t, e, i = 0) {
-    let n;
-    if (!(i & G.IgnoreOverlays) && (n = si.get(this._tree)) && n.overlay) {
-      let r = t - this.from, o = i & G.EnterBracketed && n.bracketed;
-      for (let { from: l, to: a } of n.overlay)
-        if ((e > 0 || o ? l <= r : l < r) && (e < 0 || o ? a >= r : a > r))
-          return new xt(n.tree, n.overlay[0].from + this.from, -1, this);
-    }
-    return this.nextChild(0, 1, t, e, i);
-  }
-  nextSignificantParent() {
-    let t = this;
-    for (; t.type.isAnonymous && t._parent; )
-      t = t._parent;
-    return t;
-  }
-  get parent() {
-    return this._parent ? this._parent.nextSignificantParent() : null;
-  }
-  get nextSibling() {
-    return this._parent && this.index >= 0 ? this._parent.nextChild(
-      this.index + 1,
-      1,
-      0,
-      4
-      /* Side.DontCare */
-    ) : null;
-  }
-  get prevSibling() {
-    return this._parent && this.index >= 0 ? this._parent.nextChild(
-      this.index - 1,
-      -1,
-      0,
-      4
-      /* Side.DontCare */
-    ) : null;
-  }
-  get tree() {
-    return this._tree;
-  }
-  toTree() {
-    return this._tree;
-  }
-  /**
-  @internal
-  */
-  toString() {
-    return this._tree.toString();
-  }
-}
-function yo(s, t, e, i) {
-  let n = s.cursor(), r = [];
-  if (!n.firstChild())
-    return r;
-  if (e != null) {
-    for (let o = !1; !o; )
-      if (o = n.type.is(e), !n.nextSibling())
-        return r;
-  }
-  for (; ; ) {
-    if (i != null && n.type.is(i))
-      return r;
-    if (n.type.is(t) && r.push(n.node), !n.nextSibling())
-      return i == null ? r : [];
-  }
-}
-function Ns(s, t, e = t.length - 1) {
-  for (let i = s; e >= 0; i = i.parent) {
-    if (!i)
-      return !1;
-    if (!i.type.isAnonymous) {
-      if (t[e] && t[e] != i.name)
-        return !1;
-      e--;
-    }
-  }
-  return !0;
-}
-class qc {
-  constructor(t, e, i, n) {
-    this.parent = t, this.buffer = e, this.index = i, this.start = n;
-  }
-}
-class ie extends ra {
-  get name() {
-    return this.type.name;
-  }
-  get from() {
-    return this.context.start + this.context.buffer.buffer[this.index + 1];
-  }
-  get to() {
-    return this.context.start + this.context.buffer.buffer[this.index + 2];
-  }
-  constructor(t, e, i) {
-    super(), this.context = t, this._parent = e, this.index = i, this.type = t.buffer.set.types[t.buffer.buffer[i]];
-  }
-  child(t, e, i) {
-    let { buffer: n } = this.context, r = n.findChild(this.index + 4, n.buffer[this.index + 3], t, e - this.context.start, i);
-    return r < 0 ? null : new ie(this.context, this, r);
-  }
-  get firstChild() {
-    return this.child(
-      1,
-      0,
-      4
-      /* Side.DontCare */
-    );
-  }
-  get lastChild() {
-    return this.child(
-      -1,
-      0,
-      4
-      /* Side.DontCare */
-    );
-  }
-  childAfter(t) {
-    return this.child(
-      1,
-      t,
-      2
-      /* Side.After */
-    );
-  }
-  childBefore(t) {
-    return this.child(
-      -1,
-      t,
-      -2
-      /* Side.Before */
-    );
-  }
-  prop(t) {
-    return this.type.prop(t);
-  }
-  enter(t, e, i = 0) {
-    if (i & G.ExcludeBuffers)
-      return null;
-    let { buffer: n } = this.context, r = n.findChild(this.index + 4, n.buffer[this.index + 3], e > 0 ? 1 : -1, t - this.context.start, e);
-    return r < 0 ? null : new ie(this.context, this, r);
-  }
-  get parent() {
-    return this._parent || this.context.parent.nextSignificantParent();
-  }
-  externalSibling(t) {
-    return this._parent ? null : this.context.parent.nextChild(
-      this.context.index + t,
-      t,
-      0,
-      4
-      /* Side.DontCare */
-    );
-  }
-  get nextSibling() {
-    let { buffer: t } = this.context, e = t.buffer[this.index + 3];
-    return e < (this._parent ? t.buffer[this._parent.index + 3] : t.buffer.length) ? new ie(this.context, this._parent, e) : this.externalSibling(1);
-  }
-  get prevSibling() {
-    let { buffer: t } = this.context, e = this._parent ? this._parent.index + 4 : 0;
-    return this.index == e ? this.externalSibling(-1) : new ie(this.context, this._parent, t.findChild(
-      e,
-      this.index,
-      -1,
-      0,
-      4
-      /* Side.DontCare */
-    ));
-  }
-  get tree() {
-    return null;
-  }
-  toTree() {
-    let t = [], e = [], { buffer: i } = this.context, n = this.index + 4, r = i.buffer[this.index + 3];
-    if (r > n) {
-      let o = i.buffer[this.index + 1];
-      t.push(i.slice(n, r, o)), e.push(0);
-    }
-    return new et(this.type, t, e, this.to - this.from);
-  }
-  /**
-  @internal
-  */
-  toString() {
-    return this.context.buffer.childString(this.index);
-  }
-}
-function oa(s) {
-  if (!s.length)
-    return null;
-  let t = 0, e = s[0];
-  for (let r = 1; r < s.length; r++) {
-    let o = s[r];
-    (o.from > e.from || o.to < e.to) && (e = o, t = r);
-  }
-  let i = e instanceof xt && e.index < 0 ? null : e.parent, n = s.slice();
-  return i ? n[t] = i : n.splice(t, 1), new $c(n, e);
-}
-class $c {
-  constructor(t, e) {
-    this.heads = t, this.node = e;
-  }
-  get next() {
-    return oa(this.heads);
-  }
-}
-function Uc(s, t, e) {
-  let i = s.resolveInner(t, e), n = null;
-  for (let r = i instanceof xt ? i : i.context.parent; r; r = r.parent)
-    if (r.index < 0) {
-      let o = r.parent;
-      (n || (n = [i])).push(o.resolve(t, e)), r = o;
-    } else {
-      let o = si.get(r.tree);
-      if (o && o.overlay && o.overlay[0].from <= t && o.overlay[o.overlay.length - 1].to >= t) {
-        let l = new xt(o.tree, o.overlay[0].from + r.from, -1, r);
-        (n || (n = [i])).push(ui(l, t, e, !1));
-      }
-    }
-  return n ? oa(n) : i;
-}
-class Hs {
-  /**
-  Shorthand for `.type.name`.
-  */
-  get name() {
-    return this.type.name;
-  }
-  /**
-  @internal
-  */
-  constructor(t, e = 0) {
-    if (this.buffer = null, this.stack = [], this.index = 0, this.bufferNode = null, this.mode = e & ~G.EnterBracketed, t instanceof xt)
-      this.yieldNode(t);
-    else {
-      this._tree = t.context.parent, this.buffer = t.context;
-      for (let i = t._parent; i; i = i._parent)
-        this.stack.unshift(i.index);
-      this.bufferNode = t, this.yieldBuf(t.index);
-    }
-  }
-  yieldNode(t) {
-    return t ? (this._tree = t, this.type = t.type, this.from = t.from, this.to = t.to, !0) : !1;
-  }
-  yieldBuf(t, e) {
-    this.index = t;
-    let { start: i, buffer: n } = this.buffer;
-    return this.type = e || n.set.types[n.buffer[t]], this.from = i + n.buffer[t + 1], this.to = i + n.buffer[t + 2], !0;
-  }
-  /**
-  @internal
-  */
-  yield(t) {
-    return t ? t instanceof xt ? (this.buffer = null, this.yieldNode(t)) : (this.buffer = t.context, this.yieldBuf(t.index, t.type)) : !1;
-  }
-  /**
-  @internal
-  */
-  toString() {
-    return this.buffer ? this.buffer.buffer.childString(this.index) : this._tree.toString();
-  }
-  /**
-  @internal
-  */
-  enterChild(t, e, i) {
-    if (!this.buffer)
-      return this.yield(this._tree.nextChild(t < 0 ? this._tree._tree.children.length - 1 : 0, t, e, i, this.mode));
-    let { buffer: n } = this.buffer, r = n.findChild(this.index + 4, n.buffer[this.index + 3], t, e - this.buffer.start, i);
-    return r < 0 ? !1 : (this.stack.push(this.index), this.yieldBuf(r));
-  }
-  /**
-  Move the cursor to this node's first child. When this returns
-  false, the node has no child, and the cursor has not been moved.
-  */
-  firstChild() {
-    return this.enterChild(
-      1,
-      0,
-      4
-      /* Side.DontCare */
-    );
-  }
-  /**
-  Move the cursor to this node's last child.
-  */
-  lastChild() {
-    return this.enterChild(
-      -1,
-      0,
-      4
-      /* Side.DontCare */
-    );
-  }
-  /**
-  Move the cursor to the first child that ends after `pos`.
-  */
-  childAfter(t) {
-    return this.enterChild(
-      1,
-      t,
-      2
-      /* Side.After */
-    );
-  }
-  /**
-  Move to the last child that starts before `pos`.
-  */
-  childBefore(t) {
-    return this.enterChild(
-      -1,
-      t,
-      -2
-      /* Side.Before */
-    );
-  }
-  /**
-  Move the cursor to the child around `pos`. If side is -1 the
-  child may end at that position, when 1 it may start there. This
-  will also enter [overlaid](#common.MountedTree.overlay)
-  [mounted](#common.NodeProp^mounted) trees unless `overlays` is
-  set to false.
-  */
-  enter(t, e, i = this.mode) {
-    return this.buffer ? i & G.ExcludeBuffers ? !1 : this.enterChild(1, t, e) : this.yield(this._tree.enter(t, e, i));
-  }
-  /**
-  Move to the node's parent node, if this isn't the top node.
-  */
-  parent() {
-    if (!this.buffer)
-      return this.yieldNode(this.mode & G.IncludeAnonymous ? this._tree._parent : this._tree.parent);
-    if (this.stack.length)
-      return this.yieldBuf(this.stack.pop());
-    let t = this.mode & G.IncludeAnonymous ? this.buffer.parent : this.buffer.parent.nextSignificantParent();
-    return this.buffer = null, this.yieldNode(t);
-  }
-  /**
-  @internal
-  */
-  sibling(t) {
-    if (!this.buffer)
-      return this._tree._parent ? this.yield(this._tree.index < 0 ? null : this._tree._parent.nextChild(this._tree.index + t, t, 0, 4, this.mode)) : !1;
-    let { buffer: e } = this.buffer, i = this.stack.length - 1;
-    if (t < 0) {
-      let n = i < 0 ? 0 : this.stack[i] + 4;
-      if (this.index != n)
-        return this.yieldBuf(e.findChild(
-          n,
-          this.index,
-          -1,
-          0,
-          4
-          /* Side.DontCare */
-        ));
-    } else {
-      let n = e.buffer[this.index + 3];
-      if (n < (i < 0 ? e.buffer.length : e.buffer[this.stack[i] + 3]))
-        return this.yieldBuf(n);
-    }
-    return i < 0 ? this.yield(this.buffer.parent.nextChild(this.buffer.index + t, t, 0, 4, this.mode)) : !1;
-  }
-  /**
-  Move to this node's next sibling, if any.
-  */
-  nextSibling() {
-    return this.sibling(1);
-  }
-  /**
-  Move to this node's previous sibling, if any.
-  */
-  prevSibling() {
-    return this.sibling(-1);
-  }
-  atLastNode(t) {
-    let e, i, { buffer: n } = this;
-    if (n) {
-      if (t > 0) {
-        if (this.index < n.buffer.buffer.length)
-          return !1;
-      } else
-        for (let r = 0; r < this.index; r++)
-          if (n.buffer.buffer[r + 3] < this.index)
-            return !1;
-      ({ index: e, parent: i } = n);
-    } else
-      ({ index: e, _parent: i } = this._tree);
-    for (; i; { index: e, _parent: i } = i)
-      if (e > -1)
-        for (let r = e + t, o = t < 0 ? -1 : i._tree.children.length; r != o; r += t) {
-          let l = i._tree.children[r];
-          if (this.mode & G.IncludeAnonymous || l instanceof le || !l.type.isAnonymous || hr(l))
-            return !1;
-        }
-    return !0;
-  }
-  move(t, e) {
-    if (e && this.enterChild(
-      t,
-      0,
-      4
-      /* Side.DontCare */
-    ))
-      return !0;
-    for (; ; ) {
-      if (this.sibling(t))
-        return !0;
-      if (this.atLastNode(t) || !this.parent())
-        return !1;
-    }
-  }
-  /**
-  Move to the next node in a
-  [pre-order](https://en.wikipedia.org/wiki/Tree_traversal#Pre-order,_NLR)
-  traversal, going from a node to its first child or, if the
-  current node is empty or `enter` is false, its next sibling or
-  the next sibling of the first parent node that has one.
-  */
-  next(t = !0) {
-    return this.move(1, t);
-  }
-  /**
-  Move to the next node in a last-to-first pre-order traversal. A
-  node is followed by its last child or, if it has none, its
-  previous sibling or the previous sibling of the first parent
-  node that has one.
-  */
-  prev(t = !0) {
-    return this.move(-1, t);
-  }
-  /**
-  Move the cursor to the innermost node that covers `pos`. If
-  `side` is -1, it will enter nodes that end at `pos`. If it is 1,
-  it will enter nodes that start at `pos`.
-  */
-  moveTo(t, e = 0) {
-    for (; (this.from == this.to || (e < 1 ? this.from >= t : this.from > t) || (e > -1 ? this.to <= t : this.to < t)) && this.parent(); )
-      ;
-    for (; this.enterChild(1, t, e); )
-      ;
-    return this;
-  }
-  /**
-  Get a [syntax node](#common.SyntaxNode) at the cursor's current
-  position.
-  */
-  get node() {
-    if (!this.buffer)
-      return this._tree;
-    let t = this.bufferNode, e = null, i = 0;
-    if (t && t.context == this.buffer)
-      t: for (let n = this.index, r = this.stack.length; r >= 0; ) {
-        for (let o = t; o; o = o._parent)
-          if (o.index == n) {
-            if (n == this.index)
-              return o;
-            e = o, i = r + 1;
-            break t;
-          }
-        n = this.stack[--r];
-      }
-    for (let n = i; n < this.stack.length; n++)
-      e = new ie(this.buffer, e, this.stack[n]);
-    return this.bufferNode = new ie(this.buffer, e, this.index);
-  }
-  /**
-  Get the [tree](#common.Tree) that represents the current node, if
-  any. Will return null when the node is in a [tree
-  buffer](#common.TreeBuffer).
-  */
-  get tree() {
-    return this.buffer ? null : this._tree._tree;
-  }
-  /**
-  Iterate over the current node and all its descendants, calling
-  `enter` when entering a node and `leave`, if given, when leaving
-  one. When `enter` returns `false`, any children of that node are
-  skipped, and `leave` isn't called for it.
-  */
-  iterate(t, e) {
-    for (let i = 0; ; ) {
-      let n = !1;
-      if (this.type.isAnonymous || t(this) !== !1) {
-        if (this.firstChild()) {
-          i++;
-          continue;
-        }
-        this.type.isAnonymous || (n = !0);
-      }
-      for (; ; ) {
-        if (n && e && e(this), n = this.type.isAnonymous, !i)
-          return;
-        if (this.nextSibling())
-          break;
-        this.parent(), i--, n = !0;
-      }
-    }
-  }
-  /**
-  Test whether the current node matches a given context—a sequence
-  of direct parent node names. Empty strings in the context array
-  are treated as wildcards.
-  */
-  matchContext(t) {
-    if (!this.buffer)
-      return Ns(this.node.parent, t);
-    let { buffer: e } = this.buffer, { types: i } = e.set;
-    for (let n = t.length - 1, r = this.stack.length - 1; n >= 0; r--) {
-      if (r < 0)
-        return Ns(this._tree, t, n);
-      let o = i[e.buffer[this.stack[r]]];
-      if (!o.isAnonymous) {
-        if (t[n] && t[n] != o.name)
-          return !1;
-        n--;
-      }
-    }
-    return !0;
-  }
-}
-function hr(s) {
-  return s.children.some((t) => t instanceof le || !t.type.isAnonymous || hr(t));
-}
-function jc(s) {
-  var t;
-  let { buffer: e, nodeSet: i, maxBufferLength: n = Fc, reused: r = [], minRepeatType: o = i.types.length } = s, l = Array.isArray(e) ? new ar(e, e.length) : e, a = i.types, h = 0, f = 0;
-  function c(S, T, A, N, V, $) {
-    let { id: E, start: D, end: z, size: q } = l, Q = f, Xt = h;
-    if (q < 0)
-      if (l.next(), q == -1) {
-        let qt = r[E];
-        A.push(qt), N.push(D - S);
-        return;
-      } else if (q == -3) {
-        h = E;
-        return;
-      } else if (q == -4) {
-        f = E;
-        return;
-      } else
-        throw new RangeError(`Unrecognized record size: ${q}`);
-    let qe = a[E], xi, he, wr = D - S;
-    if (z - D <= n && (he = g(l.pos - T, V))) {
-      let qt = new Uint16Array(he.size - he.skip), mt = l.pos - he.size, Lt = qt.length;
-      for (; l.pos > mt; )
-        Lt = y(he.start, qt, Lt);
-      xi = new le(qt, z - he.start, i), wr = he.start - S;
-    } else {
-      let qt = l.pos - q;
-      l.next();
-      let mt = [], Lt = [], fe = E >= o ? E : -1, Se = 0, vi = z;
-      for (; l.pos > qt; )
-        fe >= 0 && l.id == fe && l.size >= 0 ? (l.end <= vi - n && (p(mt, Lt, D, Se, l.end, vi, fe, Q, Xt), Se = mt.length, vi = l.end), l.next()) : $ > 2500 ? u(D, qt, mt, Lt) : c(D, qt, mt, Lt, fe, $ + 1);
-      if (fe >= 0 && Se > 0 && Se < mt.length && p(mt, Lt, D, Se, D, vi, fe, Q, Xt), mt.reverse(), Lt.reverse(), fe > -1 && Se > 0) {
-        let xr = d(qe, Xt);
-        xi = fr(qe, mt, Lt, 0, mt.length, 0, z - D, xr, xr);
-      } else
-        xi = m(qe, mt, Lt, z - D, Q - z, Xt);
-    }
-    A.push(xi), N.push(wr);
-  }
-  function u(S, T, A, N) {
-    let V = [], $ = 0, E = -1;
-    for (; l.pos > T; ) {
-      let { id: D, start: z, end: q, size: Q } = l;
-      if (Q > 4)
-        l.next();
-      else {
-        if (E > -1 && z < E)
-          break;
-        E < 0 && (E = q - n), V.push(D, z, q), $++, l.next();
-      }
-    }
-    if ($) {
-      let D = new Uint16Array($ * 4), z = V[V.length - 2];
-      for (let q = V.length - 3, Q = 0; q >= 0; q -= 3)
-        D[Q++] = V[q], D[Q++] = V[q + 1] - z, D[Q++] = V[q + 2] - z, D[Q++] = Q;
-      A.push(new le(D, V[2] - z, i)), N.push(z - S);
-    }
-  }
-  function d(S, T) {
-    return (A, N, V) => {
-      let $ = 0, E = A.length - 1, D, z;
-      if (E >= 0 && (D = A[E]) instanceof et) {
-        if (!E && D.type == S && D.length == V)
-          return D;
-        (z = D.prop(R.lookAhead)) && ($ = N[E] + D.length + z);
-      }
-      return m(S, A, N, V, $, T);
-    };
-  }
-  function p(S, T, A, N, V, $, E, D, z) {
-    let q = [], Q = [];
-    for (; S.length > N; )
-      q.push(S.pop()), Q.push(T.pop() + A - V);
-    S.push(m(i.types[E], q, Q, $ - V, D - $, z)), T.push(V - A);
-  }
-  function m(S, T, A, N, V, $, E) {
-    if ($) {
-      let D = [R.contextHash, $];
-      E = E ? [D].concat(E) : [D];
-    }
-    if (V > 25) {
-      let D = [R.lookAhead, V];
-      E = E ? [D].concat(E) : [D];
-    }
-    return new et(S, T, A, N, E);
-  }
-  function g(S, T) {
-    let A = l.fork(), N = 0, V = 0, $ = 0, E = A.end - n, D = { size: 0, start: 0, skip: 0 };
-    t: for (let z = A.pos - S; A.pos > z; ) {
-      let q = A.size;
-      if (A.id == T && q >= 0) {
-        D.size = N, D.start = V, D.skip = $, $ += 4, N += 4, A.next();
-        continue;
-      }
-      let Q = A.pos - q;
-      if (q < 0 || Q < z || A.start < E)
-        break;
-      let Xt = A.id >= o ? 4 : 0, qe = A.start;
-      for (A.next(); A.pos > Q; ) {
-        if (A.size < 0)
-          if (A.size == -3 || A.size == -4)
-            Xt += 4;
-          else
-            break t;
-        else A.id >= o && (Xt += 4);
-        A.next();
-      }
-      V = qe, N += q, $ += Xt;
-    }
-    return (T < 0 || N == S) && (D.size = N, D.start = V, D.skip = $), D.size > 4 ? D : void 0;
-  }
-  function y(S, T, A) {
-    let { id: N, start: V, end: $, size: E } = l;
-    if (l.next(), E >= 0 && N < o) {
-      let D = A;
-      if (E > 4) {
-        let z = l.pos - (E - 4);
-        for (; l.pos > z; )
-          A = y(S, T, A);
-      }
-      T[--A] = D, T[--A] = $ - S, T[--A] = V - S, T[--A] = N;
-    } else E == -3 ? h = N : E == -4 && (f = N);
-    return A;
-  }
-  let x = [], w = [];
-  for (; l.pos > 0; )
-    c(s.start || 0, s.bufferStart || 0, x, w, -1, 0);
-  let C = (t = s.length) !== null && t !== void 0 ? t : x.length ? w[0] + x[0].length : 0;
-  return new et(a[s.topID], x.reverse(), w.reverse(), C);
-}
-const bo = /* @__PURE__ */ new WeakMap();
-function _i(s, t) {
-  if (!s.isAnonymous || t instanceof le || t.type != s)
-    return 1;
-  let e = bo.get(t);
-  if (e == null) {
-    e = 1;
-    for (let i of t.children) {
-      if (i.type != s || !(i instanceof et)) {
-        e = 1;
-        break;
-      }
-      e += _i(s, i);
-    }
-    bo.set(t, e);
-  }
-  return e;
-}
-function fr(s, t, e, i, n, r, o, l, a) {
-  let h = 0;
-  for (let p = i; p < n; p++)
-    h += _i(s, t[p]);
-  let f = Math.ceil(
-    h * 1.5 / 8
-    /* Balance.BranchFactor */
-  ), c = [], u = [];
-  function d(p, m, g, y, x) {
-    for (let w = g; w < y; ) {
-      let C = w, S = m[w], T = _i(s, p[w]);
-      for (w++; w < y; w++) {
-        let A = _i(s, p[w]);
-        if (T + A >= f)
-          break;
-        T += A;
-      }
-      if (w == C + 1) {
-        if (T > f) {
-          let A = p[C];
-          d(A.children, A.positions, 0, A.children.length, m[C] + x);
-          continue;
-        }
-        c.push(p[C]);
-      } else {
-        let A = m[w - 1] + p[w - 1].length - S;
-        c.push(fr(s, p, m, C, w, S, A, null, a));
-      }
-      u.push(S + x - r);
-    }
-  }
-  return d(t, e, i, n, 0), (l || a)(c, u, o);
-}
-class be {
-  /**
-  Construct a tree fragment. You'll usually want to use
-  [`addTree`](#common.TreeFragment^addTree) and
-  [`applyChanges`](#common.TreeFragment^applyChanges) instead of
-  calling this directly.
-  */
-  constructor(t, e, i, n, r = !1, o = !1) {
-    this.from = t, this.to = e, this.tree = i, this.offset = n, this.open = (r ? 1 : 0) | (o ? 2 : 0);
-  }
-  /**
-  Whether the start of the fragment represents the start of a
-  parse, or the end of a change. (In the second case, it may not
-  be safe to reuse some nodes at the start, depending on the
-  parsing algorithm.)
-  */
-  get openStart() {
-    return (this.open & 1) > 0;
-  }
-  /**
-  Whether the end of the fragment represents the end of a
-  full-document parse, or the start of a change.
-  */
-  get openEnd() {
-    return (this.open & 2) > 0;
-  }
-  /**
-  Create a set of fragments from a freshly parsed tree, or update
-  an existing set of fragments by replacing the ones that overlap
-  with a tree with content from the new tree. When `partial` is
-  true, the parse is treated as incomplete, and the resulting
-  fragment has [`openEnd`](#common.TreeFragment.openEnd) set to
-  true.
-  */
-  static addTree(t, e = [], i = !1) {
-    let n = [new be(0, t.length, t, 0, !1, i)];
-    for (let r of e)
-      r.to > t.length && n.push(r);
-    return n;
-  }
-  /**
-  Apply a set of edits to an array of fragments, removing or
-  splitting fragments as necessary to remove edited ranges, and
-  adjusting offsets for fragments that moved.
-  */
-  static applyChanges(t, e, i = 128) {
-    if (!e.length)
-      return t;
-    let n = [], r = 1, o = t.length ? t[0] : null;
-    for (let l = 0, a = 0, h = 0; ; l++) {
-      let f = l < e.length ? e[l] : null, c = f ? f.fromA : 1e9;
-      if (c - a >= i)
-        for (; o && o.from < c; ) {
-          let u = o;
-          if (a >= u.from || c <= u.to || h) {
-            let d = Math.max(u.from, a) - h, p = Math.min(u.to, c) - h;
-            u = d >= p ? null : new be(d, p, u.tree, u.offset + h, l > 0, !!f);
-          }
-          if (u && n.push(u), o.to > c)
-            break;
-          o = r < t.length ? t[r++] : null;
-        }
-      if (!f)
-        break;
-      a = f.toA, h = f.toA - f.toB;
-    }
-    return n;
-  }
-}
-class Gc {
-  /**
-  Start a parse, returning a [partial parse](#common.PartialParse)
-  object. [`fragments`](#common.TreeFragment) can be passed in to
-  make the parse incremental.
-  
-  By default, the entire input is parsed. You can pass `ranges`,
-  which should be a sorted array of non-empty, non-overlapping
-  ranges, to parse only those ranges. The tree returned in that
-  case will start at `ranges[0].from`.
-  */
-  startParse(t, e, i) {
-    return typeof t == "string" && (t = new Jc(t)), i = i ? i.length ? i.map((n) => new Yn(n.from, n.to)) : [new Yn(0, 0)] : [new Yn(0, t.length)], this.createParse(t, e || [], i);
-  }
-  /**
-  Run a full parse, returning the resulting tree.
-  */
-  parse(t, e, i) {
-    let n = this.startParse(t, e, i);
-    for (; ; ) {
-      let r = n.advance();
-      if (r)
-        return r;
-    }
-  }
-}
-class Jc {
-  constructor(t) {
-    this.string = t;
-  }
-  get length() {
-    return this.string.length;
-  }
-  chunk(t) {
-    return this.string.slice(t);
-  }
-  get lineChunks() {
-    return !1;
-  }
-  read(t, e) {
-    return this.string.slice(t, e);
-  }
-}
-new R({ perNode: !0 });
-let _c = 0;
-class gt {
-  /**
-  @internal
-  */
-  constructor(t, e, i, n) {
-    this.name = t, this.set = e, this.base = i, this.modified = n, this.id = _c++;
-  }
-  toString() {
-    let { name: t } = this;
-    for (let e of this.modified)
-      e.name && (t = `${e.name}(${t})`);
-    return t;
-  }
-  static define(t, e) {
-    let i = typeof t == "string" ? t : "?";
-    if (t instanceof gt && (e = t), e?.base)
-      throw new Error("Can not derive from a modified tag");
-    let n = new gt(i, [], null, []);
-    if (n.set.push(n), e)
-      for (let r of e.set)
-        n.set.push(r);
-    return n;
-  }
-  /**
-  Define a tag _modifier_, which is a function that, given a tag,
-  will return a tag that is a subtag of the original. Applying the
-  same modifier to a twice tag will return the same value (`m1(t1)
-  == m1(t1)`) and applying multiple modifiers will, regardless or
-  order, produce the same tag (`m1(m2(t1)) == m2(m1(t1))`).
-  
-  When multiple modifiers are applied to a given base tag, each
-  smaller set of modifiers is registered as a parent, so that for
-  example `m1(m2(m3(t1)))` is a subtype of `m1(m2(t1))`,
-  `m1(m3(t1)`, and so on.
-  */
-  static defineModifier(t) {
-    let e = new fn(t);
-    return (i) => i.modified.indexOf(e) > -1 ? i : fn.get(i.base || i, i.modified.concat(e).sort((n, r) => n.id - r.id));
-  }
-}
-let Yc = 0;
-class fn {
-  constructor(t) {
-    this.name = t, this.instances = [], this.id = Yc++;
-  }
-  static get(t, e) {
-    if (!e.length)
-      return t;
-    let i = e[0].instances.find((l) => l.base == t && Xc(e, l.modified));
-    if (i)
-      return i;
-    let n = [], r = new gt(t.name, n, t, e);
-    for (let l of e)
-      l.instances.push(r);
-    let o = Qc(e);
-    for (let l of t.set)
-      if (!l.modified.length)
-        for (let a of o)
-          n.push(fn.get(l, a));
-    return r;
-  }
-}
-function Xc(s, t) {
-  return s.length == t.length && s.every((e, i) => e == t[i]);
-}
-function Qc(s) {
-  let t = [[]];
-  for (let e = 0; e < s.length; e++)
-    for (let i = 0, n = t.length; i < n; i++)
-      t.push(t[i].concat(s[e]));
-  return t.sort((e, i) => i.length - e.length);
-}
-function Zc(s) {
-  let t = /* @__PURE__ */ Object.create(null);
-  for (let e in s) {
-    let i = s[e];
-    Array.isArray(i) || (i = [i]);
-    for (let n of e.split(" "))
-      if (n) {
-        let r = [], o = 2, l = n;
-        for (let c = 0; ; ) {
-          if (l == "..." && c > 0 && c + 3 == n.length) {
-            o = 1;
-            break;
-          }
-          let u = /^"(?:[^"\\]|\\.)*?"|[^\/!]+/.exec(l);
-          if (!u)
-            throw new RangeError("Invalid path: " + n);
-          if (r.push(u[0] == "*" ? "" : u[0][0] == '"' ? JSON.parse(u[0]) : u[0]), c += u[0].length, c == n.length)
-            break;
-          let d = n[c++];
-          if (c == n.length && d == "!") {
-            o = 0;
-            break;
-          }
-          if (d != "/")
-            throw new RangeError("Invalid path: " + n);
-          l = n.slice(c);
-        }
-        let a = r.length - 1, h = r[a];
-        if (!h)
-          throw new RangeError("Invalid path: " + n);
-        let f = new cn(i, o, a > 0 ? r.slice(0, a) : null);
-        t[h] = f.sort(t[h]);
-      }
-  }
-  return tu.add(t);
-}
-const tu = new R({
-  combine(s, t) {
-    let e, i, n;
-    for (; s || t; ) {
-      if (!s || t && s.depth >= t.depth ? (n = t, t = t.next) : (n = s, s = s.next), e && e.mode == n.mode && !n.context && !e.context)
-        continue;
-      let r = new cn(n.tags, n.mode, n.context);
-      e ? e.next = r : i = r, e = r;
-    }
-    return i;
-  }
-});
-class cn {
-  constructor(t, e, i, n) {
-    this.tags = t, this.mode = e, this.context = i, this.next = n;
-  }
-  get opaque() {
-    return this.mode == 0;
-  }
-  get inherit() {
-    return this.mode == 1;
-  }
-  sort(t) {
-    return !t || t.depth < this.depth ? (this.next = t, this) : (t.next = this.sort(t.next), t);
-  }
-  get depth() {
-    return this.context ? this.context.length : 0;
-  }
-}
-cn.empty = new cn([], 2, null);
-function eu(s, t) {
-  let e = /* @__PURE__ */ Object.create(null);
-  for (let r of s)
-    if (!Array.isArray(r.tag))
-      e[r.tag.id] = r.class;
-    else
-      for (let o of r.tag)
-        e[o.id] = r.class;
-  let { scope: i, all: n = null } = {};
-  return {
-    style: (r) => {
-      let o = n;
-      for (let l of r)
-        for (let a of l.set) {
-          let h = e[a.id];
-          if (h) {
-            o = o ? o + " " + h : h;
-            break;
-          }
-        }
-      return o;
-    },
-    scope: i
-  };
-}
-const v = gt.define, Hi = v(), Qt = v(), wo = v(Qt), xo = v(Qt), Zt = v(), Wi = v(Zt), Xn = v(Zt), It = v(), ce = v(It), Rt = v(), Pt = v(), Ws = v(), je = v(Ws), Vi = v(), B = {
-  /**
-  A comment.
-  */
-  comment: Hi,
-  /**
-  A line [comment](#highlight.tags.comment).
-  */
-  lineComment: v(Hi),
-  /**
-  A block [comment](#highlight.tags.comment).
-  */
-  blockComment: v(Hi),
-  /**
-  A documentation [comment](#highlight.tags.comment).
-  */
-  docComment: v(Hi),
-  /**
-  Any kind of identifier.
-  */
-  name: Qt,
-  /**
-  The [name](#highlight.tags.name) of a variable.
-  */
-  variableName: v(Qt),
-  /**
-  A type [name](#highlight.tags.name).
-  */
-  typeName: wo,
-  /**
-  A tag name (subtag of [`typeName`](#highlight.tags.typeName)).
-  */
-  tagName: v(wo),
-  /**
-  A property or field [name](#highlight.tags.name).
-  */
-  propertyName: xo,
-  /**
-  An attribute name (subtag of [`propertyName`](#highlight.tags.propertyName)).
-  */
-  attributeName: v(xo),
-  /**
-  The [name](#highlight.tags.name) of a class.
-  */
-  className: v(Qt),
-  /**
-  A label [name](#highlight.tags.name).
-  */
-  labelName: v(Qt),
-  /**
-  A namespace [name](#highlight.tags.name).
-  */
-  namespace: v(Qt),
-  /**
-  The [name](#highlight.tags.name) of a macro.
-  */
-  macroName: v(Qt),
-  /**
-  A literal value.
-  */
-  literal: Zt,
-  /**
-  A string [literal](#highlight.tags.literal).
-  */
-  string: Wi,
-  /**
-  A documentation [string](#highlight.tags.string).
-  */
-  docString: v(Wi),
-  /**
-  A character literal (subtag of [string](#highlight.tags.string)).
-  */
-  character: v(Wi),
-  /**
-  An attribute value (subtag of [string](#highlight.tags.string)).
-  */
-  attributeValue: v(Wi),
-  /**
-  A number [literal](#highlight.tags.literal).
-  */
-  number: Xn,
-  /**
-  An integer [number](#highlight.tags.number) literal.
-  */
-  integer: v(Xn),
-  /**
-  A floating-point [number](#highlight.tags.number) literal.
-  */
-  float: v(Xn),
-  /**
-  A boolean [literal](#highlight.tags.literal).
-  */
-  bool: v(Zt),
-  /**
-  Regular expression [literal](#highlight.tags.literal).
-  */
-  regexp: v(Zt),
-  /**
-  An escape [literal](#highlight.tags.literal), for example a
-  backslash escape in a string.
-  */
-  escape: v(Zt),
-  /**
-  A color [literal](#highlight.tags.literal).
-  */
-  color: v(Zt),
-  /**
-  A URL [literal](#highlight.tags.literal).
-  */
-  url: v(Zt),
-  /**
-  A language keyword.
-  */
-  keyword: Rt,
-  /**
-  The [keyword](#highlight.tags.keyword) for the self or this
-  object.
-  */
-  self: v(Rt),
-  /**
-  The [keyword](#highlight.tags.keyword) for null.
-  */
-  null: v(Rt),
-  /**
-  A [keyword](#highlight.tags.keyword) denoting some atomic value.
-  */
-  atom: v(Rt),
-  /**
-  A [keyword](#highlight.tags.keyword) that represents a unit.
-  */
-  unit: v(Rt),
-  /**
-  A modifier [keyword](#highlight.tags.keyword).
-  */
-  modifier: v(Rt),
-  /**
-  A [keyword](#highlight.tags.keyword) that acts as an operator.
-  */
-  operatorKeyword: v(Rt),
-  /**
-  A control-flow related [keyword](#highlight.tags.keyword).
-  */
-  controlKeyword: v(Rt),
-  /**
-  A [keyword](#highlight.tags.keyword) that defines something.
-  */
-  definitionKeyword: v(Rt),
-  /**
-  A [keyword](#highlight.tags.keyword) related to defining or
-  interfacing with modules.
-  */
-  moduleKeyword: v(Rt),
-  /**
-  An operator.
-  */
-  operator: Pt,
-  /**
-  An [operator](#highlight.tags.operator) that dereferences something.
-  */
-  derefOperator: v(Pt),
-  /**
-  Arithmetic-related [operator](#highlight.tags.operator).
-  */
-  arithmeticOperator: v(Pt),
-  /**
-  Logical [operator](#highlight.tags.operator).
-  */
-  logicOperator: v(Pt),
-  /**
-  Bit [operator](#highlight.tags.operator).
-  */
-  bitwiseOperator: v(Pt),
-  /**
-  Comparison [operator](#highlight.tags.operator).
-  */
-  compareOperator: v(Pt),
-  /**
-  [Operator](#highlight.tags.operator) that updates its operand.
-  */
-  updateOperator: v(Pt),
-  /**
-  [Operator](#highlight.tags.operator) that defines something.
-  */
-  definitionOperator: v(Pt),
-  /**
-  Type-related [operator](#highlight.tags.operator).
-  */
-  typeOperator: v(Pt),
-  /**
-  Control-flow [operator](#highlight.tags.operator).
-  */
-  controlOperator: v(Pt),
-  /**
-  Program or markup punctuation.
-  */
-  punctuation: Ws,
-  /**
-  [Punctuation](#highlight.tags.punctuation) that separates
-  things.
-  */
-  separator: v(Ws),
-  /**
-  Bracket-style [punctuation](#highlight.tags.punctuation).
-  */
-  bracket: je,
-  /**
-  Angle [brackets](#highlight.tags.bracket) (usually `<` and `>`
-  tokens).
-  */
-  angleBracket: v(je),
-  /**
-  Square [brackets](#highlight.tags.bracket) (usually `[` and `]`
-  tokens).
-  */
-  squareBracket: v(je),
-  /**
-  Parentheses (usually `(` and `)` tokens). Subtag of
-  [bracket](#highlight.tags.bracket).
-  */
-  paren: v(je),
-  /**
-  Braces (usually `{` and `}` tokens). Subtag of
-  [bracket](#highlight.tags.bracket).
-  */
-  brace: v(je),
-  /**
-  Content, for example plain text in XML or markup documents.
-  */
-  content: It,
-  /**
-  [Content](#highlight.tags.content) that represents a heading.
-  */
-  heading: ce,
-  /**
-  A level 1 [heading](#highlight.tags.heading).
-  */
-  heading1: v(ce),
-  /**
-  A level 2 [heading](#highlight.tags.heading).
-  */
-  heading2: v(ce),
-  /**
-  A level 3 [heading](#highlight.tags.heading).
-  */
-  heading3: v(ce),
-  /**
-  A level 4 [heading](#highlight.tags.heading).
-  */
-  heading4: v(ce),
-  /**
-  A level 5 [heading](#highlight.tags.heading).
-  */
-  heading5: v(ce),
-  /**
-  A level 6 [heading](#highlight.tags.heading).
-  */
-  heading6: v(ce),
-  /**
-  A prose [content](#highlight.tags.content) separator (such as a horizontal rule).
-  */
-  contentSeparator: v(It),
-  /**
-  [Content](#highlight.tags.content) that represents a list.
-  */
-  list: v(It),
-  /**
-  [Content](#highlight.tags.content) that represents a quote.
-  */
-  quote: v(It),
-  /**
-  [Content](#highlight.tags.content) that is emphasized.
-  */
-  emphasis: v(It),
-  /**
-  [Content](#highlight.tags.content) that is styled strong.
-  */
-  strong: v(It),
-  /**
-  [Content](#highlight.tags.content) that is part of a link.
-  */
-  link: v(It),
-  /**
-  [Content](#highlight.tags.content) that is styled as code or
-  monospace.
-  */
-  monospace: v(It),
-  /**
-  [Content](#highlight.tags.content) that has a strike-through
-  style.
-  */
-  strikethrough: v(It),
-  /**
-  Inserted text in a change-tracking format.
-  */
-  inserted: v(),
-  /**
-  Deleted text.
-  */
-  deleted: v(),
-  /**
-  Changed text.
-  */
-  changed: v(),
-  /**
-  An invalid or unsyntactic element.
-  */
-  invalid: v(),
-  /**
-  Metadata or meta-instruction.
-  */
-  meta: Vi,
-  /**
-  [Metadata](#highlight.tags.meta) that applies to the entire
-  document.
-  */
-  documentMeta: v(Vi),
-  /**
-  [Metadata](#highlight.tags.meta) that annotates or adds
-  attributes to a given syntactic element.
-  */
-  annotation: v(Vi),
-  /**
-  Processing instruction or preprocessor directive. Subtag of
-  [meta](#highlight.tags.meta).
-  */
-  processingInstruction: v(Vi),
-  /**
-  [Modifier](#highlight.Tag^defineModifier) that indicates that a
-  given element is being defined. Expected to be used with the
-  various [name](#highlight.tags.name) tags.
-  */
-  definition: gt.defineModifier("definition"),
-  /**
-  [Modifier](#highlight.Tag^defineModifier) that indicates that
-  something is constant. Mostly expected to be used with
-  [variable names](#highlight.tags.variableName).
-  */
-  constant: gt.defineModifier("constant"),
-  /**
-  [Modifier](#highlight.Tag^defineModifier) used to indicate that
-  a [variable](#highlight.tags.variableName) or [property
-  name](#highlight.tags.propertyName) is being called or defined
-  as a function.
-  */
-  function: gt.defineModifier("function"),
-  /**
-  [Modifier](#highlight.Tag^defineModifier) that can be applied to
-  [names](#highlight.tags.name) to indicate that they belong to
-  the language's standard environment.
-  */
-  standard: gt.defineModifier("standard"),
-  /**
-  [Modifier](#highlight.Tag^defineModifier) that indicates a given
-  [names](#highlight.tags.name) is local to some scope.
-  */
-  local: gt.defineModifier("local"),
-  /**
-  A generic variant [modifier](#highlight.Tag^defineModifier) that
-  can be used to tag language-specific alternative variants of
-  some common tag. It is recommended for themes to define special
-  forms of at least the [string](#highlight.tags.string) and
-  [variable name](#highlight.tags.variableName) tags, since those
-  come up a lot.
-  */
-  special: gt.defineModifier("special")
-};
-for (let s in B) {
-  let t = B[s];
-  t instanceof gt && (t.name = s);
-}
-eu([
-  { tag: B.link, class: "tok-link" },
-  { tag: B.heading, class: "tok-heading" },
-  { tag: B.emphasis, class: "tok-emphasis" },
-  { tag: B.strong, class: "tok-strong" },
-  { tag: B.keyword, class: "tok-keyword" },
-  { tag: B.atom, class: "tok-atom" },
-  { tag: B.bool, class: "tok-bool" },
-  { tag: B.url, class: "tok-url" },
-  { tag: B.labelName, class: "tok-labelName" },
-  { tag: B.inserted, class: "tok-inserted" },
-  { tag: B.deleted, class: "tok-deleted" },
-  { tag: B.literal, class: "tok-literal" },
-  { tag: B.string, class: "tok-string" },
-  { tag: B.number, class: "tok-number" },
-  { tag: [B.regexp, B.escape, B.special(B.string)], class: "tok-string2" },
-  { tag: B.variableName, class: "tok-variableName" },
-  { tag: B.local(B.variableName), class: "tok-variableName tok-local" },
-  { tag: B.definition(B.variableName), class: "tok-variableName tok-definition" },
-  { tag: B.special(B.variableName), class: "tok-variableName2" },
-  { tag: B.definition(B.propertyName), class: "tok-propertyName tok-definition" },
-  { tag: B.typeName, class: "tok-typeName" },
-  { tag: B.namespace, class: "tok-namespace" },
-  { tag: B.className, class: "tok-className" },
-  { tag: B.macroName, class: "tok-macroName" },
-  { tag: B.propertyName, class: "tok-propertyName" },
-  { tag: B.operator, class: "tok-operator" },
-  { tag: B.comment, class: "tok-comment" },
-  { tag: B.meta, class: "tok-meta" },
-  { tag: B.invalid, class: "tok-invalid" },
-  { tag: B.punctuation, class: "tok-punctuation" }
-]);
-var Qn;
-const Fi = /* @__PURE__ */ new R(), iu = /* @__PURE__ */ new R();
-class jt {
-  /**
-  Construct a language object. If you need to invoke this
-  directly, first define a data facet with
-  [`defineLanguageFacet`](https://codemirror.net/6/docs/ref/#language.defineLanguageFacet), and then
-  configure your parser to [attach](https://codemirror.net/6/docs/ref/#language.languageDataProp) it
-  to the language's outer syntax node.
-  */
-  constructor(t, e, i = [], n = "") {
-    this.data = t, this.name = n, H.prototype.hasOwnProperty("tree") || Object.defineProperty(H.prototype, "tree", { get() {
-      return _t(this);
-    } }), this.parser = e, this.extension = [
-      Fe.of(this),
-      H.languageData.of((r, o, l) => {
-        let a = vo(r, o, l), h = a.type.prop(Fi);
-        if (!h)
-          return [];
-        let f = r.facet(h), c = a.type.prop(iu);
-        if (c) {
-          let u = a.resolve(o - a.from, l);
-          for (let d of c)
-            if (d.test(u, r)) {
-              let p = r.facet(d.facet);
-              return d.type == "replace" ? p : p.concat(f);
-            }
-        }
-        return f;
-      })
-    ].concat(i);
-  }
-  /**
-  Query whether this language is active at the given position.
-  */
-  isActiveAt(t, e, i = -1) {
-    return vo(t, e, i).type.prop(Fi) == this.data;
-  }
-  /**
-  Find the document regions that were parsed using this language.
-  The returned regions will _include_ any nested languages rooted
-  in this language, when those exist.
-  */
-  findRegions(t) {
-    let e = t.facet(Fe);
-    if (e?.data == this.data)
-      return [{ from: 0, to: t.doc.length }];
-    if (!e || !e.allowsNesting)
-      return [];
-    let i = [], n = (r, o) => {
-      if (r.prop(Fi) == this.data) {
-        i.push({ from: o, to: o + r.length });
-        return;
-      }
-      let l = r.prop(R.mounted);
-      if (l) {
-        if (l.tree.prop(Fi) == this.data) {
-          if (l.overlay)
-            for (let a of l.overlay)
-              i.push({ from: a.from + o, to: a.to + o });
-          else
-            i.push({ from: o, to: o + r.length });
-          return;
-        } else if (l.overlay) {
-          let a = i.length;
-          if (n(l.tree, l.overlay[0].from + o), i.length > a)
-            return;
-        }
-      }
-      for (let a = 0; a < r.children.length; a++) {
-        let h = r.children[a];
-        h instanceof et && n(h, r.positions[a] + o);
-      }
-    };
-    return n(_t(t), 0), i;
-  }
-  /**
-  Indicates whether this language allows nested languages. The
-  default implementation returns true.
-  */
-  get allowsNesting() {
-    return !0;
-  }
-}
-jt.setState = /* @__PURE__ */ I.define();
-function vo(s, t, e) {
-  let i = s.facet(Fe), n = _t(s).topNode;
-  if (!i || i.allowsNesting)
-    for (let r = n; r; r = r.enter(t, e, G.ExcludeBuffers | G.EnterBracketed))
-      r.type.isTop && (n = r);
-  return n;
-}
-function _t(s) {
-  let t = s.field(jt.state, !1);
-  return t ? t.tree : et.empty;
-}
-class nu {
-  /**
-  Create an input object for the given document.
-  */
-  constructor(t) {
-    this.doc = t, this.cursorPos = 0, this.string = "", this.cursor = t.iter();
-  }
-  get length() {
-    return this.doc.length;
-  }
-  syncTo(t) {
-    return this.string = this.cursor.next(t - this.cursorPos).value, this.cursorPos = t + this.string.length, this.cursorPos - this.string.length;
-  }
-  chunk(t) {
-    return this.syncTo(t), this.string;
-  }
-  get lineChunks() {
-    return !0;
-  }
-  read(t, e) {
-    let i = this.cursorPos - this.string.length;
-    return t < i || e >= this.cursorPos ? this.doc.sliceString(t, e) : this.string.slice(t - i, e - i);
-  }
-}
-let Ge = null;
-class un {
-  constructor(t, e, i = [], n, r, o, l, a) {
-    this.parser = t, this.state = e, this.fragments = i, this.tree = n, this.treeLen = r, this.viewport = o, this.skipped = l, this.scheduleOn = a, this.parse = null, this.tempSkipped = [];
-  }
-  /**
-  @internal
-  */
-  static create(t, e, i) {
-    return new un(t, e, [], et.empty, 0, i, [], null);
-  }
-  startParse() {
-    return this.parser.startParse(new nu(this.state.doc), this.fragments);
-  }
-  /**
-  @internal
-  */
-  work(t, e) {
-    return e != null && e >= this.state.doc.length && (e = void 0), this.tree != et.empty && this.isDone(e ?? this.state.doc.length) ? (this.takeTree(), !0) : this.withContext(() => {
-      var i;
-      if (typeof t == "number") {
-        let n = Date.now() + t;
-        t = () => Date.now() > n;
-      }
-      for (this.parse || (this.parse = this.startParse()), e != null && (this.parse.stoppedAt == null || this.parse.stoppedAt > e) && e < this.state.doc.length && this.parse.stopAt(e); ; ) {
-        let n = this.parse.advance();
-        if (n)
-          if (this.fragments = this.withoutTempSkipped(be.addTree(n, this.fragments, this.parse.stoppedAt != null)), this.treeLen = (i = this.parse.stoppedAt) !== null && i !== void 0 ? i : this.state.doc.length, this.tree = n, this.parse = null, this.treeLen < (e ?? this.state.doc.length))
-            this.parse = this.startParse();
-          else
-            return !0;
-        if (t())
-          return !1;
-      }
-    });
-  }
-  /**
-  @internal
-  */
-  takeTree() {
-    let t, e;
-    this.parse && (t = this.parse.parsedPos) >= this.treeLen && ((this.parse.stoppedAt == null || this.parse.stoppedAt > t) && this.parse.stopAt(t), this.withContext(() => {
-      for (; !(e = this.parse.advance()); )
-        ;
-    }), this.treeLen = t, this.tree = e, this.fragments = this.withoutTempSkipped(be.addTree(this.tree, this.fragments, !0)), this.parse = null);
-  }
-  withContext(t) {
-    let e = Ge;
-    Ge = this;
-    try {
-      return t();
-    } finally {
-      Ge = e;
-    }
-  }
-  withoutTempSkipped(t) {
-    for (let e; e = this.tempSkipped.pop(); )
-      t = ko(t, e.from, e.to);
-    return t;
-  }
-  /**
-  @internal
-  */
-  changes(t, e) {
-    let { fragments: i, tree: n, treeLen: r, viewport: o, skipped: l } = this;
-    if (this.takeTree(), !t.empty) {
-      let a = [];
-      if (t.iterChangedRanges((h, f, c, u) => a.push({ fromA: h, toA: f, fromB: c, toB: u })), i = be.applyChanges(i, a), n = et.empty, r = 0, o = { from: t.mapPos(o.from, -1), to: t.mapPos(o.to, 1) }, this.skipped.length) {
-        l = [];
-        for (let h of this.skipped) {
-          let f = t.mapPos(h.from, 1), c = t.mapPos(h.to, -1);
-          f < c && l.push({ from: f, to: c });
-        }
-      }
-    }
-    return new un(this.parser, e, i, n, r, o, l, this.scheduleOn);
-  }
-  /**
-  @internal
-  */
-  updateViewport(t) {
-    if (this.viewport.from == t.from && this.viewport.to == t.to)
-      return !1;
-    this.viewport = t;
-    let e = this.skipped.length;
-    for (let i = 0; i < this.skipped.length; i++) {
-      let { from: n, to: r } = this.skipped[i];
-      n < t.to && r > t.from && (this.fragments = ko(this.fragments, n, r), this.skipped.splice(i--, 1));
-    }
-    return this.skipped.length >= e ? !1 : (this.reset(), !0);
-  }
-  /**
-  @internal
-  */
-  reset() {
-    this.parse && (this.takeTree(), this.parse = null);
-  }
-  /**
-  Notify the parse scheduler that the given region was skipped
-  because it wasn't in view, and the parse should be restarted
-  when it comes into view.
-  */
-  skipUntilInView(t, e) {
-    this.skipped.push({ from: t, to: e });
-  }
-  /**
-  Returns a parser intended to be used as placeholder when
-  asynchronously loading a nested parser. It'll skip its input and
-  mark it as not-really-parsed, so that the next update will parse
-  it again.
-  
-  When `until` is given, a reparse will be scheduled when that
-  promise resolves.
-  */
-  static getSkippingParser(t) {
-    return new class extends Gc {
-      createParse(e, i, n) {
-        let r = n[0].from, o = n[n.length - 1].to;
-        return {
-          parsedPos: r,
-          advance() {
-            let a = Ge;
-            if (a) {
-              for (let h of n)
-                a.tempSkipped.push(h);
-              t && (a.scheduleOn = a.scheduleOn ? Promise.all([a.scheduleOn, t]) : t);
-            }
-            return this.parsedPos = o, new et(St.none, [], [], o - r);
-          },
-          stoppedAt: null,
-          stopAt() {
-          }
-        };
-      }
-    }();
-  }
-  /**
-  @internal
-  */
-  isDone(t) {
-    t = Math.min(t, this.state.doc.length);
-    let e = this.fragments;
-    return this.treeLen >= t && e.length && e[0].from == 0 && e[0].to >= t;
-  }
-  /**
-  Get the context for the current parse, or `null` if no editor
-  parse is in progress.
-  */
-  static get() {
-    return Ge;
-  }
-}
-function ko(s, t, e) {
-  return be.applyChanges(s, [{ fromA: t, toA: e, fromB: t, toB: e }]);
-}
-class Ve {
-  constructor(t) {
-    this.context = t, this.tree = t.tree;
-  }
-  apply(t) {
-    if (!t.docChanged && this.tree == this.context.tree)
-      return this;
-    let e = this.context.changes(t.changes, t.state), i = this.context.treeLen == t.startState.doc.length ? void 0 : Math.max(t.changes.mapPos(this.context.treeLen), e.viewport.to);
-    return e.work(20, i) || e.takeTree(), new Ve(e);
-  }
-  static init(t) {
-    let e = Math.min(3e3, t.doc.length), i = un.create(t.facet(Fe).parser, t, { from: 0, to: e });
-    return i.work(20, e) || i.takeTree(), new Ve(i);
-  }
-}
-jt.state = /* @__PURE__ */ pt.define({
-  create: Ve.init,
-  update(s, t) {
-    for (let e of t.effects)
-      if (e.is(jt.setState))
-        return e.value;
-    return t.startState.facet(Fe) != t.state.facet(Fe) ? Ve.init(t.state) : s.apply(t);
-  }
-});
-let la = (s) => {
-  let t = setTimeout(
-    () => s(),
-    500
-    /* Work.MaxPause */
-  );
-  return () => clearTimeout(t);
-};
-typeof requestIdleCallback < "u" && (la = (s) => {
-  let t = -1, e = setTimeout(
-    () => {
-      t = requestIdleCallback(s, {
-        timeout: 400
-        /* Work.MinPause */
-      });
-    },
-    100
-    /* Work.MinPause */
-  );
-  return () => t < 0 ? clearTimeout(e) : cancelIdleCallback(t);
-});
-const Zn = typeof navigator < "u" && (!((Qn = navigator.scheduling) === null || Qn === void 0) && Qn.isInputPending) ? () => navigator.scheduling.isInputPending() : null, su = /* @__PURE__ */ vt.fromClass(class {
-  constructor(t) {
-    this.view = t, this.working = null, this.workScheduled = 0, this.chunkEnd = -1, this.chunkBudget = -1, this.work = this.work.bind(this), this.scheduleWork();
-  }
-  update(t) {
-    let e = this.view.state.field(jt.state).context;
-    (e.updateViewport(t.view.viewport) || this.view.viewport.to > e.treeLen) && this.scheduleWork(), (t.docChanged || t.selectionSet) && (this.view.hasFocus && (this.chunkBudget += 50), this.scheduleWork()), this.checkAsyncSchedule(e);
-  }
-  scheduleWork() {
-    if (this.working)
-      return;
-    let { state: t } = this.view, e = t.field(jt.state);
-    (e.tree != e.context.tree || !e.context.isDone(t.doc.length)) && (this.working = la(this.work));
-  }
-  work(t) {
-    this.working = null;
-    let e = Date.now();
-    if (this.chunkEnd < e && (this.chunkEnd < 0 || this.view.hasFocus) && (this.chunkEnd = e + 3e4, this.chunkBudget = 3e3), this.chunkBudget <= 0)
-      return;
-    let { state: i, viewport: { to: n } } = this.view, r = i.field(jt.state);
-    if (r.tree == r.context.tree && r.context.isDone(
-      n + 1e5
-      /* Work.MaxParseAhead */
-    ))
-      return;
-    let o = Date.now() + Math.min(this.chunkBudget, 100, t && !Zn ? Math.max(25, t.timeRemaining() - 5) : 1e9), l = r.context.treeLen < n && i.doc.length > n + 1e3, a = r.context.work(() => Zn && Zn() || Date.now() > o, n + (l ? 0 : 1e5));
-    this.chunkBudget -= Date.now() - e, (a || this.chunkBudget <= 0) && (r.context.takeTree(), this.view.dispatch({ effects: jt.setState.of(new Ve(r.context)) })), this.chunkBudget > 0 && !(a && !l) && this.scheduleWork(), this.checkAsyncSchedule(r.context);
-  }
-  checkAsyncSchedule(t) {
-    t.scheduleOn && (this.workScheduled++, t.scheduleOn.then(() => this.scheduleWork()).catch((e) => ot(this.view.state, e)).then(() => this.workScheduled--), t.scheduleOn = null);
-  }
-  destroy() {
-    this.working && this.working();
-  }
-  isWorking() {
-    return !!(this.working || this.workScheduled > 0);
-  }
-}, {
-  eventHandlers: { focus() {
-    this.scheduleWork();
-  } }
-}), Fe = /* @__PURE__ */ M.define({
-  combine(s) {
-    return s.length ? s[0] : null;
-  },
-  enables: (s) => [
-    jt.state,
-    su,
-    O.contentAttributes.compute([s], (t) => {
-      let e = t.facet(s);
-      return e && e.name ? { "data-language": e.name } : {};
-    })
-  ]
-}), ru = /* @__PURE__ */ M.define(), cr = /* @__PURE__ */ M.define({
-  combine: (s) => {
-    if (!s.length)
-      return "  ";
-    let t = s[0];
-    if (!t || /\S/.test(t) || Array.from(t).some((e) => e != t[0]))
-      throw new Error("Invalid indent unit: " + JSON.stringify(s[0]));
-    return t;
-  }
-});
-function dn(s) {
-  let t = s.facet(cr);
-  return t.charCodeAt(0) == 9 ? s.tabSize * t.length : t.length;
-}
-function pn(s, t) {
-  let e = "", i = s.tabSize, n = s.facet(cr)[0];
-  if (n == "	") {
-    for (; t >= i; )
-      e += "	", t -= i;
-    n = " ";
-  }
-  for (let r = 0; r < t; r++)
-    e += n;
-  return e;
-}
-function aa(s, t) {
-  s instanceof H && (s = new Dn(s));
-  for (let i of s.state.facet(ru)) {
-    let n = i(s, t);
-    if (n !== void 0)
-      return n;
-  }
-  let e = _t(s.state);
-  return e.length >= t ? lu(s, e, t) : null;
-}
-class Dn {
-  /**
-  Create an indent context.
-  */
-  constructor(t, e = {}) {
-    this.state = t, this.options = e, this.unit = dn(t);
-  }
-  /**
-  Get a description of the line at the given position, taking
-  [simulated line
-  breaks](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
-  into account. If there is such a break at `pos`, the `bias`
-  argument determines whether the part of the line line before or
-  after the break is used.
-  */
-  lineAt(t, e = 1) {
-    let i = this.state.doc.lineAt(t), { simulateBreak: n, simulateDoubleBreak: r } = this.options;
-    return n != null && n >= i.from && n <= i.to ? r && n == t ? { text: "", from: t } : (e < 0 ? n < t : n <= t) ? { text: i.text.slice(n - i.from), from: n } : { text: i.text.slice(0, n - i.from), from: i.from } : i;
-  }
-  /**
-  Get the text directly after `pos`, either the entire line
-  or the next 100 characters, whichever is shorter.
-  */
-  textAfterPos(t, e = 1) {
-    if (this.options.simulateDoubleBreak && t == this.options.simulateBreak)
-      return "";
-    let { text: i, from: n } = this.lineAt(t, e);
-    return i.slice(t - n, Math.min(i.length, t + 100 - n));
-  }
-  /**
-  Find the column for the given position.
-  */
-  column(t, e = 1) {
-    let { text: i, from: n } = this.lineAt(t, e), r = this.countColumn(i, t - n), o = this.options.overrideIndentation ? this.options.overrideIndentation(n) : -1;
-    return o > -1 && (r += o - this.countColumn(i, i.search(/\S|$/))), r;
-  }
-  /**
-  Find the column position (taking tabs into account) of the given
-  position in the given string.
-  */
-  countColumn(t, e = t.length) {
-    return vn(t, this.state.tabSize, e);
-  }
-  /**
-  Find the indentation column of the line at the given point.
-  */
-  lineIndent(t, e = 1) {
-    let { text: i, from: n } = this.lineAt(t, e), r = this.options.overrideIndentation;
-    if (r) {
-      let o = r(n);
-      if (o > -1)
-        return o;
-    }
-    return this.countColumn(i, i.search(/\S|$/));
-  }
-  /**
-  Returns the [simulated line
-  break](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
-  for this context, if any.
-  */
-  get simulatedBreak() {
-    return this.options.simulateBreak || null;
-  }
-}
-const ou = /* @__PURE__ */ new R();
-function lu(s, t, e) {
-  let i = t.resolveStack(e), n = t.resolveInner(e, -1).resolve(e, 0).enterUnfinishedNodesBefore(e);
-  if (n != i.node) {
-    let r = [];
-    for (let o = n; o && !(o.from < i.node.from || o.to > i.node.to || o.from == i.node.from && o.type == i.node.type); o = o.parent)
-      r.push(o);
-    for (let o = r.length - 1; o >= 0; o--)
-      i = { node: r[o], next: i };
-  }
-  return ha(i, s, e);
-}
-function ha(s, t, e) {
-  for (let i = s; i; i = i.next) {
-    let n = hu(i.node);
-    if (n)
-      return n(ur.create(t, e, i));
-  }
-  return 0;
-}
-function au(s) {
-  return s.pos == s.options.simulateBreak && s.options.simulateDoubleBreak;
-}
-function hu(s) {
-  let t = s.type.prop(ou);
-  if (t)
-    return t;
-  let e = s.firstChild, i;
-  if (e && (i = e.type.prop(R.closedBy))) {
-    let n = s.lastChild, r = n && i.indexOf(n.name) > -1;
-    return (o) => du(o, !0, 1, void 0, r && !au(o) ? n.from : void 0);
-  }
-  return s.parent == null ? fu : null;
-}
-function fu() {
-  return 0;
-}
-class ur extends Dn {
-  constructor(t, e, i) {
-    super(t.state, t.options), this.base = t, this.pos = e, this.context = i;
-  }
-  /**
-  The syntax tree node to which the indentation strategy
-  applies.
-  */
-  get node() {
-    return this.context.node;
-  }
-  /**
-  @internal
-  */
-  static create(t, e, i) {
-    return new ur(t, e, i);
-  }
-  /**
-  Get the text directly after `this.pos`, either the entire line
-  or the next 100 characters, whichever is shorter.
-  */
-  get textAfter() {
-    return this.textAfterPos(this.pos);
-  }
-  /**
-  Get the indentation at the reference line for `this.node`, which
-  is the line on which it starts, unless there is a node that is
-  _not_ a parent of this node covering the start of that line. If
-  so, the line at the start of that node is tried, again skipping
-  on if it is covered by another such node.
-  */
-  get baseIndent() {
-    return this.baseIndentFor(this.node);
-  }
-  /**
-  Get the indentation for the reference line of the given node
-  (see [`baseIndent`](https://codemirror.net/6/docs/ref/#language.TreeIndentContext.baseIndent)).
-  */
-  baseIndentFor(t) {
-    let e = this.state.doc.lineAt(t.from);
-    for (; ; ) {
-      let i = t.resolve(e.from);
-      for (; i.parent && i.parent.from == i.from; )
-        i = i.parent;
-      if (cu(i, t))
-        break;
-      e = this.state.doc.lineAt(i.from);
-    }
-    return this.lineIndent(e.from);
-  }
-  /**
-  Continue looking for indentations in the node's parent nodes,
-  and return the result of that.
-  */
-  continue() {
-    return ha(this.context.next, this.base, this.pos);
-  }
-}
-function cu(s, t) {
-  for (let e = t; e; e = e.parent)
-    if (s == e)
-      return !0;
-  return !1;
-}
-function uu(s) {
-  let t = s.node, e = t.childAfter(t.from), i = t.lastChild;
-  if (!e)
-    return null;
-  let n = s.options.simulateBreak, r = s.state.doc.lineAt(e.from), o = n == null || n <= r.from ? r.to : Math.min(r.to, n);
-  for (let l = e.to; ; ) {
-    let a = t.childAfter(l);
-    if (!a || a == i)
-      return null;
-    if (!a.type.isSkipped) {
-      if (a.from >= o)
-        return null;
-      let h = /^ */.exec(r.text.slice(e.to - r.from))[0].length;
-      return { from: e.from, to: e.to + h };
-    }
-    l = a.to;
-  }
-}
-function du(s, t, e, i, n) {
-  let r = s.textAfter, o = r.match(/^\s*/)[0].length, l = i && r.slice(o, o + i.length) == i || n == s.pos + o, a = uu(s);
-  return a ? l ? s.column(a.from) : s.column(a.to) : s.baseIndent + (l ? 0 : s.unit * e);
-}
-const pu = 1e4, mu = "()[]{}", gu = /* @__PURE__ */ new R();
-function Vs(s, t, e) {
-  let i = s.prop(t < 0 ? R.openedBy : R.closedBy);
-  if (i)
-    return i;
-  if (s.name.length == 1) {
-    let n = e.indexOf(s.name);
-    if (n > -1 && n % 2 == (t < 0 ? 1 : 0))
-      return [e[n + t]];
-  }
-  return null;
-}
-function Fs(s) {
-  let t = s.type.prop(gu);
-  return t ? t(s.node) : s;
-}
-function Te(s, t, e, i = {}) {
-  let n = i.maxScanDistance || pu, r = i.brackets || mu, o = _t(s), l = o.resolveInner(t, e);
-  for (let a = l; a; a = a.parent) {
-    let h = Vs(a.type, e, r);
-    if (h && a.from < a.to) {
-      let f = Fs(a);
-      if (f && (e > 0 ? t >= f.from && t < f.to : t > f.from && t <= f.to))
-        return yu(s, t, e, a, f, h, r);
-    }
-  }
-  return bu(s, t, e, o, l.type, n, r);
-}
-function yu(s, t, e, i, n, r, o) {
-  let l = i.parent, a = { from: n.from, to: n.to }, h = 0, f = l?.cursor();
-  if (f && (e < 0 ? f.childBefore(i.from) : f.childAfter(i.to)))
-    do
-      if (e < 0 ? f.to <= i.from : f.from >= i.to) {
-        if (h == 0 && r.indexOf(f.type.name) > -1 && f.from < f.to) {
-          let c = Fs(f);
-          return { start: a, end: c ? { from: c.from, to: c.to } : void 0, matched: !0 };
-        } else if (Vs(f.type, e, o))
-          h++;
-        else if (Vs(f.type, -e, o)) {
-          if (h == 0) {
-            let c = Fs(f);
-            return {
-              start: a,
-              end: c && c.from < c.to ? { from: c.from, to: c.to } : void 0,
-              matched: !1
-            };
-          }
-          h--;
-        }
-      }
-    while (e < 0 ? f.prevSibling() : f.nextSibling());
-  return { start: a, matched: !1 };
-}
-function bu(s, t, e, i, n, r, o) {
-  let l = e < 0 ? s.sliceDoc(t - 1, t) : s.sliceDoc(t, t + 1), a = o.indexOf(l);
-  if (a < 0 || a % 2 == 0 != e > 0)
-    return null;
-  let h = { from: e < 0 ? t - 1 : t, to: e > 0 ? t + 1 : t }, f = s.doc.iterRange(t, e > 0 ? s.doc.length : 0), c = 0;
-  for (let u = 0; !f.next().done && u <= r; ) {
-    let d = f.value;
-    e < 0 && (u += d.length);
-    let p = t + u * e;
-    for (let m = e > 0 ? 0 : d.length - 1, g = e > 0 ? d.length : -1; m != g; m += e) {
-      let y = o.indexOf(d[m]);
-      if (!(y < 0 || i.resolveInner(p + m, 1).type != n))
-        if (y % 2 == 0 == e > 0)
-          c++;
-        else {
-          if (c == 1)
-            return { start: h, end: { from: p + m, to: p + m + 1 }, matched: y >> 1 == a >> 1 };
-          c--;
-        }
-    }
-    e > 0 && (u += d.length);
-  }
-  return f.done ? { start: h, matched: !1 } : null;
-}
-const wu = /* @__PURE__ */ Object.create(null), So = [St.none], Co = [], Ao = /* @__PURE__ */ Object.create(null), xu = /* @__PURE__ */ Object.create(null);
-for (let [s, t] of [
-  ["variable", "variableName"],
-  ["variable-2", "variableName.special"],
-  ["string-2", "string.special"],
-  ["def", "variableName.definition"],
-  ["tag", "tagName"],
-  ["attribute", "attributeName"],
-  ["type", "typeName"],
-  ["builtin", "variableName.standard"],
-  ["qualifier", "modifier"],
-  ["error", "invalid"],
-  ["header", "heading"],
-  ["property", "propertyName"]
-])
-  xu[s] = /* @__PURE__ */ vu(wu, t);
-function ts(s, t) {
-  Co.indexOf(s) > -1 || (Co.push(s), console.warn(t));
-}
-function vu(s, t) {
-  let e = [];
-  for (let l of t.split(" ")) {
-    let a = [];
-    for (let h of l.split(".")) {
-      let f = s[h] || B[h];
-      f ? typeof f == "function" ? a.length ? a = a.map(f) : ts(h, `Modifier ${h} used at start of tag`) : a.length ? ts(h, `Tag ${h} used as modifier`) : a = Array.isArray(f) ? f : [f] : ts(h, `Unknown highlighting tag ${h}`);
-    }
-    for (let h of a)
-      e.push(h);
-  }
-  if (!e.length)
-    return 0;
-  let i = t.replace(/ /g, "_"), n = i + " " + e.map((l) => l.id), r = Ao[n];
-  if (r)
-    return r.id;
-  let o = Ao[n] = St.define({
-    id: So.length,
-    name: i,
-    props: [Zc({ [i]: e })]
-  });
-  return So.push(o), o.id;
-}
-K.RTL, K.LTR;
-const ku = (s) => {
-  let { state: t } = s, e = t.doc.lineAt(t.selection.main.from), i = pr(s.state, e.from);
-  return i.line ? Su(s) : i.block ? Au(s) : !1;
-};
-function dr(s, t) {
-  return ({ state: e, dispatch: i }) => {
-    if (e.readOnly)
-      return !1;
-    let n = s(t, e);
-    return n ? (i(e.update(n)), !0) : !1;
-  };
-}
-const Su = /* @__PURE__ */ dr(
-  Ou,
-  0
-  /* CommentOption.Toggle */
-), Cu = /* @__PURE__ */ dr(
-  fa,
-  0
-  /* CommentOption.Toggle */
-), Au = /* @__PURE__ */ dr(
-  (s, t) => fa(s, t, Tu(t)),
-  0
-  /* CommentOption.Toggle */
-);
-function pr(s, t) {
-  let e = s.languageDataAt("commentTokens", t, 1);
-  return e.length ? e[0] : {};
-}
-const Je = 50;
-function Mu(s, { open: t, close: e }, i, n) {
-  let r = s.sliceDoc(i - Je, i), o = s.sliceDoc(n, n + Je), l = /\s*$/.exec(r)[0].length, a = /^\s*/.exec(o)[0].length, h = r.length - l;
-  if (r.slice(h - t.length, h) == t && o.slice(a, a + e.length) == e)
-    return {
-      open: { pos: i - l, margin: l && 1 },
-      close: { pos: n + a, margin: a && 1 }
-    };
-  let f, c;
-  n - i <= 2 * Je ? f = c = s.sliceDoc(i, n) : (f = s.sliceDoc(i, i + Je), c = s.sliceDoc(n - Je, n));
-  let u = /^\s*/.exec(f)[0].length, d = /\s*$/.exec(c)[0].length, p = c.length - d - e.length;
-  return f.slice(u, u + t.length) == t && c.slice(p, p + e.length) == e ? {
-    open: {
-      pos: i + u + t.length,
-      margin: /\s/.test(f.charAt(u + t.length)) ? 1 : 0
-    },
-    close: {
-      pos: n - d - e.length,
-      margin: /\s/.test(c.charAt(p - 1)) ? 1 : 0
-    }
-  } : null;
-}
-function Tu(s) {
-  let t = [];
-  for (let e of s.selection.ranges) {
-    let i = s.doc.lineAt(e.from), n = e.to <= i.to ? i : s.doc.lineAt(e.to);
-    n.from > i.from && n.from == e.to && (n = e.to == i.to + 1 ? i : s.doc.lineAt(e.to - 1));
-    let r = t.length - 1;
-    r >= 0 && t[r].to > i.from ? t[r].to = n.to : t.push({ from: i.from + /^\s*/.exec(i.text)[0].length, to: n.to });
-  }
-  return t;
-}
-function fa(s, t, e = t.selection.ranges) {
-  let i = e.map((r) => pr(t, r.from).block);
-  if (!i.every((r) => r))
-    return null;
-  let n = e.map((r, o) => Mu(t, i[o], r.from, r.to));
-  if (s != 2 && !n.every((r) => r))
-    return { changes: t.changes(e.map((r, o) => n[o] ? [] : [{ from: r.from, insert: i[o].open + " " }, { from: r.to, insert: " " + i[o].close }])) };
-  if (s != 1 && n.some((r) => r)) {
-    let r = [];
-    for (let o = 0, l; o < n.length; o++)
-      if (l = n[o]) {
-        let a = i[o], { open: h, close: f } = l;
-        r.push({ from: h.pos - a.open.length, to: h.pos + h.margin }, { from: f.pos - f.margin, to: f.pos + a.close.length });
-      }
-    return { changes: r };
-  }
-  return null;
-}
-function Ou(s, t, e = t.selection.ranges) {
-  let i = [], n = -1;
-  t: for (let { from: r, to: o } of e) {
-    let l = i.length, a = 1e9, h;
-    for (let f = r; f <= o; ) {
-      let c = t.doc.lineAt(f);
-      if (h == null && (h = pr(t, c.from).line, !h))
-        continue t;
-      if (c.from > n && (r == o || o > c.from)) {
-        n = c.from;
-        let u = /^\s*/.exec(c.text)[0].length, d = u == c.length, p = c.text.slice(u, u + h.length) == h ? u : -1;
-        u < c.text.length && u < a && (a = u), i.push({ line: c, comment: p, token: h, indent: u, empty: d, single: !1 });
-      }
-      f = c.to + 1;
-    }
-    if (a < 1e9)
-      for (let f = l; f < i.length; f++)
-        i[f].indent < i[f].line.text.length && (i[f].indent = a);
-    i.length == l + 1 && (i[l].single = !0);
-  }
-  if (s != 2 && i.some((r) => r.comment < 0 && (!r.empty || r.single))) {
-    let r = [];
-    for (let { line: l, token: a, indent: h, empty: f, single: c } of i)
-      (c || !f) && r.push({ from: l.from + h, insert: a + " " });
-    let o = t.changes(r);
-    return { changes: o, selection: t.selection.map(o, 1) };
-  } else if (s != 1 && i.some((r) => r.comment >= 0)) {
-    let r = [];
-    for (let { line: o, comment: l, token: a } of i)
-      if (l >= 0) {
-        let h = o.from + l, f = h + a.length;
-        o.text[f - o.from] == " " && f++, r.push({ from: h, to: f });
-      }
-    return { changes: r };
-  }
-  return null;
-}
-const zs = /* @__PURE__ */ Yt.define(), Du = /* @__PURE__ */ Yt.define(), Bu = /* @__PURE__ */ M.define(), ca = /* @__PURE__ */ M.define({
-  combine(s) {
-    return pi(s, {
-      minDepth: 100,
-      newGroupDelay: 500,
-      joinToEvent: (t, e) => e
-    }, {
-      minDepth: Math.max,
-      newGroupDelay: Math.min,
-      joinToEvent: (t, e) => (i, n) => t(i, n) || e(i, n)
-    });
-  }
-}), ua = /* @__PURE__ */ pt.define({
-  create() {
-    return Ft.empty;
-  },
-  update(s, t) {
-    let e = t.state.facet(ca), i = t.annotation(zs);
-    if (i) {
-      let a = ct.fromTransaction(t, i.selection), h = i.side, f = h == 0 ? s.undone : s.done;
-      return a ? f = mn(f, f.length, e.minDepth, a) : f = ma(f, t.startState.selection), new Ft(h == 0 ? i.rest : f, h == 0 ? f : i.rest);
-    }
-    let n = t.annotation(Du);
-    if ((n == "full" || n == "before") && (s = s.isolate()), t.annotation(Y.addToHistory) === !1)
-      return t.changes.empty ? s : s.addMapping(t.changes.desc);
-    let r = ct.fromTransaction(t), o = t.annotation(Y.time), l = t.annotation(Y.userEvent);
-    return r ? s = s.addChanges(r, o, l, e, t) : t.selection && (s = s.addSelection(t.startState.selection, o, l, e.newGroupDelay)), (n == "full" || n == "after") && (s = s.isolate()), s;
-  },
-  toJSON(s) {
-    return { done: s.done.map((t) => t.toJSON()), undone: s.undone.map((t) => t.toJSON()) };
-  },
-  fromJSON(s) {
-    return new Ft(s.done.map(ct.fromJSON), s.undone.map(ct.fromJSON));
-  }
-});
-function Mp(s = {}) {
-  return [
-    ua,
-    ca.of(s),
-    O.domEventHandlers({
-      beforeinput(t, e) {
-        let i = t.inputType == "historyUndo" ? da : t.inputType == "historyRedo" ? Ks : null;
-        return i ? (t.preventDefault(), i(e)) : !1;
-      }
-    })
-  ];
-}
-function Bn(s, t) {
-  return function({ state: e, dispatch: i }) {
-    if (!t && e.readOnly)
-      return !1;
-    let n = e.field(ua, !1);
-    if (!n)
-      return !1;
-    let r = n.pop(s, e, t);
-    return r ? (i(r), !0) : !1;
-  };
-}
-const da = /* @__PURE__ */ Bn(0, !1), Ks = /* @__PURE__ */ Bn(1, !1), Lu = /* @__PURE__ */ Bn(0, !0), Eu = /* @__PURE__ */ Bn(1, !0);
-class ct {
-  constructor(t, e, i, n, r) {
-    this.changes = t, this.effects = e, this.mapped = i, this.startSelection = n, this.selectionsAfter = r;
-  }
-  setSelAfter(t) {
-    return new ct(this.changes, this.effects, this.mapped, this.startSelection, t);
-  }
-  toJSON() {
-    var t, e, i;
-    return {
-      changes: (t = this.changes) === null || t === void 0 ? void 0 : t.toJSON(),
-      mapped: (e = this.mapped) === null || e === void 0 ? void 0 : e.toJSON(),
-      startSelection: (i = this.startSelection) === null || i === void 0 ? void 0 : i.toJSON(),
-      selectionsAfter: this.selectionsAfter.map((n) => n.toJSON())
-    };
-  }
-  static fromJSON(t) {
-    return new ct(t.changes && _.fromJSON(t.changes), [], t.mapped && Kt.fromJSON(t.mapped), t.startSelection && b.fromJSON(t.startSelection), t.selectionsAfter.map(b.fromJSON));
-  }
-  // This does not check `addToHistory` and such, it assumes the
-  // transaction needs to be converted to an item. Returns null when
-  // there are no changes or effects in the transaction.
-  static fromTransaction(t, e) {
-    let i = bt;
-    for (let n of t.startState.facet(Bu)) {
-      let r = n(t);
-      r.length && (i = i.concat(r));
-    }
-    return !i.length && t.changes.empty ? null : new ct(t.changes.invert(t.startState.doc), i, void 0, e || t.startState.selection, bt);
-  }
-  static selection(t) {
-    return new ct(void 0, bt, void 0, void 0, t);
-  }
-}
-function mn(s, t, e, i) {
-  let n = t + 1 > e + 20 ? t - e - 1 : 0, r = s.slice(n, t);
-  return r.push(i), r;
-}
-function Ru(s, t) {
-  let e = [], i = !1;
-  return s.iterChangedRanges((n, r) => e.push(n, r)), t.iterChangedRanges((n, r, o, l) => {
-    for (let a = 0; a < e.length; ) {
-      let h = e[a++], f = e[a++];
-      l >= h && o <= f && (i = !0);
-    }
-  }), i;
-}
-function Pu(s, t) {
-  return s.ranges.length == t.ranges.length && s.ranges.filter((e, i) => e.empty != t.ranges[i].empty).length === 0;
-}
-function pa(s, t) {
-  return s.length ? t.length ? s.concat(t) : s : t;
-}
-const bt = [], Iu = 200;
-function ma(s, t) {
-  if (s.length) {
-    let e = s[s.length - 1], i = e.selectionsAfter.slice(Math.max(0, e.selectionsAfter.length - Iu));
-    return i.length && i[i.length - 1].eq(t) ? s : (i.push(t), mn(s, s.length - 1, 1e9, e.setSelAfter(i)));
-  } else
-    return [ct.selection([t])];
-}
-function Nu(s) {
-  let t = s[s.length - 1], e = s.slice();
-  return e[s.length - 1] = t.setSelAfter(t.selectionsAfter.slice(0, t.selectionsAfter.length - 1)), e;
-}
-function es(s, t) {
-  if (!s.length)
-    return s;
-  let e = s.length, i = bt;
-  for (; e; ) {
-    let n = Hu(s[e - 1], t, i);
-    if (n.changes && !n.changes.empty || n.effects.length) {
-      let r = s.slice(0, e);
-      return r[e - 1] = n, r;
-    } else
-      t = n.mapped, e--, i = n.selectionsAfter;
-  }
-  return i.length ? [ct.selection(i)] : bt;
-}
-function Hu(s, t, e) {
-  let i = pa(s.selectionsAfter.length ? s.selectionsAfter.map((l) => l.map(t)) : bt, e);
-  if (!s.changes)
-    return ct.selection(i);
-  let n = s.changes.map(t), r = t.mapDesc(s.changes, !0), o = s.mapped ? s.mapped.composeDesc(r) : r;
-  return new ct(n, I.mapEffects(s.effects, t), o, s.startSelection.map(r), i);
-}
-const Wu = /^(input\.type|delete)($|\.)/;
-class Ft {
-  constructor(t, e, i = 0, n = void 0) {
-    this.done = t, this.undone = e, this.prevTime = i, this.prevUserEvent = n;
-  }
-  isolate() {
-    return this.prevTime ? new Ft(this.done, this.undone) : this;
-  }
-  addChanges(t, e, i, n, r) {
-    let o = this.done, l = o[o.length - 1];
-    return l && l.changes && !l.changes.empty && t.changes && (!i || Wu.test(i)) && (!l.selectionsAfter.length && e - this.prevTime < n.newGroupDelay && n.joinToEvent(r, Ru(l.changes, t.changes)) || // For compose (but not compose.start) events, always join with previous event
-    i == "input.type.compose") ? o = mn(o, o.length - 1, n.minDepth, new ct(t.changes.compose(l.changes), pa(I.mapEffects(t.effects, l.changes), l.effects), l.mapped, l.startSelection, bt)) : o = mn(o, o.length, n.minDepth, t), new Ft(o, bt, e, i);
-  }
-  addSelection(t, e, i, n) {
-    let r = this.done.length ? this.done[this.done.length - 1].selectionsAfter : bt;
-    return r.length > 0 && e - this.prevTime < n && i == this.prevUserEvent && i && /^select($|\.)/.test(i) && Pu(r[r.length - 1], t) ? this : new Ft(ma(this.done, t), this.undone, e, i);
-  }
-  addMapping(t) {
-    return new Ft(es(this.done, t), es(this.undone, t), this.prevTime, this.prevUserEvent);
-  }
-  pop(t, e, i) {
-    let n = t == 0 ? this.done : this.undone;
-    if (n.length == 0)
-      return null;
-    let r = n[n.length - 1], o = r.selectionsAfter[0] || (r.startSelection ? r.startSelection.map(r.changes.invertedDesc, 1) : e.selection);
-    if (i && r.selectionsAfter.length)
-      return e.update({
-        selection: r.selectionsAfter[r.selectionsAfter.length - 1],
-        annotations: zs.of({ side: t, rest: Nu(n), selection: o }),
-        userEvent: t == 0 ? "select.undo" : "select.redo",
-        scrollIntoView: !0
-      });
-    if (r.changes) {
-      let l = n.length == 1 ? bt : n.slice(0, n.length - 1);
-      return r.mapped && (l = es(l, r.mapped)), e.update({
-        changes: r.changes,
-        selection: r.startSelection,
-        effects: r.effects,
-        annotations: zs.of({ side: t, rest: l, selection: o }),
-        filter: !1,
-        userEvent: t == 0 ? "undo" : "redo",
-        scrollIntoView: !0
-      });
-    } else
-      return null;
-  }
-}
-Ft.empty = /* @__PURE__ */ new Ft(bt, bt);
-const Tp = [
-  { key: "Mod-z", run: da, preventDefault: !0 },
-  { key: "Mod-y", mac: "Mod-Shift-z", run: Ks, preventDefault: !0 },
-  { linux: "Ctrl-Shift-z", run: Ks, preventDefault: !0 },
-  { key: "Mod-u", run: Lu, preventDefault: !0 },
-  { key: "Alt-u", mac: "Mod-Shift-u", run: Eu, preventDefault: !0 }
+function Gr(e) {
+	let t = e.dom.lastChild;
+	if (!t) return e.dom.getBoundingClientRect();
+	let n = mn(t);
+	return n[n.length - 1] || null;
+}
+function Kr(e, t) {
+	let n = e.coordsIn(0, 1), r = t.coordsIn(0, 1);
+	return n && r && r.top < n.bottom;
+}
+var V = class e extends Br {
+	constructor(e, t) {
+		super(e), this.mark = t;
+	}
+	get domAttrs() {
+		return this.mark.attrs;
+	}
+	static of(t, n) {
+		let r = new e(n || document.createElement(t.tagName), t);
+		return n || (r.flags |= 4), r;
+	}
+}, qr = class e extends B {
+	constructor(e, t) {
+		super(e, t.length), this.text = t;
+	}
+	sync(e) {
+		this.flags & 2 || (super.sync(e), this.dom.nodeValue != this.text && (e && e.node == this.dom && (e.written = !0), this.dom.nodeValue = this.text));
+	}
+	isText() {
+		return !0;
+	}
+	toString() {
+		return JSON.stringify(this.text);
+	}
+	coordsIn(e, t, n) {
+		let r = this.dom.nodeValue.length;
+		e > r && (e = r);
+		let i = e, a = e, o = 0;
+		e == 0 && t < 0 || e == r && t >= 0 ? N.chrome || N.gecko || (e ? (i--, o = 1) : a < r && (a++, o = -1)) : t < 0 ? i-- : a < r && a++;
+		let s = jn(this.dom, i, a).getClientRects();
+		if (!s.length) return null;
+		let c = s[(o ? o < 0 : t >= 0) ? 0 : s.length - 1];
+		return N.safari && !o && c.width == 0 && (c = Array.prototype.find.call(s, (e) => e.width) || c), n == null ? c : bn(c, (o ? o > 0 : t < 0) == n);
+	}
+	static of(t, n) {
+		let r = new e(n || document.createTextNode(t), t);
+		return n || (r.flags |= 2), r;
+	}
+}, Jr = class e extends B {
+	constructor(e, t, n, r) {
+		super(e, t, r), this.widget = n;
+	}
+	isWidget() {
+		return !0;
+	}
+	get isHidden() {
+		return this.widget.isHidden;
+	}
+	covers(e) {
+		return this.flags & 48 ? !1 : (this.flags & (e < 0 ? 64 : 128)) > 0;
+	}
+	coordsIn(e, t) {
+		return this.coordsInWidget(e, t, !1);
+	}
+	coordsInWidget(e, t, n) {
+		let r = this.widget.coordsAt(this.dom, e, t);
+		if (r) return r;
+		if (n) return bn(this.dom.getBoundingClientRect(), this.length ? e == 0 : t <= 0);
+		{
+			let t = this.dom.getClientRects(), n = null;
+			if (!t.length) return null;
+			let r = this.flags & 16 ? !0 : this.flags & 32 ? !1 : e > 0;
+			for (let i = r ? t.length - 1 : 0; n = t[i], !(e > 0 ? i == 0 : i == t.length - 1 || n.top < n.bottom); i += r ? -1 : 1);
+			return bn(n, !r);
+		}
+	}
+	get overrideDOMText() {
+		if (!this.length) return f.empty;
+		let { root: e } = this;
+		if (!e) return f.empty;
+		let t = this.posAtStart;
+		return e.view.state.doc.slice(t, t + this.length);
+	}
+	destroy() {
+		super.destroy(), this.widget.destroy(this.dom);
+	}
+	static of(t, n, r, i, a) {
+		return a || (a = t.toDOM(n), t.editable || (a.contentEditable = "false")), new e(a, r, t, i);
+	}
+}, Yr = class extends B {
+	constructor(e) {
+		let t = document.createElement("img");
+		t.className = "cm-widgetBuffer", t.setAttribute("aria-hidden", "true"), super(t, 0, e);
+	}
+	get isHidden() {
+		return !0;
+	}
+	get overrideDOMText() {
+		return f.empty;
+	}
+	coordsIn(e, t, n) {
+		let r = this.dom.getBoundingClientRect();
+		return n == null ? r : bn(r, t > 0 == n);
+	}
+}, Xr = class {
+	constructor(e) {
+		this.index = 0, this.beforeBreak = !1, this.parents = [], this.tile = e;
+	}
+	advance(e, t, n) {
+		let { tile: r, index: i, beforeBreak: a, parents: o } = this;
+		for (; e || t > 0;) if (!r.isComposite()) {
+			let t = r.length;
+			if (i < t && e) {
+				let a = Math.min(e, t - i);
+				n && n.skip(r, i, i + a), e -= a, i += a;
+			}
+			if (i == t) a = !!r.breakAfter, {tile: r, index: i} = o.pop(), i++;
+			else if (!e) break;
+		} else if (a) {
+			if (!e) break;
+			n && n.break(), e--, a = !1;
+		} else if (i == r.children.length) {
+			if (!e && !o.length) break;
+			n && n.leave(r), a = !!r.breakAfter, {tile: r, index: i} = o.pop(), i++;
+		} else {
+			let s = r.children[i], c = s.breakAfter;
+			(t > 0 ? s.length <= e : s.length < e) && (!n || n.skip(s, 0, s.length) !== !1 || !s.isComposite) ? (a = !!c, i++, e -= s.length) : (o.push({
+				tile: r,
+				index: i
+			}), r = s, i = 0, n && s.isComposite() && n.enter(s));
+		}
+		return this.tile = r, this.index = i, this.beforeBreak = a, this;
+	}
+	get root() {
+		return this.parents.length ? this.parents[0].tile : this.tile;
+	}
+}, Zr = class {
+	constructor(e, t, n, r) {
+		this.from = e, this.to = t, this.wrapper = n, this.rank = r;
+	}
+}, Qr = class {
+	constructor(e, t, n) {
+		this.cache = e, this.root = t, this.blockWrappers = n, this.curLine = null, this.lastBlock = null, this.afterWidget = null, this.pos = 0, this.wrappers = [], this.wrapperPos = 0;
+	}
+	addText(e, t, n, r) {
+		this.flushBuffer();
+		let i = this.ensureMarks(t, n), a = i.lastChild;
+		if (a && a.isText() && !(a.flags & 8) && a.length + e.length < 512) {
+			this.cache.reused.set(a, 2);
+			let t = i.children[i.children.length - 1] = new qr(a.dom, a.text + e);
+			t.parent = i;
+		} else i.append(r || qr.of(e, this.cache.find(qr)?.dom));
+		this.pos += e.length, this.afterWidget = null;
+	}
+	addComposition(e, t) {
+		let n = this.curLine;
+		n.dom != t.line.dom && (n.setDOM(this.cache.reused.has(t.line) ? ci(t.line.dom) : t.line.dom), this.cache.reused.set(t.line, 2));
+		let r = n;
+		for (let e = t.marks.length - 1; e >= 0; e--) {
+			let n = t.marks[e], i = r.lastChild;
+			if (i instanceof V && i.mark.eq(n.mark)) i.dom != n.dom && i.setDOM(ci(n.dom)), r = i;
+			else {
+				let { dom: e } = n;
+				this.cache.reused.get(n) && B.get(n.dom) && (e = ci(n.dom));
+				let t = V.of(n.mark, e);
+				r.append(t), r = t;
+			}
+			this.cache.reused.set(n, 2);
+		}
+		let i = B.get(e.text);
+		i && this.cache.reused.set(i, 2);
+		let a = new qr(e.text, e.text.nodeValue);
+		a.flags |= 8, this.pos = e.range.toB, r.append(a);
+	}
+	addInlineWidget(e, t, n) {
+		let r = this.afterWidget && e.flags & 48 && (this.afterWidget.flags & 48) == (e.flags & 48);
+		r || this.flushBuffer();
+		let i = this.ensureMarks(t, n);
+		!r && !(e.flags & 16) && i.append(this.getBuffer(1)), i.append(e), this.pos += e.length, this.afterWidget = e;
+	}
+	addMark(e, t, n) {
+		this.flushBuffer(), this.ensureMarks(t, n).append(e), this.pos += e.length, this.afterWidget = null;
+	}
+	addBlockWidget(e) {
+		this.getBlockPos().append(e), this.pos += e.length, this.lastBlock = e, this.endLine();
+	}
+	continueWidget(e) {
+		let t = this.afterWidget || this.lastBlock;
+		t.length += e, this.pos += e;
+	}
+	addLineStart(e, t) {
+		e || (e = ai);
+		let n = Wr.start(e, t || this.cache.find(Wr)?.dom, !!t);
+		this.getBlockPos().append(this.lastBlock = this.curLine = n);
+	}
+	addLine(e) {
+		this.getBlockPos().append(e), this.pos += e.length, this.lastBlock = e, this.endLine();
+	}
+	addBreak() {
+		this.lastBlock.flags |= 1, this.endLine(), this.pos++;
+	}
+	addLineStartIfNotCovered(e) {
+		this.blockPosCovered() || this.addLineStart(e);
+	}
+	ensureLine(e) {
+		this.curLine || this.addLineStart(e);
+	}
+	ensureMarks(e, t) {
+		let n = this.curLine;
+		for (let r = e.length - 1; r >= 0; r--) {
+			let i = e[r], a;
+			if (t > 0 && (a = n.lastChild) && a instanceof V && a.mark.eq(i)) n = a, t--;
+			else {
+				let e = V.of(i, this.cache.find(V, (e) => e.mark.eq(i))?.dom);
+				n.append(e), n = e, t = 0;
+			}
+		}
+		return n;
+	}
+	endLine() {
+		if (this.curLine) {
+			this.flushBuffer();
+			let e = this.curLine.lastChild;
+			(!e || !ri(this.curLine, !1) || e.dom.nodeName != "BR" && e.isWidget() && !(N.ios && ri(this.curLine, !0))) && this.curLine.append(this.cache.findWidget(ui, 0, 32) || new Jr(ui.toDOM(), 0, ui, 32)), this.curLine = this.afterWidget = null;
+		}
+	}
+	updateBlockWrappers() {
+		this.wrapperPos > this.pos + 1e4 && (this.blockWrappers.goto(this.pos), this.wrappers.length = 0);
+		for (let e = this.wrappers.length - 1; e >= 0; e--) this.wrappers[e].to < this.pos && this.wrappers.splice(e, 1);
+		for (let e = this.blockWrappers; e.value && e.from <= this.pos; e.next()) if (e.to >= this.pos) {
+			let t = e.rank * 102 + e.value.rank, n = new Zr(e.from, e.to, e.value, t), r = this.wrappers.length;
+			for (; r > 0 && (this.wrappers[r - 1].rank - n.rank || this.wrappers[r - 1].to - n.to) < 0;) r--;
+			this.wrappers.splice(r, 0, n);
+		}
+		this.wrapperPos = this.pos;
+	}
+	getBlockPos() {
+		this.updateBlockWrappers();
+		let e = this.root;
+		for (let t of this.wrappers) {
+			let n = e.lastChild;
+			if (t.from < this.pos && n instanceof Ur && n.wrapper.eq(t.wrapper)) e = n;
+			else {
+				let n = Ur.of(t.wrapper, this.cache.find(Ur, (e) => e.wrapper.eq(t.wrapper))?.dom);
+				e.append(n), e = n;
+			}
+		}
+		return e;
+	}
+	blockPosCovered() {
+		let e = this.lastBlock;
+		return e != null && !e.breakAfter && (!e.isWidget() || (e.flags & 160) > 0);
+	}
+	getBuffer(e) {
+		let t = 2 | (e < 0 ? 16 : 32), n = this.cache.find(Yr, void 0, 1);
+		return n && (n.flags = t), n || new Yr(t);
+	}
+	flushBuffer() {
+		this.afterWidget && !(this.afterWidget.flags & 32) && (this.afterWidget.parent.append(this.getBuffer(-1)), this.afterWidget = null);
+	}
+}, $r = class {
+	constructor(e) {
+		this.skipCount = 0, this.text = "", this.textOff = 0, this.cursor = e.iter();
+	}
+	skip(e) {
+		this.textOff + e <= this.text.length ? this.textOff += e : (this.skipCount += e - (this.text.length - this.textOff), this.text = "", this.textOff = 0);
+	}
+	next(e) {
+		if (this.textOff == this.text.length) {
+			let { value: t, lineBreak: n, done: r } = this.cursor.next(this.skipCount);
+			if (this.skipCount = 0, r) throw Error("Ran out of text content when drawing inline views");
+			this.text = t;
+			let i = this.textOff = Math.min(e, t.length);
+			return n ? null : t.slice(0, i);
+		}
+		let t = Math.min(this.text.length, this.textOff + e), n = this.text.slice(this.textOff, t);
+		return this.textOff = t, n;
+	}
+}, ei = [
+	Jr,
+	Wr,
+	qr,
+	V,
+	Yr,
+	Ur,
+	Hr
 ];
-function Ke(s, t) {
-  return b.create(s.ranges.map(t), s.mainIndex);
-}
-function Dt(s, t) {
-  return s.update({ selection: t, scrollIntoView: !0, userEvent: "select" });
-}
-function Bt({ state: s, dispatch: t }, e) {
-  let i = Ke(s.selection, e);
-  return i.eq(s.selection, !0) ? !1 : (t(Dt(s, i)), !0);
-}
-function Ln(s, t) {
-  return b.cursor(t ? s.to : s.from);
-}
-function ga(s, t) {
-  return Bt(s, (e) => e.empty ? s.moveByChar(e, t) : Ln(e, t));
-}
-function st(s) {
-  return s.textDirectionAt(s.state.selection.main.head) == K.LTR;
-}
-const ya = (s) => ga(s, !st(s)), ba = (s) => ga(s, st(s));
-function wa(s, t) {
-  return Bt(s, (e) => e.empty ? s.moveByGroup(e, t) : Ln(e, t));
-}
-const Vu = (s) => wa(s, !st(s)), Fu = (s) => wa(s, st(s));
-function zu(s, t, e) {
-  if (t.type.prop(e))
-    return !0;
-  let i = t.to - t.from;
-  return i && (i > 2 || /[^\s,.;:]/.test(s.sliceDoc(t.from, t.to))) || t.firstChild;
-}
-function En(s, t, e) {
-  let i = _t(s).resolveInner(t.head), n = e ? R.closedBy : R.openedBy;
-  for (let a = t.head; ; ) {
-    let h = e ? i.childAfter(a) : i.childBefore(a);
-    if (!h)
-      break;
-    zu(s, h, n) ? i = h : a = e ? h.to : h.from;
-  }
-  let r = i.type.prop(n), o, l;
-  return r && (o = e ? Te(s, i.from, 1) : Te(s, i.to, -1)) && o.matched ? l = e ? o.end.to : o.end.from : l = e ? i.to : i.from, b.cursor(l, e ? -1 : 1);
-}
-const Ku = (s) => Bt(s, (t) => En(s.state, t, !st(s))), qu = (s) => Bt(s, (t) => En(s.state, t, st(s)));
-function xa(s, t) {
-  return Bt(s, (e) => {
-    if (!e.empty)
-      return Ln(e, t);
-    let i = s.moveVertically(e, t);
-    return i.head != e.head ? i : s.moveToLineBoundary(e, t);
-  });
-}
-const va = (s) => xa(s, !1), ka = (s) => xa(s, !0);
-function Sa(s) {
-  let t = s.scrollDOM.clientHeight < s.scrollDOM.scrollHeight - 2, e = 0, i = 0, n;
-  if (t) {
-    for (let r of s.state.facet(O.scrollMargins)) {
-      let o = r(s);
-      o?.top && (e = Math.max(o?.top, e)), o?.bottom && (i = Math.max(o?.bottom, i));
-    }
-    n = s.scrollDOM.clientHeight - e - i;
-  } else
-    n = (s.dom.ownerDocument.defaultView || window).innerHeight;
-  return {
-    marginTop: e,
-    marginBottom: i,
-    selfScroll: t,
-    height: Math.max(s.defaultLineHeight, n - 5)
-  };
-}
-function Ca(s, t) {
-  let e = Sa(s), { state: i } = s, n = Ke(i.selection, (o) => o.empty ? s.moveVertically(o, t, e.height) : Ln(o, t));
-  if (n.eq(i.selection))
-    return !1;
-  let r;
-  if (e.selfScroll) {
-    let o = s.coordsAtPos(i.selection.main.head), l = s.scrollDOM.getBoundingClientRect(), a = l.top + e.marginTop, h = l.bottom - e.marginBottom;
-    o && o.top > a && o.bottom < h && (r = O.scrollIntoView(n.main.head, { y: "start", yMargin: o.top - a }));
-  }
-  return s.dispatch(Dt(i, n), { effects: r }), !0;
-}
-const Mo = (s) => Ca(s, !1), qs = (s) => Ca(s, !0);
-function ae(s, t, e) {
-  let i = s.lineBlockAt(t.head), n = s.moveToLineBoundary(t, e);
-  if (n.head == t.head && n.head != (e ? i.to : i.from) && (n = s.moveToLineBoundary(t, e, !1)), !e && n.head == i.from && i.length) {
-    let r = /^\s*/.exec(s.state.sliceDoc(i.from, Math.min(i.from + 100, i.to)))[0].length;
-    r && t.head != i.from + r && (n = b.cursor(i.from + r));
-  }
-  return n;
-}
-const $u = (s) => Bt(s, (t) => ae(s, t, !0)), Uu = (s) => Bt(s, (t) => ae(s, t, !1)), ju = (s) => Bt(s, (t) => ae(s, t, !st(s))), Gu = (s) => Bt(s, (t) => ae(s, t, st(s))), Ju = (s) => Bt(s, (t) => b.cursor(s.lineBlockAt(t.head).from, 1)), _u = (s) => Bt(s, (t) => b.cursor(s.lineBlockAt(t.head).to, -1));
-function Yu(s, t, e) {
-  let i = !1, n = Ke(s.selection, (r) => {
-    let o = Te(s, r.head, -1) || Te(s, r.head, 1) || r.head > 0 && Te(s, r.head - 1, 1) || r.head < s.doc.length && Te(s, r.head + 1, -1);
-    if (!o || !o.end)
-      return r;
-    i = !0;
-    let l = o.start.from == r.head ? o.end.to : o.end.from;
-    return b.cursor(l);
-  });
-  return i ? (t(Dt(s, n)), !0) : !1;
-}
-const Xu = ({ state: s, dispatch: t }) => Yu(s, t);
-function Ct(s, t) {
-  let e = Ke(s.state.selection, (i) => {
-    let n = t(i);
-    return b.range(i.anchor, n.head, n.goalColumn, n.bidiLevel || void 0);
-  });
-  return e.eq(s.state.selection) ? !1 : (s.dispatch(Dt(s.state, e)), !0);
-}
-function Aa(s, t) {
-  return Ct(s, (e) => s.moveByChar(e, t));
-}
-const Ma = (s) => Aa(s, !st(s)), Ta = (s) => Aa(s, st(s));
-function Oa(s, t) {
-  return Ct(s, (e) => s.moveByGroup(e, t));
-}
-const Qu = (s) => Oa(s, !st(s)), Zu = (s) => Oa(s, st(s)), td = (s) => Ct(s, (t) => En(s.state, t, !st(s))), ed = (s) => Ct(s, (t) => En(s.state, t, st(s)));
-function Da(s, t) {
-  return Ct(s, (e) => s.moveVertically(e, t));
-}
-const Ba = (s) => Da(s, !1), La = (s) => Da(s, !0);
-function Ea(s, t) {
-  return Ct(s, (e) => s.moveVertically(e, t, Sa(s).height));
-}
-const To = (s) => Ea(s, !1), Oo = (s) => Ea(s, !0), id = (s) => Ct(s, (t) => ae(s, t, !0)), nd = (s) => Ct(s, (t) => ae(s, t, !1)), sd = (s) => Ct(s, (t) => ae(s, t, !st(s))), rd = (s) => Ct(s, (t) => ae(s, t, st(s))), od = (s) => Ct(s, (t) => b.cursor(s.lineBlockAt(t.head).from)), ld = (s) => Ct(s, (t) => b.cursor(s.lineBlockAt(t.head).to)), Do = ({ state: s, dispatch: t }) => (t(Dt(s, { anchor: 0 })), !0), Bo = ({ state: s, dispatch: t }) => (t(Dt(s, { anchor: s.doc.length })), !0), Lo = ({ state: s, dispatch: t }) => (t(Dt(s, { anchor: s.selection.main.anchor, head: 0 })), !0), Eo = ({ state: s, dispatch: t }) => (t(Dt(s, { anchor: s.selection.main.anchor, head: s.doc.length })), !0), ad = ({ state: s, dispatch: t }) => (t(s.update({ selection: { anchor: 0, head: s.doc.length }, userEvent: "select" })), !0), hd = ({ state: s, dispatch: t }) => {
-  let e = Rn(s).map(({ from: i, to: n }) => b.range(i, Math.min(n + 1, s.doc.length)));
-  return t(s.update({ selection: b.create(e), userEvent: "select" })), !0;
-}, fd = ({ state: s, dispatch: t }) => {
-  let e = Ke(s.selection, (i) => {
-    let n = _t(s), r = n.resolveStack(i.from, 1);
-    if (i.empty) {
-      let o = n.resolveStack(i.from, -1);
-      o.node.from >= r.node.from && o.node.to <= r.node.to && (r = o);
-    }
-    for (let o = r; o; o = o.next) {
-      let { node: l } = o;
-      if ((l.from < i.from && l.to >= i.to || l.to > i.to && l.from <= i.from) && o.next)
-        return b.range(l.to, l.from);
-    }
-    return i;
-  });
-  return e.eq(s.selection) ? !1 : (t(Dt(s, e)), !0);
+for (let e = 0; e < ei.length; e++) ei[e].bucket = e;
+var ti = class {
+	constructor(e) {
+		this.view = e, this.buckets = ei.map(() => []), this.index = ei.map(() => 0), this.reused = /* @__PURE__ */ new Map();
+	}
+	add(e) {
+		let t = e.constructor.bucket, n = this.buckets[t];
+		n.length < 6 ? n.push(e) : n[this.index[t] = (this.index[t] + 1) % 6] = e;
+	}
+	find(e, t, n = 2) {
+		let r = e.bucket, i = this.buckets[r], a = this.index[r];
+		for (let e = 0; e < i.length; e++) {
+			let o = (e + a) % i.length, s = i[o];
+			if ((!t || t(s)) && !this.reused.has(s)) return i.splice(o, 1), o < a && this.index[r]--, this.reused.set(s, n), s;
+		}
+		return null;
+	}
+	findWidget(e, t, n) {
+		let r = this.buckets[0];
+		if (r.length) for (let i = 0, a = 0;; i++) {
+			if (i == r.length) {
+				if (a) return null;
+				a = 1, i = 0;
+			}
+			let o = r[i];
+			if (!this.reused.has(o) && (a == 0 ? o.widget.compare(e) : o.widget.constructor == e.constructor && e.updateDOM(o.dom, this.view, o.widget))) return r.splice(i, 1), i < this.index[0] && this.index[0]--, o.widget == e && o.length == t && (o.flags & 497) == n ? (this.reused.set(o, 1), o) : (this.reused.set(o, 2), new Jr(o.dom, t, e, o.flags & -498 | n));
+		}
+	}
+	reuse(e) {
+		return this.reused.set(e, 1), e;
+	}
+	maybeReuse(e, t = 2) {
+		if (!this.reused.has(e)) return this.reused.set(e, t), e.dom;
+	}
+	clear() {
+		for (let e = 0; e < this.buckets.length; e++) this.buckets[e].length = this.index[e] = 0;
+	}
+}, ni = class {
+	constructor(e, t, n, r, i) {
+		this.view = e, this.decorations = r, this.disallowBlockEffectsFor = i, this.openWidget = !1, this.openMarks = 0, this.cache = new ti(e), this.text = new $r(e.state.doc), this.builder = new Qr(this.cache, new Hr(e, e.contentDOM), A.iter(n)), this.cache.reused.set(t, 2), this.old = new Xr(t), this.reuseWalker = {
+			skip: (e, t, n) => {
+				if (this.cache.add(e), e.isComposite()) return !1;
+			},
+			enter: (e) => this.cache.add(e),
+			leave: () => {},
+			break: () => {}
+		};
+	}
+	run(e, t) {
+		let n = t && this.getCompositionContext(t.text);
+		for (let r = 0, i = 0, a = 0;;) {
+			let o = a < e.length ? e[a++] : null, s = o ? o.fromA : this.old.root.length;
+			if (s > r) {
+				let e = s - r;
+				this.preserve(e, !a, !o), r = s, i += e;
+			}
+			if (!o) break;
+			t && o.fromA <= t.range.fromA && o.toA >= t.range.toA ? (this.forward(o.fromA, t.range.fromA, t.range.fromA < t.range.toA ? 1 : -1), this.emit(i, t.range.fromB), this.builder.flushBuffer(), this.cache.clear(), this.builder.addComposition(t, n), this.text.skip(t.range.toB - t.range.fromB), this.forward(t.range.fromA, o.toA), this.emit(t.range.toB, o.toB)) : (this.forward(o.fromA, o.toA), this.emit(i, o.toB)), i = o.toB, r = o.toA;
+		}
+		return this.builder.curLine && this.builder.endLine(), this.builder.root;
+	}
+	preserve(e, t, n) {
+		let r = si(this.old), i = this.openMarks;
+		this.old.advance(e, n ? 1 : -1, {
+			skip: (e, t, n) => {
+				if (e.isWidget()) {
+					if (this.openWidget) this.builder.continueWidget(n - t);
+					else {
+						let a = n > 0 || t < e.length ? Jr.of(e.widget, this.view, n - t, e.flags & 496, this.cache.maybeReuse(e)) : this.cache.reuse(e);
+						a.flags & 256 ? (a.flags &= -2, this.builder.addBlockWidget(a)) : (this.builder.ensureLine(null), this.builder.addInlineWidget(a, r, i), i = r.length);
+					}
+				} else if (e.isText()) this.builder.ensureLine(null), !t && n == e.length && !this.cache.reused.has(e) ? this.builder.addText(e.text, r, i, this.cache.reuse(e)) : (this.cache.add(e), this.builder.addText(e.text.slice(t, n), r, i)), i = r.length;
+				else if (e.isLine()) e.flags &= -2, this.cache.reused.set(e, 1), this.builder.addLine(e);
+				else if (e instanceof Yr) this.cache.add(e);
+				else if (e instanceof V) this.builder.ensureLine(null), this.builder.addMark(e, r, i), this.cache.reused.set(e, 1), i = r.length;
+				else return !1;
+				this.openWidget = !1;
+			},
+			enter: (e) => {
+				e.isLine() ? this.builder.addLineStart(e.attrs, this.cache.maybeReuse(e)) : (this.cache.add(e), e instanceof V && r.unshift(e.mark)), this.openWidget = !1;
+			},
+			leave: (e) => {
+				e.isLine() ? r.length && (r.length = i = 0) : e instanceof V && (r.shift(), i = Math.min(i, r.length));
+			},
+			break: () => {
+				this.builder.addBreak(), this.openWidget = !1;
+			}
+		}), this.text.skip(e);
+	}
+	emit(e, t) {
+		let n = null, r = this.builder, i = -1, a = A.spans(this.decorations, e, t, {
+			point: (e, t, a, o, s, c) => {
+				if (a instanceof an) {
+					if (this.disallowBlockEffectsFor[c]) {
+						if (a.block) throw RangeError("Block decorations may not be specified via plugins");
+						if (t > this.view.state.doc.lineAt(e).to) throw RangeError("Decorations that replace line breaks may not be specified via plugins");
+					}
+					if (i = o.length, s > o.length) r.continueWidget(t - e);
+					else {
+						let i = a.widget || (a.block ? li.block : li.inline), c = ii(a), l = this.cache.findWidget(i, t - e, c) || Jr.of(i, this.view, t - e, c);
+						a.block ? (a.startSide > 0 && r.addLineStartIfNotCovered(n), r.addBlockWidget(l)) : (r.ensureLine(n), r.addInlineWidget(l, o, s));
+					}
+					n = null;
+				} else n = oi(n, a);
+				t > e && this.text.skip(t - e);
+			},
+			span: (e, t, a, o) => {
+				for (let i = e; i < t;) {
+					let s = this.text.next(Math.min(512, t - i));
+					s == null ? (r.addLineStartIfNotCovered(n), r.addBreak(), i++) : (r.ensureLine(n), r.addText(s, a, i == e ? o : a.length), i += s.length), n = null;
+				}
+				i = a.length;
+			}
+		});
+		i > -1 && (this.openWidget = a > i), this.openWidget || r.addLineStartIfNotCovered(n), this.openMarks = a;
+	}
+	forward(e, t, n = 1) {
+		t - e <= 10 ? this.old.advance(t - e, n, this.reuseWalker) : (this.old.advance(5, -1, this.reuseWalker), this.old.advance(t - e - 10, -1), this.old.advance(5, n, this.reuseWalker));
+	}
+	getCompositionContext(e) {
+		let t = [], n = null;
+		for (let r = e.parentNode;; r = r.parentNode) {
+			let e = B.get(r);
+			if (r == this.view.contentDOM) break;
+			e instanceof V ? t.push(e) : e?.isLine() ? n = e : e instanceof Ur || (r.nodeName == "DIV" && !n ? n = new Wr(r, ai) : n || t.push(V.of(new nn({
+				tagName: r.nodeName.toLowerCase(),
+				attributes: en(r)
+			}), r)));
+		}
+		return n ? {
+			line: n,
+			marks: t
+		} : null;
+	}
 };
-function Ra(s, t) {
-  let { state: e } = s, i = e.selection, n = e.selection.ranges.slice();
-  for (let r of e.selection.ranges) {
-    let o = e.doc.lineAt(r.head);
-    if (t ? o.to < s.state.doc.length : o.from > 0)
-      for (let l = r; ; ) {
-        let a = s.moveVertically(l, t);
-        if (a.head < o.from || a.head > o.to) {
-          n.some((h) => h.head == a.head) || n.push(a);
-          break;
-        } else {
-          if (a.head == l.head)
-            break;
-          l = a;
-        }
-      }
-  }
-  return n.length == i.ranges.length ? !1 : (s.dispatch(Dt(e, b.create(n, n.length - 1))), !0);
+function ri(e, t) {
+	let n = (e) => {
+		for (let r of e.children) if ((t ? r.isText() : r.length) || n(r)) return !0;
+		return !1;
+	};
+	return n(e);
 }
-const cd = (s) => Ra(s, !1), ud = (s) => Ra(s, !0), dd = ({ state: s, dispatch: t }) => {
-  let e = s.selection, i = null;
-  return e.ranges.length > 1 ? i = b.create([e.main]) : e.main.empty || (i = b.create([b.cursor(e.main.head)])), i ? (t(Dt(s, i)), !0) : !1;
+function ii(e) {
+	let t = e.isReplace ? (e.startSide < 0 ? 64 : 0) | (e.endSide > 0 ? 128 : 0) : e.startSide > 0 ? 32 : 16;
+	return e.block && (t |= 256), t;
+}
+var ai = { class: "cm-line" };
+function oi(e, t) {
+	let n = t.spec.attributes, r = t.spec.class;
+	return !n && !r || (e || (e = { class: "cm-line" }), n && Yt(n, e), r && (e.class += " " + r)), e;
+}
+function si(e) {
+	let t = [];
+	for (let n = e.parents.length; n > 1; n--) {
+		let r = n == e.parents.length ? e.tile : e.parents[n].tile;
+		r instanceof V && t.push(r.mark);
+	}
+	return t;
+}
+function ci(e) {
+	let t = B.get(e);
+	return t && t.setDOM(e.cloneNode()), e;
+}
+var li = class extends tn {
+	constructor(e) {
+		super(), this.tag = e;
+	}
+	eq(e) {
+		return e.tag == this.tag;
+	}
+	toDOM() {
+		return document.createElement(this.tag);
+	}
+	updateDOM(e) {
+		return e.nodeName.toLowerCase() == this.tag;
+	}
+	get isHidden() {
+		return !0;
+	}
 };
-function wi(s, t) {
-  if (s.state.readOnly)
-    return !1;
-  let e = "delete.selection", { state: i } = s, n = i.changeByRange((r) => {
-    let { from: o, to: l } = r;
-    if (o == l) {
-      let a = t(r);
-      a < o ? (e = "delete.backward", a = zi(s, a, !1)) : a > o && (e = "delete.forward", a = zi(s, a, !0)), o = Math.min(o, a), l = Math.max(l, a);
-    } else
-      o = zi(s, o, !1), l = zi(s, l, !0);
-    return o == l ? { range: r } : { changes: { from: o, to: l }, range: b.cursor(o, o < r.head ? -1 : 1) };
-  });
-  return n.changes.empty ? !1 : (s.dispatch(i.update(n, {
-    scrollIntoView: !0,
-    userEvent: e,
-    effects: e == "delete.selection" ? O.announce.of(i.phrase("Selection deleted")) : void 0
-  })), !0);
-}
-function zi(s, t, e) {
-  if (s instanceof O)
-    for (let i of s.state.facet(O.atomicRanges).map((n) => n(s)))
-      i.between(t, t, (n, r) => {
-        n < t && r > t && (t = e ? r : n);
-      });
-  return t;
-}
-const Pa = (s, t, e) => wi(s, (i) => {
-  let n = i.from, { state: r } = s, o = r.doc.lineAt(n), l, a;
-  if (e && !t && n > o.from && n < o.from + 200 && !/[^ \t]/.test(l = o.text.slice(0, n - o.from))) {
-    if (l[l.length - 1] == "	")
-      return n - 1;
-    let h = vn(l, r.tabSize), f = h % dn(r) || dn(r);
-    for (let c = 0; c < f && l[l.length - 1 - c] == " "; c++)
-      n--;
-    a = n;
-  } else
-    a = nt(o.text, n - o.from, t, t) + o.from, a == n && o.number != (t ? r.doc.lines : 1) ? a += t ? 1 : -1 : !t && /[\ufe00-\ufe0f]/.test(o.text.slice(a - o.from, n - o.from)) && (a = nt(o.text, a - o.from, !1, !1) + o.from);
-  return a;
-}), $s = (s) => Pa(s, !1, !0), Ia = (s) => Pa(s, !0, !1), Na = (s, t) => wi(s, (e) => {
-  let i = e.head, { state: n } = s, r = n.doc.lineAt(i), o = n.charCategorizer(i);
-  for (let l = null; ; ) {
-    if (i == (t ? r.to : r.from)) {
-      i == e.head && r.number != (t ? n.doc.lines : 1) && (i += t ? 1 : -1);
-      break;
-    }
-    let a = nt(r.text, i - r.from, t) + r.from, h = r.text.slice(Math.min(i, a) - r.from, Math.max(i, a) - r.from), f = o(h);
-    if (l != null && f != l)
-      break;
-    (h != " " || i != e.head) && (l = f), i = a;
-  }
-  return i;
-}), Ha = (s) => Na(s, !1), pd = (s) => Na(s, !0), md = (s) => wi(s, (t) => {
-  let e = s.lineBlockAt(t.head).to;
-  return t.head < e ? e : Math.min(s.state.doc.length, t.head + 1);
-}), gd = (s) => wi(s, (t) => {
-  let e = s.moveToLineBoundary(t, !1).head;
-  return t.head > e ? e : Math.max(0, t.head - 1);
-}), yd = (s) => wi(s, (t) => {
-  let e = s.moveToLineBoundary(t, !0).head;
-  return t.head < e ? e : Math.min(s.state.doc.length, t.head + 1);
-}), bd = ({ state: s, dispatch: t }) => {
-  if (s.readOnly)
-    return !1;
-  let e = s.changeByRange((i) => ({
-    changes: { from: i.from, to: i.to, insert: P.of(["", ""]) },
-    range: b.cursor(i.from)
-  }));
-  return t(s.update(e, { scrollIntoView: !0, userEvent: "input" })), !0;
-}, wd = ({ state: s, dispatch: t }) => {
-  if (s.readOnly)
-    return !1;
-  let e = s.changeByRange((i) => {
-    if (!i.empty || i.from == 0 || i.from == s.doc.length)
-      return { range: i };
-    let n = i.from, r = s.doc.lineAt(n), o = n == r.from ? n - 1 : nt(r.text, n - r.from, !1) + r.from, l = n == r.to ? n + 1 : nt(r.text, n - r.from, !0) + r.from;
-    return {
-      changes: { from: o, to: l, insert: s.doc.slice(n, l).append(s.doc.slice(o, n)) },
-      range: b.cursor(l)
-    };
-  });
-  return e.changes.empty ? !1 : (t(s.update(e, { scrollIntoView: !0, userEvent: "move.character" })), !0);
+li.inline = /*@__PURE__*/ new li("span"), li.block = /*@__PURE__*/ new li("div");
+var ui = /*@__PURE__*/ new class extends tn {
+	toDOM() {
+		return document.createElement("br");
+	}
+	get isHidden() {
+		return !0;
+	}
+	get editable() {
+		return !0;
+	}
+}(), di = class {
+	constructor(e) {
+		this.view = e, this.decorations = [], this.blockWrappers = [], this.dynamicDecorationMap = [!1], this.domChanged = null, this.hasComposition = null, this.editContextFormatting = F.none, this.lastCompositionAfterCursor = !1, this.minWidth = 0, this.minWidthFrom = 0, this.minWidthTo = 0, this.impreciseAnchor = null, this.impreciseHead = null, this.forceSelection = !1, this.lastUpdate = Date.now(), this.updateDeco(), this.tile = new Hr(e, e.contentDOM), this.updateInner([new Lr(0, 0, 0, e.state.doc.length)], null);
+	}
+	update(e) {
+		let t = e.changedRanges;
+		this.minWidth > 0 && t.length && (t.every(({ fromA: e, toA: t }) => t < this.minWidthFrom || e > this.minWidthTo) ? (this.minWidthFrom = e.changes.mapPos(this.minWidthFrom, 1), this.minWidthTo = e.changes.mapPos(this.minWidthTo, 1)) : this.minWidth = this.minWidthFrom = this.minWidthTo = 0), this.updateEditContextFormatting(e);
+		let n = -1;
+		this.view.inputState.composing >= 0 && !this.view.observer.editContext && (this.domChanged?.newSel ? n = this.domChanged.newSel.head : !Si(e.changes, this.hasComposition) && !e.selectionSet && (n = e.state.selection.main.head));
+		let r = n > -1 ? hi(this.view, e.changes, n) : null;
+		if (this.domChanged = null, this.hasComposition) {
+			let { from: n, to: r } = this.hasComposition;
+			t = new Lr(n, r, e.changes.mapPos(n, -1), e.changes.mapPos(r, 1)).addToSet(t.slice());
+		}
+		this.hasComposition = r ? {
+			from: r.range.fromB,
+			to: r.range.toB
+		} : null, (N.ie || N.chrome) && !r && e && e.state.doc.lines != e.startState.doc.lines && (this.forceSelection = !0);
+		let i = this.decorations, a = this.blockWrappers;
+		this.updateDeco();
+		let o = vi(i, this.decorations, e.changes);
+		o.length && (t = Lr.extendWithRanges(t, o));
+		let s = bi(a, this.blockWrappers, e.changes);
+		return s.length && (t = Lr.extendWithRanges(t, s)), r && !t.some((e) => e.fromA <= r.range.fromA && e.toA >= r.range.toA) && (t = r.range.addToSet(t.slice())), this.tile.flags & 2 && t.length == 0 ? !1 : (this.updateInner(t, r), e.transactions.length && (this.lastUpdate = Date.now()), !0);
+	}
+	updateInner(e, t) {
+		this.view.viewState.mustMeasureContent = !0;
+		let { observer: n } = this.view;
+		n.ignore(() => {
+			if (t || e.length) {
+				let n = this.tile, r = new ni(this.view, n, this.blockWrappers, this.decorations, this.dynamicDecorationMap);
+				t && B.get(t.text) && r.cache.reused.set(B.get(t.text), 2), this.tile = r.run(e, t), fi(n, r.cache.reused);
+			}
+			this.tile.dom.style.height = this.view.viewState.contentHeight / this.view.scaleY + "px", this.tile.dom.style.flexBasis = this.minWidth ? this.minWidth + "px" : "";
+			let r = N.chrome || N.ios ? {
+				node: n.selectionRange.focusNode,
+				written: !1
+			} : void 0;
+			this.tile.sync(r), r && (r.written || n.selectionRange.focusNode != r.node || !this.tile.dom.contains(r.node)) && (this.forceSelection = !0), this.tile.dom.style.height = "";
+		});
+		let r = [];
+		if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length) for (let e of this.tile.children) e.isWidget() && e.widget instanceof Ci && r.push(e.dom);
+		n.updateGaps(r);
+	}
+	updateEditContextFormatting(e) {
+		this.editContextFormatting = this.editContextFormatting.map(e.changes);
+		for (let t of e.transactions) for (let e of t.effects) e.is(br) && (this.editContextFormatting = e.value);
+	}
+	updateSelection(e = !1, t = !1) {
+		(e || !this.view.observer.selectionRange.focusNode) && this.view.observer.readSelectionRange();
+		let { dom: n } = this.tile, r = this.view.root.activeElement, i = r == n, a = !i && !(this.view.state.facet(xr) || n.tabIndex > -1) && pn(n, this.view.observer.selectionRange) && !(r && n.contains(r));
+		if (!(i || t || a)) return;
+		let o = this.forceSelection;
+		this.forceSelection = !1;
+		let s = this.view.state.selection.main, c, l;
+		if (s.empty ? l = c = this.inlineDOMNearPos(s.anchor, s.assoc || 1) : (l = this.inlineDOMNearPos(s.head, s.head == s.from ? 1 : -1), c = this.inlineDOMNearPos(s.anchor, s.anchor == s.from ? 1 : -1)), N.gecko && s.empty && !this.hasComposition && pi(c)) {
+			let e = document.createTextNode("");
+			this.view.observer.ignore(() => c.node.insertBefore(e, c.node.childNodes[c.offset] || null)), c = l = new Rn(e, 0), o = !0;
+		}
+		let u = this.view.observer.selectionRange;
+		(o || !u.focusNode || (!hn(c.node, c.offset, u.anchorNode, u.anchorOffset) || !hn(l.node, l.offset, u.focusNode, u.focusOffset)) && !this.suppressWidgetCursorChange(u, s)) && (this.view.observer.ignore(() => {
+			N.android && N.chrome && n.contains(u.focusNode) && xi(u.focusNode, n) && (n.blur(), n.focus({ preventScroll: !0 }));
+			let e = dn(this.view.root);
+			if (e) {
+				if (s.empty) {
+					if (N.gecko) {
+						let e = gi(c.node, c.offset);
+						if (e && e != 3) {
+							let t = (e == 1 ? In : Ln)(c.node, c.offset);
+							t && (c = new Rn(t.node, t.offset));
+						}
+					}
+					e.collapse(c.node, c.offset), s.bidiLevel != null && e.caretBidiLevel !== void 0 && (e.caretBidiLevel = s.bidiLevel);
+				} else if (e.extend) {
+					e.collapse(c.node, c.offset);
+					try {
+						e.extend(l.node, l.offset);
+					} catch {}
+				} else {
+					let t = document.createRange();
+					s.anchor > s.head && ([c, l] = [l, c]), t.setEnd(l.node, l.offset), t.setStart(c.node, c.offset), e.removeAllRanges(), e.addRange(t);
+				}
+			}
+			a && this.view.root.activeElement == n && (n.blur(), r && r.focus());
+		}), this.view.observer.setSelectionRange(c, l)), this.impreciseAnchor = c.precise ? null : new Rn(u.anchorNode, u.anchorOffset), this.impreciseHead = l.precise ? null : new Rn(u.focusNode, u.focusOffset);
+	}
+	suppressWidgetCursorChange(e, t) {
+		return this.hasComposition && t.empty && hn(e.focusNode, e.focusOffset, e.anchorNode, e.anchorOffset) && this.posFromDOM(e.focusNode, e.focusOffset) == t.head;
+	}
+	enforceCursorAssoc() {
+		if (this.hasComposition) return;
+		let { view: e } = this, t = e.state.selection.main, n = dn(e.root), { anchorNode: r, anchorOffset: i } = e.observer.selectionRange;
+		if (!n || !t.empty || !t.assoc || !n.modify) return;
+		let a = this.lineAt(t.head, t.assoc);
+		if (!a) return;
+		let o = a.posAtStart;
+		if (t.head == o || t.head == o + a.length) return;
+		let s = this.coordsAt(t.head, -1), c = this.coordsAt(t.head, 1);
+		if (!s || !c || s.bottom > c.top) return;
+		let l = this.domAtPos(t.head + t.assoc, t.assoc);
+		n.collapse(l.node, l.offset), n.modify("move", t.assoc < 0 ? "forward" : "backward", "lineboundary"), e.observer.readSelectionRange();
+		let u = e.observer.selectionRange;
+		e.docView.posFromDOM(u.anchorNode, u.anchorOffset) != t.from && n.collapse(r, i);
+	}
+	posFromDOM(e, t) {
+		let n = this.tile.nearest(e);
+		if (!n) return this.tile.dom.compareDocumentPosition(e) & 2 ? 0 : this.view.state.doc.length;
+		let r = n.posAtStart;
+		if (n.isComposite()) {
+			let i;
+			if (e == n.dom) i = n.dom.childNodes[t];
+			else {
+				let r = yn(e) == 0 ? 0 : t == 0 ? -1 : 1;
+				for (;;) {
+					let t = e.parentNode;
+					if (t == n.dom) break;
+					r == 0 && t.firstChild != t.lastChild && (r = e == t.firstChild ? -1 : 1), e = t;
+				}
+				i = r < 0 ? e : e.nextSibling;
+			}
+			if (i == n.dom.firstChild) return r;
+			for (; i && !B.get(i);) i = i.nextSibling;
+			if (!i) return r + n.length;
+			for (let e = 0, t = r;; e++) {
+				let r = n.children[e];
+				if (r.dom == i) return t;
+				t += r.length + r.breakAfter;
+			}
+		} else if (n.isText()) return e == n.dom ? r + t : r + (t ? n.length : 0);
+		else return r;
+	}
+	domAtPos(e, t) {
+		let { tile: n, offset: r } = this.tile.resolveBlock(e, t);
+		return n.isWidget() ? n.domPosFor(r, t) : n.domIn(r, t);
+	}
+	inlineDOMNearPos(e, t) {
+		let n, r = -1, i = !1, a, o = -1, s = !1;
+		return this.tile.blockTiles((t, c) => {
+			if (t.isWidget()) {
+				if (t.flags & 32 && c >= e) return !0;
+				t.flags & 16 && (i = !0);
+			} else {
+				let l = c + t.length;
+				if (c <= e && (n = t, r = e - c, i = l < e), l >= e && !a && (a = t, o = e - c, s = c > e), c > e && a) return !0;
+			}
+		}), !n && !a ? this.domAtPos(e, t) : (i && a ? n = null : s && n && (a = null), n && t < 0 || !a ? n.domIn(r, t) : a.domIn(o, t));
+	}
+	coordsAt(e, t, n) {
+		let { tile: r, offset: i } = this.tile.resolveBlock(e, t);
+		return r.isWidget() ? r.widget instanceof Ci ? null : r.coordsInWidget(i, t, !0) : r.coordsIn(i, t, n);
+	}
+	lineAt(e, t) {
+		let { tile: n } = this.tile.resolveBlock(e, t);
+		return n.isLine() ? n : null;
+	}
+	coordsForChar(e) {
+		let { tile: t, offset: n } = this.tile.resolveBlock(e, 1);
+		if (!t.isLine()) return null;
+		function r(e, t) {
+			if (e.isComposite()) for (let n of e.children) {
+				if (n.length >= t) {
+					let e = r(n, t);
+					if (e) return e;
+				}
+				if (t -= n.length, t < 0) break;
+			}
+			else if (e.isText() && t < e.length) {
+				let n = S(e.text, t);
+				if (n == t) return null;
+				let r = jn(e.dom, t, n).getClientRects();
+				for (let e = 0; e < r.length; e++) {
+					let t = r[e];
+					if (e == r.length - 1 || t.top < t.bottom && t.left < t.right) return t;
+				}
+			}
+			return null;
+		}
+		return r(t, n);
+	}
+	measureVisibleLineHeights(e) {
+		let t = [], { from: n, to: r } = e, i = this.view.contentDOM.clientWidth, a = i > Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1, o = -1, s = this.view.textDirection == L.LTR, c = 0, l = (e, u, d) => {
+			for (let f = 0; f < e.children.length && !(u > r); f++) {
+				let r = e.children[f], p = u + r.length, m = r.dom.getBoundingClientRect(), { height: h } = m;
+				if (d && !f && (c += m.top - d.top), r instanceof Ur) p > n && l(r, u, m);
+				else if (u >= n && (c > 0 && t.push(-c), t.push(h + c), c = 0, a)) {
+					let e = r.dom.lastChild, t = e ? mn(e) : [];
+					if (t.length) {
+						let e = t[t.length - 1], n = s ? e.right - m.left : m.right - e.left;
+						n > o && (o = n, this.minWidth = i, this.minWidthFrom = u, this.minWidthTo = p);
+					}
+				}
+				d && f == e.children.length - 1 && (c += d.bottom - m.bottom), u = p + r.breakAfter;
+			}
+		};
+		return l(this.tile, 0, null), t;
+	}
+	textDirectionAt(e) {
+		let { tile: t } = this.tile.resolveBlock(e, 1);
+		return getComputedStyle(t.dom).direction == "rtl" ? L.RTL : L.LTR;
+	}
+	measureTextSize() {
+		let e = this.tile.blockTiles((e) => {
+			if (e.isLine() && e.children.length && e.length <= 20) {
+				let t = 0, n;
+				for (let r of e.children) {
+					if (!r.isText() || /[^ -~]/.test(r.text)) return;
+					let e = mn(r.dom);
+					if (e.length != 1) return;
+					t += e[0].width, n = e[0].height;
+				}
+				if (t) return {
+					lineHeight: e.dom.getBoundingClientRect().height,
+					charWidth: t / e.length,
+					textHeight: n
+				};
+			}
+		});
+		if (e) return e;
+		let t = document.createElement("div"), n, r, i;
+		return t.className = "cm-line", t.style.width = "99999px", t.style.position = "absolute", t.textContent = "abc def ghi jkl mno pqr stu", this.view.observer.ignore(() => {
+			this.tile.dom.appendChild(t);
+			let e = mn(t.firstChild)[0];
+			n = t.getBoundingClientRect().height, r = e && e.width ? e.width / 27 : 7, i = e && e.height ? e.height : n, t.remove();
+		}), {
+			lineHeight: n,
+			charWidth: r,
+			textHeight: i
+		};
+	}
+	computeBlockGapDeco() {
+		let e = [], t = this.view.viewState;
+		for (let n = 0, r = 0;; r++) {
+			let i = r == t.viewports.length ? null : t.viewports[r], a = i ? i.from - 1 : this.view.state.doc.length;
+			if (a > n) {
+				let r = (t.lineBlockAt(a).bottom - t.lineBlockAt(n).top) / this.view.scaleY;
+				e.push(F.replace({
+					widget: new Ci(r),
+					block: !0,
+					inclusive: !0,
+					isBlockGap: !0
+				}).range(n, a));
+			}
+			if (!i) break;
+			n = i.to + 1;
+		}
+		return F.set(e);
+	}
+	updateDeco() {
+		let e = 1, t = this.view.state.facet(Or).map((t) => (this.dynamicDecorationMap[e++] = typeof t == "function") ? t(this.view) : t), n = !1, r = this.view.state.facet(Ar).map((e, t) => {
+			let r = typeof e == "function";
+			return r && (n = !0), r ? e(this.view) : e;
+		});
+		for (r.length && (this.dynamicDecorationMap[e++] = n, t.push(A.join(r))), this.decorations = [
+			this.editContextFormatting,
+			...t,
+			this.computeBlockGapDeco(),
+			this.view.viewState.lineGapDeco
+		]; e < this.decorations.length;) this.dynamicDecorationMap[e++] = !1;
+		this.blockWrappers = this.view.state.facet(kr).map((e) => typeof e == "function" ? e(this.view) : e);
+	}
+	scrollIntoView(e) {
+		if (e.isSnapshot) {
+			let t = this.view.viewState.lineBlockAt(e.range.head);
+			this.view.scrollDOM.scrollTop = t.top - e.yMargin, this.view.scrollDOM.scrollLeft = e.xMargin;
+			return;
+		}
+		for (let t of this.view.state.facet(_r)) try {
+			if (t(this.view, e.range, e)) return !0;
+		} catch (e) {
+			z(this.view.state, e, "scroll handler");
+		}
+		let { range: t } = e, n = this.coordsAt(t.head, t.assoc || (t.head > t.anchor ? -1 : 1)), r;
+		if (!n) return;
+		!t.empty && (r = this.coordsAt(t.anchor, t.anchor > t.head ? -1 : 1)) && (n = {
+			left: Math.min(n.left, r.left),
+			top: Math.min(n.top, r.top),
+			right: Math.max(n.right, r.right),
+			bottom: Math.max(n.bottom, r.bottom)
+		});
+		let i = Fr(this.view), a = {
+			left: n.left - i.left,
+			top: n.top - i.top,
+			right: n.right + i.right,
+			bottom: n.bottom + i.bottom
+		}, { offsetWidth: o, offsetHeight: s } = this.view.scrollDOM;
+		if (Cn(this.view.scrollDOM, a, t.head < t.anchor ? -1 : 1, e.x, e.y, Math.max(Math.min(e.xMargin, o), -o), Math.max(Math.min(e.yMargin, s), -s), this.view.textDirection == L.LTR), window.visualViewport && window.innerHeight - window.visualViewport.height > 1 && (n.top > window.visualViewport.offsetTop + window.visualViewport.height || n.bottom < window.visualViewport.offsetTop)) {
+			let e = this.view.docView.lineAt(t.head, 1);
+			if (e) {
+				let t = En(e.dom);
+				e.dom.scrollIntoView({ block: "nearest" }), Dn(t, !1);
+			}
+		}
+	}
+	lineHasWidget(e) {
+		let t = (e) => e.isWidget() || e.children.some(t);
+		return t(this.tile.resolveBlock(e, 1).tile);
+	}
+	destroy() {
+		fi(this.tile);
+	}
 };
-function Rn(s) {
-  let t = [], e = -1;
-  for (let i of s.selection.ranges) {
-    let n = s.doc.lineAt(i.from), r = s.doc.lineAt(i.to);
-    if (!i.empty && i.to == r.from && (r = s.doc.lineAt(i.to - 1)), e >= n.number) {
-      let o = t[t.length - 1];
-      o.to = r.to, o.ranges.push(i);
-    } else
-      t.push({ from: n.from, to: r.to, ranges: [i] });
-    e = r.number + 1;
-  }
-  return t;
+function fi(e, t) {
+	let n = t?.get(e);
+	if (n != 1) {
+		n ?? e.destroy();
+		for (let n of e.children) fi(n, t);
+	}
 }
-function Wa(s, t, e) {
-  if (s.readOnly)
-    return !1;
-  let i = [], n = [];
-  for (let r of Rn(s)) {
-    if (e ? r.to == s.doc.length : r.from == 0)
-      continue;
-    let o = s.doc.lineAt(e ? r.to + 1 : r.from - 1), l = o.length + 1;
-    if (e) {
-      i.push({ from: r.to, to: o.to }, { from: r.from, insert: o.text + s.lineBreak });
-      for (let a of r.ranges)
-        n.push(b.range(Math.min(s.doc.length, a.anchor + l), Math.min(s.doc.length, a.head + l)));
-    } else {
-      i.push({ from: o.from, to: r.from }, { from: r.to, insert: s.lineBreak + o.text });
-      for (let a of r.ranges)
-        n.push(b.range(a.anchor - l, a.head - l));
-    }
-  }
-  return i.length ? (t(s.update({
-    changes: i,
-    scrollIntoView: !0,
-    selection: b.create(n, s.selection.mainIndex),
-    userEvent: "move.line"
-  })), !0) : !1;
+function pi(e) {
+	return I(e.node) && e.node.firstChild && (e.offset == 0 || e.node.childNodes[e.offset - 1].contentEditable == "false") && (e.offset == e.node.childNodes.length || e.node.childNodes[e.offset].contentEditable == "false");
 }
-const xd = ({ state: s, dispatch: t }) => Wa(s, t, !1), vd = ({ state: s, dispatch: t }) => Wa(s, t, !0);
-function Va(s, t, e) {
-  if (s.readOnly)
-    return !1;
-  let i = [];
-  for (let r of Rn(s))
-    e ? i.push({ from: r.from, insert: s.doc.slice(r.from, r.to) + s.lineBreak }) : i.push({ from: r.to, insert: s.lineBreak + s.doc.slice(r.from, r.to) });
-  let n = s.changes(i);
-  return t(s.update({
-    changes: n,
-    selection: s.selection.map(n, e ? 1 : -1),
-    scrollIntoView: !0,
-    userEvent: "input.copyline"
-  })), !0;
+function mi(e, t) {
+	let n = e.observer.selectionRange;
+	if (!n.focusNode) return null;
+	let r = In(n.focusNode, n.focusOffset), i = Ln(n.focusNode, n.focusOffset), a = r || i;
+	if (i && r && i.node != r.node) {
+		let t = B.get(i.node);
+		if (!t || t.isText() && t.text != i.node.nodeValue) a = i;
+		else if (e.docView.lastCompositionAfterCursor) {
+			let e = B.get(r.node);
+			!e || e.isText() && e.text != r.node.nodeValue || (a = i);
+		}
+	}
+	if (e.docView.lastCompositionAfterCursor = a != r, !a) return null;
+	let o = t - a.offset;
+	return {
+		from: o,
+		to: o + a.node.nodeValue.length,
+		node: a.node
+	};
 }
-const kd = ({ state: s, dispatch: t }) => Va(s, t, !1), Sd = ({ state: s, dispatch: t }) => Va(s, t, !0), Cd = (s) => {
-  if (s.state.readOnly)
-    return !1;
-  let { state: t } = s, e = t.changes(Rn(t).map(({ from: n, to: r }) => (n > 0 ? n-- : r < t.doc.length && r++, { from: n, to: r }))), i = Ke(t.selection, (n) => {
-    let r;
-    if (s.lineWrapping) {
-      let o = s.lineBlockAt(n.head), l = s.coordsAtPos(n.head, n.assoc || 1);
-      l && (r = o.bottom + s.documentTop - l.bottom + s.defaultLineHeight / 2);
-    }
-    return s.moveVertically(n, !0, r);
-  }).map(e);
-  return s.dispatch({ changes: e, selection: i, scrollIntoView: !0, userEvent: "delete.line" }), !0;
+function hi(e, t, n) {
+	let r = mi(e, n);
+	if (!r) return null;
+	let { node: i, from: a, to: o } = r, s = i.nodeValue;
+	if (/[\n\r]/.test(s) || e.state.doc.sliceString(r.from, r.to) != s) return null;
+	let c = t.invertedDesc;
+	return {
+		range: new Lr(c.mapPos(a), c.mapPos(o), a, o),
+		text: i
+	};
+}
+function gi(e, t) {
+	return I(e) ? (t && e.childNodes[t - 1].contentEditable == "false" ? 1 : 0) | (t < e.childNodes.length && e.childNodes[t].contentEditable == "false" ? 2 : 0) : 0;
+}
+var _i = class {
+	constructor() {
+		this.changes = [];
+	}
+	compareRange(e, t) {
+		cn(e, t, this.changes);
+	}
+	comparePoint(e, t) {
+		cn(e, t, this.changes);
+	}
+	boundChange(e) {
+		cn(e, e, this.changes);
+	}
 };
-function Ad(s, t) {
-  if (/\(\)|\[\]|\{\}/.test(s.sliceDoc(t - 1, t + 1)))
-    return { from: t, to: t };
-  let e = _t(s).resolveInner(t), i = e.childBefore(t), n = e.childAfter(t), r;
-  return i && n && i.to <= t && n.from >= t && (r = i.type.prop(R.closedBy)) && r.indexOf(n.name) > -1 && s.doc.lineAt(i.to).from == s.doc.lineAt(n.from).from && !/\S/.test(s.sliceDoc(i.to, n.from)) ? { from: i.to, to: n.from } : null;
+function vi(e, t, n) {
+	let r = new _i();
+	return A.compare(e, t, n, r), r.changes;
 }
-const Ro = /* @__PURE__ */ Fa(!1), Md = /* @__PURE__ */ Fa(!0);
-function Fa(s) {
-  return ({ state: t, dispatch: e }) => {
-    if (t.readOnly)
-      return !1;
-    let i = t.changeByRange((n) => {
-      let { from: r, to: o } = n, l = t.doc.lineAt(r), a = !s && r == o && Ad(t, r);
-      s && (r = o = (o <= l.to ? l : t.doc.lineAt(o)).to);
-      let h = new Dn(t, { simulateBreak: r, simulateDoubleBreak: !!a }), f = aa(h, r);
-      for (f == null && (f = vn(/^\s*/.exec(t.doc.lineAt(r).text)[0], t.tabSize)); o < l.to && /\s/.test(l.text[o - l.from]); )
-        o++;
-      a ? { from: r, to: o } = a : r > l.from && r < l.from + 100 && !/\S/.test(l.text.slice(0, r)) && (r = l.from);
-      let c = ["", pn(t, f)];
-      return a && c.push(pn(t, h.lineIndent(l.from, -1))), {
-        changes: { from: r, to: o, insert: P.of(c) },
-        range: b.cursor(r + 1 + c[1].length)
-      };
-    });
-    return e(t.update(i, { scrollIntoView: !0, userEvent: "input" })), !0;
-  };
-}
-function mr(s, t) {
-  let e = -1;
-  return s.changeByRange((i) => {
-    let n = [];
-    for (let o = i.from; o <= i.to; ) {
-      let l = s.doc.lineAt(o);
-      l.number > e && (i.empty || i.to > l.from) && (t(l, n, i), e = l.number), o = l.to + 1;
-    }
-    let r = s.changes(n);
-    return {
-      changes: n,
-      range: b.range(r.mapPos(i.anchor, 1), r.mapPos(i.head, 1))
-    };
-  });
-}
-const Td = ({ state: s, dispatch: t }) => {
-  if (s.readOnly)
-    return !1;
-  let e = /* @__PURE__ */ Object.create(null), i = new Dn(s, { overrideIndentation: (r) => {
-    let o = e[r];
-    return o ?? -1;
-  } }), n = mr(s, (r, o, l) => {
-    let a = aa(i, r.from);
-    if (a == null)
-      return;
-    /\S/.test(r.text) || (a = 0);
-    let h = /^\s*/.exec(r.text)[0], f = pn(s, a);
-    (h != f || l.from < r.from + h.length) && (e[r.from] = a, o.push({ from: r.from, to: r.from + h.length, insert: f }));
-  });
-  return n.changes.empty || t(s.update(n, { userEvent: "indent" })), !0;
-}, Od = ({ state: s, dispatch: t }) => s.readOnly ? !1 : (t(s.update(mr(s, (e, i) => {
-  i.push({ from: e.from, insert: s.facet(cr) });
-}), { userEvent: "input.indent" })), !0), Dd = ({ state: s, dispatch: t }) => s.readOnly ? !1 : (t(s.update(mr(s, (e, i) => {
-  let n = /^\s*/.exec(e.text)[0];
-  if (!n)
-    return;
-  let r = vn(n, s.tabSize), o = 0, l = pn(s, Math.max(0, r - dn(s)));
-  for (; o < n.length && o < l.length && n.charCodeAt(o) == l.charCodeAt(o); )
-    o++;
-  i.push({ from: e.from + o, to: e.from + n.length, insert: l.slice(o) });
-}), { userEvent: "delete.dedent" })), !0), Bd = (s) => (s.setTabFocusMode(), !0), Ld = [
-  { key: "Ctrl-b", run: ya, shift: Ma, preventDefault: !0 },
-  { key: "Ctrl-f", run: ba, shift: Ta },
-  { key: "Ctrl-p", run: va, shift: Ba },
-  { key: "Ctrl-n", run: ka, shift: La },
-  { key: "Ctrl-a", run: Ju, shift: od },
-  { key: "Ctrl-e", run: _u, shift: ld },
-  { key: "Ctrl-d", run: Ia },
-  { key: "Ctrl-h", run: $s },
-  { key: "Ctrl-k", run: md },
-  { key: "Ctrl-Alt-h", run: Ha },
-  { key: "Ctrl-o", run: bd },
-  { key: "Ctrl-t", run: wd },
-  { key: "Ctrl-v", run: qs }
-], Ed = /* @__PURE__ */ [
-  { key: "ArrowLeft", run: ya, shift: Ma, preventDefault: !0 },
-  { key: "Mod-ArrowLeft", mac: "Alt-ArrowLeft", run: Vu, shift: Qu, preventDefault: !0 },
-  { mac: "Cmd-ArrowLeft", run: ju, shift: sd, preventDefault: !0 },
-  { key: "ArrowRight", run: ba, shift: Ta, preventDefault: !0 },
-  { key: "Mod-ArrowRight", mac: "Alt-ArrowRight", run: Fu, shift: Zu, preventDefault: !0 },
-  { mac: "Cmd-ArrowRight", run: Gu, shift: rd, preventDefault: !0 },
-  { key: "ArrowUp", run: va, shift: Ba, preventDefault: !0 },
-  { mac: "Cmd-ArrowUp", run: Do, shift: Lo },
-  { mac: "Ctrl-ArrowUp", run: Mo, shift: To },
-  { key: "ArrowDown", run: ka, shift: La, preventDefault: !0 },
-  { mac: "Cmd-ArrowDown", run: Bo, shift: Eo },
-  { mac: "Ctrl-ArrowDown", run: qs, shift: Oo },
-  { key: "PageUp", run: Mo, shift: To },
-  { key: "PageDown", run: qs, shift: Oo },
-  { key: "Home", run: Uu, shift: nd, preventDefault: !0 },
-  { key: "Mod-Home", run: Do, shift: Lo },
-  { key: "End", run: $u, shift: id, preventDefault: !0 },
-  { key: "Mod-End", run: Bo, shift: Eo },
-  { key: "Enter", run: Ro, shift: Ro },
-  { key: "Mod-a", run: ad },
-  { key: "Backspace", run: $s, shift: $s, preventDefault: !0 },
-  { key: "Delete", run: Ia, preventDefault: !0 },
-  { key: "Mod-Backspace", mac: "Alt-Backspace", run: Ha, preventDefault: !0 },
-  { key: "Mod-Delete", mac: "Alt-Delete", run: pd, preventDefault: !0 },
-  { mac: "Mod-Backspace", run: gd, preventDefault: !0 },
-  { mac: "Mod-Delete", run: yd, preventDefault: !0 }
-].concat(/* @__PURE__ */ Ld.map((s) => ({ mac: s.key, run: s.run, shift: s.shift }))), Op = /* @__PURE__ */ [
-  { key: "Alt-ArrowLeft", mac: "Ctrl-ArrowLeft", run: Ku, shift: td },
-  { key: "Alt-ArrowRight", mac: "Ctrl-ArrowRight", run: qu, shift: ed },
-  { key: "Alt-ArrowUp", run: xd },
-  { key: "Shift-Alt-ArrowUp", run: kd },
-  { key: "Alt-ArrowDown", run: vd },
-  { key: "Shift-Alt-ArrowDown", run: Sd },
-  { key: "Mod-Alt-ArrowUp", run: cd },
-  { key: "Mod-Alt-ArrowDown", run: ud },
-  { key: "Escape", run: dd },
-  { key: "Mod-Enter", run: Md },
-  { key: "Alt-l", mac: "Ctrl-l", run: hd },
-  { key: "Mod-i", run: fd, preventDefault: !0 },
-  { key: "Mod-[", run: Dd },
-  { key: "Mod-]", run: Od },
-  { key: "Mod-Alt-\\", run: Td },
-  { key: "Shift-Mod-k", run: Cd },
-  { key: "Shift-Mod-\\", run: Xu },
-  { key: "Mod-/", run: ku },
-  { key: "Alt-A", run: Cu },
-  { key: "Ctrl-m", mac: "Shift-Alt-m", run: Bd }
-].concat(Ed);
-class za {
-  /**
-  Create a new completion context. (Mostly useful for testing
-  completion sources—in the editor, the extension will create
-  these for you.)
-  */
-  constructor(t, e, i, n) {
-    this.state = t, this.pos = e, this.explicit = i, this.view = n, this.abortListeners = [], this.abortOnDocChange = !1;
-  }
-  /**
-  Get the extent, content, and (if there is a token) type of the
-  token before `this.pos`.
-  */
-  tokenBefore(t) {
-    let e = _t(this.state).resolveInner(this.pos, -1);
-    for (; e && t.indexOf(e.name) < 0; )
-      e = e.parent;
-    return e ? {
-      from: e.from,
-      to: this.pos,
-      text: this.state.sliceDoc(e.from, this.pos),
-      type: e.type
-    } : null;
-  }
-  /**
-  Get the match of the given expression directly before the
-  cursor.
-  */
-  matchBefore(t) {
-    let e = this.state.doc.lineAt(this.pos), i = Math.max(e.from, this.pos - 250), n = e.text.slice(i - e.from, this.pos - e.from), r = n.search(Ka(t, !1));
-    return r < 0 ? null : { from: i + r, to: this.pos, text: n.slice(r) };
-  }
-  /**
-  Yields true when the query has been aborted. Can be useful in
-  asynchronous queries to avoid doing work that will be ignored.
-  */
-  get aborted() {
-    return this.abortListeners == null;
-  }
-  /**
-  Allows you to register abort handlers, which will be called when
-  the query is
-  [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
-  
-  By default, running queries will not be aborted for regular
-  typing or backspacing, on the assumption that they are likely to
-  return a result with a
-  [`validFor`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.validFor) field that
-  allows the result to be used after all. Passing `onDocChange:
-  true` will cause this query to be aborted for any document
-  change.
-  */
-  addEventListener(t, e, i) {
-    t == "abort" && this.abortListeners && (this.abortListeners.push(e), i && i.onDocChange && (this.abortOnDocChange = !0));
-  }
-}
-function Po(s) {
-  let t = Object.keys(s).join(""), e = /\w/.test(t);
-  return e && (t = t.replace(/\w/g, "")), `[${e ? "\\w" : ""}${t.replace(/[^\w\s]/g, "\\$&")}]`;
-}
-function Rd(s) {
-  let t = /* @__PURE__ */ Object.create(null), e = /* @__PURE__ */ Object.create(null);
-  for (let { label: n } of s) {
-    t[n[0]] = !0;
-    for (let r = 1; r < n.length; r++)
-      e[n[r]] = !0;
-  }
-  let i = Po(t) + Po(e) + "*$";
-  return [new RegExp("^" + i), new RegExp(i)];
-}
-function Pd(s) {
-  let t = s.map((n) => typeof n == "string" ? { label: n } : n), [e, i] = t.every((n) => /^\w+$/.test(n.label)) ? [/\w*$/, /\w+$/] : Rd(t);
-  return (n) => {
-    let r = n.matchBefore(i);
-    return r || n.explicit ? { from: r ? r.from : n.pos, options: t, validFor: e } : null;
-  };
-}
-class Io {
-  constructor(t, e, i, n) {
-    this.completion = t, this.source = e, this.match = i, this.score = n;
-  }
-}
-function we(s) {
-  return s.selection.main.from;
-}
-function Ka(s, t) {
-  var e;
-  let { source: i } = s, n = t && i[0] != "^", r = i[i.length - 1] != "$";
-  return !n && !r ? s : new RegExp(`${n ? "^" : ""}(?:${i})${r ? "$" : ""}`, (e = s.flags) !== null && e !== void 0 ? e : s.ignoreCase ? "i" : "");
-}
-const qa = /* @__PURE__ */ Yt.define();
-function Id(s, t, e, i) {
-  let { main: n } = s.selection, r = e - n.from, o = i - n.from;
-  return {
-    ...s.changeByRange((l) => {
-      if (l != n && e != i && s.sliceDoc(l.from + r, l.from + o) != s.sliceDoc(e, i))
-        return { range: l };
-      let a = s.toText(t);
-      return {
-        changes: { from: l.from + r, to: i == n.from ? l.to : l.from + o, insert: a },
-        range: b.cursor(l.from + r + a.length)
-      };
-    }),
-    scrollIntoView: !0,
-    userEvent: "input.complete"
-  };
-}
-const No = /* @__PURE__ */ new WeakMap();
-function Nd(s) {
-  if (!Array.isArray(s))
-    return s;
-  let t = No.get(s);
-  return t || No.set(s, t = Pd(s)), t;
-}
-const gn = /* @__PURE__ */ I.define(), di = /* @__PURE__ */ I.define();
-class Hd {
-  constructor(t) {
-    this.pattern = t, this.chars = [], this.folded = [], this.any = [], this.precise = [], this.byWord = [], this.score = 0, this.matched = [];
-    for (let e = 0; e < t.length; ) {
-      let i = ue(t, e), n = Ce(i);
-      this.chars.push(i);
-      let r = t.slice(e, e + n), o = r.toUpperCase();
-      this.folded.push(ue(o == r ? r.toLowerCase() : o, 0)), e += n;
-    }
-    this.astral = t.length != this.chars.length;
-  }
-  ret(t, e) {
-    return this.score = t, this.matched = e, this;
-  }
-  // Matches a given word (completion) against the pattern (input).
-  // Will return a boolean indicating whether there was a match and,
-  // on success, set `this.score` to the score, `this.matched` to an
-  // array of `from, to` pairs indicating the matched parts of `word`.
-  //
-  // The score is a number that is more negative the worse the match
-  // is. See `Penalty` above.
-  match(t) {
-    if (this.pattern.length == 0)
-      return this.ret(-100, []);
-    if (t.length < this.pattern.length)
-      return null;
-    let { chars: e, folded: i, any: n, precise: r, byWord: o } = this;
-    if (e.length == 1) {
-      let x = ue(t, 0), w = Ce(x), C = w == t.length ? 0 : -100;
-      if (x != e[0]) if (x == i[0])
-        C += -200;
-      else
-        return null;
-      return this.ret(C, [0, w]);
-    }
-    let l = t.indexOf(this.pattern);
-    if (l == 0)
-      return this.ret(t.length == this.pattern.length ? 0 : -100, [0, this.pattern.length]);
-    let a = e.length, h = 0;
-    if (l < 0) {
-      for (let x = 0, w = Math.min(t.length, 200); x < w && h < a; ) {
-        let C = ue(t, x);
-        (C == e[h] || C == i[h]) && (n[h++] = x), x += Ce(C);
-      }
-      if (h < a)
-        return null;
-    }
-    let f = 0, c = 0, u = !1, d = 0, p = -1, m = -1, g = /[a-z]/.test(t), y = !0;
-    for (let x = 0, w = Math.min(t.length, 200), C = 0; x < w && c < a; ) {
-      let S = ue(t, x);
-      l < 0 && (f < a && S == e[f] && (r[f++] = x), d < a && (S == e[d] || S == i[d] ? (d == 0 && (p = x), m = x + 1, d++) : d = 0));
-      let T, A = S < 255 ? S >= 48 && S <= 57 || S >= 97 && S <= 122 ? 2 : S >= 65 && S <= 90 ? 1 : 0 : (T = fh(S)) != T.toLowerCase() ? 1 : T != T.toUpperCase() ? 2 : 0;
-      (!x || A == 1 && g || C == 0 && A != 0) && (e[c] == S || i[c] == S && (u = !0) ? o[c++] = x : o.length && (y = !1)), C = A, x += Ce(S);
-    }
-    return c == a && o[0] == 0 && y ? this.result(-100 + (u ? -200 : 0), o, t) : d == a && p == 0 ? this.ret(-200 - t.length + (m == t.length ? 0 : -100), [0, m]) : l > -1 ? this.ret(-700 - t.length, [l, l + this.pattern.length]) : d == a ? this.ret(-900 - t.length, [p, m]) : c == a ? this.result(-100 + (u ? -200 : 0) + -700 + (y ? 0 : -1100), o, t) : e.length == 2 ? null : this.result((n[0] ? -700 : 0) + -200 + -1100, n, t);
-  }
-  result(t, e, i) {
-    let n = [], r = 0;
-    for (let o of e) {
-      let l = o + (this.astral ? Ce(ue(i, o)) : 1);
-      r && n[r - 1] == o ? n[r - 1] = l : (n[r++] = o, n[r++] = l);
-    }
-    return this.ret(t - i.length, n);
-  }
-}
-class Wd {
-  constructor(t) {
-    this.pattern = t, this.matched = [], this.score = 0, this.folded = t.toLowerCase();
-  }
-  match(t) {
-    if (t.length < this.pattern.length)
-      return null;
-    let e = t.slice(0, this.pattern.length), i = e == this.pattern ? 0 : e.toLowerCase() == this.folded ? -200 : null;
-    return i == null ? null : (this.matched = [0, e.length], this.score = i + (t.length == this.pattern.length ? 0 : -100), this);
-  }
-}
-const X = /* @__PURE__ */ M.define({
-  combine(s) {
-    return pi(s, {
-      activateOnTyping: !0,
-      activateOnCompletion: () => !1,
-      activateOnTypingDelay: 100,
-      selectOnOpen: !0,
-      override: null,
-      closeOnBlur: !0,
-      maxRenderedOptions: 100,
-      defaultKeymap: !0,
-      tooltipClass: () => "",
-      optionClass: () => "",
-      aboveCursor: !1,
-      icons: !0,
-      addToOptions: [],
-      positionInfo: Vd,
-      filterStrict: !1,
-      compareCompletions: (t, e) => (t.sortText || t.label).localeCompare(e.sortText || e.label),
-      interactionDelay: 75,
-      updateSyncTime: 100
-    }, {
-      defaultKeymap: (t, e) => t && e,
-      closeOnBlur: (t, e) => t && e,
-      icons: (t, e) => t && e,
-      tooltipClass: (t, e) => (i) => Ho(t(i), e(i)),
-      optionClass: (t, e) => (i) => Ho(t(i), e(i)),
-      addToOptions: (t, e) => t.concat(e),
-      filterStrict: (t, e) => t || e
-    });
-  }
-});
-function Ho(s, t) {
-  return s ? t ? s + " " + t : s : t;
-}
-function Vd(s, t, e, i, n, r) {
-  let o = s.textDirection == K.RTL, l = o, a = !1, h = "top", f, c, u = t.left - n.left, d = n.right - t.right, p = i.right - i.left, m = i.bottom - i.top;
-  if (l && u < Math.min(p, d) ? l = !1 : !l && d < Math.min(p, u) && (l = !0), p <= (l ? u : d))
-    f = Math.max(n.top, Math.min(e.top, n.bottom - m)) - t.top, c = Math.min(400, l ? u : d);
-  else {
-    a = !0, c = Math.min(
-      400,
-      (o ? t.right : n.right - t.left) - 30
-      /* Info.Margin */
-    );
-    let x = n.bottom - t.bottom;
-    x >= m || x > t.top ? f = e.bottom - t.top : (h = "bottom", f = t.bottom - e.top);
-  }
-  let g = (t.bottom - t.top) / r.offsetHeight, y = (t.right - t.left) / r.offsetWidth;
-  return {
-    style: `${h}: ${f / g}px; max-width: ${c / y}px`,
-    class: "cm-completionInfo-" + (a ? o ? "left-narrow" : "right-narrow" : l ? "left" : "right")
-  };
-}
-function Fd(s) {
-  let t = s.addToOptions.slice();
-  return s.icons && t.push({
-    render(e) {
-      let i = document.createElement("div");
-      return i.classList.add("cm-completionIcon"), e.type && i.classList.add(...e.type.split(/\s+/g).map((n) => "cm-completionIcon-" + n)), i.setAttribute("aria-hidden", "true"), i;
-    },
-    position: 20
-  }), t.push({
-    render(e, i, n, r) {
-      let o = document.createElement("span");
-      o.className = "cm-completionLabel";
-      let l = e.displayLabel || e.label, a = 0;
-      for (let h = 0; h < r.length; ) {
-        let f = r[h++], c = r[h++];
-        f > a && o.appendChild(document.createTextNode(l.slice(a, f)));
-        let u = o.appendChild(document.createElement("span"));
-        u.appendChild(document.createTextNode(l.slice(f, c))), u.className = "cm-completionMatchedText", a = c;
-      }
-      return a < l.length && o.appendChild(document.createTextNode(l.slice(a))), o;
-    },
-    position: 50
-  }, {
-    render(e) {
-      if (!e.detail)
-        return null;
-      let i = document.createElement("span");
-      return i.className = "cm-completionDetail", i.textContent = e.detail, i;
-    },
-    position: 80
-  }), t.sort((e, i) => e.position - i.position).map((e) => e.render);
-}
-function is(s, t, e) {
-  if (s <= e)
-    return { from: 0, to: s };
-  if (t < 0 && (t = 0), t <= s >> 1) {
-    let n = Math.floor(t / e);
-    return { from: n * e, to: (n + 1) * e };
-  }
-  let i = Math.floor((s - t) / e);
-  return { from: s - (i + 1) * e, to: s - i * e };
-}
-class zd {
-  constructor(t, e, i) {
-    this.view = t, this.stateField = e, this.applyCompletion = i, this.info = null, this.infoDestroy = null, this.placeInfoReq = {
-      read: () => this.measureInfo(),
-      write: (a) => this.placeInfo(a),
-      key: this
-    }, this.space = null, this.currentClass = "";
-    let n = t.state.field(e), { options: r, selected: o } = n.open, l = t.state.facet(X);
-    this.optionContent = Fd(l), this.optionClass = l.optionClass, this.tooltipClass = l.tooltipClass, this.range = is(r.length, o, l.maxRenderedOptions), this.dom = document.createElement("div"), this.dom.className = "cm-tooltip-autocomplete", this.updateTooltipClass(t.state), this.dom.addEventListener("mousedown", (a) => {
-      let { options: h } = t.state.field(e).open;
-      for (let f = a.target, c; f && f != this.dom; f = f.parentNode)
-        if (f.nodeName == "LI" && (c = /-(\d+)$/.exec(f.id)) && +c[1] < h.length) {
-          this.applyCompletion(t, h[+c[1]]), a.preventDefault();
-          return;
-        }
-    }), this.dom.addEventListener("focusout", (a) => {
-      let h = t.state.field(this.stateField, !1);
-      h && h.tooltip && t.state.facet(X).closeOnBlur && a.relatedTarget != t.contentDOM && t.dispatch({ effects: di.of(null) });
-    }), this.showOptions(r, n.id);
-  }
-  mount() {
-    this.updateSel();
-  }
-  showOptions(t, e) {
-    this.list && this.list.remove(), this.list = this.dom.appendChild(this.createListBox(t, e, this.range)), this.list.addEventListener("scroll", () => {
-      this.info && this.view.requestMeasure(this.placeInfoReq);
-    });
-  }
-  update(t) {
-    var e;
-    let i = t.state.field(this.stateField), n = t.startState.field(this.stateField);
-    if (this.updateTooltipClass(t.state), i != n) {
-      let { options: r, selected: o, disabled: l } = i.open;
-      (!n.open || n.open.options != r) && (this.range = is(r.length, o, t.state.facet(X).maxRenderedOptions), this.showOptions(r, i.id)), this.updateSel(), l != ((e = n.open) === null || e === void 0 ? void 0 : e.disabled) && this.dom.classList.toggle("cm-tooltip-autocomplete-disabled", !!l);
-    }
-  }
-  updateTooltipClass(t) {
-    let e = this.tooltipClass(t);
-    if (e != this.currentClass) {
-      for (let i of this.currentClass.split(" "))
-        i && this.dom.classList.remove(i);
-      for (let i of e.split(" "))
-        i && this.dom.classList.add(i);
-      this.currentClass = e;
-    }
-  }
-  positioned(t) {
-    this.space = t, this.info && this.view.requestMeasure(this.placeInfoReq);
-  }
-  updateSel() {
-    let t = this.view.state.field(this.stateField), e = t.open;
-    (e.selected > -1 && e.selected < this.range.from || e.selected >= this.range.to) && (this.range = is(e.options.length, e.selected, this.view.state.facet(X).maxRenderedOptions), this.showOptions(e.options, t.id));
-    let i = this.updateSelectedOption(e.selected);
-    if (i) {
-      this.destroyInfo();
-      let { completion: n } = e.options[e.selected], { info: r } = n;
-      if (!r)
-        return;
-      let o = typeof r == "string" ? document.createTextNode(r) : r(n);
-      if (!o)
-        return;
-      "then" in o ? o.then((l) => {
-        l && this.view.state.field(this.stateField, !1) == t && this.addInfoPane(l, n);
-      }).catch((l) => ot(this.view.state, l, "completion info")) : (this.addInfoPane(o, n), i.setAttribute("aria-describedby", this.info.id));
-    }
-  }
-  addInfoPane(t, e) {
-    this.destroyInfo();
-    let i = this.info = document.createElement("div");
-    if (i.className = "cm-tooltip cm-completionInfo", i.id = "cm-completionInfo-" + Math.floor(Math.random() * 65535).toString(16), t.nodeType != null)
-      i.appendChild(t), this.infoDestroy = null;
-    else {
-      let { dom: n, destroy: r } = t;
-      i.appendChild(n), this.infoDestroy = r || null;
-    }
-    this.dom.appendChild(i), this.view.requestMeasure(this.placeInfoReq);
-  }
-  updateSelectedOption(t) {
-    let e = null;
-    for (let i = this.list.firstChild, n = this.range.from; i; i = i.nextSibling, n++)
-      i.nodeName != "LI" || !i.id ? n-- : n == t ? i.hasAttribute("aria-selected") || (i.setAttribute("aria-selected", "true"), e = i) : i.hasAttribute("aria-selected") && (i.removeAttribute("aria-selected"), i.removeAttribute("aria-describedby"));
-    return e && qd(this.list, e), e;
-  }
-  measureInfo() {
-    let t = this.dom.querySelector("[aria-selected]");
-    if (!t || !this.info)
-      return null;
-    let e = this.dom.getBoundingClientRect(), i = this.info.getBoundingClientRect(), n = t.getBoundingClientRect(), r = this.space;
-    if (!r) {
-      let o = this.dom.ownerDocument.documentElement;
-      r = { left: 0, top: 0, right: o.clientWidth, bottom: o.clientHeight };
-    }
-    return n.top > Math.min(r.bottom, e.bottom) - 10 || n.bottom < Math.max(r.top, e.top) + 10 ? null : this.view.state.facet(X).positionInfo(this.view, e, n, i, r, this.dom);
-  }
-  placeInfo(t) {
-    this.info && (t ? (t.style && (this.info.style.cssText = t.style), this.info.className = "cm-tooltip cm-completionInfo " + (t.class || "")) : this.info.style.cssText = "top: -1e6px");
-  }
-  createListBox(t, e, i) {
-    const n = document.createElement("ul");
-    n.id = e, n.setAttribute("role", "listbox"), n.setAttribute("aria-expanded", "true"), n.setAttribute("aria-label", this.view.state.phrase("Completions")), n.addEventListener("mousedown", (o) => {
-      o.target == n && o.preventDefault();
-    });
-    let r = null;
-    for (let o = i.from; o < i.to; o++) {
-      let { completion: l, match: a } = t[o], { section: h } = l;
-      if (h) {
-        let u = typeof h == "string" ? h : h.name;
-        if (u != r && (o > i.from || i.from == 0))
-          if (r = u, typeof h != "string" && h.header)
-            n.appendChild(h.header(h));
-          else {
-            let d = n.appendChild(document.createElement("completion-section"));
-            d.textContent = u;
-          }
-      }
-      const f = n.appendChild(document.createElement("li"));
-      f.id = e + "-" + o, f.setAttribute("role", "option");
-      let c = this.optionClass(l);
-      c && (f.className = c);
-      for (let u of this.optionContent) {
-        let d = u(l, this.view.state, this.view, a);
-        d && f.appendChild(d);
-      }
-    }
-    return i.from && n.classList.add("cm-completionListIncompleteTop"), i.to < t.length && n.classList.add("cm-completionListIncompleteBottom"), n;
-  }
-  destroyInfo() {
-    this.info && (this.infoDestroy && this.infoDestroy(), this.info.remove(), this.info = null);
-  }
-  destroy() {
-    this.destroyInfo();
-  }
-}
-function Kd(s, t) {
-  return (e) => new zd(e, s, t);
-}
-function qd(s, t) {
-  let e = s.getBoundingClientRect(), i = t.getBoundingClientRect(), n = e.height / s.offsetHeight;
-  i.top < e.top ? s.scrollTop -= (e.top - i.top) / n : i.bottom > e.bottom && (s.scrollTop += (i.bottom - e.bottom) / n);
-}
-function Wo(s) {
-  return (s.boost || 0) * 100 + (s.apply ? 10 : 0) + (s.info ? 5 : 0) + (s.type ? 1 : 0);
-}
-function $d(s, t) {
-  let e = [], i = null, n = null, r = (f) => {
-    e.push(f);
-    let { section: c } = f.completion;
-    if (c) {
-      i || (i = []);
-      let u = typeof c == "string" ? c : c.name;
-      i.some((d) => d.name == u) || i.push(typeof c == "string" ? { name: u } : c);
-    }
-  }, o = t.facet(X);
-  for (let f of s)
-    if (f.hasResult()) {
-      let c = f.result.getMatch;
-      if (f.result.filter === !1)
-        for (let u of f.result.options)
-          r(new Io(u, f.source, c ? c(u) : [], 1e9 - e.length));
-      else {
-        let u = t.sliceDoc(f.from, f.to), d, p = o.filterStrict ? new Wd(u) : new Hd(u);
-        for (let m of f.result.options)
-          if (d = p.match(m.label)) {
-            let g = m.displayLabel ? c ? c(m, d.matched) : [] : d.matched, y = d.score + (m.boost || 0);
-            if (r(new Io(m, f.source, g, y)), typeof m.section == "object" && m.section.rank === "dynamic") {
-              let { name: x } = m.section;
-              n || (n = /* @__PURE__ */ Object.create(null)), n[x] = Math.max(y, n[x] || -1e9);
-            }
-          }
-      }
-    }
-  if (i) {
-    let f = /* @__PURE__ */ Object.create(null), c = 0, u = (d, p) => (d.rank === "dynamic" && p.rank === "dynamic" ? n[p.name] - n[d.name] : 0) || (typeof d.rank == "number" ? d.rank : 1e9) - (typeof p.rank == "number" ? p.rank : 1e9) || (d.name < p.name ? -1 : 1);
-    for (let d of i.sort(u))
-      c -= 1e5, f[d.name] = c;
-    for (let d of e) {
-      let { section: p } = d.completion;
-      p && (d.score += f[typeof p == "string" ? p : p.name]);
-    }
-  }
-  let l = [], a = null, h = o.compareCompletions;
-  for (let f of e.sort((c, u) => u.score - c.score || h(c.completion, u.completion))) {
-    let c = f.completion;
-    !a || a.label != c.label || a.detail != c.detail || a.type != null && c.type != null && a.type != c.type || a.apply != c.apply || a.boost != c.boost ? l.push(f) : Wo(f.completion) > Wo(a) && (l[l.length - 1] = f), a = f.completion;
-  }
-  return l;
-}
-class Oe {
-  constructor(t, e, i, n, r, o) {
-    this.options = t, this.attrs = e, this.tooltip = i, this.timestamp = n, this.selected = r, this.disabled = o;
-  }
-  setSelected(t, e) {
-    return t == this.selected || t >= this.options.length ? this : new Oe(this.options, Vo(e, t), this.tooltip, this.timestamp, t, this.disabled);
-  }
-  static build(t, e, i, n, r, o) {
-    if (n && !o && t.some((h) => h.isPending))
-      return n.setDisabled();
-    let l = $d(t, e);
-    if (!l.length)
-      return n && t.some((h) => h.isPending) ? n.setDisabled() : null;
-    let a = e.facet(X).selectOnOpen ? 0 : -1;
-    if (n && n.selected != a && n.selected != -1) {
-      let h = n.options[n.selected].completion;
-      for (let f = 0; f < l.length; f++)
-        if (l[f].completion == h) {
-          a = f;
-          break;
-        }
-    }
-    return new Oe(l, Vo(i, a), {
-      pos: t.reduce((h, f) => f.hasResult() ? Math.min(h, f.from) : h, 1e8),
-      create: Yd,
-      above: r.aboveCursor
-    }, n ? n.timestamp : Date.now(), a, !1);
-  }
-  map(t) {
-    return new Oe(this.options, this.attrs, { ...this.tooltip, pos: t.mapPos(this.tooltip.pos) }, this.timestamp, this.selected, this.disabled);
-  }
-  setDisabled() {
-    return new Oe(this.options, this.attrs, this.tooltip, this.timestamp, this.selected, !0);
-  }
-}
-class yn {
-  constructor(t, e, i) {
-    this.active = t, this.id = e, this.open = i;
-  }
-  static start() {
-    return new yn(Jd, "cm-ac-" + Math.floor(Math.random() * 2e6).toString(36), null);
-  }
-  update(t) {
-    let { state: e } = t, i = e.facet(X), r = (i.override || e.languageDataAt("autocomplete", we(e)).map(Nd)).map((a) => (this.active.find((f) => f.source == a) || new wt(
-      a,
-      this.active.some(
-        (f) => f.state != 0
-        /* State.Inactive */
-      ) ? 1 : 0
-      /* State.Inactive */
-    )).update(t, i));
-    r.length == this.active.length && r.every((a, h) => a == this.active[h]) && (r = this.active);
-    let o = this.open, l = t.effects.some((a) => a.is(gr));
-    o && t.docChanged && (o = o.map(t.changes)), t.selection || r.some((a) => a.hasResult() && t.changes.touchesRange(a.from, a.to)) || !Ud(r, this.active) || l ? o = Oe.build(r, e, this.id, o, i, l) : o && o.disabled && !r.some((a) => a.isPending) && (o = null), !o && r.every((a) => !a.isPending) && r.some((a) => a.hasResult()) && (r = r.map((a) => a.hasResult() ? new wt(
-      a.source,
-      0
-      /* State.Inactive */
-    ) : a));
-    for (let a of t.effects)
-      a.is(Ua) && (o = o && o.setSelected(a.value, this.id));
-    return r == this.active && o == this.open ? this : new yn(r, this.id, o);
-  }
-  get tooltip() {
-    return this.open ? this.open.tooltip : null;
-  }
-  get attrs() {
-    return this.open ? this.open.attrs : this.active.length ? jd : Gd;
-  }
-}
-function Ud(s, t) {
-  if (s == t)
-    return !0;
-  for (let e = 0, i = 0; ; ) {
-    for (; e < s.length && !s[e].hasResult(); )
-      e++;
-    for (; i < t.length && !t[i].hasResult(); )
-      i++;
-    let n = e == s.length, r = i == t.length;
-    if (n || r)
-      return n == r;
-    if (s[e++].result != t[i++].result)
-      return !1;
-  }
-}
-const jd = {
-  "aria-autocomplete": "list"
-}, Gd = {};
-function Vo(s, t) {
-  let e = {
-    "aria-autocomplete": "list",
-    "aria-haspopup": "listbox",
-    "aria-controls": s
-  };
-  return t > -1 && (e["aria-activedescendant"] = s + "-" + t), e;
-}
-const Jd = [];
-function $a(s, t) {
-  if (s.isUserEvent("input.complete")) {
-    let i = s.annotation(qa);
-    if (i && t.activateOnCompletion(i))
-      return 12;
-  }
-  let e = s.isUserEvent("input.type");
-  return e && t.activateOnTyping ? 5 : e ? 1 : s.isUserEvent("delete.backward") ? 2 : s.selection ? 8 : s.docChanged ? 16 : 0;
-}
-class wt {
-  constructor(t, e, i = !1) {
-    this.source = t, this.state = e, this.explicit = i;
-  }
-  hasResult() {
-    return !1;
-  }
-  get isPending() {
-    return this.state == 1;
-  }
-  update(t, e) {
-    let i = $a(t, e), n = this;
-    (i & 8 || i & 16 && this.touches(t)) && (n = new wt(
-      n.source,
-      0
-      /* State.Inactive */
-    )), i & 4 && n.state == 0 && (n = new wt(
-      this.source,
-      1
-      /* State.Pending */
-    )), n = n.updateFor(t, i);
-    for (let r of t.effects)
-      if (r.is(gn))
-        n = new wt(n.source, 1, r.value);
-      else if (r.is(di))
-        n = new wt(
-          n.source,
-          0
-          /* State.Inactive */
-        );
-      else if (r.is(gr))
-        for (let o of r.value)
-          o.source == n.source && (n = o);
-    return n;
-  }
-  updateFor(t, e) {
-    return this.map(t.changes);
-  }
-  map(t) {
-    return this;
-  }
-  touches(t) {
-    return t.changes.touchesRange(we(t.state));
-  }
-}
-class Re extends wt {
-  constructor(t, e, i, n, r, o) {
-    super(t, 3, e), this.limit = i, this.result = n, this.from = r, this.to = o;
-  }
-  hasResult() {
-    return !0;
-  }
-  updateFor(t, e) {
-    var i;
-    if (!(e & 3))
-      return this.map(t.changes);
-    let n = this.result;
-    n.map && !t.changes.empty && (n = n.map(n, t.changes));
-    let r = t.changes.mapPos(this.from), o = t.changes.mapPos(this.to, 1), l = we(t.state);
-    if (l > o || !n || e & 2 && (we(t.startState) == this.from || l < this.limit))
-      return new wt(
-        this.source,
-        e & 4 ? 1 : 0
-        /* State.Inactive */
-      );
-    let a = t.changes.mapPos(this.limit);
-    return _d(n.validFor, t.state, r, o) ? new Re(this.source, this.explicit, a, n, r, o) : n.update && (n = n.update(n, r, o, new za(t.state, l, !1))) ? new Re(this.source, this.explicit, a, n, n.from, (i = n.to) !== null && i !== void 0 ? i : we(t.state)) : new wt(this.source, 1, this.explicit);
-  }
-  map(t) {
-    return t.empty ? this : (this.result.map ? this.result.map(this.result, t) : this.result) ? new Re(this.source, this.explicit, t.mapPos(this.limit), this.result, t.mapPos(this.from), t.mapPos(this.to, 1)) : new wt(
-      this.source,
-      0
-      /* State.Inactive */
-    );
-  }
-  touches(t) {
-    return t.changes.touchesRange(this.from, this.to);
-  }
-}
-function _d(s, t, e, i) {
-  if (!s)
-    return !1;
-  let n = t.sliceDoc(e, i);
-  return typeof s == "function" ? s(n, e, i, t) : Ka(s, !0).test(n);
-}
-const gr = /* @__PURE__ */ I.define({
-  map(s, t) {
-    return s.map((e) => e.map(t));
-  }
-}), Ua = /* @__PURE__ */ I.define(), at = /* @__PURE__ */ pt.define({
-  create() {
-    return yn.start();
-  },
-  update(s, t) {
-    return s.update(t);
-  },
-  provide: (s) => [
-    Tn.from(s, (t) => t.tooltip),
-    O.contentAttributes.from(s, (t) => t.attrs)
-  ]
-});
-function yr(s, t) {
-  const e = t.completion.apply || t.completion.label;
-  let i = s.state.field(at).active.find((n) => n.source == t.source);
-  return i instanceof Re ? (typeof e == "string" ? s.dispatch({
-    ...Id(s.state, e, i.from, i.to),
-    annotations: qa.of(t.completion)
-  }) : e(s, t.completion, i.from, i.to), !0) : !1;
-}
-const Yd = /* @__PURE__ */ Kd(at, yr);
-function Ki(s, t = "option") {
-  return (e) => {
-    let i = e.state.field(at, !1);
-    if (!i || !i.open || i.open.disabled || Date.now() - i.open.timestamp < e.state.facet(X).interactionDelay)
-      return !1;
-    let n = 1, r;
-    t == "page" && (r = ea(e, i.open.tooltip)) && (n = Math.max(2, Math.floor(r.dom.offsetHeight / r.dom.querySelector("li").offsetHeight) - 1));
-    let { length: o } = i.open.options, l = i.open.selected > -1 ? i.open.selected + n * (s ? 1 : -1) : s ? 0 : o - 1;
-    return l < 0 ? l = t == "page" ? 0 : o - 1 : l >= o && (l = t == "page" ? o - 1 : 0), e.dispatch({ effects: Ua.of(l) }), !0;
-  };
-}
-const Xd = (s) => {
-  let t = s.state.field(at, !1);
-  return s.state.readOnly || !t || !t.open || t.open.selected < 0 || t.open.disabled || Date.now() - t.open.timestamp < s.state.facet(X).interactionDelay ? !1 : yr(s, t.open.options[t.open.selected]);
-}, ns = (s) => s.state.field(at, !1) ? (s.dispatch({ effects: gn.of(!0) }), !0) : !1, Qd = (s) => {
-  let t = s.state.field(at, !1);
-  return !t || !t.active.some(
-    (e) => e.state != 0
-    /* State.Inactive */
-  ) ? !1 : (s.dispatch({ effects: di.of(null) }), !0);
+var yi = class {
+	constructor() {
+		this.changes = [];
+	}
+	compareRange(e, t) {
+		cn(e, t, this.changes);
+	}
+	comparePoint() {}
+	boundChange(e) {
+		cn(e, e, this.changes);
+	}
 };
-class Zd {
-  constructor(t, e) {
-    this.active = t, this.context = e, this.time = Date.now(), this.updates = [], this.done = void 0;
-  }
+function bi(e, t, n) {
+	let r = new yi();
+	return A.compare(e, t, n, r), r.changes;
 }
-const tp = 50, ep = 1e3, ip = /* @__PURE__ */ vt.fromClass(class {
-  constructor(s) {
-    this.view = s, this.debounceUpdate = -1, this.running = [], this.debounceAccept = -1, this.pendingStart = !1, this.composing = 0;
-    for (let t of s.state.field(at).active)
-      t.isPending && this.startQuery(t);
-  }
-  update(s) {
-    let t = s.state.field(at), e = s.state.facet(X);
-    if (!s.selectionSet && !s.docChanged && s.startState.field(at) == t)
-      return;
-    let i = s.transactions.some((r) => {
-      let o = $a(r, e);
-      return o & 8 || (r.selection || r.docChanged) && !(o & 3);
-    });
-    for (let r = 0; r < this.running.length; r++) {
-      let o = this.running[r];
-      if (i || o.context.abortOnDocChange && s.docChanged || o.updates.length + s.transactions.length > tp && Date.now() - o.time > ep) {
-        for (let l of o.context.abortListeners)
-          try {
-            l();
-          } catch (a) {
-            ot(this.view.state, a);
-          }
-        o.context.abortListeners = null, this.running.splice(r--, 1);
-      } else
-        o.updates.push(...s.transactions);
-    }
-    this.debounceUpdate > -1 && clearTimeout(this.debounceUpdate), s.transactions.some((r) => r.effects.some((o) => o.is(gn))) && (this.pendingStart = !0);
-    let n = this.pendingStart ? 50 : e.activateOnTypingDelay;
-    if (this.debounceUpdate = t.active.some((r) => r.isPending && !this.running.some((o) => o.active.source == r.source)) ? setTimeout(() => this.startUpdate(), n) : -1, this.composing != 0)
-      for (let r of s.transactions)
-        r.isUserEvent("input.type") ? this.composing = 2 : this.composing == 2 && r.selection && (this.composing = 3);
-  }
-  startUpdate() {
-    this.debounceUpdate = -1, this.pendingStart = !1;
-    let { state: s } = this.view, t = s.field(at);
-    for (let e of t.active)
-      e.isPending && !this.running.some((i) => i.active.source == e.source) && this.startQuery(e);
-    this.running.length && t.open && t.open.disabled && (this.debounceAccept = setTimeout(() => this.accept(), this.view.state.facet(X).updateSyncTime));
-  }
-  startQuery(s) {
-    let { state: t } = this.view, e = we(t), i = new za(t, e, s.explicit, this.view), n = new Zd(s, i);
-    this.running.push(n), Promise.resolve(s.source(i)).then((r) => {
-      n.context.aborted || (n.done = r || null, this.scheduleAccept());
-    }, (r) => {
-      this.view.dispatch({ effects: di.of(null) }), ot(this.view.state, r);
-    });
-  }
-  scheduleAccept() {
-    this.running.every((s) => s.done !== void 0) ? this.accept() : this.debounceAccept < 0 && (this.debounceAccept = setTimeout(() => this.accept(), this.view.state.facet(X).updateSyncTime));
-  }
-  // For each finished query in this.running, try to create a result
-  // or, if appropriate, restart the query.
-  accept() {
-    var s;
-    this.debounceAccept > -1 && clearTimeout(this.debounceAccept), this.debounceAccept = -1;
-    let t = [], e = this.view.state.facet(X), i = this.view.state.field(at);
-    for (let n = 0; n < this.running.length; n++) {
-      let r = this.running[n];
-      if (r.done === void 0)
-        continue;
-      if (this.running.splice(n--, 1), r.done) {
-        let l = we(r.updates.length ? r.updates[0].startState : this.view.state), a = Math.min(l, r.done.from + (r.active.explicit ? 0 : 1)), h = new Re(r.active.source, r.active.explicit, a, r.done, r.done.from, (s = r.done.to) !== null && s !== void 0 ? s : l);
-        for (let f of r.updates)
-          h = h.update(f, e);
-        if (h.hasResult()) {
-          t.push(h);
-          continue;
-        }
-      }
-      let o = i.active.find((l) => l.source == r.active.source);
-      if (o && o.isPending)
-        if (r.done == null) {
-          let l = new wt(
-            r.active.source,
-            0
-            /* State.Inactive */
-          );
-          for (let a of r.updates)
-            l = l.update(a, e);
-          l.isPending || t.push(l);
-        } else
-          this.startQuery(o);
-    }
-    (t.length || i.open && i.open.disabled) && this.view.dispatch({ effects: gr.of(t) });
-  }
-}, {
-  eventHandlers: {
-    blur(s) {
-      let t = this.view.state.field(at, !1);
-      if (t && t.tooltip && this.view.state.facet(X).closeOnBlur) {
-        let e = t.open && ea(this.view, t.open.tooltip);
-        (!e || !e.dom.contains(s.relatedTarget)) && setTimeout(() => this.view.dispatch({ effects: di.of(null) }), 10);
-      }
-    },
-    compositionstart() {
-      this.composing = 1;
-    },
-    compositionend() {
-      this.composing == 3 && setTimeout(() => this.view.dispatch({ effects: gn.of(!1) }), 20), this.composing = 0;
-    }
-  }
-}), np = typeof navigator == "object" && /* @__PURE__ */ /Win/.test(navigator.platform), sp = /* @__PURE__ */ wn.highest(/* @__PURE__ */ O.domEventHandlers({
-  keydown(s, t) {
-    let e = t.state.field(at, !1);
-    if (!e || !e.open || e.open.disabled || e.open.selected < 0 || s.key.length > 1 || s.ctrlKey && !(np && s.altKey) || s.metaKey)
-      return !1;
-    let i = e.open.options[e.open.selected], n = e.active.find((o) => o.source == i.source), r = i.completion.commitCharacters || n.result.commitCharacters;
-    return r && r.indexOf(s.key) > -1 && yr(t, i), !1;
-  }
-})), rp = /* @__PURE__ */ O.baseTheme({
-  ".cm-tooltip.cm-tooltip-autocomplete": {
-    "& > ul": {
-      fontFamily: "monospace",
-      whiteSpace: "nowrap",
-      overflow: "hidden auto",
-      maxWidth_fallback: "700px",
-      maxWidth: "min(700px, 95vw)",
-      minWidth: "250px",
-      maxHeight: "10em",
-      height: "100%",
-      listStyle: "none",
-      margin: 0,
-      padding: 0,
-      "& > li, & > completion-section": {
-        padding: "1px 3px",
-        lineHeight: 1.2
-      },
-      "& > li": {
-        overflowX: "hidden",
-        textOverflow: "ellipsis",
-        cursor: "pointer"
-      },
-      "& > completion-section": {
-        display: "list-item",
-        borderBottom: "1px solid silver",
-        paddingLeft: "0.5em",
-        opacity: 0.7
-      }
-    }
-  },
-  "&light .cm-tooltip-autocomplete ul li[aria-selected]": {
-    background: "#17c",
-    color: "white"
-  },
-  "&light .cm-tooltip-autocomplete-disabled ul li[aria-selected]": {
-    background: "#777"
-  },
-  "&dark .cm-tooltip-autocomplete ul li[aria-selected]": {
-    background: "#347",
-    color: "white"
-  },
-  "&dark .cm-tooltip-autocomplete-disabled ul li[aria-selected]": {
-    background: "#444"
-  },
-  ".cm-completionListIncompleteTop:before, .cm-completionListIncompleteBottom:after": {
-    content: '"···"',
-    opacity: 0.5,
-    display: "block",
-    textAlign: "center"
-  },
-  ".cm-tooltip.cm-completionInfo": {
-    position: "absolute",
-    padding: "3px 9px",
-    width: "max-content",
-    maxWidth: "400px",
-    boxSizing: "border-box",
-    whiteSpace: "pre-line"
-  },
-  ".cm-completionInfo.cm-completionInfo-left": { right: "100%" },
-  ".cm-completionInfo.cm-completionInfo-right": { left: "100%" },
-  ".cm-completionInfo.cm-completionInfo-left-narrow": { right: "30px" },
-  ".cm-completionInfo.cm-completionInfo-right-narrow": { left: "30px" },
-  "&light .cm-snippetField": { backgroundColor: "#00000022" },
-  "&dark .cm-snippetField": { backgroundColor: "#ffffff22" },
-  ".cm-snippetFieldPosition": {
-    verticalAlign: "text-top",
-    width: 0,
-    height: "1.15em",
-    display: "inline-block",
-    margin: "0 -0.7px -.7em",
-    borderLeft: "1.4px dotted #888"
-  },
-  ".cm-completionMatchedText": {
-    textDecoration: "underline"
-  },
-  ".cm-completionDetail": {
-    marginLeft: "0.5em",
-    fontStyle: "italic"
-  },
-  ".cm-completionIcon": {
-    fontSize: "90%",
-    width: ".8em",
-    display: "inline-block",
-    textAlign: "center",
-    paddingRight: ".6em",
-    opacity: "0.6",
-    boxSizing: "content-box"
-  },
-  ".cm-completionIcon-function, .cm-completionIcon-method": {
-    "&:after": { content: "'ƒ'" }
-  },
-  ".cm-completionIcon-class": {
-    "&:after": { content: "'○'" }
-  },
-  ".cm-completionIcon-interface": {
-    "&:after": { content: "'◌'" }
-  },
-  ".cm-completionIcon-variable": {
-    "&:after": { content: "'𝑥'" }
-  },
-  ".cm-completionIcon-constant": {
-    "&:after": { content: "'𝐶'" }
-  },
-  ".cm-completionIcon-type": {
-    "&:after": { content: "'𝑡'" }
-  },
-  ".cm-completionIcon-enum": {
-    "&:after": { content: "'∪'" }
-  },
-  ".cm-completionIcon-property": {
-    "&:after": { content: "'□'" }
-  },
-  ".cm-completionIcon-keyword": {
-    "&:after": { content: "'🔑︎'" }
-    // Disable emoji rendering
-  },
-  ".cm-completionIcon-namespace": {
-    "&:after": { content: "'▢'" }
-  },
-  ".cm-completionIcon-text": {
-    "&:after": { content: "'abc'", fontSize: "50%", verticalAlign: "middle" }
-  }
-}), ja = /* @__PURE__ */ new class extends se {
-}();
-ja.startSide = 1;
-ja.endSide = -1;
-function Dp(s = {}) {
-  return [
-    sp,
-    at,
-    X.of(s),
-    ip,
-    lp,
-    rp
-  ];
+function xi(e, t) {
+	for (let n = e; n && n != t; n = n.assignedSlot || n.parentNode) if (I(n) && n.contentEditable == "false") return !0;
+	return !1;
 }
-const op = [
-  { key: "Ctrl-Space", run: ns },
-  { mac: "Alt-`", run: ns },
-  { mac: "Alt-i", run: ns },
-  { key: "Escape", run: Qd },
-  { key: "ArrowDown", run: /* @__PURE__ */ Ki(!0) },
-  { key: "ArrowUp", run: /* @__PURE__ */ Ki(!1) },
-  { key: "PageDown", run: /* @__PURE__ */ Ki(!0, "page") },
-  { key: "PageUp", run: /* @__PURE__ */ Ki(!1, "page") },
-  { key: "Enter", run: Xd }
-], lp = /* @__PURE__ */ wn.highest(/* @__PURE__ */ Zl.computeN([X], (s) => s.facet(X).defaultKeymap ? [op] : []));
-class Fo {
-  constructor(t, e, i) {
-    this.from = t, this.to = e, this.diagnostic = i;
-  }
+function Si(e, t) {
+	let n = !1;
+	return t && e.iterChangedRanges((e, r) => {
+		e < t.to && r > t.from && (n = !0);
+	}), n;
 }
-class me {
-  constructor(t, e, i) {
-    this.diagnostics = t, this.panel = e, this.selected = i;
-  }
-  static init(t, e, i) {
-    let n = i.facet(zt).markerFilter;
-    n && (t = n(t, i));
-    let r = t.slice().sort((d, p) => d.from - p.from || d.to - p.to), o = new oi(), l = [], a = 0, h = i.doc.iter(), f = 0, c = i.doc.length;
-    for (let d = 0; ; ) {
-      let p = d == r.length ? null : r[d];
-      if (!p && !l.length)
-        break;
-      let m, g;
-      if (l.length)
-        m = a, g = l.reduce((w, C) => Math.min(w, C.to), p && p.from > m ? p.from : 1e8);
-      else {
-        if (m = p.from, m > c)
-          break;
-        g = p.to, l.push(p), d++;
-      }
-      for (; d < r.length; ) {
-        let w = r[d];
-        if (w.from == m && (w.to > w.from || w.to == m))
-          l.push(w), d++, g = Math.min(w.to, g);
-        else {
-          g = Math.min(w.from, g);
-          break;
-        }
-      }
-      g = Math.min(g, c);
-      let y = !1;
-      if (l.some((w) => w.from == m && (w.to == g || g == c)) && (y = m == g, !y && g - m < 10)) {
-        let w = m - (f + h.value.length);
-        w > 0 && (h.next(w), f = m);
-        for (let C = m; ; ) {
-          if (C >= g) {
-            y = !0;
-            break;
-          }
-          if (!h.lineBreak && f + h.value.length > C)
-            break;
-          C = f + h.value.length, f += h.value.length, h.next();
-        }
-      }
-      let x = Za(l);
-      if (y)
-        o.add(m, m, U.widget({
-          widget: new pp(x),
-          diagnostics: l.slice()
-        }));
-      else {
-        let w = l.reduce((C, S) => S.markClass ? C + " " + S.markClass : C, "");
-        o.add(m, g, U.mark({
-          class: "cm-lintRange cm-lintRange-" + x + w,
-          diagnostics: l.slice(),
-          inclusiveEnd: l.some((C) => C.to > g)
-        }));
-      }
-      if (a = g, a == c)
-        break;
-      for (let w = 0; w < l.length; w++)
-        l[w].to <= a && l.splice(w--, 1);
-    }
-    let u = o.finish();
-    return new me(u, e, ze(u));
-  }
-}
-function ze(s, t = null, e = 0) {
-  let i = null;
-  return s.between(e, 1e9, (n, r, { spec: o }) => {
-    if (!(t && o.diagnostics.indexOf(t) < 0))
-      if (!i)
-        i = new Fo(n, r, t || o.diagnostics[0]);
-      else {
-        if (o.diagnostics.indexOf(i.diagnostic) < 0)
-          return !1;
-        i = new Fo(i.from, r, i.diagnostic);
-      }
-  }), i;
-}
-function Ga(s, t) {
-  let e = t.pos, i = t.end || e, n = s.state.facet(zt).hideOn(s, e, i);
-  if (n != null)
-    return n;
-  let r = s.startState.doc.lineAt(t.pos);
-  return !!(s.effects.some((o) => o.is(Pn)) || s.changes.touchesRange(r.from, Math.max(r.to, i)));
-}
-function ap(s, t) {
-  return s.field(Tt, !1) ? t : t.concat(I.appendConfig.of(ih));
-}
-function hp(s, t) {
-  return {
-    effects: ap(s, [Pn.of(t)])
-  };
-}
-const Pn = /* @__PURE__ */ I.define(), Ja = /* @__PURE__ */ I.define(), _a = /* @__PURE__ */ I.define(), Tt = /* @__PURE__ */ pt.define({
-  create() {
-    return new me(U.none, null, null);
-  },
-  update(s, t) {
-    if (t.docChanged && s.diagnostics.size) {
-      let e = s.diagnostics.map(t.changes), i = null, n = s.panel;
-      if (s.selected) {
-        let r = t.changes.mapPos(s.selected.from, 1);
-        i = ze(e, s.selected.diagnostic, r) || ze(e, null, r);
-      }
-      !e.size && n && t.state.facet(zt).autoPanel && (n = null), s = new me(e, n, i);
-    }
-    for (let e of t.effects)
-      if (e.is(Pn)) {
-        let i = t.state.facet(zt).autoPanel ? e.value.length ? bn.open : null : s.panel;
-        s = me.init(e.value, i, t.state);
-      } else e.is(Ja) ? s = new me(s.diagnostics, e.value ? bn.open : null, s.selected) : e.is(_a) && (s = new me(s.diagnostics, s.panel, e.value));
-    return s;
-  },
-  provide: (s) => [
-    Ps.from(s, (t) => t.panel),
-    O.decorations.from(s, (t) => t.diagnostics)
-  ]
-}), fp = /* @__PURE__ */ U.mark({ class: "cm-lintRange cm-lintRange-active" });
-function cp(s, t, e) {
-  let { diagnostics: i } = s.state.field(Tt), n, r = -1, o = -1;
-  i.between(t - (e < 0 ? 1 : 0), t + (e > 0 ? 1 : 0), (a, h, { spec: f }) => {
-    if (t >= a && t <= h && (a == h || (t > a || e > 0) && (t < h || e < 0)))
-      return n = f.diagnostics, r = a, o = h, !1;
-  });
-  let l = s.state.facet(zt).tooltipFilter;
-  return n && l && (n = l(n, s.state)), n ? {
-    pos: r,
-    end: o,
-    above: s.state.doc.lineAt(r).to < o,
-    create() {
-      return { dom: Ya(s, n) };
-    }
-  } : null;
-}
-function Ya(s, t) {
-  return Ht("ul", { class: "cm-tooltip-lint" }, t.map((e) => Qa(s, e, !1)));
-}
-const zo = (s) => {
-  let t = s.state.field(Tt, !1);
-  return !t || !t.panel ? !1 : (s.dispatch({ effects: Ja.of(!1) }), !0);
-}, up = /* @__PURE__ */ vt.fromClass(class {
-  constructor(s) {
-    this.view = s, this.timeout = -1, this.set = !0;
-    let { delay: t } = s.state.facet(zt);
-    this.lintTime = Date.now() + t, this.run = this.run.bind(this), this.timeout = setTimeout(this.run, t);
-  }
-  run() {
-    clearTimeout(this.timeout);
-    let s = Date.now();
-    if (s < this.lintTime - 10)
-      this.timeout = setTimeout(this.run, this.lintTime - s);
-    else {
-      this.set = !1;
-      let { state: t } = this.view, { sources: e } = t.facet(zt);
-      e.length && dp(e.map((i) => Promise.resolve(i(this.view))), (i) => {
-        this.view.state.doc == t.doc && this.view.dispatch(hp(this.view.state, i.reduce((n, r) => n.concat(r))));
-      }, (i) => {
-        ot(this.view.state, i);
-      });
-    }
-  }
-  update(s) {
-    let t = s.state.facet(zt);
-    (s.docChanged || t != s.startState.facet(zt) || t.needsRefresh && t.needsRefresh(s)) && (this.lintTime = Date.now() + t.delay, this.set || (this.set = !0, this.timeout = setTimeout(this.run, t.delay)));
-  }
-  force() {
-    this.set && (this.lintTime = Date.now(), this.run());
-  }
-  destroy() {
-    clearTimeout(this.timeout);
-  }
-});
-function dp(s, t, e) {
-  let i = [], n = -1;
-  for (let r of s)
-    r.then((o) => {
-      i.push(o), clearTimeout(n), i.length == s.length ? t(i) : n = setTimeout(() => t(i), 200);
-    }, e);
-}
-const zt = /* @__PURE__ */ M.define({
-  combine(s) {
-    return {
-      sources: s.map((t) => t.source).filter((t) => t != null),
-      ...pi(s.map((t) => t.config), {
-        delay: 750,
-        markerFilter: null,
-        tooltipFilter: null,
-        needsRefresh: null,
-        hideOn: () => null
-      }, {
-        delay: Math.max,
-        markerFilter: Ko,
-        tooltipFilter: Ko,
-        needsRefresh: (t, e) => t ? e ? (i) => t(i) || e(i) : t : e,
-        hideOn: (t, e) => t ? e ? (i, n, r) => t(i, n, r) || e(i, n, r) : t : e,
-        autoPanel: (t, e) => t || e
-      })
-    };
-  }
-});
-function Ko(s, t) {
-  return s ? t ? (e, i) => t(s(e, i), i) : s : t;
-}
-function Bp(s, t = {}) {
-  return [
-    zt.of({ source: s, config: t }),
-    up,
-    ih
-  ];
-}
-function Xa(s) {
-  let t = [];
-  if (s)
-    t: for (let { name: e } of s) {
-      for (let i = 0; i < e.length; i++) {
-        let n = e[i];
-        if (/[a-zA-Z]/.test(n) && !t.some((r) => r.toLowerCase() == n.toLowerCase())) {
-          t.push(n);
-          continue t;
-        }
-      }
-      t.push("");
-    }
-  return t;
-}
-function Qa(s, t, e) {
-  var i;
-  let n = e ? Xa(t.actions) : [];
-  return Ht("li", { class: "cm-diagnostic cm-diagnostic-" + t.severity }, Ht("span", { class: "cm-diagnosticText" }, t.renderMessage ? t.renderMessage(s) : t.message), (i = t.actions) === null || i === void 0 ? void 0 : i.map((r, o) => {
-    let l = !1, a = (d) => {
-      if (d.preventDefault(), l)
-        return;
-      l = !0;
-      let p = ze(s.state.field(Tt).diagnostics, t);
-      p && r.apply(s, p.from, p.to);
-    }, { name: h } = r, f = n[o] ? h.indexOf(n[o]) : -1, c = f < 0 ? h : [
-      h.slice(0, f),
-      Ht("u", h.slice(f, f + 1)),
-      h.slice(f + 1)
-    ], u = r.markClass ? " " + r.markClass : "";
-    return Ht("button", {
-      type: "button",
-      class: "cm-diagnosticAction" + u,
-      onclick: a,
-      onmousedown: a,
-      "aria-label": ` Action: ${h}${f < 0 ? "" : ` (access key "${n[o]})"`}.`
-    }, c);
-  }), t.source && Ht("div", { class: "cm-diagnosticSource" }, t.source));
-}
-class pp extends mi {
-  constructor(t) {
-    super(), this.sev = t;
-  }
-  eq(t) {
-    return t.sev == this.sev;
-  }
-  toDOM() {
-    return Ht("span", { class: "cm-lintPoint cm-lintPoint-" + this.sev });
-  }
-}
-class qo {
-  constructor(t, e) {
-    this.diagnostic = e, this.id = "item_" + Math.floor(Math.random() * 4294967295).toString(16), this.dom = Qa(t, e, !0), this.dom.id = this.id, this.dom.setAttribute("role", "option");
-  }
-}
-class bn {
-  constructor(t) {
-    this.view = t, this.items = [];
-    let e = (n) => {
-      if (!(n.ctrlKey || n.altKey || n.metaKey)) {
-        if (n.keyCode == 27)
-          zo(this.view), this.view.focus();
-        else if (n.keyCode == 38 || n.keyCode == 33)
-          this.moveSelection((this.selectedIndex - 1 + this.items.length) % this.items.length);
-        else if (n.keyCode == 40 || n.keyCode == 34)
-          this.moveSelection((this.selectedIndex + 1) % this.items.length);
-        else if (n.keyCode == 36)
-          this.moveSelection(0);
-        else if (n.keyCode == 35)
-          this.moveSelection(this.items.length - 1);
-        else if (n.keyCode == 13)
-          this.view.focus();
-        else if (n.keyCode >= 65 && n.keyCode <= 90 && this.selectedIndex >= 0) {
-          let { diagnostic: r } = this.items[this.selectedIndex], o = Xa(r.actions);
-          for (let l = 0; l < o.length; l++)
-            if (o[l].toUpperCase().charCodeAt(0) == n.keyCode) {
-              let a = ze(this.view.state.field(Tt).diagnostics, r);
-              a && r.actions[l].apply(t, a.from, a.to);
-            }
-        } else
-          return;
-        n.preventDefault();
-      }
-    }, i = (n) => {
-      for (let r = 0; r < this.items.length; r++)
-        this.items[r].dom.contains(n.target) && this.moveSelection(r);
-    };
-    this.list = Ht("ul", {
-      tabIndex: 0,
-      role: "listbox",
-      "aria-label": this.view.state.phrase("Diagnostics"),
-      onkeydown: e,
-      onclick: i
-    }), this.dom = Ht("div", { class: "cm-panel-lint" }, this.list, Ht("button", {
-      type: "button",
-      name: "close",
-      "aria-label": this.view.state.phrase("close"),
-      onclick: () => zo(this.view)
-    }, "×")), this.update();
-  }
-  get selectedIndex() {
-    let t = this.view.state.field(Tt).selected;
-    if (!t)
-      return -1;
-    for (let e = 0; e < this.items.length; e++)
-      if (this.items[e].diagnostic == t.diagnostic)
-        return e;
-    return -1;
-  }
-  update() {
-    let { diagnostics: t, selected: e } = this.view.state.field(Tt), i = 0, n = !1, r = null, o = /* @__PURE__ */ new Set();
-    for (t.between(0, this.view.state.doc.length, (l, a, { spec: h }) => {
-      for (let f of h.diagnostics) {
-        if (o.has(f))
-          continue;
-        o.add(f);
-        let c = -1, u;
-        for (let d = i; d < this.items.length; d++)
-          if (this.items[d].diagnostic == f) {
-            c = d;
-            break;
-          }
-        c < 0 ? (u = new qo(this.view, f), this.items.splice(i, 0, u), n = !0) : (u = this.items[c], c > i && (this.items.splice(i, c - i), n = !0)), e && u.diagnostic == e.diagnostic ? u.dom.hasAttribute("aria-selected") || (u.dom.setAttribute("aria-selected", "true"), r = u) : u.dom.hasAttribute("aria-selected") && u.dom.removeAttribute("aria-selected"), i++;
-      }
-    }); i < this.items.length && !(this.items.length == 1 && this.items[0].diagnostic.from < 0); )
-      n = !0, this.items.pop();
-    this.items.length == 0 && (this.items.push(new qo(this.view, {
-      from: -1,
-      to: -1,
-      severity: "info",
-      message: this.view.state.phrase("No diagnostics")
-    })), n = !0), r ? (this.list.setAttribute("aria-activedescendant", r.id), this.view.requestMeasure({
-      key: this,
-      read: () => ({ sel: r.dom.getBoundingClientRect(), panel: this.list.getBoundingClientRect() }),
-      write: ({ sel: l, panel: a }) => {
-        let h = a.height / this.list.offsetHeight;
-        l.top < a.top ? this.list.scrollTop -= (a.top - l.top) / h : l.bottom > a.bottom && (this.list.scrollTop += (l.bottom - a.bottom) / h);
-      }
-    })) : this.selectedIndex < 0 && this.list.removeAttribute("aria-activedescendant"), n && this.sync();
-  }
-  sync() {
-    let t = this.list.firstChild;
-    function e() {
-      let i = t;
-      t = i.nextSibling, i.remove();
-    }
-    for (let i of this.items)
-      if (i.dom.parentNode == this.list) {
-        for (; t != i.dom; )
-          e();
-        t = i.dom.nextSibling;
-      } else
-        this.list.insertBefore(i.dom, t);
-    for (; t; )
-      e();
-  }
-  moveSelection(t) {
-    if (this.selectedIndex < 0)
-      return;
-    let e = this.view.state.field(Tt), i = ze(e.diagnostics, this.items[t].diagnostic);
-    i && this.view.dispatch({
-      selection: { anchor: i.from, head: i.to },
-      scrollIntoView: !0,
-      effects: _a.of(i)
-    });
-  }
-  static open(t) {
-    return new bn(t);
-  }
-}
-function Yi(s, t = 'viewBox="0 0 40 40"') {
-  return `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" ${t}>${encodeURIComponent(s)}</svg>')`;
-}
-function qi(s) {
-  return Yi(`<path d="m0 2.5 l2 -1.5 l1 0 l2 1.5 l1 0" stroke="${s}" fill="none" stroke-width=".7"/>`, 'width="6" height="3"');
-}
-const mp = /* @__PURE__ */ O.baseTheme({
-  ".cm-diagnostic": {
-    padding: "3px 6px 3px 8px",
-    marginLeft: "-1px",
-    display: "block",
-    whiteSpace: "pre-wrap"
-  },
-  ".cm-diagnostic-error": { borderLeft: "5px solid #d11" },
-  ".cm-diagnostic-warning": { borderLeft: "5px solid orange" },
-  ".cm-diagnostic-info": { borderLeft: "5px solid #999" },
-  ".cm-diagnostic-hint": { borderLeft: "5px solid #66d" },
-  ".cm-diagnosticAction": {
-    font: "inherit",
-    border: "none",
-    padding: "2px 4px",
-    backgroundColor: "#444",
-    color: "white",
-    borderRadius: "3px",
-    marginLeft: "8px",
-    cursor: "pointer"
-  },
-  ".cm-diagnosticSource": {
-    fontSize: "70%",
-    opacity: 0.7
-  },
-  ".cm-lintRange": {
-    backgroundPosition: "left bottom",
-    backgroundRepeat: "repeat-x",
-    paddingBottom: "0.7px"
-  },
-  ".cm-lintRange-error": { backgroundImage: /* @__PURE__ */ qi("#d11") },
-  ".cm-lintRange-warning": { backgroundImage: /* @__PURE__ */ qi("orange") },
-  ".cm-lintRange-info": { backgroundImage: /* @__PURE__ */ qi("#999") },
-  ".cm-lintRange-hint": { backgroundImage: /* @__PURE__ */ qi("#66d") },
-  ".cm-lintRange-active": { backgroundColor: "#ffdd9980" },
-  ".cm-tooltip-lint": {
-    padding: 0,
-    margin: 0
-  },
-  ".cm-lintPoint": {
-    position: "relative",
-    "&:after": {
-      content: '""',
-      position: "absolute",
-      bottom: 0,
-      left: "-2px",
-      borderLeft: "3px solid transparent",
-      borderRight: "3px solid transparent",
-      borderBottom: "4px solid #d11"
-    }
-  },
-  ".cm-lintPoint-warning": {
-    "&:after": { borderBottomColor: "orange" }
-  },
-  ".cm-lintPoint-info": {
-    "&:after": { borderBottomColor: "#999" }
-  },
-  ".cm-lintPoint-hint": {
-    "&:after": { borderBottomColor: "#66d" }
-  },
-  ".cm-panel.cm-panel-lint": {
-    position: "relative",
-    "& ul": {
-      maxHeight: "100px",
-      overflowY: "auto",
-      "& [aria-selected]": {
-        backgroundColor: "#ddd",
-        "& u": { textDecoration: "underline" }
-      },
-      "&:focus [aria-selected]": {
-        background_fallback: "#bdf",
-        backgroundColor: "Highlight",
-        color_fallback: "white",
-        color: "HighlightText"
-      },
-      "& u": { textDecoration: "none" },
-      padding: 0,
-      margin: 0
-    },
-    "& [name=close]": {
-      position: "absolute",
-      top: "0",
-      right: "2px",
-      background: "inherit",
-      border: "none",
-      font: "inherit",
-      padding: 0,
-      margin: 0
-    }
-  }
-});
-function gp(s) {
-  return s == "error" ? 4 : s == "warning" ? 3 : s == "info" ? 2 : 1;
-}
-function Za(s) {
-  let t = "hint", e = 1;
-  for (let i of s) {
-    let n = gp(i.severity);
-    n > e && (e = n, t = i.severity);
-  }
-  return t;
-}
-class th extends Jt {
-  constructor(t) {
-    super(), this.diagnostics = t, this.severity = Za(t);
-  }
-  toDOM(t) {
-    let e = document.createElement("div");
-    e.className = "cm-lint-marker cm-lint-marker-" + this.severity;
-    let i = this.diagnostics, n = t.state.facet(In).tooltipFilter;
-    return n && (i = n(i, t.state)), i.length && (e.onmouseover = () => bp(t, e, i)), e;
-  }
-}
-function yp(s, t) {
-  let e = (i) => {
-    let n = t.getBoundingClientRect();
-    if (!(i.clientX > n.left - 10 && i.clientX < n.right + 10 && i.clientY > n.top - 10 && i.clientY < n.bottom + 10)) {
-      for (let r = i.target; r; r = r.parentNode)
-        if (r.nodeType == 1 && r.classList.contains("cm-tooltip-lint"))
-          return;
-      window.removeEventListener("mousemove", e), s.state.field(eh) && s.dispatch({ effects: br.of(null) });
-    }
-  };
-  window.addEventListener("mousemove", e);
-}
-function bp(s, t, e) {
-  function i() {
-    let o = s.elementAtHeight(t.getBoundingClientRect().top + 5 - s.documentTop);
-    s.coordsAtPos(o.from) && s.dispatch({ effects: br.of({
-      pos: o.from,
-      above: !1,
-      clip: !1,
-      create() {
-        return {
-          dom: Ya(s, e),
-          getCoords: () => t.getBoundingClientRect()
-        };
-      }
-    }) }), t.onmouseout = t.onmousemove = null, yp(s, t);
-  }
-  let { hoverTime: n } = s.state.facet(In), r = setTimeout(i, n);
-  t.onmouseout = () => {
-    clearTimeout(r), t.onmouseout = t.onmousemove = null;
-  }, t.onmousemove = () => {
-    clearTimeout(r), r = setTimeout(i, n);
-  };
-}
-function wp(s, t) {
-  let e = /* @__PURE__ */ Object.create(null);
-  for (let n of t) {
-    let r = s.lineAt(n.from);
-    (e[r.from] || (e[r.from] = [])).push(n);
-  }
-  let i = [];
-  for (let n in e)
-    i.push(new th(e[n]).range(+n));
-  return L.of(i, !0);
-}
-const xp = /* @__PURE__ */ Lc({
-  class: "cm-gutter-lint",
-  markers: (s) => s.state.field(Us),
-  widgetMarker: (s, t, e) => {
-    let i = [];
-    return s.state.field(Us).between(e.from, e.to, (n, r, o) => {
-      n > e.from && n < e.to && i.push(...o.diagnostics);
-    }), i.length ? new th(i) : null;
-  }
-}), Us = /* @__PURE__ */ pt.define({
-  create() {
-    return L.empty;
-  },
-  update(s, t) {
-    s = s.map(t.changes);
-    let e = t.state.facet(In).markerFilter;
-    for (let i of t.effects)
-      if (i.is(Pn)) {
-        let n = i.value;
-        e && (n = e(n || [], t.state)), s = wp(t.state.doc, n.slice(0));
-      }
-    return s;
-  }
-}), br = /* @__PURE__ */ I.define(), eh = /* @__PURE__ */ pt.define({
-  create() {
-    return null;
-  },
-  update(s, t) {
-    return s && t.docChanged && (s = Ga(t, s) ? null : { ...s, pos: t.changes.mapPos(s.pos) }), t.effects.reduce((e, i) => i.is(br) ? i.value : e, s);
-  },
-  provide: (s) => Tn.from(s)
-}), vp = /* @__PURE__ */ O.baseTheme({
-  ".cm-gutter-lint": {
-    width: "1.4em",
-    "& .cm-gutterElement": {
-      padding: ".2em"
-    }
-  },
-  ".cm-lint-marker": {
-    width: "1em",
-    height: "1em"
-  },
-  ".cm-lint-marker-info": {
-    content: /* @__PURE__ */ Yi('<path fill="#aaf" stroke="#77e" stroke-width="6" stroke-linejoin="round" d="M5 5L35 5L35 35L5 35Z"/>')
-  },
-  ".cm-lint-marker-warning": {
-    content: /* @__PURE__ */ Yi('<path fill="#fe8" stroke="#fd7" stroke-width="6" stroke-linejoin="round" d="M20 6L37 35L3 35Z"/>')
-  },
-  ".cm-lint-marker-error": {
-    content: /* @__PURE__ */ Yi('<circle cx="20" cy="20" r="15" fill="#f87" stroke="#f43" stroke-width="6"/>')
-  }
-}), ih = [
-  Tt,
-  /* @__PURE__ */ O.decorations.compute([Tt], (s) => {
-    let { selected: t, panel: e } = s.field(Tt);
-    return !t || !e || t.from == t.to ? U.none : U.set([
-      fp.range(t.from, t.to)
-    ]);
-  }),
-  /* @__PURE__ */ Mc(cp, { hideOn: Ga }),
-  mp
-], In = /* @__PURE__ */ M.define({
-  combine(s) {
-    return pi(s, {
-      hoverTime: 300,
-      markerFilter: null,
-      tooltipFilter: null
-    });
-  }
-});
-function Lp(s = {}) {
-  return [In.of(s), Us, xp, vp, eh];
-}
-export {
-  H as EditorState,
-  O as EditorView,
-  Dp as autocompletion,
-  op as completionKeymap,
-  Op as defaultKeymap,
-  Cp as highlightActiveLineGutter,
-  Mp as history,
-  Tp as historyKeymap,
-  Mc as hoverTooltip,
-  Zl as keymap,
-  Sp as lineNumbers,
-  Lp as lintGutter,
-  Bp as linter,
-  ns as startCompletion
+var Ci = class extends tn {
+	constructor(e) {
+		super(), this.height = e;
+	}
+	toDOM() {
+		let e = document.createElement("div");
+		return e.className = "cm-gap", this.updateDOM(e), e;
+	}
+	eq(e) {
+		return e.height == this.height;
+	}
+	updateDOM(e) {
+		return e.style.height = this.height + "px", !0;
+	}
+	get editable() {
+		return !0;
+	}
+	get estimatedHeight() {
+		return this.height;
+	}
+	ignoreEvent() {
+		return !1;
+	}
 };
+function wi(e, t, n = 1) {
+	let r = e.charCategorizer(t), i = e.doc.lineAt(t), a = t - i.from;
+	if (i.length == 0) return T.cursor(t);
+	a == 0 ? n = 1 : a == i.length && (n = -1);
+	let o = a, s = a;
+	n < 0 ? o = S(i.text, a, !1) : s = S(i.text, a);
+	let c = r(i.text.slice(o, s));
+	for (; o > 0;) {
+		let e = S(i.text, o, !1);
+		if (r(i.text.slice(e, o)) != c) break;
+		o = e;
+	}
+	for (; s < i.length;) {
+		let e = S(i.text, s);
+		if (r(i.text.slice(s, e)) != c) break;
+		s = e;
+	}
+	return T.undirectionalRange(o + i.from, s + i.from);
+}
+function Ti(e, t, n, r, i) {
+	let a = Math.round((r - t.left) * e.defaultCharacterWidth);
+	if (e.lineWrapping && n.height > e.defaultLineHeight * 1.5) {
+		let t = e.viewState.heightOracle.textHeight, r = Math.floor((i - n.top - (e.defaultLineHeight - t) * .5) / t);
+		a += r * e.viewState.heightOracle.lineLength;
+	}
+	let o = e.state.sliceDoc(n.from, n.to);
+	return n.from + Ct(o, a, e.state.tabSize);
+}
+function Ei(e, t, n) {
+	let r = e.lineBlockAt(t);
+	if (Array.isArray(r.type)) {
+		let e;
+		for (let i of r.type) {
+			if (i.from > t) break;
+			if (!(i.to < t)) {
+				if (i.from < t && i.to > t) return i;
+				(!e || i.type == P.Text && (e.type != i.type || (n < 0 ? i.from < t : i.to > t))) && (e = i);
+			}
+		}
+		return e || r;
+	}
+	return r;
+}
+function Di(e, t, n, r) {
+	let i = Ei(e, t.head, t.assoc || -1), a = !r || i.type != P.Text || !(e.lineWrapping || i.widgetLineBreaks) ? null : e.coordsAtPos(t.assoc < 0 && t.head > i.from ? t.head - 1 : t.head);
+	if (a) {
+		let t = e.dom.getBoundingClientRect(), r = e.textDirectionAt(i.from), o = e.posAtCoords({
+			x: n == (r == L.LTR) ? t.right - 1 : t.left + 1,
+			y: (a.top + a.bottom) / 2
+		});
+		if (o != null) return T.cursor(o, n ? -1 : 1);
+	}
+	return T.cursor(n ? i.to : i.from, n ? -1 : 1);
+}
+function Oi(e, t, n, r) {
+	let i = e.state.doc.lineAt(t.head), a = e.bidiSpans(i), o = e.textDirectionAt(i.from);
+	for (let s = t, c = null;;) {
+		let t = ir(i, a, o, s, n), l = rr;
+		if (!t) {
+			if (i.number == (n ? e.state.doc.lines : 1)) return s;
+			l = "\n", i = e.state.doc.line(i.number + (n ? 1 : -1)), a = e.bidiSpans(i), t = n ? T.cursor(i.from, -1) : T.cursor(i.to, 1);
+		}
+		if (!c) {
+			if (!r) return t;
+			c = r(l);
+		} else if (!c(l)) return s;
+		s = t;
+	}
+}
+function ki(e, t, n) {
+	let r = e.state.charCategorizer(t), i = r(n);
+	return (e) => {
+		let t = r(e);
+		return i == Qe.Space && (i = t), i == t;
+	};
+}
+function Ai(e, t, n, r) {
+	let i = t.head, a = n ? 1 : -1;
+	if (i == (n ? e.state.doc.length : 0)) return T.cursor(i, t.assoc);
+	let o = t.goalColumn, s, c = e.contentDOM.getBoundingClientRect(), l = e.coordsAtPos(i, t.assoc || ((t.empty ? n : t.head == t.from) ? 1 : -1)), u = e.documentTop;
+	if (l) o ?? (o = l.left - c.left), s = a < 0 ? l.top : l.bottom;
+	else {
+		let t = e.viewState.lineBlockAt(i);
+		o ?? (o = Math.min(c.right - c.left, e.defaultCharacterWidth * (i - t.from))), s = (a < 0 ? t.top : t.bottom) + u;
+	}
+	let d = c.left + o, f = e.viewState.heightOracle.textHeight >> 1, p = r ?? f;
+	for (let t = 0;; t += f) {
+		let r = s + (p + t) * a, i = Fi(e, {
+			x: d,
+			y: r
+		}, !1, a);
+		if (n ? r > c.bottom : r < c.top) return T.cursor(i.pos, i.assoc);
+		let l = e.coordsAtPos(i.pos, i.assoc), u = l ? (l.top + l.bottom) / 2 : 0;
+		if (!l || (n ? u > s : u < s)) return T.cursor(i.pos, i.assoc, void 0, o);
+	}
+}
+function ji(e, t, n) {
+	for (;;) {
+		let r = 0;
+		for (let i of e) i.between(t - 1, t + 1, (e, i, a) => {
+			if (t > e && t < i) {
+				let a = r || n || (t - e < i - t ? -1 : 1);
+				t = a < 0 ? e : i, r = a;
+			}
+		});
+		if (!r) return t;
+	}
+}
+function Mi(e, t) {
+	let n = null;
+	for (let r = 0; r < t.ranges.length; r++) {
+		let i = t.ranges[r], a = null;
+		if (i.empty) {
+			let t = ji(e, i.from, 0);
+			t != i.from && (a = T.cursor(t, -1));
+		} else {
+			let t = ji(e, i.from, -1), n = ji(e, i.to, 1);
+			(t != i.from || n != i.to) && (a = i.undirectional ? T.undirectionalRange(i.from, i.to) : T.range(i.from == i.anchor ? t : n, i.from == i.head ? t : n));
+		}
+		a && (n || (n = t.ranges.slice()), n[r] = a);
+	}
+	return n ? T.create(n, t.mainIndex) : t;
+}
+function Ni(e, t, n) {
+	let r = ji(e.state.facet(jr).map((t) => t(e)), n.from, t.head > n.from ? -1 : 1);
+	return r == n.from ? n : T.cursor(r, r < n.from ? 1 : -1);
+}
+var Pi = class {
+	constructor(e, t) {
+		this.pos = e, this.assoc = t;
+	}
+};
+function Fi(e, t, n, r) {
+	let i = e.contentDOM.getBoundingClientRect(), a = i.top + e.viewState.paddingTop, { x: o, y: s } = t, c = s - a, l;
+	for (;;) {
+		if (c < 0) return new Pi(0, 1);
+		if (c > e.viewState.docHeight) return new Pi(e.state.doc.length, -1);
+		if (l = e.elementAtHeight(c), r == null) break;
+		if (l.type == P.Text) {
+			if (r < 0 ? l.to < e.viewport.from : l.from > e.viewport.to) break;
+			let t = e.docView.coordsAt(r < 0 ? l.from : l.to, r > 0 ? -1 : 1);
+			if (t && (r < 0 ? t.top <= c + a : t.bottom >= c + a)) break;
+		}
+		let t = e.viewState.heightOracle.textHeight / 2;
+		c = r > 0 ? l.bottom + t : l.top - t;
+	}
+	if (e.viewport.from >= l.to || e.viewport.to <= l.from) {
+		if (n) return null;
+		if (l.type == P.Text) {
+			let t = Ti(e, i, l, o, s);
+			return new Pi(t, t == l.from ? 1 : -1);
+		}
+	}
+	if (l.type != P.Text) return c < (l.top + l.bottom) / 2 ? new Pi(l.from, 1) : new Pi(l.to, -1);
+	let u = e.docView.lineAt(l.from, 2);
+	return (!u || u.length != l.length) && (u = e.docView.lineAt(l.from, -2)), new Ii(e, o, s, e.textDirectionAt(l.from)).scanTile(u, l.from);
+}
+var Ii = class {
+	constructor(e, t, n, r) {
+		this.view = e, this.x = t, this.y = n, this.baseDir = r, this.line = null, this.spans = null;
+	}
+	bidiSpansAt(e) {
+		return (!this.line || this.line.from > e || this.line.to < e) && (this.line = this.view.state.doc.lineAt(e), this.spans = this.view.bidiSpans(this.line)), this;
+	}
+	baseDirAt(e, t) {
+		let { line: n, spans: r } = this.bidiSpansAt(e);
+		return r[Jn.find(r, e - n.from, -1, t)].level == this.baseDir;
+	}
+	dirAt(e, t) {
+		let { line: n, spans: r } = this.bidiSpansAt(e);
+		return r[Jn.find(r, e - n.from, -1, t)].dir;
+	}
+	bidiIn(e, t) {
+		let { spans: n, line: r } = this.bidiSpansAt(e);
+		return n.length > 1 || n.length && (n[0].level != this.baseDir || n[0].to + r.from < t);
+	}
+	scan(e, t, n = !1) {
+		let r = 0, i = e.length - 1, a = /* @__PURE__ */ new Set(), o = this.bidiIn(e[0], e[i]), s, c, l = -1, u = 1e9, d;
+		search: for (; r < i;) {
+			let n = i - r, f = r + i >> 1;
+			adjust: if (a.has(f)) {
+				for (let e = 1; e < n; e++) {
+					let t = f + e;
+					if (t >= i && (t -= n), !a.has(t)) {
+						f = t;
+						break adjust;
+					}
+				}
+				break search;
+			}
+			a.add(f);
+			let p = t(f), m = 0;
+			if (p) for (let e = 0; e < p.length; e++) {
+				let t = p[e];
+				if (!(t.width == 0 && p.length > 1)) {
+					if (t.bottom < this.y) (!s || s.bottom < t.bottom) && (s = t), m = 1;
+					else if (t.top > this.y) (!c || c.top > t.top) && (c = t), m = -1;
+					else {
+						let e = t.left > this.x ? this.x - t.left : t.right < this.x ? this.x - t.right : 0, n = Math.abs(e);
+						n < u && (l = f, u = n, d = t), e && (m = e < 0 == (this.baseDir == L.LTR) ? -1 : 1);
+					}
+				}
+			}
+			m == -1 && (!o || this.baseDirAt(e[f], 1)) ? i = f : m == 1 && (!o || this.baseDirAt(e[f + 1], -1)) && (r = f + 1);
+		}
+		if (!d) {
+			if (!c && !s) return {
+				i: 0,
+				after: !1
+			};
+			let n = s && (!c || this.y - s.bottom < c.top - this.y) ? s : c;
+			return this.y = (n.top + n.bottom) / 2, this.scan(e, t, !0);
+		}
+		if (u && !n) {
+			let { top: n, bottom: r } = d;
+			if (s && s.bottom > (n + n + r) / 3) return this.y = s.bottom - 1, this.scan(e, t, !0);
+			if (c && c.top < (n + r + r) / 3) return this.y = c.top + 1, this.scan(e, t, !0);
+		}
+		let f = (o ? this.dirAt(e[l], 1) : this.baseDir) == L.LTR;
+		return {
+			i: l,
+			after: this.x > (d.left + d.right) / 2 == f
+		};
+	}
+	scanText(e, t) {
+		let n = [];
+		for (let r = 0; r < e.length; r = S(e.text, r)) n.push(t + r);
+		n.push(t + e.length);
+		let r = this.scan(n, (r) => {
+			let i = n[r] - t, a = n[r + 1] - t;
+			return jn(e.dom, i, a).getClientRects();
+		});
+		return r.after ? new Pi(n[r.i + 1], -1) : new Pi(n[r.i], 1);
+	}
+	scanTile(e, t) {
+		if (!e.length) return new Pi(t, 1);
+		if (e.children.length == 1) {
+			let n = e.children[0];
+			if (n.isText()) return this.scanText(n, t);
+			if (n.isComposite()) return this.scanTile(n, t);
+		}
+		let n = [t];
+		for (let r = 0, i = t; r < e.children.length; r++) n.push(i += e.children[r].length);
+		let r = this.scan(n, (t) => {
+			let n = e.children[t];
+			return n.flags & 48 ? null : (I(n.dom) ? n.dom : jn(n.dom, 0, n.length)).getClientRects();
+		}), i = e.children[r.i], a = n[r.i];
+		return i.isText() ? this.scanText(i, a) : i.isComposite() ? this.scanTile(i, a) : r.after ? new Pi(n[r.i + 1], -1) : new Pi(a, 1);
+	}
+}, Li = "￿", Ri = class {
+	constructor(e, t) {
+		this.points = e, this.view = t, this.text = "", this.lineSeparator = t.state.facet(k.lineSeparator);
+	}
+	append(e) {
+		this.text += e;
+	}
+	lineBreak() {
+		this.text += Li;
+	}
+	readRange(e, t) {
+		if (!e) return this;
+		let n = e.parentNode;
+		for (let r = e;;) {
+			this.findPointBefore(n, r);
+			let e = this.text.length;
+			this.readNode(r);
+			let i = B.get(r), a = r.nextSibling;
+			if (a == t) {
+				i?.breakAfter && !a && n != this.view.contentDOM && this.lineBreak();
+				break;
+			}
+			let o = B.get(a);
+			(i && o ? i.breakAfter : (i ? i.breakAfter : _n(r)) || _n(a) && (r.nodeName != "BR" || i?.isWidget()) && this.text.length > e) && !Bi(a, t) && this.lineBreak(), r = a;
+		}
+		return this.findPointBefore(n, t), this;
+	}
+	readTextNode(e) {
+		let t = e.nodeValue;
+		for (let n of this.points) n.node == e && (n.pos = this.text.length + Math.min(n.offset, t.length));
+		for (let n = 0, r = this.lineSeparator ? null : /\r\n?|\n/g;;) {
+			let i = -1, a = 1, o;
+			if (this.lineSeparator ? (i = t.indexOf(this.lineSeparator, n), a = this.lineSeparator.length) : (o = r.exec(t)) && (i = o.index, a = o[0].length), this.append(t.slice(n, i < 0 ? t.length : i)), i < 0) break;
+			if (this.lineBreak(), a > 1) for (let t of this.points) t.node == e && t.pos > this.text.length && (t.pos -= a - 1);
+			n = i + a;
+		}
+	}
+	readNode(e) {
+		let t = B.get(e), n = t && t.overrideDOMText;
+		if (n != null) {
+			this.findPointInside(e, n.length);
+			for (let e = n.iter(); !e.next().done;) e.lineBreak ? this.lineBreak() : this.append(e.value);
+		} else un(e) ? this.readTextNode(e) : e.nodeName == "BR" ? e.nextSibling && this.lineBreak() : I(e) && this.readRange(e.firstChild, null);
+	}
+	findPointBefore(e, t) {
+		for (let n of this.points) n.node == e && e.childNodes[n.offset] == t && (n.pos = this.text.length);
+	}
+	findPointInside(e, t) {
+		for (let n of this.points) (un(e) ? n.node == e : e.contains(n.node)) && (n.pos = this.text.length + (zi(e, n.node, n.offset) ? t : 0));
+	}
+};
+function zi(e, t, n) {
+	for (;;) {
+		if (!t || n < yn(t)) return !1;
+		if (t == e) return !0;
+		n = gn(t) + 1, t = t.parentNode;
+	}
+}
+function Bi(e, t) {
+	let n;
+	for (; e != t && e; e = e.nextSibling) {
+		let t = B.get(e);
+		if (!t?.isWidget()) return !1;
+		t && (n || (n = [])).push(t);
+	}
+	if (n) {
+		for (let e of n) if (e.overrideDOMText?.length) return !1;
+	}
+	return !0;
+}
+var Vi = class {
+	constructor(e, t) {
+		this.node = e, this.offset = t, this.pos = -1;
+	}
+}, Hi = class {
+	constructor(e, t, n, r) {
+		this.typeOver = r, this.bounds = null, this.text = "", this.domChanged = t > -1;
+		let { impreciseHead: i, impreciseAnchor: a } = e.docView, o = e.state.selection;
+		if (e.state.readOnly && t > -1) this.newSel = null;
+		else if (t > -1 && (this.bounds = Ui(e.docView.tile, t, n, 0))) {
+			let t = i || a ? [] : Ji(e), n = new Ri(t, e);
+			n.readRange(this.bounds.startDOM, this.bounds.endDOM), this.text = n.text, this.newSel = Yi(t, this.bounds.from);
+		} else {
+			let t = e.observer.selectionRange, n = i && i.node == t.focusNode && i.offset == t.focusOffset || !fn(e.contentDOM, t.focusNode) ? o.main.head : e.docView.posFromDOM(t.focusNode, t.focusOffset), r = a && a.node == t.anchorNode && a.offset == t.anchorOffset || !fn(e.contentDOM, t.anchorNode) ? o.main.anchor : e.docView.posFromDOM(t.anchorNode, t.anchorOffset), s = e.viewport;
+			if ((N.ios || N.chrome) && n != r && Math.min(n, r) <= o.main.from && Math.max(n, r) >= o.main.to && (s.from > 0 || s.to < e.state.doc.length)) {
+				let t = Math.min(n, r), i = Math.max(n, r), a = s.from - t, o = s.to - i;
+				(a == 0 || a == 1 || t == 0) && (o == 0 || o == -1 || i == e.state.doc.length) && (n = 0, r = e.state.doc.length);
+			}
+			if (e.inputState.composing > -1 && o.ranges.length > 1) this.newSel = o.replaceRange(T.range(r, n));
+			else if (e.lineWrapping && r == n && !(o.main.empty && o.main.head == n) && e.inputState.lastTouchTime > Date.now() - 100) {
+				let t = e.coordsAtPos(n, -1), r = 0;
+				t && (r = e.inputState.lastTouchY <= t.bottom ? -1 : 1), this.newSel = T.create([T.cursor(n, r)]);
+			} else this.newSel = T.single(r, n);
+		}
+	}
+};
+function Ui(e, t, n, r) {
+	if (e.isComposite()) {
+		let i = -1, a = -1, o = -1, s = -1;
+		for (let c = 0, l = r, u = r; c < e.children.length; c++) {
+			let r = e.children[c], d = l + r.length;
+			if (l < t && d > n) return Ui(r, t, n, l);
+			if (d >= t && i == -1 && (i = c, a = l), l > n && r.dom.parentNode == e.dom) {
+				o = c, s = u;
+				break;
+			}
+			u = d, l = d + r.breakAfter;
+		}
+		return {
+			from: a,
+			to: s < 0 ? r + e.length : s,
+			startDOM: (i ? e.children[i - 1].dom.nextSibling : null) || e.dom.firstChild,
+			endDOM: o < e.children.length && o >= 0 ? e.children[o].dom : null
+		};
+	}
+	return e.isText() ? {
+		from: r,
+		to: r + e.length,
+		startDOM: e.dom,
+		endDOM: e.dom.nextSibling
+	} : null;
+}
+function Wi(e, t) {
+	let n, { newSel: r } = t, { state: i } = e, a = i.selection.main, o = e.inputState.lastKeyTime > Date.now() - 100 ? e.inputState.lastKeyCode : -1;
+	if (t.bounds) {
+		let { from: e, to: r } = t.bounds, s = a.from, c = null;
+		(o === 8 || N.android && t.text.length < r - e) && (s = a.to, c = "end");
+		let l = i.doc.sliceString(e, r, Li), u, d;
+		!a.empty && a.from >= e && a.to <= r && (t.typeOver || l != t.text) && l.slice(0, a.from - e) == t.text.slice(0, a.from - e) && l.slice(a.to - e) == t.text.slice(u = t.text.length - (l.length - (a.to - e))) ? n = {
+			from: a.from,
+			to: a.to,
+			insert: f.of(t.text.slice(a.from - e, u).split(Li))
+		} : (d = qi(l, t.text, s - e, c)) && (N.chrome && o == 13 && d.toB == d.from + 2 && t.text.slice(d.from, d.toB) == "￿￿" && d.toB--, n = {
+			from: e + d.from,
+			to: e + d.toA,
+			insert: f.of(t.text.slice(d.from, d.toB).split(Li))
+		});
+	} else r && (!e.hasFocus && i.facet(xr) || Xi(r, a)) && (r = null);
+	if (!n && !r) return !1;
+	if ((N.mac || N.android) && n && n.from == n.to && n.from == a.head - 1 && /^\. ?$/.test(n.insert.toString()) && e.contentDOM.getAttribute("autocorrect") == "off" ? (r && n.insert.length == 2 && (r = T.single(r.main.anchor - 1, r.main.head - 1)), n = {
+		from: n.from,
+		to: n.to,
+		insert: f.of([n.insert.toString().replace(".", " ")])
+	}) : i.doc.lineAt(a.from).to < a.to && e.docView.lineHasWidget(a.to) && e.inputState.insertingTextAt > Date.now() - 50 ? n = {
+		from: a.from,
+		to: a.to,
+		insert: i.toText(e.inputState.insertingText)
+	} : N.chrome && n && n.from == n.to && n.from == a.head && n.insert.toString() == "\n " && e.lineWrapping && (r && (r = T.single(r.main.anchor - 1, r.main.head - 1)), n = {
+		from: a.from,
+		to: a.to,
+		insert: f.of([" "])
+	}), n) return Gi(e, n, r, o);
+	if (r && !Xi(r, a)) {
+		let t = !1, n = "select";
+		return e.inputState.lastSelectionTime > Date.now() - 50 && (e.inputState.lastSelectionOrigin == "select" && (t = !0), n = e.inputState.lastSelectionOrigin, n == "select.pointer" && (r = Mi(i.facet(jr).map((t) => t(e)), r))), e.dispatch({
+			selection: r,
+			scrollIntoView: t,
+			userEvent: n
+		}), !0;
+	}
+	return !1;
+}
+function Gi(e, t, n, r = -1) {
+	if (N.ios && e.inputState.flushIOSKey(t)) return !0;
+	let i = e.state.selection.main;
+	if (N.android && (t.to == i.to && (t.from == i.from || t.from == i.from - 1 && e.state.sliceDoc(t.from, i.from) == " ") && t.insert.length == 1 && t.insert.lines == 2 && Mn(e.contentDOM, "Enter", 13) || (t.from == i.from - 1 && t.to == i.to && t.insert.length == 0 || r == 8 && t.insert.length < t.to - t.from && t.to > i.head) && Mn(e.contentDOM, "Backspace", 8) || t.from == i.from && t.to == i.to + 1 && t.insert.length == 0 && Mn(e.contentDOM, "Delete", 46))) return !0;
+	let a = t.insert.toString();
+	e.inputState.composing >= 0 && e.inputState.composing++;
+	let o, s = () => o || (o = Ki(e, t, n));
+	return e.state.facet(dr).some((n) => n(e, t.from, t.to, a, s)) || e.dispatch(s()), !0;
+}
+function Ki(e, t, n) {
+	let r, i = e.state, a = i.selection.main, o = -1;
+	if (t.from == t.to && t.from < a.from || t.from > a.to) {
+		let n = t.from < a.from ? -1 : 1, r = n < 0 ? a.from : a.to, s = ji(i.facet(jr).map((t) => t(e)), r, n);
+		t.from == s && (o = s);
+	}
+	if (o > -1) r = {
+		changes: t,
+		selection: T.cursor(t.from + t.insert.length, -1)
+	};
+	else if (t.from >= a.from && t.to <= a.to && t.to - t.from >= (a.to - a.from) / 3 && (!n || n.main.empty && n.main.from == t.from + t.insert.length) && e.inputState.composing < 0) {
+		let n = a.from < t.from ? i.sliceDoc(a.from, t.from) : "", o = a.to > t.to ? i.sliceDoc(t.to, a.to) : "";
+		r = i.replaceSelection(e.state.toText(n + t.insert.sliceString(0, void 0, e.state.lineBreak) + o));
+	} else {
+		let o = i.changes(t), s = n && n.main.to <= o.newLength ? n.main : void 0;
+		if (i.selection.ranges.length > 1 && (e.inputState.composing >= 0 || e.inputState.compositionPendingChange) && t.to <= a.to + 10 && t.to >= a.to - 10) {
+			let c = e.state.sliceDoc(t.from, t.to), l, u = n && mi(e, n.main.head);
+			if (u) {
+				let e = t.insert.length - (t.to - t.from);
+				l = {
+					from: u.from,
+					to: u.to - e
+				};
+			} else l = e.state.doc.lineAt(a.head);
+			let d = a.to - t.to;
+			r = i.changeByRange((n) => {
+				if (n.from == a.from && n.to == a.to) return {
+					changes: o,
+					range: s || n.map(o)
+				};
+				let r = n.to - d, u = r - c.length;
+				if (e.state.sliceDoc(u, r) != c || r >= l.from && u <= l.to) return { range: n };
+				let f = i.changes({
+					from: u,
+					to: r,
+					insert: t.insert
+				}), p = n.to - a.to;
+				return {
+					changes: f,
+					range: s ? T.range(Math.max(0, s.anchor + p), Math.max(0, s.head + p)) : n.map(f)
+				};
+			});
+		} else r = {
+			changes: o,
+			selection: s && i.selection.replaceRange(s)
+		};
+	}
+	let s = "input.type";
+	return (e.composing || e.inputState.compositionPendingChange && e.inputState.compositionEndedAt > Date.now() - 50) && (e.inputState.compositionPendingChange = !1, s += ".compose", e.inputState.compositionFirstChange && (s += ".start", e.inputState.compositionFirstChange = !1)), i.update(r, {
+		userEvent: s,
+		scrollIntoView: !0
+	});
+}
+function qi(e, t, n, r) {
+	let i = Math.min(e.length, t.length), a = 0;
+	for (; a < i && e.charCodeAt(a) == t.charCodeAt(a);) a++;
+	if (a == i && e.length == t.length) return null;
+	let o = e.length, s = t.length;
+	for (; o > 0 && s > 0 && e.charCodeAt(o - 1) == t.charCodeAt(s - 1);) o--, s--;
+	if (r == "end") {
+		let e = Math.max(0, a - Math.min(o, s));
+		n -= o + e - a;
+	}
+	if (o < a && e.length < t.length) {
+		let e = n <= a && n >= o ? a - n : 0;
+		a -= e, s = a + (s - o), o = a;
+	} else if (s < a) {
+		let e = n <= a && n >= s ? a - n : 0;
+		a -= e, o = a + (o - s), s = a;
+	}
+	return {
+		from: a,
+		toA: o,
+		toB: s
+	};
+}
+function Ji(e) {
+	let t = [];
+	if (e.root.activeElement != e.contentDOM) return t;
+	let { anchorNode: n, anchorOffset: r, focusNode: i, focusOffset: a } = e.observer.selectionRange;
+	return n && (t.push(new Vi(n, r)), (i != n || a != r) && t.push(new Vi(i, a))), t;
+}
+function Yi(e, t) {
+	if (e.length == 0) return null;
+	let n = e[0].pos, r = e.length == 2 ? e[1].pos : n;
+	return n < 0 || r < 0 ? null : n == r ? T.create([T.cursor(r + t, -1)]) : T.single(n + t, r + t);
+}
+function Xi(e, t) {
+	return t.head == e.main.head && t.anchor == e.main.anchor;
+}
+var Zi = class {
+	setSelectionOrigin(e) {
+		this.lastSelectionOrigin = e, this.lastSelectionTime = Date.now();
+	}
+	constructor(e) {
+		this.view = e, this.lastKeyCode = 0, this.lastKeyTime = 0, this.touchActive = !1, this.lastTouchTime = 0, this.lastTouchX = 0, this.lastTouchY = 0, this.lastFocusTime = 0, this.lastScrollTop = 0, this.lastScrollLeft = 0, this.lastWheelEvent = 0, this.pendingIOSKey = void 0, this.lastIOSMomentumScroll = 0, this.tabFocusMode = -1, this.lastSelectionOrigin = null, this.lastSelectionTime = 0, this.lastContextMenu = 0, this.scrollHandlers = [], this.handlers = Object.create(null), this.composing = -1, this.compositionFirstChange = null, this.compositionEndedAt = 0, this.compositionPendingKey = !1, this.compositionPendingChange = !1, this.insertingText = "", this.insertingTextAt = 0, this.mouseSelection = null, this.draggedContent = null, this.handleEvent = this.handleEvent.bind(this), this.notifiedFocused = e.hasFocus, N.safari && e.contentDOM.addEventListener("input", () => null), N.gecko && Na(e.contentDOM.ownerDocument);
+	}
+	handleEvent(e) {
+		da(this.view, e) && !this.ignoreDuringComposition(e) && (e.type == "keydown" && this.keydown(e) || (this.view.updateState == 0 ? this.runHandlers(e.type, e) : Promise.resolve().then(() => this.runHandlers(e.type, e))));
+	}
+	runHandlers(e, t) {
+		let n = this.handlers[e];
+		if (n) {
+			for (let e of n.observers) e(this.view, t);
+			for (let e of n.handlers) {
+				if (t.defaultPrevented) break;
+				if (e(this.view, t)) {
+					t.preventDefault();
+					break;
+				}
+			}
+		}
+	}
+	ensureHandlers(e) {
+		let t = ea(e), n = this.handlers, r = this.view.contentDOM;
+		for (let e in t) if (e != "scroll") {
+			let i = !t[e].handlers.length, a = n[e];
+			a && i != !a.handlers.length && (r.removeEventListener(e, this.handleEvent), a = null), a || r.addEventListener(e, this.handleEvent, { passive: i });
+		}
+		for (let e in n) e != "scroll" && !t[e] && r.removeEventListener(e, this.handleEvent);
+		this.handlers = t;
+	}
+	keydown(e) {
+		if (this.lastKeyCode = e.keyCode, this.lastKeyTime = Date.now(), e.keyCode == 9 && this.tabFocusMode > -1 && (!this.tabFocusMode || Date.now() <= this.tabFocusMode)) return !0;
+		if (this.tabFocusMode > 0 && e.keyCode != 27 && ra.indexOf(e.keyCode) < 0 && (this.tabFocusMode = -1), N.android && N.chrome && !e.synthetic && (e.keyCode == 13 || e.keyCode == 8)) return this.view.observer.delayAndroidKey(e.key, e.keyCode), !0;
+		if (N.ios && !e.synthetic && !e.altKey && !e.metaKey && (ta.some((t) => t.keyCode == e.keyCode) && !e.ctrlKey || na.indexOf(e.key) > -1 && e.ctrlKey)) {
+			let t = {
+				ctrlKey: e.ctrlKey,
+				altKey: e.altKey,
+				metaKey: e.metaKey,
+				shiftKey: e.shiftKey
+			};
+			t.shiftKey && N.ios && !/^(off|none)$/.test(this.view.contentDOM.autocapitalize) && Qi(this.view.win) && (t.shiftKey = !1);
+			let n = this.pendingIOSKey = {
+				key: e.key,
+				keyCode: e.keyCode,
+				mods: t
+			};
+			return setTimeout(() => {
+				this.pendingIOSKey == n && this.flushIOSKey();
+			}, 50), !0;
+		}
+		return e.keyCode != 229 && this.view.observer.forceFlush(), !1;
+	}
+	flushIOSKey(e) {
+		let t = this.pendingIOSKey;
+		return !t || this.view.observer.pendingRecords().length || t.key == "Enter" && e && e.from < e.to && /^\S+$/.test(e.insert.toString()) ? !1 : (this.pendingIOSKey = void 0, Mn(this.view.contentDOM, t.key, t.keyCode, t.mods));
+	}
+	ignoreDuringComposition(e) {
+		return !/^key/.test(e.type) || e.synthetic ? !1 : this.composing > 0 ? !0 : N.safari && !N.ios && this.compositionPendingKey && Date.now() - this.compositionEndedAt < 100 ? (this.compositionPendingKey = !1, !0) : !1;
+	}
+	startMouseSelection(e) {
+		this.mouseSelection && this.mouseSelection.destroy(), this.mouseSelection = e;
+	}
+	update(e) {
+		this.view.observer.update(e), this.mouseSelection && this.mouseSelection.update(e), this.draggedContent && e.docChanged && (this.draggedContent = this.draggedContent.map(e.changes)), e.transactions.length && (this.lastKeyCode = this.lastSelectionTime = 0);
+	}
+	destroy() {
+		this.mouseSelection && this.mouseSelection.destroy();
+	}
+};
+function Qi(e) {
+	return e.visualViewport ? e.visualViewport.height * e.visualViewport.scale / e.document.documentElement.clientHeight < .85 : !1;
+}
+function $i(e, t) {
+	return (n, r) => {
+		try {
+			return t.call(e, r, n);
+		} catch (e) {
+			z(n.state, e);
+		}
+	};
+}
+function ea(e) {
+	let t = Object.create(null);
+	function n(e) {
+		return t[e] || (t[e] = {
+			observers: [],
+			handlers: []
+		});
+	}
+	for (let t of e) {
+		let e = t.spec, r = e && e.plugin.domEventHandlers, i = e && e.plugin.domEventObservers;
+		if (r) for (let e in r) {
+			let i = r[e];
+			i && n(e).handlers.push($i(t.value, i));
+		}
+		if (i) for (let e in i) {
+			let r = i[e];
+			r && n(e).observers.push($i(t.value, r));
+		}
+	}
+	for (let e in fa) n(e).handlers.push(fa[e]);
+	for (let e in H) n(e).observers.push(H[e]);
+	return t;
+}
+var ta = [
+	{
+		key: "Backspace",
+		keyCode: 8,
+		inputType: "deleteContentBackward"
+	},
+	{
+		key: "Enter",
+		keyCode: 13,
+		inputType: "insertParagraph"
+	},
+	{
+		key: "Enter",
+		keyCode: 13,
+		inputType: "insertLineBreak"
+	},
+	{
+		key: "Delete",
+		keyCode: 46,
+		inputType: "deleteContentForward"
+	}
+], na = "dthko", ra = [
+	16,
+	17,
+	18,
+	20,
+	91,
+	92,
+	224,
+	225
+], ia = 6;
+function aa(e) {
+	return Math.max(0, e) * .7 + 8;
+}
+function oa(e, t) {
+	return Math.max(Math.abs(e.clientX - t.clientX), Math.abs(e.clientY - t.clientY));
+}
+var sa = class {
+	constructor(e, t, n, r) {
+		this.view = e, this.startEvent = t, this.style = n, this.mustSelect = r, this.scrollSpeed = {
+			x: 0,
+			y: 0
+		}, this.scrolling = -1, this.lastEvent = t, this.scrollParents = wn(e.contentDOM), this.atoms = e.state.facet(jr).map((t) => t(e));
+		let i = e.contentDOM.ownerDocument;
+		i.addEventListener("mousemove", this.move = this.move.bind(this)), i.addEventListener("mouseup", this.up = this.up.bind(this)), this.extend = t.shiftKey, this.multiple = e.state.facet(k.allowMultipleSelections) && ca(e, t), this.dragging = ua(e, t) && Sa(t) == 1 ? null : !1;
+	}
+	start(e) {
+		this.dragging === !1 && this.select(e);
+	}
+	move(e) {
+		if (e.buttons == 0) return this.destroy();
+		if (this.dragging || this.dragging == null && oa(this.startEvent, e) < 10) return;
+		this.select(this.lastEvent = e);
+		let t = 0, n = 0, r = 0, i = 0, a = this.view.win.innerWidth, o = this.view.win.innerHeight;
+		this.scrollParents.x && ({left: r, right: a} = this.scrollParents.x.getBoundingClientRect()), this.scrollParents.y && ({top: i, bottom: o} = this.scrollParents.y.getBoundingClientRect());
+		let s = Fr(this.view);
+		e.clientX - s.left <= r + ia ? t = -aa(r - e.clientX) : e.clientX + s.right >= a - ia && (t = aa(e.clientX - a)), e.clientY - s.top <= i + ia ? n = -aa(i - e.clientY) : e.clientY + s.bottom >= o - ia && (n = aa(e.clientY - o)), this.setScrollSpeed(t, n);
+	}
+	up(e) {
+		this.dragging ?? this.select(this.lastEvent), this.dragging || e.preventDefault(), this.destroy();
+	}
+	destroy() {
+		this.setScrollSpeed(0, 0);
+		let e = this.view.contentDOM.ownerDocument;
+		e.removeEventListener("mousemove", this.move), e.removeEventListener("mouseup", this.up), this.view.inputState.mouseSelection = this.view.inputState.draggedContent = null;
+	}
+	setScrollSpeed(e, t) {
+		this.scrollSpeed = {
+			x: e,
+			y: t
+		}, e || t ? this.scrolling < 0 && (this.scrolling = setInterval(() => this.scroll(), 50)) : this.scrolling > -1 && (clearInterval(this.scrolling), this.scrolling = -1);
+	}
+	scroll() {
+		let { x: e, y: t } = this.scrollSpeed;
+		e && this.scrollParents.x && (this.scrollParents.x.scrollLeft += e, e = 0), t && this.scrollParents.y && (this.scrollParents.y.scrollTop += t, t = 0), (e || t) && this.view.win.scrollBy(e, t), this.dragging === !1 && this.select(this.lastEvent);
+	}
+	select(e) {
+		let { view: t } = this, n = Mi(this.atoms, this.style.get(e, this.extend, this.multiple));
+		(this.mustSelect || !n.eq(t.state.selection, this.dragging === !1)) && this.view.dispatch({
+			selection: n,
+			userEvent: "select.pointer"
+		}), this.mustSelect = !1;
+	}
+	update(e) {
+		e.transactions.some((e) => e.isUserEvent("input.type")) ? this.destroy() : this.style.update(e) && setTimeout(() => this.select(this.lastEvent), 20);
+	}
+};
+function ca(e, t) {
+	let n = e.state.facet(or);
+	return n.length ? n[0](t) : N.mac ? t.metaKey : t.ctrlKey;
+}
+function la(e, t) {
+	let n = e.state.facet(sr);
+	return n.length ? n[0](t) : N.mac ? !t.altKey : !t.ctrlKey;
+}
+function ua(e, t) {
+	let { main: n } = e.state.selection;
+	if (n.empty) return !1;
+	let r = dn(e.root);
+	if (!r || r.rangeCount == 0) return !0;
+	let i = r.getRangeAt(0).getClientRects();
+	for (let e = 0; e < i.length; e++) {
+		let n = i[e];
+		if (n.left <= t.clientX && n.right >= t.clientX && n.top <= t.clientY && n.bottom >= t.clientY) return !0;
+	}
+	return !1;
+}
+function da(e, t) {
+	if (!t.bubbles) return !0;
+	if (t.defaultPrevented) return !1;
+	for (let n = t.target, r; n != e.contentDOM; n = n.parentNode) if (!n || n.nodeType == 11 || (r = B.get(n)) && r.isWidget() && !r.isHidden && r.widget.ignoreEvent(t)) return !1;
+	return !0;
+}
+var fa = /*@__PURE__*/ Object.create(null), H = /*@__PURE__*/ Object.create(null), pa = N.ie && N.ie_version < 15 || N.ios && N.webkit_version < 604;
+function ma(e) {
+	let t = e.dom.parentNode;
+	if (!t) return;
+	let n = t.appendChild(document.createElement("textarea"));
+	n.style.cssText = "position: fixed; left: -10000px; top: 10px", n.focus(), setTimeout(() => {
+		e.focus(), n.remove(), ga(e, n.value);
+	}, 50);
+}
+function ha(e, t, n) {
+	for (let r of e.facet(t)) n = r(n, e);
+	return n;
+}
+function ga(e, t) {
+	t = ha(e.state, pr, t);
+	let { state: n } = e, r, i = 1, a = n.toText(t), o = a.lines == n.selection.ranges.length;
+	if (Oa != null && n.selection.ranges.every((e) => e.empty) && Oa == a.toString()) {
+		let e = -1;
+		r = n.changeByRange((r) => {
+			let s = n.doc.lineAt(r.from);
+			if (s.from == e) return { range: r };
+			e = s.from;
+			let c = n.toText((o ? a.line(i++).text : t) + n.lineBreak);
+			return {
+				changes: {
+					from: s.from,
+					insert: c
+				},
+				range: T.cursor(r.from + c.length, -1)
+			};
+		});
+	} else r = o ? n.changeByRange((e) => {
+		let t = a.line(i++);
+		return {
+			changes: {
+				from: e.from,
+				to: e.to,
+				insert: t.text
+			},
+			range: T.cursor(e.from + t.length, -1)
+		};
+	}) : n.replaceSelection(a);
+	e.dispatch(r, {
+		userEvent: "input.paste",
+		scrollIntoView: !0
+	});
+}
+H.scroll = (e) => {
+	let t = e.inputState;
+	t.lastScrollTop = e.scrollDOM.scrollTop, t.lastScrollLeft = e.scrollDOM.scrollLeft, N.ios && !t.touchActive && (t.lastIOSMomentumScroll = Date.now());
+}, H.wheel = H.mousewheel = (e) => {
+	e.inputState.lastWheelEvent = Date.now();
+}, fa.keydown = (e, t) => (e.inputState.setSelectionOrigin("select"), t.keyCode == 27 && e.inputState.tabFocusMode != 0 && (e.inputState.tabFocusMode = Date.now() + 2e3), !1), H.touchstart = (e, t) => {
+	let n = e.inputState, r = t.targetTouches[0];
+	n.touchActive = !0, n.lastTouchTime = Date.now(), r && (n.lastTouchX = r.clientX, n.lastTouchY = r.clientY), n.setSelectionOrigin("select.pointer");
+}, H.touchmove = (e) => {
+	e.inputState.setSelectionOrigin("select.pointer");
+}, H.touchend = (e, t) => {
+	e.inputState.touchActive = !1;
+}, fa.mousedown = (e, t) => {
+	if (e.observer.flush(), e.inputState.lastTouchTime > Date.now() - 2e3) return !1;
+	let n = null;
+	for (let r of e.state.facet(cr)) if (n = r(e, t), n) break;
+	if (!n && t.button == 0 && (n = Ca(e, t)), n) {
+		let r = !e.hasFocus;
+		e.inputState.startMouseSelection(new sa(e, t, n, r)), r && e.observer.ignore(() => {
+			kn(e.contentDOM);
+			let t = e.root.activeElement;
+			t && !t.contains(e.contentDOM) && t.blur();
+		});
+		let i = e.inputState.mouseSelection;
+		if (i) return i.start(t), i.dragging === !1;
+	} else e.inputState.setSelectionOrigin("select.pointer");
+	return !1;
+};
+function _a(e, t, n, r) {
+	if (r == 1) return T.cursor(t, n);
+	if (r == 2) return wi(e.state, t, n);
+	{
+		let r = e.docView.lineAt(t, n), i = e.state.doc.lineAt(r ? r.posAtEnd : t), a = r ? r.posAtStart : i.from, o = r ? r.posAtEnd : i.to;
+		return o < e.state.doc.length && o == i.to && o++, T.undirectionalRange(a, o);
+	}
+}
+var va = N.ie && N.ie_version <= 11, ya = null, ba = 0, xa = 0;
+function Sa(e) {
+	if (!va) return e.detail;
+	let t = ya, n = xa;
+	return ya = e, xa = Date.now(), ba = !t || n > Date.now() - 400 && Math.abs(t.clientX - e.clientX) < 2 && Math.abs(t.clientY - e.clientY) < 2 ? (ba + 1) % 3 : 1;
+}
+function Ca(e, t) {
+	let n = e.posAndSideAtCoords({
+		x: t.clientX,
+		y: t.clientY
+	}, !1), r = Sa(t), i = e.state.selection;
+	return {
+		update(e) {
+			e.docChanged && (n.pos = e.changes.mapPos(n.pos), i = i.map(e.changes));
+		},
+		get(t, a, o) {
+			let s = e.posAndSideAtCoords({
+				x: t.clientX,
+				y: t.clientY
+			}, !1), c, l = _a(e, s.pos, s.assoc, r);
+			if (n.pos != s.pos && !a) {
+				let t = _a(e, n.pos, n.assoc, r), i = Math.min(t.from, l.from), a = Math.max(t.to, l.to);
+				l = i < l.from ? T.range(i, a, l.assoc) : T.range(a, i, l.assoc);
+			}
+			return a ? i.replaceRange(i.main.extend(l.from, l.to, l.assoc)) : o && r == 1 && i.ranges.length > 1 && (c = wa(i, s.pos)) ? c : o ? i.addRange(l) : T.create([l]);
+		}
+	};
+}
+function wa(e, t) {
+	for (let n = 0; n < e.ranges.length; n++) {
+		let { from: r, to: i } = e.ranges[n];
+		if (r <= t && i >= t) return T.create(e.ranges.slice(0, n).concat(e.ranges.slice(n + 1)), e.mainIndex == n ? 0 : e.mainIndex - +(e.mainIndex > n));
+	}
+	return null;
+}
+fa.dragstart = (e, t) => {
+	let { selection: { main: n } } = e.state;
+	if (t.target.draggable) {
+		let r = e.docView.tile.nearest(t.target);
+		if (r && r.isWidget()) {
+			let e = r.posAtStart, t = e + r.length;
+			(e >= n.to || t <= n.from) && (n = T.undirectionalRange(e, t));
+		}
+	}
+	let { inputState: r } = e;
+	return r.mouseSelection && (r.mouseSelection.dragging = !0), r.draggedContent = n, t.dataTransfer && (t.dataTransfer.setData("Text", ha(e.state, mr, e.state.sliceDoc(n.from, n.to))), t.dataTransfer.effectAllowed = "copyMove"), !1;
+}, fa.dragend = (e) => (e.inputState.draggedContent = null, !1);
+function Ta(e, t, n, r) {
+	if (n = ha(e.state, pr, n), !n) return;
+	let i = e.posAtCoords({
+		x: t.clientX,
+		y: t.clientY
+	}, !1), { draggedContent: a } = e.inputState, o = r && a && la(e, t) ? {
+		from: a.from,
+		to: a.to
+	} : null, s = {
+		from: i,
+		insert: n
+	}, c = e.state.changes(o ? [o, s] : s);
+	e.focus(), e.dispatch({
+		changes: c,
+		selection: {
+			anchor: c.mapPos(i, -1),
+			head: c.mapPos(i, 1)
+		},
+		userEvent: o ? "move.drop" : "input.drop"
+	}), e.inputState.draggedContent = null;
+}
+fa.drop = (e, t) => {
+	if (!t.dataTransfer) return !1;
+	if (e.state.readOnly) return !0;
+	let n = t.dataTransfer.files;
+	if (n && n.length) {
+		let r = Array(n.length), i = 0, a = () => {
+			++i == n.length && Ta(e, t, r.filter((e) => e != null).join(e.state.lineBreak), !1);
+		};
+		for (let e = 0; e < n.length; e++) {
+			let t = new FileReader();
+			t.onerror = a, t.onload = () => {
+				/[\x00-\x08\x0e-\x1f]{2}/.test(t.result) || (r[e] = t.result), a();
+			}, t.readAsText(n[e]);
+		}
+		return !0;
+	}
+	{
+		let n = t.dataTransfer.getData("Text");
+		if (n) return Ta(e, t, n, !0), !0;
+	}
+	return !1;
+}, fa.paste = (e, t) => {
+	if (e.state.readOnly) return !0;
+	e.observer.flush();
+	let n = pa ? null : t.clipboardData;
+	return n ? (ga(e, n.getData("text/plain") || n.getData("text/uri-list")), !0) : (ma(e), !1);
+};
+function Ea(e, t) {
+	let n = e.dom.parentNode;
+	if (!n) return;
+	let r = n.appendChild(document.createElement("textarea"));
+	r.style.cssText = "position: fixed; left: -10000px; top: 10px", r.value = t, r.focus(), r.selectionEnd = t.length, r.selectionStart = 0, setTimeout(() => {
+		r.remove(), e.focus();
+	}, 50);
+}
+function Da(e) {
+	let t = [], n = [], r = !1;
+	for (let r of e.selection.ranges) r.empty || (t.push(e.sliceDoc(r.from, r.to)), n.push(r));
+	if (!t.length) {
+		let i = -1;
+		for (let { from: r } of e.selection.ranges) {
+			let a = e.doc.lineAt(r);
+			a.number > i && (t.push(a.text), n.push({
+				from: a.from,
+				to: Math.min(e.doc.length, a.to + 1)
+			})), i = a.number;
+		}
+		r = !0;
+	}
+	return {
+		text: ha(e, mr, t.join(e.lineBreak)),
+		ranges: n,
+		linewise: r
+	};
+}
+var Oa = null;
+fa.copy = fa.cut = (e, t) => {
+	if (!pn(e.contentDOM, e.observer.selectionRange)) return !1;
+	let { text: n, ranges: r, linewise: i } = Da(e.state);
+	if (!n && !i) return !1;
+	Oa = i ? n : null, t.type == "cut" && !e.state.readOnly && e.dispatch({
+		changes: r,
+		scrollIntoView: !0,
+		userEvent: "delete.cut"
+	});
+	let a = pa ? null : t.clipboardData;
+	return a ? (a.clearData(), a.setData("text/plain", n), !0) : (Ea(e, n), !1);
+};
+var ka = /*@__PURE__*/ Ve.define();
+function Aa(e, t) {
+	let n = [];
+	for (let r of e.facet(fr)) {
+		let i = r(e, t);
+		i && n.push(i);
+	}
+	return n.length ? e.update({
+		effects: n,
+		annotations: ka.of(!0)
+	}) : null;
+}
+function ja(e) {
+	setTimeout(() => {
+		let t = e.hasFocus;
+		if (t != e.inputState.notifiedFocused) {
+			let n = Aa(e.state, t);
+			n ? e.dispatch(n) : e.update([]);
+		}
+	}, 10);
+}
+H.focus = (e) => {
+	e.inputState.lastFocusTime = Date.now(), !e.scrollDOM.scrollTop && (e.inputState.lastScrollTop || e.inputState.lastScrollLeft) && (e.scrollDOM.scrollTop = e.inputState.lastScrollTop, e.scrollDOM.scrollLeft = e.inputState.lastScrollLeft), ja(e);
+}, H.blur = (e) => {
+	e.observer.clearSelectionRange(), ja(e);
+}, H.compositionstart = H.compositionupdate = (e, t) => {
+	if (!e.observer.editContext && (e.inputState.compositionFirstChange ?? (e.inputState.compositionFirstChange = !0), e.inputState.composing < 0)) {
+		let { main: t } = e.state.selection;
+		!t.empty && e.lineBlockAt(t.from).from != e.lineBlockAt(t.to).from && !e.state.readOnly && e.dispatch({
+			changes: e.state.selection.ranges.filter((e) => !e.empty).map((e) => ({
+				from: e.from,
+				to: e.to
+			})),
+			userEvent: "input"
+		}), e.inputState.composing = 0;
+	}
+}, H.compositionend = (e) => {
+	e.observer.editContext || (e.inputState.composing = -1, e.inputState.compositionEndedAt = Date.now(), e.inputState.compositionPendingKey = !0, e.inputState.compositionPendingChange = e.observer.pendingRecords().length > 0, e.inputState.compositionFirstChange = null, N.chrome && N.android ? e.observer.flushSoon() : e.inputState.compositionPendingChange ? Promise.resolve().then(() => e.observer.flush()) : setTimeout(() => {
+		e.inputState.composing < 0 && e.docView.hasComposition && e.update([]);
+	}, 50));
+}, H.contextmenu = (e) => {
+	e.inputState.lastContextMenu = Date.now();
+}, fa.beforeinput = (e, t) => {
+	if ((t.inputType == "insertText" || t.inputType == "insertCompositionText") && (e.inputState.insertingText = t.data, e.inputState.insertingTextAt = Date.now()), t.inputType == "insertReplacementText" && e.observer.editContext) {
+		let n = t.dataTransfer?.getData("text/plain"), r = t.getTargetRanges();
+		if (n && r.length) {
+			let t = r[0];
+			return Gi(e, {
+				from: e.posAtDOM(t.startContainer, t.startOffset),
+				to: e.posAtDOM(t.endContainer, t.endOffset),
+				insert: e.state.toText(n)
+			}, null), !0;
+		}
+	}
+	let n;
+	if (N.chrome && N.android && (n = ta.find((e) => e.inputType == t.inputType)) && (e.observer.delayAndroidKey(n.key, n.keyCode), n.key == "Backspace" || n.key == "Delete")) {
+		let t = window.visualViewport?.height || 0;
+		setTimeout(() => {
+			(window.visualViewport?.height || 0) > t + 10 && e.hasFocus && (e.contentDOM.blur(), e.focus());
+		}, 100);
+	}
+	return N.ios && t.inputType == "deleteContentForward" && e.observer.flushSoon(), N.safari && t.inputType == "insertText" && e.inputState.composing >= 0 && setTimeout(() => H.compositionend(e, t), 20), !1;
+};
+var Ma = /*@__PURE__*/ new Set();
+function Na(e) {
+	Ma.has(e) || (Ma.add(e), e.addEventListener("copy", () => {}), e.addEventListener("cut", () => {}));
+}
+var Pa = [
+	"pre-wrap",
+	"normal",
+	"pre-line",
+	"break-spaces"
+], Fa = !1;
+function Ia() {
+	Fa = !1;
+}
+var La = class {
+	constructor(e) {
+		this.lineWrapping = e, this.doc = f.empty, this.heightSamples = {}, this.lineHeight = 14, this.charWidth = 7, this.textHeight = 14, this.lineLength = 30;
+	}
+	heightForGap(e, t) {
+		let n = this.doc.lineAt(t).number - this.doc.lineAt(e).number + 1;
+		return this.lineWrapping && (n += Math.max(0, Math.ceil((t - e - n * this.lineLength * .5) / this.lineLength))), this.lineHeight * n;
+	}
+	heightForLine(e) {
+		return this.lineWrapping ? (1 + Math.max(0, Math.ceil((e - this.lineLength) / Math.max(1, this.lineLength - 5)))) * this.lineHeight : this.lineHeight;
+	}
+	setDoc(e) {
+		return this.doc = e, this;
+	}
+	mustRefreshForWrapping(e) {
+		return Pa.indexOf(e) > -1 != this.lineWrapping;
+	}
+	mustRefreshForHeights(e) {
+		let t = !1;
+		for (let n = 0; n < e.length; n++) {
+			let r = e[n];
+			r < 0 ? n++ : this.heightSamples[Math.floor(r * 10)] || (t = !0, this.heightSamples[Math.floor(r * 10)] = !0);
+		}
+		return t;
+	}
+	refresh(e, t, n, r, i, a) {
+		let o = Pa.indexOf(e) > -1, s = Math.abs(t - this.lineHeight) > .3 || this.lineWrapping != o;
+		if (this.lineWrapping = o, this.lineHeight = t, this.charWidth = n, this.textHeight = r, this.lineLength = i, s) {
+			this.heightSamples = {};
+			for (let e = 0; e < a.length; e++) {
+				let t = a[e];
+				t < 0 ? e++ : this.heightSamples[Math.floor(t * 10)] = !0;
+			}
+		}
+		return s;
+	}
+}, Ra = class {
+	constructor(e, t) {
+		this.from = e, this.heights = t, this.index = 0;
+	}
+	get more() {
+		return this.index < this.heights.length;
+	}
+}, za = class e {
+	constructor(e, t, n, r, i) {
+		this.from = e, this.length = t, this.top = n, this.height = r, this._content = i;
+	}
+	get type() {
+		return typeof this._content == "number" ? P.Text : Array.isArray(this._content) ? this._content : this._content.type;
+	}
+	get to() {
+		return this.from + this.length;
+	}
+	get bottom() {
+		return this.top + this.height;
+	}
+	get widget() {
+		return this._content instanceof an ? this._content.widget : null;
+	}
+	get widgetLineBreaks() {
+		return typeof this._content == "number" ? this._content : 0;
+	}
+	join(t) {
+		let n = (Array.isArray(this._content) ? this._content : [this]).concat(Array.isArray(t._content) ? t._content : [t]);
+		return new e(this.from, this.length + t.length, this.top, this.height + t.height, n);
+	}
+}, U = /*@__PURE__*/ (function(e) {
+	return e[e.ByPos = 0] = "ByPos", e[e.ByHeight = 1] = "ByHeight", e[e.ByPosNoHeight = 2] = "ByPosNoHeight", e;
+})(U || (U = {})), Ba = .001, Va = class e {
+	constructor(e, t, n = 2) {
+		this.length = e, this.height = t, this.flags = n;
+	}
+	get outdated() {
+		return (this.flags & 2) > 0;
+	}
+	set outdated(e) {
+		this.flags = (e ? 2 : 0) | this.flags & -3;
+	}
+	setHeight(e) {
+		this.height != e && (Math.abs(this.height - e) > Ba && (Fa = !0), this.height = e);
+	}
+	replace(t, n, r) {
+		return e.of(r);
+	}
+	decomposeLeft(e, t) {
+		t.push(this);
+	}
+	decomposeRight(e, t) {
+		t.push(this);
+	}
+	applyChanges(e, t, n, r) {
+		let i = this, a = n.doc;
+		for (let o = r.length - 1; o >= 0; o--) {
+			let { fromA: s, toA: c, fromB: l, toB: u } = r[o], d = i.lineAt(s, U.ByPosNoHeight, n.setDoc(t), 0, 0), f = d.to >= c ? d : i.lineAt(c, U.ByPosNoHeight, n, 0, 0);
+			for (u += f.to - c, c = f.to; o > 0 && d.from <= r[o - 1].toA;) s = r[o - 1].fromA, l = r[o - 1].fromB, o--, s < d.from && (d = i.lineAt(s, U.ByPosNoHeight, n, 0, 0));
+			l += d.from - s, s = d.from;
+			let p = Xa.build(n.setDoc(a), e, l, u);
+			i = Ha(i, i.replace(s, c, p));
+		}
+		return i.updateHeight(n, 0);
+	}
+	static empty() {
+		return new Ga(0, 0, 0);
+	}
+	static of(t) {
+		if (t.length == 1) return t[0];
+		let n = 0, r = t.length, i = 0, a = 0;
+		for (;;) if (n == r) {
+			if (i > a * 2) {
+				let e = t[n - 1];
+				e.break ? t.splice(--n, 1, e.left, null, e.right) : t.splice(--n, 1, e.left, e.right), r += 1 + e.break, i -= e.size;
+			} else if (a > i * 2) {
+				let e = t[r];
+				e.break ? t.splice(r, 1, e.left, null, e.right) : t.splice(r, 1, e.left, e.right), r += 2 + e.break, a -= e.size;
+			} else break;
+		} else if (i < a) {
+			let e = t[n++];
+			e && (i += e.size);
+		} else {
+			let e = t[--r];
+			e && (a += e.size);
+		}
+		let o = !1;
+		return t[n - 1] == null ? (o = !0, n--) : t[n] ?? (o = !0, r++), new qa(e.of(t.slice(0, n)), o, e.of(t.slice(r)));
+	}
+};
+function Ha(e, t) {
+	return e == t ? e : (e.constructor != t.constructor && (Fa = !0), t);
+}
+Va.prototype.size = 1;
+var Ua = /*@__PURE__*/ F.replace({}), Wa = class extends Va {
+	constructor(e, t, n) {
+		super(e, t), this.deco = n, this.spaceAbove = 0;
+	}
+	mainBlock(e, t) {
+		return new za(t, this.length, e + this.spaceAbove, this.height - this.spaceAbove, this.deco || 0);
+	}
+	blockAt(e, t, n, r) {
+		return this.spaceAbove && e < n + this.spaceAbove ? new za(r, 0, n, this.spaceAbove, Ua) : this.mainBlock(n, r);
+	}
+	lineAt(e, t, n, r, i) {
+		let a = this.mainBlock(r, i);
+		return this.spaceAbove ? this.blockAt(0, n, r, i).join(a) : a;
+	}
+	forEachLine(e, t, n, r, i, a) {
+		e <= i + this.length && t >= i && a(this.lineAt(0, U.ByPos, n, r, i));
+	}
+	setMeasuredHeight(e) {
+		let t = e.heights[e.index++];
+		t < 0 ? (this.spaceAbove = -t, t = e.heights[e.index++]) : this.spaceAbove = 0, this.setHeight(t);
+	}
+	updateHeight(e, t = 0, n = !1, r) {
+		return r && r.from <= t && r.more && this.setMeasuredHeight(r), this.outdated = !1, this;
+	}
+	toString() {
+		return `block(${this.length})`;
+	}
+}, Ga = class e extends Wa {
+	constructor(e, t, n) {
+		super(e, t, null), this.collapsed = 0, this.widgetHeight = 0, this.breaks = 0, this.spaceAbove = n;
+	}
+	mainBlock(e, t) {
+		return new za(t, this.length, e + this.spaceAbove, this.height - this.spaceAbove, this.breaks);
+	}
+	replace(t, n, r) {
+		let i = r[0];
+		return r.length == 1 && (i instanceof e || i instanceof Ka && i.flags & 4) && Math.abs(this.length - i.length) < 10 ? (i instanceof Ka ? i = new e(i.length, this.height, this.spaceAbove) : i.height = this.height, this.outdated || (i.outdated = !1), i) : Va.of(r);
+	}
+	updateHeight(e, t = 0, n = !1, r) {
+		return r && r.from <= t && r.more ? this.setMeasuredHeight(r) : (n || this.outdated) && (this.spaceAbove = 0, this.setHeight(Math.max(this.widgetHeight, e.heightForLine(this.length - this.collapsed)) + this.breaks * e.lineHeight)), this.outdated = !1, this;
+	}
+	toString() {
+		return `line(${this.length}${this.collapsed ? -this.collapsed : ""}${this.widgetHeight ? ":" + this.widgetHeight : ""})`;
+	}
+}, Ka = class e extends Va {
+	constructor(e) {
+		super(e, 0);
+	}
+	heightMetrics(e, t) {
+		let n = e.doc.lineAt(t).number, r = e.doc.lineAt(t + this.length).number, i = r - n + 1, a, o = 0;
+		if (e.lineWrapping) {
+			let t = Math.min(this.height, e.lineHeight * i);
+			a = t / i, this.length > i + 1 && (o = (this.height - t) / (this.length - i - 1));
+		} else a = this.height / i;
+		return {
+			firstLine: n,
+			lastLine: r,
+			perLine: a,
+			perChar: o
+		};
+	}
+	blockAt(e, t, n, r) {
+		let { firstLine: i, lastLine: a, perLine: o, perChar: s } = this.heightMetrics(t, r);
+		if (t.lineWrapping) {
+			let i = r + (e < t.lineHeight ? 0 : Math.round(Math.max(0, Math.min(1, (e - n) / this.height)) * this.length)), a = t.doc.lineAt(i), c = o + a.length * s, l = Math.max(n, e - c / 2);
+			return new za(a.from, a.length, l, c, 0);
+		}
+		{
+			let r = Math.max(0, Math.min(a - i, Math.floor((e - n) / o))), { from: s, length: c } = t.doc.line(i + r);
+			return new za(s, c, n + o * r, o, 0);
+		}
+	}
+	lineAt(e, t, n, r, i) {
+		if (t == U.ByHeight) return this.blockAt(e, n, r, i);
+		if (t == U.ByPosNoHeight) {
+			let { from: t, to: r } = n.doc.lineAt(e);
+			return new za(t, r - t, 0, 0, 0);
+		}
+		let { firstLine: a, perLine: o, perChar: s } = this.heightMetrics(n, i), c = n.doc.lineAt(e), l = o + c.length * s, u = c.number - a, d = r + o * u + s * (c.from - i - u);
+		return new za(c.from, c.length, Math.max(r, Math.min(d, r + this.height - l)), l, 0);
+	}
+	forEachLine(e, t, n, r, i, a) {
+		e = Math.max(e, i), t = Math.min(t, i + this.length);
+		let { firstLine: o, perLine: s, perChar: c } = this.heightMetrics(n, i);
+		for (let l = e, u = r; l <= t;) {
+			let t = n.doc.lineAt(l);
+			if (l == e) {
+				let n = t.number - o;
+				u += s * n + c * (e - i - n);
+			}
+			let r = s + c * t.length;
+			a(new za(t.from, t.length, u, r, 0)), u += r, l = t.to + 1;
+		}
+	}
+	replace(t, n, r) {
+		let i = this.length - n;
+		if (i > 0) {
+			let t = r[r.length - 1];
+			t instanceof e ? r[r.length - 1] = new e(t.length + i) : r.push(null, new e(i - 1));
+		}
+		if (t > 0) {
+			let n = r[0];
+			n instanceof e ? r[0] = new e(t + n.length) : r.unshift(new e(t - 1), null);
+		}
+		return Va.of(r);
+	}
+	decomposeLeft(t, n) {
+		n.push(new e(t - 1), null);
+	}
+	decomposeRight(t, n) {
+		n.push(null, new e(this.length - t - 1));
+	}
+	updateHeight(t, n = 0, r = !1, i) {
+		let a = n + this.length;
+		if (i && i.from <= n + this.length && i.more) {
+			let r = [], o = Math.max(n, i.from), s = -1;
+			for (i.from > n && r.push(new e(i.from - n - 1).updateHeight(t, n)); o <= a && i.more;) {
+				let e = t.doc.lineAt(o).length;
+				r.length && r.push(null);
+				let n = i.heights[i.index++], a = 0;
+				n < 0 && (a = -n, n = i.heights[i.index++]), s == -1 ? s = n : Math.abs(n - s) >= Ba && (s = -2);
+				let c = new Ga(e, n, a);
+				c.outdated = !1, r.push(c), o += e + 1;
+			}
+			o <= a && r.push(null, new e(a - o).updateHeight(t, o));
+			let c = Va.of(r);
+			return (s < 0 || Math.abs(c.height - this.height) >= Ba || Math.abs(s - this.heightMetrics(t, n).perLine) >= Ba) && (Fa = !0), Ha(this, c);
+		}
+		return (r || this.outdated) && (this.setHeight(t.heightForGap(n, n + this.length)), this.outdated = !1), this;
+	}
+	toString() {
+		return `gap(${this.length})`;
+	}
+}, qa = class extends Va {
+	constructor(e, t, n) {
+		super(e.length + +!!t + n.length, e.height + n.height, +!!t | (e.outdated || n.outdated ? 2 : 0)), this.left = e, this.right = n, this.size = e.size + n.size;
+	}
+	get break() {
+		return this.flags & 1;
+	}
+	blockAt(e, t, n, r) {
+		let i = n + this.left.height;
+		return e < i ? this.left.blockAt(e, t, n, r) : this.right.blockAt(e, t, i, r + this.left.length + this.break);
+	}
+	lineAt(e, t, n, r, i) {
+		let a = r + this.left.height, o = i + this.left.length + this.break, s = t == U.ByHeight ? e < a : e < o, c = s ? this.left.lineAt(e, t, n, r, i) : this.right.lineAt(e, t, n, a, o);
+		if (this.break || (s ? c.to < o : c.from > o)) return c;
+		let l = t == U.ByPosNoHeight ? U.ByPosNoHeight : U.ByPos;
+		return s ? c.join(this.right.lineAt(o, l, n, a, o)) : this.left.lineAt(o, l, n, r, i).join(c);
+	}
+	forEachLine(e, t, n, r, i, a) {
+		let o = r + this.left.height, s = i + this.left.length + this.break;
+		if (this.break) e < s && this.left.forEachLine(e, t, n, r, i, a), t >= s && this.right.forEachLine(e, t, n, o, s, a);
+		else {
+			let c = this.lineAt(s, U.ByPos, n, r, i);
+			e < c.from && this.left.forEachLine(e, Math.min(t, c.from - 1), n, r, i, a), c.to >= e && c.from <= t && a(c), t > c.to && this.right.forEachLine(Math.max(e, c.to + 1), t, n, o, s, a);
+		}
+	}
+	replace(e, t, n) {
+		let r = this.left.length + this.break;
+		if (t < r) return this.balanced(this.left.replace(e, t, n), this.right);
+		if (e > this.left.length) return this.balanced(this.left, this.right.replace(e - r, t - r, n));
+		let i = [];
+		e > 0 && this.decomposeLeft(e, i);
+		let a = i.length;
+		for (let e of n) i.push(e);
+		if (e > 0 && Ja(i, a - 1), t < this.length) {
+			let e = i.length;
+			this.decomposeRight(t, i), Ja(i, e);
+		}
+		return Va.of(i);
+	}
+	decomposeLeft(e, t) {
+		let n = this.left.length;
+		if (e <= n) return this.left.decomposeLeft(e, t);
+		t.push(this.left), this.break && (n++, e >= n && t.push(null)), e > n && this.right.decomposeLeft(e - n, t);
+	}
+	decomposeRight(e, t) {
+		let n = this.left.length, r = n + this.break;
+		if (e >= r) return this.right.decomposeRight(e - r, t);
+		e < n && this.left.decomposeRight(e, t), this.break && e < r && t.push(null), t.push(this.right);
+	}
+	balanced(e, t) {
+		return e.size > 2 * t.size || t.size > 2 * e.size ? Va.of(this.break ? [
+			e,
+			null,
+			t
+		] : [e, t]) : (this.left = Ha(this.left, e), this.right = Ha(this.right, t), this.setHeight(e.height + t.height), this.outdated = e.outdated || t.outdated, this.size = e.size + t.size, this.length = e.length + this.break + t.length, this);
+	}
+	updateHeight(e, t = 0, n = !1, r) {
+		let { left: i, right: a } = this, o = t + i.length + this.break, s = null;
+		return r && r.from <= t + i.length && r.more ? s = i = i.updateHeight(e, t, n, r) : i.updateHeight(e, t, n), r && r.from <= o + a.length && r.more ? s = a = a.updateHeight(e, o, n, r) : a.updateHeight(e, o, n), s ? this.balanced(i, a) : (this.height = this.left.height + this.right.height, this.outdated = !1, this);
+	}
+	toString() {
+		return this.left + (this.break ? " " : "-") + this.right;
+	}
+};
+function Ja(e, t) {
+	let n, r;
+	e[t] == null && (n = e[t - 1]) instanceof Ka && (r = e[t + 1]) instanceof Ka && e.splice(t - 1, 3, new Ka(n.length + 1 + r.length));
+}
+var Ya = 5, Xa = class e {
+	constructor(e, t) {
+		this.pos = e, this.oracle = t, this.nodes = [], this.lineStart = -1, this.lineEnd = -1, this.covering = null, this.writtenTo = e;
+	}
+	get isCovered() {
+		return this.covering && this.nodes[this.nodes.length - 1] == this.covering;
+	}
+	span(e, t) {
+		if (this.lineStart > -1) {
+			let e = Math.min(t, this.lineEnd), n = this.nodes[this.nodes.length - 1];
+			n instanceof Ga ? n.length += e - this.pos : (e > this.pos || !this.isCovered) && this.nodes.push(new Ga(e - this.pos, -1, 0)), this.writtenTo = e, t > e && (this.nodes.push(null), this.writtenTo++, this.lineStart = -1);
+		}
+		this.pos = t;
+	}
+	point(e, t, n) {
+		if (e < t || n.heightRelevant) {
+			let r = n.widget ? n.widget.estimatedHeight : 0, i = n.widget ? n.widget.lineBreaks : 0;
+			r < 0 && (r = this.oracle.lineHeight);
+			let a = t - e;
+			n.block ? this.addBlock(new Wa(a, r, n)) : (a || i || r >= Ya) && this.addLineDeco(r, i, a);
+		} else t > e && this.span(e, t);
+		this.lineEnd > -1 && this.lineEnd < this.pos && (this.lineEnd = this.oracle.doc.lineAt(this.pos).to);
+	}
+	enterLine() {
+		if (this.lineStart > -1) return;
+		let { from: e, to: t } = this.oracle.doc.lineAt(this.pos);
+		this.lineStart = e, this.lineEnd = t, this.writtenTo < e && ((this.writtenTo < e - 1 || this.nodes[this.nodes.length - 1] == null) && this.nodes.push(this.blankContent(this.writtenTo, e - 1)), this.nodes.push(null)), this.pos > e && this.nodes.push(new Ga(this.pos - e, -1, 0)), this.writtenTo = this.pos;
+	}
+	blankContent(e, t) {
+		let n = new Ka(t - e);
+		return this.oracle.doc.lineAt(e).to == t && (n.flags |= 4), n;
+	}
+	ensureLine() {
+		this.enterLine();
+		let e = this.nodes.length ? this.nodes[this.nodes.length - 1] : null;
+		if (e instanceof Ga) return e;
+		let t = new Ga(0, -1, 0);
+		return this.nodes.push(t), t;
+	}
+	addBlock(e) {
+		this.enterLine();
+		let t = e.deco;
+		t && t.startSide > 0 && !this.isCovered && this.ensureLine(), this.nodes.push(e), this.writtenTo = this.pos += e.length, t && t.endSide > 0 && (this.covering = e);
+	}
+	addLineDeco(e, t, n) {
+		let r = this.ensureLine();
+		r.length += n, r.collapsed += n, r.widgetHeight = Math.max(r.widgetHeight, e), r.breaks += t, this.writtenTo = this.pos += n;
+	}
+	finish(e) {
+		let t = this.nodes.length == 0 ? null : this.nodes[this.nodes.length - 1];
+		this.lineStart > -1 && !(t instanceof Ga) && !this.isCovered ? this.nodes.push(new Ga(0, -1, 0)) : (this.writtenTo < this.pos || t == null) && this.nodes.push(this.blankContent(this.writtenTo, this.pos));
+		let n = e;
+		for (let e of this.nodes) e instanceof Ga && e.updateHeight(this.oracle, n), n += e ? e.length : 1;
+		return this.nodes;
+	}
+	static build(t, n, r, i) {
+		let a = new e(r, t);
+		return A.spans(n, r, i, a, 0), a.finish(r);
+	}
+};
+function Za(e, t, n) {
+	let r = new Qa();
+	return A.compare(e, t, n, r, 0), r.changes;
+}
+var Qa = class {
+	constructor() {
+		this.changes = [];
+	}
+	compareRange() {}
+	comparePoint(e, t, n, r) {
+		(e < t || n && n.heightRelevant || r && r.heightRelevant) && cn(e, t, this.changes, 5);
+	}
+};
+function $a(e, t) {
+	let n = e.getBoundingClientRect(), r = e.ownerDocument, i = r.defaultView || window, a = Math.max(0, n.left), o = Math.min(i.innerWidth, n.right), s = Math.max(0, n.top), c = Math.min(i.innerHeight, n.bottom);
+	for (let t = e.parentNode; t && t != r.body;) if (I(t)) {
+		let n = window.getComputedStyle(t);
+		if ((t.scrollHeight > t.clientHeight || t.scrollWidth > t.clientWidth) && n.overflow != "visible") {
+			let n = t.getBoundingClientRect();
+			a = Math.max(a, n.left), o = Math.min(o, n.right), s = Math.max(s, n.top), c = Math.min(t == e.parentNode ? i.innerHeight : c, n.bottom);
+		}
+		t = n.position == "absolute" || n.position == "fixed" ? t.offsetParent : t.parentNode;
+	} else if (t.nodeType == 11) t = t.host;
+	else break;
+	return {
+		left: a - n.left,
+		right: Math.max(a, o) - n.left,
+		top: s - (n.top + t),
+		bottom: Math.max(s, c) - (n.top + t)
+	};
+}
+function eo(e) {
+	let t = e.getBoundingClientRect(), n = e.ownerDocument.defaultView || window;
+	return t.left < n.innerWidth && t.right > 0 && t.top < n.innerHeight && t.bottom > 0;
+}
+function to(e, t) {
+	let n = e.getBoundingClientRect();
+	return {
+		left: 0,
+		right: n.right - n.left,
+		top: t,
+		bottom: n.bottom - (n.top + t)
+	};
+}
+var no = class {
+	constructor(e, t, n, r) {
+		this.from = e, this.to = t, this.size = n, this.displaySize = r;
+	}
+	static same(e, t) {
+		if (e.length != t.length) return !1;
+		for (let n = 0; n < e.length; n++) {
+			let r = e[n], i = t[n];
+			if (r.from != i.from || r.to != i.to || r.size != i.size) return !1;
+		}
+		return !0;
+	}
+	draw(e, t) {
+		return F.replace({ widget: new ro(this.displaySize * (t ? e.scaleY : e.scaleX), t) }).range(this.from, this.to);
+	}
+}, ro = class extends tn {
+	constructor(e, t) {
+		super(), this.size = e, this.vertical = t;
+	}
+	eq(e) {
+		return e.size == this.size && e.vertical == this.vertical;
+	}
+	toDOM() {
+		let e = document.createElement("div");
+		return this.vertical ? e.style.height = this.size + "px" : (e.style.width = this.size + "px", e.style.height = "2px", e.style.display = "inline-block"), e;
+	}
+	get estimatedHeight() {
+		return this.vertical ? this.size : -1;
+	}
+}, io = class {
+	constructor(e, t) {
+		this.view = e, this.state = t, this.pixelViewport = {
+			left: 0,
+			right: window.innerWidth,
+			top: 0,
+			bottom: 0
+		}, this.inView = !0, this.paddingTop = 0, this.paddingBottom = 0, this.contentDOMWidth = 0, this.contentDOMHeight = 0, this.editorHeight = 0, this.editorWidth = 0, this.scaleX = 1, this.scaleY = 1, this.scrollOffset = 0, this.scrolledToBottom = !1, this.scrollAnchorPos = 0, this.scrollAnchorHeight = -1, this.scaler = uo, this.scrollTarget = null, this.printing = !1, this.mustMeasureContent = !0, this.defaultTextDirection = L.LTR, this.visibleRanges = [], this.mustEnforceCursorAssoc = !1;
+		let n = t.facet(Dr).some((e) => typeof e != "function" && e.class == "cm-lineWrapping");
+		this.heightOracle = new La(n), this.stateDeco = fo(t), this.heightMap = Va.empty().applyChanges(this.stateDeco, f.empty, this.heightOracle.setDoc(t.doc), [new Lr(0, 0, 0, t.doc.length)]);
+		for (let e = 0; e < 2 && (this.viewport = this.getViewport(0, null), this.updateForViewport()); e++);
+		this.updateViewportLines(), this.lineGaps = this.ensureLineGaps([]), this.lineGapDeco = F.set(this.lineGaps.map((e) => e.draw(this, !1))), this.scrollParent = e.scrollDOM, this.computeVisibleRanges();
+	}
+	updateForViewport() {
+		let e = [this.viewport], { main: t } = this.state.selection;
+		for (let n = 0; n <= 1; n++) {
+			let r = n ? t.head : t.anchor;
+			if (!e.some(({ from: e, to: t }) => r >= e && r <= t)) {
+				let { from: t, to: n } = this.lineBlockAt(r);
+				e.push(new ao(t, n));
+			}
+		}
+		return this.viewports = e.sort((e, t) => e.from - t.from), this.updateScaler();
+	}
+	updateScaler() {
+		let e = this.scaler;
+		return this.scaler = this.heightMap.height <= 7e6 ? uo : new po(this.heightOracle, this.heightMap, this.viewports), e.eq(this.scaler) ? 0 : 2;
+	}
+	updateViewportLines() {
+		this.viewportLines = [], this.heightMap.forEachLine(this.viewport.from, this.viewport.to, this.heightOracle.setDoc(this.state.doc), 0, 0, (e) => {
+			this.viewportLines.push(mo(e, this.scaler));
+		});
+	}
+	update(e, t = null) {
+		this.state = e.state;
+		let n = this.stateDeco;
+		this.stateDeco = fo(this.state);
+		let r = e.changedRanges, i = Lr.extendWithRanges(r, Za(n, this.stateDeco, e ? e.changes : ce.empty(this.state.doc.length))), a = this.heightMap.height, o = this.scrolledToBottom ? null : this.scrollAnchorAt(this.scrollOffset);
+		Ia(), this.heightMap = this.heightMap.applyChanges(this.stateDeco, e.startState.doc, this.heightOracle.setDoc(this.state.doc), i), (this.heightMap.height != a || Fa) && (e.flags |= 2), o ? (this.scrollAnchorPos = e.changes.mapPos(o.from, -1), this.scrollAnchorHeight = o.top) : (this.scrollAnchorPos = -1, this.scrollAnchorHeight = a);
+		let s = i.length ? this.mapViewport(this.viewport, e.changes) : this.viewport;
+		(t && (t.range.head < s.from || t.range.head > s.to) || !this.viewportIsAppropriate(s)) && (s = this.getViewport(0, t));
+		let c = s.from != this.viewport.from || s.to != this.viewport.to;
+		this.viewport = s, e.flags |= this.updateForViewport(), (c || !e.changes.empty || e.flags & 2) && this.updateViewportLines(), (this.lineGaps.length || this.viewport.to - this.viewport.from > 4e3) && this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, e.changes))), e.flags |= this.computeVisibleRanges(e.changes), t && (this.scrollTarget = t), !this.mustEnforceCursorAssoc && (e.selectionSet || e.focusChanged) && e.view.lineWrapping && e.state.selection.main.empty && e.state.selection.main.assoc && !e.state.facet(gr) && (this.mustEnforceCursorAssoc = !0);
+	}
+	measure() {
+		let { view: e } = this, t = e.contentDOM, n = window.getComputedStyle(t), r = this.heightOracle, i = n.whiteSpace;
+		this.defaultTextDirection = n.direction == "rtl" ? L.RTL : L.LTR;
+		let a = this.heightOracle.mustRefreshForWrapping(i) || this.mustMeasureContent === "refresh", o = t.getBoundingClientRect(), s = a || this.mustMeasureContent || this.contentDOMHeight != o.height;
+		this.contentDOMHeight = o.height, this.mustMeasureContent = !1;
+		let c = 0, l = 0;
+		if (o.width && o.height) {
+			let { scaleX: e, scaleY: n } = Sn(t, o);
+			(e > .005 && Math.abs(this.scaleX - e) > .005 || n > .005 && Math.abs(this.scaleY - n) > .005) && (this.scaleX = e, this.scaleY = n, c |= 16, a = s = !0);
+		}
+		let u = (parseInt(n.paddingTop) || 0) * this.scaleY, d = (parseInt(n.paddingBottom) || 0) * this.scaleY;
+		(this.paddingTop != u || this.paddingBottom != d) && (this.paddingTop = u, this.paddingBottom = d, c |= 18), this.editorWidth != e.scrollDOM.clientWidth && (r.lineWrapping && (s = !0), this.editorWidth = e.scrollDOM.clientWidth, c |= 16);
+		let p = wn(this.view.contentDOM, !1).y;
+		p != this.scrollParent && (this.scrollParent = p, this.scrollAnchorHeight = -1, this.scrollOffset = 0);
+		let m = this.getScrollOffset();
+		this.scrollOffset != m && (this.scrollAnchorHeight = -1, this.scrollOffset = m), this.scrolledToBottom = Fn(this.scrollParent || e.win);
+		let h = (this.printing ? to : $a)(t, this.paddingTop), g = h.top - this.pixelViewport.top, _ = h.bottom - this.pixelViewport.bottom;
+		this.pixelViewport = h;
+		let v = this.pixelViewport.bottom > this.pixelViewport.top && this.pixelViewport.right > this.pixelViewport.left;
+		if (v != this.inView && (this.inView = v, v && (s = !0)), !this.inView && !this.scrollTarget && !eo(e.dom)) return 0;
+		let y = o.width;
+		if ((this.contentDOMWidth != y || this.editorHeight != e.scrollDOM.clientHeight) && (this.contentDOMWidth = o.width, this.editorHeight = e.scrollDOM.clientHeight, c |= 16), s) {
+			let t = e.docView.measureVisibleLineHeights(this.viewport);
+			if (r.mustRefreshForHeights(t) && (a = !0), a || r.lineWrapping && Math.abs(y - this.contentDOMWidth) > r.charWidth) {
+				let { lineHeight: n, charWidth: o, textHeight: s } = e.docView.measureTextSize();
+				a = n > 0 && r.refresh(i, n, o, s, Math.max(5, y / o), t), a && (e.docView.minWidth = 0, c |= 16);
+			}
+			g > 0 && _ > 0 ? l = Math.max(g, _) : g < 0 && _ < 0 && (l = Math.min(g, _)), Ia();
+			for (let n of this.viewports) {
+				let i = n.from == this.viewport.from ? t : e.docView.measureVisibleLineHeights(n);
+				this.heightMap = (a ? Va.empty().applyChanges(this.stateDeco, f.empty, this.heightOracle, [new Lr(0, 0, 0, e.state.doc.length)]) : this.heightMap).updateHeight(r, 0, a, new Ra(n.from, i));
+			}
+			Fa && (c |= 2);
+		}
+		let ee = !this.viewportIsAppropriate(this.viewport, l) || this.scrollTarget && (this.scrollTarget.range.head < this.viewport.from || this.scrollTarget.range.head > this.viewport.to);
+		return ee && (c & 2 && (c |= this.updateScaler()), this.viewport = this.getViewport(l, this.scrollTarget), c |= this.updateForViewport()), (c & 2 || ee) && this.updateViewportLines(), (this.lineGaps.length || this.viewport.to - this.viewport.from > 4e3) && this.updateLineGaps(this.ensureLineGaps(a ? [] : this.lineGaps, e)), c |= this.computeVisibleRanges(), this.mustEnforceCursorAssoc && (this.mustEnforceCursorAssoc = !1, e.docView.enforceCursorAssoc()), c;
+	}
+	get visibleTop() {
+		return this.scaler.fromDOM(this.pixelViewport.top);
+	}
+	get visibleBottom() {
+		return this.scaler.fromDOM(this.pixelViewport.bottom);
+	}
+	getViewport(e, t) {
+		let n = .5 - Math.max(-.5, Math.min(.5, e / 1e3 / 2)), r = this.heightMap, i = this.heightOracle, { visibleTop: a, visibleBottom: o } = this, s = new ao(r.lineAt(a - n * 1e3, U.ByHeight, i, 0, 0).from, r.lineAt(o + (1 - n) * 1e3, U.ByHeight, i, 0, 0).to);
+		if (t) {
+			let { head: e } = t.range;
+			if (e < s.from || e > s.to) {
+				let n = Math.min(this.editorHeight, this.pixelViewport.bottom - this.pixelViewport.top), a = r.lineAt(e, U.ByPos, i, 0, 0), o;
+				o = t.y == "center" ? (a.top + a.bottom) / 2 - n / 2 : t.y == "start" || t.y == "nearest" && e < s.from ? a.top : a.bottom - n, s = new ao(r.lineAt(o - 500, U.ByHeight, i, 0, 0).from, r.lineAt(o + n + 500, U.ByHeight, i, 0, 0).to);
+			}
+		}
+		return s;
+	}
+	mapViewport(e, t) {
+		let n = t.mapPos(e.from, -1), r = t.mapPos(e.to, 1);
+		return new ao(this.heightMap.lineAt(n, U.ByPos, this.heightOracle, 0, 0).from, this.heightMap.lineAt(r, U.ByPos, this.heightOracle, 0, 0).to);
+	}
+	viewportIsAppropriate({ from: e, to: t }, n = 0) {
+		if (!this.inView) return !0;
+		let { top: r } = this.heightMap.lineAt(e, U.ByPos, this.heightOracle, 0, 0), { bottom: i } = this.heightMap.lineAt(t, U.ByPos, this.heightOracle, 0, 0), { visibleTop: a, visibleBottom: o } = this;
+		return (e == 0 || r <= a - Math.max(10, Math.min(-n, 250))) && (t == this.state.doc.length || i >= o + Math.max(10, Math.min(n, 250))) && r > a - 2e3 && i < o + 2e3;
+	}
+	mapLineGaps(e, t) {
+		if (!e.length || t.empty) return e;
+		let n = [];
+		for (let r of e) t.touchesRange(r.from, r.to) || n.push(new no(t.mapPos(r.from), t.mapPos(r.to), r.size, r.displaySize));
+		return n;
+	}
+	ensureLineGaps(e, t) {
+		let n = this.heightOracle.lineWrapping, r = n ? 1e4 : 2e3, i = r >> 1, a = r << 1;
+		if (this.defaultTextDirection != L.LTR && !n) return [];
+		let o = [], s = (r, a, c, l) => {
+			if (a - r < i) return;
+			let u = this.state.selection.main, d = [u.from];
+			u.empty || d.push(u.to);
+			for (let e of d) if (e > r && e < a) {
+				s(r, e - 10, c, l), s(e + 10, a, c, l);
+				return;
+			}
+			let f = lo(e, (e) => e.from >= c.from && e.to <= c.to && Math.abs(e.from - r) < i && Math.abs(e.to - a) < i && !d.some((t) => e.from < t && e.to > t));
+			if (!f) {
+				if (a < c.to && t && n && t.visibleRanges.some((e) => e.from <= a && e.to >= a)) {
+					let e = t.moveToLineBoundary(T.cursor(a), !1, !0).head;
+					e > r && (a = e);
+				}
+				let e = this.gapSize(c, r, a, l);
+				f = new no(r, a, e, n || e < 2e6 ? e : 2e6);
+			}
+			o.push(f);
+		}, c = (t) => {
+			if (t.length < a || t.type != P.Text) return;
+			let i = oo(t.from, t.to, this.stateDeco);
+			if (i.total < a) return;
+			let o = this.scrollTarget ? this.scrollTarget.range.head : null, c, l;
+			if (n) {
+				let e = r / this.heightOracle.lineLength * this.heightOracle.lineHeight, n, a;
+				if (o != null) {
+					let r = co(i, o), s = ((this.visibleBottom - this.visibleTop) / 2 + e) / t.height;
+					n = r - s, a = r + s;
+				} else n = (this.visibleTop - t.top - e) / t.height, a = (this.visibleBottom - t.top + e) / t.height;
+				c = so(i, n), l = so(i, a);
+			} else {
+				let n = i.total * this.heightOracle.charWidth, a = r * this.heightOracle.charWidth, s = 0;
+				if (n > 2e6) for (let n of e) n.from >= t.from && n.from < t.to && n.size != n.displaySize && n.from * this.heightOracle.charWidth + s < this.pixelViewport.left && (s = n.size - n.displaySize);
+				let u = this.pixelViewport.left + s, d = this.pixelViewport.right + s, f, p;
+				if (o != null) {
+					let e = co(i, o), t = ((d - u) / 2 + a) / n;
+					f = e - t, p = e + t;
+				} else f = (u - a) / n, p = (d + a) / n;
+				c = so(i, f), l = so(i, p);
+			}
+			c > t.from && s(t.from, c, t, i), l < t.to && s(l, t.to, t, i);
+		};
+		for (let e of this.viewportLines) Array.isArray(e.type) ? e.type.forEach(c) : c(e);
+		return o;
+	}
+	gapSize(e, t, n, r) {
+		let i = co(r, n) - co(r, t);
+		return this.heightOracle.lineWrapping ? e.height * i : r.total * this.heightOracle.charWidth * i;
+	}
+	updateLineGaps(e) {
+		no.same(e, this.lineGaps) || (this.lineGaps = e, this.lineGapDeco = F.set(e.map((e) => e.draw(this, this.heightOracle.lineWrapping))));
+	}
+	computeVisibleRanges(e) {
+		let t = this.stateDeco;
+		this.lineGaps.length && (t = t.concat(this.lineGapDeco));
+		let n = [];
+		A.spans(t, this.viewport.from, this.viewport.to, {
+			span(e, t) {
+				n.push({
+					from: e,
+					to: t
+				});
+			},
+			point() {}
+		}, 20);
+		let r = 0;
+		if (n.length != this.visibleRanges.length) r = 12;
+		else for (let t = 0; t < n.length && !(r & 8); t++) {
+			let i = this.visibleRanges[t], a = n[t];
+			(i.from != a.from || i.to != a.to) && (r |= 4, e && e.mapPos(i.from, -1) == a.from && e.mapPos(i.to, 1) == a.to || (r |= 8));
+		}
+		return this.visibleRanges = n, r;
+	}
+	lineBlockAt(e) {
+		return e >= this.viewport.from && e <= this.viewport.to && this.viewportLines.find((t) => t.from <= e && t.to >= e) || mo(this.heightMap.lineAt(e, U.ByPos, this.heightOracle, 0, 0), this.scaler);
+	}
+	lineBlockAtHeight(e) {
+		return e >= this.viewportLines[0].top && e <= this.viewportLines[this.viewportLines.length - 1].bottom && this.viewportLines.find((t) => t.top <= e && t.bottom >= e) || mo(this.heightMap.lineAt(this.scaler.fromDOM(e), U.ByHeight, this.heightOracle, 0, 0), this.scaler);
+	}
+	getScrollOffset() {
+		return this.scrollParent == this.view.scrollDOM ? this.scrollParent.scrollTop * this.scaleY : (this.scrollParent ? this.scrollParent.getBoundingClientRect().top : 0) - this.view.contentDOM.getBoundingClientRect().top;
+	}
+	scrollAnchorAt(e) {
+		let t = this.lineBlockAtHeight(e + 8);
+		return t.from >= this.viewport.from || this.viewportLines[0].top - e > 200 ? t : this.viewportLines[0];
+	}
+	elementAtHeight(e) {
+		return mo(this.heightMap.blockAt(this.scaler.fromDOM(e), this.heightOracle, 0, 0), this.scaler);
+	}
+	get docHeight() {
+		return this.scaler.toDOM(this.heightMap.height);
+	}
+	get contentHeight() {
+		return this.docHeight + this.paddingTop + this.paddingBottom;
+	}
+}, ao = class {
+	constructor(e, t) {
+		this.from = e, this.to = t;
+	}
+};
+function oo(e, t, n) {
+	let r = [], i = e, a = 0;
+	return A.spans(n, e, t, {
+		span() {},
+		point(e, t) {
+			e > i && (r.push({
+				from: i,
+				to: e
+			}), a += e - i), i = t;
+		}
+	}, 20), i < t && (r.push({
+		from: i,
+		to: t
+	}), a += t - i), {
+		total: a,
+		ranges: r
+	};
+}
+function so({ total: e, ranges: t }, n) {
+	if (n <= 0) return t[0].from;
+	if (n >= 1) return t[t.length - 1].to;
+	let r = Math.floor(e * n);
+	for (let e = 0;; e++) {
+		let { from: n, to: i } = t[e], a = i - n;
+		if (r <= a) return n + r;
+		r -= a;
+	}
+}
+function co(e, t) {
+	let n = 0;
+	for (let { from: r, to: i } of e.ranges) {
+		if (t <= i) {
+			n += t - r;
+			break;
+		}
+		n += i - r;
+	}
+	return n / e.total;
+}
+function lo(e, t) {
+	for (let n of e) if (t(n)) return n;
+}
+var uo = {
+	toDOM(e) {
+		return e;
+	},
+	fromDOM(e) {
+		return e;
+	},
+	scale: 1,
+	eq(e) {
+		return e == this;
+	}
+};
+function fo(e) {
+	let t = e.facet(Or).filter((e) => typeof e != "function"), n = e.facet(Ar).filter((e) => typeof e != "function");
+	return n.length && t.push(A.join(n)), t;
+}
+var po = class e {
+	constructor(e, t, n) {
+		let r = 0, i = 0, a = 0;
+		this.viewports = n.map(({ from: n, to: i }) => {
+			let a = t.lineAt(n, U.ByPos, e, 0, 0).top, o = t.lineAt(i, U.ByPos, e, 0, 0).bottom;
+			return r += o - a, {
+				from: n,
+				to: i,
+				top: a,
+				bottom: o,
+				domTop: 0,
+				domBottom: 0
+			};
+		}), this.scale = (7e6 - r) / (t.height - r);
+		for (let e of this.viewports) e.domTop = a + (e.top - i) * this.scale, a = e.domBottom = e.domTop + (e.bottom - e.top), i = e.bottom;
+	}
+	toDOM(e) {
+		for (let t = 0, n = 0, r = 0;; t++) {
+			let i = t < this.viewports.length ? this.viewports[t] : null;
+			if (!i || e < i.top) return r + (e - n) * this.scale;
+			if (e <= i.bottom) return i.domTop + (e - i.top);
+			n = i.bottom, r = i.domBottom;
+		}
+	}
+	fromDOM(e) {
+		for (let t = 0, n = 0, r = 0;; t++) {
+			let i = t < this.viewports.length ? this.viewports[t] : null;
+			if (!i || e < i.domTop) return n + (e - r) / this.scale;
+			if (e <= i.domBottom) return i.top + (e - i.domTop);
+			n = i.bottom, r = i.domBottom;
+		}
+	}
+	eq(t) {
+		return t instanceof e && this.scale == t.scale && this.viewports.length == t.viewports.length && this.viewports.every((e, n) => e.from == t.viewports[n].from && e.to == t.viewports[n].to);
+	}
+};
+function mo(e, t) {
+	if (t.scale == 1) return e;
+	let n = t.toDOM(e.top), r = t.toDOM(e.bottom);
+	return new za(e.from, e.length, n, r - n, Array.isArray(e._content) ? e._content.map((e) => mo(e, t)) : e._content);
+}
+var ho = /*@__PURE__*/ E.define({ combine: (e) => e.join(" ") }), go = /*@__PURE__*/ E.define({ combine: (e) => e.indexOf(!0) > -1 }), _o = /*@__PURE__*/ Ot.newName(), vo = /*@__PURE__*/ Ot.newName(), yo = /*@__PURE__*/ Ot.newName(), bo = {
+	"&light": "." + vo,
+	"&dark": "." + yo
+};
+function xo(e, t, n) {
+	return new Ot(t, { finish(t) {
+		return /&/.test(t) ? t.replace(/&\w*/, (t) => {
+			if (t == "&") return e;
+			if (!n || !n[t]) throw RangeError(`Unsupported selector: ${t}`);
+			return n[t];
+		}) : e + " " + t;
+	} });
+}
+var So = /*@__PURE__*/ xo("." + _o, {
+	"&": {
+		position: "relative !important",
+		boxSizing: "border-box",
+		"&.cm-focused": { outline: "1px dotted #212121" },
+		display: "flex !important",
+		flexDirection: "column"
+	},
+	".cm-scroller": {
+		display: "flex !important",
+		alignItems: "flex-start !important",
+		fontFamily: "monospace",
+		lineHeight: 1.4,
+		height: "100%",
+		overflowX: "auto",
+		position: "relative",
+		zIndex: 0,
+		overflowAnchor: "none"
+	},
+	".cm-content": {
+		margin: 0,
+		flexGrow: 2,
+		flexShrink: 0,
+		display: "block",
+		whiteSpace: "pre",
+		wordWrap: "normal",
+		boxSizing: "border-box",
+		minHeight: "100%",
+		padding: "4px 0",
+		outline: "none",
+		"&[contenteditable=true]": { WebkitUserModify: "read-write-plaintext-only" }
+	},
+	".cm-lineWrapping": {
+		whiteSpace_fallback: "pre-wrap",
+		whiteSpace: "break-spaces",
+		wordBreak: "break-word",
+		overflowWrap: "anywhere",
+		flexShrink: 1
+	},
+	"&light .cm-content": { caretColor: "black" },
+	"&dark .cm-content": { caretColor: "white" },
+	".cm-line": {
+		display: "block",
+		padding: "0 2px 0 6px"
+	},
+	".cm-layer": {
+		userSelect: "none",
+		position: "absolute",
+		left: 0,
+		top: 0,
+		contain: "size style",
+		"& > *": { position: "absolute" }
+	},
+	"&light .cm-selectionBackground": { background: "#d9d9d9" },
+	"&dark .cm-selectionBackground": { background: "#222" },
+	"&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": { background: "#d7d4f0" },
+	"&dark.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": { background: "#233" },
+	".cm-cursorLayer": { pointerEvents: "none" },
+	"&.cm-focused > .cm-scroller > .cm-cursorLayer": { animation: "steps(1) cm-blink 1.2s infinite" },
+	"@keyframes cm-blink": {
+		"0%": {},
+		"50%": { opacity: 0 },
+		"100%": {}
+	},
+	"@keyframes cm-blink2": {
+		"0%": {},
+		"50%": { opacity: 0 },
+		"100%": {}
+	},
+	".cm-cursor, .cm-dropCursor": {
+		borderLeft: "1.2px solid black",
+		marginLeft: "-0.6px",
+		pointerEvents: "none"
+	},
+	".cm-cursor": { display: "none" },
+	"&dark .cm-cursor": { borderLeftColor: "#ddd" },
+	".cm-selectionHandle": {
+		backgroundColor: "currentColor",
+		width: "1.5px"
+	},
+	".cm-selectionHandle-start::before, .cm-selectionHandle-end::before": {
+		content: "\"\"",
+		backgroundColor: "inherit",
+		borderRadius: "50%",
+		width: "8px",
+		height: "8px",
+		position: "absolute",
+		left: "-3.25px"
+	},
+	".cm-selectionHandle-start::before": { top: "-8px" },
+	".cm-selectionHandle-end::before": { bottom: "-8px" },
+	".cm-dropCursor": { position: "absolute" },
+	"&.cm-focused > .cm-scroller > .cm-cursorLayer .cm-cursor": { display: "block" },
+	".cm-iso": { unicodeBidi: "isolate" },
+	".cm-announced": {
+		position: "fixed",
+		top: "-10000px"
+	},
+	"@media print": { ".cm-announced": { display: "none" } },
+	"&light .cm-activeLine": { backgroundColor: "#cceeff44" },
+	"&dark .cm-activeLine": { backgroundColor: "#99eeff33" },
+	"&light .cm-specialChar": { color: "red" },
+	"&dark .cm-specialChar": { color: "#f78" },
+	".cm-gutters": {
+		flexShrink: 0,
+		display: "flex",
+		height: "100%",
+		boxSizing: "border-box",
+		zIndex: 200
+	},
+	".cm-gutters-before": { insetInlineStart: 0 },
+	".cm-gutters-after": { insetInlineEnd: 0 },
+	"&light .cm-gutters": {
+		backgroundColor: "#f5f5f5",
+		color: "#6c6c6c",
+		border: "0px solid #ddd",
+		"&.cm-gutters-before": { borderRightWidth: "1px" },
+		"&.cm-gutters-after": { borderLeftWidth: "1px" }
+	},
+	"&dark .cm-gutters": {
+		backgroundColor: "#333338",
+		color: "#ccc"
+	},
+	".cm-gutter": {
+		display: "flex !important",
+		flexDirection: "column",
+		flexShrink: 0,
+		boxSizing: "border-box",
+		minHeight: "100%",
+		overflow: "hidden"
+	},
+	".cm-gutterElement": { boxSizing: "border-box" },
+	".cm-lineNumbers .cm-gutterElement": {
+		padding: "0 3px 0 5px",
+		minWidth: "20px",
+		textAlign: "right",
+		whiteSpace: "nowrap"
+	},
+	"&light .cm-activeLineGutter": { backgroundColor: "#e2f2ff" },
+	"&dark .cm-activeLineGutter": { backgroundColor: "#222227" },
+	".cm-panels": {
+		boxSizing: "border-box",
+		position: "sticky",
+		left: 0,
+		right: 0,
+		zIndex: 300
+	},
+	"&light .cm-panels": {
+		backgroundColor: "#f5f5f5",
+		color: "black"
+	},
+	".cm-panels-top": { top: "0" },
+	".cm-panels-bottom": { bottom: "0" },
+	"&light .cm-panels-top": { borderBottom: "1px solid #ddd" },
+	"&light .cm-panels-bottom": { borderTop: "1px solid #ddd" },
+	"&dark .cm-panels": {
+		backgroundColor: "#333338",
+		color: "white"
+	},
+	".cm-dialog": {
+		padding: "2px 19px 4px 6px",
+		position: "relative",
+		"& label": { fontSize: "80%" }
+	},
+	".cm-dialog-close": {
+		position: "absolute",
+		top: "3px",
+		right: "4px",
+		backgroundColor: "inherit",
+		border: "none",
+		font: "inherit",
+		fontSize: "14px",
+		padding: "0"
+	},
+	".cm-tab": {
+		display: "inline-block",
+		overflow: "hidden",
+		verticalAlign: "bottom"
+	},
+	".cm-widgetBuffer": {
+		verticalAlign: "baseline",
+		height: "1em",
+		width: 0,
+		display: "inline"
+	},
+	".cm-placeholder": {
+		color: "#888",
+		display: "inline-block",
+		verticalAlign: "top",
+		userSelect: "none"
+	},
+	".cm-highlightSpace": {
+		background: "radial-gradient(circle at 50% 55%, #aaa 20%, transparent 0) no-repeat",
+		backgroundSize: ".4em",
+		backgroundPosition: "calc(min(50%, 0px)) center"
+	},
+	".cm-highlightTab": {
+		backgroundImage: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"20\"><path stroke=\"%23888\" stroke-width=\"1\" fill=\"none\" d=\"M1 10H196L190 5M190 15L196 10M197 4L197 16\"/></svg>')",
+		backgroundSize: "auto 100%",
+		backgroundPosition: "right 90%",
+		backgroundRepeat: "no-repeat"
+	},
+	".cm-trailingSpace": { backgroundColor: "#ff332255" },
+	".cm-button": {
+		verticalAlign: "middle",
+		color: "inherit",
+		fontSize: "70%",
+		padding: ".2em 1em",
+		borderRadius: "1px"
+	},
+	"&light .cm-button": {
+		backgroundImage: "linear-gradient(#eff1f5, #d9d9df)",
+		border: "1px solid #888",
+		"&:active": { backgroundImage: "linear-gradient(#b4b4b4, #d0d3d6)" }
+	},
+	"&dark .cm-button": {
+		backgroundImage: "linear-gradient(#393939, #111)",
+		border: "1px solid #888",
+		"&:active": { backgroundImage: "linear-gradient(#111, #333)" }
+	},
+	".cm-textfield": {
+		verticalAlign: "middle",
+		color: "inherit",
+		fontSize: "70%",
+		border: "1px solid silver",
+		padding: ".2em .5em"
+	},
+	"&light .cm-textfield": { backgroundColor: "white" },
+	"&dark .cm-textfield": {
+		border: "1px solid #555",
+		backgroundColor: "inherit"
+	}
+}, bo), Co = {
+	childList: !0,
+	characterData: !0,
+	subtree: !0,
+	attributes: !0,
+	characterDataOldValue: !0
+}, wo = N.ie && N.ie_version <= 11, To = class {
+	constructor(e) {
+		this.view = e, this.active = !1, this.editContext = null, this.selectionRange = new Tn(), this.selectionChanged = !1, this.delayedFlush = -1, this.resizeTimeout = -1, this.queue = [], this.delayedAndroidKey = null, this.flushingAndroidKey = -1, this.lastChange = 0, this.scrollTargets = [], this.intersection = null, this.resizeScroll = null, this.intersecting = !1, this.gapIntersection = null, this.gaps = [], this.printQuery = null, this.parentCheck = -1, this.dom = e.contentDOM, this.observer = new MutationObserver((t) => {
+			for (let e of t) this.queue.push(e);
+			(N.ie && N.ie_version <= 11 || N.ios && e.composing) && t.some((e) => e.type == "childList" && e.removedNodes.length || e.type == "characterData" && e.oldValue.length > e.target.nodeValue.length) ? this.flushSoon() : this.flush();
+		}), window.EditContext && N.android && e.constructor.EDIT_CONTEXT !== !1 && !(N.chrome && N.chrome_version < 126) && (this.editContext = new ko(e), e.state.facet(xr) && (e.contentDOM.editContext = this.editContext.editContext)), wo && (this.onCharData = (e) => {
+			this.queue.push({
+				target: e.target,
+				type: "characterData",
+				oldValue: e.prevValue
+			}), this.flushSoon();
+		}), this.onSelectionChange = this.onSelectionChange.bind(this), this.onResize = this.onResize.bind(this), this.onPrint = this.onPrint.bind(this), this.onScroll = this.onScroll.bind(this), window.matchMedia && (this.printQuery = window.matchMedia("print")), typeof ResizeObserver == "function" && (this.resizeScroll = new ResizeObserver(() => {
+			this.view.docView?.lastUpdate < Date.now() - 75 && this.onResize();
+		}), this.resizeScroll.observe(e.scrollDOM)), this.addWindowListeners(this.win = e.win), this.start(), typeof IntersectionObserver == "function" && (this.intersection = new IntersectionObserver((e) => {
+			this.parentCheck < 0 && (this.parentCheck = setTimeout(this.listenForScroll.bind(this), 1e3)), e.length > 0 && e[e.length - 1].intersectionRatio > 0 != this.intersecting && (this.intersecting = !this.intersecting, this.intersecting != this.view.inView && this.onScrollChanged(document.createEvent("Event")));
+		}, { threshold: [0, .001] }), this.intersection.observe(this.dom), this.gapIntersection = new IntersectionObserver((e) => {
+			e.length > 0 && e[e.length - 1].intersectionRatio > 0 && this.onScrollChanged(document.createEvent("Event"));
+		}, {})), this.listenForScroll(), this.readSelectionRange();
+	}
+	onScrollChanged(e) {
+		this.view.inputState.runHandlers("scroll", e), this.intersecting && this.view.measure();
+	}
+	onScroll(e) {
+		this.intersecting && this.flush(!1), this.editContext && this.view.requestMeasure(this.editContext.measureReq), this.onScrollChanged(e);
+	}
+	onResize() {
+		this.resizeTimeout < 0 && (this.resizeTimeout = setTimeout(() => {
+			this.resizeTimeout = -1, this.view.requestMeasure();
+		}, 50));
+	}
+	onPrint(e) {
+		(e.type != "change" && e.type || e.matches) && (this.view.viewState.printing = !0, this.view.measure(), setTimeout(() => {
+			this.view.viewState.printing = !1, this.view.requestMeasure();
+		}, 500));
+	}
+	updateGaps(e) {
+		if (this.gapIntersection && (e.length != this.gaps.length || this.gaps.some((t, n) => t != e[n]))) {
+			this.gapIntersection.disconnect();
+			for (let t of e) this.gapIntersection.observe(t);
+			this.gaps = e;
+		}
+	}
+	onSelectionChange(e) {
+		let t = this.selectionChanged;
+		if (!this.readSelectionRange() || this.delayedAndroidKey) return;
+		let { view: n } = this, r = this.selectionRange;
+		if (n.state.facet(xr) ? n.root.activeElement != this.dom : !pn(this.dom, r)) return;
+		let i = r.anchorNode && n.docView.tile.nearest(r.anchorNode);
+		i && i.isWidget() && i.widget.ignoreEvent(e) ? t || (this.selectionChanged = !1) : (N.ie && N.ie_version <= 11 || N.android && N.chrome) && !n.state.selection.main.empty && r.focusNode && hn(r.focusNode, r.focusOffset, r.anchorNode, r.anchorOffset) ? this.flushSoon() : this.flush(!1);
+	}
+	readSelectionRange() {
+		let { view: e } = this, t = dn(e.root);
+		if (!t) return !1;
+		let n = N.safari && e.root.nodeType == 11 && e.root.activeElement == this.dom && Oo(this.view, t) || t;
+		if (!n || this.selectionRange.eq(n)) return !1;
+		let r = pn(this.dom, n);
+		return r && !this.selectionChanged && e.inputState.lastFocusTime > Date.now() - 200 && e.inputState.lastTouchTime < Date.now() - 300 && Pn(this.dom, n) ? (this.view.inputState.lastFocusTime = 0, e.docView.updateSelection(), !1) : (this.selectionRange.setRange(n), r && (this.selectionChanged = !0), !0);
+	}
+	setSelectionRange(e, t) {
+		this.selectionRange.set(e.node, e.offset, t.node, t.offset), this.selectionChanged = !1;
+	}
+	clearSelectionRange() {
+		this.selectionRange.set(null, 0, null, 0);
+	}
+	listenForScroll() {
+		this.parentCheck = -1;
+		let e = 0, t = null;
+		for (let n = this.dom; n;) if (I(n)) !t && e < this.scrollTargets.length && this.scrollTargets[e] == n ? e++ : t || (t = this.scrollTargets.slice(0, e)), t && t.push(n), n = n.assignedSlot || n.parentNode;
+		else if (n.nodeType == 11) n = n.host;
+		else break;
+		if (e < this.scrollTargets.length && !t && (t = this.scrollTargets.slice(0, e)), t) {
+			for (let e of this.scrollTargets) e.removeEventListener("scroll", this.onScroll);
+			for (let e of this.scrollTargets = t) e.addEventListener("scroll", this.onScroll);
+		}
+	}
+	ignore(e) {
+		if (!this.active) return e();
+		try {
+			return this.stop(), e();
+		} finally {
+			this.start(), this.clear();
+		}
+	}
+	start() {
+		this.active || (this.observer.observe(this.dom, Co), wo && this.dom.addEventListener("DOMCharacterDataModified", this.onCharData), this.active = !0);
+	}
+	stop() {
+		this.active && (this.active = !1, this.observer.disconnect(), wo && this.dom.removeEventListener("DOMCharacterDataModified", this.onCharData));
+	}
+	clear() {
+		this.processRecords(), this.queue.length = 0, this.selectionChanged = !1;
+	}
+	delayAndroidKey(e, t) {
+		if (!this.delayedAndroidKey) {
+			let e = () => {
+				let e = this.delayedAndroidKey;
+				e && (this.clearDelayedAndroidKey(), this.view.inputState.lastKeyCode = e.keyCode, this.view.inputState.lastKeyTime = Date.now(), !this.flush() && e.force && Mn(this.dom, e.key, e.keyCode));
+			};
+			this.flushingAndroidKey = this.view.win.requestAnimationFrame(e);
+		}
+		(!this.delayedAndroidKey || e == "Enter") && (this.delayedAndroidKey = {
+			key: e,
+			keyCode: t,
+			force: this.lastChange < Date.now() - 50 || !!this.delayedAndroidKey?.force
+		});
+	}
+	clearDelayedAndroidKey() {
+		this.win.cancelAnimationFrame(this.flushingAndroidKey), this.delayedAndroidKey = null, this.flushingAndroidKey = -1;
+	}
+	flushSoon() {
+		this.delayedFlush < 0 && (this.delayedFlush = this.view.win.requestAnimationFrame(() => {
+			this.delayedFlush = -1, this.flush();
+		}));
+	}
+	forceFlush() {
+		this.delayedFlush >= 0 && (this.view.win.cancelAnimationFrame(this.delayedFlush), this.delayedFlush = -1), this.flush();
+	}
+	pendingRecords() {
+		for (let e of this.observer.takeRecords()) this.queue.push(e);
+		return this.queue;
+	}
+	processRecords() {
+		let e = this.pendingRecords();
+		e.length && (this.queue = []);
+		let t = -1, n = -1, r = !1;
+		for (let i of e) {
+			let e = this.readMutation(i);
+			e && (e.typeOver && (r = !0), t == -1 ? {from: t, to: n} = e : (t = Math.min(e.from, t), n = Math.max(e.to, n)));
+		}
+		return {
+			from: t,
+			to: n,
+			typeOver: r
+		};
+	}
+	readChange() {
+		let { from: e, to: t, typeOver: n } = this.processRecords(), r = this.selectionChanged && pn(this.dom, this.selectionRange);
+		if (e < 0 && !r) return null;
+		e > -1 && (this.lastChange = Date.now()), this.view.inputState.lastFocusTime = 0, this.selectionChanged = !1;
+		let i = new Hi(this.view, e, t, n);
+		return this.view.docView.domChanged = { newSel: i.newSel ? i.newSel.main : null }, i;
+	}
+	flush(e = !0) {
+		if (this.delayedFlush >= 0 || this.delayedAndroidKey) return !1;
+		e && this.readSelectionRange();
+		let t = this.selectionChanged, n = this.readChange();
+		if (!n) return this.view.requestMeasure(), !1;
+		let r = this.view.state, i = Wi(this.view, n);
+		return this.view.state == r && (n.domChanged || t) && this.view.update([]), i;
+	}
+	readMutation(e) {
+		let t = this.view.docView.tile.nearest(e.target);
+		if (!t || t.isWidget()) return null;
+		if (t.markDirty(e.type == "attributes"), e.type == "childList") {
+			let n = Eo(t, e.previousSibling || e.target.previousSibling, -1), r = Eo(t, e.nextSibling || e.target.nextSibling, 1);
+			return {
+				from: n ? t.posAfter(n) : t.posAtStart,
+				to: r ? t.posBefore(r) : t.posAtEnd,
+				typeOver: !1
+			};
+		}
+		return e.type == "characterData" ? {
+			from: t.posAtStart,
+			to: t.posAtEnd,
+			typeOver: e.target.nodeValue == e.oldValue
+		} : null;
+	}
+	setWindow(e) {
+		e != this.win && (this.removeWindowListeners(this.win), this.win = e, this.addWindowListeners(this.win));
+	}
+	addWindowListeners(e) {
+		e.addEventListener("resize", this.onResize), this.printQuery ? this.printQuery.addEventListener ? this.printQuery.addEventListener("change", this.onPrint) : this.printQuery.addListener(this.onPrint) : e.addEventListener("beforeprint", this.onPrint), e.addEventListener("scroll", this.onScroll), e.document.addEventListener("selectionchange", this.onSelectionChange);
+	}
+	removeWindowListeners(e) {
+		e.removeEventListener("scroll", this.onScroll), e.removeEventListener("resize", this.onResize), this.printQuery ? this.printQuery.removeEventListener ? this.printQuery.removeEventListener("change", this.onPrint) : this.printQuery.removeListener(this.onPrint) : e.removeEventListener("beforeprint", this.onPrint), e.document.removeEventListener("selectionchange", this.onSelectionChange);
+	}
+	update(e) {
+		this.editContext && (this.editContext.update(e), e.startState.facet(xr) != e.state.facet(xr) && (e.view.contentDOM.editContext = e.state.facet(xr) ? this.editContext.editContext : null));
+	}
+	destroy() {
+		var e, t, n;
+		this.stop(), (e = this.intersection) == null || e.disconnect(), (t = this.gapIntersection) == null || t.disconnect(), (n = this.resizeScroll) == null || n.disconnect();
+		for (let e of this.scrollTargets) e.removeEventListener("scroll", this.onScroll);
+		this.removeWindowListeners(this.win), clearTimeout(this.parentCheck), clearTimeout(this.resizeTimeout), this.win.cancelAnimationFrame(this.delayedFlush), this.win.cancelAnimationFrame(this.flushingAndroidKey), this.editContext && (this.view.contentDOM.editContext = null, this.editContext.destroy());
+	}
+};
+function Eo(e, t, n) {
+	for (; t;) {
+		let r = B.get(t);
+		if (r && r.parent == e) return r;
+		let i = t.parentNode;
+		t = i == e.dom ? n > 0 ? t.nextSibling : t.previousSibling : i;
+	}
+	return null;
+}
+function Do(e, t) {
+	let n = t.startContainer, r = t.startOffset, i = t.endContainer, a = t.endOffset, o = e.docView.domAtPos(e.state.selection.main.anchor, 1);
+	return hn(o.node, o.offset, i, a) && ([n, r, i, a] = [
+		i,
+		a,
+		n,
+		r
+	]), {
+		anchorNode: n,
+		anchorOffset: r,
+		focusNode: i,
+		focusOffset: a
+	};
+}
+function Oo(e, t) {
+	if (t.getComposedRanges) {
+		let n = t.getComposedRanges(e.root)[0];
+		if (n) return Do(e, n);
+	}
+	let n = null;
+	function r(e) {
+		e.preventDefault(), e.stopImmediatePropagation(), n = e.getTargetRanges()[0];
+	}
+	return e.contentDOM.addEventListener("beforeinput", r, !0), e.dom.ownerDocument.execCommand("indent"), e.contentDOM.removeEventListener("beforeinput", r, !0), n ? Do(e, n) : null;
+}
+var ko = class {
+	constructor(e) {
+		this.from = 0, this.to = 0, this.pendingContextChange = null, this.handlers = Object.create(null), this.composing = null, this.resetRange(e.state);
+		let t = this.editContext = new window.EditContext({
+			text: e.state.doc.sliceString(this.from, this.to),
+			selectionStart: this.toContextPos(Math.max(this.from, Math.min(this.to, e.state.selection.main.anchor))),
+			selectionEnd: this.toContextPos(e.state.selection.main.head)
+		});
+		this.handlers.textupdate = (n) => {
+			let r = e.state.selection.main, { anchor: i, head: a } = r, o = this.toEditorPos(n.updateRangeStart), s = this.toEditorPos(n.updateRangeEnd);
+			e.inputState.composing >= 0 && !this.composing && (this.composing = {
+				contextBase: n.updateRangeStart,
+				editorBase: o,
+				drifted: !1
+			});
+			let c = s - o > n.text.length;
+			o == this.from && i < this.from ? o = i : s == this.to && i > this.to && (s = i);
+			let l = qi(e.state.sliceDoc(o, s), n.text, (c ? r.from : r.to) - o, c ? "end" : null);
+			if (!l) {
+				let t = T.single(this.toEditorPos(n.selectionStart), this.toEditorPos(n.selectionEnd));
+				Xi(t, r) || e.dispatch({
+					selection: t,
+					userEvent: "select"
+				});
+				return;
+			}
+			let u = {
+				from: l.from + o,
+				to: l.toA + o,
+				insert: f.of(n.text.slice(l.from, l.toB).split("\n"))
+			};
+			if ((N.mac || N.android) && u.from == a - 1 && /^\. ?$/.test(n.text) && e.contentDOM.getAttribute("autocorrect") == "off" && (u = {
+				from: o,
+				to: s,
+				insert: f.of([n.text.replace(".", " ")])
+			}), this.pendingContextChange = u, !e.state.readOnly) {
+				let t = this.to - this.from + (u.to - u.from + u.insert.length);
+				Gi(e, u, T.single(this.toEditorPos(n.selectionStart, t), this.toEditorPos(n.selectionEnd, t)));
+			}
+			this.pendingContextChange && (this.revertPending(e.state), this.setSelection(e.state)), u.from < u.to && !u.insert.length && e.inputState.composing >= 0 && !/[\\p{Alphabetic}\\p{Number}_]/.test(t.text.slice(Math.max(0, n.updateRangeStart - 1), Math.min(t.text.length, n.updateRangeStart + 1))) && this.handlers.compositionend(n);
+		}, this.handlers.characterboundsupdate = (n) => {
+			let r = [], i = null;
+			for (let t = this.toEditorPos(n.rangeStart), a = this.toEditorPos(n.rangeEnd); t < a; t++) {
+				let n = e.coordsForChar(t);
+				i = n && new DOMRect(n.left, n.top, n.right - n.left, n.bottom - n.top) || i || new DOMRect(), r.push(i);
+			}
+			t.updateCharacterBounds(n.rangeStart, r);
+		}, this.handlers.textformatupdate = (t) => {
+			let n = [];
+			for (let e of t.getTextFormats()) {
+				let t = e.underlineStyle, r = e.underlineThickness;
+				if (!/none/i.test(t) && !/none/i.test(r)) {
+					let i = this.toEditorPos(e.rangeStart), a = this.toEditorPos(e.rangeEnd);
+					if (i < a) {
+						let e = `text-decoration: underline ${/^[a-z]/.test(t) ? t + " " : t == "Dashed" ? "dashed " : t == "Squiggle" ? "wavy " : ""}${/thin/i.test(r) ? 1 : 2}px`;
+						n.push(F.mark({ attributes: { style: e } }).range(i, a));
+					}
+				}
+			}
+			e.dispatch({ effects: br.of(F.set(n)) });
+		}, this.handlers.compositionstart = () => {
+			e.inputState.composing < 0 && (e.inputState.composing = 0, e.inputState.compositionFirstChange = !0);
+		}, this.handlers.compositionend = () => {
+			if (e.inputState.composing = -1, e.inputState.compositionFirstChange = null, this.composing) {
+				let { drifted: t } = this.composing;
+				this.composing = null, t && this.reset(e.state);
+			}
+		};
+		for (let e in this.handlers) t.addEventListener(e, this.handlers[e]);
+		this.measureReq = { read: (e) => {
+			let t = dn(e.root);
+			t && t.rangeCount && this.editContext.updateSelectionBounds(t.getRangeAt(0).getBoundingClientRect());
+		} };
+	}
+	applyEdits(e) {
+		let t = 0, n = !1, r = this.pendingContextChange;
+		return e.changes.iterChanges((i, a, o, s, c) => {
+			if (n) return;
+			let l = c.length - (a - i);
+			if (r && a >= r.to) {
+				if (r.from == i && r.to == a && r.insert.eq(c)) {
+					r = this.pendingContextChange = null, t += l, this.to += l;
+					return;
+				}
+				r = null, this.revertPending(e.state);
+			}
+			if (i += t, a += t, a <= this.from) this.from += l, this.to += l;
+			else if (i < this.to) {
+				if (i < this.from || a > this.to || this.to - this.from + c.length > 3e4) {
+					n = !0;
+					return;
+				}
+				this.editContext.updateText(this.toContextPos(i), this.toContextPos(a), c.toString()), this.to += l;
+			}
+			t += l;
+		}), r && !n && this.revertPending(e.state), !n;
+	}
+	update(e) {
+		let t = this.pendingContextChange, n = e.startState.selection.main;
+		this.composing && (this.composing.drifted || !e.changes.touchesRange(n.from, n.to) && e.transactions.some((e) => !e.isUserEvent("input.type") && e.changes.touchesRange(this.from, this.to))) ? (this.composing.drifted = !0, this.composing.editorBase = e.changes.mapPos(this.composing.editorBase)) : !this.applyEdits(e) || !this.rangeIsValid(e.state) ? (this.pendingContextChange = null, this.reset(e.state)) : (e.docChanged || e.selectionSet || t) && this.setSelection(e.state), (e.geometryChanged || e.docChanged || e.selectionSet) && e.view.requestMeasure(this.measureReq);
+	}
+	resetRange(e) {
+		let { head: t } = e.selection.main;
+		this.from = Math.max(0, t - 1e4), this.to = Math.min(e.doc.length, t + 1e4);
+	}
+	reset(e) {
+		this.resetRange(e), this.editContext.updateText(0, this.editContext.text.length, e.doc.sliceString(this.from, this.to)), this.setSelection(e);
+	}
+	revertPending(e) {
+		let t = this.pendingContextChange;
+		this.pendingContextChange = null, this.editContext.updateText(this.toContextPos(t.from), this.toContextPos(t.from + t.insert.length), e.doc.sliceString(t.from, t.to));
+	}
+	setSelection(e) {
+		let { main: t } = e.selection, n = this.toContextPos(Math.max(this.from, Math.min(this.to, t.anchor))), r = this.toContextPos(t.head);
+		(this.editContext.selectionStart != n || this.editContext.selectionEnd != r) && this.editContext.updateSelection(n, r);
+	}
+	rangeIsValid(e) {
+		let { head: t } = e.selection.main;
+		return !(this.from > 0 && t - this.from < 500 || this.to < e.doc.length && this.to - t < 500 || this.to - this.from > 3e4);
+	}
+	toEditorPos(e, t = this.to - this.from) {
+		e = Math.min(e, t);
+		let n = this.composing;
+		return n && n.drifted ? n.editorBase + (e - n.contextBase) : e + this.from;
+	}
+	toContextPos(e) {
+		let t = this.composing;
+		return t && t.drifted ? t.contextBase + (e - t.editorBase) : e - this.from;
+	}
+	destroy() {
+		for (let e in this.handlers) this.editContext.removeEventListener(e, this.handlers[e]);
+	}
+}, W = class e {
+	get state() {
+		return this.viewState.state;
+	}
+	get viewport() {
+		return this.viewState.viewport;
+	}
+	get visibleRanges() {
+		return this.viewState.visibleRanges;
+	}
+	get inView() {
+		return this.viewState.inView;
+	}
+	get composing() {
+		return !!this.inputState && this.inputState.composing > 0;
+	}
+	get compositionStarted() {
+		return !!this.inputState && this.inputState.composing >= 0;
+	}
+	get root() {
+		return this._root;
+	}
+	get win() {
+		return this.dom.ownerDocument.defaultView || window;
+	}
+	constructor(e = {}) {
+		this.plugins = [], this.pluginMap = /* @__PURE__ */ new Map(), this.editorAttrs = {}, this.contentAttrs = {}, this.bidiCache = [], this.destroyed = !1, this.updateState = 2, this.measureScheduled = -1, this.measureRequests = [], this.clearAnnouncement = -1, this.contentDOM = document.createElement("div"), this.scrollDOM = document.createElement("div"), this.scrollDOM.tabIndex = -1, this.scrollDOM.className = "cm-scroller", this.scrollDOM.appendChild(this.contentDOM), this.announceDOM = document.createElement("div"), this.announceDOM.className = "cm-announced", this.announceDOM.setAttribute("aria-live", "polite"), this.dom = document.createElement("div"), this.dom.appendChild(this.announceDOM), this.dom.appendChild(this.scrollDOM), e.parent && e.parent.appendChild(this.dom);
+		let { dispatch: t } = e;
+		this.dispatchTransactions = e.dispatchTransactions || t && ((e) => e.forEach((e) => t(e, this))) || ((e) => this.update(e)), this.dispatch = this.dispatch.bind(this), this._root = e.root || Nn(e.parent) || document, this.viewState = new io(this, e.state || k.create(e)), e.scrollTo && e.scrollTo.is(yr) && (this.viewState.scrollTarget = e.scrollTo.value.clip(this.viewState.state)), this.plugins = this.state.facet(Cr).map((e) => new Tr(e));
+		for (let e of this.plugins) e.update(this);
+		this.observer = new To(this), this.inputState = new Zi(this), this.inputState.ensureHandlers(this.plugins), this.docView = new di(this), this.mountStyles(), this.updateAttrs(), this.updateState = 0, this.requestMeasure(), document.fonts?.ready && document.fonts.ready.then(() => {
+			this.viewState.mustMeasureContent = "refresh", this.requestMeasure();
+		});
+	}
+	dispatch(...e) {
+		let t = e.length == 1 && e[0] instanceof O ? e : e.length == 1 && Array.isArray(e[0]) ? e[0] : [this.state.update(...e)];
+		this.dispatchTransactions(t, this);
+	}
+	update(t) {
+		if (this.updateState != 0) throw Error("Calls to EditorView.update are not allowed while an update is in progress");
+		let n = !1, r = !1, i, a = this.state;
+		for (let e of t) {
+			if (e.startState != a) throw RangeError("Trying to update state with a transaction that doesn't start from the previous state.");
+			a = e.state;
+		}
+		if (this.destroyed) {
+			this.viewState.state = a;
+			return;
+		}
+		let o = this.hasFocus, s = 0, c = null;
+		t.some((e) => e.annotation(ka)) ? (this.inputState.notifiedFocused = o, s = 1) : o != this.inputState.notifiedFocused && (this.inputState.notifiedFocused = o, c = Aa(a, o), c || (s = 1));
+		let l = this.observer.delayedAndroidKey, u = null;
+		if (l ? (this.observer.clearDelayedAndroidKey(), u = this.observer.readChange(), (u && !this.state.doc.eq(a.doc) || !this.state.selection.eq(a.selection)) && (u = null)) : this.observer.clear(), a.facet(k.phrases) != this.state.facet(k.phrases)) return this.setState(a);
+		i = Rr.create(this, a, t), i.flags |= s;
+		let d = this.viewState.scrollTarget;
+		try {
+			this.updateState = 2;
+			for (let n of t) {
+				if (d && (d = d.map(n.changes)), n.scrollIntoView) {
+					let { main: t } = n.state.selection, { x: r, y: i } = this.state.facet(e.cursorScrollMargin);
+					d = new vr(t.empty ? t : T.cursor(t.head, t.head > t.anchor ? -1 : 1), "nearest", "nearest", i, r);
+				}
+				for (let e of n.effects) e.is(yr) && (d = e.value.clip(this.state));
+			}
+			this.viewState.update(i, d), this.bidiCache = Mo.update(this.bidiCache, i.changes), i.empty || (this.updatePlugins(i), this.inputState.update(i)), n = this.docView.update(i), this.state.facet(Ir) != this.styleModules && this.mountStyles(), r = this.updateAttrs(), this.showAnnouncements(t), this.docView.updateSelection(n, t.some((e) => e.isUserEvent("select.pointer")));
+		} finally {
+			this.updateState = 0;
+		}
+		if (i.startState.facet(ho) != i.state.facet(ho) && (this.viewState.mustMeasureContent = !0), (n || r || d || this.viewState.mustEnforceCursorAssoc || this.viewState.mustMeasureContent) && this.requestMeasure(), n && this.docViewUpdate(), !i.empty) for (let e of this.state.facet(ur)) try {
+			e(i);
+		} catch (e) {
+			z(this.state, e, "update listener");
+		}
+		(c || u) && Promise.resolve().then(() => {
+			c && this.state == c.startState && this.dispatch(c), u && !Wi(this, u) && l.force && Mn(this.contentDOM, l.key, l.keyCode);
+		});
+	}
+	setState(e) {
+		if (this.updateState != 0) throw Error("Calls to EditorView.setState are not allowed while an update is in progress");
+		if (this.destroyed) {
+			this.viewState.state = e;
+			return;
+		}
+		this.updateState = 2;
+		let t = this.hasFocus;
+		try {
+			for (let e of this.plugins) e.destroy(this);
+			this.viewState = new io(this, e), this.plugins = e.facet(Cr).map((e) => new Tr(e)), this.pluginMap.clear();
+			for (let e of this.plugins) e.update(this);
+			this.docView.destroy(), this.docView = new di(this), this.inputState.ensureHandlers(this.plugins), this.mountStyles(), this.updateAttrs(), this.bidiCache = [];
+		} finally {
+			this.updateState = 0;
+		}
+		t && this.focus(), this.requestMeasure();
+	}
+	updatePlugins(e) {
+		let t = e.startState.facet(Cr), n = e.state.facet(Cr);
+		if (t != n) {
+			let r = [];
+			for (let i of n) {
+				let n = t.indexOf(i);
+				if (n < 0) r.push(new Tr(i));
+				else {
+					let t = this.plugins[n];
+					t.mustUpdate = e, r.push(t);
+				}
+			}
+			for (let t of this.plugins) t.mustUpdate != e && t.destroy(this);
+			this.plugins = r, this.pluginMap.clear();
+		} else for (let t of this.plugins) t.mustUpdate = e;
+		for (let e = 0; e < this.plugins.length; e++) this.plugins[e].update(this);
+		t != n && this.inputState.ensureHandlers(this.plugins);
+	}
+	docViewUpdate() {
+		for (let e of this.plugins) {
+			let t = e.value;
+			if (t && t.docViewUpdate) try {
+				t.docViewUpdate(this);
+			} catch (e) {
+				z(this.state, e, "doc view update listener");
+			}
+		}
+	}
+	measure(e = !0) {
+		if (this.destroyed) return;
+		if (this.measureScheduled > -1 && this.win.cancelAnimationFrame(this.measureScheduled), this.observer.delayedAndroidKey) {
+			this.measureScheduled = -1, this.requestMeasure();
+			return;
+		}
+		this.measureScheduled = 0, e && this.observer.forceFlush();
+		let t = null, n = this.viewState.scrollParent, r = this.viewState.getScrollOffset(), { scrollAnchorPos: i, scrollAnchorHeight: a, scaleY: o } = this.viewState;
+		Math.abs(r - this.viewState.scrollOffset) > 1 && (a = -1), this.viewState.scrollAnchorHeight = -1;
+		try {
+			for (let e = 0;; e++) {
+				if (a < 0) {
+					if (Fn(n || this.win)) i = -1, a = this.viewState.heightMap.height / this.viewState.scaleY;
+					else {
+						let e = this.viewState.scrollAnchorAt(r);
+						i = e.from, a = e.top;
+					}
+					o = this.viewState.scaleY;
+				}
+				this.updateState = 1;
+				let s = this.viewState.measure();
+				if (!s && !this.measureRequests.length && this.viewState.scrollTarget == null) break;
+				if (e > 5) {
+					console.warn(this.measureRequests.length ? "Measure loop restarted more than 5 times" : "Viewport failed to stabilize");
+					break;
+				}
+				let c = [];
+				s & 4 || ([this.measureRequests, c] = [c, this.measureRequests]);
+				let l = c.map((e) => {
+					try {
+						return e.read(this);
+					} catch (e) {
+						return z(this.state, e), jo;
+					}
+				}), u = Rr.create(this, this.state, []), d = !1;
+				u.flags |= s, t ? t.flags |= s : t = u, this.updateState = 2, u.empty || (this.updatePlugins(u), this.inputState.update(u), this.updateAttrs(), d = this.docView.update(u), d && this.docViewUpdate());
+				for (let e = 0; e < c.length; e++) if (l[e] != jo) try {
+					let t = c[e];
+					t.write && t.write(l[e], this);
+				} catch (e) {
+					z(this.state, e);
+				}
+				if (d && this.docView.updateSelection(!0), !u.viewportChanged && this.measureRequests.length == 0) {
+					if (this.viewState.editorHeight) {
+						if (this.viewState.scrollTarget) {
+							this.docView.scrollIntoView(this.viewState.scrollTarget), this.viewState.scrollTarget = null, a = -1;
+							continue;
+						}
+						{
+							let e = (i < 0 ? this.viewState.heightMap.height : this.viewState.lineBlockAt(i).top) / this.viewState.scaleY - a / o;
+							if ((e > 1 || e < -1) && !(N.ios && this.inputState.lastIOSMomentumScroll > Date.now() - 100) && (n == this.scrollDOM || this.hasFocus || Math.max(this.inputState.lastWheelEvent, this.inputState.lastTouchTime) > Date.now() - 100)) {
+								r += e, n ? i < 0 ? n.scrollTop = n.scrollHeight : n.scrollTop += e : this.win.scrollBy(0, e), a = -1;
+								continue;
+							}
+						}
+					}
+					break;
+				}
+			}
+		} finally {
+			this.updateState = 0, this.measureScheduled = -1;
+		}
+		if (t && !t.empty) for (let e of this.state.facet(ur)) e(t);
+	}
+	get themeClasses() {
+		return _o + " " + (this.state.facet(go) ? yo : vo) + " " + this.state.facet(ho);
+	}
+	updateAttrs() {
+		let e = No(this, Er, { class: "cm-editor" + (this.hasFocus ? " cm-focused " : " ") + this.themeClasses }), t = {
+			spellcheck: "false",
+			autocorrect: "off",
+			autocapitalize: "off",
+			writingsuggestions: "false",
+			translate: "no",
+			contenteditable: this.state.facet(xr) ? "true" : "false",
+			class: "cm-content",
+			style: `${N.tabSize}: ${this.state.tabSize}`,
+			role: "textbox",
+			"aria-multiline": "true"
+		};
+		this.state.readOnly && (t["aria-readonly"] = "true"), No(this, Dr, t);
+		let n = this.observer.ignore(() => {
+			let n = $t(this.contentDOM, this.contentAttrs, t), r = $t(this.dom, this.editorAttrs, e);
+			return n || r;
+		});
+		return this.editorAttrs = e, this.contentAttrs = t, n;
+	}
+	showAnnouncements(t) {
+		let n = !0;
+		for (let r of t) for (let t of r.effects) if (t.is(e.announce)) {
+			n && (this.announceDOM.textContent = "", this.win.clearTimeout(this.clearAnnouncement), this.clearAnnouncement = this.win.setTimeout(() => {
+				this.announceDOM.textContent = "\xA0";
+			}, 200), n = !1);
+			let e = this.announceDOM.appendChild(document.createElement("div"));
+			e.textContent = t.value;
+		}
+	}
+	mountStyles() {
+		this.styleModules = this.state.facet(Ir);
+		let t = this.state.facet(e.cspNonce);
+		Ot.mount(this.root, this.styleModules.concat(So).reverse(), t ? { nonce: t } : void 0);
+	}
+	readMeasured() {
+		if (this.updateState == 2) throw Error("Reading the editor layout isn't allowed during an update");
+		this.updateState == 0 && this.measureScheduled > -1 && this.measure(!1);
+	}
+	requestMeasure(e) {
+		if (this.measureScheduled < 0 && (this.measureScheduled = this.win.requestAnimationFrame(() => this.measure())), e) {
+			if (this.measureRequests.indexOf(e) > -1) return;
+			if (e.key != null) {
+				for (let t = 0; t < this.measureRequests.length; t++) if (this.measureRequests[t].key === e.key) {
+					this.measureRequests[t] = e;
+					return;
+				}
+			}
+			this.measureRequests.push(e);
+		}
+	}
+	plugin(e) {
+		let t = this.pluginMap.get(e);
+		return (t === void 0 || t && t.plugin != e) && this.pluginMap.set(e, t = this.plugins.find((t) => t.plugin == e) || null), t && t.update(this).value;
+	}
+	get documentTop() {
+		return this.contentDOM.getBoundingClientRect().top + this.viewState.paddingTop;
+	}
+	get documentPadding() {
+		return {
+			top: this.viewState.paddingTop,
+			bottom: this.viewState.paddingBottom
+		};
+	}
+	get scaleX() {
+		return this.viewState.scaleX;
+	}
+	get scaleY() {
+		return this.viewState.scaleY;
+	}
+	elementAtHeight(e) {
+		return this.readMeasured(), this.viewState.elementAtHeight(e);
+	}
+	lineBlockAtHeight(e) {
+		return this.readMeasured(), this.viewState.lineBlockAtHeight(e);
+	}
+	get viewportLineBlocks() {
+		return this.viewState.viewportLines;
+	}
+	lineBlockAt(e) {
+		return this.viewState.lineBlockAt(e);
+	}
+	get contentHeight() {
+		return this.viewState.contentHeight;
+	}
+	moveByChar(e, t, n) {
+		return Ni(this, e, Oi(this, e, t, n));
+	}
+	moveByGroup(e, t) {
+		return Ni(this, e, Oi(this, e, t, (t) => ki(this, e.head, t)));
+	}
+	visualLineSide(e, t) {
+		return t ? T.cursor(e.to, 1) : T.cursor(e.from, -1);
+	}
+	moveToLineBoundary(e, t, n = !0) {
+		return Di(this, e, t, n);
+	}
+	moveVertically(e, t, n) {
+		return Ni(this, e, Ai(this, e, t, n));
+	}
+	domAtPos(e, t = 1) {
+		return this.docView.domAtPos(e, t);
+	}
+	posAtDOM(e, t = 0) {
+		return this.docView.posFromDOM(e, t);
+	}
+	posAtCoords(e, t = !0) {
+		this.readMeasured();
+		let n = Fi(this, e, t);
+		return n && n.pos;
+	}
+	posAndSideAtCoords(e, t = !0) {
+		return this.readMeasured(), Fi(this, e, t);
+	}
+	coordsAtPos(e, t = 1) {
+		this.readMeasured();
+		let n = this.state.doc.lineAt(e), r = this.bidiSpans(n), i = r[Jn.find(r, e - n.from, -1, t)];
+		return n.length && (e == n.from && t < 0 || e == n.to && t > 0) && i.dir != this.textDirectionAt(n.from) && (e == n.to ? (e = n.from + i.from, t = 1) : (e = n.from + i.to, t = -1)), this.docView.coordsAt(e, t, i.dir == L.RTL);
+	}
+	coordsForChar(e) {
+		return this.readMeasured(), this.docView.coordsForChar(e);
+	}
+	get defaultCharacterWidth() {
+		return this.viewState.heightOracle.charWidth;
+	}
+	get defaultLineHeight() {
+		return this.viewState.heightOracle.lineHeight;
+	}
+	get textDirection() {
+		return this.viewState.defaultTextDirection;
+	}
+	textDirectionAt(e) {
+		return !this.state.facet(hr) || e < this.viewport.from || e > this.viewport.to ? this.textDirection : (this.readMeasured(), this.docView.textDirectionAt(e));
+	}
+	get lineWrapping() {
+		return this.viewState.heightOracle.lineWrapping;
+	}
+	bidiSpans(e) {
+		if (e.length > Ao) return nr(e.length);
+		let t = this.textDirectionAt(e.from), n;
+		for (let r of this.bidiCache) if (r.from == e.from && r.dir == t && (r.fresh || Yn(r.isolates, n = Nr(this, e)))) return r.order;
+		n || (n = Nr(this, e));
+		let r = tr(e.text, t, n);
+		return this.bidiCache.push(new Mo(e.from, e.to, t, n, !0, r)), r;
+	}
+	get hasFocus() {
+		return (this.dom.ownerDocument.hasFocus() || N.safari && this.inputState?.lastContextMenu > Date.now() - 3e4) && this.root.activeElement == this.contentDOM;
+	}
+	focus() {
+		this.observer.ignore(() => {
+			kn(this.contentDOM), this.docView.updateSelection();
+		});
+	}
+	setRoot(e) {
+		this._root != e && (this._root = e, this.observer.setWindow((e.nodeType == 9 ? e : e.ownerDocument).defaultView || window), this.mountStyles());
+	}
+	destroy() {
+		this.root.activeElement == this.contentDOM && this.contentDOM.blur();
+		for (let e of this.plugins) e.destroy(this);
+		this.plugins = [], this.inputState.destroy(), this.docView.destroy(), this.dom.remove(), this.observer.destroy(), this.win.clearTimeout(this.clearAnnouncement), this.measureScheduled > -1 && this.win.cancelAnimationFrame(this.measureScheduled), this.destroyed = !0;
+	}
+	static scrollIntoView(e, t = {}) {
+		return yr.of(new vr(typeof e == "number" ? T.cursor(e) : e, t.y ?? "nearest", t.x ?? "nearest", t.yMargin ?? 5, t.xMargin ?? 5));
+	}
+	scrollSnapshot() {
+		let { scrollTop: e, scrollLeft: t } = this.scrollDOM, n = this.viewState.scrollAnchorAt(e);
+		return yr.of(new vr(T.cursor(n.from), "start", "start", n.top - e, t, !0));
+	}
+	setTabFocusMode(e) {
+		e == null ? this.inputState.tabFocusMode = this.inputState.tabFocusMode < 0 ? 0 : -1 : typeof e == "boolean" ? this.inputState.tabFocusMode = e ? 0 : -1 : this.inputState.tabFocusMode != 0 && (this.inputState.tabFocusMode = Date.now() + e);
+	}
+	static domEventHandlers(e) {
+		return wr.define(() => ({}), { eventHandlers: e });
+	}
+	static domEventObservers(e) {
+		return wr.define(() => ({}), { eventObservers: e });
+	}
+	static theme(e, t) {
+		let n = Ot.newName(), r = [ho.of(n), Ir.of(xo(`.${n}`, e))];
+		return t && t.dark && r.push(go.of(!0)), r;
+	}
+	static baseTheme(e) {
+		return Ee.lowest(Ir.of(xo("." + _o, e, bo)));
+	}
+	static findFromDOM(e) {
+		let t = e.querySelector(".cm-content");
+		return (t && B.get(t) || B.get(e))?.root?.view || null;
+	}
+};
+W.styleModule = Ir, W.inputHandler = dr, W.clipboardInputFilter = pr, W.clipboardOutputFilter = mr, W.scrollHandler = _r, W.focusChangeEffect = fr, W.perLineTextDirection = hr, W.exceptionSink = lr, W.updateListener = ur, W.editable = xr, W.mouseSelectionStyle = cr, W.dragMovesSelection = sr, W.clickAddsSelectionRange = or, W.decorations = Or, W.blockWrappers = kr, W.outerDecorations = Ar, W.atomicRanges = jr, W.bidiIsolatedRanges = Mr, W.cursorScrollMargin = /*@__PURE__*/ E.define({ combine: (e) => {
+	let t = 5, n = 5;
+	for (let r of e) typeof r == "number" ? t = n = r : {x: t, y: n} = r;
+	return {
+		x: t,
+		y: n
+	};
+} }), W.scrollMargins = Pr, W.darkTheme = go, W.cspNonce = /*@__PURE__*/ E.define({ combine: (e) => e.length ? e[0] : "" }), W.contentAttributes = Dr, W.editorAttributes = Er, W.lineWrapping = /*@__PURE__*/ W.contentAttributes.of({ class: "cm-lineWrapping" }), W.announce = /*@__PURE__*/ D.define();
+var Ao = 4096, jo = {}, Mo = class e {
+	constructor(e, t, n, r, i, a) {
+		this.from = e, this.to = t, this.dir = n, this.isolates = r, this.fresh = i, this.order = a;
+	}
+	static update(t, n) {
+		if (n.empty && !t.some((e) => e.fresh)) return t;
+		let r = [], i = t.length ? t[t.length - 1].dir : L.LTR;
+		for (let a = Math.max(0, t.length - 10); a < t.length; a++) {
+			let o = t[a];
+			o.dir == i && !n.touchesRange(o.from, o.to) && r.push(new e(n.mapPos(o.from, 1), n.mapPos(o.to, -1), o.dir, o.isolates, !1, o.order));
+		}
+		return r;
+	}
+};
+function No(e, t, n) {
+	for (let r = e.state.facet(t), i = r.length - 1; i >= 0; i--) {
+		let t = r[i], a = typeof t == "function" ? t(e) : t;
+		a && Yt(a, n);
+	}
+	return n;
+}
+var Po = N.mac ? "mac" : N.windows ? "win" : N.linux ? "linux" : "key";
+function Fo(e, t) {
+	let n = e.split(/-(?!$)/), r = n[n.length - 1];
+	r == "Space" && (r = " ");
+	let i, a, o, s;
+	for (let e = 0; e < n.length - 1; ++e) {
+		let r = n[e];
+		if (/^(cmd|meta|m)$/i.test(r)) s = !0;
+		else if (/^a(lt)?$/i.test(r)) i = !0;
+		else if (/^(c|ctrl|control)$/i.test(r)) a = !0;
+		else if (/^s(hift)?$/i.test(r)) o = !0;
+		else if (/^mod$/i.test(r)) t == "mac" ? s = !0 : a = !0;
+		else throw Error("Unrecognized modifier name: " + r);
+	}
+	return i && (r = "Alt-" + r), a && (r = "Ctrl-" + r), s && (r = "Meta-" + r), o && (r = "Shift-" + r), r;
+}
+function Io(e, t, n) {
+	return t.altKey && (e = "Alt-" + e), t.ctrlKey && (e = "Ctrl-" + e), t.metaKey && (e = "Meta-" + e), n !== !1 && t.shiftKey && (e = "Shift-" + e), e;
+}
+var Lo = /*@__PURE__*/ Ee.default(/*@__PURE__*/ W.domEventHandlers({ keydown(e, t) {
+	return Go(Bo(t.state), e, t, "editor");
+} })), Ro = /*@__PURE__*/ E.define({ enables: Lo }), zo = /*@__PURE__*/ new WeakMap();
+function Bo(e) {
+	let t = e.facet(Ro), n = zo.get(t);
+	return n || zo.set(t, n = Uo(t.reduce((e, t) => e.concat(t), []))), n;
+}
+var Vo = null, Ho = 4e3;
+function Uo(e, t = Po) {
+	let n = Object.create(null), r = Object.create(null), i = (e, t) => {
+		let n = r[e];
+		if (n == null) r[e] = t;
+		else if (n != t) throw Error("Key binding " + e + " is used both as a regular binding and as a multi-stroke prefix");
+	}, a = (e, r, a, o, s) => {
+		let c = n[e] || (n[e] = Object.create(null)), l = r.split(/ (?!$)/).map((e) => Fo(e, t));
+		for (let t = 1; t < l.length; t++) {
+			let n = l.slice(0, t).join(" ");
+			i(n, !0), c[n] || (c[n] = {
+				preventDefault: !0,
+				stopPropagation: !1,
+				run: [(t) => {
+					let r = Vo = {
+						view: t,
+						prefix: n,
+						scope: e
+					};
+					return setTimeout(() => {
+						Vo == r && (Vo = null);
+					}, Ho), !0;
+				}]
+			});
+		}
+		let u = l.join(" ");
+		i(u, !1);
+		let d = c[u] || (c[u] = {
+			preventDefault: !1,
+			stopPropagation: !1,
+			run: (c._any?.run)?.slice() || []
+		});
+		a && d.run.push(a), o && (d.preventDefault = !0), s && (d.stopPropagation = !0);
+	};
+	for (let r of e) {
+		let e = r.scope ? r.scope.split(" ") : ["editor"];
+		if (r.any) for (let t of e) {
+			let e = n[t] || (n[t] = Object.create(null));
+			e._any || (e._any = {
+				preventDefault: !1,
+				stopPropagation: !1,
+				run: []
+			});
+			let { any: i } = r;
+			for (let t in e) e[t].run.push((e) => i(e, Wo));
+		}
+		let i = r[t] || r.key;
+		if (i) for (let t of e) a(t, i, r.run, r.preventDefault, r.stopPropagation), r.shift && a(t, "Shift-" + i, r.shift, r.preventDefault, r.stopPropagation);
+	}
+	return n;
+}
+var Wo = null;
+function Go(e, t, n, r) {
+	Wo = t;
+	let i = It(t), a = ae(re(i, 0)) == i.length && i != " ", o = "", s = !1, c = !1, l = !1;
+	Vo && Vo.view == n && Vo.scope == r && (o = Vo.prefix + " ", ra.indexOf(t.keyCode) < 0 && (c = !0, Vo = null));
+	let u = /* @__PURE__ */ new Set(), d = (e) => {
+		if (e) {
+			for (let t of e.run) if (!u.has(t) && (u.add(t), t(n))) return e.stopPropagation && (l = !0), !0;
+			e.preventDefault && (e.stopPropagation && (l = !0), c = !0);
+		}
+		return !1;
+	}, f = e[r], p, m;
+	return f && (d(f[o + Io(i, t, !a)]) ? s = !0 : a && (t.altKey || t.metaKey || t.ctrlKey) && !(N.windows && t.ctrlKey && t.altKey) && !(N.mac && t.altKey && !(t.ctrlKey || t.metaKey)) && (p = jt[t.keyCode]) && p != i ? (d(f[o + Io(p, t, !0)]) || t.shiftKey && (m = Mt[t.keyCode]) != i && m != p && d(f[o + Io(m, t, !1)])) && (s = !0) : a && t.shiftKey && d(f[o + Io(i, t, !0)]) && (s = !0), !s && d(f._any) && (s = !0)), c && (s = !0), s && l && t.stopPropagation(), Wo = null, s;
+}
+var Ko = !N.ios, qo = N.gecko && N.gecko_version == 153 ? "#ffffff01" : "transparent";
+({ ...Ko ? { "& ::selection, &::selection": { backgroundColor: `${qo} !important` } } : {} }), { ...Ko ? { "&::selection, & ::selection": { backgroundColor: "Highlight !important" } } : {} }, /x/.unicode;
+var Jo = "-10000px", Yo = class {
+	constructor(e, t, n, r) {
+		this.facet = t, this.createTooltipView = n, this.removeTooltipView = r, this.input = e.state.facet(t), this.tooltips = this.input.filter((e) => e);
+		let i = null;
+		this.tooltipViews = this.tooltips.map((e) => i = n(e, i));
+	}
+	update(e, t) {
+		var n;
+		let r = e.state.facet(this.facet), i = r.filter((e) => e);
+		if (r === this.input) {
+			for (let t of this.tooltipViews) t.update && t.update(e);
+			return !1;
+		}
+		let a = [], o = t ? [] : null;
+		for (let n = 0; n < i.length; n++) {
+			let r = i[n], s = -1;
+			if (r) {
+				for (let e = 0; e < this.tooltips.length; e++) {
+					let t = this.tooltips[e];
+					t && t.create == r.create && (s = e);
+				}
+				if (s < 0) a[n] = this.createTooltipView(r, n ? a[n - 1] : null), o && (o[n] = !!r.above);
+				else {
+					let r = a[n] = this.tooltipViews[s];
+					o && (o[n] = t[s]), r.update && r.update(e);
+				}
+			}
+		}
+		for (let e of this.tooltipViews) a.indexOf(e) < 0 && (this.removeTooltipView(e), (n = e.destroy) == null || n.call(e));
+		return t && (o.forEach((e, n) => t[n] = e), t.length = o.length), this.input = r, this.tooltips = i, this.tooltipViews = a, !0;
+	}
+};
+function Xo(e) {
+	let t = e.dom.ownerDocument.documentElement, n = t.clientWidth, r = getComputedStyle(t);
+	if (!/stable/.test(r.scrollbarGutter || "")) return {
+		left: 0,
+		right: n
+	};
+	let i = t.getBoundingClientRect(), a = e.win.scrollX;
+	return {
+		left: Math.max(0, i.left + a - parseFloat(r.marginLeft)),
+		right: Math.min(n, i.right + a + parseFloat(r.marginRight))
+	};
+}
+function Zo(e) {
+	let { left: t, right: n } = Xo(e);
+	return {
+		top: 0,
+		left: t,
+		right: n,
+		bottom: e.dom.ownerDocument.documentElement.clientHeight
+	};
+}
+var Qo = /*@__PURE__*/ E.define({ combine: (e) => ({
+	position: N.ios ? "absolute" : e.find((e) => e.position)?.position || "fixed",
+	parent: e.find((e) => e.parent)?.parent || null,
+	tooltipSpace: e.find((e) => e.tooltipSpace)?.tooltipSpace || Zo
+}) }), $o = /*@__PURE__*/ new WeakMap(), es = /*@__PURE__*/ wr.fromClass(class {
+	constructor(e) {
+		this.view = e, this.above = [], this.inView = !0, this.madeAbsolute = !1, this.lastTransaction = 0, this.measureTimeout = -1;
+		let t = e.state.facet(Qo);
+		this.position = t.position, this.parent = t.parent, this.classes = e.themeClasses, this.createContainer(), this.measureReq = {
+			read: this.readMeasure.bind(this),
+			write: this.writeMeasure.bind(this),
+			key: this
+		}, this.resizeObserver = typeof ResizeObserver == "function" ? new ResizeObserver(() => this.measureSoon()) : null, this.manager = new Yo(e, is, (e, t) => this.createTooltip(e, t), (e) => {
+			this.resizeObserver && this.resizeObserver.unobserve(e.dom), e.dom.remove();
+		}), this.above = this.manager.tooltips.map((e) => !!e.above), this.intersectionObserver = typeof IntersectionObserver == "function" ? new IntersectionObserver((e) => {
+			Date.now() > this.lastTransaction - 50 && e.length > 0 && e[e.length - 1].intersectionRatio < 1 && this.measureSoon();
+		}, { threshold: [1] }) : null, this.observeIntersection(), e.win.addEventListener("resize", this.measureSoon = this.measureSoon.bind(this)), this.maybeMeasure();
+	}
+	createContainer() {
+		this.parent ? (this.container = document.createElement("div"), this.container.style.position = "relative", this.container.className = this.view.themeClasses, this.parent.appendChild(this.container)) : this.container = this.view.dom;
+	}
+	observeIntersection() {
+		if (this.intersectionObserver) {
+			this.intersectionObserver.disconnect();
+			for (let e of this.manager.tooltipViews) this.intersectionObserver.observe(e.dom);
+		}
+	}
+	measureSoon() {
+		this.measureTimeout < 0 && (this.measureTimeout = setTimeout(() => {
+			this.measureTimeout = -1, this.maybeMeasure();
+		}, 50));
+	}
+	update(e) {
+		e.transactions.length && (this.lastTransaction = Date.now());
+		let t = this.manager.update(e, this.above);
+		t && this.observeIntersection();
+		let n = t || e.geometryChanged, r = e.state.facet(Qo);
+		if (r.position != this.position && !this.madeAbsolute) {
+			this.position = r.position;
+			for (let e of this.manager.tooltipViews) e.dom.style.position = this.position;
+			n = !0;
+		}
+		if (r.parent != this.parent) {
+			this.parent && this.container.remove(), this.parent = r.parent, this.createContainer();
+			for (let e of this.manager.tooltipViews) this.container.appendChild(e.dom);
+			n = !0;
+		} else this.parent && this.view.themeClasses != this.classes && (this.classes = this.container.className = this.view.themeClasses);
+		n && this.maybeMeasure();
+	}
+	createTooltip(e, t) {
+		let n = e.create(this.view), r = t ? t.dom : null;
+		if (n.dom.classList.add("cm-tooltip"), e.arrow && !n.dom.querySelector(".cm-tooltip > .cm-tooltip-arrow")) {
+			let e = document.createElement("div");
+			e.className = "cm-tooltip-arrow", n.dom.appendChild(e);
+		}
+		return n.dom.style.position = this.position, n.dom.style.top = Jo, n.dom.style.left = "0px", this.container.insertBefore(n.dom, r), n.mount && n.mount(this.view), this.resizeObserver && this.resizeObserver.observe(n.dom), n;
+	}
+	destroy() {
+		var e, t, n;
+		this.view.win.removeEventListener("resize", this.measureSoon);
+		for (let t of this.manager.tooltipViews) t.dom.remove(), (e = t.destroy) == null || e.call(t);
+		this.parent && this.container.remove(), (t = this.resizeObserver) == null || t.disconnect(), (n = this.intersectionObserver) == null || n.disconnect(), clearTimeout(this.measureTimeout);
+	}
+	readMeasure() {
+		let e = 1, t = 1, n = !1, r = 0;
+		if (this.position == "fixed" && this.manager.tooltipViews.length) {
+			let { dom: e } = this.manager.tooltipViews[0];
+			if (N.safari) {
+				let t = e.getBoundingClientRect();
+				n = Math.abs(t.top + 1e4) > 1 || Math.abs(t.left) > 1;
+			} else n = !!e.offsetParent && e.offsetParent != this.container.ownerDocument.body;
+		}
+		if (n || this.position == "absolute") {
+			if (this.parent) {
+				let n = this.parent.getBoundingClientRect();
+				n.width && n.height && (e = n.width / this.parent.offsetWidth, t = n.height / this.parent.offsetHeight);
+			} else ({scaleX: e, scaleY: t} = this.view.viewState);
+		} else r = Xo(this.view).left;
+		let i = this.view.scrollDOM.getBoundingClientRect(), a = Fr(this.view);
+		return {
+			visible: {
+				left: i.left + a.left,
+				top: i.top + a.top,
+				right: i.right - a.right,
+				bottom: i.bottom - a.bottom
+			},
+			parent: this.parent ? this.container.getBoundingClientRect() : this.view.dom.getBoundingClientRect(),
+			pos: this.manager.tooltips.map((e, t) => {
+				let n = this.manager.tooltipViews[t];
+				return n.getCoords ? n.getCoords(e.pos) : this.view.coordsAtPos(e.pos);
+			}),
+			size: this.manager.tooltipViews.map(({ dom: e }) => e.getBoundingClientRect()),
+			space: this.view.state.facet(Qo).tooltipSpace(this.view),
+			scaleX: e,
+			scaleY: t,
+			makeAbsolute: n,
+			fixedLeft: r
+		};
+	}
+	writeMeasure(e) {
+		if (e.makeAbsolute) {
+			this.madeAbsolute = !0, this.position = "absolute";
+			for (let e of this.manager.tooltipViews) e.dom.style.position = "absolute";
+		}
+		let { visible: t, space: n, scaleX: r, scaleY: i } = e, a = [];
+		for (let o = 0; o < this.manager.tooltips.length; o++) {
+			let s = this.manager.tooltips[o], c = this.manager.tooltipViews[o], { dom: l } = c, u = e.pos[o], d = e.size[o];
+			if (!u || s.clip !== !1 && (u.bottom <= Math.max(t.top, n.top) || u.top >= Math.min(t.bottom, n.bottom) || u.right < Math.max(t.left, n.left) - .1 || u.left > Math.min(t.right, n.right) + .1)) {
+				l.style.top = Jo;
+				continue;
+			}
+			let f = s.arrow ? c.dom.querySelector(".cm-tooltip-arrow") : null, p = f ? 7 : 0, m = d.right - d.left, h = $o.get(c) ?? d.bottom - d.top, g = c.offset || rs, _ = this.view.textDirection == L.LTR, v = d.width > n.right - n.left ? _ ? n.left : n.right - d.width : _ ? Math.max(n.left, Math.min(u.left - (f ? 14 : 0) + g.x, n.right - m)) : Math.min(Math.max(n.left, u.left - m + (f ? 14 : 0) - g.x), n.right - m), y = this.above[o];
+			!s.strictSide && (y ? u.top - h - p - g.y < n.top : u.bottom + h + p + g.y > n.bottom) && y == n.bottom - u.bottom > u.top - n.top && (y = this.above[o] = !y);
+			let ee = (y ? u.top - n.top : n.bottom - u.bottom) - p;
+			if (ee < h && c.resize !== !1) {
+				if (ee < this.view.defaultLineHeight) {
+					l.style.top = Jo;
+					continue;
+				}
+				$o.set(c, h), l.style.height = (h = ee) / i + "px";
+			} else l.style.height && (l.style.height = "");
+			let b = y ? u.top - h - p - g.y : u.bottom + p + g.y, x = v + m;
+			if (c.overlap !== !0) for (let e of a) e.left < x && e.right > v && e.top < b + h && e.bottom > b && (b = y ? e.top - h - 2 - p : e.bottom + p + 2);
+			if (this.position == "absolute" ? (l.style.top = (b - e.parent.top) / i + "px", ts(l, (v - e.parent.left) / r)) : (l.style.top = b / i + "px", ts(l, (v - e.fixedLeft) / r)), f) {
+				let e = u.left + (_ ? g.x : -g.x) - (v + 14 - 7);
+				f.style.left = e / r + "px";
+			}
+			c.overlap !== !0 && a.push({
+				left: v,
+				top: b,
+				right: x,
+				bottom: b + h
+			}), l.classList.toggle("cm-tooltip-above", y), l.classList.toggle("cm-tooltip-below", !y), c.positioned && c.positioned(e.space);
+		}
+	}
+	maybeMeasure() {
+		if (this.manager.tooltips.length && (this.view.inView && this.view.requestMeasure(this.measureReq), this.inView != this.view.inView && (this.inView = this.view.inView, !this.inView))) for (let e of this.manager.tooltipViews) e.dom.style.top = Jo;
+	}
+}, { eventObservers: { scroll() {
+	this.maybeMeasure();
+} } });
+function ts(e, t) {
+	let n = parseInt(e.style.left, 10);
+	(isNaN(n) || Math.abs(t - n) > 1) && (e.style.left = t + "px");
+}
+var ns = /*@__PURE__*/ W.baseTheme({
+	".cm-tooltip": {
+		zIndex: 500,
+		boxSizing: "border-box"
+	},
+	"&light .cm-tooltip": {
+		border: "1px solid #bbb",
+		backgroundColor: "#f5f5f5"
+	},
+	"&light .cm-tooltip-section:not(:first-child)": { borderTop: "1px solid #bbb" },
+	"&dark .cm-tooltip": {
+		backgroundColor: "#333338",
+		color: "white"
+	},
+	".cm-tooltip-arrow": {
+		height: "7px",
+		width: "14px",
+		position: "absolute",
+		zIndex: -1,
+		overflow: "hidden",
+		"&:before, &:after": {
+			content: "''",
+			position: "absolute",
+			width: 0,
+			height: 0,
+			borderLeft: "7px solid transparent",
+			borderRight: "7px solid transparent"
+		},
+		".cm-tooltip-above &": {
+			bottom: "-7px",
+			"&:before": { borderTop: "7px solid #bbb" },
+			"&:after": {
+				borderTop: "7px solid #f5f5f5",
+				bottom: "1px"
+			}
+		},
+		".cm-tooltip-below &": {
+			top: "-7px",
+			"&:before": { borderBottom: "7px solid #bbb" },
+			"&:after": {
+				borderBottom: "7px solid #f5f5f5",
+				top: "1px"
+			}
+		}
+	},
+	"&dark .cm-tooltip .cm-tooltip-arrow": {
+		"&:before": {
+			borderTopColor: "#333338",
+			borderBottomColor: "#333338"
+		},
+		"&:after": {
+			borderTopColor: "transparent",
+			borderBottomColor: "transparent"
+		}
+	}
+}), rs = {
+	x: 0,
+	y: 0
+}, is = /*@__PURE__*/ E.define({ enables: [es, ns] }), as = /*@__PURE__*/ E.define({ combine: (e) => e.reduce((e, t) => e.concat(t), []) }), os = class e {
+	static create(t) {
+		return new e(t);
+	}
+	constructor(e) {
+		this.view = e, this.mounted = !1, this.dom = document.createElement("div"), this.dom.classList.add("cm-tooltip-hover"), this.manager = new Yo(e, as, (e, t) => this.createHostedView(e, t), (e) => e.dom.remove());
+	}
+	createHostedView(e, t) {
+		let n = e.create(this.view);
+		return n.dom.classList.add("cm-tooltip-section"), this.dom.insertBefore(n.dom, t ? t.dom.nextSibling : this.dom.firstChild), this.mounted && n.mount && n.mount(this.view), n;
+	}
+	mount(e) {
+		for (let t of this.manager.tooltipViews) t.mount && t.mount(e);
+		this.mounted = !0;
+	}
+	positioned(e) {
+		for (let t of this.manager.tooltipViews) t.positioned && t.positioned(e);
+	}
+	update(e) {
+		this.manager.update(e);
+	}
+	destroy() {
+		var e;
+		for (let t of this.manager.tooltipViews) (e = t.destroy) == null || e.call(t);
+	}
+	passProp(e) {
+		let t;
+		for (let n of this.manager.tooltipViews) {
+			let r = n[e];
+			if (r !== void 0) {
+				if (t === void 0) t = r;
+				else if (t !== r) return;
+			}
+		}
+		return t;
+	}
+	get offset() {
+		return this.passProp("offset");
+	}
+	get getCoords() {
+		return this.passProp("getCoords");
+	}
+	get overlap() {
+		return this.passProp("overlap");
+	}
+	get resize() {
+		return this.passProp("resize");
+	}
+}, ss = /*@__PURE__*/ is.compute([as], (e) => {
+	let t = e.facet(as);
+	return t.length === 0 ? null : {
+		pos: Math.min(...t.map((e) => e.pos)),
+		end: Math.max(...t.map((e) => e.end ?? e.pos)),
+		create: os.create,
+		above: t[0].above,
+		arrow: t.some((e) => e.arrow)
+	};
+}), cs = /*@__PURE__*/ E.define(), ls = class {
+	constructor(e, t, n, r, i, a) {
+		this.view = e, this.source = t, this.field = n, this.locked = r, this.setHover = i, this.hoverTime = a, this.hoverTimeout = -1, this.restartTimeout = -1, this.pending = null, this.lastMove = {
+			x: 0,
+			y: 0,
+			target: e.dom,
+			time: 0
+		}, this.checkHover = this.checkHover.bind(this), e.dom.addEventListener("mouseleave", this.mouseleave = this.mouseleave.bind(this)), e.dom.addEventListener("mousemove", this.mousemove = this.mousemove.bind(this));
+	}
+	update(e) {
+		this.pending && (this.pending = null, clearTimeout(this.restartTimeout), this.restartTimeout = setTimeout(() => this.startHover(), 20));
+	}
+	get active() {
+		return this.view.state.field(this.field);
+	}
+	checkHover() {
+		if (this.hoverTimeout = -1, this.active.length) return;
+		let e = Date.now() - this.lastMove.time;
+		e < this.hoverTime ? this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime - e) : this.startHover();
+	}
+	startHover() {
+		clearTimeout(this.restartTimeout);
+		let { view: e, lastMove: t } = this, n = e.docView.tile.nearest(t.target);
+		if (!n) return;
+		let r, i = 1;
+		if (n.isWidget()) r = n.posAtStart;
+		else {
+			if (r = e.posAtCoords(t), r == null) return;
+			let n = e.coordsAtPos(r);
+			if (!n || t.y < n.top || t.y > n.bottom || t.x < n.left - e.defaultCharacterWidth || t.x > n.right + e.defaultCharacterWidth) return;
+			let a = e.bidiSpans(e.state.doc.lineAt(r)).find((e) => e.from <= r && e.to >= r), o = a && a.dir == L.RTL ? -1 : 1;
+			i = t.x < n.left ? -o : o;
+		}
+		this.activateHover(e, r, i);
+	}
+	activateHover(e, t, n, r) {
+		let i = this.source(e, t, n), a = (t) => {
+			if (t && (!Array.isArray(t) || t.length)) {
+				let n = Array.isArray(t) ? t : [t];
+				r && this.locked.set(n, r), e.dispatch({ effects: this.setHover.of(n) });
+			}
+		};
+		if (i && "then" in i) {
+			let n = this.pending = { pos: t };
+			i.then((e) => {
+				this.pending == n && (this.pending = null, a(e));
+			}, (t) => z(e.state, t, "hover tooltip"));
+		} else a(i);
+	}
+	get tooltip() {
+		let e = this.view.plugin(es), t = e ? e.manager.tooltips.findIndex((e) => e.create == os.create) : -1;
+		return t > -1 ? e.manager.tooltipViews[t] : null;
+	}
+	mousemove(e) {
+		this.lastMove = {
+			x: e.clientX,
+			y: e.clientY,
+			target: e.target,
+			time: Date.now()
+		}, this.hoverTimeout < 0 && (this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime));
+		let { active: t, tooltip: n } = this;
+		if (t.length && !this.locked.has(t) && n && !ds(n.dom, e) || this.pending) {
+			let { pos: n } = t[0] || this.pending, r = t[0]?.end ?? n;
+			(n == r ? this.view.posAtCoords(this.lastMove) != n : !fs(this.view, n, r, e.clientX, e.clientY)) && (this.view.dispatch({ effects: this.setHover.of([]) }), this.pending = null);
+		}
+	}
+	mouseleave(e) {
+		clearTimeout(this.hoverTimeout), this.hoverTimeout = -1;
+		let { active: t } = this;
+		if (t.length && !this.locked.has(t)) {
+			let { tooltip: t } = this;
+			t && t.dom.contains(e.relatedTarget) ? this.watchTooltipLeave(t.dom) : this.view.dispatch({ effects: this.setHover.of([]) });
+		}
+	}
+	watchTooltipLeave(e) {
+		let t = (n) => {
+			e.removeEventListener("mouseleave", t);
+			let { active: r } = this;
+			r.length && !this.locked.has(r) && !this.view.dom.contains(n.relatedTarget) && this.view.dispatch({ effects: this.setHover.of([]) });
+		};
+		e.addEventListener("mouseleave", t);
+	}
+	destroy() {
+		clearTimeout(this.hoverTimeout), clearTimeout(this.restartTimeout), this.view.dom.removeEventListener("mouseleave", this.mouseleave), this.view.dom.removeEventListener("mousemove", this.mousemove);
+	}
+}, us = 4;
+function ds(e, t) {
+	let { left: n, right: r, top: i, bottom: a } = e.getBoundingClientRect(), o;
+	if (o = e.querySelector(".cm-tooltip-arrow")) {
+		let e = o.getBoundingClientRect();
+		i = Math.min(e.top, i), a = Math.max(e.bottom, a);
+	}
+	return t.clientX >= n - us && t.clientX <= r + us && t.clientY >= i - us && t.clientY <= a + us;
+}
+function fs(e, t, n, r, i, a) {
+	let o = e.scrollDOM.getBoundingClientRect(), s = e.documentTop + e.documentPadding.top + e.contentHeight;
+	if (o.left > r || o.right < r || o.top > i || Math.min(o.bottom, s) < i) return !1;
+	let c = e.posAtCoords({
+		x: r,
+		y: i
+	}, !1);
+	return c >= t && c <= n;
+}
+function ps(e, t = {}) {
+	let n = D.define(), r = /* @__PURE__ */ new WeakMap(), i = Ce.define({
+		create() {
+			return [];
+		},
+		update(e, a) {
+			let o = r.get(e);
+			if (e.length && (t.hideOnChange && (a.docChanged || a.selection) || o && o(a) ? e = [] : t.hideOn && (e = e.filter((e) => !t.hideOn(a, e)))), a.docChanged && e.length) {
+				let t = [];
+				for (let n of e) {
+					let e = a.changes.mapPos(n.pos, -1, C.TrackDel);
+					if (e != null) {
+						let r = Object.assign(Object.create(null), n);
+						r.pos = e, r.end != null && (r.end = a.changes.mapPos(r.end)), t.push(r);
+					}
+				}
+				e = t;
+			}
+			for (let t of a.effects) t.is(n) && (e = t.value, o = void 0), (t.is(hs) && !t.value || t.value == i) && (e = []);
+			return e.length && o && r.set(e, o), e;
+		},
+		provide: (e) => as.from(e)
+	}), a = wr.define((a) => new ls(a, e, i, r, n, t.hoverTime || 300));
+	return {
+		active: i,
+		extension: [
+			i,
+			a,
+			cs.of(a),
+			ss
+		]
+	};
+}
+function ms(e, t) {
+	let n = e.plugin(es);
+	if (!n) return null;
+	let r = n.manager.tooltips.indexOf(t);
+	return r < 0 ? null : n.manager.tooltipViews[r];
+}
+var hs = /*@__PURE__*/ D.define(), gs = /*@__PURE__*/ E.define({ combine(e) {
+	let t, n;
+	for (let r of e) t = t || r.topContainer, n = n || r.bottomContainer;
+	return {
+		topContainer: t,
+		bottomContainer: n
+	};
+} }), _s = /*@__PURE__*/ wr.fromClass(class {
+	constructor(e) {
+		this.input = e.state.facet(bs), this.specs = this.input.filter((e) => e), this.panels = this.specs.map((t) => t(e));
+		let t = e.state.facet(gs);
+		this.top = new vs(e, !0, t.topContainer), this.bottom = new vs(e, !1, t.bottomContainer), this.top.sync(this.panels.filter((e) => e.top)), this.bottom.sync(this.panels.filter((e) => !e.top));
+		for (let e of this.panels) e.dom.classList.add("cm-panel"), e.mount && e.mount();
+	}
+	update(e) {
+		let t = e.state.facet(gs);
+		this.top.container != t.topContainer && (this.top.sync([]), this.top = new vs(e.view, !0, t.topContainer)), this.bottom.container != t.bottomContainer && (this.bottom.sync([]), this.bottom = new vs(e.view, !1, t.bottomContainer)), this.top.syncClasses(), this.bottom.syncClasses();
+		let n = e.state.facet(bs);
+		if (n != this.input) {
+			let t = n.filter((e) => e), r = [], i = [], a = [], o = [];
+			for (let n of t) {
+				let t = this.specs.indexOf(n), s;
+				t < 0 ? (s = n(e.view), o.push(s)) : (s = this.panels[t], s.update && s.update(e)), r.push(s), (s.top ? i : a).push(s);
+			}
+			this.specs = t, this.panels = r, this.top.sync(i), this.bottom.sync(a);
+			for (let e of o) e.dom.classList.add("cm-panel"), e.mount && e.mount();
+		} else for (let t of this.panels) t.update && t.update(e);
+	}
+	destroy() {
+		this.top.sync([]), this.bottom.sync([]);
+	}
+}, { provide: (e) => W.scrollMargins.of((t) => {
+	let n = t.plugin(e);
+	return n && {
+		top: n.top.scrollMargin(),
+		bottom: n.bottom.scrollMargin()
+	};
+}) }), vs = class {
+	constructor(e, t, n) {
+		this.view = e, this.top = t, this.container = n, this.dom = void 0, this.classes = "", this.panels = [], this.syncClasses();
+	}
+	sync(e) {
+		for (let t of this.panels) t.destroy && e.indexOf(t) < 0 && t.destroy();
+		this.panels = e, this.syncDOM();
+	}
+	syncDOM() {
+		if (this.panels.length == 0) {
+			this.dom && (this.dom.remove(), this.dom = void 0);
+			return;
+		}
+		if (!this.dom) {
+			this.dom = document.createElement("div"), this.dom.className = this.top ? "cm-panels cm-panels-top" : "cm-panels cm-panels-bottom";
+			let e = this.container || this.view.dom;
+			e.insertBefore(this.dom, this.top ? e.firstChild : null);
+		}
+		let e = this.dom.firstChild;
+		for (let t of this.panels) if (t.dom.parentNode == this.dom) {
+			for (; e != t.dom;) e = ys(e);
+			e = e.nextSibling;
+		} else this.dom.insertBefore(t.dom, e);
+		for (; e;) e = ys(e);
+	}
+	scrollMargin() {
+		return !this.dom || this.container ? 0 : Math.max(0, this.top ? this.dom.getBoundingClientRect().bottom - Math.max(0, this.view.scrollDOM.getBoundingClientRect().top) : Math.min(innerHeight, this.view.scrollDOM.getBoundingClientRect().bottom) - this.dom.getBoundingClientRect().top);
+	}
+	syncClasses() {
+		if (this.container && this.classes != this.view.themeClasses) {
+			for (let e of this.classes.split(" ")) e && this.container.classList.remove(e);
+			for (let e of (this.classes = this.view.themeClasses).split(" ")) e && this.container.classList.add(e);
+		}
+	}
+};
+function ys(e) {
+	let t = e.nextSibling;
+	return e.remove(), t;
+}
+var bs = /*@__PURE__*/ E.define({ enables: _s }), xs = class extends it {
+	compare(e) {
+		return this == e || this.constructor == e.constructor && this.eq(e);
+	}
+	eq(e) {
+		return !1;
+	}
+	destroy(e) {}
+};
+xs.prototype.elementClass = "", xs.prototype.toDOM = void 0, xs.prototype.mapMode = C.TrackBefore, xs.prototype.startSide = xs.prototype.endSide = -1, xs.prototype.point = !0;
+var Ss = /*@__PURE__*/ E.define(), Cs = /*@__PURE__*/ E.define(), ws = {
+	class: "",
+	renderEmptyElements: !1,
+	elementStyle: "",
+	markers: () => A.empty,
+	lineMarker: () => null,
+	widgetMarker: () => null,
+	lineMarkerChange: null,
+	initialSpacer: null,
+	updateSpacer: null,
+	domEventHandlers: {},
+	side: "before"
+}, Ts = /*@__PURE__*/ E.define();
+function Es(e) {
+	return [Os(), Ts.of({
+		...ws,
+		...e
+	})];
+}
+var Ds = /*@__PURE__*/ E.define({ combine: (e) => e.some((e) => e) });
+function Os(e) {
+	let t = [ks];
+	return e && e.fixed === !1 && t.push(Ds.of(!0)), t;
+}
+var ks = /*@__PURE__*/ wr.fromClass(class {
+	constructor(e) {
+		this.view = e, this.domAfter = null, this.prevViewport = e.viewport, this.dom = document.createElement("div"), this.dom.className = "cm-gutters cm-gutters-before", this.dom.setAttribute("aria-hidden", "true"), this.dom.style.minHeight = this.view.contentHeight / this.view.scaleY + "px", this.gutters = e.state.facet(Ts).map((t) => new Ns(e, t)), this.fixed = !e.state.facet(Ds);
+		for (let e of this.gutters) e.config.side == "after" ? this.getDOMAfter().appendChild(e.dom) : this.dom.appendChild(e.dom);
+		this.fixed && (this.dom.style.position = "sticky"), this.syncGutters(!1), e.scrollDOM.insertBefore(this.dom, e.contentDOM);
+	}
+	getDOMAfter() {
+		return this.domAfter || (this.domAfter = document.createElement("div"), this.domAfter.className = "cm-gutters cm-gutters-after", this.domAfter.setAttribute("aria-hidden", "true"), this.domAfter.style.minHeight = this.view.contentHeight / this.view.scaleY + "px", this.domAfter.style.position = this.fixed ? "sticky" : "", this.view.scrollDOM.appendChild(this.domAfter)), this.domAfter;
+	}
+	update(e) {
+		if (this.updateGutters(e)) {
+			let t = this.prevViewport, n = e.view.viewport, r = Math.min(t.to, n.to) - Math.max(t.from, n.from);
+			this.syncGutters(r < (n.to - n.from) * .8);
+		}
+		if (e.geometryChanged) {
+			let e = this.view.contentHeight / this.view.scaleY + "px";
+			this.dom.style.minHeight = e, this.domAfter && (this.domAfter.style.minHeight = e);
+		}
+		this.view.state.facet(Ds) != !this.fixed && (this.fixed = !this.fixed, this.dom.style.position = this.fixed ? "sticky" : "", this.domAfter && (this.domAfter.style.position = this.fixed ? "sticky" : "")), this.prevViewport = e.view.viewport;
+	}
+	syncGutters(e) {
+		let t = this.dom.nextSibling;
+		e && (this.dom.remove(), this.domAfter && this.domAfter.remove());
+		let n = A.iter(this.view.state.facet(Ss), this.view.viewport.from), r = [], i = this.gutters.map((e) => new Ms(e, this.view.viewport, -this.view.documentPadding.top));
+		for (let e of this.view.viewportLineBlocks) if (r.length && (r = []), Array.isArray(e.type)) {
+			let t = !0;
+			for (let a of e.type) if (a.type == P.Text && t) {
+				js(n, r, a.from);
+				for (let e of i) e.line(this.view, a, r);
+				t = !1;
+			} else if (a.widget) for (let e of i) e.widget(this.view, a);
+		} else if (e.type == P.Text) {
+			js(n, r, e.from);
+			for (let t of i) t.line(this.view, e, r);
+		} else if (e.widget) for (let t of i) t.widget(this.view, e);
+		for (let e of i) e.finish();
+		e && (this.view.scrollDOM.insertBefore(this.dom, t), this.domAfter && this.view.scrollDOM.appendChild(this.domAfter));
+	}
+	updateGutters(e) {
+		let t = e.startState.facet(Ts), n = e.state.facet(Ts), r = e.docChanged || e.heightChanged || e.viewportChanged || !A.eq(e.startState.facet(Ss), e.state.facet(Ss), e.view.viewport.from, e.view.viewport.to);
+		if (t == n) for (let t of this.gutters) t.update(e) && (r = !0);
+		else {
+			r = !0;
+			let i = [];
+			for (let r of n) {
+				let n = t.indexOf(r);
+				n < 0 ? i.push(new Ns(this.view, r)) : (this.gutters[n].update(e), i.push(this.gutters[n]));
+			}
+			for (let e of this.gutters) e.dom.remove(), i.indexOf(e) < 0 && e.destroy();
+			for (let e of i) e.config.side == "after" ? this.getDOMAfter().appendChild(e.dom) : this.dom.appendChild(e.dom);
+			this.gutters = i;
+		}
+		return r;
+	}
+	destroy() {
+		for (let e of this.gutters) e.destroy();
+		this.dom.remove(), this.domAfter && this.domAfter.remove();
+	}
+}, { provide: (e) => W.scrollMargins.of((t) => {
+	let n = t.plugin(e);
+	if (!n || n.gutters.length == 0 || !n.fixed) return null;
+	let r = n.dom.offsetWidth * t.scaleX, i = n.domAfter ? n.domAfter.offsetWidth * t.scaleX : 0;
+	return t.textDirection == L.LTR ? {
+		left: r,
+		right: i
+	} : {
+		right: r,
+		left: i
+	};
+}) });
+function As(e) {
+	return Array.isArray(e) ? e : [e];
+}
+function js(e, t, n) {
+	for (; e.value && e.from <= n;) e.from == n && t.push(e.value), e.next();
+}
+var Ms = class {
+	constructor(e, t, n) {
+		this.gutter = e, this.height = n, this.i = 0, this.cursor = A.iter(e.markers, t.from);
+	}
+	addElement(e, t, n) {
+		let { gutter: r } = this, i = (t.top - this.height) / e.scaleY, a = t.height / e.scaleY;
+		if (this.i == r.elements.length) {
+			let t = new Ps(e, a, i, n);
+			r.elements.push(t), r.dom.appendChild(t.dom);
+		} else r.elements[this.i].update(e, a, i, n);
+		this.height = t.bottom, this.i++;
+	}
+	line(e, t, n) {
+		let r = [];
+		js(this.cursor, r, t.from), n.length && (r = r.concat(n));
+		let i = this.gutter.config.lineMarker(e, t, r);
+		i && r.unshift(i);
+		let a = this.gutter;
+		(r.length != 0 || a.config.renderEmptyElements) && this.addElement(e, t, r);
+	}
+	widget(e, t) {
+		let n = this.gutter.config.widgetMarker(e, t.widget, t), r = n ? [n] : null;
+		for (let n of e.state.facet(Cs)) {
+			let i = n(e, t.widget, t);
+			i && (r || (r = [])).push(i);
+		}
+		r && this.addElement(e, t, r);
+	}
+	finish() {
+		let e = this.gutter;
+		for (; e.elements.length > this.i;) {
+			let t = e.elements.pop();
+			e.dom.removeChild(t.dom), t.destroy();
+		}
+	}
+}, Ns = class {
+	constructor(e, t) {
+		this.view = e, this.config = t, this.elements = [], this.spacer = null, this.dom = document.createElement("div"), this.dom.className = "cm-gutter" + (this.config.class ? " " + this.config.class : "");
+		for (let n in t.domEventHandlers) this.dom.addEventListener(n, (r) => {
+			let i = r.target, a;
+			if (i != this.dom && this.dom.contains(i)) {
+				for (; i.parentNode != this.dom;) i = i.parentNode;
+				let e = i.getBoundingClientRect();
+				a = (e.top + e.bottom) / 2;
+			} else a = r.clientY;
+			let o = e.lineBlockAtHeight(a - e.documentTop);
+			t.domEventHandlers[n](e, o, r) && r.preventDefault();
+		});
+		this.markers = As(t.markers(e)), t.initialSpacer && (this.spacer = new Ps(e, 0, 0, [t.initialSpacer(e)]), this.dom.appendChild(this.spacer.dom), this.spacer.dom.style.cssText += "visibility: hidden; pointer-events: none");
+	}
+	update(e) {
+		let t = this.markers;
+		if (this.markers = As(this.config.markers(e.view)), this.spacer && this.config.updateSpacer) {
+			let t = this.config.updateSpacer(this.spacer.markers[0], e);
+			t != this.spacer.markers[0] && this.spacer.update(e.view, 0, 0, [t]);
+		}
+		let n = e.view.viewport;
+		return !A.eq(this.markers, t, n.from, n.to) || (this.config.lineMarkerChange ? this.config.lineMarkerChange(e) : !1);
+	}
+	destroy() {
+		for (let e of this.elements) e.destroy();
+	}
+}, Ps = class {
+	constructor(e, t, n, r) {
+		this.height = -1, this.above = 0, this.markers = [], this.dom = document.createElement("div"), this.dom.className = "cm-gutterElement", this.update(e, t, n, r);
+	}
+	update(e, t, n, r) {
+		this.height != t && (this.height = t, this.dom.style.height = t + "px"), this.above != n && (this.dom.style.marginTop = (this.above = n) ? n + "px" : ""), Fs(this.markers, r) || this.setMarkers(e, r);
+	}
+	setMarkers(e, t) {
+		let n = "cm-gutterElement", r = this.dom.firstChild;
+		for (let i = 0, a = 0;;) {
+			let o = a, s = i < t.length ? t[i++] : null, c = !1;
+			if (s) {
+				let e = s.elementClass;
+				e && (n += " " + e);
+				for (let e = a; e < this.markers.length; e++) if (this.markers[e].compare(s)) {
+					o = e, c = !0;
+					break;
+				}
+			} else o = this.markers.length;
+			for (; a < o;) {
+				let e = this.markers[a++];
+				if (e.toDOM) {
+					e.destroy(r);
+					let t = r.nextSibling;
+					r.remove(), r = t;
+				}
+			}
+			if (!s) break;
+			s.toDOM && (c ? r = r.nextSibling : this.dom.insertBefore(s.toDOM(e), r)), c && a++;
+		}
+		this.dom.className = n, this.markers = t;
+	}
+	destroy() {
+		this.setMarkers(null, []);
+	}
+};
+function Fs(e, t) {
+	if (e.length != t.length) return !1;
+	for (let n = 0; n < e.length; n++) if (!e[n].compare(t[n])) return !1;
+	return !0;
+}
+var Is = /*@__PURE__*/ E.define(), Ls = /*@__PURE__*/ E.define(), Rs = /*@__PURE__*/ E.define({ combine(e) {
+	return rt(e, {
+		formatNumber: String,
+		domEventHandlers: {}
+	}, { domEventHandlers(e, t) {
+		let n = Object.assign({}, e);
+		for (let e in t) {
+			let r = n[e], i = t[e];
+			n[e] = r ? (e, t, n) => r(e, t, n) || i(e, t, n) : i;
+		}
+		return n;
+	} });
+} }), zs = class extends xs {
+	constructor(e) {
+		super(), this.number = e;
+	}
+	eq(e) {
+		return this.number == e.number;
+	}
+	toDOM() {
+		return document.createTextNode(this.number);
+	}
+};
+function Bs(e, t) {
+	return e.state.facet(Rs).formatNumber(t, e.state);
+}
+var Vs = /*@__PURE__*/ Ts.compute([Rs], (e) => ({
+	class: "cm-lineNumbers",
+	renderEmptyElements: !1,
+	markers(e) {
+		return e.state.facet(Is);
+	},
+	lineMarker(e, t, n) {
+		return n.some((e) => e.toDOM) ? null : new zs(Bs(e, e.state.doc.lineAt(t.from).number));
+	},
+	widgetMarker: (e, t, n) => {
+		for (let r of e.state.facet(Ls)) {
+			let i = r(e, t, n);
+			if (i) return i;
+		}
+		return null;
+	},
+	lineMarkerChange: (e) => e.startState.facet(Rs) != e.state.facet(Rs),
+	initialSpacer(e) {
+		return new zs(Bs(e, Us(e.state.doc.lines)));
+	},
+	updateSpacer(e, t) {
+		let n = Bs(t.view, Us(t.view.state.doc.lines));
+		return n == e.number ? e : new zs(n);
+	},
+	domEventHandlers: e.facet(Rs).domEventHandlers,
+	side: "before"
+}));
+function Hs(e = {}) {
+	return [
+		Rs.of(e),
+		Os(),
+		Vs
+	];
+}
+function Us(e) {
+	let t = 9;
+	for (; t < e;) t = t * 10 + 9;
+	return t;
+}
+var Ws = /*@__PURE__*/ new class extends xs {
+	constructor() {
+		super(...arguments), this.elementClass = "cm-activeLineGutter";
+	}
+}(), Gs = /*@__PURE__*/ Ss.compute(["selection"], (e) => {
+	let t = [], n = -1;
+	for (let r of e.selection.ranges) {
+		let i = e.doc.lineAt(r.head).from;
+		i > n && (n = i, t.push(Ws.range(i)));
+	}
+	return A.of(t);
+});
+function Ks() {
+	return Gs;
+}
+//#endregion
+//#region node_modules/@lezer/common/dist/index.js
+var qs = 1024, Js = 0, Ys = class {
+	constructor(e, t) {
+		this.from = e, this.to = t;
+	}
+}, G = class {
+	constructor(e = {}) {
+		this.id = Js++, this.perNode = !!e.perNode, this.deserialize = e.deserialize || (() => {
+			throw Error("This node type doesn't define a deserialize function");
+		}), this.combine = e.combine || null;
+	}
+	add(e) {
+		if (this.perNode) throw RangeError("Can't add per-node props to node types");
+		return typeof e != "function" && (e = Qs.match(e)), (t) => {
+			let n = e(t);
+			return n === void 0 ? null : [this, n];
+		};
+	}
+};
+G.closedBy = new G({ deserialize: (e) => e.split(" ") }), G.openedBy = new G({ deserialize: (e) => e.split(" ") }), G.group = new G({ deserialize: (e) => e.split(" ") }), G.isolate = new G({ deserialize: (e) => {
+	if (e && e != "rtl" && e != "ltr" && e != "auto") throw RangeError("Invalid value for isolate: " + e);
+	return e || "auto";
+} }), G.contextHash = new G({ perNode: !0 }), G.lookAhead = new G({ perNode: !0 }), G.mounted = new G({ perNode: !0 });
+var Xs = class {
+	constructor(e, t, n, r = !1) {
+		this.tree = e, this.overlay = t, this.parser = n, this.bracketed = r;
+	}
+	static get(e) {
+		return e && e.props && e.props[G.mounted.id];
+	}
+}, Zs = Object.create(null), Qs = class e {
+	constructor(e, t, n, r = 0) {
+		this.name = e, this.props = t, this.id = n, this.flags = r;
+	}
+	static define(t) {
+		let n = t.props && t.props.length ? Object.create(null) : Zs, r = +!!t.top | (t.skipped ? 2 : 0) | (t.error ? 4 : 0) | (t.name == null ? 8 : 0), i = new e(t.name || "", n, t.id, r);
+		if (t.props) {
+			for (let e of t.props) if (Array.isArray(e) || (e = e(i)), e) {
+				if (e[0].perNode) throw RangeError("Can't store a per-node prop on a node type");
+				n[e[0].id] = e[1];
+			}
+		}
+		return i;
+	}
+	prop(e) {
+		return this.props[e.id];
+	}
+	get isTop() {
+		return (this.flags & 1) > 0;
+	}
+	get isSkipped() {
+		return (this.flags & 2) > 0;
+	}
+	get isError() {
+		return (this.flags & 4) > 0;
+	}
+	get isAnonymous() {
+		return (this.flags & 8) > 0;
+	}
+	is(e) {
+		if (typeof e == "string") {
+			if (this.name == e) return !0;
+			let t = this.prop(G.group);
+			return t ? t.indexOf(e) > -1 : !1;
+		}
+		return this.id == e;
+	}
+	static match(e) {
+		let t = Object.create(null);
+		for (let n in e) for (let r of n.split(" ")) t[r] = e[n];
+		return (e) => {
+			for (let n = e.prop(G.group), r = -1; r < (n ? n.length : 0); r++) {
+				let i = t[r < 0 ? e.name : n[r]];
+				if (i) return i;
+			}
+		};
+	}
+};
+Qs.none = new Qs("", Object.create(null), 0, 8);
+var $s = /* @__PURE__ */ new WeakMap(), ec = /* @__PURE__ */ new WeakMap(), K;
+(function(e) {
+	e[e.ExcludeBuffers = 1] = "ExcludeBuffers", e[e.IncludeAnonymous = 2] = "IncludeAnonymous", e[e.IgnoreMounts = 4] = "IgnoreMounts", e[e.IgnoreOverlays = 8] = "IgnoreOverlays", e[e.EnterBracketed = 16] = "EnterBracketed";
+})(K || (K = {}));
+var q = class e {
+	constructor(e, t, n, r, i) {
+		if (this.type = e, this.children = t, this.positions = n, this.length = r, this.props = null, i && i.length) {
+			this.props = Object.create(null);
+			for (let [e, t] of i) this.props[typeof e == "number" ? e : e.id] = t;
+		}
+	}
+	toString() {
+		let e = Xs.get(this);
+		if (e && !e.overlay) return e.tree.toString();
+		let t = "";
+		for (let e of this.children) {
+			let n = e.toString();
+			n && (t && (t += ","), t += n);
+		}
+		return this.type.name ? (/\W/.test(this.type.name) && !this.type.isError ? JSON.stringify(this.type.name) : this.type.name) + (t.length ? "(" + t + ")" : "") : t;
+	}
+	cursor(e = 0) {
+		return new mc(this.topNode, e);
+	}
+	cursorAt(e, t = 0, n = 0) {
+		let r = new mc($s.get(this) || this.topNode);
+		return r.moveTo(e, t), $s.set(this, r._tree), r;
+	}
+	get topNode() {
+		return new oc(this, 0, 0, null);
+	}
+	resolve(e, t = 0) {
+		let n = ic($s.get(this) || this.topNode, e, t, !1);
+		return $s.set(this, n), n;
+	}
+	resolveInner(e, t = 0) {
+		let n = ic(ec.get(this) || this.topNode, e, t, !0);
+		return ec.set(this, n), n;
+	}
+	resolveStack(e, t = 0) {
+		return pc(this, e, t);
+	}
+	iterate(e) {
+		let { enter: t, leave: n, from: r = 0, to: i = this.length } = e, a = e.mode || 0, o = (a & K.IncludeAnonymous) > 0;
+		for (let e = this.cursor(a | K.IncludeAnonymous);;) {
+			let a = !1;
+			if (e.from <= i && e.to >= r && (!o && e.type.isAnonymous || t(e) !== !1)) {
+				if (e.firstChild()) continue;
+				a = !0;
+			}
+			for (; a && n && (o || !e.type.isAnonymous) && n(e), !e.nextSibling();) {
+				if (!e.parent()) return;
+				a = !0;
+			}
+		}
+	}
+	prop(e) {
+		return e.perNode ? this.props ? this.props[e.id] : void 0 : this.type.prop(e);
+	}
+	get propValues() {
+		let e = [];
+		if (this.props) for (let t in this.props) e.push([+t, this.props[t]]);
+		return e;
+	}
+	balance(t = {}) {
+		return this.children.length <= 8 ? this : yc(Qs.none, this.children, this.positions, 0, this.children.length, 0, this.length, (t, n, r) => new e(this.type, t, n, r, this.propValues), t.makeTree || ((t, n, r) => new e(Qs.none, t, n, r)));
+	}
+	static build(e) {
+		return gc(e);
+	}
+};
+q.empty = new q(Qs.none, [], [], 0);
+var tc = class e {
+	constructor(e, t) {
+		this.buffer = e, this.index = t;
+	}
+	get id() {
+		return this.buffer[this.index - 4];
+	}
+	get start() {
+		return this.buffer[this.index - 3];
+	}
+	get end() {
+		return this.buffer[this.index - 2];
+	}
+	get size() {
+		return this.buffer[this.index - 1];
+	}
+	get pos() {
+		return this.index;
+	}
+	next() {
+		this.index -= 4;
+	}
+	fork() {
+		return new e(this.buffer, this.index);
+	}
+}, nc = class e {
+	constructor(e, t, n) {
+		this.buffer = e, this.length = t, this.set = n;
+	}
+	get type() {
+		return Qs.none;
+	}
+	toString() {
+		let e = [];
+		for (let t = 0; t < this.buffer.length;) e.push(this.childString(t)), t = this.buffer[t + 3];
+		return e.join(",");
+	}
+	childString(e) {
+		let t = this.buffer[e], n = this.buffer[e + 3], r = this.set.types[t], i = r.name;
+		if (/\W/.test(i) && !r.isError && (i = JSON.stringify(i)), e += 4, n == e) return i;
+		let a = [];
+		for (; e < n;) a.push(this.childString(e)), e = this.buffer[e + 3];
+		return i + "(" + a.join(",") + ")";
+	}
+	findChild(e, t, n, r, i) {
+		let { buffer: a } = this, o = -1;
+		for (let s = e; s != t && !(rc(i, r, a[s + 1], a[s + 2]) && (o = s, n > 0)); s = a[s + 3]);
+		return o;
+	}
+	slice(t, n, r) {
+		let i = this.buffer, a = new Uint16Array(n - t), o = 0;
+		for (let e = t, s = 0; e < n;) {
+			a[s++] = i[e++], a[s++] = i[e++] - r;
+			let n = a[s++] = i[e++] - r;
+			a[s++] = i[e++] - t, o = Math.max(o, n);
+		}
+		return new e(a, o, this.set);
+	}
+};
+function rc(e, t, n, r) {
+	switch (e) {
+		case -2: return n < t;
+		case -1: return r >= t && n < t;
+		case 0: return n < t && r > t;
+		case 1: return n <= t && r > t;
+		case 2: return r > t;
+		case 4: return !0;
+	}
+}
+function ic(e, t, n, r) {
+	for (; e.from == e.to || (n < 1 ? e.from >= t : e.from > t) || (n > -1 ? e.to <= t : e.to < t);) {
+		let t = !r && e instanceof oc && e.index < 0 ? null : e.parent;
+		if (!t) return e;
+		e = t;
+	}
+	let i = r ? 0 : K.IgnoreOverlays;
+	if (r) for (let r = e, a = r.parent; a; r = a, a = r.parent) r instanceof oc && r.index < 0 && a.enter(t, n, i)?.from != r.from && (e = a);
+	for (;;) {
+		let r = e.enter(t, n, i);
+		if (!r) return e;
+		e = r;
+	}
+}
+var ac = class {
+	cursor(e = 0) {
+		return new mc(this, e);
+	}
+	getChild(e, t = null, n = null) {
+		let r = sc(this, e, t, n);
+		return r.length ? r[0] : null;
+	}
+	getChildren(e, t = null, n = null) {
+		return sc(this, e, t, n);
+	}
+	resolve(e, t = 0) {
+		return ic(this, e, t, !1);
+	}
+	resolveInner(e, t = 0) {
+		return ic(this, e, t, !0);
+	}
+	matchContext(e) {
+		return cc(this.parent, e);
+	}
+	enterUnfinishedNodesBefore(e) {
+		let t = this.childBefore(e), n = this;
+		for (; t;) {
+			let e = t.lastChild;
+			if (!e || e.to != t.to) break;
+			e.type.isError && e.from == e.to ? (n = t, t = e.prevSibling) : t = e;
+		}
+		return n;
+	}
+	get node() {
+		return this;
+	}
+	get next() {
+		return this.parent;
+	}
+}, oc = class e extends ac {
+	constructor(e, t, n, r) {
+		super(), this._tree = e, this.from = t, this.index = n, this._parent = r;
+	}
+	get type() {
+		return this._tree.type;
+	}
+	get name() {
+		return this._tree.type.name;
+	}
+	get to() {
+		return this.from + this._tree.length;
+	}
+	nextChild(t, n, r, i, a = 0) {
+		for (let o = this;;) {
+			for (let { children: s, positions: c } = o._tree, l = n > 0 ? s.length : -1; t != l; t += n) {
+				let l = s[t], u = c[t] + o.from, d;
+				if (a & K.EnterBracketed && l instanceof q && (d = Xs.get(l)) && !d.overlay && d.bracketed && r >= u && r <= u + l.length || rc(i, r, u, u + l.length)) {
+					if (l instanceof nc) {
+						if (a & K.ExcludeBuffers) continue;
+						let e = l.findChild(0, l.buffer.length, n, r - u, i);
+						if (e > -1) return new uc(new lc(o, l, t, u), null, e);
+					} else if (a & K.IncludeAnonymous || !l.type.isAnonymous || hc(l)) {
+						let s;
+						if (!(a & K.IgnoreMounts) && (s = Xs.get(l)) && !s.overlay) return new e(s.tree, u, t, o);
+						let c = new e(l, u, t, o);
+						return a & K.IncludeAnonymous || !c.type.isAnonymous ? c : c.nextChild(n < 0 ? l.children.length - 1 : 0, n, r, i, a);
+					}
+				}
+			}
+			if (a & K.IncludeAnonymous || !o.type.isAnonymous || (t = o.index >= 0 ? o.index + n : n < 0 ? -1 : o._parent._tree.children.length, o = o._parent, !o)) return null;
+		}
+	}
+	get firstChild() {
+		return this.nextChild(0, 1, 0, 4);
+	}
+	get lastChild() {
+		return this.nextChild(this._tree.children.length - 1, -1, 0, 4);
+	}
+	childAfter(e) {
+		return this.nextChild(0, 1, e, 2);
+	}
+	childBefore(e) {
+		return this.nextChild(this._tree.children.length - 1, -1, e, -2);
+	}
+	prop(e) {
+		return this._tree.prop(e);
+	}
+	enter(t, n, r = 0) {
+		let i;
+		if (!(r & K.IgnoreOverlays) && (i = Xs.get(this._tree)) && i.overlay) {
+			let a = t - this.from, o = r & K.EnterBracketed && i.bracketed;
+			for (let { from: t, to: r } of i.overlay) if ((n > 0 || o ? t <= a : t < a) && (n < 0 || o ? r >= a : r > a)) return new e(i.tree, i.overlay[0].from + this.from, -1, this);
+		}
+		return this.nextChild(0, 1, t, n, r);
+	}
+	nextSignificantParent() {
+		let e = this;
+		for (; e.type.isAnonymous && e._parent;) e = e._parent;
+		return e;
+	}
+	get parent() {
+		return this._parent ? this._parent.nextSignificantParent() : null;
+	}
+	get nextSibling() {
+		return this._parent && this.index >= 0 ? this._parent.nextChild(this.index + 1, 1, 0, 4) : null;
+	}
+	get prevSibling() {
+		return this._parent && this.index >= 0 ? this._parent.nextChild(this.index - 1, -1, 0, 4) : null;
+	}
+	get tree() {
+		return this._tree;
+	}
+	toTree() {
+		return this._tree;
+	}
+	toString() {
+		return this._tree.toString();
+	}
+};
+function sc(e, t, n, r) {
+	let i = e.cursor(), a = [];
+	if (!i.firstChild()) return a;
+	if (n != null) {
+		for (let e = !1; !e;) if (e = i.type.is(n), !i.nextSibling()) return a;
+	}
+	for (;;) {
+		if (r != null && i.type.is(r)) return a;
+		if (i.type.is(t) && a.push(i.node), !i.nextSibling()) return r == null ? a : [];
+	}
+}
+function cc(e, t, n = t.length - 1) {
+	for (let r = e; n >= 0; r = r.parent) {
+		if (!r) return !1;
+		if (!r.type.isAnonymous) {
+			if (t[n] && t[n] != r.name) return !1;
+			n--;
+		}
+	}
+	return !0;
+}
+var lc = class {
+	constructor(e, t, n, r) {
+		this.parent = e, this.buffer = t, this.index = n, this.start = r;
+	}
+}, uc = class e extends ac {
+	get name() {
+		return this.type.name;
+	}
+	get from() {
+		return this.context.start + this.context.buffer.buffer[this.index + 1];
+	}
+	get to() {
+		return this.context.start + this.context.buffer.buffer[this.index + 2];
+	}
+	constructor(e, t, n) {
+		super(), this.context = e, this._parent = t, this.index = n, this.type = e.buffer.set.types[e.buffer.buffer[n]];
+	}
+	child(t, n, r) {
+		let { buffer: i } = this.context, a = i.findChild(this.index + 4, i.buffer[this.index + 3], t, n - this.context.start, r);
+		return a < 0 ? null : new e(this.context, this, a);
+	}
+	get firstChild() {
+		return this.child(1, 0, 4);
+	}
+	get lastChild() {
+		return this.child(-1, 0, 4);
+	}
+	childAfter(e) {
+		return this.child(1, e, 2);
+	}
+	childBefore(e) {
+		return this.child(-1, e, -2);
+	}
+	prop(e) {
+		return this.type.prop(e);
+	}
+	enter(t, n, r = 0) {
+		if (r & K.ExcludeBuffers) return null;
+		let { buffer: i } = this.context, a = i.findChild(this.index + 4, i.buffer[this.index + 3], n > 0 ? 1 : -1, t - this.context.start, n);
+		return a < 0 ? null : new e(this.context, this, a);
+	}
+	get parent() {
+		return this._parent || this.context.parent.nextSignificantParent();
+	}
+	externalSibling(e) {
+		return this._parent ? null : this.context.parent.nextChild(this.context.index + e, e, 0, 4);
+	}
+	get nextSibling() {
+		let { buffer: t } = this.context, n = t.buffer[this.index + 3];
+		return n < (this._parent ? t.buffer[this._parent.index + 3] : t.buffer.length) ? new e(this.context, this._parent, n) : this.externalSibling(1);
+	}
+	get prevSibling() {
+		let { buffer: t } = this.context, n = this._parent ? this._parent.index + 4 : 0;
+		return this.index == n ? this.externalSibling(-1) : new e(this.context, this._parent, t.findChild(n, this.index, -1, 0, 4));
+	}
+	get tree() {
+		return null;
+	}
+	toTree() {
+		let e = [], t = [], { buffer: n } = this.context, r = this.index + 4, i = n.buffer[this.index + 3];
+		if (i > r) {
+			let a = n.buffer[this.index + 1];
+			e.push(n.slice(r, i, a)), t.push(0);
+		}
+		return new q(this.type, e, t, this.to - this.from);
+	}
+	toString() {
+		return this.context.buffer.childString(this.index);
+	}
+};
+function dc(e) {
+	if (!e.length) return null;
+	let t = 0, n = e[0];
+	for (let r = 1; r < e.length; r++) {
+		let i = e[r];
+		(i.from > n.from || i.to < n.to) && (n = i, t = r);
+	}
+	let r = n instanceof oc && n.index < 0 ? null : n.parent, i = e.slice();
+	return r ? i[t] = r : i.splice(t, 1), new fc(i, n);
+}
+var fc = class {
+	constructor(e, t) {
+		this.heads = e, this.node = t;
+	}
+	get next() {
+		return dc(this.heads);
+	}
+};
+function pc(e, t, n) {
+	let r = e.resolveInner(t, n), i = null;
+	for (let e = r instanceof oc ? r : r.context.parent; e; e = e.parent) if (e.index < 0) {
+		let a = e.parent;
+		(i || (i = [r])).push(a.resolve(t, n)), e = a;
+	} else {
+		let a = Xs.get(e.tree);
+		if (a && a.overlay && a.overlay[0].from <= t && a.overlay[a.overlay.length - 1].to >= t) {
+			let o = new oc(a.tree, a.overlay[0].from + e.from, -1, e);
+			(i || (i = [r])).push(ic(o, t, n, !1));
+		}
+	}
+	return i ? dc(i) : r;
+}
+var mc = class {
+	get name() {
+		return this.type.name;
+	}
+	constructor(e, t = 0) {
+		if (this.buffer = null, this.stack = [], this.index = 0, this.bufferNode = null, this.mode = t & ~K.EnterBracketed, e instanceof oc) this.yieldNode(e);
+		else {
+			this._tree = e.context.parent, this.buffer = e.context;
+			for (let t = e._parent; t; t = t._parent) this.stack.unshift(t.index);
+			this.bufferNode = e, this.yieldBuf(e.index);
+		}
+	}
+	yieldNode(e) {
+		return e ? (this._tree = e, this.type = e.type, this.from = e.from, this.to = e.to, !0) : !1;
+	}
+	yieldBuf(e, t) {
+		this.index = e;
+		let { start: n, buffer: r } = this.buffer;
+		return this.type = t || r.set.types[r.buffer[e]], this.from = n + r.buffer[e + 1], this.to = n + r.buffer[e + 2], !0;
+	}
+	yield(e) {
+		return e ? e instanceof oc ? (this.buffer = null, this.yieldNode(e)) : (this.buffer = e.context, this.yieldBuf(e.index, e.type)) : !1;
+	}
+	toString() {
+		return this.buffer ? this.buffer.buffer.childString(this.index) : this._tree.toString();
+	}
+	enterChild(e, t, n) {
+		if (!this.buffer) return this.yield(this._tree.nextChild(e < 0 ? this._tree._tree.children.length - 1 : 0, e, t, n, this.mode));
+		let { buffer: r } = this.buffer, i = r.findChild(this.index + 4, r.buffer[this.index + 3], e, t - this.buffer.start, n);
+		return i < 0 ? !1 : (this.stack.push(this.index), this.yieldBuf(i));
+	}
+	firstChild() {
+		return this.enterChild(1, 0, 4);
+	}
+	lastChild() {
+		return this.enterChild(-1, 0, 4);
+	}
+	childAfter(e) {
+		return this.enterChild(1, e, 2);
+	}
+	childBefore(e) {
+		return this.enterChild(-1, e, -2);
+	}
+	enter(e, t, n = this.mode) {
+		return this.buffer ? n & K.ExcludeBuffers ? !1 : this.enterChild(1, e, t) : this.yield(this._tree.enter(e, t, n));
+	}
+	parent() {
+		if (!this.buffer) return this.yieldNode(this.mode & K.IncludeAnonymous ? this._tree._parent : this._tree.parent);
+		if (this.stack.length) return this.yieldBuf(this.stack.pop());
+		let e = this.mode & K.IncludeAnonymous ? this.buffer.parent : this.buffer.parent.nextSignificantParent();
+		return this.buffer = null, this.yieldNode(e);
+	}
+	sibling(e) {
+		if (!this.buffer) return this._tree._parent ? this.yield(this._tree.index < 0 ? null : this._tree._parent.nextChild(this._tree.index + e, e, 0, 4, this.mode)) : !1;
+		let { buffer: t } = this.buffer, n = this.stack.length - 1;
+		if (e < 0) {
+			let e = n < 0 ? 0 : this.stack[n] + 4;
+			if (this.index != e) return this.yieldBuf(t.findChild(e, this.index, -1, 0, 4));
+		} else {
+			let e = t.buffer[this.index + 3];
+			if (e < (n < 0 ? t.buffer.length : t.buffer[this.stack[n] + 3])) return this.yieldBuf(e);
+		}
+		return n < 0 && this.yield(this.buffer.parent.nextChild(this.buffer.index + e, e, 0, 4, this.mode));
+	}
+	nextSibling() {
+		return this.sibling(1);
+	}
+	prevSibling() {
+		return this.sibling(-1);
+	}
+	atLastNode(e) {
+		let t, n, { buffer: r } = this;
+		if (r) {
+			if (e > 0) {
+				if (this.index < r.buffer.buffer.length) return !1;
+			} else for (let e = 0; e < this.index; e++) if (r.buffer.buffer[e + 3] < this.index) return !1;
+			({index: t, parent: n} = r);
+		} else ({index: t, _parent: n} = this._tree);
+		for (; n; {index: t, _parent: n} = n) if (t > -1) for (let r = t + e, i = e < 0 ? -1 : n._tree.children.length; r != i; r += e) {
+			let e = n._tree.children[r];
+			if (this.mode & K.IncludeAnonymous || e instanceof nc || !e.type.isAnonymous || hc(e)) return !1;
+		}
+		return !0;
+	}
+	move(e, t) {
+		if (t && this.enterChild(e, 0, 4)) return !0;
+		for (;;) {
+			if (this.sibling(e)) return !0;
+			if (this.atLastNode(e) || !this.parent()) return !1;
+		}
+	}
+	next(e = !0) {
+		return this.move(1, e);
+	}
+	prev(e = !0) {
+		return this.move(-1, e);
+	}
+	moveTo(e, t = 0) {
+		for (; (this.from == this.to || (t < 1 ? this.from >= e : this.from > e) || (t > -1 ? this.to <= e : this.to < e)) && this.parent(););
+		for (; this.enterChild(1, e, t););
+		return this;
+	}
+	get node() {
+		if (!this.buffer) return this._tree;
+		let e = this.bufferNode, t = null, n = 0;
+		if (e && e.context == this.buffer) scan: for (let r = this.index, i = this.stack.length; i >= 0;) {
+			for (let a = e; a; a = a._parent) if (a.index == r) {
+				if (r == this.index) return a;
+				t = a, n = i + 1;
+				break scan;
+			}
+			r = this.stack[--i];
+		}
+		for (let e = n; e < this.stack.length; e++) t = new uc(this.buffer, t, this.stack[e]);
+		return this.bufferNode = new uc(this.buffer, t, this.index);
+	}
+	get tree() {
+		return this.buffer ? null : this._tree._tree;
+	}
+	iterate(e, t) {
+		for (let n = 0;;) {
+			let r = !1;
+			if (this.type.isAnonymous || e(this) !== !1) {
+				if (this.firstChild()) {
+					n++;
+					continue;
+				}
+				this.type.isAnonymous || (r = !0);
+			}
+			for (;;) {
+				if (r && t && t(this), r = this.type.isAnonymous, !n) return;
+				if (this.nextSibling()) break;
+				this.parent(), n--, r = !0;
+			}
+		}
+	}
+	matchContext(e) {
+		if (!this.buffer) return cc(this.node.parent, e);
+		let { buffer: t } = this.buffer, { types: n } = t.set;
+		for (let r = e.length - 1, i = this.stack.length - 1; r >= 0; i--) {
+			if (i < 0) return cc(this._tree, e, r);
+			let a = n[t.buffer[this.stack[i]]];
+			if (!a.isAnonymous) {
+				if (e[r] && e[r] != a.name) return !1;
+				r--;
+			}
+		}
+		return !0;
+	}
+};
+function hc(e) {
+	return e.children.some((e) => e instanceof nc || !e.type.isAnonymous || hc(e));
+}
+function gc(e) {
+	let { buffer: t, nodeSet: n, maxBufferLength: r = qs, reused: i = [], minRepeatType: a = n.types.length } = e, o = Array.isArray(t) ? new tc(t, t.length) : t, s = n.types, c = 0, l = 0;
+	function u(e, t, _, v, y, ee) {
+		let { id: b, start: x, end: S, size: te } = o, ne = l, re = c;
+		if (te < 0) {
+			if (o.next(), te == -1) {
+				let t = i[b];
+				_.push(t), v.push(x - e);
+				return;
+			}
+			if (te == -3) {
+				c = b;
+				return;
+			}
+			if (te == -4) {
+				l = b;
+				return;
+			}
+			throw RangeError(`Unrecognized record size: ${te}`);
+		}
+		let ie = s[b], ae, oe, C = x - e;
+		if (S - x <= r && (oe = h(o.pos - t, y))) {
+			let t = new Uint16Array(oe.size - oe.skip), r = o.pos - oe.size, i = t.length;
+			for (; o.pos > r;) i = g(oe.start, t, i);
+			ae = new nc(t, S - oe.start, n), C = oe.start - e;
+		} else {
+			let e = o.pos - te;
+			o.next();
+			let t = [], n = [], i = b >= a ? b : -1, s = 0, c = S;
+			for (; o.pos > e;) i >= 0 && o.id == i && o.size >= 0 ? (o.end <= c - r && (p(t, n, x, s, o.end, c, i, ne, re), s = t.length, c = o.end), o.next()) : ee > 2500 ? d(x, e, t, n) : u(x, e, t, n, i, ee + 1);
+			if (i >= 0 && s > 0 && s < t.length && p(t, n, x, s, x, c, i, ne, re), t.reverse(), n.reverse(), i > -1 && s > 0) {
+				let e = f(ie, re);
+				ae = yc(ie, t, n, 0, t.length, 0, S - x, e, e);
+			} else ae = m(ie, t, n, S - x, ne - S, re);
+		}
+		_.push(ae), v.push(C);
+	}
+	function d(e, t, i, a) {
+		let s = [], c = 0, l = -1;
+		for (; o.pos > t;) {
+			let { id: e, start: t, end: n, size: i } = o;
+			if (i > 4) o.next();
+			else if (l > -1 && t < l) break;
+			else l < 0 && (l = n - r), s.push(e, t, n), c++, o.next();
+		}
+		if (c) {
+			let t = new Uint16Array(c * 4), r = s[s.length - 2];
+			for (let e = s.length - 3, n = 0; e >= 0; e -= 3) t[n++] = s[e], t[n++] = s[e + 1] - r, t[n++] = s[e + 2] - r, t[n++] = n;
+			i.push(new nc(t, s[2] - r, n)), a.push(r - e);
+		}
+	}
+	function f(e, t) {
+		return (n, r, i) => {
+			let a = 0, o = n.length - 1, s, c;
+			if (o >= 0 && (s = n[o]) instanceof q) {
+				if (!o && s.type == e && s.length == i) return s;
+				(c = s.prop(G.lookAhead)) && (a = r[o] + s.length + c);
+			}
+			return m(e, n, r, i, a, t);
+		};
+	}
+	function p(e, t, r, i, a, o, s, c, l) {
+		let u = [], d = [];
+		for (; e.length > i;) u.push(e.pop()), d.push(t.pop() + r - a);
+		e.push(m(n.types[s], u, d, o - a, c - o, l)), t.push(a - r);
+	}
+	function m(e, t, n, r, i, a, o) {
+		if (a) {
+			let e = [G.contextHash, a];
+			o = o ? [e].concat(o) : [e];
+		}
+		if (i > 25) {
+			let e = [G.lookAhead, i];
+			o = o ? [e].concat(o) : [e];
+		}
+		return new q(e, t, n, r, o);
+	}
+	function h(e, t) {
+		let n = o.fork(), i = 0, s = 0, c = 0, l = n.end - r, u = {
+			size: 0,
+			start: 0,
+			skip: 0
+		};
+		scan: for (let r = n.pos - e; n.pos > r;) {
+			let e = n.size;
+			if (n.id == t && e >= 0) {
+				u.size = i, u.start = s, u.skip = c, c += 4, i += 4, n.next();
+				continue;
+			}
+			let o = n.pos - e;
+			if (e < 0 || o < r || n.start < l) break;
+			let d = n.id >= a ? 4 : 0, f = n.start;
+			for (n.next(); n.pos > o;) {
+				if (n.size < 0) {
+					if (n.size == -3 || n.size == -4) d += 4;
+					else break scan;
+				} else n.id >= a && (d += 4);
+				n.next();
+			}
+			s = f, i += e, c += d;
+		}
+		return (t < 0 || i == e) && (u.size = i, u.start = s, u.skip = c), u.size > 4 ? u : void 0;
+	}
+	function g(e, t, n) {
+		let { id: r, start: i, end: s, size: u } = o;
+		if (o.next(), u >= 0 && r < a) {
+			let a = n;
+			if (u > 4) {
+				let r = o.pos - (u - 4);
+				for (; o.pos > r;) n = g(e, t, n);
+			}
+			t[--n] = a, t[--n] = s - e, t[--n] = i - e, t[--n] = r;
+		} else u == -3 ? c = r : u == -4 && (l = r);
+		return n;
+	}
+	let _ = [], v = [];
+	for (; o.pos > 0;) u(e.start || 0, e.bufferStart || 0, _, v, -1, 0);
+	let y = e.length ?? (_.length ? v[0] + _[0].length : 0);
+	return new q(s[e.topID], _.reverse(), v.reverse(), y);
+}
+var _c = /* @__PURE__ */ new WeakMap();
+function vc(e, t) {
+	if (!e.isAnonymous || t instanceof nc || t.type != e) return 1;
+	let n = _c.get(t);
+	if (n == null) {
+		n = 1;
+		for (let r of t.children) {
+			if (r.type != e || !(r instanceof q)) {
+				n = 1;
+				break;
+			}
+			n += vc(e, r);
+		}
+		_c.set(t, n);
+	}
+	return n;
+}
+function yc(e, t, n, r, i, a, o, s, c) {
+	let l = 0;
+	for (let n = r; n < i; n++) l += vc(e, t[n]);
+	let u = Math.ceil(l * 1.5 / 8), d = [], f = [];
+	function p(t, n, r, i, o) {
+		for (let s = r; s < i;) {
+			let r = s, l = n[s], m = vc(e, t[s]);
+			for (s++; s < i; s++) {
+				let n = vc(e, t[s]);
+				if (m + n >= u) break;
+				m += n;
+			}
+			if (s == r + 1) {
+				if (m > u) {
+					let e = t[r];
+					p(e.children, e.positions, 0, e.children.length, n[r] + o);
+					continue;
+				}
+				d.push(t[r]);
+			} else {
+				let i = n[s - 1] + t[s - 1].length - l;
+				d.push(yc(e, t, n, r, s, l, i, null, c));
+			}
+			f.push(l + o - a);
+		}
+	}
+	return p(t, n, r, i, 0), (s || c)(d, f, o);
+}
+var bc = class e {
+	constructor(e, t, n, r, i = !1, a = !1) {
+		this.from = e, this.to = t, this.tree = n, this.offset = r, this.open = !!i | (a ? 2 : 0);
+	}
+	get openStart() {
+		return (this.open & 1) > 0;
+	}
+	get openEnd() {
+		return (this.open & 2) > 0;
+	}
+	static addTree(t, n = [], r = !1) {
+		let i = [new e(0, t.length, t, 0, !1, r)];
+		for (let e of n) e.to > t.length && i.push(e);
+		return i;
+	}
+	static applyChanges(t, n, r = 128) {
+		if (!n.length) return t;
+		let i = [], a = 1, o = t.length ? t[0] : null;
+		for (let s = 0, c = 0, l = 0;; s++) {
+			let u = s < n.length ? n[s] : null, d = u ? u.fromA : 1e9;
+			if (d - c >= r) for (; o && o.from < d;) {
+				let n = o;
+				if (c >= n.from || d <= n.to || l) {
+					let t = Math.max(n.from, c) - l, r = Math.min(n.to, d) - l;
+					n = t >= r ? null : new e(t, r, n.tree, n.offset + l, s > 0, !!u);
+				}
+				if (n && i.push(n), o.to > d) break;
+				o = a < t.length ? t[a++] : null;
+			}
+			if (!u) break;
+			c = u.toA, l = u.toA - u.toB;
+		}
+		return i;
+	}
+}, xc = class {
+	startParse(e, t, n) {
+		return typeof e == "string" && (e = new Sc(e)), n = n ? n.length ? n.map((e) => new Ys(e.from, e.to)) : [new Ys(0, 0)] : [new Ys(0, e.length)], this.createParse(e, t || [], n);
+	}
+	parse(e, t, n) {
+		let r = this.startParse(e, t, n);
+		for (;;) {
+			let e = r.advance();
+			if (e) return e;
+		}
+	}
+}, Sc = class {
+	constructor(e) {
+		this.string = e;
+	}
+	get length() {
+		return this.string.length;
+	}
+	chunk(e) {
+		return this.string.slice(e);
+	}
+	get lineChunks() {
+		return !1;
+	}
+	read(e, t) {
+		return this.string.slice(e, t);
+	}
+};
+new G({ perNode: !0 });
+//#endregion
+//#region node_modules/@lezer/highlight/dist/index.js
+var Cc = 0, wc = class e {
+	constructor(e, t, n, r) {
+		this.name = e, this.set = t, this.base = n, this.modified = r, this.id = Cc++;
+	}
+	toString() {
+		let { name: e } = this;
+		for (let t of this.modified) t.name && (e = `${t.name}(${e})`);
+		return e;
+	}
+	static define(t, n) {
+		let r = typeof t == "string" ? t : "?";
+		if (t instanceof e && (n = t), n?.base) throw Error("Can not derive from a modified tag");
+		let i = new e(r, [], null, []);
+		if (i.set.push(i), n) for (let e of n.set) i.set.push(e);
+		return i;
+	}
+	static defineModifier(e) {
+		let t = new Ec(e);
+		return (e) => e.modified.indexOf(t) > -1 ? e : Ec.get(e.base || e, e.modified.concat(t).sort((e, t) => e.id - t.id));
+	}
+}, Tc = 0, Ec = class e {
+	constructor(e) {
+		this.name = e, this.instances = [], this.id = Tc++;
+	}
+	static get(t, n) {
+		if (!n.length) return t;
+		let r = n[0].instances.find((e) => e.base == t && Dc(n, e.modified));
+		if (r) return r;
+		let i = [], a = new wc(t.name, i, t, n);
+		for (let e of n) e.instances.push(a);
+		let o = Oc(n);
+		for (let n of t.set) if (!n.modified.length) for (let t of o) i.push(e.get(n, t));
+		return a;
+	}
+};
+function Dc(e, t) {
+	return e.length == t.length && e.every((e, n) => e == t[n]);
+}
+function Oc(e) {
+	let t = [[]];
+	for (let n = 0; n < e.length; n++) for (let r = 0, i = t.length; r < i; r++) t.push(t[r].concat(e[n]));
+	return t.sort((e, t) => t.length - e.length);
+}
+function kc(e) {
+	let t = Object.create(null);
+	for (let n in e) {
+		let r = e[n];
+		Array.isArray(r) || (r = [r]);
+		for (let e of n.split(" ")) if (e) {
+			let n = [], i = 2, a = e;
+			for (let t = 0;;) {
+				if (a == "..." && t > 0 && t + 3 == e.length) {
+					i = 1;
+					break;
+				}
+				let r = /^"(?:[^"\\]|\\.)*?"|[^\/!]+/.exec(a);
+				if (!r) throw RangeError("Invalid path: " + e);
+				if (n.push(r[0] == "*" ? "" : r[0][0] == "\"" ? JSON.parse(r[0]) : r[0]), t += r[0].length, t == e.length) break;
+				let o = e[t++];
+				if (t == e.length && o == "!") {
+					i = 0;
+					break;
+				}
+				if (o != "/") throw RangeError("Invalid path: " + e);
+				a = e.slice(t);
+			}
+			let o = n.length - 1, s = n[o];
+			if (!s) throw RangeError("Invalid path: " + e);
+			t[s] = new jc(r, i, o > 0 ? n.slice(0, o) : null).sort(t[s]);
+		}
+	}
+	return Ac.add(t);
+}
+var Ac = new G({ combine(e, t) {
+	let n, r, i;
+	for (; e || t;) {
+		if (!e || t && e.depth >= t.depth ? (i = t, t = t.next) : (i = e, e = e.next), n && n.mode == i.mode && !i.context && !n.context) continue;
+		let a = new jc(i.tags, i.mode, i.context);
+		n ? n.next = a : r = a, n = a;
+	}
+	return r;
+} }), jc = class {
+	constructor(e, t, n, r) {
+		this.tags = e, this.mode = t, this.context = n, this.next = r;
+	}
+	get opaque() {
+		return this.mode == 0;
+	}
+	get inherit() {
+		return this.mode == 1;
+	}
+	sort(e) {
+		return !e || e.depth < this.depth ? (this.next = e, this) : (e.next = this.sort(e.next), e);
+	}
+	get depth() {
+		return this.context ? this.context.length : 0;
+	}
+};
+jc.empty = new jc([], 2, null);
+function Mc(e, t) {
+	let n = Object.create(null);
+	for (let t of e) if (!Array.isArray(t.tag)) n[t.tag.id] = t.class;
+	else for (let e of t.tag) n[e.id] = t.class;
+	let { scope: r, all: i = null } = t || {};
+	return {
+		style: (e) => {
+			let t = i;
+			for (let r of e) for (let e of r.set) {
+				let r = n[e.id];
+				if (r) {
+					t = t ? t + " " + r : r;
+					break;
+				}
+			}
+			return t;
+		},
+		scope: r
+	};
+}
+var J = wc.define, Nc = J(), Pc = J(), Fc = J(Pc), Ic = J(Pc), Lc = J(), Rc = J(Lc), zc = J(Lc), Bc = J(), Vc = J(Bc), Hc = J(), Uc = J(), Wc = J(), Gc = J(Wc), Kc = J(), Y = {
+	comment: Nc,
+	lineComment: J(Nc),
+	blockComment: J(Nc),
+	docComment: J(Nc),
+	name: Pc,
+	variableName: J(Pc),
+	typeName: Fc,
+	tagName: J(Fc),
+	propertyName: Ic,
+	attributeName: J(Ic),
+	className: J(Pc),
+	labelName: J(Pc),
+	namespace: J(Pc),
+	macroName: J(Pc),
+	literal: Lc,
+	string: Rc,
+	docString: J(Rc),
+	character: J(Rc),
+	attributeValue: J(Rc),
+	number: zc,
+	integer: J(zc),
+	float: J(zc),
+	bool: J(Lc),
+	regexp: J(Lc),
+	escape: J(Lc),
+	color: J(Lc),
+	url: J(Lc),
+	keyword: Hc,
+	self: J(Hc),
+	null: J(Hc),
+	atom: J(Hc),
+	unit: J(Hc),
+	modifier: J(Hc),
+	operatorKeyword: J(Hc),
+	controlKeyword: J(Hc),
+	definitionKeyword: J(Hc),
+	moduleKeyword: J(Hc),
+	operator: Uc,
+	derefOperator: J(Uc),
+	arithmeticOperator: J(Uc),
+	logicOperator: J(Uc),
+	bitwiseOperator: J(Uc),
+	compareOperator: J(Uc),
+	updateOperator: J(Uc),
+	definitionOperator: J(Uc),
+	typeOperator: J(Uc),
+	controlOperator: J(Uc),
+	punctuation: Wc,
+	separator: J(Wc),
+	bracket: Gc,
+	angleBracket: J(Gc),
+	squareBracket: J(Gc),
+	paren: J(Gc),
+	brace: J(Gc),
+	content: Bc,
+	heading: Vc,
+	heading1: J(Vc),
+	heading2: J(Vc),
+	heading3: J(Vc),
+	heading4: J(Vc),
+	heading5: J(Vc),
+	heading6: J(Vc),
+	contentSeparator: J(Bc),
+	list: J(Bc),
+	quote: J(Bc),
+	emphasis: J(Bc),
+	strong: J(Bc),
+	link: J(Bc),
+	monospace: J(Bc),
+	strikethrough: J(Bc),
+	inserted: J(),
+	deleted: J(),
+	changed: J(),
+	invalid: J(),
+	meta: Kc,
+	documentMeta: J(Kc),
+	annotation: J(Kc),
+	processingInstruction: J(Kc),
+	definition: wc.defineModifier("definition"),
+	constant: wc.defineModifier("constant"),
+	function: wc.defineModifier("function"),
+	standard: wc.defineModifier("standard"),
+	local: wc.defineModifier("local"),
+	special: wc.defineModifier("special")
+};
+for (let e in Y) {
+	let t = Y[e];
+	t instanceof wc && (t.name = e);
+}
+Mc([
+	{
+		tag: Y.link,
+		class: "tok-link"
+	},
+	{
+		tag: Y.heading,
+		class: "tok-heading"
+	},
+	{
+		tag: Y.emphasis,
+		class: "tok-emphasis"
+	},
+	{
+		tag: Y.strong,
+		class: "tok-strong"
+	},
+	{
+		tag: Y.keyword,
+		class: "tok-keyword"
+	},
+	{
+		tag: Y.atom,
+		class: "tok-atom"
+	},
+	{
+		tag: Y.bool,
+		class: "tok-bool"
+	},
+	{
+		tag: Y.url,
+		class: "tok-url"
+	},
+	{
+		tag: Y.labelName,
+		class: "tok-labelName"
+	},
+	{
+		tag: Y.inserted,
+		class: "tok-inserted"
+	},
+	{
+		tag: Y.deleted,
+		class: "tok-deleted"
+	},
+	{
+		tag: Y.literal,
+		class: "tok-literal"
+	},
+	{
+		tag: Y.string,
+		class: "tok-string"
+	},
+	{
+		tag: Y.number,
+		class: "tok-number"
+	},
+	{
+		tag: [
+			Y.regexp,
+			Y.escape,
+			Y.special(Y.string)
+		],
+		class: "tok-string2"
+	},
+	{
+		tag: Y.variableName,
+		class: "tok-variableName"
+	},
+	{
+		tag: Y.local(Y.variableName),
+		class: "tok-variableName tok-local"
+	},
+	{
+		tag: Y.definition(Y.variableName),
+		class: "tok-variableName tok-definition"
+	},
+	{
+		tag: Y.special(Y.variableName),
+		class: "tok-variableName2"
+	},
+	{
+		tag: Y.definition(Y.propertyName),
+		class: "tok-propertyName tok-definition"
+	},
+	{
+		tag: Y.typeName,
+		class: "tok-typeName"
+	},
+	{
+		tag: Y.namespace,
+		class: "tok-namespace"
+	},
+	{
+		tag: Y.className,
+		class: "tok-className"
+	},
+	{
+		tag: Y.macroName,
+		class: "tok-macroName"
+	},
+	{
+		tag: Y.propertyName,
+		class: "tok-propertyName"
+	},
+	{
+		tag: Y.operator,
+		class: "tok-operator"
+	},
+	{
+		tag: Y.comment,
+		class: "tok-comment"
+	},
+	{
+		tag: Y.meta,
+		class: "tok-meta"
+	},
+	{
+		tag: Y.invalid,
+		class: "tok-invalid"
+	},
+	{
+		tag: Y.punctuation,
+		class: "tok-punctuation"
+	}
+]);
+//#endregion
+//#region node_modules/@codemirror/language/dist/index.js
+var qc = /*@__PURE__*/ new G(), Jc = /*@__PURE__*/ new G(), Yc = class {
+	constructor(e, t, n = [], r = "") {
+		this.data = e, this.name = r, k.prototype.hasOwnProperty("tree") || Object.defineProperty(k.prototype, "tree", { get() {
+			return Zc(this);
+		} }), this.parser = t, this.extension = [ol.of(this), k.languageData.of((e, t, n) => {
+			let r = Xc(e, t, n), i = r.type.prop(qc);
+			if (!i) return [];
+			let a = e.facet(i), o = r.type.prop(Jc);
+			if (o) {
+				let i = r.resolve(t - r.from, n);
+				for (let t of o) if (t.test(i, e)) {
+					let n = e.facet(t.facet);
+					return t.type == "replace" ? n : n.concat(a);
+				}
+			}
+			return a;
+		})].concat(n);
+	}
+	isActiveAt(e, t, n = -1) {
+		return Xc(e, t, n).type.prop(qc) == this.data;
+	}
+	findRegions(e) {
+		let t = e.facet(ol);
+		if (t?.data == this.data) return [{
+			from: 0,
+			to: e.doc.length
+		}];
+		if (!t || !t.allowsNesting) return [];
+		let n = [], r = (e, t) => {
+			if (e.prop(qc) == this.data) {
+				n.push({
+					from: t,
+					to: t + e.length
+				});
+				return;
+			}
+			let i = e.prop(G.mounted);
+			if (i) {
+				if (i.tree.prop(qc) == this.data) {
+					if (i.overlay) for (let e of i.overlay) n.push({
+						from: e.from + t,
+						to: e.to + t
+					});
+					else n.push({
+						from: t,
+						to: t + e.length
+					});
+					return;
+				}
+				if (i.overlay) {
+					let e = n.length;
+					if (r(i.tree, i.overlay[0].from + t), n.length > e) return;
+				}
+			}
+			for (let n = 0; n < e.children.length; n++) {
+				let i = e.children[n];
+				i instanceof q && r(i, e.positions[n] + t);
+			}
+		};
+		return r(Zc(e), 0), n;
+	}
+	get allowsNesting() {
+		return !0;
+	}
+};
+Yc.setState = /*@__PURE__*/ D.define();
+function Xc(e, t, n) {
+	let r = e.facet(ol), i = Zc(e).topNode;
+	if (!r || r.allowsNesting) for (let e = i; e; e = e.enter(t, n, K.ExcludeBuffers | K.EnterBracketed)) e.type.isTop && (i = e);
+	return i;
+}
+function Zc(e) {
+	let t = e.field(Yc.state, !1);
+	return t ? t.tree : q.empty;
+}
+var Qc = class {
+	constructor(e) {
+		this.doc = e, this.cursorPos = 0, this.string = "", this.cursor = e.iter();
+	}
+	get length() {
+		return this.doc.length;
+	}
+	syncTo(e) {
+		return this.string = this.cursor.next(e - this.cursorPos).value, this.cursorPos = e + this.string.length, this.cursorPos - this.string.length;
+	}
+	chunk(e) {
+		return this.syncTo(e), this.string;
+	}
+	get lineChunks() {
+		return !0;
+	}
+	read(e, t) {
+		let n = this.cursorPos - this.string.length;
+		return e < n || t >= this.cursorPos ? this.doc.sliceString(e, t) : this.string.slice(e - n, t - n);
+	}
+}, $c = null, el = class e {
+	constructor(e, t, n = [], r, i, a, o, s) {
+		this.parser = e, this.state = t, this.fragments = n, this.tree = r, this.treeLen = i, this.viewport = a, this.skipped = o, this.scheduleOn = s, this.parse = null, this.tempSkipped = [];
+	}
+	static create(t, n, r) {
+		return new e(t, n, [], q.empty, 0, r, [], null);
+	}
+	startParse() {
+		return this.parser.startParse(new Qc(this.state.doc), this.fragments);
+	}
+	work(e, t) {
+		return t != null && t >= this.state.doc.length && (t = void 0), this.tree != q.empty && this.isDone(t ?? this.state.doc.length) ? (this.takeTree(), !0) : this.withContext(() => {
+			if (typeof e == "number") {
+				let t = Date.now() + e;
+				e = () => Date.now() > t;
+			}
+			for (this.parse || (this.parse = this.startParse()), t != null && (this.parse.stoppedAt == null || this.parse.stoppedAt > t) && t < this.state.doc.length && this.parse.stopAt(t);;) {
+				let n = this.parse.advance();
+				if (n) {
+					if (this.fragments = this.withoutTempSkipped(bc.addTree(n, this.fragments, this.parse.stoppedAt != null)), this.treeLen = this.parse.stoppedAt ?? this.state.doc.length, this.tree = n, this.parse = null, this.treeLen < (t ?? this.state.doc.length)) this.parse = this.startParse();
+					else return !0;
+				}
+				if (e()) return !1;
+			}
+		});
+	}
+	takeTree() {
+		let e, t;
+		this.parse && (e = this.parse.parsedPos) >= this.treeLen && ((this.parse.stoppedAt == null || this.parse.stoppedAt > e) && this.parse.stopAt(e), this.withContext(() => {
+			for (; !(t = this.parse.advance()););
+		}), this.treeLen = e, this.tree = t, this.fragments = this.withoutTempSkipped(bc.addTree(this.tree, this.fragments, !0)), this.parse = null);
+	}
+	withContext(e) {
+		let t = $c;
+		$c = this;
+		try {
+			return e();
+		} finally {
+			$c = t;
+		}
+	}
+	withoutTempSkipped(e) {
+		for (let t; t = this.tempSkipped.pop();) e = tl(e, t.from, t.to);
+		return e;
+	}
+	changes(t, n) {
+		let { fragments: r, tree: i, treeLen: a, viewport: o, skipped: s } = this;
+		if (this.takeTree(), !t.empty) {
+			let e = [];
+			if (t.iterChangedRanges((t, n, r, i) => e.push({
+				fromA: t,
+				toA: n,
+				fromB: r,
+				toB: i
+			})), r = bc.applyChanges(r, e), i = q.empty, a = 0, o = {
+				from: t.mapPos(o.from, -1),
+				to: t.mapPos(o.to, 1)
+			}, this.skipped.length) {
+				s = [];
+				for (let e of this.skipped) {
+					let n = t.mapPos(e.from, 1), r = t.mapPos(e.to, -1);
+					n < r && s.push({
+						from: n,
+						to: r
+					});
+				}
+			}
+		}
+		return new e(this.parser, n, r, i, a, o, s, this.scheduleOn);
+	}
+	updateViewport(e) {
+		if (this.viewport.from == e.from && this.viewport.to == e.to) return !1;
+		this.viewport = e;
+		let t = this.skipped.length;
+		for (let t = 0; t < this.skipped.length; t++) {
+			let { from: n, to: r } = this.skipped[t];
+			n < e.to && r > e.from && (this.fragments = tl(this.fragments, n, r), this.skipped.splice(t--, 1));
+		}
+		return this.skipped.length >= t ? !1 : (this.reset(), !0);
+	}
+	reset() {
+		this.parse && (this.takeTree(), this.parse = null);
+	}
+	skipUntilInView(e, t) {
+		this.skipped.push({
+			from: e,
+			to: t
+		});
+	}
+	static getSkippingParser(e) {
+		return new class extends xc {
+			createParse(t, n, r) {
+				let i = r[0].from, a = r[r.length - 1].to;
+				return {
+					parsedPos: i,
+					advance() {
+						let t = $c;
+						if (t) {
+							for (let e of r) t.tempSkipped.push(e);
+							e && (t.scheduleOn = t.scheduleOn ? Promise.all([t.scheduleOn, e]) : e);
+						}
+						return this.parsedPos = a, new q(Qs.none, [], [], a - i);
+					},
+					stoppedAt: null,
+					stopAt() {}
+				};
+			}
+		}();
+	}
+	isDone(e) {
+		e = Math.min(e, this.state.doc.length);
+		let t = this.fragments;
+		return this.treeLen >= e && t.length && t[0].from == 0 && t[0].to >= e;
+	}
+	static get() {
+		return $c;
+	}
+};
+function tl(e, t, n) {
+	return bc.applyChanges(e, [{
+		fromA: t,
+		toA: n,
+		fromB: t,
+		toB: n
+	}]);
+}
+var nl = class e {
+	constructor(e) {
+		this.context = e, this.tree = e.tree;
+	}
+	apply(t) {
+		if (!t.docChanged && this.tree == this.context.tree) return this;
+		let n = this.context.changes(t.changes, t.state), r = this.context.treeLen == t.startState.doc.length ? void 0 : Math.max(t.changes.mapPos(this.context.treeLen), n.viewport.to);
+		return n.work(20, r) || n.takeTree(), new e(n);
+	}
+	static init(t) {
+		let n = Math.min(3e3, t.doc.length), r = el.create(t.facet(ol).parser, t, {
+			from: 0,
+			to: n
+		});
+		return r.work(20, n) || r.takeTree(), new e(r);
+	}
+};
+Yc.state = /*@__PURE__*/ Ce.define({
+	create: nl.init,
+	update(e, t) {
+		for (let e of t.effects) if (e.is(Yc.setState)) return e.value;
+		return t.startState.facet(ol) == t.state.facet(ol) ? e.apply(t) : nl.init(t.state);
+	}
+});
+var rl = (e) => {
+	let t = setTimeout(() => e(), 500);
+	return () => clearTimeout(t);
+};
+typeof requestIdleCallback < "u" && (rl = (e) => {
+	let t = -1, n = setTimeout(() => {
+		t = requestIdleCallback(e, { timeout: 400 });
+	}, 100);
+	return () => t < 0 ? clearTimeout(n) : cancelIdleCallback(t);
+});
+var il = typeof navigator < "u" && navigator.scheduling?.isInputPending ? () => navigator.scheduling.isInputPending() : null, al = /*@__PURE__*/ wr.fromClass(class {
+	constructor(e) {
+		this.view = e, this.working = null, this.workScheduled = 0, this.chunkEnd = -1, this.chunkBudget = -1, this.work = this.work.bind(this), this.scheduleWork();
+	}
+	update(e) {
+		let t = this.view.state.field(Yc.state).context;
+		(t.updateViewport(e.view.viewport) || this.view.viewport.to > t.treeLen) && this.scheduleWork(), (e.docChanged || e.selectionSet) && (this.view.hasFocus && (this.chunkBudget += 50), this.scheduleWork()), this.checkAsyncSchedule(t);
+	}
+	scheduleWork() {
+		if (this.working) return;
+		let { state: e } = this.view, t = e.field(Yc.state);
+		(t.tree != t.context.tree || !t.context.isDone(e.doc.length)) && (this.working = rl(this.work));
+	}
+	work(e) {
+		this.working = null;
+		let t = Date.now();
+		if (this.chunkEnd < t && (this.chunkEnd < 0 || this.view.hasFocus) && (this.chunkEnd = t + 3e4, this.chunkBudget = 3e3), this.chunkBudget <= 0) return;
+		let { state: n, viewport: { to: r } } = this.view, i = n.field(Yc.state);
+		if (i.tree == i.context.tree && i.context.isDone(r + 1e5)) return;
+		let a = Date.now() + Math.min(this.chunkBudget, 100, e && !il ? Math.max(25, e.timeRemaining() - 5) : 1e9), o = i.context.treeLen < r && n.doc.length > r + 1e3, s = i.context.work(() => il && il() || Date.now() > a, r + (o ? 0 : 1e5));
+		this.chunkBudget -= Date.now() - t, (s || this.chunkBudget <= 0) && (i.context.takeTree(), this.view.dispatch({ effects: Yc.setState.of(new nl(i.context)) })), this.chunkBudget > 0 && (!s || o) && this.scheduleWork(), this.checkAsyncSchedule(i.context);
+	}
+	checkAsyncSchedule(e) {
+		e.scheduleOn && (this.workScheduled++, e.scheduleOn.then(() => this.scheduleWork()).catch((e) => z(this.view.state, e)).then(() => this.workScheduled--), e.scheduleOn = null);
+	}
+	destroy() {
+		this.working && this.working();
+	}
+	isWorking() {
+		return !!(this.working || this.workScheduled > 0);
+	}
+}, { eventHandlers: { focus() {
+	this.scheduleWork();
+} } }), ol = /*@__PURE__*/ E.define({
+	combine(e) {
+		return e.length ? e[0] : null;
+	},
+	enables: (e) => [
+		Yc.state,
+		al,
+		W.contentAttributes.compute([e], (t) => {
+			let n = t.facet(e);
+			return n && n.name ? { "data-language": n.name } : {};
+		})
+	]
+}), sl = /*@__PURE__*/ E.define(), cl = /*@__PURE__*/ E.define({ combine: (e) => {
+	if (!e.length) return "  ";
+	let t = e[0];
+	if (!t || /\S/.test(t) || Array.from(t).some((e) => e != t[0])) throw Error("Invalid indent unit: " + JSON.stringify(e[0]));
+	return t;
+} });
+function ll(e) {
+	let t = e.facet(cl);
+	return t.charCodeAt(0) == 9 ? e.tabSize * t.length : t.length;
+}
+function ul(e, t) {
+	let n = "", r = e.tabSize, i = e.facet(cl)[0];
+	if (i == "	") {
+		for (; t >= r;) n += "	", t -= r;
+		i = " ";
+	}
+	for (let e = 0; e < t; e++) n += i;
+	return n;
+}
+function dl(e, t) {
+	e instanceof k && (e = new fl(e));
+	for (let n of e.state.facet(sl)) {
+		let r = n(e, t);
+		if (r !== void 0) return r;
+	}
+	let n = Zc(e.state);
+	return n.length >= t ? ml(e, n, t) : null;
+}
+var fl = class {
+	constructor(e, t = {}) {
+		this.state = e, this.options = t, this.unit = ll(e);
+	}
+	lineAt(e, t = 1) {
+		let n = this.state.doc.lineAt(e), { simulateBreak: r, simulateDoubleBreak: i } = this.options;
+		return r != null && r >= n.from && r <= n.to ? i && r == e ? {
+			text: "",
+			from: e
+		} : (t < 0 ? r < e : r <= e) ? {
+			text: n.text.slice(r - n.from),
+			from: r
+		} : {
+			text: n.text.slice(0, r - n.from),
+			from: n.from
+		} : n;
+	}
+	textAfterPos(e, t = 1) {
+		if (this.options.simulateDoubleBreak && e == this.options.simulateBreak) return "";
+		let { text: n, from: r } = this.lineAt(e, t);
+		return n.slice(e - r, Math.min(n.length, e + 100 - r));
+	}
+	column(e, t = 1) {
+		let { text: n, from: r } = this.lineAt(e, t), i = this.countColumn(n, e - r), a = this.options.overrideIndentation ? this.options.overrideIndentation(r) : -1;
+		return a > -1 && (i += a - this.countColumn(n, n.search(/\S|$/))), i;
+	}
+	countColumn(e, t = e.length) {
+		return St(e, this.state.tabSize, t);
+	}
+	lineIndent(e, t = 1) {
+		let { text: n, from: r } = this.lineAt(e, t), i = this.options.overrideIndentation;
+		if (i) {
+			let e = i(r);
+			if (e > -1) return e;
+		}
+		return this.countColumn(n, n.search(/\S|$/));
+	}
+	get simulatedBreak() {
+		return this.options.simulateBreak || null;
+	}
+}, pl = /*@__PURE__*/ new G();
+function ml(e, t, n) {
+	let r = t.resolveStack(n), i = t.resolveInner(n, -1).resolve(n, 0).enterUnfinishedNodesBefore(n);
+	if (i != r.node) {
+		let e = [];
+		for (let t = i; t && !(t.from < r.node.from || t.to > r.node.to || t.from == r.node.from && t.type == r.node.type); t = t.parent) e.push(t);
+		for (let t = e.length - 1; t >= 0; t--) r = {
+			node: e[t],
+			next: r
+		};
+	}
+	return hl(r, e, n);
+}
+function hl(e, t, n) {
+	for (let r = e; r; r = r.next) {
+		let e = _l(r.node);
+		if (e) return e(yl.create(t, n, r));
+	}
+	return 0;
+}
+function gl(e) {
+	return e.pos == e.options.simulateBreak && e.options.simulateDoubleBreak;
+}
+function _l(e) {
+	let t = e.type.prop(pl);
+	if (t) return t;
+	let n = e.firstChild, r;
+	if (n && (r = n.type.prop(G.closedBy))) {
+		let t = e.lastChild, n = t && r.indexOf(t.name) > -1;
+		return (e) => Sl(e, !0, 1, void 0, n && !gl(e) ? t.from : void 0);
+	}
+	return e.parent == null ? vl : null;
+}
+function vl() {
+	return 0;
+}
+var yl = class e extends fl {
+	constructor(e, t, n) {
+		super(e.state, e.options), this.base = e, this.pos = t, this.context = n;
+	}
+	get node() {
+		return this.context.node;
+	}
+	static create(t, n, r) {
+		return new e(t, n, r);
+	}
+	get textAfter() {
+		return this.textAfterPos(this.pos);
+	}
+	get baseIndent() {
+		return this.baseIndentFor(this.node);
+	}
+	baseIndentFor(e) {
+		let t = this.state.doc.lineAt(e.from);
+		for (;;) {
+			let n = e.resolve(t.from);
+			for (; n.parent && n.parent.from == n.from;) n = n.parent;
+			if (bl(n, e)) break;
+			t = this.state.doc.lineAt(n.from);
+		}
+		return this.lineIndent(t.from);
+	}
+	continue() {
+		return hl(this.context.next, this.base, this.pos);
+	}
+};
+function bl(e, t) {
+	for (let n = t; n; n = n.parent) if (e == n) return !0;
+	return !1;
+}
+function xl(e) {
+	let t = e.node, n = t.childAfter(t.from), r = t.lastChild;
+	if (!n) return null;
+	let i = e.options.simulateBreak, a = e.state.doc.lineAt(n.from), o = i == null || i <= a.from ? a.to : Math.min(a.to, i);
+	for (let e = n.to;;) {
+		let i = t.childAfter(e);
+		if (!i || i == r) return null;
+		if (!i.type.isSkipped) {
+			if (i.from >= o) return null;
+			let e = /^ */.exec(a.text.slice(n.to - a.from))[0].length;
+			return {
+				from: n.from,
+				to: n.to + e
+			};
+		}
+		e = i.to;
+	}
+}
+function Sl(e, t, n, r, i) {
+	let a = e.textAfter, o = a.match(/^\s*/)[0].length, s = r && a.slice(o, o + r.length) == r || i == e.pos + o, c = t ? xl(e) : null;
+	return c ? s ? e.column(c.from) : e.column(c.to) : e.baseIndent + (s ? 0 : e.unit * n);
+}
+Y.meta, Y.link, Y.heading, Y.emphasis, Y.strong, Y.strikethrough, Y.keyword, Y.atom, Y.bool, Y.url, Y.contentSeparator, Y.labelName, Y.literal, Y.inserted, Y.string, Y.deleted, Y.regexp, Y.escape, Y.string, Y.variableName, Y.variableName, Y.typeName, Y.namespace, Y.className, Y.variableName, Y.macroName, Y.propertyName, Y.comment, Y.invalid;
+var Cl = 1e4, wl = "()[]{}", Tl = /*@__PURE__*/ new G();
+function El(e, t, n) {
+	let r = e.prop(t < 0 ? G.openedBy : G.closedBy);
+	if (r) return r;
+	if (e.name.length == 1) {
+		let r = n.indexOf(e.name);
+		if (r > -1 && r % 2 == +(t < 0)) return [n[r + t]];
+	}
+	return null;
+}
+function Dl(e) {
+	let t = e.type.prop(Tl);
+	return t ? t(e.node) : e;
+}
+function Ol(e, t, n, r = {}) {
+	let i = r.maxScanDistance || Cl, a = r.brackets || wl, o = Zc(e), s = o.resolveInner(t, n);
+	for (let r = s; r; r = r.parent) {
+		let i = El(r.type, n, a);
+		if (i && r.from < r.to) {
+			let o = Dl(r);
+			if (o && (n > 0 ? t >= o.from && t < o.to : t > o.from && t <= o.to)) return kl(e, t, n, r, o, i, a);
+		}
+	}
+	return Al(e, t, n, o, s.type, i, a);
+}
+function kl(e, t, n, r, i, a, o) {
+	let s = r.parent, c = {
+		from: i.from,
+		to: i.to
+	}, l = 0, u = s?.cursor();
+	if (u && (n < 0 ? u.childBefore(r.from) : u.childAfter(r.to))) do
+		if (n < 0 ? u.to <= r.from : u.from >= r.to) {
+			if (l == 0 && a.indexOf(u.type.name) > -1 && u.from < u.to) {
+				let e = Dl(u);
+				return {
+					start: c,
+					end: e ? {
+						from: e.from,
+						to: e.to
+					} : void 0,
+					matched: !0
+				};
+			}
+			if (El(u.type, n, o)) l++;
+			else if (El(u.type, -n, o)) {
+				if (l == 0) {
+					let e = Dl(u);
+					return {
+						start: c,
+						end: e && e.from < e.to ? {
+							from: e.from,
+							to: e.to
+						} : void 0,
+						matched: !1
+					};
+				}
+				l--;
+			}
+		}
+	while (n < 0 ? u.prevSibling() : u.nextSibling());
+	return {
+		start: c,
+		matched: !1
+	};
+}
+function Al(e, t, n, r, i, a, o) {
+	let s = n < 0 ? e.sliceDoc(t - 1, t) : e.sliceDoc(t, t + 1), c = o.indexOf(s);
+	if (c < 0 || c % 2 == 0 != n > 0) return null;
+	let l = {
+		from: n < 0 ? t - 1 : t,
+		to: n > 0 ? t + 1 : t
+	}, u = e.doc.iterRange(t, n > 0 ? e.doc.length : 0), d = 0;
+	for (let e = 0; !u.next().done && e <= a;) {
+		let a = u.value;
+		n < 0 && (e += a.length);
+		let s = t + e * n;
+		for (let e = n > 0 ? 0 : a.length - 1, t = n > 0 ? a.length : -1; e != t; e += n) {
+			let t = o.indexOf(a[e]);
+			if (!(t < 0 || r.resolveInner(s + e, 1).type != i)) {
+				if (t % 2 == 0 == n > 0) d++;
+				else if (d == 1) return {
+					start: l,
+					end: {
+						from: s + e,
+						to: s + e + 1
+					},
+					matched: t >> 1 == c >> 1
+				};
+				else d--;
+			}
+		}
+		n > 0 && (e += a.length);
+	}
+	return u.done ? {
+		start: l,
+		matched: !1
+	} : null;
+}
+var jl = /*@__PURE__*/ Object.create(null), Ml = [Qs.none], Nl = [], Pl = /*@__PURE__*/ Object.create(null), Fl = /*@__PURE__*/ Object.create(null);
+for (let [e, t] of [
+	["variable", "variableName"],
+	["variable-2", "variableName.special"],
+	["string-2", "string.special"],
+	["def", "variableName.definition"],
+	["tag", "tagName"],
+	["attribute", "attributeName"],
+	["type", "typeName"],
+	["builtin", "variableName.standard"],
+	["qualifier", "modifier"],
+	["error", "invalid"],
+	["header", "heading"],
+	["property", "propertyName"]
+]) Fl[e] = /*@__PURE__*/ Ll(jl, t);
+function Il(e, t) {
+	Nl.indexOf(e) > -1 || (Nl.push(e), console.warn(t));
+}
+function Ll(e, t) {
+	let n = [];
+	for (let r of t.split(" ")) {
+		let t = [];
+		for (let n of r.split(".")) {
+			let r = e[n] || Y[n];
+			r ? typeof r == "function" ? t.length ? t = t.map(r) : Il(n, `Modifier ${n} used at start of tag`) : t.length ? Il(n, `Tag ${n} used as modifier`) : t = Array.isArray(r) ? r : [r] : Il(n, `Unknown highlighting tag ${n}`);
+		}
+		for (let e of t) n.push(e);
+	}
+	if (!n.length) return 0;
+	let r = t.replace(/ /g, "_"), i = r + " " + n.map((e) => e.id), a = Pl[i];
+	if (a) return a.id;
+	let o = Pl[i] = Qs.define({
+		id: Ml.length,
+		name: r,
+		props: [kc({ [r]: n })]
+	});
+	return Ml.push(o), o.id;
+}
+L.RTL, L.LTR;
+//#endregion
+//#region node_modules/@codemirror/commands/dist/index.js
+var Rl = (e) => {
+	let { state: t } = e, n = t.doc.lineAt(t.selection.main.from), r = Ul(e.state, n.from);
+	return r.line ? Bl(e) : r.block ? Hl(e) : !1;
+};
+function zl(e, t) {
+	return ({ state: n, dispatch: r }) => {
+		if (n.readOnly) return !1;
+		let i = e(t, n);
+		return i ? (r(n.update(i)), !0) : !1;
+	};
+}
+var Bl = /*@__PURE__*/ zl(Jl, 0), Vl = /*@__PURE__*/ zl(ql, 0), Hl = /*@__PURE__*/ zl((e, t) => ql(e, t, Kl(t)), 0);
+function Ul(e, t) {
+	let n = e.languageDataAt("commentTokens", t, 1);
+	return n.length ? n[0] : {};
+}
+var Wl = 50;
+function Gl(e, { open: t, close: n }, r, i) {
+	let a = e.sliceDoc(r - Wl, r), o = e.sliceDoc(i, i + Wl), s = /\s*$/.exec(a)[0].length, c = /^\s*/.exec(o)[0].length, l = a.length - s;
+	if (a.slice(l - t.length, l) == t && o.slice(c, c + n.length) == n) return {
+		open: {
+			pos: r - s,
+			margin: s && 1
+		},
+		close: {
+			pos: i + c,
+			margin: c && 1
+		}
+	};
+	let u, d;
+	i - r <= 100 ? u = d = e.sliceDoc(r, i) : (u = e.sliceDoc(r, r + Wl), d = e.sliceDoc(i - Wl, i));
+	let f = /^\s*/.exec(u)[0].length, p = /\s*$/.exec(d)[0].length, m = d.length - p - n.length;
+	return u.slice(f, f + t.length) == t && d.slice(m, m + n.length) == n ? {
+		open: {
+			pos: r + f + t.length,
+			margin: +!!/\s/.test(u.charAt(f + t.length))
+		},
+		close: {
+			pos: i - p - n.length,
+			margin: +!!/\s/.test(d.charAt(m - 1))
+		}
+	} : null;
+}
+function Kl(e) {
+	let t = [];
+	for (let n of e.selection.ranges) {
+		let r = e.doc.lineAt(n.from), i = n.to <= r.to ? r : e.doc.lineAt(n.to);
+		i.from > r.from && i.from == n.to && (i = n.to == r.to + 1 ? r : e.doc.lineAt(n.to - 1));
+		let a = t.length - 1;
+		a >= 0 && t[a].to > r.from ? t[a].to = i.to : t.push({
+			from: r.from + /^\s*/.exec(r.text)[0].length,
+			to: i.to
+		});
+	}
+	return t;
+}
+function ql(e, t, n = t.selection.ranges) {
+	let r = n.map((e) => Ul(t, e.from).block);
+	if (!r.every((e) => e)) return null;
+	let i = n.map((e, n) => Gl(t, r[n], e.from, e.to));
+	if (e != 2 && !i.every((e) => e)) return { changes: t.changes(n.map((e, t) => i[t] ? [] : [{
+		from: e.from,
+		insert: r[t].open + " "
+	}, {
+		from: e.to,
+		insert: " " + r[t].close
+	}])) };
+	if (e != 1 && i.some((e) => e)) {
+		let e = [];
+		for (let t = 0, n; t < i.length; t++) if (n = i[t]) {
+			let i = r[t], { open: a, close: o } = n;
+			e.push({
+				from: a.pos - i.open.length,
+				to: a.pos + a.margin
+			}, {
+				from: o.pos - o.margin,
+				to: o.pos + i.close.length
+			});
+		}
+		return { changes: e };
+	}
+	return null;
+}
+function Jl(e, t, n = t.selection.ranges) {
+	let r = [], i = -1;
+	ranges: for (let { from: e, to: a } of n) {
+		let n = r.length, o = 1e9, s;
+		for (let n = e; n <= a;) {
+			let c = t.doc.lineAt(n);
+			if (s == null && (s = Ul(t, c.from).line, !s)) continue ranges;
+			if (c.from > i && (e == a || a > c.from)) {
+				i = c.from;
+				let e = /^\s*/.exec(c.text)[0].length, t = e == c.length, n = c.text.slice(e, e + s.length) == s ? e : -1;
+				e < c.text.length && e < o && (o = e), r.push({
+					line: c,
+					comment: n,
+					token: s,
+					indent: e,
+					empty: t,
+					single: !1
+				});
+			}
+			n = c.to + 1;
+		}
+		if (o < 1e9) for (let e = n; e < r.length; e++) r[e].indent < r[e].line.text.length && (r[e].indent = o);
+		r.length == n + 1 && (r[n].single = !0);
+	}
+	if (e != 2 && r.some((e) => e.comment < 0 && (!e.empty || e.single))) {
+		let e = [];
+		for (let { line: t, token: n, indent: i, empty: a, single: o } of r) (o || !a) && e.push({
+			from: t.from + i,
+			insert: n + " "
+		});
+		let n = t.changes(e);
+		return {
+			changes: n,
+			selection: t.selection.map(n, 1)
+		};
+	}
+	if (e != 1 && r.some((e) => e.comment >= 0)) {
+		let e = [];
+		for (let { line: t, comment: n, token: i } of r) if (n >= 0) {
+			let r = t.from + n, a = r + i.length;
+			t.text[a - t.from] == " " && a++, e.push({
+				from: r,
+				to: a
+			});
+		}
+		return { changes: e };
+	}
+	return null;
+}
+var Yl = /*@__PURE__*/ Ve.define(), Xl = /*@__PURE__*/ Ve.define(), Zl = /*@__PURE__*/ E.define(), Ql = /*@__PURE__*/ E.define({ combine(e) {
+	return rt(e, {
+		minDepth: 100,
+		newGroupDelay: 500,
+		joinToEvent: (e, t) => t
+	}, {
+		minDepth: Math.max,
+		newGroupDelay: Math.min,
+		joinToEvent: (e, t) => (n, r) => e(n, r) || t(n, r)
+	});
+} }), $l = /*@__PURE__*/ Ce.define({
+	create() {
+		return _u.empty;
+	},
+	update(e, t) {
+		let n = t.state.facet(Ql), r = t.annotation(Yl);
+		if (r) {
+			let i = ou.fromTransaction(t, r.selection), a = r.side, o = a == 0 ? e.undone : e.done;
+			return o = i ? su(o, o.length, n.minDepth, i) : fu(o, t.startState.selection), new _u(a == 0 ? r.rest : o, a == 0 ? o : r.rest);
+		}
+		let i = t.annotation(Xl);
+		if ((i == "full" || i == "before") && (e = e.isolate()), t.annotation(O.addToHistory) === !1) return t.changes.empty ? e : e.addMapping(t.changes.desc);
+		let a = ou.fromTransaction(t), o = t.annotation(O.time), s = t.annotation(O.userEvent);
+		return a ? e = e.addChanges(a, o, s, n, t) : t.selection && (e = e.addSelection(t.startState.selection, o, s, n.newGroupDelay)), (i == "full" || i == "after") && (e = e.isolate()), e;
+	},
+	toJSON(e) {
+		return {
+			done: e.done.map((e) => e.toJSON()),
+			undone: e.undone.map((e) => e.toJSON())
+		};
+	},
+	fromJSON(e) {
+		return new _u(e.done.map(ou.fromJSON), e.undone.map(ou.fromJSON));
+	}
+});
+function eu(e = {}) {
+	return [
+		$l,
+		Ql.of(e),
+		W.domEventHandlers({ beforeinput(e, t) {
+			let n = e.inputType == "historyUndo" ? nu : e.inputType == "historyRedo" ? ru : null;
+			return n ? (e.preventDefault(), n(t)) : !1;
+		} })
+	];
+}
+function tu(e, t) {
+	return function({ state: n, dispatch: r }) {
+		if (!t && n.readOnly) return !1;
+		let i = n.field($l, !1);
+		if (!i) return !1;
+		let a = i.pop(e, n, t);
+		return a ? (r(a), !0) : !1;
+	};
+}
+var nu = /*@__PURE__*/ tu(0, !1), ru = /*@__PURE__*/ tu(1, !1), iu = /*@__PURE__*/ tu(0, !0), au = /*@__PURE__*/ tu(1, !0), ou = class e {
+	constructor(e, t, n, r, i) {
+		this.changes = e, this.effects = t, this.mapped = n, this.startSelection = r, this.selectionsAfter = i;
+	}
+	setSelAfter(t) {
+		return new e(this.changes, this.effects, this.mapped, this.startSelection, t);
+	}
+	toJSON() {
+		return {
+			changes: this.changes?.toJSON(),
+			mapped: this.mapped?.toJSON(),
+			startSelection: this.startSelection?.toJSON(),
+			selectionsAfter: this.selectionsAfter.map((e) => e.toJSON())
+		};
+	}
+	static fromJSON(t) {
+		return new e(t.changes && ce.fromJSON(t.changes), [], t.mapped && se.fromJSON(t.mapped), t.startSelection && T.fromJSON(t.startSelection), t.selectionsAfter.map(T.fromJSON));
+	}
+	static fromTransaction(t, n) {
+		let r = X;
+		for (let e of t.startState.facet(Zl)) {
+			let n = e(t);
+			n.length && (r = r.concat(n));
+		}
+		return !r.length && t.changes.empty ? null : new e(t.changes.invert(t.startState.doc), r, void 0, n || t.startState.selection, X);
+	}
+	static selection(t) {
+		return new e(void 0, X, void 0, void 0, t);
+	}
+};
+function su(e, t, n, r) {
+	let i = t + 1 > n + 20 ? t - n - 1 : 0, a = e.slice(i, t);
+	return a.push(r), a;
+}
+function cu(e, t) {
+	let n = [], r = !1;
+	return e.iterChangedRanges((e, t) => n.push(e, t)), t.iterChangedRanges((e, t, i, a) => {
+		for (let e = 0; e < n.length;) {
+			let t = n[e++], o = n[e++];
+			a >= t && i <= o && (r = !0);
+		}
+	}), r;
+}
+function lu(e, t) {
+	return e.ranges.length == t.ranges.length && e.ranges.filter((e, n) => e.empty != t.ranges[n].empty).length === 0;
+}
+function uu(e, t) {
+	return e.length ? t.length ? e.concat(t) : e : t;
+}
+var X = [], du = 200;
+function fu(e, t) {
+	if (e.length) {
+		let n = e[e.length - 1], r = n.selectionsAfter.slice(Math.max(0, n.selectionsAfter.length - du));
+		return r.length && r[r.length - 1].eq(t) ? e : (r.push(t), su(e, e.length - 1, 1e9, n.setSelAfter(r)));
+	}
+	return [ou.selection([t])];
+}
+function pu(e) {
+	let t = e[e.length - 1], n = e.slice();
+	return n[e.length - 1] = t.setSelAfter(t.selectionsAfter.slice(0, t.selectionsAfter.length - 1)), n;
+}
+function mu(e, t) {
+	if (!e.length) return e;
+	let n = e.length, r = X;
+	for (; n;) {
+		let i = hu(e[n - 1], t, r);
+		if (i.changes && !i.changes.empty || i.effects.length) {
+			let t = e.slice(0, n);
+			return t[n - 1] = i, t;
+		}
+		t = i.mapped, n--, r = i.selectionsAfter;
+	}
+	return r.length ? [ou.selection(r)] : X;
+}
+function hu(e, t, n) {
+	let r = uu(e.selectionsAfter.length ? e.selectionsAfter.map((e) => e.map(t)) : X, n);
+	if (!e.changes) return ou.selection(r);
+	let i = e.changes.map(t), a = t.mapDesc(e.changes, !0), o = e.mapped ? e.mapped.composeDesc(a) : a;
+	return new ou(i, D.mapEffects(e.effects, t), o, e.startSelection.map(a), r);
+}
+var gu = /^(input\.type|delete)($|\.)/, _u = class e {
+	constructor(e, t, n = 0, r = void 0) {
+		this.done = e, this.undone = t, this.prevTime = n, this.prevUserEvent = r;
+	}
+	isolate() {
+		return this.prevTime ? new e(this.done, this.undone) : this;
+	}
+	addChanges(t, n, r, i, a) {
+		let o = this.done, s = o[o.length - 1];
+		return o = s && s.changes && !s.changes.empty && t.changes && (!r || gu.test(r)) && (!s.selectionsAfter.length && n - this.prevTime < i.newGroupDelay && i.joinToEvent(a, cu(s.changes, t.changes)) || r == "input.type.compose") ? su(o, o.length - 1, i.minDepth, new ou(t.changes.compose(s.changes), uu(D.mapEffects(t.effects, s.changes), s.effects), s.mapped, s.startSelection, X)) : su(o, o.length, i.minDepth, t), new e(o, X, n, r);
+	}
+	addSelection(t, n, r, i) {
+		let a = this.done.length ? this.done[this.done.length - 1].selectionsAfter : X;
+		return a.length > 0 && n - this.prevTime < i && r == this.prevUserEvent && r && /^select($|\.)/.test(r) && lu(a[a.length - 1], t) ? this : new e(fu(this.done, t), this.undone, n, r);
+	}
+	addMapping(t) {
+		return new e(mu(this.done, t), mu(this.undone, t), this.prevTime, this.prevUserEvent);
+	}
+	pop(e, t, n) {
+		let r = e == 0 ? this.done : this.undone;
+		if (r.length == 0) return null;
+		let i = r[r.length - 1], a = i.selectionsAfter[0] || (i.startSelection ? i.startSelection.map(i.changes.invertedDesc, 1) : t.selection);
+		if (n && i.selectionsAfter.length) return t.update({
+			selection: i.selectionsAfter[i.selectionsAfter.length - 1],
+			annotations: Yl.of({
+				side: e,
+				rest: pu(r),
+				selection: a
+			}),
+			userEvent: e == 0 ? "select.undo" : "select.redo",
+			scrollIntoView: !0
+		});
+		if (i.changes) {
+			let n = r.length == 1 ? X : r.slice(0, r.length - 1);
+			return i.mapped && (n = mu(n, i.mapped)), t.update({
+				changes: i.changes,
+				selection: i.startSelection,
+				effects: i.effects,
+				annotations: Yl.of({
+					side: e,
+					rest: n,
+					selection: a
+				}),
+				filter: !1,
+				userEvent: e == 0 ? "undo" : "redo",
+				scrollIntoView: !0
+			});
+		}
+		return null;
+	}
+};
+_u.empty = /*@__PURE__*/ new _u(X, X);
+var vu = [
+	{
+		key: "Mod-z",
+		run: nu,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-y",
+		mac: "Mod-Shift-z",
+		run: ru,
+		preventDefault: !0
+	},
+	{
+		linux: "Ctrl-Shift-z",
+		run: ru,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-u",
+		run: iu,
+		preventDefault: !0
+	},
+	{
+		key: "Alt-u",
+		mac: "Mod-Shift-u",
+		run: au,
+		preventDefault: !0
+	}
+];
+function yu(e, t) {
+	return T.create(e.ranges.map(t), e.mainIndex);
+}
+function bu(e, t) {
+	return e.update({
+		selection: t,
+		scrollIntoView: !0,
+		userEvent: "select"
+	});
+}
+function xu({ state: e, dispatch: t }, n) {
+	let r = yu(e.selection, n);
+	return !r.eq(e.selection, !0) && (t(bu(e, r)), !0);
+}
+function Su(e, t) {
+	return T.cursor(t ? e.to : e.from);
+}
+function Cu(e, t) {
+	return xu(e, (n) => n.empty ? e.moveByChar(n, t) : Su(n, t));
+}
+function Z(e) {
+	return e.textDirectionAt(e.state.selection.main.head) == L.LTR;
+}
+var wu = (e) => Cu(e, !Z(e)), Tu = (e) => Cu(e, Z(e));
+function Eu(e, t) {
+	return xu(e, (n) => n.empty ? e.moveByGroup(n, t) : Su(n, t));
+}
+var Du = (e) => Eu(e, !Z(e)), Ou = (e) => Eu(e, Z(e));
+typeof Intl < "u" && Intl.Segmenter;
+function ku(e, t, n) {
+	if (t.type.prop(n)) return !0;
+	let r = t.to - t.from;
+	return r && (r > 2 || /[^\s,.;:]/.test(e.sliceDoc(t.from, t.to))) || t.firstChild;
+}
+function Au(e, t, n) {
+	let r = Zc(e).resolveInner(t.head), i = n ? G.closedBy : G.openedBy;
+	for (let a = t.head;;) {
+		let t = n ? r.childAfter(a) : r.childBefore(a);
+		if (!t) break;
+		ku(e, t, i) ? r = t : a = n ? t.to : t.from;
+	}
+	let a = r.type.prop(i), o, s;
+	return s = a && (o = n ? Ol(e, r.from, 1) : Ol(e, r.to, -1)) && o.matched ? n ? o.end.to : o.end.from : n ? r.to : r.from, T.cursor(s, n ? -1 : 1);
+}
+var ju = (e) => xu(e, (t) => Au(e.state, t, !Z(e))), Mu = (e) => xu(e, (t) => Au(e.state, t, Z(e)));
+function Nu(e, t) {
+	return xu(e, (n) => {
+		if (!n.empty) return Su(n, t);
+		let r = e.moveVertically(n, t);
+		return r.head == n.head ? e.moveToLineBoundary(n, t) : r;
+	});
+}
+var Pu = (e) => Nu(e, !1), Fu = (e) => Nu(e, !0);
+function Iu(e) {
+	let t = e.scrollDOM.clientHeight < e.scrollDOM.scrollHeight - 2, n = 0, r = 0, i;
+	if (t) {
+		for (let t of e.state.facet(W.scrollMargins)) {
+			let i = t(e);
+			i?.top && (n = Math.max(i?.top, n)), i?.bottom && (r = Math.max(i?.bottom, r));
+		}
+		i = e.scrollDOM.clientHeight - n - r;
+	} else i = (e.dom.ownerDocument.defaultView || window).innerHeight;
+	return {
+		marginTop: n,
+		marginBottom: r,
+		selfScroll: t,
+		height: Math.max(e.defaultLineHeight, i - 5)
+	};
+}
+function Lu(e, t) {
+	let n = Iu(e), { state: r } = e, i = yu(r.selection, (r) => r.empty ? e.moveVertically(r, t, n.height) : Su(r, t));
+	if (i.eq(r.selection)) return !1;
+	let a;
+	if (n.selfScroll) {
+		let t = e.coordsAtPos(r.selection.main.head), o = e.scrollDOM.getBoundingClientRect(), s = o.top + n.marginTop, c = o.bottom - n.marginBottom;
+		t && t.top > s && t.bottom < c && (a = W.scrollIntoView(i.main.head, {
+			y: "start",
+			yMargin: t.top - s
+		}));
+	}
+	return e.dispatch(bu(r, i), { effects: a }), !0;
+}
+var Ru = (e) => Lu(e, !1), zu = (e) => Lu(e, !0);
+function Bu(e, t, n) {
+	let r = e.lineBlockAt(t.head), i = e.moveToLineBoundary(t, n);
+	if (i.head == t.head && i.head != (n ? r.to : r.from) && (i = e.moveToLineBoundary(t, n, !1)), !n && i.head == r.from && r.length) {
+		let n = /^\s*/.exec(e.state.sliceDoc(r.from, Math.min(r.from + 100, r.to)))[0].length;
+		n && t.head != r.from + n && (i = T.cursor(r.from + n));
+	}
+	return i;
+}
+var Vu = (e) => xu(e, (t) => Bu(e, t, !0)), Hu = (e) => xu(e, (t) => Bu(e, t, !1)), Uu = (e) => xu(e, (t) => Bu(e, t, !Z(e))), Wu = (e) => xu(e, (t) => Bu(e, t, Z(e))), Gu = (e) => xu(e, (t) => e.moveToLineBoundary(t, !1, !1)), Ku = (e) => xu(e, (t) => e.moveToLineBoundary(t, !0, !1));
+function qu(e, t, n) {
+	let r = !1, i = yu(e.selection, (t) => {
+		let i = Ol(e, t.head, -1) || Ol(e, t.head, 1) || t.head > 0 && Ol(e, t.head - 1, 1) || t.head < e.doc.length && Ol(e, t.head + 1, -1);
+		if (!i || !i.end) return t;
+		r = !0;
+		let a = i.start.from == t.head ? i.end.to : i.end.from;
+		return n ? T.range(t.anchor, a) : T.cursor(a);
+	});
+	return r ? (t(bu(e, i)), !0) : !1;
+}
+var Ju = ({ state: e, dispatch: t }) => qu(e, t, !1);
+function Yu(e, t, n) {
+	let r = yu(e.state.selection, (e) => {
+		e.undirectional && e.head >= e.anchor != t && (e = T.range(e.head, e.anchor));
+		let r = n(e);
+		return T.range(e.anchor, r.head, r.goalColumn, r.bidiLevel || void 0, r.assoc);
+	});
+	return !r.eq(e.state.selection) && (e.dispatch(bu(e.state, r)), !0);
+}
+function Xu(e, t) {
+	return Yu(e, t, (n) => e.moveByChar(n, t));
+}
+var Zu = (e) => Xu(e, !Z(e)), Qu = (e) => Xu(e, Z(e));
+function $u(e, t) {
+	return Yu(e, t, (n) => e.moveByGroup(n, t));
+}
+var ed = (e) => $u(e, !Z(e)), td = (e) => $u(e, Z(e)), nd = (e) => {
+	let t = !Z(e);
+	return Yu(e, t, (n) => Au(e.state, n, t));
+}, rd = (e) => {
+	let t = Z(e);
+	return Yu(e, t, (n) => Au(e.state, n, t));
+};
+function id(e, t) {
+	return Yu(e, t, (n) => e.moveVertically(n, t));
+}
+var ad = (e) => id(e, !1), od = (e) => id(e, !0);
+function sd(e, t) {
+	return Yu(e, t, (n) => e.moveVertically(n, t, Iu(e).height));
+}
+var cd = (e) => sd(e, !1), ld = (e) => sd(e, !0), ud = (e) => Yu(e, !0, (t) => Bu(e, t, !0)), dd = (e) => Yu(e, !1, (t) => Bu(e, t, !1)), fd = (e) => {
+	let t = !Z(e);
+	return Yu(e, t, (n) => Bu(e, n, t));
+}, pd = (e) => {
+	let t = Z(e);
+	return Yu(e, t, (n) => Bu(e, n, t));
+}, md = (e) => Yu(e, !1, (t) => T.cursor(e.lineBlockAt(t.head).from)), hd = (e) => Yu(e, !0, (t) => T.cursor(e.lineBlockAt(t.head).to)), gd = ({ state: e, dispatch: t }) => (t(bu(e, { anchor: 0 })), !0), _d = ({ state: e, dispatch: t }) => (t(bu(e, { anchor: e.doc.length })), !0), vd = ({ state: e, dispatch: t }) => (t(bu(e, {
+	anchor: e.selection.main.anchor,
+	head: 0
+})), !0), yd = ({ state: e, dispatch: t }) => (t(bu(e, {
+	anchor: e.selection.main.anchor,
+	head: e.doc.length
+})), !0), bd = ({ state: e, dispatch: t }) => (t(e.update({
+	selection: {
+		anchor: 0,
+		head: e.doc.length
+	},
+	userEvent: "select"
+})), !0), xd = ({ state: e, dispatch: t }) => {
+	let n = Bd(e).map(({ from: t, to: n }) => T.undirectionalRange(t, Math.min(n + 1, e.doc.length)));
+	return t(e.update({
+		selection: T.create(n),
+		userEvent: "select"
+	})), !0;
+}, Sd = ({ state: e, dispatch: t }) => {
+	let n = yu(e.selection, (t) => {
+		let n = Zc(e), r = n.resolveStack(t.from, 1);
+		if (t.empty) {
+			let e = n.resolveStack(t.from, -1);
+			e.node.from >= r.node.from && e.node.to <= r.node.to && (r = e);
+		}
+		for (let e = r; e; e = e.next) {
+			let { node: n } = e;
+			if ((n.from < t.from && n.to >= t.to || n.to > t.to && n.from <= t.from) && e.next) return T.undirectionalRange(n.from, n.to);
+		}
+		return t;
+	});
+	return !n.eq(e.selection) && (t(bu(e, n)), !0);
+};
+function Cd(e, t) {
+	let { state: n } = e, r = n.selection, i = n.selection.ranges.slice();
+	for (let r of n.selection.ranges) {
+		let a = n.doc.lineAt(r.head);
+		if (t ? a.to < e.state.doc.length : a.from > 0) for (let n = r;;) {
+			let r = e.moveVertically(n, t);
+			if (r.head < a.from || r.head > a.to) {
+				i.some((e) => e.head == r.head) || i.push(r);
+				break;
+			}
+			if (r.head == n.head) break;
+			n = r;
+		}
+	}
+	return i.length != r.ranges.length && (e.dispatch(bu(n, T.create(i, i.length - 1))), !0);
+}
+var wd = (e) => Cd(e, !1), Td = (e) => Cd(e, !0), Ed = ({ state: e, dispatch: t }) => {
+	let n = e.selection, r = null;
+	return n.ranges.length > 1 ? r = T.create([n.main]) : n.main.empty || (r = T.create([T.cursor(n.main.head)])), r ? (t(bu(e, r)), !0) : !1;
+};
+function Dd(e, t) {
+	if (e.state.readOnly) return !1;
+	let n = "delete.selection", { state: r } = e, i = r.changeByRange((r) => {
+		let { from: i, to: a } = r;
+		if (i == a) {
+			let o = t(r);
+			o < i ? (n = "delete.backward", o = Od(e, o, !1)) : o > i && (n = "delete.forward", o = Od(e, o, !0)), i = Math.min(i, o), a = Math.max(a, o);
+		} else i = Od(e, i, !1), a = Od(e, a, !0);
+		return i == a ? { range: r } : {
+			changes: {
+				from: i,
+				to: a
+			},
+			range: T.cursor(i, i < r.head ? -1 : 1)
+		};
+	});
+	return !i.changes.empty && (e.dispatch(r.update(i, {
+		scrollIntoView: !0,
+		userEvent: n,
+		effects: n == "delete.selection" ? W.announce.of(r.phrase("Selection deleted")) : void 0
+	})), !0);
+}
+function Od(e, t, n) {
+	if (e instanceof W) for (let r of e.state.facet(W.atomicRanges).map((t) => t(e))) r.between(t, t, (e, r) => {
+		e < t && r > t && (t = n ? r : e);
+	});
+	return t;
+}
+var kd = (e, t, n) => Dd(e, (r) => {
+	let i = r.from, { state: a } = e, o = a.doc.lineAt(i), s, c;
+	if (n && !t && i > o.from && i < o.from + 200 && !/[^ \t]/.test(s = o.text.slice(0, i - o.from))) {
+		if (s[s.length - 1] == "	") return i - 1;
+		let e = St(s, a.tabSize) % ll(a) || ll(a);
+		for (let t = 0; t < e && s[s.length - 1 - t] == " "; t++) i--;
+		c = i;
+	} else c = S(o.text, i - o.from, t, t) + o.from, c == i && o.number != (t ? a.doc.lines : 1) ? c += t ? 1 : -1 : !t && /[\ufe00-\ufe0f]/.test(o.text.slice(c - o.from, i - o.from)) && (c = S(o.text, c - o.from, !1, !1) + o.from);
+	return c;
+}), Ad = (e) => kd(e, !1, !0), jd = (e) => kd(e, !0, !1), Md = (e, t) => Dd(e, (n) => {
+	let r = n.head, { state: i } = e, a = i.doc.lineAt(r), o = i.charCategorizer(r);
+	for (let e = null;;) {
+		if (r == (t ? a.to : a.from)) {
+			r == n.head && a.number != (t ? i.doc.lines : 1) && (r += t ? 1 : -1);
+			break;
+		}
+		let s = S(a.text, r - a.from, t) + a.from, c = a.text.slice(Math.min(r, s) - a.from, Math.max(r, s) - a.from), l = o(c);
+		if (e != null && l != e) break;
+		(c != " " || r != n.head) && (e = l), r = s;
+	}
+	return r;
+}), Nd = (e) => Md(e, !1), Pd = (e) => Md(e, !0), Fd = (e) => Dd(e, (t) => {
+	let n = e.lineBlockAt(t.head).to;
+	return t.head < n ? n : Math.min(e.state.doc.length, t.head + 1);
+}), Id = (e) => Dd(e, (t) => {
+	let n = e.moveToLineBoundary(t, !1).head;
+	return t.head > n ? n : Math.max(0, t.head - 1);
+}), Ld = (e) => Dd(e, (t) => {
+	let n = e.moveToLineBoundary(t, !0).head;
+	return t.head < n ? n : Math.min(e.state.doc.length, t.head + 1);
+}), Rd = ({ state: e, dispatch: t }) => {
+	if (e.readOnly) return !1;
+	let n = e.changeByRange((e) => ({
+		changes: {
+			from: e.from,
+			to: e.to,
+			insert: f.of(["", ""])
+		},
+		range: T.cursor(e.from)
+	}));
+	return t(e.update(n, {
+		scrollIntoView: !0,
+		userEvent: "input"
+	})), !0;
+}, zd = ({ state: e, dispatch: t }) => {
+	if (e.readOnly) return !1;
+	let n = e.changeByRange((t) => {
+		if (!t.empty || t.from == 0 || t.from == e.doc.length) return { range: t };
+		let n = t.from, r = e.doc.lineAt(n), i = n == r.from ? n - 1 : S(r.text, n - r.from, !1) + r.from, a = n == r.to ? n + 1 : S(r.text, n - r.from, !0) + r.from;
+		return {
+			changes: {
+				from: i,
+				to: a,
+				insert: e.doc.slice(n, a).append(e.doc.slice(i, n))
+			},
+			range: T.cursor(a)
+		};
+	});
+	return !n.changes.empty && (t(e.update(n, {
+		scrollIntoView: !0,
+		userEvent: "move.character"
+	})), !0);
+};
+function Bd(e) {
+	let t = [], n = -1;
+	for (let r of e.selection.ranges) {
+		let i = e.doc.lineAt(r.from), a = e.doc.lineAt(r.to);
+		if (!r.empty && r.to == a.from && (a = e.doc.lineAt(r.to - 1)), n >= i.number) {
+			let e = t[t.length - 1];
+			e.to = a.to, e.ranges.push(r);
+		} else t.push({
+			from: i.from,
+			to: a.to,
+			ranges: [r]
+		});
+		n = a.number + 1;
+	}
+	return t;
+}
+function Vd(e, t, n) {
+	if (e.readOnly) return !1;
+	let r = [], i = [];
+	for (let t of Bd(e)) {
+		if (n ? t.to == e.doc.length : t.from == 0) continue;
+		let a = e.doc.lineAt(n ? t.to + 1 : t.from - 1), o = a.length + 1;
+		if (n) {
+			r.push({
+				from: t.to,
+				to: a.to
+			}, {
+				from: t.from,
+				insert: a.text + e.lineBreak
+			});
+			for (let n of t.ranges) i.push(T.range(Math.min(e.doc.length, n.anchor + o), Math.min(e.doc.length, n.head + o)));
+		} else {
+			r.push({
+				from: a.from,
+				to: t.from
+			}, {
+				from: t.to,
+				insert: e.lineBreak + a.text
+			});
+			for (let e of t.ranges) i.push(T.range(e.anchor - o, e.head - o));
+		}
+	}
+	return r.length ? (t(e.update({
+		changes: r,
+		scrollIntoView: !0,
+		selection: T.create(i, e.selection.mainIndex),
+		userEvent: "move.line"
+	})), !0) : !1;
+}
+var Hd = ({ state: e, dispatch: t }) => Vd(e, t, !1), Ud = ({ state: e, dispatch: t }) => Vd(e, t, !0);
+function Wd(e, t, n) {
+	if (e.readOnly) return !1;
+	let r = [];
+	for (let t of Bd(e)) n ? r.push({
+		from: t.from,
+		insert: e.doc.slice(t.from, t.to) + e.lineBreak
+	}) : r.push({
+		from: t.to,
+		insert: e.lineBreak + e.doc.slice(t.from, t.to)
+	});
+	let i = e.changes(r);
+	return t(e.update({
+		changes: i,
+		selection: e.selection.map(i, n ? 1 : -1),
+		scrollIntoView: !0,
+		userEvent: "input.copyline"
+	})), !0;
+}
+var Gd = ({ state: e, dispatch: t }) => Wd(e, t, !1), Kd = ({ state: e, dispatch: t }) => Wd(e, t, !0), qd = (e) => {
+	if (e.state.readOnly) return !1;
+	let { state: t } = e, n = t.changes(Bd(t).map(({ from: e, to: n }) => (e > 0 ? e-- : n < t.doc.length && n++, {
+		from: e,
+		to: n
+	}))), r = yu(t.selection, (t) => {
+		let n;
+		if (e.lineWrapping) {
+			let r = e.lineBlockAt(t.head), i = e.coordsAtPos(t.head, t.assoc || 1);
+			i && (n = r.bottom + e.documentTop - i.bottom + e.defaultLineHeight / 2);
+		}
+		return e.moveVertically(t, !0, n);
+	}).map(n);
+	return e.dispatch({
+		changes: n,
+		selection: r,
+		scrollIntoView: !0,
+		userEvent: "delete.line"
+	}), !0;
+};
+function Jd(e, t) {
+	if (/\(\)|\[\]|\{\}/.test(e.sliceDoc(t - 1, t + 1))) return {
+		from: t,
+		to: t
+	};
+	let n = Zc(e).resolveInner(t), r = n.childBefore(t), i = n.childAfter(t), a;
+	return r && i && r.to <= t && i.from >= t && (a = r.type.prop(G.closedBy)) && a.indexOf(i.name) > -1 && e.doc.lineAt(r.to).from == e.doc.lineAt(i.from).from && !/\S/.test(e.sliceDoc(r.to, i.from)) ? {
+		from: r.to,
+		to: i.from
+	} : null;
+}
+var Yd = /*@__PURE__*/ Zd(!1), Xd = /*@__PURE__*/ Zd(!0);
+function Zd(e) {
+	return ({ state: t, dispatch: n }) => {
+		if (t.readOnly) return !1;
+		let r = t.changeByRange((n) => {
+			let { from: r, to: i } = n, a = t.doc.lineAt(r), o = !e && r == i && Jd(t, r);
+			e && (r = i = (i <= a.to ? a : t.doc.lineAt(i)).to);
+			let s = new fl(t, {
+				simulateBreak: r,
+				simulateDoubleBreak: !!o
+			}), c = dl(s, r);
+			for (c ?? (c = St(/^\s*/.exec(t.doc.lineAt(r).text)[0], t.tabSize)); i < a.to && /\s/.test(a.text[i - a.from]);) i++;
+			o ? {from: r, to: i} = o : r > a.from && r < a.from + 100 && !/\S/.test(a.text.slice(0, r)) && (r = a.from);
+			let l = ["", ul(t, c)];
+			return o && l.push(ul(t, s.lineIndent(a.from, -1))), {
+				changes: {
+					from: r,
+					to: i,
+					insert: f.of(l)
+				},
+				range: T.cursor(r + 1 + l[1].length)
+			};
+		});
+		return n(t.update(r, {
+			scrollIntoView: !0,
+			userEvent: "input"
+		})), !0;
+	};
+}
+function Qd(e, t) {
+	let n = -1;
+	return e.changeByRange((r) => {
+		let i = [];
+		for (let a = r.from; a <= r.to;) {
+			let o = e.doc.lineAt(a);
+			o.number > n && (r.empty || r.to > o.from) && (t(o, i, r), n = o.number), a = o.to + 1;
+		}
+		let a = e.changes(i);
+		return {
+			changes: i,
+			range: T.range(a.mapPos(r.anchor, 1), a.mapPos(r.head, 1))
+		};
+	});
+}
+var $d = ({ state: e, dispatch: t }) => {
+	if (e.readOnly) return !1;
+	let n = Object.create(null), r = new fl(e, { overrideIndentation: (e) => n[e] ?? -1 }), i = Qd(e, (t, i, a) => {
+		let o = dl(r, t.from);
+		if (o == null) return;
+		/\S/.test(t.text) || (o = 0);
+		let s = /^\s*/.exec(t.text)[0], c = ul(e, o);
+		(s != c || a.from < t.from + s.length) && (n[t.from] = o, i.push({
+			from: t.from,
+			to: t.from + s.length,
+			insert: c
+		}));
+	});
+	return i.changes.empty || t(e.update(i, { userEvent: "indent" })), !0;
+}, ef = ({ state: e, dispatch: t }) => !e.readOnly && (t(e.update(Qd(e, (t, n) => {
+	n.push({
+		from: t.from,
+		insert: e.facet(cl)
+	});
+}), { userEvent: "input.indent" })), !0), tf = ({ state: e, dispatch: t }) => !e.readOnly && (t(e.update(Qd(e, (t, n) => {
+	let r = /^\s*/.exec(t.text)[0];
+	if (!r) return;
+	let i = St(r, e.tabSize), a = 0, o = ul(e, Math.max(0, i - ll(e)));
+	for (; a < r.length && a < o.length && r.charCodeAt(a) == o.charCodeAt(a);) a++;
+	n.push({
+		from: t.from + a,
+		to: t.from + r.length,
+		insert: o.slice(a)
+	});
+}), { userEvent: "delete.dedent" })), !0), nf = (e) => (e.setTabFocusMode(), !0), rf = [
+	{
+		key: "Ctrl-b",
+		run: wu,
+		shift: Zu,
+		preventDefault: !0
+	},
+	{
+		key: "Ctrl-f",
+		run: Tu,
+		shift: Qu
+	},
+	{
+		key: "Ctrl-p",
+		run: Pu,
+		shift: ad
+	},
+	{
+		key: "Ctrl-n",
+		run: Fu,
+		shift: od
+	},
+	{
+		key: "Ctrl-a",
+		run: Gu,
+		shift: md
+	},
+	{
+		key: "Ctrl-e",
+		run: Ku,
+		shift: hd
+	},
+	{
+		key: "Ctrl-d",
+		run: jd
+	},
+	{
+		key: "Ctrl-h",
+		run: Ad
+	},
+	{
+		key: "Ctrl-k",
+		run: Fd
+	},
+	{
+		key: "Ctrl-Alt-h",
+		run: Nd
+	},
+	{
+		key: "Ctrl-o",
+		run: Rd
+	},
+	{
+		key: "Ctrl-t",
+		run: zd
+	},
+	{
+		key: "Ctrl-v",
+		run: zu
+	}
+], af = /*@__PURE__*/ [
+	{
+		key: "ArrowLeft",
+		run: wu,
+		shift: Zu,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-ArrowLeft",
+		mac: "Alt-ArrowLeft",
+		run: Du,
+		shift: ed,
+		preventDefault: !0
+	},
+	{
+		mac: "Cmd-ArrowLeft",
+		run: Uu,
+		shift: fd,
+		preventDefault: !0
+	},
+	{
+		key: "ArrowRight",
+		run: Tu,
+		shift: Qu,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-ArrowRight",
+		mac: "Alt-ArrowRight",
+		run: Ou,
+		shift: td,
+		preventDefault: !0
+	},
+	{
+		mac: "Cmd-ArrowRight",
+		run: Wu,
+		shift: pd,
+		preventDefault: !0
+	},
+	{
+		key: "ArrowUp",
+		run: Pu,
+		shift: ad,
+		preventDefault: !0
+	},
+	{
+		mac: "Cmd-ArrowUp",
+		run: gd,
+		shift: vd
+	},
+	{
+		mac: "Ctrl-ArrowUp",
+		run: Ru,
+		shift: cd
+	},
+	{
+		key: "ArrowDown",
+		run: Fu,
+		shift: od,
+		preventDefault: !0
+	},
+	{
+		mac: "Cmd-ArrowDown",
+		run: _d,
+		shift: yd
+	},
+	{
+		mac: "Ctrl-ArrowDown",
+		run: zu,
+		shift: ld
+	},
+	{
+		key: "PageUp",
+		run: Ru,
+		shift: cd
+	},
+	{
+		key: "PageDown",
+		run: zu,
+		shift: ld
+	},
+	{
+		key: "Home",
+		run: Hu,
+		shift: dd,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-Home",
+		run: gd,
+		shift: vd
+	},
+	{
+		key: "End",
+		run: Vu,
+		shift: ud,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-End",
+		run: _d,
+		shift: yd
+	},
+	{
+		key: "Enter",
+		run: Yd,
+		shift: Yd
+	},
+	{
+		key: "Mod-a",
+		run: bd
+	},
+	{
+		key: "Backspace",
+		run: Ad,
+		shift: Ad,
+		preventDefault: !0
+	},
+	{
+		key: "Delete",
+		run: jd,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-Backspace",
+		mac: "Alt-Backspace",
+		run: Nd,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-Delete",
+		mac: "Alt-Delete",
+		run: Pd,
+		preventDefault: !0
+	},
+	{
+		mac: "Mod-Backspace",
+		run: Id,
+		preventDefault: !0
+	},
+	{
+		mac: "Mod-Delete",
+		run: Ld,
+		preventDefault: !0
+	}
+].concat(/*@__PURE__*/ rf.map((e) => ({
+	mac: e.key,
+	run: e.run,
+	shift: e.shift
+}))), of = /*@__PURE__*/ [
+	{
+		key: "Alt-ArrowLeft",
+		mac: "Ctrl-ArrowLeft",
+		run: ju,
+		shift: nd
+	},
+	{
+		key: "Alt-ArrowRight",
+		mac: "Ctrl-ArrowRight",
+		run: Mu,
+		shift: rd
+	},
+	{
+		key: "Alt-ArrowUp",
+		run: Hd
+	},
+	{
+		key: "Shift-Alt-ArrowUp",
+		run: Gd
+	},
+	{
+		key: "Alt-ArrowDown",
+		run: Ud
+	},
+	{
+		key: "Shift-Alt-ArrowDown",
+		run: Kd
+	},
+	{
+		key: "Mod-Alt-ArrowUp",
+		run: wd
+	},
+	{
+		key: "Mod-Alt-ArrowDown",
+		run: Td
+	},
+	{
+		key: "Escape",
+		run: Ed
+	},
+	{
+		key: "Mod-Enter",
+		run: Xd
+	},
+	{
+		key: "Alt-l",
+		mac: "Ctrl-l",
+		run: xd
+	},
+	{
+		key: "Mod-i",
+		run: Sd,
+		preventDefault: !0
+	},
+	{
+		key: "Mod-[",
+		run: tf
+	},
+	{
+		key: "Mod-]",
+		run: ef
+	},
+	{
+		key: "Mod-Alt-\\",
+		run: $d
+	},
+	{
+		key: "Shift-Mod-k",
+		run: qd
+	},
+	{
+		key: "Shift-Mod-\\",
+		run: Ju
+	},
+	{
+		key: "Mod-/",
+		run: Rl
+	},
+	{
+		key: "Alt-A",
+		mac: "Ctrl-A",
+		run: Vl
+	},
+	{
+		key: "Ctrl-m",
+		mac: "Shift-Alt-m",
+		run: nf
+	}
+].concat(af), sf = class {
+	constructor(e, t, n, r) {
+		this.state = e, this.pos = t, this.explicit = n, this.view = r, this.abortListeners = [], this.abortOnDocChange = !1;
+	}
+	tokenBefore(e) {
+		let t = Zc(this.state).resolveInner(this.pos, -1);
+		for (; t && e.indexOf(t.name) < 0;) t = t.parent;
+		return t ? {
+			from: t.from,
+			to: this.pos,
+			text: this.state.sliceDoc(t.from, this.pos),
+			type: t.type
+		} : null;
+	}
+	matchBefore(e) {
+		let t = this.state.doc.lineAt(this.pos), n = Math.max(t.from, this.pos - 250), r = t.text.slice(n - t.from, this.pos - t.from), i = r.search(pf(e, !1));
+		return i < 0 ? null : {
+			from: n + i,
+			to: this.pos,
+			text: r.slice(i)
+		};
+	}
+	get aborted() {
+		return this.abortListeners == null;
+	}
+	addEventListener(e, t, n) {
+		e == "abort" && this.abortListeners && (this.abortListeners.push(t), n && n.onDocChange && (this.abortOnDocChange = !0));
+	}
+};
+function cf(e) {
+	let t = Object.keys(e).join(""), n = /\w/.test(t);
+	return n && (t = t.replace(/\w/g, "")), `[${n ? "\\w" : ""}${t.replace(/[^\w\s]/g, "\\$&")}]`;
+}
+function lf(e) {
+	let t = Object.create(null), n = Object.create(null);
+	for (let { label: r } of e) {
+		t[r[0]] = !0;
+		for (let e = 1; e < r.length; e++) n[r[e]] = !0;
+	}
+	let r = cf(t) + cf(n) + "*$";
+	return [RegExp("^" + r), new RegExp(r)];
+}
+function uf(e) {
+	let t = e.map((e) => typeof e == "string" ? { label: e } : e), [n, r] = t.every((e) => /^\w+$/.test(e.label)) ? [/\w*$/, /\w+$/] : lf(t);
+	return (e) => {
+		let i = e.matchBefore(r);
+		return i || e.explicit ? {
+			from: i ? i.from : e.pos,
+			options: t,
+			validFor: n
+		} : null;
+	};
+}
+var df = class {
+	constructor(e, t, n, r) {
+		this.completion = e, this.source = t, this.match = n, this.score = r;
+	}
+};
+function ff(e) {
+	return e.selection.main.from;
+}
+function pf(e, t) {
+	let { source: n } = e, r = t && n[0] != "^", i = n[n.length - 1] != "$";
+	return !r && !i ? e : RegExp(`${r ? "^" : ""}(?:${n})${i ? "$" : ""}`, e.flags ?? (e.ignoreCase ? "i" : ""));
+}
+var mf = /*@__PURE__*/ Ve.define();
+function hf(e, t, n, r) {
+	let { main: i } = e.selection, a = n - i.from, o = r - i.from;
+	return {
+		...e.changeByRange((s) => {
+			if (s != i && n != r && e.sliceDoc(s.from + a, s.from + o) != e.sliceDoc(n, r)) return { range: s };
+			let c = e.toText(t);
+			return {
+				changes: {
+					from: s.from + a,
+					to: r == i.from ? s.to : s.from + o,
+					insert: c
+				},
+				range: T.cursor(s.from + a + c.length)
+			};
+		}),
+		scrollIntoView: !0,
+		userEvent: "input.complete"
+	};
+}
+var gf = /*@__PURE__*/ new WeakMap();
+function _f(e) {
+	if (!Array.isArray(e)) return e;
+	let t = gf.get(e);
+	return t || gf.set(e, t = uf(e)), t;
+}
+var vf = /*@__PURE__*/ D.define(), yf = /*@__PURE__*/ D.define(), bf = class {
+	constructor(e) {
+		this.pattern = e, this.chars = [], this.folded = [], this.any = [], this.precise = [], this.byWord = [], this.score = 0, this.matched = [];
+		for (let t = 0; t < e.length;) {
+			let n = re(e, t), r = ae(n);
+			this.chars.push(n);
+			let i = e.slice(t, t + r), a = i.toUpperCase();
+			this.folded.push(re(a == i ? i.toLowerCase() : a, 0)), t += r;
+		}
+		this.astral = e.length != this.chars.length;
+	}
+	ret(e, t) {
+		return this.score = e, this.matched = t, this;
+	}
+	match(e) {
+		if (this.pattern.length == 0) return this.ret(-100, []);
+		if (e.length < this.pattern.length) return null;
+		let { chars: t, folded: n, any: r, precise: i, byWord: a } = this;
+		if (t.length == 1) {
+			let r = re(e, 0), i = ae(r), a = i == e.length ? 0 : -100;
+			if (r != t[0]) {
+				if (r == n[0]) a += -200;
+				else return null;
+			}
+			return this.ret(a, [0, i]);
+		}
+		let o = e.indexOf(this.pattern);
+		if (o == 0) return this.ret(e.length == this.pattern.length ? 0 : -100, [0, this.pattern.length]);
+		let s = t.length, c = 0;
+		if (o < 0) {
+			for (let i = 0, a = Math.min(e.length, 200); i < a && c < s;) {
+				let a = re(e, i);
+				(a == t[c] || a == n[c]) && (r[c++] = i), i += ae(a);
+			}
+			if (c < s) return null;
+		}
+		let l = 0, u = 0, d = !1, f = 0, p = -1, m = -1, h = /[a-z]/.test(e), g = !0;
+		for (let r = 0, c = Math.min(e.length, 200), _ = 0; r < c && u < s;) {
+			let c = re(e, r);
+			o < 0 && (l < s && c == t[l] && (i[l++] = r), f < s && (c == t[f] || c == n[f] ? (f == 0 && (p = r), m = r + 1, f++) : f = 0));
+			let v, y = c < 255 ? c >= 48 && c <= 57 || c >= 97 && c <= 122 ? 2 : +(c >= 65 && c <= 90) : (v = ie(c)) == v.toLowerCase() ? v == v.toUpperCase() ? 0 : 2 : 1;
+			(!r || y == 1 && h || _ == 0 && y != 0) && (t[u] == c || n[u] == c && (d = !0) ? a[u++] = r : a.length && (g = !1)), _ = y, r += ae(c);
+		}
+		return u == s && a[0] == 0 && g ? this.result(-100 + (d ? -200 : 0), a, e) : f == s && p == 0 ? this.ret(-200 - e.length + (m == e.length ? 0 : -100), [0, m]) : o > -1 ? this.ret(-700 - e.length, [o, o + this.pattern.length]) : f == s ? this.ret(-900 - e.length, [p, m]) : u == s ? this.result(-100 + (d ? -200 : 0) + -700 + (g ? 0 : -1100), a, e) : t.length == 2 ? null : this.result((r[0] ? -700 : 0) + -200 + -1100, r, e);
+	}
+	result(e, t, n) {
+		let r = [], i = 0;
+		for (let e of t) {
+			let t = e + (this.astral ? ae(re(n, e)) : 1);
+			i && r[i - 1] == e ? r[i - 1] = t : (r[i++] = e, r[i++] = t);
+		}
+		return this.ret(e - n.length, r);
+	}
+}, xf = class {
+	constructor(e) {
+		this.pattern = e, this.matched = [], this.score = 0, this.folded = e.toLowerCase();
+	}
+	match(e) {
+		if (e.length < this.pattern.length) return null;
+		let t = e.slice(0, this.pattern.length), n = t == this.pattern ? 0 : t.toLowerCase() == this.folded ? -200 : null;
+		return n == null ? null : (this.matched = [0, t.length], this.score = n + (e.length == this.pattern.length ? 0 : -100), this);
+	}
+}, Q = /*@__PURE__*/ E.define({ combine(e) {
+	return rt(e, {
+		activateOnTyping: !0,
+		activateOnCompletion: () => !1,
+		activateOnTypingDelay: 100,
+		selectOnOpen: !0,
+		override: null,
+		closeOnBlur: !0,
+		maxRenderedOptions: 100,
+		defaultKeymap: !0,
+		tooltipClass: () => "",
+		optionClass: () => "",
+		aboveCursor: !1,
+		icons: !0,
+		addToOptions: [],
+		positionInfo: Cf,
+		filterStrict: !1,
+		compareCompletions: (e, t) => (e.sortText || e.label).localeCompare(t.sortText || t.label),
+		interactionDelay: 75,
+		updateSyncTime: 100
+	}, {
+		defaultKeymap: (e, t) => e && t,
+		closeOnBlur: (e, t) => e && t,
+		icons: (e, t) => e && t,
+		tooltipClass: (e, t) => (n) => Sf(e(n), t(n)),
+		optionClass: (e, t) => (n) => Sf(e(n), t(n)),
+		addToOptions: (e, t) => e.concat(t),
+		filterStrict: (e, t) => e || t
+	});
+} });
+function Sf(e, t) {
+	return e ? t ? e + " " + t : e : t;
+}
+function Cf(e, t, n, r, i, a) {
+	let o = e.textDirection == L.RTL, s = o, c = !1, l = "top", u, d, f = t.left - i.left, p = i.right - t.right, m = r.right - r.left, h = r.bottom - r.top;
+	if (s && f < Math.min(m, p) ? s = !1 : !s && p < Math.min(m, f) && (s = !0), m <= (s ? f : p)) u = Math.max(i.top, Math.min(n.top, i.bottom - h)) - t.top, d = Math.min(400, s ? f : p);
+	else {
+		c = !0, d = Math.min(400, (o ? t.right : i.right - t.left) - 30);
+		let e = i.bottom - t.bottom;
+		e >= h || e > t.top ? u = n.bottom - t.top : (l = "bottom", u = t.bottom - n.top);
+	}
+	let g = (t.bottom - t.top) / a.offsetHeight, _ = (t.right - t.left) / a.offsetWidth;
+	return {
+		style: `${l}: ${u / g}px; max-width: ${d / _}px`,
+		class: "cm-completionInfo-" + (c ? o ? "left-narrow" : "right-narrow" : s ? "left" : "right")
+	};
+}
+var wf = /*@__PURE__*/ D.define();
+function Tf(e) {
+	let t = e.addToOptions.slice();
+	return e.icons && t.push({
+		render(e) {
+			let t = document.createElement("div");
+			return t.classList.add("cm-completionIcon"), e.type && t.classList.add(...e.type.split(/\s+/g).map((e) => "cm-completionIcon-" + e)), t.setAttribute("aria-hidden", "true"), t;
+		},
+		position: 20
+	}), t.push({
+		render(e, t, n, r) {
+			let i = document.createElement("span");
+			i.className = "cm-completionLabel";
+			let a = e.displayLabel || e.label, o = 0;
+			for (let e = 0; e < r.length;) {
+				let t = r[e++], n = r[e++];
+				t > o && i.appendChild(document.createTextNode(a.slice(o, t)));
+				let s = i.appendChild(document.createElement("span"));
+				s.appendChild(document.createTextNode(a.slice(t, n))), s.className = "cm-completionMatchedText", o = n;
+			}
+			return o < a.length && i.appendChild(document.createTextNode(a.slice(o))), i;
+		},
+		position: 50
+	}, {
+		render(e) {
+			if (!e.detail) return null;
+			let t = document.createElement("span");
+			return t.className = "cm-completionDetail", t.textContent = e.detail, t;
+		},
+		position: 80
+	}), t.sort((e, t) => e.position - t.position).map((e) => e.render);
+}
+function Ef(e, t, n) {
+	if (e <= n) return {
+		from: 0,
+		to: e
+	};
+	if (t < 0 && (t = 0), t <= e >> 1) {
+		let e = Math.floor(t / n);
+		return {
+			from: e * n,
+			to: (e + 1) * n
+		};
+	}
+	let r = Math.ceil((e - t) / n);
+	return {
+		from: e - r * n,
+		to: e - (r - 1) * n
+	};
+}
+var Df = class {
+	constructor(e, t, n) {
+		this.view = e, this.stateField = t, this.applyCompletion = n, this.info = null, this.infoDestroy = null, this.placeInfoReq = {
+			read: () => this.measureInfo(),
+			write: (e) => this.placeInfo(e),
+			key: this
+		}, this.space = null, this.currentClass = "";
+		let r = e.state.field(t), { options: i, selected: a } = r.open, o = e.state.facet(Q);
+		this.optionContent = Tf(o), this.optionClass = o.optionClass, this.tooltipClass = o.tooltipClass, this.range = Ef(i.length, a, o.maxRenderedOptions), this.dom = document.createElement("div"), this.dom.className = "cm-tooltip-autocomplete", this.updateTooltipClass(e.state), this.dom.addEventListener("mousedown", (n) => {
+			let { options: r } = e.state.field(t).open;
+			for (let t = n.target, i; t && t != this.dom; t = t.parentNode) if (t.nodeName == "LI" && (i = /-(\d+)$/.exec(t.id)) && +i[1] < r.length) {
+				this.applyCompletion(e, r[+i[1]]), n.preventDefault();
+				return;
+			}
+			if (n.target == this.list) {
+				let t = this.list.classList.contains("cm-completionListIncompleteTop") && n.clientY < this.list.firstChild.getBoundingClientRect().top ? this.range.from - 1 : this.list.classList.contains("cm-completionListIncompleteBottom") && n.clientY > this.list.lastChild.getBoundingClientRect().bottom ? this.range.to : null;
+				t != null && (e.dispatch({ effects: wf.of(t) }), n.preventDefault());
+			}
+		}), this.dom.addEventListener("focusout", (t) => {
+			let n = e.state.field(this.stateField, !1);
+			n && n.tooltip && e.state.facet(Q).closeOnBlur && t.relatedTarget != e.contentDOM && e.dispatch({ effects: yf.of(null) });
+		}), this.showOptions(i, r.id);
+	}
+	mount() {
+		this.updateSel();
+	}
+	showOptions(e, t) {
+		this.list && this.list.remove(), this.list = this.dom.appendChild(this.createListBox(e, t, this.range)), this.list.addEventListener("scroll", () => {
+			this.info && this.view.requestMeasure(this.placeInfoReq);
+		});
+	}
+	update(e) {
+		let t = e.state.field(this.stateField), n = e.startState.field(this.stateField);
+		if (this.updateTooltipClass(e.state), t != n) {
+			let { options: r, selected: i, disabled: a } = t.open;
+			(!n.open || n.open.options != r) && (this.range = Ef(r.length, i, e.state.facet(Q).maxRenderedOptions), this.showOptions(r, t.id)), this.updateSel(), a != n.open?.disabled && this.dom.classList.toggle("cm-tooltip-autocomplete-disabled", !!a);
+		}
+	}
+	updateTooltipClass(e) {
+		let t = this.tooltipClass(e);
+		if (t != this.currentClass) {
+			for (let e of this.currentClass.split(" ")) e && this.dom.classList.remove(e);
+			for (let e of t.split(" ")) e && this.dom.classList.add(e);
+			this.currentClass = t;
+		}
+	}
+	positioned(e) {
+		this.space = e, this.info && this.view.requestMeasure(this.placeInfoReq);
+	}
+	updateSel() {
+		let e = this.view.state.field(this.stateField), t = e.open;
+		(t.selected > -1 && t.selected < this.range.from || t.selected >= this.range.to) && (this.range = Ef(t.options.length, t.selected, this.view.state.facet(Q).maxRenderedOptions), this.showOptions(t.options, e.id));
+		let n = this.updateSelectedOption(t.selected);
+		if (n) {
+			this.destroyInfo();
+			let { completion: r } = t.options[t.selected], { info: i } = r;
+			if (!i) return;
+			let a = typeof i == "string" ? document.createTextNode(i) : i(r);
+			if (!a) return;
+			"then" in a ? a.then((t) => {
+				t && this.view.state.field(this.stateField, !1) == e && this.addInfoPane(t, r);
+			}).catch((e) => z(this.view.state, e, "completion info")) : (this.addInfoPane(a, r), n.setAttribute("aria-describedby", this.info.id));
+		}
+	}
+	addInfoPane(e, t) {
+		this.destroyInfo();
+		let n = this.info = document.createElement("div");
+		if (n.className = "cm-tooltip cm-completionInfo", n.id = "cm-completionInfo-" + Math.floor(Math.random() * 65535).toString(16), e.nodeType != null) n.appendChild(e), this.infoDestroy = null;
+		else {
+			let { dom: t, destroy: r } = e;
+			n.appendChild(t), this.infoDestroy = r || null;
+		}
+		this.dom.appendChild(n), this.view.requestMeasure(this.placeInfoReq);
+	}
+	updateSelectedOption(e) {
+		let t = null;
+		for (let n = this.list.firstChild, r = this.range.from; n; n = n.nextSibling, r++) n.nodeName != "LI" || !n.id ? r-- : r == e ? n.hasAttribute("aria-selected") || (n.setAttribute("aria-selected", "true"), t = n) : n.hasAttribute("aria-selected") && (n.removeAttribute("aria-selected"), n.removeAttribute("aria-describedby"));
+		return t && kf(this.list, t), t;
+	}
+	measureInfo() {
+		let e = this.dom.querySelector("[aria-selected]");
+		if (!e || !this.info) return null;
+		let t = this.dom.getBoundingClientRect(), n = this.info.getBoundingClientRect(), r = e.getBoundingClientRect(), i = this.space;
+		if (!i) {
+			let e = this.dom.ownerDocument.documentElement;
+			i = {
+				left: 0,
+				top: 0,
+				right: e.clientWidth,
+				bottom: e.clientHeight
+			};
+		}
+		return r.top > Math.min(i.bottom, t.bottom) - 10 || r.bottom < Math.max(i.top, t.top) + 10 ? null : this.view.state.facet(Q).positionInfo(this.view, t, r, n, i, this.dom);
+	}
+	placeInfo(e) {
+		this.info && (e ? (e.style && (this.info.style.cssText = e.style), this.info.className = "cm-tooltip cm-completionInfo " + (e.class || "")) : this.info.style.cssText = "top: -1e6px");
+	}
+	createListBox(e, t, n) {
+		let r = document.createElement("ul");
+		r.id = t, r.setAttribute("role", "listbox"), r.setAttribute("aria-expanded", "true"), r.setAttribute("aria-label", this.view.state.phrase("Completions")), r.addEventListener("mousedown", (e) => {
+			e.target == r && e.preventDefault();
+		});
+		let i = null;
+		for (let a = n.from; a < n.to; a++) {
+			let { completion: o, match: s } = e[a], { section: c } = o;
+			if (c) {
+				let e = typeof c == "string" ? c : c.name;
+				if (e != i && (a > n.from || n.from == 0)) {
+					if (i = e, typeof c != "string" && c.header) r.appendChild(c.header(c));
+					else {
+						let t = r.appendChild(document.createElement("completion-section"));
+						t.textContent = e;
+					}
+				}
+			}
+			let l = r.appendChild(document.createElement("li"));
+			l.id = t + "-" + a, l.setAttribute("role", "option");
+			let u = this.optionClass(o);
+			u && (l.className = u);
+			for (let e of this.optionContent) {
+				let t = e(o, this.view.state, this.view, s);
+				t && l.appendChild(t);
+			}
+		}
+		return n.from && r.classList.add("cm-completionListIncompleteTop"), n.to < e.length && r.classList.add("cm-completionListIncompleteBottom"), r;
+	}
+	destroyInfo() {
+		this.info && (this.infoDestroy && this.infoDestroy(), this.info.remove(), this.info = null);
+	}
+	destroy() {
+		this.destroyInfo();
+	}
+};
+function Of(e, t) {
+	return (n) => new Df(n, e, t);
+}
+function kf(e, t) {
+	let n = e.getBoundingClientRect(), r = t.getBoundingClientRect(), i = n.height / e.offsetHeight;
+	r.top < n.top ? e.scrollTop -= (n.top - r.top) / i : r.bottom > n.bottom && (e.scrollTop += (r.bottom - n.bottom) / i);
+}
+function Af(e) {
+	return (e.boost || 0) * 100 + (e.apply ? 10 : 0) + (e.info ? 5 : 0) + +!!e.type;
+}
+function jf(e, t) {
+	let n = [], r = null, i = null, a = (e) => {
+		n.push(e);
+		let { section: t } = e.completion;
+		if (t) {
+			r || (r = []);
+			let e = typeof t == "string" ? t : t.name;
+			r.some((t) => t.name == e) || r.push(typeof t == "string" ? { name: e } : t);
+		}
+	}, o = t.facet(Q);
+	for (let r of e) if (r.hasResult()) {
+		let e = r.result.getMatch;
+		if (r.result.filter === !1) for (let t of r.result.options) a(new df(t, r.source, e ? e(t) : [], 1e9 - n.length));
+		else {
+			let n = t.sliceDoc(r.from, r.to), s, c = o.filterStrict ? new xf(n) : new bf(n);
+			for (let t of r.result.options) if (s = c.match(t.label)) {
+				let n = t.displayLabel ? e ? e(t, s.matched) : [] : s.matched, o = s.score + (t.boost || 0);
+				if (a(new df(t, r.source, n, o)), typeof t.section == "object" && t.section.rank === "dynamic") {
+					let { name: e } = t.section;
+					i || (i = Object.create(null)), i[e] = Math.max(o, i[e] || -1e9);
+				}
+			}
+		}
+	}
+	if (r) {
+		let e = Object.create(null), t = 0, a = (e, t) => (e.rank === "dynamic" && t.rank === "dynamic" ? i[t.name] - i[e.name] : 0) || (typeof e.rank == "number" ? e.rank : 1e9) - (typeof t.rank == "number" ? t.rank : 1e9) || (e.name < t.name ? -1 : 1);
+		for (let n of r.sort(a)) t -= 1e5, e[n.name] = t;
+		for (let t of n) {
+			let { section: n } = t.completion;
+			n && (t.score += e[typeof n == "string" ? n : n.name]);
+		}
+	}
+	let s = [], c = null, l = o.compareCompletions;
+	for (let e of n.sort((e, t) => t.score - e.score || l(e.completion, t.completion))) {
+		let t = e.completion;
+		!c || c.label != t.label || c.detail != t.detail || c.type != null && t.type != null && c.type != t.type || c.apply != t.apply || c.boost != t.boost ? s.push(e) : Af(e.completion) > Af(c) && (s[s.length - 1] = e), c = e.completion;
+	}
+	return s;
+}
+var Mf = class e {
+	constructor(e, t, n, r, i, a) {
+		this.options = e, this.attrs = t, this.tooltip = n, this.timestamp = r, this.selected = i, this.disabled = a;
+	}
+	setSelected(t, n) {
+		return t == this.selected || t >= this.options.length ? this : new e(this.options, Lf(n, t), this.tooltip, this.timestamp, t, this.disabled);
+	}
+	static build(t, n, r, i, a, o) {
+		if (i && !o && t.some((e) => e.isPending)) return i.setDisabled();
+		let s = jf(t, n);
+		if (!s.length) return i && t.some((e) => e.isPending) ? i.setDisabled() : null;
+		let c = n.facet(Q).selectOnOpen ? 0 : -1;
+		if (i && i.selected != c && i.selected != -1) {
+			let e = i.options[i.selected].completion;
+			for (let t = 0; t < s.length; t++) if (s[t].completion == e) {
+				c = t;
+				break;
+			}
+		}
+		return new e(s, Lf(r, c), {
+			pos: t.reduce((e, t) => t.hasResult() ? Math.min(e, t.from) : e, 1e8),
+			create: Gf,
+			above: a.aboveCursor
+		}, i ? i.timestamp : Date.now(), c, !1);
+	}
+	map(t) {
+		return new e(this.options, this.attrs, {
+			...this.tooltip,
+			pos: t.mapPos(this.tooltip.pos)
+		}, this.timestamp, this.selected, this.disabled);
+	}
+	setDisabled() {
+		return new e(this.options, this.attrs, this.tooltip, this.timestamp, this.selected, !0);
+	}
+}, Nf = class e {
+	constructor(e, t, n) {
+		this.active = e, this.id = t, this.open = n;
+	}
+	static start() {
+		return new e(Rf, "cm-ac-" + Math.floor(Math.random() * 2e6).toString(36), null);
+	}
+	update(t) {
+		let { state: n } = t, r = n.facet(Q), i = (r.override || n.languageDataAt("autocomplete", ff(n)).map(_f)).map((e) => (this.active.find((t) => t.source == e) || new Bf(e, +!!this.active.some((e) => e.state != 0))).update(t, r));
+		i.length == this.active.length && i.every((e, t) => e == this.active[t]) && (i = this.active);
+		let a = this.open, o = t.effects.some((e) => e.is(Uf));
+		a && t.docChanged && (a = a.map(t.changes)), t.selection || i.some((e) => e.hasResult() && t.changes.touchesRange(e.from, e.to)) || !Pf(i, this.active) || o ? a = Mf.build(i, n, this.id, a, r, o) : a && a.disabled && !i.some((e) => e.isPending) && (a = null), !a && i.every((e) => !e.isPending) && i.some((e) => e.hasResult()) && (i = i.map((e) => e.hasResult() ? new Bf(e.source, 0) : e));
+		for (let e of t.effects) e.is(wf) && (a = a && a.setSelected(e.value, this.id));
+		return i == this.active && a == this.open ? this : new e(i, this.id, a);
+	}
+	get tooltip() {
+		return this.open ? this.open.tooltip : null;
+	}
+	get attrs() {
+		return this.open ? this.open.attrs : this.active.length ? Ff : If;
+	}
+};
+function Pf(e, t) {
+	if (e == t) return !0;
+	for (let n = 0, r = 0;;) {
+		for (; n < e.length && !e[n].hasResult();) n++;
+		for (; r < t.length && !t[r].hasResult();) r++;
+		let i = n == e.length, a = r == t.length;
+		if (i || a) return i == a;
+		if (e[n++].result != t[r++].result) return !1;
+	}
+}
+var Ff = { "aria-autocomplete": "list" }, If = {};
+function Lf(e, t) {
+	let n = {
+		"aria-autocomplete": "list",
+		"aria-haspopup": "listbox",
+		"aria-controls": e
+	};
+	return t > -1 && (n["aria-activedescendant"] = e + "-" + t), n;
+}
+var Rf = [];
+function zf(e, t) {
+	if (e.isUserEvent("input.complete")) {
+		let n = e.annotation(mf);
+		if (n && t.activateOnCompletion(n)) return 12;
+	}
+	let n = e.isUserEvent("input.type");
+	return n && t.activateOnTyping ? 5 : n ? 1 : e.isUserEvent("delete.backward") ? 2 : e.selection ? 8 : e.docChanged ? 16 : 0;
+}
+var Bf = class e {
+	constructor(e, t, n = !1) {
+		this.source = e, this.state = t, this.explicit = n;
+	}
+	hasResult() {
+		return !1;
+	}
+	get isPending() {
+		return this.state == 1;
+	}
+	update(t, n) {
+		let r = zf(t, n), i = this;
+		(r & 8 || r & 16 && this.touches(t)) && (i = new e(i.source, 0)), r & 4 && i.state == 0 && (i = new e(this.source, 1)), i = i.updateFor(t, r);
+		for (let n of t.effects) if (n.is(vf)) i = new e(i.source, 1, n.value);
+		else if (n.is(yf)) i = new e(i.source, 0);
+		else if (n.is(Uf)) for (let e of n.value) e.source == i.source && (i = e);
+		return i;
+	}
+	updateFor(e, t) {
+		return this.map(e.changes);
+	}
+	map(e) {
+		return this;
+	}
+	touches(e) {
+		return e.changes.touchesRange(ff(e.state));
+	}
+}, Vf = class e extends Bf {
+	constructor(e, t, n, r, i, a) {
+		super(e, 3, t), this.limit = n, this.result = r, this.from = i, this.to = a;
+	}
+	hasResult() {
+		return !0;
+	}
+	updateFor(t, n) {
+		if (!(n & 3)) return this.map(t.changes);
+		let r = this.result;
+		r.map && !t.changes.empty && (r = r.map(r, t.changes));
+		let i = t.changes.mapPos(this.from), a = t.changes.mapPos(this.to, 1), o = ff(t.state);
+		if (o > a || !r || n & 2 && (ff(t.startState) == this.from || o < this.limit)) return new Bf(this.source, n & 4 ? 1 : 0);
+		let s = t.changes.mapPos(this.limit);
+		return Hf(r.validFor, t.state, i, a) ? new e(this.source, this.explicit, s, r, i, a) : r.update && (r = r.update(r, i, a, new sf(t.state, o, !1))) ? new e(this.source, this.explicit, s, r, r.from, r.to ?? ff(t.state)) : new Bf(this.source, 1, this.explicit);
+	}
+	map(t) {
+		if (t.empty) return this;
+		let n = this.result.map ? this.result.map(this.result, t) : this.result;
+		return n ? new e(this.source, this.explicit, t.mapPos(this.limit), n, t.mapPos(this.from), t.mapPos(this.to, 1)) : new Bf(this.source, 0);
+	}
+	touches(e) {
+		return e.changes.touchesRange(this.from, this.to);
+	}
+};
+function Hf(e, t, n, r) {
+	if (!e) return !1;
+	let i = t.sliceDoc(n, r);
+	return typeof e == "function" ? e(i, n, r, t) : pf(e, !0).test(i);
+}
+var Uf = /*@__PURE__*/ D.define({ map(e, t) {
+	return e.map((e) => e.map(t));
+} }), $ = /*@__PURE__*/ Ce.define({
+	create() {
+		return Nf.start();
+	},
+	update(e, t) {
+		return e.update(t);
+	},
+	provide: (e) => [is.from(e, (e) => e.tooltip), W.contentAttributes.from(e, (e) => e.attrs)]
+});
+function Wf(e, t) {
+	let n = t.completion.apply || t.completion.label, r = e.state.field($).active.find((e) => e.source == t.source);
+	return r instanceof Vf && (typeof n == "string" ? e.dispatch({
+		...hf(e.state, n, r.from, r.to),
+		annotations: mf.of(t.completion)
+	}) : n(e, t.completion, r.from, r.to), !0);
+}
+var Gf = /*@__PURE__*/ Of($, Wf);
+function Kf(e, t = "option") {
+	return (n) => {
+		let r = n.state.field($, !1);
+		if (!r || !r.open || r.open.disabled || Date.now() - r.open.timestamp < n.state.facet(Q).interactionDelay) return !1;
+		let i = 1, a;
+		t == "page" && (a = ms(n, r.open.tooltip)) && (i = Math.max(2, Math.floor(a.dom.offsetHeight / a.dom.querySelector("li").offsetHeight) - 1));
+		let { length: o } = r.open.options, s = r.open.selected > -1 ? r.open.selected + i * (e ? 1 : -1) : e ? 0 : o - 1;
+		return s < 0 ? s = t == "page" ? 0 : o - 1 : s >= o && (s = t == "page" ? o - 1 : 0), n.dispatch({ effects: wf.of(s) }), !0;
+	};
+}
+var qf = (e) => {
+	let t = e.state.field($, !1);
+	return e.state.readOnly || !t || !t.open || t.open.selected < 0 || t.open.disabled || Date.now() - t.open.timestamp < e.state.facet(Q).interactionDelay ? !1 : Wf(e, t.open.options[t.open.selected]);
+}, Jf = (e) => e.state.field($, !1) ? (e.dispatch({ effects: vf.of(!0) }), !0) : !1, Yf = (e) => {
+	let t = e.state.field($, !1);
+	return !t || !t.active.some((e) => e.state != 0) ? !1 : (e.dispatch({ effects: yf.of(null) }), !0);
+}, Xf = class {
+	constructor(e, t) {
+		this.active = e, this.context = t, this.time = Date.now(), this.updates = [], this.done = void 0;
+	}
+}, Zf = 50, Qf = 1e3, $f = /*@__PURE__*/ wr.fromClass(class {
+	constructor(e) {
+		this.view = e, this.debounceUpdate = -1, this.running = [], this.debounceAccept = -1, this.pendingStart = !1, this.composing = 0;
+		for (let t of e.state.field($).active) t.isPending && this.startQuery(t);
+	}
+	update(e) {
+		let t = e.state.field($), n = e.state.facet(Q);
+		if (!e.selectionSet && !e.docChanged && e.startState.field($) == t) return;
+		let r = e.transactions.some((e) => {
+			let t = zf(e, n);
+			return t & 8 || (e.selection || e.docChanged) && !(t & 3);
+		});
+		for (let t = 0; t < this.running.length; t++) {
+			let n = this.running[t];
+			if (r || n.context.abortOnDocChange && e.docChanged || n.updates.length + e.transactions.length > Zf && Date.now() - n.time > Qf) {
+				for (let e of n.context.abortListeners) try {
+					e();
+				} catch (e) {
+					z(this.view.state, e);
+				}
+				n.context.abortListeners = null, this.running.splice(t--, 1);
+			} else n.updates.push(...e.transactions);
+		}
+		this.debounceUpdate > -1 && clearTimeout(this.debounceUpdate), e.transactions.some((e) => e.effects.some((e) => e.is(vf))) && (this.pendingStart = !0);
+		let i = this.pendingStart ? 50 : n.activateOnTypingDelay;
+		if (this.debounceUpdate = t.active.some((e) => e.isPending && !this.running.some((t) => t.active.source == e.source)) ? setTimeout(() => this.startUpdate(), i) : -1, this.composing != 0) for (let t of e.transactions) t.isUserEvent("input.type") ? this.composing = 2 : this.composing == 2 && t.selection && (this.composing = 3);
+	}
+	startUpdate() {
+		this.debounceUpdate = -1, this.pendingStart = !1;
+		let { state: e } = this.view, t = e.field($);
+		for (let e of t.active) e.isPending && !this.running.some((t) => t.active.source == e.source) && this.startQuery(e);
+		this.running.length && t.open && t.open.disabled && (this.debounceAccept = setTimeout(() => this.accept(), this.view.state.facet(Q).updateSyncTime));
+	}
+	startQuery(e) {
+		let { state: t } = this.view, n = new sf(t, ff(t), e.explicit, this.view), r = new Xf(e, n);
+		this.running.push(r), Promise.resolve(e.source(n)).then((e) => {
+			r.context.aborted || (r.done = e || null, this.scheduleAccept());
+		}, (e) => {
+			this.view.dispatch({ effects: yf.of(null) }), z(this.view.state, e);
+		});
+	}
+	scheduleAccept() {
+		this.running.every((e) => e.done !== void 0) ? this.accept() : this.debounceAccept < 0 && (this.debounceAccept = setTimeout(() => this.accept(), this.view.state.facet(Q).updateSyncTime));
+	}
+	accept() {
+		this.debounceAccept > -1 && clearTimeout(this.debounceAccept), this.debounceAccept = -1;
+		let e = [], t = this.view.state.facet(Q), n = this.view.state.field($);
+		for (let r = 0; r < this.running.length; r++) {
+			let i = this.running[r];
+			if (i.done === void 0) continue;
+			if (this.running.splice(r--, 1), i.done) {
+				let n = ff(i.updates.length ? i.updates[0].startState : this.view.state), r = Math.min(n, i.done.from + +!i.active.explicit), a = new Vf(i.active.source, i.active.explicit, r, i.done, i.done.from, i.done.to ?? n);
+				for (let e of i.updates) a = a.update(e, t);
+				if (a.hasResult()) {
+					e.push(a);
+					continue;
+				}
+			}
+			let a = n.active.find((e) => e.source == i.active.source);
+			if (a && a.isPending) {
+				if (i.done == null) {
+					let n = new Bf(i.active.source, 0);
+					for (let e of i.updates) n = n.update(e, t);
+					n.isPending || e.push(n);
+				} else this.startQuery(a);
+			}
+		}
+		(e.length || n.open && n.open.disabled) && this.view.dispatch({ effects: Uf.of(e) });
+	}
+}, { eventHandlers: {
+	blur(e) {
+		let t = this.view.state.field($, !1);
+		if (t && t.tooltip && this.view.state.facet(Q).closeOnBlur) {
+			let n = t.open && ms(this.view, t.open.tooltip);
+			(!n || !n.dom.contains(e.relatedTarget)) && setTimeout(() => this.view.dispatch({ effects: yf.of(null) }), 10);
+		}
+	},
+	compositionstart() {
+		this.composing = 1;
+	},
+	compositionend() {
+		this.composing == 3 && setTimeout(() => this.view.dispatch({ effects: vf.of(!1) }), 20), this.composing = 0;
+	}
+} }), ep = typeof navigator == "object" && /*@__PURE__*/ /Win/.test(navigator.platform), tp = /*@__PURE__*/ Ee.highest(/*@__PURE__*/ W.domEventHandlers({ keydown(e, t) {
+	let n = t.state.field($, !1);
+	if (!n || !n.open || n.open.disabled || n.open.selected < 0 || e.key.length > 1 || e.ctrlKey && !(ep && e.altKey) || e.metaKey) return !1;
+	let r = n.open.options[n.open.selected], i = n.active.find((e) => e.source == r.source), a = r.completion.commitCharacters || i.result.commitCharacters;
+	return a && a.indexOf(e.key) > -1 && Wf(t, r), !1;
+} })), np = /*@__PURE__*/ W.baseTheme({
+	".cm-tooltip.cm-tooltip-autocomplete": { "& > ul": {
+		fontFamily: "monospace",
+		whiteSpace: "nowrap",
+		overflow: "hidden auto",
+		maxWidth_fallback: "700px",
+		maxWidth: "min(700px, 95vw)",
+		minWidth: "250px",
+		maxHeight: "10em",
+		height: "100%",
+		listStyle: "none",
+		margin: 0,
+		padding: 0,
+		"& > li, & > completion-section": {
+			padding: "1px 3px",
+			lineHeight: 1.2
+		},
+		"& > li": {
+			overflowX: "hidden",
+			textOverflow: "ellipsis",
+			cursor: "pointer"
+		},
+		"& > completion-section": {
+			display: "list-item",
+			borderBottom: "1px solid silver",
+			paddingLeft: "0.5em",
+			opacity: .7
+		}
+	} },
+	"&light .cm-tooltip-autocomplete ul li[aria-selected]": {
+		background: "#17c",
+		color: "white"
+	},
+	"&light .cm-tooltip-autocomplete-disabled ul li[aria-selected]": { background: "#777" },
+	"&dark .cm-tooltip-autocomplete ul li[aria-selected]": {
+		background: "#347",
+		color: "white"
+	},
+	"&dark .cm-tooltip-autocomplete-disabled ul li[aria-selected]": { background: "#444" },
+	".cm-completionListIncompleteTop:before, .cm-completionListIncompleteBottom:after": {
+		content: "\"···\"",
+		opacity: .5,
+		display: "block",
+		textAlign: "center",
+		cursor: "pointer"
+	},
+	".cm-tooltip.cm-completionInfo": {
+		position: "absolute",
+		padding: "3px 9px",
+		width: "max-content",
+		maxWidth: "400px",
+		boxSizing: "border-box",
+		whiteSpace: "pre-line"
+	},
+	".cm-completionInfo.cm-completionInfo-left": { right: "100%" },
+	".cm-completionInfo.cm-completionInfo-right": { left: "100%" },
+	".cm-completionInfo.cm-completionInfo-left-narrow": { right: "30px" },
+	".cm-completionInfo.cm-completionInfo-right-narrow": { left: "30px" },
+	"&light .cm-snippetField": { backgroundColor: "#00000022" },
+	"&dark .cm-snippetField": { backgroundColor: "#ffffff22" },
+	".cm-snippetFieldPosition": {
+		verticalAlign: "text-top",
+		width: 0,
+		height: "1.15em",
+		display: "inline-block",
+		margin: "0 -0.7px -.7em",
+		borderLeft: "1.4px dotted #888"
+	},
+	".cm-completionMatchedText": { textDecoration: "underline" },
+	".cm-completionDetail": {
+		marginLeft: "0.5em",
+		fontStyle: "italic"
+	},
+	".cm-completionIcon": {
+		fontSize: "90%",
+		width: ".8em",
+		display: "inline-block",
+		textAlign: "center",
+		paddingRight: ".6em",
+		opacity: "0.6",
+		boxSizing: "content-box"
+	},
+	".cm-completionIcon-function, .cm-completionIcon-method": { "&:after": { content: "'ƒ'" } },
+	".cm-completionIcon-class": { "&:after": { content: "'○'" } },
+	".cm-completionIcon-interface": { "&:after": { content: "'◌'" } },
+	".cm-completionIcon-variable": { "&:after": { content: "'𝑥'" } },
+	".cm-completionIcon-constant": { "&:after": { content: "'𝐶'" } },
+	".cm-completionIcon-type": { "&:after": { content: "'𝑡'" } },
+	".cm-completionIcon-enum": { "&:after": { content: "'∪'" } },
+	".cm-completionIcon-property": { "&:after": { content: "'□'" } },
+	".cm-completionIcon-keyword": { "&:after": { content: "'🔑︎'" } },
+	".cm-completionIcon-namespace": { "&:after": { content: "'▢'" } },
+	".cm-completionIcon-text": { "&:after": {
+		content: "'abc'",
+		fontSize: "50%",
+		verticalAlign: "middle"
+	} }
+}), rp = /*@__PURE__*/ new class extends it {}();
+rp.startSide = 1, rp.endSide = -1, typeof navigator == "object" && navigator.userAgent;
+function ip(e = {}) {
+	return [
+		tp,
+		$,
+		Q.of(e),
+		$f,
+		op,
+		np
+	];
+}
+var ap = [
+	{
+		key: "Ctrl-Space",
+		run: Jf
+	},
+	{
+		mac: "Alt-`",
+		run: Jf
+	},
+	{
+		mac: "Alt-i",
+		run: Jf
+	},
+	{
+		key: "Escape",
+		run: Yf
+	},
+	{
+		key: "ArrowDown",
+		run: /*@__PURE__*/ Kf(!0)
+	},
+	{
+		key: "ArrowUp",
+		run: /*@__PURE__*/ Kf(!1)
+	},
+	{
+		key: "PageDown",
+		run: /*@__PURE__*/ Kf(!0, "page")
+	},
+	{
+		key: "PageUp",
+		run: /*@__PURE__*/ Kf(!1, "page")
+	},
+	{
+		key: "Enter",
+		run: qf
+	}
+], op = /*@__PURE__*/ Ee.highest(/*@__PURE__*/ Ro.computeN([Q], (e) => e.facet(Q).defaultKeymap ? [ap] : [])), sp = class {
+	constructor(e, t, n) {
+		this.from = e, this.to = t, this.diagnostic = n;
+	}
+}, cp = class e {
+	constructor(e, t, n) {
+		this.diagnostics = e, this.panel = t, this.selected = n;
+	}
+	static init(t, n, r) {
+		let i = r.facet(Cp).markerFilter;
+		i && (t = i(t, r));
+		let a = t.slice().sort((e, t) => e.from - t.from || e.to - t.to), o = new dt(), s = [], c = 0, l = r.doc.iter(), u = 0, d = r.doc.length;
+		for (let e = 0;;) {
+			let t = e == a.length ? null : a[e];
+			if (!t && !s.length) break;
+			let n, r;
+			if (s.length) n = c, r = s.reduce((e, t) => Math.min(e, t.to), t && t.from > n ? t.from : 1e8);
+			else {
+				if (n = t.from, n > d) break;
+				r = t.to, s.push(t), e++;
+			}
+			for (; e < a.length;) {
+				let t = a[e];
+				if (t.from == n && (t.to > t.from || t.to == n)) s.push(t), e++, r = Math.min(t.to, r);
+				else {
+					r = Math.min(t.from, r);
+					break;
+				}
+			}
+			r = Math.min(r, d);
+			let i = !1;
+			if (s.some((e) => e.from == n && (e.to == r || r == d)) && (i = n == r, !i && r - n < 10)) {
+				let e = n - (u + l.value.length);
+				e > 0 && (l.next(e), u = n);
+				for (let e = n;;) {
+					if (e >= r) {
+						i = !0;
+						break;
+					}
+					if (!l.lineBreak && u + l.value.length > e) break;
+					e = u + l.value.length, u += l.value.length, l.next();
+				}
+			}
+			let f = Fp(s);
+			if (i) o.add(n, n, F.widget({
+				widget: new Op(f),
+				diagnostics: s.slice()
+			}));
+			else {
+				let e = s.reduce((e, t) => t.markClass ? e + " " + t.markClass : e, "");
+				o.add(n, r, F.mark({
+					class: "cm-lintRange cm-lintRange-" + f + e,
+					diagnostics: s.slice(),
+					inclusiveEnd: s.some((e) => e.to > r)
+				}));
+			}
+			if (c = r, c == d) break;
+			for (let e = 0; e < s.length; e++) s[e].to <= c && s.splice(e--, 1);
+		}
+		let f = o.finish();
+		return new e(f, n, lp(f));
+	}
+};
+function lp(e, t = null, n = 0) {
+	let r = null;
+	return e.between(n, 1e9, (e, n, { spec: i }) => {
+		if (!(t && i.diagnostics.indexOf(t) < 0)) {
+			if (!r) r = new sp(e, n, t || i.diagnostics[0]);
+			else if (i.diagnostics.indexOf(r.diagnostic) < 0) return !1;
+			else r = new sp(r.from, n, r.diagnostic);
+		}
+	}), r;
+}
+function up(e, t) {
+	let n = t.pos, r = t.end || n, i = e.state.facet(Cp).hideOn(e, n, r);
+	if (i != null) return i;
+	let a = e.startState.doc.lineAt(t.pos);
+	return !!(e.effects.some((e) => e.is(pp)) || e.changes.touchesRange(a.from, Math.max(a.to, r)));
+}
+function dp(e, t) {
+	return e.field(gp, !1) ? t : t.concat(D.appendConfig.of(Kp));
+}
+function fp(e, t) {
+	return { effects: dp(e, [pp.of(t)]) };
+}
+var pp = /*@__PURE__*/ D.define(), mp = /*@__PURE__*/ D.define(), hp = /*@__PURE__*/ D.define(), gp = /*@__PURE__*/ Ce.define({
+	create() {
+		return new cp(F.none, null, null);
+	},
+	update(e, t) {
+		if (t.docChanged && e.diagnostics.size) {
+			let n = e.diagnostics.map(t.changes), r = null, i = e.panel;
+			if (e.selected) {
+				let i = t.changes.mapPos(e.selected.from, 1);
+				r = lp(n, e.selected.diagnostic, i) || lp(n, null, i);
+			}
+			!n.size && i && t.state.facet(Cp).autoPanel && (i = null), e = new cp(n, i, r);
+		}
+		for (let n of t.effects) if (n.is(pp)) {
+			let r = t.state.facet(Cp).autoPanel ? n.value.length ? Ap.open : null : e.panel;
+			e = cp.init(n.value, r, t.state);
+		} else n.is(mp) ? e = new cp(e.diagnostics, n.value ? Ap.open : null, e.selected) : n.is(hp) && (e = new cp(e.diagnostics, e.panel, n.value));
+		return e;
+	},
+	provide: (e) => [bs.from(e, (e) => e.panel), W.decorations.from(e, (e) => e.diagnostics)]
+}), _p = /*@__PURE__*/ F.mark({ class: "cm-lintRange cm-lintRange-active" });
+function vp(e, t, n) {
+	let { diagnostics: r } = e.state.field(gp), i, a = -1, o = -1;
+	r.between(t - +(n < 0), t + +(n > 0), (e, r, { spec: s }) => {
+		if (t >= e && t <= r && (e == r || (t > e || n > 0) && (t < r || n < 0))) return i = s.diagnostics, a = e, o = r, !1;
+	});
+	let s = e.state.facet(Cp).tooltipFilter;
+	return i && s && (i = s(i, e.state)), i ? {
+		pos: a,
+		end: o,
+		above: !0,
+		create() {
+			return { dom: yp(e, i) };
+		}
+	} : null;
+}
+function yp(e, t) {
+	return Lt("ul", { class: "cm-tooltip-lint" }, t.map((t) => Dp(e, t, !1)));
+}
+var bp = (e) => {
+	let t = e.state.field(gp, !1);
+	return !t || !t.panel ? !1 : (e.dispatch({ effects: mp.of(!1) }), !0);
+}, xp = /*@__PURE__*/ wr.fromClass(class {
+	constructor(e) {
+		this.view = e, this.timeout = -1, this.set = !0;
+		let { delay: t } = e.state.facet(Cp);
+		this.lintTime = Date.now() + t, this.run = this.run.bind(this), this.timeout = setTimeout(this.run, t);
+	}
+	run() {
+		clearTimeout(this.timeout);
+		let e = Date.now();
+		if (e < this.lintTime - 10) this.timeout = setTimeout(this.run, this.lintTime - e);
+		else {
+			this.set = !1;
+			let { state: e } = this.view, { sources: t } = e.facet(Cp);
+			t.length && Sp(t.map((e) => Promise.resolve(e(this.view))), (t) => {
+				this.view.state.doc == e.doc && this.view.dispatch(fp(this.view.state, t.reduce((e, t) => e.concat(t))));
+			}, (e) => {
+				z(this.view.state, e);
+			});
+		}
+	}
+	update(e) {
+		let t = e.state.facet(Cp);
+		(e.docChanged || t != e.startState.facet(Cp) || t.needsRefresh && t.needsRefresh(e)) && (this.lintTime = Date.now() + t.delay, this.set || (this.set = !0, this.timeout = setTimeout(this.run, t.delay)));
+	}
+	force() {
+		this.set && (this.lintTime = Date.now(), this.run());
+	}
+	destroy() {
+		clearTimeout(this.timeout);
+	}
+});
+function Sp(e, t, n) {
+	let r = [], i = -1;
+	for (let a of e) a.then((n) => {
+		r.push(n), clearTimeout(i), r.length == e.length ? t(r) : i = setTimeout(() => t(r), 200);
+	}, n);
+}
+var Cp = /*@__PURE__*/ E.define({ combine(e) {
+	return {
+		sources: e.map((e) => e.source).filter((e) => e != null),
+		...rt(e.map((e) => e.config), {
+			delay: 750,
+			markerFilter: null,
+			tooltipFilter: null,
+			needsRefresh: null,
+			hideOn: () => null
+		}, {
+			delay: Math.max,
+			markerFilter: wp,
+			tooltipFilter: wp,
+			needsRefresh: (e, t) => e ? t ? (n) => e(n) || t(n) : e : t,
+			hideOn: (e, t) => e ? t ? (n, r, i) => e(n, r, i) || t(n, r, i) : e : t,
+			autoPanel: (e, t) => e || t
+		})
+	};
+} });
+function wp(e, t) {
+	return e ? t ? (n, r) => t(e(n, r), r) : e : t;
+}
+function Tp(e, t = {}) {
+	return [
+		Cp.of({
+			source: e,
+			config: t
+		}),
+		xp,
+		Kp
+	];
+}
+function Ep(e) {
+	let t = [];
+	if (e) actions: for (let { name: n } of e) {
+		for (let e = 0; e < n.length; e++) {
+			let r = n[e];
+			if (/[a-zA-Z]/.test(r) && !t.some((e) => e.toLowerCase() == r.toLowerCase())) {
+				t.push(r);
+				continue actions;
+			}
+		}
+		t.push("");
+	}
+	return t;
+}
+function Dp(e, t, n) {
+	let r = n ? Ep(t.actions) : [];
+	return Lt("li", { class: "cm-diagnostic cm-diagnostic-" + t.severity }, Lt("span", { class: "cm-diagnosticText" }, t.renderMessage ? t.renderMessage(e) : t.message), t.actions?.map((n, i) => {
+		let a = !1, o = (r) => {
+			if (r.preventDefault(), a) return;
+			a = !0;
+			let i = lp(e.state.field(gp).diagnostics, t);
+			i && n.apply(e, i.from, i.to);
+		}, { name: s } = n, c = r[i] ? s.indexOf(r[i]) : -1, l = c < 0 ? s : [
+			s.slice(0, c),
+			Lt("u", s.slice(c, c + 1)),
+			s.slice(c + 1)
+		];
+		return Lt("button", {
+			type: "button",
+			class: "cm-diagnosticAction" + (n.markClass ? " " + n.markClass : ""),
+			onclick: o,
+			onmousedown: o,
+			"aria-label": ` Action: ${s}${c < 0 ? "" : ` (access key "${r[i]})"`}.`
+		}, l);
+	}), t.source && Lt("div", { class: "cm-diagnosticSource" }, t.source));
+}
+var Op = class extends tn {
+	constructor(e) {
+		super(), this.sev = e;
+	}
+	eq(e) {
+		return e.sev == this.sev;
+	}
+	toDOM() {
+		return Lt("span", { class: "cm-lintPoint cm-lintPoint-" + this.sev });
+	}
+}, kp = class {
+	constructor(e, t) {
+		this.diagnostic = t, this.id = "item_" + Math.floor(Math.random() * 4294967295).toString(16), this.dom = Dp(e, t, !0), this.dom.id = this.id, this.dom.setAttribute("role", "option");
+	}
+}, Ap = class e {
+	constructor(e) {
+		this.view = e, this.items = [];
+		let t = (t) => {
+			if (!(t.ctrlKey || t.altKey || t.metaKey)) {
+				if (t.keyCode == 27) bp(this.view), this.view.focus();
+				else if (t.keyCode == 38 || t.keyCode == 33) this.moveSelection((this.selectedIndex - 1 + this.items.length) % this.items.length);
+				else if (t.keyCode == 40 || t.keyCode == 34) this.moveSelection((this.selectedIndex + 1) % this.items.length);
+				else if (t.keyCode == 36) this.moveSelection(0);
+				else if (t.keyCode == 35) this.moveSelection(this.items.length - 1);
+				else if (t.keyCode == 13) this.view.focus();
+				else if (t.keyCode >= 65 && t.keyCode <= 90 && this.selectedIndex >= 0) {
+					let { diagnostic: n } = this.items[this.selectedIndex], r = Ep(n.actions);
+					for (let i = 0; i < r.length; i++) if (r[i].toUpperCase().charCodeAt(0) == t.keyCode) {
+						let t = lp(this.view.state.field(gp).diagnostics, n);
+						t && n.actions[i].apply(e, t.from, t.to);
+					}
+				} else return;
+				t.preventDefault();
+			}
+		}, n = (e) => {
+			for (let t = 0; t < this.items.length; t++) this.items[t].dom.contains(e.target) && this.moveSelection(t);
+		};
+		this.list = Lt("ul", {
+			tabIndex: 0,
+			role: "listbox",
+			"aria-label": this.view.state.phrase("Diagnostics"),
+			onkeydown: t,
+			onclick: n
+		}), this.dom = Lt("div", { class: "cm-panel-lint" }, this.list, Lt("button", {
+			type: "button",
+			name: "close",
+			"aria-label": this.view.state.phrase("close"),
+			onclick: () => bp(this.view)
+		}, "×")), this.update();
+	}
+	get selectedIndex() {
+		let e = this.view.state.field(gp).selected;
+		if (!e) return -1;
+		for (let t = 0; t < this.items.length; t++) if (this.items[t].diagnostic == e.diagnostic) return t;
+		return -1;
+	}
+	update() {
+		let { diagnostics: e, selected: t } = this.view.state.field(gp), n = 0, r = !1, i = null, a = /* @__PURE__ */ new Set();
+		for (e.between(0, this.view.state.doc.length, (e, o, { spec: s }) => {
+			for (let e of s.diagnostics) {
+				if (a.has(e)) continue;
+				a.add(e);
+				let o = -1, s;
+				for (let t = n; t < this.items.length; t++) if (this.items[t].diagnostic == e) {
+					o = t;
+					break;
+				}
+				o < 0 ? (s = new kp(this.view, e), this.items.splice(n, 0, s), r = !0) : (s = this.items[o], o > n && (this.items.splice(n, o - n), r = !0)), t && s.diagnostic == t.diagnostic ? s.dom.hasAttribute("aria-selected") || (s.dom.setAttribute("aria-selected", "true"), i = s) : s.dom.hasAttribute("aria-selected") && s.dom.removeAttribute("aria-selected"), n++;
+			}
+		}); n < this.items.length && !(this.items.length == 1 && this.items[0].diagnostic.from < 0);) r = !0, this.items.pop();
+		this.items.length == 0 && (this.items.push(new kp(this.view, {
+			from: -1,
+			to: -1,
+			severity: "info",
+			message: this.view.state.phrase("No diagnostics")
+		})), r = !0), i ? (this.list.setAttribute("aria-activedescendant", i.id), this.view.requestMeasure({
+			key: this,
+			read: () => ({
+				sel: i.dom.getBoundingClientRect(),
+				panel: this.list.getBoundingClientRect()
+			}),
+			write: ({ sel: e, panel: t }) => {
+				let n = t.height / this.list.offsetHeight;
+				e.top < t.top ? this.list.scrollTop -= (t.top - e.top) / n : e.bottom > t.bottom && (this.list.scrollTop += (e.bottom - t.bottom) / n);
+			}
+		})) : this.selectedIndex < 0 && this.list.removeAttribute("aria-activedescendant"), r && this.sync();
+	}
+	sync() {
+		let e = this.list.firstChild;
+		function t() {
+			let t = e;
+			e = t.nextSibling, t.remove();
+		}
+		for (let n of this.items) if (n.dom.parentNode == this.list) {
+			for (; e != n.dom;) t();
+			e = n.dom.nextSibling;
+		} else this.list.insertBefore(n.dom, e);
+		for (; e;) t();
+	}
+	moveSelection(e) {
+		if (this.selectedIndex < 0) return;
+		let t = lp(this.view.state.field(gp).diagnostics, this.items[e].diagnostic);
+		t && this.view.dispatch({
+			selection: {
+				anchor: t.from,
+				head: t.to
+			},
+			scrollIntoView: !0,
+			effects: hp.of(t)
+		});
+	}
+	static open(t) {
+		return new e(t);
+	}
+};
+function jp(e, t = "viewBox=\"0 0 40 40\"") {
+	return `url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" ${t}>${encodeURIComponent(e)}</svg>')`;
+}
+function Mp(e) {
+	return jp(`<path d="m0 2.5 l2 -1.5 l1 0 l2 1.5 l1 0" stroke="${e}" fill="none" stroke-width=".7"/>`, "width=\"6\" height=\"3\"");
+}
+var Np = /*@__PURE__*/ W.baseTheme({
+	".cm-diagnostic": {
+		padding: "3px 6px 3px 8px",
+		marginLeft: "-1px",
+		display: "block",
+		whiteSpace: "pre-wrap"
+	},
+	".cm-diagnostic-error": { borderLeft: "5px solid #d11" },
+	".cm-diagnostic-warning": { borderLeft: "5px solid orange" },
+	".cm-diagnostic-info": { borderLeft: "5px solid #999" },
+	".cm-diagnostic-hint": { borderLeft: "5px solid #66d" },
+	".cm-diagnosticAction": {
+		font: "inherit",
+		border: "none",
+		padding: "2px 4px",
+		backgroundColor: "#444",
+		color: "white",
+		borderRadius: "3px",
+		marginLeft: "8px",
+		cursor: "pointer"
+	},
+	".cm-diagnosticSource": {
+		fontSize: "70%",
+		opacity: .7
+	},
+	".cm-lintRange": {
+		backgroundPosition: "left bottom",
+		backgroundRepeat: "repeat-x",
+		paddingBottom: "0.7px"
+	},
+	".cm-lintRange-error": { backgroundImage: /*@__PURE__*/ Mp("#f11") },
+	".cm-lintRange-warning": { backgroundImage: /*@__PURE__*/ Mp("orange") },
+	".cm-lintRange-info": { backgroundImage: /*@__PURE__*/ Mp("#999") },
+	".cm-lintRange-hint": { backgroundImage: /*@__PURE__*/ Mp("#66d") },
+	".cm-lintRange-active": { backgroundColor: "#ffdd9980" },
+	".cm-tooltip-lint": {
+		padding: 0,
+		margin: 0
+	},
+	".cm-lintPoint": {
+		position: "relative",
+		"&:after": {
+			content: "\"\"",
+			position: "absolute",
+			bottom: 0,
+			left: "-2px",
+			borderLeft: "3px solid transparent",
+			borderRight: "3px solid transparent",
+			borderBottom: "4px solid #d11"
+		}
+	},
+	".cm-lintPoint-warning": { "&:after": { borderBottomColor: "orange" } },
+	".cm-lintPoint-info": { "&:after": { borderBottomColor: "#999" } },
+	".cm-lintPoint-hint": { "&:after": { borderBottomColor: "#66d" } },
+	".cm-panel.cm-panel-lint": {
+		position: "relative",
+		"& ul": {
+			maxHeight: "100px",
+			overflowY: "auto",
+			"& [aria-selected]": {
+				backgroundColor: "#ddd",
+				"& u": { textDecoration: "underline" }
+			},
+			"&:focus [aria-selected]": {
+				background_fallback: "#bdf",
+				backgroundColor: "Highlight",
+				color_fallback: "white",
+				color: "HighlightText"
+			},
+			"& u": { textDecoration: "none" },
+			padding: 0,
+			margin: 0
+		},
+		"& [name=close]": {
+			position: "absolute",
+			top: "0",
+			right: "2px",
+			background: "inherit",
+			border: "none",
+			font: "inherit",
+			padding: 0,
+			margin: 0
+		}
+	},
+	"&dark .cm-lintRange-active": { backgroundColor: "#86714a80" },
+	"&dark .cm-panel.cm-panel-lint ul": { "& [aria-selected]": { backgroundColor: "#2e343e" } }
+});
+function Pp(e) {
+	return e == "error" ? 4 : e == "warning" ? 3 : e == "info" ? 2 : 1;
+}
+function Fp(e) {
+	let t = "hint", n = 1;
+	for (let r of e) {
+		let e = Pp(r.severity);
+		e > n && (n = e, t = r.severity);
+	}
+	return t;
+}
+var Ip = class extends xs {
+	constructor(e) {
+		super(), this.diagnostics = e, this.severity = Fp(e);
+	}
+	toDOM(e) {
+		let t = document.createElement("div");
+		t.className = "cm-lint-marker cm-lint-marker-" + this.severity;
+		let n = this.diagnostics, r = e.state.facet(qp).tooltipFilter;
+		return r && (n = r(n, e.state)), n.length && (t.onmouseover = () => Rp(e, t, n)), t;
+	}
+};
+function Lp(e, t) {
+	let n = (r) => {
+		let i = t.getBoundingClientRect();
+		if (!(r.clientX > i.left - 10 && r.clientX < i.right + 10 && r.clientY > i.top - 10 && r.clientY < i.bottom + 10)) {
+			for (let e = r.target; e; e = e.parentNode) if (e.nodeType == 1 && e.classList.contains("cm-tooltip-lint")) return;
+			window.removeEventListener("mousemove", n), e.state.field(Up) && e.dispatch({ effects: Hp.of(null) });
+		}
+	};
+	window.addEventListener("mousemove", n);
+}
+function Rp(e, t, n) {
+	function r() {
+		let r = e.elementAtHeight(t.getBoundingClientRect().top + 5 - e.documentTop);
+		e.coordsAtPos(r.from) && e.dispatch({ effects: Hp.of({
+			pos: r.from,
+			above: !1,
+			clip: !1,
+			create() {
+				return {
+					dom: yp(e, n),
+					getCoords: () => t.getBoundingClientRect()
+				};
+			}
+		}) }), t.onmouseout = t.onmousemove = null, Lp(e, t);
+	}
+	let { hoverTime: i } = e.state.facet(qp), a = setTimeout(r, i);
+	t.onmouseout = () => {
+		clearTimeout(a), t.onmouseout = t.onmousemove = null;
+	}, t.onmousemove = () => {
+		clearTimeout(a), a = setTimeout(r, i);
+	};
+}
+function zp(e, t) {
+	let n = Object.create(null);
+	for (let r of t) {
+		let t = e.lineAt(r.from);
+		(n[t.from] || (n[t.from] = [])).push(r);
+	}
+	let r = [];
+	for (let e in n) r.push(new Ip(n[e]).range(+e));
+	return A.of(r, !0);
+}
+var Bp = /*@__PURE__*/ Es({
+	class: "cm-gutter-lint",
+	markers: (e) => e.state.field(Vp),
+	widgetMarker: (e, t, n) => {
+		let r = [];
+		return e.state.field(Vp).between(n.from, n.to, (e, t, i) => {
+			e > n.from && e < n.to && r.push(...i.diagnostics);
+		}), r.length ? new Ip(r) : null;
+	}
+}), Vp = /*@__PURE__*/ Ce.define({
+	create() {
+		return A.empty;
+	},
+	update(e, t) {
+		e = e.map(t.changes);
+		let n = t.state.facet(qp).markerFilter;
+		for (let r of t.effects) if (r.is(pp)) {
+			let i = r.value;
+			n && (i = n(i || [], t.state)), e = zp(t.state.doc, i.slice(0));
+		}
+		return e;
+	}
+}), Hp = /*@__PURE__*/ D.define(), Up = /*@__PURE__*/ Ce.define({
+	create() {
+		return null;
+	},
+	update(e, t) {
+		return e && t.docChanged && (e = up(t, e) ? null : {
+			...e,
+			pos: t.changes.mapPos(e.pos)
+		}), t.effects.reduce((e, t) => t.is(Hp) ? t.value : e, e);
+	},
+	provide: (e) => is.from(e)
+}), Wp = /*@__PURE__*/ W.baseTheme({
+	".cm-gutter-lint": {
+		width: "1.4em",
+		"& .cm-gutterElement": { padding: ".2em" }
+	},
+	".cm-lint-marker": {
+		width: "1em",
+		height: "1em"
+	},
+	".cm-lint-marker-info": { content: /*@__PURE__*/ jp("<path fill=\"#aaf\" stroke=\"#77e\" stroke-width=\"6\" stroke-linejoin=\"round\" d=\"M5 5L35 5L35 35L5 35Z\"/>") },
+	".cm-lint-marker-warning": { content: /*@__PURE__*/ jp("<path fill=\"#fe8\" stroke=\"#fd7\" stroke-width=\"6\" stroke-linejoin=\"round\" d=\"M20 6L37 35L3 35Z\"/>") },
+	".cm-lint-marker-error": { content: /*@__PURE__*/ jp("<circle cx=\"20\" cy=\"20\" r=\"15\" fill=\"#f87\" stroke=\"#f43\" stroke-width=\"6\"/>") }
+}), Gp = /*@__PURE__*/ ps(vp, { hideOn: up }), Kp = [
+	gp,
+	/*@__PURE__*/ W.decorations.compute([gp], (e) => {
+		let { selected: t, panel: n } = e.field(gp);
+		return !t || !n || t.from == t.to ? F.none : F.set([_p.range(t.from, t.to)]);
+	}),
+	Gp,
+	Np
+], qp = /*@__PURE__*/ E.define({ combine(e) {
+	return rt(e, {
+		hoverTime: 300,
+		markerFilter: null,
+		tooltipFilter: null
+	});
+} });
+function Jp(e = {}) {
+	return [
+		qp.of(e),
+		Vp,
+		Bp,
+		Wp,
+		Up
+	];
+}
+//#endregion
+export { k as EditorState, W as EditorView, ip as autocompletion, ap as completionKeymap, of as defaultKeymap, Ks as highlightActiveLineGutter, eu as history, vu as historyKeymap, ps as hoverTooltip, Ro as keymap, Hs as lineNumbers, Jp as lintGutter, Tp as linter, Jf as startCompletion };

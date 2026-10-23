@@ -1,0 +1,75 @@
+[gate-progress state=started phase=A4-mutation-tooling target=scena-rust-builder pid=2592234 elapsed=0.0s timeout=5400s command='python3 -m unittest scripts.verification.focused_mutation_runner_tests scripts.verification.mutation_program_contract_tests']
+.........focused mutation shard failed: preflight sentinel
+...............F..F..F.....
+======================================================================
+FAIL: test_live_manifest_and_source_execution_preflights_are_valid (scripts.verification.mutation_program_contract_tests.MutationProgramContractTests.test_live_manifest_and_source_execution_preflights_are_valid)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/scripts/verification/mutation_program_contract_tests.py", line 46, in test_live_manifest_and_source_execution_preflights_are_valid
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        [],
+        ^^^
+    ...<4 lines>...
+        ),
+        ^^
+    )
+    ^
+AssertionError: Lists differ: [] != ['mutation MUTANT_RUNTIME_CONVERT_VALUE_ID[96 chars].rs']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'mutation MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON path is not tracked: crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs'
+
+- []
++ ['mutation MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON path is not '
++  'tracked: crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs']
+
+======================================================================
+FAIL: test_measured_source_shard_requires_its_bound_artifact (scripts.verification.mutation_program_contract_tests.MutationProgramContractTests.test_measured_source_shard_requires_its_bound_artifact)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/scripts/verification/mutation_program_contract_tests.py", line 164, in test_measured_source_shard_requires_its_bound_artifact
+    self.assertEqual([], preexecution_failures)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [] != ['mutation MUTANT_RUNTIME_CONVERT_VALUE_ID[96 chars].rs']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'mutation MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON path is not tracked: crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs'
+
+- []
++ ['mutation MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON path is not '
++  'tracked: crates/trust-runtime-core/src/stdlib/conversions/dispatch.rs']
+
+======================================================================
+FAIL: test_runtime_conversion_shard_uses_a_viable_generated_selector (scripts.verification.mutation_program_contract_tests.MutationProgramContractTests.test_runtime_conversion_shard_uses_a_viable_generated_selector)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a4/scripts/verification/mutation_program_contract_tests.py", line 246, in test_runtime_conversion_shard_uses_a_viable_generated_selector
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        {
+        ^
+    ...<11 lines>...
+        },
+        ^^
+    )
+    ^
+AssertionError: {'id'[142 chars]ame': 'dispatch.rs:78:16: replace == with != in convert_value'} != {'id'[142 chars]ame': 'dispatch.rs:86:16: replace == with != in convert_value'}
+  {'function': 'convert_value',
+   'genre': 'BinaryOperator',
+   'id': 'MUTANT_RUNTIME_CONVERT_VALUE_IDENTITY_COMPARISON',
+   'replacement': '!=',
+-  'selector_name': 'dispatch.rs:78:16: replace == with != in convert_value'}
+?                                -
+
++  'selector_name': 'dispatch.rs:86:16: replace == with != in convert_value'}
+?                                 +
+
+
+----------------------------------------------------------------------
+Ran 36 tests in 2.558s
+
+FAILED (failures=3)
+[gate-progress state=finished phase=A4-mutation-tooling target=scena-rust-builder pid=2592234 elapsed=2.7s timeout=5400s command='python3 -m unittest scripts.verification.focused_mutation_runner_tests scripts.verification.mutation_program_contract_tests' status=1]

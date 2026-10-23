@@ -225,9 +225,10 @@ pub fn project_symbols(project: &std::path::Path) -> (Vec<HmiSymbol>, Vec<PageFi
     if let Ok(entries) = std::fs::read_dir(project.join(SYMBOLS_FOLDER)) {
         for entry in entries.flatten() {
             let file = entry.file_name().to_string_lossy().into_owned();
-            if (file.ends_with(".toml") || file.ends_with(".svg")) && entry.path().is_file() {
-                if let Ok(bytes) = std::fs::read(entry.path()) {
-                    files.insert(format!("{SYMBOLS_FOLDER}{file}"), bytes);
+            if file.ends_with(".toml") || file.ends_with(".svg") {
+                let path = format!("{SYMBOLS_FOLDER}{file}");
+                if let Some(bytes) = crate::hmi::bundle::read_hmi_file(project, &path) {
+                    files.insert(path, bytes);
                 }
             }
         }

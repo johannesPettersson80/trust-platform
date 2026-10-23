@@ -2,7 +2,7 @@
 version = 1
 
 [resource]
-name = "Cpu0"
+name = "WarehouseConveyorMergeMediatorOop"
 cycle_interval_ms = 50
 
 [runtime.control]

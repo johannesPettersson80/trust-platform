@@ -21,8 +21,8 @@ Status: in progress
 Product authority:
 
 - [`docs/specs/38-control-engineering-curriculum.md`](../../../specs/38-control-engineering-curriculum.md)
-- [`docs/specs/32-control-pid.md`](../../../specs/32-control-pid.md)
-- [`docs/specs/33-simulation-plant-models.md`](../../../specs/33-simulation-plant-models.md)
+- [`docs/specs/45-control-pid.md`](../../../specs/45-control-pid.md)
+- [`docs/specs/46-simulation-plant-models.md`](../../../specs/46-simulation-plant-models.md)
 - [`docs/specs/35-vscode-control-studio.md`](../../../specs/35-vscode-control-studio.md)
 - [`docs/specs/36-control-pid-performance-evaluation.md`](../../../specs/36-control-pid-performance-evaluation.md)
 - [`docs/specs/37-control-advanced-structures.md`](../../../specs/37-control-advanced-structures.md)

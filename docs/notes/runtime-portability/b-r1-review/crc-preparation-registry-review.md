@@ -1,0 +1,13 @@
+# B-R1 interim independent source review
+
+Reviewer `/root/b_independent_review`. Canonical AGENTS and skill parity reverified in the B worktree. Read specification 34 amended preparation accounting and D.1 B-R1 footprint contract. No edits to sources, builds, tests, formatters or probe operations.
+
+No definite correctness blocker found in this slice. Source comparison to committed A4 confirms all 89 standard registrations preserve their names, fixed/variadic parameter metadata and implementation function paths. The eight family arrays are sorted for case-normalized binary search. Custom owned registration overrides built-ins; empty Default remains distinct from populated new(), clone isolation remains, and algorithmic conversion fallback remains available. Borrowed immutable descriptors remove per-instance construction allocation without removing standard functions. In-tree StdParams constructors were adapted to Cow. The public enum payload changes Rust source API from Vec to Cow even though runtime behavior is preserved; record this compatibility distinction.
+
+The compact CRC uses the IEEE reflected polynomial, initial/final XOR and eight bounded bit steps per byte. std retains crc32fast, no_std uses compact; dev dependency preserves differential reference checks. Decoder and encoder now call the same exported checksum, and tests cover known vectors, shifted/boundary extents and the saved artifacts. This source inspection does not replace executing them in both feature configurations.
+
+Byte preparation keeps artifact-length checks, bounded decoder accounting, full validation and profile admission; it drops redundant serialization. Caller-owned decoded objects retain independent bounded serialization before shared metadata preparation. New tests compare route charges/state, exact limits, malformed bytecode and supplied padding length. Preparation counters remain cumulative logical demand, not measured live heap.
+
+The allocation measurement test instruments System pointer/layout pairs with nonallocating thread-local scalar counters; phases preserve live occupancy, and diagnostics print after capture is disabled. It asserts accounting consistency and complete retirement but does not present native payload peaks as MCU allocator or stack evidence.
+
+Scope remains interim: targeted collections/sort and root layout, tooling and supply-chain edits are still being authored by others. Full frozen-source review and consolidated validation remain pending. No footprint saving or hardware fit is established by this note. Identities for this reviewed slice are retained in crc-preparation-registry-source.json.

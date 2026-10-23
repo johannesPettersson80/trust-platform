@@ -267,7 +267,7 @@ impl Commands {
         changes: Vec<SettingChange>,
     ) -> Result<Settings, Refusal> {
         let reading = reading(target)?;
-        let outcome = self.control_state.resource.hmi_exchange().settings(
+        let outcome = crate::control::hmi_ports::hmi_exchange(&self.control_state).settings(
             SettingsJob {
                 read: reading.paths.clone(),
                 changes,

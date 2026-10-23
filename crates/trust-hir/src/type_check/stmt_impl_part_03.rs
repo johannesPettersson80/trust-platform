@@ -1,5 +1,4 @@
 impl<'a, 'b> StmtChecker<'a, 'b> {
-
     fn check_case_branch(
         &mut self,
         node: &SyntaxNode,
@@ -28,7 +27,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         exit_state
     }
 
-
     fn check_case_label(
         &mut self,
         node: &SyntaxNode,
@@ -44,7 +42,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             self.check_case_label_expr(&expr, selector_type, tracker);
         }
     }
-
 
     fn check_case_subrange(
         &mut self,
@@ -87,7 +84,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             if !self.checker.is_assignable(selector_type, label_type)
                 && !self
                     .checker
-                    .is_contextual_int_literal(selector_type, &child)
+                    .is_contextual_case_int_literal(selector_type, &child)
                 && !self
                     .checker
                     .is_contextual_real_literal(selector_type, &child)
@@ -98,13 +95,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                     "case label type must match selector type",
                 );
             }
-            if self.case_label_tracks_integer_value(selector_type) {
-                if let Some(value) = self.checker.require_const_int_expr(
+            if self.case_label_tracks_integer_value(selector_type)
+                && let Some(value) = self.checker.require_const_int_expr(
                     &child,
                     "case label must be a literal, enum value, or constant",
-                ) {
-                    bounds.push(value);
-                }
+                )
+            {
+                bounds.push(value);
             }
         }
 
@@ -123,7 +120,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
     fn check_case_label_expr(
         &mut self,
         expr: &SyntaxNode,
@@ -141,7 +137,9 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
 
         let label_type = self.check_expression(expr);
         if !self.checker.is_assignable(selector_type, label_type)
-            && !self.checker.is_contextual_int_literal(selector_type, expr)
+            && !self
+                .checker
+                .is_contextual_case_int_literal(selector_type, expr)
             && !self.checker.is_contextual_real_literal(selector_type, expr)
         {
             self.checker.diagnostics.error(
@@ -151,16 +149,15 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             );
         }
 
-        if self.case_label_tracks_integer_value(selector_type) {
-            if let Some(value) = self.checker.require_const_int_expr(
+        if self.case_label_tracks_integer_value(selector_type)
+            && let Some(value) = self.checker.require_const_int_expr(
                 expr,
                 "case label must be a literal, enum value, or constant",
-            ) {
-                self.record_case_label_value(tracker, value, expr.text_range());
-            }
+            )
+        {
+            self.record_case_label_value(tracker, value, expr.text_range());
         }
     }
-
 
     fn is_case_label_expr(&mut self, expr: &SyntaxNode) -> bool {
         match expr.kind() {
@@ -203,7 +200,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             _ => false,
         }
     }
-
 
     fn is_case_selector_type(&self, type_id: TypeId) -> bool {
         let resolved = self.checker.resolve_alias_type(type_id);
@@ -276,7 +272,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         )
     }
 
-
     fn case_labels_cover_enum(&self, selector_type: TypeId, tracker: &CaseLabelTracker) -> bool {
         let resolved = self.checker.resolve_alias_type(selector_type);
         let Some(Type::Enum { values, .. }) = self.checker.symbols.type_by_id(resolved) else {
@@ -287,5 +282,4 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
         values.iter().all(|(_, value)| tracker.covers(*value))
     }
-
 }

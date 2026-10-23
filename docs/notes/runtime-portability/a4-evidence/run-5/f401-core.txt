@@ -1,0 +1,4 @@
+[gate-progress state=started phase=A4-f401-core target=scena-rust-builder pid=2673466 elapsed=0.0s timeout=5400s command='cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf']
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/trust-runtime-core)
+    Finished `dev` profile [unoptimized] target(s) in 2.16s
+[gate-progress state=finished phase=A4-f401-core target=scena-rust-builder pid=2673466 elapsed=2.2s timeout=5400s command='cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf' status=0]

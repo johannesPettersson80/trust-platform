@@ -1,8 +1,8 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use rustc_hash::FxHashMap;
 use smol_str::SmolStr;
 use trust_hir::{Type, TypeId};
 
@@ -14,19 +14,24 @@ use crate::value::{default_value_for_type_id, Value};
 use super::frames::VmFrame;
 use super::VmModule;
 
+#[cfg(test)]
+mod call_transfer_init_tests;
 mod expr;
 
 use self::expr::{apply_fb_instance_initializer_from_vm_frame, evaluate_initializer_from_vm_frame};
 
 pub(super) fn initialize_declared_locals(
-    runtime: &mut crate::Runtime,
+    runtime: &mut crate::runtime::LegacyRuntimeFixture,
     module: &VmModule,
     frame: &mut VmFrame,
 ) -> Result<(), RuntimeError> {
-    let Some(plan) = runtime
-        .vm_local_init_plan_cache
-        .plan_for(runtime, module, frame.pou_id)
-    else {
+    let Some(plan) = runtime.vm_local_init_plan_cache.plan_for(
+        runtime,
+        module,
+        frame
+            .pou_id
+            .ok_or_else(|| super::invalid_bytecode("legacy frame has no POU owner"))?,
+    ) else {
         return Ok(());
     };
     if frame.locals.is_empty() {
@@ -36,7 +41,7 @@ pub(super) fn initialize_declared_locals(
 }
 
 fn initialize_declared_locals_direct(
-    runtime: &mut crate::Runtime,
+    runtime: &mut crate::runtime::LegacyRuntimeFixture,
     plan: &VmPouInitPlan,
     frame: &mut VmFrame,
 ) -> Result<(), RuntimeError> {
@@ -45,14 +50,14 @@ fn initialize_declared_locals_direct(
     let mut slot = 0usize;
 
     if let Some((_, return_type)) = plan.return_slot() {
-        if matches!(initialized_frame.locals.get(slot), Some(Value::Null) | None) {
-            if let Some(slot_ref) = initialized_frame.locals.get_mut(slot) {
-                let (return_name, _) = plan
-                    .return_slot()
-                    .expect("return slot checked before default initialization");
-                *slot_ref = default_value_for_type_id(return_type, runtime.registry(), &profile)
-                    .map_err(|err| init_failed_debug(plan.frame_owner(), return_name, err))?;
-            }
+        if matches!(initialized_frame.locals.get(slot), Some(Value::Null) | None)
+            && let Some(slot_ref) = initialized_frame.locals.get_mut(slot)
+        {
+            let (return_name, _) = plan
+                .return_slot()
+                .expect("return slot checked before default initialization");
+            *slot_ref = default_value_for_type_id(return_type, runtime.registry(), &profile)
+                .map_err(|err| init_failed_debug(plan.frame_owner(), return_name, err))?;
         }
         slot = slot.saturating_add(1);
     }
@@ -81,7 +86,7 @@ fn initialize_declared_locals_direct(
 }
 
 fn ensure_static_local(
-    runtime: &mut crate::Runtime,
+    runtime: &mut crate::runtime::LegacyRuntimeFixture,
     plan: &VmPouInitPlan,
     frame: &VmFrame,
     visible_slots: usize,
@@ -115,7 +120,7 @@ fn ensure_static_local(
 }
 
 fn initialize_var_value(
-    runtime: &mut crate::Runtime,
+    runtime: &mut crate::runtime::LegacyRuntimeFixture,
     plan: &VmPouInitPlan,
     frame: &VmFrame,
     visible_slots: usize,
@@ -166,7 +171,7 @@ fn initialize_var_value(
             .classes()
             .get(&class_key)
             .cloned()
-            .ok_or_else(|| RuntimeError::TypeMismatch)?;
+            .ok_or(RuntimeError::TypeMismatch)?;
         let initializer_catalog = runtime.initializer_catalog().clone();
         let (storage, registry, classes, function_blocks, functions, stdlib) =
             runtime.instance_init_context();
@@ -183,52 +188,6 @@ fn initialize_var_value(
         )?;
         return Ok(Value::Instance(instance_id));
     }
-    if crate::instance::is_instance_array(local.type_id, runtime.registry()) {
-        let initializer_catalog = runtime.initializer_catalog().clone();
-        let (storage, registry, classes, function_blocks, functions, stdlib) =
-            runtime.instance_init_context();
-        let array = crate::instance::create_instance_array(
-            storage,
-            registry,
-            &profile,
-            classes,
-            function_blocks,
-            functions,
-            stdlib,
-            &initializer_catalog,
-            local.type_id,
-        )?
-        .ok_or_else(|| RuntimeError::TypeMismatch)?;
-        if let Some(expr) = &local.initializer {
-            crate::instance::for_each_element_initializer(
-                &array,
-                expr,
-                &mut |instance_id, entry| {
-                    let type_name = runtime
-                        .storage()
-                        .get_instance(instance_id)
-                        .ok_or_else(|| RuntimeError::NullReference)?
-                        .type_name
-                        .clone();
-                    let fb = runtime
-                        .function_blocks()
-                        .get(&SmolStr::new(type_name.to_ascii_uppercase()))
-                        .cloned()
-                        .ok_or_else(|| RuntimeError::TypeMismatch)?;
-                    apply_fb_instance_initializer_from_vm_frame(
-                        runtime,
-                        plan,
-                        frame,
-                        visible_slots,
-                        instance_id,
-                        &fb,
-                        entry,
-                    )
-                },
-            )?;
-        }
-        return Ok(array);
-    }
 
     if let Some(expr) = &local.initializer {
         return evaluate_initializer_from_vm_frame(
@@ -241,9 +200,10 @@ fn initialize_var_value(
         );
     }
 
-    crate::harness::initializer::default_value_for_type_id(
+    crate::harness::initializer::default_value_for_type_id_with_abi(
         runtime.storage(),
         runtime.registry(),
+        crate::value::StorageAbi::LegacyTemporal32,
         runtime.initializer_catalog(),
         &profile,
         current_instance,
@@ -366,7 +326,7 @@ fn init_failed_debug(
 #[derive(Debug, Default)]
 struct VmLocalInitPlanCacheData {
     module_ptr: Option<usize>,
-    entries: FxHashMap<u32, Arc<VmPouInitPlan>>,
+    entries: HashMap<u32, Arc<VmPouInitPlan>>,
 }
 
 #[derive(Debug, Default)]
@@ -383,7 +343,7 @@ impl VmLocalInitPlanCacheState {
 
     fn plan_for(
         &self,
-        runtime: &crate::Runtime,
+        runtime: &crate::runtime::LegacyRuntimeFixture,
         module: &VmModule,
         pou_id: u32,
     ) -> Option<Arc<VmPouInitPlan>> {
@@ -420,7 +380,7 @@ fn build_init_plan_for_pou(
     let pou = module.pou(pou_id)?;
     let key = SmolStr::new(pou.name.to_ascii_uppercase());
 
-    if module.program_ids.get(&key).copied() == Some(pou_id) {
+    if module.program_ids().get(&key).copied() == Some(pou_id) {
         return programs
             .values()
             .find(|program| {
@@ -434,7 +394,7 @@ fn build_init_plan_for_pou(
                 locals: program.temps.clone(),
             });
     }
-    if module.function_ids.get(&key).copied() == Some(pou_id) {
+    if module.function_ids().get(&key).copied() == Some(pou_id) {
         return functions.get(&key).map(|function| VmPouInitPlan::Function {
             frame_owner: function.name.clone(),
             params: function.params.clone(),
@@ -443,7 +403,7 @@ fn build_init_plan_for_pou(
             return_slot: (function.name.clone(), function.return_type),
         });
     }
-    if module.function_block_ids.get(&key).copied() == Some(pou_id) {
+    if module.function_block_ids().get(&key).copied() == Some(pou_id) {
         return function_blocks
             .get(&key)
             .map(|function_block| VmPouInitPlan::FunctionBlock {
@@ -453,10 +413,10 @@ fn build_init_plan_for_pou(
     }
 
     for (owner_key, function_block) in function_blocks {
-        let Some(owner_id) = module.function_block_ids.get(owner_key).copied() else {
+        let Some(owner_id) = module.function_block_ids().get(owner_key).copied() else {
             continue;
         };
-        let Some(method_table) = module.method_table_by_owner.get(&owner_id) else {
+        let Some(method_table) = module.method_table_by_owner().get(&owner_id) else {
             continue;
         };
         for method in &function_block.methods {
@@ -475,10 +435,10 @@ fn build_init_plan_for_pou(
     }
 
     for (owner_key, class_def) in classes {
-        let Some(owner_id) = module.class_ids.get(owner_key).copied() else {
+        let Some(owner_id) = module.class_ids().get(owner_key).copied() else {
             continue;
         };
-        let Some(method_table) = module.method_table_by_owner.get(&owner_id) else {
+        let Some(method_table) = module.method_table_by_owner().get(&owner_id) else {
             continue;
         };
         for method in &class_def.methods {
@@ -531,7 +491,7 @@ mod tests {
 
     #[test]
     fn vm_interface_return_slot_defaults_to_null() {
-        let mut runtime = crate::Runtime::new();
+        let mut runtime = crate::runtime::LegacyRuntimeFixture::new();
         let interface = register_interface(&mut runtime);
         let plan = VmPouInitPlan::Function {
             frame_owner: "ReturnSvc".into(),
@@ -548,7 +508,7 @@ mod tests {
 
     #[test]
     fn vm_local_interface_defaults_to_null() {
-        let mut runtime = crate::Runtime::new();
+        let mut runtime = crate::runtime::LegacyRuntimeFixture::new();
         let interface = register_interface(&mut runtime);
         let plan = VmPouInitPlan::Program {
             frame_owner: "Main".into(),
@@ -573,7 +533,7 @@ mod tests {
 
     #[test]
     fn vm_function_initialization_preserves_return_parameters_and_external_locals() {
-        let mut runtime = crate::Runtime::new();
+        let mut runtime = crate::runtime::LegacyRuntimeFixture::new();
         let plan = VmPouInitPlan::Function {
             frame_owner: "Compute".into(),
             params: vec![param("Input"), param("Output")],
@@ -609,7 +569,7 @@ mod tests {
 
     #[test]
     fn vm_automatic_initializer_can_read_only_preceding_frame_slots() {
-        let mut runtime = crate::Runtime::new();
+        let mut runtime = crate::runtime::LegacyRuntimeFixture::new();
         let plan = VmPouInitPlan::Program {
             frame_owner: "Main".into(),
             locals: vec![
@@ -626,7 +586,7 @@ mod tests {
 
     #[test]
     fn vm_automatic_initialization_failure_is_identified_and_atomic() {
-        let mut runtime = crate::Runtime::new();
+        let mut runtime = crate::runtime::LegacyRuntimeFixture::new();
         let plan = VmPouInitPlan::Program {
             frame_owner: "Main".into(),
             locals: vec![
@@ -654,7 +614,7 @@ mod tests {
 
     #[test]
     fn vm_static_local_initializes_once_and_preserves_stored_value() {
-        let mut runtime = crate::Runtime::new();
+        let mut runtime = crate::runtime::LegacyRuntimeFixture::new();
         let plan = VmPouInitPlan::Function {
             frame_owner: "Counter".into(),
             params: Vec::new(),
@@ -707,7 +667,7 @@ mod tests {
 
     #[test]
     fn vm_instance_type_detection_follows_aliases_and_rejects_other_types() {
-        let mut runtime = crate::Runtime::new();
+        let mut runtime = crate::runtime::LegacyRuntimeFixture::new();
         let class = runtime.registry_mut().register(
             "Motor",
             Type::Class {
@@ -747,7 +707,7 @@ mod tests {
         assert!(function_block_type_name(TypeId::DINT, runtime.registry()).is_none());
     }
 
-    fn register_interface(runtime: &mut crate::Runtime) -> TypeId {
+    fn register_interface(runtime: &mut crate::runtime::LegacyRuntimeFixture) -> TypeId {
         runtime.registry_mut().register(
             "I_Svc",
             Type::Interface {
@@ -758,7 +718,9 @@ mod tests {
 
     fn frame_with_slots(count: usize) -> VmFrame {
         VmFrame {
-            pou_id: 1,
+            parameter_values_present: Vec::new(),
+            activation: None,
+            pou_id: Some(1),
             return_pc: 0,
             code_start: 0,
             code_end: 0,

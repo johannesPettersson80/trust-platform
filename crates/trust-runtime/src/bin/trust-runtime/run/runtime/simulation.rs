@@ -23,10 +23,10 @@ fn build_simulation_plan(
     }
 
     let enabled = simulation_config.enabled;
-    // The speed applies only in simulation (specification 33, §6.1 item 2): a disabled simulation reports 1.
+    // The speed applies only in simulation (specification 46, §6.1 item 2): a disabled simulation reports 1.
     let time_scale = if enabled { simulation_config.time_scale.max(1) } else { 1 };
-    if enabled {
-        if let Some(driver) = bundle
+    if enabled
+        && let Some(driver) = bundle
             .into_iter()
             .flat_map(|bundle| &bundle.io.drivers)
             .find(|driver| driver.enabled && !trust_runtime::io::is_nonphysical_driver(driver.name.as_str()))
@@ -36,7 +36,6 @@ fn build_simulation_plan(
                 driver.name
             );
         }
-    }
     let warning = simulation_warning_message(enabled, time_scale).unwrap_or_default();
     let active_revision = bundle
         .map(|bundle| trust_runtime::simulation::file_content_revision(bundle.root.join("simulation.toml")))

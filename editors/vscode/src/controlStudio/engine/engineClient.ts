@@ -83,7 +83,7 @@ export interface ControlStudioEngine {
   parameters(request: ParameterWorkRequest): Promise<EngineAnswer<ParameterWorkAnswer | OperationStarted>>;
   /** The loop's sample and, when it changed, the target's label (B2, B9.2). The engine decides availability and staleness. */
   monitor(request: MonitorRequest): Promise<EngineAnswer<MonitorResult>>;
-  /** The plant summary of a plant handoff (B1.2, specification 34, §20.4): unavailable with its reason, or the plant's status. */
+  /** The plant summary of a plant handoff (B1.2, specification 47, §20.4): unavailable with its reason, or the plant's status. */
   plantMonitor(request: PlantMonitorRequest): Promise<EngineAnswer<PlantMonitorResult>>;
   /** Decides a Start simulator request (A2.8): the extension starts the simulator, joins the start in flight, or shows the reply. */
   simulatorStart(request: SimulatorStartRequest): Promise<EngineAnswer<SimulatorStartAnswer>>;

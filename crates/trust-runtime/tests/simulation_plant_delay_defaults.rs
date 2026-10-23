@@ -2,7 +2,6 @@ use trust_hir::TypeId;
 use trust_runtime::io::IoAddress;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
 
 fn delayed_output(initial_history: Option<f64>) -> f64 {
     let stamp = std::time::SystemTime::now()
@@ -46,20 +45,17 @@ output_bias = 20.0
     let config = SimulationConfig::load(&config_path).expect("valid biased FOPDT model");
     std::fs::remove_file(config_path).unwrap();
     let mut simulation = SimulationController::new(config);
-    let mut runtime = Runtime::new();
     let command = IoAddress::parse("%QL0").unwrap();
-    runtime
-        .io_mut()
-        .bind_typed("command", command.clone(), TypeId::LREAL);
-    runtime
-        .io_mut()
-        .bind_typed("feedback", IoAddress::parse("%IL0").unwrap(), TypeId::LREAL);
+    let mut runtime = trust_runtime::harness::runtime_with_bindings(&[
+        (command.clone(), TypeId::LREAL),
+        (IoAddress::parse("%IL0").unwrap(), TypeId::LREAL),
+    ])
+    .expect("compile the plant's bindings");
     simulation
         .apply_pre_cycle(Duration::ZERO, &mut runtime)
         .unwrap();
     runtime
-        .io_mut()
-        .write(&command, Value::LWord(10.0_f64.to_bits()))
+        .write_io(&command, Value::LWord(10.0_f64.to_bits()))
         .unwrap();
     simulation
         .apply_post_cycle(Duration::from_secs(1), &runtime)
@@ -74,7 +70,7 @@ output_bias = 20.0
 
 #[test]
 fn omitted_delay_history_uses_the_input_operating_point_but_explicit_zero_is_retained() {
-    // Specification 33 §7.3: the unknown past input defaults to input_bias.
+    // Specification 46 §7.3: the unknown past input defaults to input_bias.
     assert!(
         (delayed_output(None) - 20.0).abs() < 1e-12,
         "an omitted delay history must preserve the biased equilibrium"

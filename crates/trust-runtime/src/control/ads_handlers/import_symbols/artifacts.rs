@@ -19,15 +19,15 @@ impl ImportArtifactPaths {
         let default_snapshot = default_snapshot_relative_path(params.connection_name.as_str())?;
         let ads_toml = project_artifact_path(
             project_root,
-            params
-                .ads_toml_path
-                .as_deref()
-                .unwrap_or(Path::new("ads.toml")),
+            params.ads_toml_path.as_deref().unwrap_or("ads.toml"),
             "ads_toml_path",
         )?;
         let snapshot = project_artifact_path(
             project_root,
-            params.snapshot_path.as_deref().unwrap_or(&default_snapshot),
+            params
+                .snapshot_path
+                .as_deref()
+                .unwrap_or(default_snapshot.as_str()),
             "snapshot_path",
         )?;
         validate_snapshot_path(project_root, &snapshot)?;
@@ -36,7 +36,7 @@ impl ImportArtifactPaths {
             params
                 .generated_path
                 .as_deref()
-                .unwrap_or(Path::new("src/generated/ads_generated.st")),
+                .unwrap_or("src/generated/ads_generated.st"),
             "generated_path",
         )?;
         if same_artifact_path(&ads_toml, &snapshot)
@@ -82,25 +82,23 @@ fn validate_snapshot_path(project_root: &Path, snapshot: &Path) -> Result<(), St
 
 fn project_artifact_path(
     project_root: &Path,
-    requested: &Path,
+    requested: &str,
     field: &str,
 ) -> Result<PathBuf, String> {
-    let text = requested
-        .to_str()
-        .ok_or_else(|| format!("{field} must be valid UTF-8"))?;
-    if text.trim().is_empty() {
+    if requested.trim().is_empty() {
         return Err(format!("{field} must be a non-empty relative path"));
     }
-    if requested.is_absolute() || requested.has_root() {
+    let requested_path = Path::new(requested);
+    if requested_path.is_absolute() || requested_path.has_root() {
         return Err(format!(
             "{field} must be a relative path inside the project root"
         ));
     }
-    if text.contains('\\')
-        || text
+    if requested.contains('\\')
+        || requested
             .as_bytes()
             .get(1)
-            .is_some_and(|value| *value == b':' && text.as_bytes()[0].is_ascii_alphabetic())
+            .is_some_and(|value| *value == b':' && requested.as_bytes()[0].is_ascii_alphabetic())
     {
         return Err(format!(
             "{field} must not contain a platform path prefix or backslash"
@@ -108,7 +106,7 @@ fn project_artifact_path(
     }
 
     let mut relative = PathBuf::new();
-    for component in requested.components() {
+    for component in requested_path.components() {
         match component {
             Component::Normal(value) => relative.push(value),
             Component::CurDir => {}
@@ -157,7 +155,7 @@ fn same_artifact_path(left: &Path, right: &Path) -> bool {
         .eq_ignore_ascii_case(right.to_string_lossy().as_ref())
 }
 
-fn default_snapshot_relative_path(connection_name: &str) -> Result<PathBuf, String> {
+fn default_snapshot_relative_path(connection_name: &str) -> Result<String, String> {
     let unsafe_name = connection_name.trim().is_empty()
         || matches!(connection_name, "." | "..")
         || connection_name.chars().any(|ch| {
@@ -169,9 +167,7 @@ fn default_snapshot_relative_path(connection_name: &str) -> Result<PathBuf, Stri
                 .to_string(),
         );
     }
-    Ok(Path::new("ads")
-        .join("snapshots")
-        .join(format!("{connection_name}.symbols.json")))
+    Ok(format!("ads/snapshots/{connection_name}.symbols.json"))
 }
 
 pub(super) fn read_optional_project_file(path: &Path) -> Result<Option<String>, String> {

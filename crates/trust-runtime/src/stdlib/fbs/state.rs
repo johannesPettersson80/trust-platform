@@ -1,7 +1,18 @@
-pub(super) const STATE_PREV_CU: &str = "__ST_PREV_CU";
-pub(super) const STATE_PREV_CD: &str = "__ST_PREV_CD";
-pub(super) const STATE_TRIG_M: &str = "__ST_TRIG_M";
-pub(super) const STATE_LAST_TIME: &str = "__ST_LAST_TIME";
-pub(super) const STATE_PREV_IN: &str = "__ST_PREV_IN";
-pub(super) const STATE_TIMING: &str = "__ST_TIMING";
-pub(super) const STATE_ACTIVE: &str = "__ST_ACTIVE";
+/// HIR authoring adapter for the shared native state contract.
+pub(crate) fn builtin_state_layout(
+    kind: super::BuiltinFbKind,
+) -> Vec<(&'static str, trust_hir::TypeId)> {
+    trust_runtime_core::stdlib::hosted::state::builtin_state_layout(kind)
+        .iter()
+        .map(|(name, primitive)| {
+            (
+                *name,
+                match primitive {
+                    1 => trust_hir::TypeId::BOOL,
+                    17 => trust_hir::TypeId::LTIME,
+                    _ => unreachable!("closed native state contract"),
+                },
+            )
+        })
+        .collect()
+}

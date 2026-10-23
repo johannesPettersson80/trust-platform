@@ -78,6 +78,30 @@ pub struct CallArg {
 }
 
 impl LValue {
+    /// Resolve parser-owned index and reference expressions into values.
+    /// The returned symbolic destination carries no expression-only type IDs;
+    /// the execution owner must still check its binding and lifetime at commit.
+    pub fn resolve_expressions<E>(
+        self,
+        eval: &mut impl FnMut(&Expr) -> Result<Value, E>,
+    ) -> Result<Self, E> {
+        match self {
+            Self::Name(_) => Ok(self),
+            Self::Field { target, field } => Ok(Self::Field {
+                target: Box::new(target.resolve_expressions(eval)?),
+                field,
+            }),
+            Self::Index { target, indices } => Ok(Self::Index {
+                target: Box::new(target.resolve_expressions(eval)?),
+                indices: indices
+                    .iter()
+                    .map(|expr| eval(expr).map(Expr::Literal))
+                    .collect::<Result<Vec<_>, E>>()?,
+            }),
+            Self::Deref(expr) => Ok(Self::Deref(Box::new(Expr::Literal(eval(&expr)?)))),
+        }
+    }
+
     #[must_use]
     pub fn root_name(&self) -> Option<&SmolStr> {
         match self {

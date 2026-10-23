@@ -12,7 +12,7 @@ use trust_runtime::watchdog::{
     FaultAction, FaultDecision, FaultPolicy, FaultSubsystem, WatchdogAction, WatchdogPolicy,
     WatchdogSubsystem,
 };
-use trust_runtime::{RestartMode, Runtime};
+use trust_runtime::{RestartMode, Runtime, RuntimeBuilder};
 
 const FIXTURE_SOURCE: &str = include_str!("fixtures/runtime_core_behavior_lock/program.st");
 const FIXTURE_PATH: &str = "fixtures/runtime_core_behavior_lock/program.st";
@@ -81,8 +81,7 @@ fn assert_array(value: &Value, expected: &[Value]) {
 fn set_input_bit(runtime: &mut Runtime, value: bool) {
     let address = IoAddress::parse("%IX0.0").expect("parse input address");
     runtime
-        .io_mut()
-        .write(&address, Value::Bool(value))
+        .write_io(&address, Value::Bool(value))
         .expect("write input image");
 }
 
@@ -150,25 +149,63 @@ impl IoDriver for BoundaryDriver {
 }
 
 fn cycle_boundary_runtime() -> Runtime {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(1, 1, 0);
-    runtime.storage_mut().set_global("in", Value::Bool(false));
     runtime
-        .storage_mut()
-        .set_global("out_a", Value::Bool(false));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "in".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
     runtime
-        .storage_mut()
-        .set_global("out_b", Value::Bool(false));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out_a".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
     runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(false));
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out_b".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "trigger".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
 
-    runtime
-        .register_program(assign_program("P1", "out_a"))
-        .unwrap();
-    runtime
-        .register_program(assign_program("P2", "out_b"))
-        .unwrap();
+    runtime.register_program(assign_program("P1", "out_a"));
+    runtime.register_program(assign_program("P2", "out_b"));
 
     runtime
         .io_mut()
@@ -188,19 +225,20 @@ fn cycle_boundary_runtime() -> Runtime {
         programs: vec!["P1".into(), "P2".into()],
         fb_instances: Vec::new(),
     });
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime
-        .storage_mut()
-        .set_global("trigger", Value::Bool(true));
+        .write_global("trigger", Value::Bool(true))
+        .expect("checked event trigger");
     runtime
 }
 
 fn runtime_with_watchdog_safe_state(action: WatchdogAction) -> Runtime {
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 1, 0);
     let address = IoAddress::parse("%QX0.0").expect("safe-state output address");
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime
-        .io_mut()
-        .write(&address, Value::Bool(true))
+        .write_io(&address, Value::Bool(true))
         .expect("write initial output state");
 
     let mut safe_state = IoSafeState::default();

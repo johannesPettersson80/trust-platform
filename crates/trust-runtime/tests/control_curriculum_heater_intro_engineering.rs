@@ -334,8 +334,8 @@ fn diagnosis_uses_actual_pid_output_and_preserves_accepted_parameters() {
         .field_mut("OutputMaximum")
         .unwrap() = Value::LReal(10.0);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", accepted.clone()));
+        .write_instance(program, "Parameters", accepted.clone())
+        .is_ok());
     for _ in 0..3 {
         runtime.advance_time(Duration::from_millis(100));
         runtime.execute_cycle().unwrap();
@@ -445,8 +445,8 @@ fn manual_tuning_updates_one_actual_pid_parameter_without_replacing_the_accepted
         };
         *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
         assert!(runtime
-            .storage_mut()
-            .set_instance_var(program, "Parameters", accepted.clone()));
+            .write_instance(program, "Parameters", accepted.clone())
+            .is_ok());
         let debug = runtime.enable_debug();
         simulation
             .apply_pre_cycle(Duration::ZERO, &mut runtime)

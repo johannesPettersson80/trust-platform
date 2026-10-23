@@ -1,0 +1,1 @@
+M2 canonical link PASS; upper span 441920 B; upper free 16832 B; required margin 16384 B; margin excess 448 B. Sector0 free 736 B. Net upper reduction from M1 13056 B. Full-function stable1.95 safeICF overflow-enabled candidate; software/ELF/hardware unverified when measurement completed.

@@ -4,10 +4,11 @@ pub struct OpcUaClientBinding {
     pub reference: crate::value::ValueRef,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum OpcUaClientBridgeErrorKind {
     Validation,
     Transport,
+    Execution(RuntimeError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,6 +18,20 @@ pub struct OpcUaClientBridgeError {
 }
 
 impl OpcUaClientBridgeError {
+    fn execution(error: RuntimeError) -> Self {
+        Self {
+            message: error.to_string(),
+            kind: OpcUaClientBridgeErrorKind::Execution(error),
+        }
+    }
+
+    pub(crate) fn execution_cause(&self) -> Option<&RuntimeError> {
+        match &self.kind {
+            OpcUaClientBridgeErrorKind::Execution(error) => Some(error),
+            _ => None,
+        }
+    }
+
     fn validation(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -46,7 +61,12 @@ impl std::fmt::Display for OpcUaClientBridgeError {
     }
 }
 
-impl std::error::Error for OpcUaClientBridgeError {}
+impl std::error::Error for OpcUaClientBridgeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.execution_cause()
+            .map(|error| error as &dyn std::error::Error)
+    }
+}
 
 #[derive(Clone)]
 pub struct OpcUaClientBridge {
@@ -56,6 +76,10 @@ pub struct OpcUaClientBridge {
 }
 
 impl OpcUaClientBridge {
+    pub(crate) fn replace_bindings(&mut self, bindings: Vec<OpcUaClientBinding>) {
+        self.bindings = bindings;
+    }
+
     pub fn new(bindings: Vec<OpcUaClientBinding>) -> Result<Self, OpcUaClientBridgeError> {
         validate_opcua_client_bindings(&bindings)?;
         let points = bindings
@@ -83,6 +107,19 @@ impl OpcUaClientBridge {
         &mut self,
         storage: &mut crate::memory::VariableStorage,
         now_ms: u64,
+    ) -> Result<(), OpcUaClientBridgeError> {
+        self.apply_inputs_with(now_ms, |reference, value| {
+            storage
+                .write_by_ref_ref(reference, value)
+                .then_some(())
+                .ok_or(RuntimeError::TypeMismatch)
+        })
+    }
+
+    fn apply_inputs_with(
+        &mut self,
+        now_ms: u64,
+        mut write: impl FnMut(&crate::value::ValueRef, Value) -> Result<(), RuntimeError>,
     ) -> Result<(), OpcUaClientBridgeError> {
         let snapshot = self.shared.snapshot();
         for binding in self
@@ -120,14 +157,20 @@ impl OpcUaClientBridge {
                 );
                 continue;
             };
-            if !storage.write_by_ref(binding.reference.clone(), value.clone()) {
+            if let Err(error) = write(&binding.reference, value.clone()) {
                 self.shared.set_point_status(
                     &binding.point,
                     OpcUaClientConnectionState::Faulted,
                     Some(now_ms),
                     None,
-                    format!("Failed to write OPC UA input '{}'", binding.point.var),
+                    format!(
+                        "Failed to write OPC UA input '{}': {} ({})",
+                        binding.point.var,
+                        error,
+                        error.stable_code()
+                    ),
                 );
+                client_cycle_port::propagate_execution_error(error)?;
                 continue;
             }
             if binding.point.access.can_write() {
@@ -158,29 +201,13 @@ impl OpcUaClientBridge {
                 );
                 continue;
             };
-            if self
-                .last_queued_values
-                .get(binding.point.var.as_str())
-                .is_some_and(|previous| previous == &value)
-            {
-                continue;
-            }
-            if !opcua_output_is_finite(&binding.point, &value) {
-                self.shared.reject_output(
-                    &binding.point,
-                    now_ms,
-                    format!(
-                        "OPC UA output '{}' rejected non-finite {} value",
-                        binding.point.var,
-                        binding.point.data_type.as_config_value()
-                    ),
-                )?;
-                self.last_queued_values.remove(binding.point.var.as_str());
-                continue;
-            }
-            self.shared.queue_write(&binding.point, value.clone())?;
-            self.last_queued_values
-                .insert(binding.point.var.clone(), value);
+            client_cycle_port::queue_output(
+                &self.shared,
+                &mut self.last_queued_values,
+                binding,
+                value,
+                now_ms,
+            )?;
         }
         Ok(())
     }

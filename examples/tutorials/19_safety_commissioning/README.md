@@ -156,7 +156,7 @@ Expected result:
 Why: operators need deterministic recovery procedure.
 
 ```bash
-trust-runtime ctl --project . restart --mode cold
+trust-runtime ctl --project . restart cold
 ```
 
 After restart:

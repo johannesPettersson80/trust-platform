@@ -574,35 +574,32 @@ impl SymbolCollector<'_> {
             else {
                 continue;
             };
-            if let Some(parsed) = parse_access_path(&access_path) {
-                if let Some(program_instance) =
+            if let Some(parsed) = parse_access_path(&access_path)
+                && let Some(program_instance) =
                     lookup_program_instance(&self.program_instances, parsed.root.as_str())
-                {
-                    if program_instance.is_ambiguous() {
-                        if let Some(address) = config_init_direct_address(config_init) {
-                            if direct_address_has_wildcard(&address) {
-                                self.diagnostics.error(
-                                    DiagnosticCode::InvalidOperation,
-                                    access_path.text_range(),
-                                    "VAR_CONFIG must provide a fully specified direct address",
-                                );
-                            } else {
-                                for candidate in program_instance.candidates() {
-                                    if let Some(target) = resolve_access_path_target_from_symbol(
-                                        &self.table,
-                                        *candidate,
-                                        &parsed.segments,
-                                    ) {
-                                        if wildcard_vars.contains(&target.symbol_id) {
-                                            configured.insert(target.symbol_id);
-                                        }
-                                    }
-                                }
+                && program_instance.is_ambiguous()
+            {
+                if let Some(address) = config_init_direct_address(config_init) {
+                    if direct_address_has_wildcard(&address) {
+                        self.diagnostics.error(
+                            DiagnosticCode::InvalidOperation,
+                            access_path.text_range(),
+                            "VAR_CONFIG must provide a fully specified direct address",
+                        );
+                    } else {
+                        for candidate in program_instance.candidates() {
+                            if let Some(target) = resolve_access_path_target_from_symbol(
+                                &self.table,
+                                *candidate,
+                                &parsed.segments,
+                            ) && wildcard_vars.contains(&target.symbol_id)
+                            {
+                                configured.insert(target.symbol_id);
                             }
                         }
-                        continue;
                     }
                 }
+                continue;
             }
             let Some(target) = self.resolve_access_path_target(&access_path) else {
                 continue;

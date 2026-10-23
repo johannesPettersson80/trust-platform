@@ -45,35 +45,35 @@ pub(super) fn check(
                 );
             }
         }
-        if let Some(value) = &object.role {
-            if role(value.get_ref()).is_none() {
-                report(
-                    value.span().start,
-                    format!(
-                        "role must be operator or engineer, not \"{}\"",
-                        value.get_ref()
-                    ),
-                );
-            }
+        if let Some(value) = &object.role
+            && role(value.get_ref()).is_none()
+        {
+            report(
+                value.span().start,
+                format!(
+                    "role must be operator or engineer, not \"{}\"",
+                    value.get_ref()
+                ),
+            );
         }
-        if let Some(value) = &object.action {
-            if action(value.get_ref()).is_none() {
-                report(
-                    value.span().start,
-                    format!(
-                        "action must be set, reset or toggle, not \"{}\"",
-                        value.get_ref()
-                    ),
-                );
-            }
+        if let Some(value) = &object.action
+            && action(value.get_ref()).is_none()
+        {
+            report(
+                value.span().start,
+                format!(
+                    "action must be set, reset or toggle, not \"{}\"",
+                    value.get_ref()
+                ),
+            );
         }
-        if let Some(value) = &object.confirm {
-            if value.get_ref().trim().is_empty() {
-                report(
-                    value.span().start,
-                    "confirm must ask a question".to_string(),
-                );
-            }
+        if let Some(value) = &object.confirm
+            && value.get_ref().trim().is_empty()
+        {
+            report(
+                value.span().start,
+                "confirm must ask a question".to_string(),
+            );
         }
         check_options(object, &mut report);
         for (key, value) in [("pulse", &object.pulse), ("timeout", &object.timeout)] {

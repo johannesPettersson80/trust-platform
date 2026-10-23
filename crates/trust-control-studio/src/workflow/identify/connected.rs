@@ -105,7 +105,7 @@ impl IdentifyRuntime for ConnectedRuntime<'_> {
     }
 
     /// The plant the loop is tuned against, as the runtime proves it runs it: the project's saved plant configuration (`plant.read`)
-    /// and the runtime's active status (`plant.status`; specification 34, §20.2 to §20.4). A runtime that cannot be read for either
+    /// and the runtime's active status (`plant.status`; specification 47, §20.2 to §20.4). A runtime that cannot be read for either
     /// states no plant, and the run goes on without one (B10.2).
     fn plant_context(&self, loop_definition: &LoopDefinition) -> Option<PlantContext> {
         loop_definition.plant_id.as_ref()?;

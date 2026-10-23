@@ -1,5 +1,4 @@
 impl<'a, 'b> StmtChecker<'a, 'b> {
-
     fn check_return_stmt(&mut self, node: &SyntaxNode) {
         let return_expr = node.children().find(|n| is_expression_kind(n.kind()));
         if return_expr.is_some() {
@@ -10,6 +9,7 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         match (self.checker.current_function_return, return_expr) {
             (Some(expected), Some(expr)) if expected != TypeId::VOID => {
                 let actual = self.check_expression(&expr);
+                let errors_before = self.checker.diagnostics.error_count();
                 if !self.checker.is_assignable(expected, actual)
                     && !self.checker.is_contextual_int_literal(expected, &expr)
                     && !self.checker.is_contextual_real_literal(expected, &expr)
@@ -24,10 +24,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
                         ),
                     );
                 }
+                if self.checker.diagnostics.error_count() == errors_before {
+                    self.checker
+                        .check_untyped_literal_range(expected, &expr, true);
+                }
             }
             (Some(expected), None)
-                if expected != TypeId::VOID
-                    && !self.checker.return_value_definitely_assigned =>
+                if expected != TypeId::VOID && !self.checker.return_value_definitely_assigned =>
             {
                 self.checker.diagnostics.error(
                     DiagnosticCode::MissingReturn,
@@ -46,20 +49,19 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
     /// Emits missing return diagnostics after statement checks.
     pub fn finish_return_checks(&mut self, node: &SyntaxNode) {
-        if let Some(expected) = self.checker.current_function_return {
-            if expected != TypeId::VOID && !self.checker.saw_return_value {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::MissingReturn,
-                    node.text_range(),
-                    "missing return value",
-                );
-            }
+        if let Some(expected) = self.checker.current_function_return
+            && expected != TypeId::VOID
+            && !self.checker.saw_return_value
+        {
+            self.checker.diagnostics.error(
+                DiagnosticCode::MissingReturn,
+                node.text_range(),
+                "missing return value",
+            );
         }
     }
-
 
     fn check_expr_stmt(&mut self, node: &SyntaxNode) {
         // Just type-check the expression to catch any errors
@@ -67,7 +69,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             self.check_expression(&expr);
         }
     }
-
 
     fn check_statement_children(&mut self, node: &SyntaxNode) {
         for child in node.children() {
@@ -77,8 +78,11 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
-    fn check_statement_children_with_state(&mut self, node: &SyntaxNode, initial_state: bool) -> bool {
+    fn check_statement_children_with_state(
+        &mut self,
+        node: &SyntaxNode,
+        initial_state: bool,
+    ) -> bool {
         let saved = self.checker.return_value_definitely_assigned;
         self.checker.return_value_definitely_assigned = initial_state;
         self.check_statement_children(node);
@@ -86,7 +90,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         self.checker.return_value_definitely_assigned = saved;
         exit_state
     }
-
 
     pub(super) fn check_loop_restriction(&mut self, symbol_id: SymbolId, range: TextRange) {
         for ctx in &self.checker.loop_stack {
@@ -100,7 +103,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             }
         }
     }
-
 
     fn record_case_label_value(
         &mut self,
@@ -124,7 +126,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
 
         tracker.ints.insert(value, range);
     }
-
 
     fn record_case_label_range(
         &mut self,
@@ -163,7 +164,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         tracker.ranges.push((lower, upper));
     }
 
-
     fn check_ref_assignment(&mut self, target: &SyntaxNode, value: &SyntaxNode) {
         let target_type = self.checker.expr().check_expression(target);
         let value_type = self.checker.expr().check_expression(value);
@@ -195,12 +195,13 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         };
 
         let compatible = match (target_ref, source_ref) {
-            (ReferenceAttemptOperand::Pointer(target), ReferenceAttemptOperand::Pointer(source)) => {
-                self.checker.resolve_alias_type(target)
-                    == self.checker.resolve_alias_type(source)
+            (
+                ReferenceAttemptOperand::Pointer(target),
+                ReferenceAttemptOperand::Pointer(source),
+            ) => self.checker.resolve_alias_type(target) == self.checker.resolve_alias_type(source),
+            (ReferenceAttemptOperand::Pointer(_), _) | (_, ReferenceAttemptOperand::Pointer(_)) => {
+                false
             }
-            (ReferenceAttemptOperand::Pointer(_), _)
-            | (_, ReferenceAttemptOperand::Pointer(_)) => false,
             (target, source) => {
                 let target = target.target();
                 let source = source.target();
@@ -235,7 +236,6 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
         }
     }
 
-
     fn check_subrange_assignment(
         &mut self,
         target_type: TypeId,
@@ -246,23 +246,30 @@ impl<'a, 'b> StmtChecker<'a, 'b> {
             return;
         };
 
-        if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type) {
-            if value_lower >= lower && value_upper <= upper {
-                return;
-            }
+        if let Some((_, value_lower, value_upper)) = self.checker.subrange_bounds(value_type)
+            && value_lower >= lower
+            && value_upper <= upper
+        {
+            return;
         }
 
-        if let Some(value_int) = self.checker.eval_const_int_expr_or_report(value) {
-            if value_int < lower || value_int > upper {
-                self.checker.diagnostics.error(
-                    DiagnosticCode::OutOfRange,
-                    value.text_range(),
-                    format!("value {} outside subrange {}..{}", value_int, lower, upper),
-                );
-            }
+        let value_int = match exact_int_literal_value(value) {
+            Some(value_int) => Some(value_int),
+            None => self
+                .checker
+                .eval_const_int_expr_or_report(value)
+                .map(i128::from),
+        };
+        if let Some(value_int) = value_int
+            && (value_int < i128::from(lower) || value_int > i128::from(upper))
+        {
+            self.checker.diagnostics.error(
+                DiagnosticCode::OutOfRange,
+                value.text_range(),
+                format!("value {} outside subrange {}..{}", value_int, lower, upper),
+            );
         }
     }
-
 }
 
 #[derive(Clone, Copy)]

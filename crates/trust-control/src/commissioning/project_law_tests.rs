@@ -22,14 +22,14 @@ fn seed(integral: Option<&str>, derivative: Option<&str>) -> ParallelPidSeed {
 /// The own-law PID loop, with its seed's integral and derivative variables kept or dropped as the flags say.
 fn pid_loop_with_terms(integral: bool, derivative: bool) -> LoopDefinition {
     let mut loop_definition = project_pid_loop();
-    if let Some(project) = loop_definition.controller.project.as_mut() {
-        if let Some(ProjectSeedBlock::ParallelPid(seed)) = project.seed.as_mut() {
-            if !integral {
-                seed.integral_symbol = None;
-            }
-            if !derivative {
-                seed.derivative_symbol = None;
-            }
+    if let Some(project) = loop_definition.controller.project.as_mut()
+        && let Some(ProjectSeedBlock::ParallelPid(seed)) = project.seed.as_mut()
+    {
+        if !integral {
+            seed.integral_symbol = None;
+        }
+        if !derivative {
+            seed.derivative_symbol = None;
         }
     }
     loop_definition

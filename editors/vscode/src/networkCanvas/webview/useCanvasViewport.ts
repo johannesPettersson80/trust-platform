@@ -207,7 +207,7 @@ export function useCanvasViewport(options: CanvasViewportOptions) {
   }, [applyResultSignature, browseLoading, browseOpen, browseTreeSize, builtNodeCount, fitView]);
 
   const onNodeDragStop = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
+    (_event: MouseEvent | TouchEvent, node: Node) => {
       if (node.parentId) return;
       positions.current = { ...positions.current, [node.id]: node.position };
       const state = (stateStore.getState() as Record<string, unknown>) ?? {};

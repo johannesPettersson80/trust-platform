@@ -13,12 +13,14 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 /// A transfer staged at the task boundary: the storage to commit, the values it applies, the values found before it (kept in
 /// the transfer record), the outputs held while it starts, and the reference and value each written member held before the
 /// commit.
+/// A transfer's planned writes (destination, value before, value to write, refusal text),
+/// applied values, initial values, held outputs and task-boundary output values.
 type StagedTransfer = (
-    VariableStorage,
+    Vec<(ValueRef, Value, Value, String)>,
     BTreeMap<String, f64>,
     JsonValue,
     BTreeMap<String, f64>,
-    Vec<(ValueRef, Value)>,
+    BTreeMap<String, f64>,
 );
 #[path = "transfer/restore.rs"]
 mod restore;
@@ -210,8 +212,8 @@ pub(super) fn check_physical_review(
 
 fn hash(value: impl std::fmt::Debug) -> String {
     format!(
-        "sha256:{:x}",
-        Sha256::digest(format!("{value:?}").as_bytes())
+        "sha256:{}",
+        hex::encode(Sha256::digest(format!("{value:?}").as_bytes()))
     )
 }
 
@@ -624,14 +626,11 @@ impl DebugControl {
         let (lock, _) = &*self.state;
         let mut state = lock.lock().map_err(|_| "debug state unavailable")?;
         let program_revision = state.parameters.program_revision(metadata);
-        if let Some(pending) = &state.transfers.pending {
-            if pending.request.binding.loop_id == request.binding.loop_id
-                && binding_revision != pending.request.expected_binding_revision
-            {
-                return Err(
-                    "cannot replace a reviewed binding while its transfer is pending".into(),
-                );
-            }
+        if let Some(pending) = &state.transfers.pending
+            && pending.request.binding.loop_id == request.binding.loop_id
+            && binding_revision != pending.request.expected_binding_revision
+        {
+            return Err("cannot replace a reviewed binding while its transfer is pending".into());
         }
         let snapshot = state
             .snapshot
@@ -869,7 +868,7 @@ impl DebugControl {
     pub(crate) fn commit_transfer(
         &self,
         task: &str,
-        storage: &mut VariableStorage,
+        writes: &mut dyn super::ScanWrites,
         metadata: &RuntimeMetadata,
         physical_target: bool,
         io_bindings: &[IoBinding],
@@ -883,6 +882,7 @@ impl DebugControl {
             return;
         }
         let request = &pending.request;
+        let storage = writes.storage();
         let result = (|| -> Result<StagedTransfer, String> {
             if request.expected_program_revision != state.parameters.program_revision(metadata) {
                 return Err("program changed before task boundary".into());
@@ -967,48 +967,67 @@ impl DebugControl {
             } else {
                 request.values.clone()
             };
-            let mut staged = storage.clone();
             // Each written member's value is taken before its write, so a rejected transfer can put it back.
-            let mut restore_points = Vec::new();
+            let mut planned = Vec::new();
             for mode in std::iter::once(&request.binding.mode)
                 .chain(request.binding.additional_modes.iter())
             {
-                let resolved = parameters::resolve_path(&staged, &mode.symbol)?;
-                restore_points.push((resolved.reference.clone(), resolved.value));
-                if !staged.write_by_ref(
+                let resolved = parameters::resolve_path(storage, &mode.symbol)?;
+                planned.push((
                     resolved.reference,
+                    resolved.value,
                     Value::Bool(if request.manual {
                         mode.manual_value
                     } else {
                         !mode.manual_value
                     }),
-                ) {
-                    return Err("transfer mode is not writable".into());
-                }
+                    "transfer mode is not writable".to_string(),
+                ));
             }
             for member in &request.binding.states {
-                let resolved = parameters::resolve_path(&staged, &member.symbol)?;
-                restore_points.push((resolved.reference.clone(), resolved.value));
-                if !staged.write_by_ref(
+                let resolved = parameters::resolve_path(storage, &member.symbol)?;
+                planned.push((
                     resolved.reference,
+                    resolved.value,
                     write_value(member, applied[&member.symbol])?,
-                ) {
-                    return Err(format!("transfer state {} is not writable", member.symbol));
-                }
+                    format!("transfer state {} is not writable", member.symbol),
+                ));
             }
-            Ok((staged, applied, current, held_outputs, restore_points))
+            let boundary_outputs = std::iter::once(&request.binding.output)
+                .chain(request.binding.additional_outputs.iter())
+                .filter_map(|member| {
+                    number(storage, member)
+                        .ok()
+                        .map(|value| (member.symbol.clone(), value))
+                })
+                .collect();
+            Ok((planned, applied, current, held_outputs, boundary_outputs))
         })();
+        // The members are written together: a member the runtime refuses puts back the members
+        // already written, so the task runs with the whole transfer or none of it.
+        let result = result.and_then(
+            |(planned, applied, initial, held_outputs, boundary_outputs)| {
+                let mut restore_points: Vec<(ValueRef, Value)> = Vec::with_capacity(planned.len());
+                for (reference, previous, value, refusal) in planned {
+                    if !writes.write(&reference, value) {
+                        for (reference, previous) in restore_points.iter().rev() {
+                            writes.write(reference, previous.clone());
+                        }
+                        return Err(refusal);
+                    }
+                    restore_points.push((reference, previous));
+                }
+                Ok((
+                    applied,
+                    initial,
+                    held_outputs,
+                    boundary_outputs,
+                    restore_points,
+                ))
+            },
+        );
         match result {
-            Ok((staged, applied, initial, held_outputs, restore_points)) => {
-                let boundary_outputs = std::iter::once(&request.binding.output)
-                    .chain(request.binding.additional_outputs.iter())
-                    .filter_map(|member| {
-                        number(storage, member)
-                            .ok()
-                            .map(|value| (member.symbol.clone(), value))
-                    })
-                    .collect();
-                *storage = staged;
+            Ok((applied, initial, held_outputs, boundary_outputs, restore_points)) => {
                 if let Some(record) = state.transfers.records.get_mut(&request.binding.loop_id) {
                     record.initial_values = Some(initial);
                     record.applied_values = Some(applied.clone());
@@ -1029,7 +1048,7 @@ impl DebugControl {
         }
     }
 
-    pub(crate) fn confirm_transfer_task(&self, task: &str, storage: &mut VariableStorage) {
+    pub(crate) fn confirm_transfer_task(&self, task: &str, writes: &mut dyn super::ScanWrites) {
         let mut state = self.state.0.lock().expect("debug state poisoned");
         let Some(mut pending) = state.transfers.pending.take() else {
             return;
@@ -1039,6 +1058,7 @@ impl DebugControl {
             return;
         }
         let request = &pending.request;
+        let storage = writes.storage();
         let verification = (|| -> Result<JsonValue, String> {
             for mode in std::iter::once(&request.binding.mode)
                 .chain(request.binding.additional_modes.iter())
@@ -1145,7 +1165,7 @@ impl DebugControl {
                 // The whole transaction is reverted before the output commit: the members the commit wrote return to
                 // the values they held before it, and the output members to their task-boundary values. The rejected
                 // output is never published, and the next scan starts from the state the transfer found.
-                let restored = restore::restore(&pending, storage);
+                let restored = restore::restore(&pending, writes);
                 if let Some(record) = state
                     .transfers
                     .records
@@ -1159,7 +1179,12 @@ impl DebugControl {
         }
     }
 
-    pub(crate) fn finish_transfer_cycle(&self, storage: &VariableStorage, now: Duration) {
+    pub(crate) fn finish_transfer_cycle(
+        &self,
+        storage: &VariableStorage,
+        now: Duration,
+        storage_abi: crate::value::StorageAbi,
+    ) {
         let mut state = self.state.0.lock().expect("debug state poisoned");
         // This scan refreshed the debug snapshot in the current epoch, so experiments may resolve variables against it.
         state.parameters.mark_snapshot_current();
@@ -1180,6 +1205,7 @@ impl DebugControl {
             record.confirmation = Some("output-image".into());
         }
         state.snapshot = Some(crate::debug::DebugSnapshot {
+            storage_abi,
             storage: storage.clone(),
             now,
         });
@@ -1187,12 +1213,12 @@ impl DebugControl {
 
     /// Fails the pending transfer when its owning task execution faults. A committed transfer wrote its members in this
     /// scan, so they are reverted in the same scan and `restored` reports whether every write-back succeeded (A6.3).
-    pub(crate) fn fail_transfer(&self, reason: &str, storage: &mut VariableStorage) {
+    pub(crate) fn fail_transfer(&self, reason: &str, writes: &mut dyn super::ScanWrites) {
         let mut state = self.state.0.lock().expect("debug state poisoned");
         let Some(pending) = state.transfers.pending.take() else {
             return;
         };
-        let restored = pending.committed && restore::restore(&pending, storage);
+        let restored = pending.committed && restore::restore(&pending, writes);
         if let Some(record) = state
             .transfers
             .records

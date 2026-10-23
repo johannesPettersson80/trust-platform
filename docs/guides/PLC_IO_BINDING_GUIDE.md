@@ -178,6 +178,23 @@ Without a point map, `topic_in` payload bytes are copied directly into `%I` and
 `%Q` bytes are published directly to `topic_out`. For typed point topics, add
 explicit MQTT point maps:
 
+MQTT can also resolve named program-instance variables into typed point maps at
+runtime startup. This avoids adding a `VAR_CONFIG` address solely for MQTT:
+
+```toml
+[[io.params.mappings]]
+tag = "MainInstance.Green"
+topic = "traffic/north/green"
+direction = "write"
+```
+
+Mapping direction is relative to the PLC. `write` means PLC to broker, while
+`read` means broker to PLC. Output-only mappings do not subscribe to the raw
+default `trust/io/in` topic. Tag mapping currently supports direct scalar
+variables on configured program instances; use explicit `input_points` or
+`output_points` for nested values, arrays, custom payload settings, or
+Sparkplug metric metadata.
+
 ```toml
 [[io.params.input_points]]
 topic = "line/in/ready"

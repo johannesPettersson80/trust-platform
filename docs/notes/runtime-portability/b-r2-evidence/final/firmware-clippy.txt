@@ -1,0 +1,47 @@
+[gate-progress state=started phase=B-R2-firmware-clippy target=scena-rust-builder pid=1584030 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u RUSTFLAGS bash -c '"'"'cd firmware/trust-nucleo-f401re && cargo clippy --locked --release -- -D warnings'"'"'']
+    Checking nb v1.1.0
+    Checking critical-section v1.2.0
+   Compiling cortex-m v0.7.7
+   Compiling cortex-m-rt v0.7.5
+    Checking vcell v0.1.3
+   Compiling bare-metal v0.2.5
+    Checking void v1.0.2
+   Compiling portable-atomic v1.15.0
+    Checking gcd v2.3.0
+    Checking volatile-register v0.2.2
+    Checking bitfield v0.13.2
+    Checking nb v0.1.3
+   Compiling stm32f4 v0.16.0
+    Checking embedded-hal v0.2.7
+    Checking deranged v0.5.8
+    Checking fugit v0.3.9
+    Checking powerfmt v0.2.1
+    Checking embedded-hal v1.0.0
+    Checking stable_deref_trait v1.2.1
+    Checking time-core v0.1.9
+    Checking num-conv v0.2.2
+    Checking embedded-hal-nb v1.0.0
+    Checking embedded-dma v0.2.0
+   Compiling libm v0.2.16
+    Checking fugit-timer v0.1.3
+   Compiling thiserror v2.0.21
+   Compiling stm32f4xx-hal v0.23.0
+    Checking enumflags2 v0.7.12
+    Checking bare-metal v1.0.0
+    Checking rand_core v0.9.5
+    Checking embedded-io v0.6.1
+    Checking equivalent v1.0.2
+    Checking embedded-storage v0.3.2
+    Checking hashbrown v0.17.1
+    Checking rand_core v0.6.4
+    Checking rustc-hash v2.1.3
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re)
+    Checking linked_list_allocator v0.10.6
+    Checking smol_str v0.2.2
+    Checking embedded-alloc v0.7.0
+    Checking time v0.3.55
+    Checking indexmap v2.14.2
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Checking trust-platform-stm32f4 v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-platform-stm32f4)
+    Finished `release` profile [optimized + debuginfo] target(s) in 5.16s
+[gate-progress state=finished phase=B-R2-firmware-clippy target=scena-rust-builder pid=1584030 elapsed=5.3s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u RUSTFLAGS bash -c '"'"'cd firmware/trust-nucleo-f401re && cargo clippy --locked --release -- -D warnings'"'"'' status=0]

@@ -91,7 +91,11 @@ impl Program {
     pub fn start(arguments: &[String], with_token: bool, folder: &Path, name: &str) -> Self {
         let out = folder.join(format!("{name}.out"));
         let err = folder.join(format!("{name}.err"));
-        let mut command = Command::new(env!("CARGO_BIN_EXE_trust-control-studio"));
+        let mut command = Command::new(
+            std::env::var_os("CARGO_BIN_EXE_trust-control-studio").expect(
+                "Cargo must provide trust-control-studio binary while executing integration tests",
+            ),
+        );
         command
             .args(arguments)
             .stdin(Stdio::null())
@@ -403,11 +407,11 @@ pub fn snapshot(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
             let path = entry.expect("an entry").path();
             if path.is_dir() {
                 collect(root, &path, files);
-            } else if path.file_name().is_some_and(|name| name != "runtime.log") {
-                if let Ok(bytes) = fs::read(&path) {
-                    let relative = path.strip_prefix(root).expect("inside the copy");
-                    files.insert(relative.to_path_buf(), bytes);
-                }
+            } else if path.file_name().is_some_and(|name| name != "runtime.log")
+                && let Ok(bytes) = fs::read(&path)
+            {
+                let relative = path.strip_prefix(root).expect("inside the copy");
+                files.insert(relative.to_path_buf(), bytes);
             }
         }
     }

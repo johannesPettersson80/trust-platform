@@ -15,6 +15,7 @@ serde.workspace = true
 # Stored studies keep exact numbers: a value read back must equal the value written (A8.3).
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 sha2.workspace = true
+hex.workspace = true
 thiserror.workspace = true
 trust-control-math.workspace = true
 

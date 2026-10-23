@@ -114,6 +114,28 @@ fn config_validation_contract_positive_integer_rejects_non_numbers() {
 }
 
 #[test]
+fn config_validation_contract_duration_millis_accepts_the_signed_nanosecond_bound() {
+    assert_eq!(
+        expect_duration_millis("key", &json!(9_223_372_036_854_i64)),
+        Ok(crate::value::Duration::from_nanos(
+            9_223_372_036_854_000_000
+        ))
+    );
+}
+
+#[test]
+fn config_validation_contract_duration_millis_refuses_values_beyond_the_nanosecond_range() {
+    assert_eq!(
+        error(expect_duration_millis("key", &json!(i64::MAX))),
+        "invalid config value for 'key': must be <= 9223372036854"
+    );
+    assert_eq!(
+        error(expect_duration_millis("key", &json!(u64::MAX))),
+        "invalid config value for 'key': expected integer >= 1"
+    );
+}
+
+#[test]
 fn config_validation_contract_string_array_accepts_empty_array() {
     assert_eq!(
         expect_string_array("mesh.connect", &json!([])),

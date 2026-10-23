@@ -1,8 +1,7 @@
-//! Memory command sources (Specification 33 §13.1): a plant may take a program variable as its input.
+//! Memory command sources (Specification 46 §13.1): a plant may take a program variable as its input.
 use super::*;
 use crate::simulation::SimulationConfig;
 use crate::value::Value;
-use trust_hir::TypeId;
 
 const MEMORY_COMMANDED: &str = r#"
 [simulation]
@@ -36,19 +35,10 @@ fn load(config: &str) -> Result<SimulationConfig, RuntimeError> {
 #[test]
 fn a_memory_command_source_feeds_the_plant_from_the_program_variable() {
     let config = load(MEMORY_COMMANDED).expect("a %M command source is a valid plant input");
-    let mut runtime = Runtime::new();
+    let mut runtime = super::lreal_bound_runtime(&[("setpoint", "%ML8"), ("measurement", "%IL8")]);
     let command = IoAddress::parse("%ML8").unwrap();
     runtime
-        .io_mut()
-        .bind_typed("setpoint", command.clone(), TypeId::LREAL);
-    runtime.io_mut().bind_typed(
-        "measurement",
-        IoAddress::parse("%IL8").unwrap(),
-        TypeId::LREAL,
-    );
-    runtime
-        .io_mut()
-        .write(&command, Value::LWord(38.0f64.to_bits()))
+        .write_io(&command, Value::LWord(38.0f64.to_bits()))
         .unwrap();
     let mut system = PlantSystem::new(&config.plant_system);
 

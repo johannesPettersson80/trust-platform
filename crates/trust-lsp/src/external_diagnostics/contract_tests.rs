@@ -61,13 +61,14 @@ impl Drop for DiagnosticProject {
 fn base_entry(target: &str) -> String {
     format!(
         r#"{{
-  "path": "{target}",
+  "path": {},
   "range": {{
     "start": {{ "line": 1, "character": 2 }},
     "end": {{ "line": 3, "character": 4 }}
   }},
   "message": "external finding"
-}}"#
+}}"#,
+        serde_json::to_string(target).expect("serialize diagnostic path"),
     )
 }
 

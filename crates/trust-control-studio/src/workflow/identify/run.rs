@@ -234,10 +234,10 @@ where
     /// never refuses the run.
     fn note_run_plant(&mut self, sample: Option<&ExperimentSample>) {
         let loop_definition = self.request.loop_definition;
-        if sample.is_some_and(|sample| sample.source == EvidenceSource::SimulatedPlant) {
-            if let Some(plant) = self.ports.runtime.plant_context(loop_definition) {
-                self.ports.retention.note_plant(plant);
-            }
+        if sample.is_some_and(|sample| sample.source == EvidenceSource::SimulatedPlant)
+            && let Some(plant) = self.ports.runtime.plant_context(loop_definition)
+        {
+            self.ports.retention.note_plant(plant);
         }
     }
 

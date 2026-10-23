@@ -276,12 +276,12 @@ impl LoopMonitor {
     /// Records a new scan, or refuses a scan that went backwards or has not advanced for too long (A3.4). Returns the reason
     /// the scan is refused.
     fn freshness(&mut self, scan: u64, observed_at_ms: u64, stale_after_ms: u64) -> Option<String> {
-        if let Some(last) = self.last_scan {
-            if scan < last {
-                return Some(format!(
-                    "Runtime scan moved backwards from {last} to {scan}"
-                ));
-            }
+        if let Some(last) = self.last_scan
+            && scan < last
+        {
+            return Some(format!(
+                "Runtime scan moved backwards from {last} to {scan}"
+            ));
         }
         if self.last_scan != Some(scan) {
             self.last_scan = Some(scan);

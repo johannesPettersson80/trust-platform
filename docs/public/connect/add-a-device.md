@@ -21,6 +21,10 @@ The top-level choices are:
 - **Send and receive messages**
 - **Advanced integrations**
 
+Each entry explains its purpose before exposing wire details. Across those groups you can choose
+EtherCAT, GPIO, Simulated I/O, Loopback I/O, Modbus TCP, MQTT, OPC UA client/server, Beckhoff ADS
+client/server, OpenOT, Discovery, Mesh / Zenoh, Realtime T0, and Runtime cloud / federation.
+
 ## 3. Fill the typed form
 
 Pick a protocol and truST renders its form from the runtime's own schema â€” every field has a label,
@@ -52,3 +56,4 @@ Each protocol's own guide walks through its specific discover/browse/test flow â
 - [Modbus TCP](external-systems/modbus-tcp.md)
 - [MQTT](external-systems/mqtt.md)
 - [OPC UA](external-systems/opc-ua.md)
+- [Beckhoff ADS](external-systems/ads.md)

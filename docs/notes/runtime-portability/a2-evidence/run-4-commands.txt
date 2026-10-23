@@ -1,0 +1,23 @@
+cargo fmt --all 
+cargo fmt --all -- --check 
+python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-evidence-4.py 
+cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf 
+cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf 
+cargo tree --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf -e features\,no-dev 
+cargo tree --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf -e features\,no-dev 
+cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load --test bytecode_validation_budget -- --nocapture --test-threads=1 
+rustup target add --toolchain 1.95.0 i686-unknown-linux-musl 
+env RUSTFLAGS=-Dwarnings\ -C\ linker=/home/johannes/.rustup/toolchains/1.95.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld\ -C\ link-self-contained=yes cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --target i686-unknown-linux-musl --lib --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load --test bytecode_validation_budget -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_container --test bytecode_metadata --test bytecode_decode_resource_bounds --test bytecode_sections --test process_image --test bytecode_validation --test bytecode_optional_sections --test bytecode_encoder --test bytecode_roundtrip --test bytecode_verification_cases --test bytecode_vm_core --test bytecode_vm_differential --test runtime_core_behavior_lock --test api_smoke --test debug_control --test complete_program --test runtime_reliability --test vars_access --test vm_resource_limit_cases --test phase11_seam_contract -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime --lib -- --nocapture --test-threads=1 
+python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-metadata-index-4.py 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-4/review-index python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.mutation_program_contract_tests scripts.verification.mutation_program_report_tests scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests scripts.verification.fuzz_program_source_contract_tests 
+cargo clippy --locked --all-targets --all-features -- -D warnings 
+bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+bash scripts/supply_chain_gate.sh 
+cargo run --locked -p xtask -- architecture-doctor --full-map 
+cargo fmt --all -- --check 
+python3 /home/johannes/.cache/trust-portability-a2-setup/check-retained-evidence-4.py 
+git diff --check 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-4/review-index python3 scripts/validate_verification_metadata.py 

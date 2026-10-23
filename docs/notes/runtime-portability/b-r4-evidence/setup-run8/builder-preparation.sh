@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -uo pipefail
+source /home/johannes/.cache/trust-portability-br4-setup-run8/environment.sh
+if [[ -e "$B_EVIDENCE/preparation-started.txt" || -e "$B_EVIDENCE/validation-started.txt" ]]; then
+ echo 'Refusing automatic B-R4 preparation rerun'; exit 91
+fi
+date -u +%FT%TZ > "$B_EVIDENCE/preparation-started.txt"
+printf 'step\tclass\tstatus\texit\tstart\tend\n' > "$B_EVIDENCE/ledger.tsv"
+run_step environment required bash -c 'hostname; pwd; date -u +%FT%TZ; git rev-parse HEAD; rustc -Vv; cargo -V; rustup target list --installed; nproc; free -h; df -h "$CARGO_TARGET_DIR" "$TMPDIR" .; ps -eo pid,etimes,args | grep -E "[c]argo|[r]ustc|[c]lippy|[n]pm"; printf "RUSTUP_TOOLCHAIN=%s\nRUSTFLAGS=%s\nCARGO_TARGET_DIR=%s\nCARGO_BUILD_JOBS=%s\nTMPDIR=%s\n" "$RUSTUP_TOOLCHAIN" "$RUSTFLAGS" "$CARGO_TARGET_DIR" "$CARGO_BUILD_JOBS" "$TMPDIR"'
+free_kib=$(df -Pk "$CARGO_TARGET_DIR" | awk 'NR==2 {print $4}')
+if [[ -z "$free_kib" ]] || (( free_kib < 80 * 1024 * 1024 )); then
+ printf 'preflight\trequired\tFAIL\t92\t-\t-\n' >> "$B_EVIDENCE/ledger.tsv"
+ echo 'Target filesystem below 80 GiB; no builds launched' > "$B_EVIDENCE/result.txt"
+ exit 92
+fi
+printf 'preflight\trequired\tPASS\t0\t-\t-\n' >> "$B_EVIDENCE/ledger.tsv"
+run_step canonical-parity required sha256sum -c "$B_SETUP/canonical.sha256" || exit 93
+run_step staged-index required git diff --cached --quiet || exit 93
+cp Cargo.lock "$B_EVIDENCE/root-before.lock"
+cp firmware/trust-nucleo-f401re/Cargo.lock "$B_EVIDENCE/firmware-before.lock"
+# Both locks already resolved during implementation; never update them here.
+cargo_step format-prepare bash "$B_SETUP/format-once.sh" || exit 95
+run_step unsafe-location-refresh required python3 "$B_SETUP/refresh-unsafe-location.py" || exit 95
+# The existing provenance refresher changes only current selectors/digests, never
+# case assertions or historical measured mutation evidence. It is advisory.
+run_step provenance-refresh advisory bash scripts/with_cargo_target_lease.sh "$CARGO_TARGET_DIR" bash scripts/refresh_a4_provenance.sh "$B_EVIDENCE/provenance"
+# All three saved artifacts are unchanged; no producer/fixture regeneration.
+run_step fixture-inputs required sha256sum --check "$B_SETUP/fixture-sha256.txt" || exit 96
+run_step lock-parity required bash -c 'cmp Cargo.lock "$B_EVIDENCE/root-before.lock" && cmp firmware/trust-nucleo-f401re/Cargo.lock "$B_EVIDENCE/firmware-before.lock"' || exit 96
+run_step freeze-source required python3 "$B_SETUP/freeze-source.py" || exit 96
+run_step freeze-context required bash -c 'git status --short > "$B_EVIDENCE/git-status.txt"; git diff --binary > "$B_EVIDENCE/source.patch"; sha256sum Cargo.lock firmware/trust-nucleo-f401re/Cargo.lock > "$B_EVIDENCE/locks-sha256.txt"; sha256sum "$B_EVIDENCE/formatted-source-manifest.json"; find .codex/skills -type f -print0 | sort -z | xargs -0 sha256sum > "$B_EVIDENCE/skills-sha256.txt"; sha256sum AGENTS.md CLAUDE.md > "$B_EVIDENCE/rules-sha256.txt"' || exit 96
+date -u +%FT%TZ > "$B_EVIDENCE/preparation-finished.txt"

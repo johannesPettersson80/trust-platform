@@ -235,7 +235,7 @@ pub(super) fn handle_ops_route(
                 let hmi = hmi.map(|bundle| match ctx.hmi_store.activate(&bundle) {
                     Ok(versions) => {
                         ctx.hmi_generation.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-                        super::hmi_display::trends::share_trended_paths(ctx.hmi_store, &ctx.control_state.resource.hmi_exchange());
+                        super::hmi_display::trends::share_trended_paths(ctx.hmi_store, &crate::control::hmi_ports::hmi_exchange(ctx.control_state));
                         let short = |version: Option<String>| version.map(|version| version[..16].to_string());
                         json!({ "active": short(versions.active), "previous": short(versions.previous) })
                     }

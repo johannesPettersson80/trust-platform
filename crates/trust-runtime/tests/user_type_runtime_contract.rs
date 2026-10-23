@@ -1,3 +1,8 @@
+use trust_runtime::bytecode::{
+    opcodes, BytecodeModule, InitializationStage, InitializerIndex, PouIndex, RefLocation,
+    RefSegment, RefTable, SectionData, SectionId, StorageLayout, StorageOwner, StorageRole,
+    StringTable,
+};
 use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
 
@@ -14,6 +19,176 @@ fn array_elements(harness: &TestHarness, name: &str) -> Vec<Value> {
         panic!("{name} must be an array");
     };
     values.elements().to_vec()
+}
+
+fn string_index(strings: &StringTable, name: &str) -> u32 {
+    strings
+        .entries
+        .iter()
+        .position(|candidate| candidate.eq_ignore_ascii_case(name))
+        .and_then(|index| u32::try_from(index).ok())
+        .unwrap_or_else(|| panic!("missing bytecode string {name}"))
+}
+
+fn rewrite_initializer_to_load_global_member(
+    module: &mut BytecodeModule,
+    global_name: &str,
+    global_member: &str,
+    owner_pou_name: &str,
+    local_name: &str,
+    conversion_opcode: u8,
+) {
+    let strings = match module.section(SectionId::StringTable) {
+        Some(SectionData::StringTable(strings)) => strings,
+        _ => panic!("source-free module string table"),
+    };
+    let global_name_idx = string_index(strings, global_name);
+    let member_name_idx = string_index(strings, global_member);
+    let owner_pou_name_idx = string_index(strings, owner_pou_name);
+    let local_name_idx = string_index(strings, local_name);
+
+    let pou_id = match module.section(SectionId::PouIndex) {
+        Some(SectionData::PouIndex(PouIndex { entries })) => entries
+            .iter()
+            .find(|pou| pou.name_idx == owner_pou_name_idx)
+            .map(|pou| pou.id)
+            .unwrap_or_else(|| panic!("missing POU {owner_pou_name}")),
+        _ => panic!("source-free module POU index"),
+    };
+    let (global_ref_idx, type_id, declaration_idx) = match module.section(SectionId::StorageLayout)
+    {
+        Some(SectionData::StorageLayout(StorageLayout { entries })) => {
+            let global = entries
+                .iter()
+                .find(|declaration| {
+                    declaration.owner == StorageOwner::Global
+                        && declaration.owner_pou_id.is_none()
+                        && declaration.role == StorageRole::Variable
+                        && declaration.name_idx == global_name_idx
+                })
+                .unwrap_or_else(|| panic!("missing global declaration {global_name}"));
+            let global_ref_idx = global
+                .ref_idx
+                .unwrap_or_else(|| panic!("global {global_name} has no base reference"));
+            let local = entries
+                .iter()
+                .enumerate()
+                .find(|(_, declaration)| {
+                    declaration.owner == StorageOwner::Frame
+                        && declaration.owner_pou_id == Some(pou_id)
+                        && declaration.role == StorageRole::Variable
+                        && declaration.name_idx == local_name_idx
+                })
+                .unwrap_or_else(|| panic!("missing local declaration {local_name}"));
+            (
+                global_ref_idx,
+                local
+                    .1
+                    .type_id
+                    .unwrap_or_else(|| panic!("local {local_name} has no type")),
+                u32::try_from(local.0).expect("declaration index fits u32"),
+            )
+        }
+        _ => panic!("source-free module storage layout"),
+    };
+
+    let reference_idx = match module.section_mut(SectionId::RefTable) {
+        Some(SectionData::RefTable(RefTable { entries })) => {
+            let mut reference = entries
+                .get(global_ref_idx as usize)
+                .cloned()
+                .unwrap_or_else(|| panic!("global {global_name} base reference is missing"));
+            assert_eq!(reference.location, RefLocation::Global);
+            assert!(
+                reference.segments.is_empty(),
+                "global base reference has a path"
+            );
+            reference.segments.push(RefSegment::Field {
+                name_idx: member_name_idx,
+            });
+            let reference_idx =
+                u32::try_from(entries.len()).expect("reference table index fits u32");
+            entries.push(reference);
+            reference_idx
+        }
+        _ => panic!("source-free module reference table"),
+    };
+
+    let (initializer_idx, result_ref_idx, code_offset, old_code_length) =
+        match module.section(SectionId::Initializers) {
+            Some(SectionData::Initializers(InitializerIndex { entries })) => entries
+                .iter()
+                .enumerate()
+                .find(|(_, initializer)| {
+                    initializer.declaration_idx == Some(declaration_idx)
+                        && initializer.stage == InitializationStage::Explicit
+                })
+                .map(|(index, initializer)| {
+                    (
+                        index,
+                        initializer.result_ref_idx,
+                        initializer.code_offset,
+                        initializer.code_length,
+                    )
+                })
+                .unwrap_or_else(|| panic!("missing explicit initializer for {local_name}")),
+            _ => panic!("source-free module initializer index"),
+        };
+    let mut replacement = Vec::with_capacity(15);
+    replacement.push(0x20); // LOAD_REF global_name.global_member
+    replacement.extend_from_slice(&reference_idx.to_le_bytes());
+    replacement.push(conversion_opcode);
+    replacement.extend_from_slice(&type_id.to_le_bytes());
+    replacement.push(0x21); // STORE_REF initializer result
+    replacement.extend_from_slice(&result_ref_idx.to_le_bytes());
+    let replacement_len = u32::try_from(replacement.len()).expect("initializer body fits u32");
+
+    let start = code_offset as usize;
+    let old_end = start
+        .checked_add(old_code_length as usize)
+        .expect("initializer code range fits usize");
+    assert!(old_code_length != 0, "initializer body is not present");
+    let length_delta = replacement.len() as i64 - i64::from(old_code_length);
+    let shift_offset = |offset: u32| {
+        u32::try_from(i64::from(offset) + length_delta).expect("shifted bytecode offset fits u32")
+    };
+
+    match module.section_mut(SectionId::PouBodies) {
+        Some(SectionData::PouBodies(bodies)) => {
+            assert!(
+                old_end <= bodies.len(),
+                "initializer body range is in bounds"
+            );
+            bodies.splice(start..old_end, replacement);
+        }
+        _ => panic!("source-free module POU bodies"),
+    }
+    if length_delta != 0 {
+        if let Some(SectionData::Initializers(InitializerIndex { entries })) =
+            module.section_mut(SectionId::Initializers)
+        {
+            for (index, initializer) in entries.iter_mut().enumerate() {
+                if index == initializer_idx {
+                    initializer.code_length = replacement_len;
+                } else if initializer.code_offset as usize >= old_end {
+                    initializer.code_offset = shift_offset(initializer.code_offset);
+                }
+            }
+        }
+        if let Some(SectionData::PouIndex(PouIndex { entries })) =
+            module.section_mut(SectionId::PouIndex)
+        {
+            for pou in entries {
+                if pou.code_offset as usize >= old_end {
+                    pou.code_offset = shift_offset(pou.code_offset);
+                }
+            }
+        }
+    } else if let Some(SectionData::Initializers(InitializerIndex { entries })) =
+        module.section_mut(SectionId::Initializers)
+    {
+        entries[initializer_idx].code_length = replacement_len;
+    }
 }
 
 #[test]
@@ -415,6 +590,71 @@ END_PROGRAM
         harness.get_output("observedWide"),
         Some(Value::DWord(0x1234))
     );
+}
+
+#[test]
+fn local_initializers_preserve_unnamed_physical_bytes_through_coercion_and_recipes() {
+    for type_default in ["", " := (low := BYTE#0, high := BYTE#0)"] {
+        let source = format!(
+            r#"
+TYPE
+    Inner : STRUCT
+        low AT %B0 : BYTE;
+        high AT %B2 : BYTE;
+    END_STRUCT{type_default};
+    Outer : STRUCT OVERLAP
+        raw AT %B0 : DWORD;
+        inner AT %B0 : Inner;
+    END_STRUCT;
+END_TYPE
+VAR_GLOBAL source : Outer; observed : DWORD; END_VAR
+FUNCTION CopyGap : DWORD
+VAR
+    current : Inner := (low := BYTE#0, high := BYTE#0);
+    roundTrip : Outer;
+END_VAR
+roundTrip.inner := current;
+CopyGap := roundTrip.raw;
+END_FUNCTION
+PROGRAM Main
+source.raw := DWORD#16#00CCBBAA;
+observed := CopyGap();
+END_PROGRAM
+"#
+        );
+        let session = CompileSession::from_source(&source);
+        let mut module = session
+            .build_bytecode_module()
+            .expect("valid initializer source builds STBC");
+        rewrite_initializer_to_load_global_member(
+            &mut module,
+            "source",
+            "inner",
+            "CopyGap",
+            "current",
+            if type_default.is_empty() {
+                opcodes::COERCE_INIT_VALUE
+            } else {
+                opcodes::APPLY_INIT_VALUE
+            },
+        );
+        module
+            .validate()
+            .expect("runtime-dependent staged initializer is admitted STBC");
+        let bytes = module.encode().expect("encode patched initializer STBC");
+        let mut harness =
+            TestHarness::from_source(&source).expect("valid initializer source builds a runtime");
+        harness
+            .runtime_mut()
+            .apply_bytecode_bytes(&bytes, None)
+            .expect("admit encoded patched STBC initializer");
+        let cycle = harness.cycle();
+        assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+        assert_eq!(
+            harness.runtime().storage().get_global("observed"),
+            Some(&Value::DWord(0x00ccbbaa))
+        );
+    }
 }
 
 #[test]

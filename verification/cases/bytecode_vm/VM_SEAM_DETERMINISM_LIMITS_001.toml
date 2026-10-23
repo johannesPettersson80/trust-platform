@@ -7,7 +7,7 @@ status = "mapped"
 invariant = "VM_SEAM_DETERMINISM_LIMITS_001"
 case_provenance_kind = "hand_authored_state_machine_v1"
 trace_definition_digest = "sha256:fbd7bc8a1734556e25144baac68dbf03e1022231c7b358fb61b49ecbc46ffaae"
-source_digest = "sha256:56d8fc2711b017f2de5cd2b6bfd55cf7941bfff2239d2b4d0a3a7627419ca40e"
+source_digest = "sha256:a561b5dae588b8c3afdd77fc3311bb0eb1330d57c9dad1a464cf9ff08f7ac65a"
 last_reviewed = "2026-07-15"
 
 [[case]]

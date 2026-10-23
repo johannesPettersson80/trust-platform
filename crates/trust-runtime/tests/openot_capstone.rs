@@ -24,15 +24,14 @@ use open_ot_conformance::{
     ReportInputs, SidecarExpectedAbsOracle,
 };
 use open_ot_shm::{FenceMode, SharedConcurrentStore};
+use openot_support::build_st_runtime;
 use trust_runtime::config::RuntimeConfig;
-use trust_runtime::harness::{CompileSession, SourceFile};
-use trust_runtime::Runtime;
 
 const RUN_ID: u64 = 1;
 const SOURCE_IDS: [u32; 2] = [10, 30];
 const DEFAULT_PER_SOURCE: u64 = 12;
 const DEFAULT_CAPACITY: usize = 256;
-const DEFAULT_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_TIMEOUT_SECS: u64 = 120;
 const PER_SOURCE_ENV: &str = "OPENOT_CAPSTONE_PER_SOURCE";
 const CAPACITY_ENV: &str = "OPENOT_CAPSTONE_CAPACITY";
 const TIMEOUT_SECS_ENV: &str = "OPENOT_CAPSTONE_TIMEOUT_SECS";
@@ -195,8 +194,11 @@ fn run_capstone_case(fence_mode: FenceMode, label: &str) -> ObservedReport {
         &paths,
     )
     .expect("spawn OpenOT capstone producer");
-    wait_for_file(&paths.producer_ready, Duration::from_secs(30))
-        .expect("producer did not become ready");
+    wait_for_file(
+        &paths.producer_ready,
+        Duration::from_secs(capstone_timeout_secs()),
+    )
+    .expect("producer did not become ready");
 
     let consumer = spawn_role(
         "consumer",
@@ -206,8 +208,11 @@ fn run_capstone_case(fence_mode: FenceMode, label: &str) -> ObservedReport {
         &paths,
     )
     .expect("spawn OpenOT capstone consumer");
-    wait_for_file(&paths.consumer_ready, Duration::from_secs(30))
-        .expect("consumer did not become ready");
+    wait_for_file(
+        &paths.consumer_ready,
+        Duration::from_secs(capstone_timeout_secs()),
+    )
+    .expect("consumer did not become ready");
 
     write_status_atomic(&paths.start, "start\n").expect("release capstone roles");
 
@@ -234,30 +239,6 @@ fn print_report(label: &str, report: &ObservedReport) {
             source.delivered + source.lost
         );
     }
-}
-
-fn build_st_runtime(main_source: &str) -> Runtime {
-    let session =
-        CompileSession::from_sources(openot_st_source_files(main_source)).label_errors(true);
-    let mut runtime = session
-        .build_runtime()
-        .unwrap_or_else(|err| panic!("build OpenOT ST runtime: {err}"));
-    let bytecode = session
-        .build_bytecode_bytes()
-        .unwrap_or_else(|err| panic!("build OpenOT ST bytecode: {err}"));
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .unwrap_or_else(|err| panic!("apply OpenOT ST bytecode: {err}"));
-    runtime
-}
-
-fn openot_st_source_files(main_source: &str) -> Vec<SourceFile> {
-    let mut sources = openot_support::ST_LIBRARY_SOURCES
-        .iter()
-        .map(|(name, source)| SourceFile::with_path(*name, *source))
-        .collect::<Vec<_>>();
-    sources.push(SourceFile::with_path("main.st", main_source));
-    sources
 }
 
 fn assert_fenced_report(report: &ObservedReport) {

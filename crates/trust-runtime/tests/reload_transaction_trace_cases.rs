@@ -10,8 +10,8 @@ use trust_runtime::retain::RetainStore;
 use trust_runtime::value::Value;
 use trust_runtime::{RestartMode, RetainSnapshot};
 use verification_cases::{
-    run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
-    TraceStep,
+    check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
+    CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
 };
 
 const TEST_ID: &str = "TEST_RUNTIME_RELOAD_TRANSACTION_001";
@@ -19,6 +19,9 @@ const CASE_FILE: &str = "verification/cases/runtime_safety/RT_RELOAD_001.toml";
 const CASE_FILE_DIGEST: &str =
     "sha256:b09bbf3b482c1ca78865496ac9683c914caaf7550e8fead1f26223f218c3b79c";
 const CASE_ID: &str = "RT_RELOAD_001_RETAIN_LOAD_FAILURE_PRESERVES_LIVE_RUNTIME";
+/// Trace `expected` fields this runner compares. Any other field fails the case.
+const RELOAD_EXPECTED_FIELDS: &[&str] =
+    &["count", "cycle_counter", "reload_result", "error_contains"];
 
 const SOURCE_V1: &str = r#"
 PROGRAM Main
@@ -112,9 +115,45 @@ fn run_reload_case(
     let mut mismatches = Vec::new();
     let mut observations = Vec::new();
     for step in trace {
+        check_trace_fields(&step.expected, RELOAD_EXPECTED_FIELDS)?;
         let observation = execute_step(&mut harness, &updated_bytes, step)?;
         compare_step(step, &observation, &mut mismatches)?;
         observations.push(observation.clone());
+    }
+
+    // The operation under test is the reload. Its before state is the state the
+    // previous step left, and its after state is the state the reload left.
+    let operation = trace
+        .iter()
+        .position(|step| {
+            step.stimulus.get("action").and_then(toml::Value::as_str)
+                == Some("attempt_reload_with_retain_load_failure")
+        })
+        .ok_or_else(|| format!("{} has no reload step", case.id))?;
+    if operation == 0 {
+        return Err(format!("{} reload step has no preceding state", case.id));
+    }
+    let before = reload_snapshot(&observations[operation - 1]);
+    let after = reload_snapshot(&observations[operation]);
+    let outcome = match observations[operation]
+        .get("reload_result")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("rejected") => "reject",
+        Some("accepted") => "accept_value",
+        other => return Err(format!("{} unexpected reload result {other:?}", case.id)),
+    };
+    let observed = ObservedOperation {
+        outcome,
+        fault_surface: None,
+        status_before: None,
+        status_after: None,
+        before: &before,
+        after: &after,
+    };
+    match check_case_expectation(case, &observed) {
+        Ok(found) => mismatches.extend(found),
+        Err(error) => mismatches.push(error),
     }
     probe.observed = Some(json!({ "trace": observations }));
 
@@ -130,6 +169,30 @@ fn run_reload_case(
             observed_error: Some(mismatches.join("; ")),
             observed_status: Some("reload_failure_partially_applied".to_string()),
         })
+    }
+}
+
+/// The state one reload step observed. `count` is the target. The cycle counter
+/// is a sibling, so a refused reload must leave it unchanged. This runner does
+/// not observe retained values or outputs, so those components stay unset.
+fn reload_snapshot(observation: &BTreeMap<String, serde_json::Value>) -> StateSnapshot {
+    StateSnapshot {
+        process_image_hash: None,
+        retain_hash: None,
+        target: observation.get("count").cloned(),
+        siblings: BTreeMap::from([(
+            "cycle_counter".to_string(),
+            observation
+                .get("cycle_counter")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null),
+        )]),
+        diagnostics: observation
+            .get("error")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+            .into_iter()
+            .collect(),
     }
 }
 

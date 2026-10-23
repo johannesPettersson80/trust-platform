@@ -15,9 +15,60 @@ this log. IEC-permitted interpretation choices belong in
 `docs/IEC_DECISIONS.md`. Existing entries are not classification precedent;
 re-check them against this rule when touched.
 
-## 2026-10-07 - CODESYS conversion profile: rounding of ties
+## 2026-10-23 - Warm restart of a RETAIN global's instances: instance initializers of reset variables
+
+- ID: DEV-027
+- Area: Warm restart of the running runtime (`RETAIN` globals that hold
+  function-block or class instances)
+- Normative IEC requirement: IEC 61131-3 Ed.3 §6.5.6.1 requires a variable in a
+  `NON_RETAIN` section to be initialized on a warm restart, and §6.5.6.2
+  initializes a variable with its variable-specific user-defined value first
+  (for an instance member, the value an instance initializer gives it), then the
+  type-specific value, then the type's default.
+- truST behavior and conflict:
+  - A warm restart of the running runtime carries the instances of a `RETAIN`
+    global over whole, so references and aliases to them stay valid
+    (specification 10 §4.8).
+  - Each variable in them that is not kept (its type declares it
+    `NON_RETAIN`, or it belongs to a nested instance declared `NON_RETAIN`) runs
+    its declaration's initializer in its type again. An instance initializer
+    that set such a variable (`G : FB := (Speed := 50.0)`) is not applied
+    again, so the variable takes its type's initial value.
+  - A restart from the retain store (power loss, reload) constructs every
+    instance anew and applies all initializers, so it follows §6.5.6.2 exactly.
+- Impact:
+  - Only a variable that is not kept and that an instance initializer sets
+    differs, and only on a warm restart of the running runtime.
+- Mitigation:
+  - Give such a setting its value in the function block type, or declare it
+    `RETAIN` so it keeps its value.
+
+## 2026-10-15 - MOD by zero faults
 
 - ID: DEV-023
+- Area: Integer arithmetic (`MOD` function and operator)
+- Normative IEC requirement: IEC 61131-3 Ed.3 Table 29 defines `MOD` as the
+  result of the ST statements `IF (IN2 = 0) THEN OUT := 0; ELSE OUT := IN1 -
+  (IN1/IN2)*IN2; END_IF`, so `MOD` by zero yields `0`.
+- truST behavior and conflict:
+  - `MOD` by zero raises `RuntimeError::ModuloByZero` (stable code
+    `runtime_modulo_by_zero`) and aborts the containing assignment before
+    storage, as integer division by zero raises `DivisionByZero`
+    (specification 10 §6.4, specification 07 §3.1).
+  - For a nonzero divisor truST computes exactly the Table 29 formula.
+  - Faulting replaces the normative zero result for a zero divisor.
+- Impact:
+  - A program that relies on `MOD(x, 0) = 0` faults on truST instead of
+    continuing with `0`.
+- Mitigation:
+  - A silent `0` hides a logic error in a control program, so truST reports it
+    as it reports integer division by zero. Portable source that needs the
+    Table 29 result guards the divisor: `IF d = 0 THEN r := 0; ELSE r := x MOD
+    d; END_IF`.
+
+## 2026-10-07 - CODESYS conversion profile: rounding of ties
+
+- ID: DEV-024
 - Area: Type conversion functions under the CODESYS conversion profile
   (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
 - Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.2, Table 22
@@ -51,7 +102,7 @@ re-check them against this rule when touched.
 
 ## 2026-10-07 - CODESYS conversion profile: numeric REAL and DWORD/LWORD conversions
 
-- ID: DEV-024
+- ID: DEV-025
 - Area: Type conversion functions under the CODESYS conversion profile
   (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
 - Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.5, rule 1 ("Data
@@ -78,7 +129,7 @@ re-check them against this rule when touched.
 
 ## 2026-10-07 - CODESYS conversion profile: bit string to BOOL
 
-- ID: DEV-025
+- ID: DEV-026
 - Area: Type conversion functions under the CODESYS conversion profile
   (`vendor_profile` `codesys`, `beckhoff` or `twincat`)
 - Normative IEC requirement: IEC 61131-3 Ed.3 section 6.6.2.5.4 and Table 24

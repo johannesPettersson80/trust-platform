@@ -1,0 +1,3 @@
+[gate-progress state=started phase=A2-diff-integrity target=scena-rust-builder pid=47673 elapsed=0.0s timeout=3600s command='git diff --check']
+docs/specs/12-bytecode.md:1556: new blank line at EOF.
+[gate-progress state=finished phase=A2-diff-integrity target=scena-rust-builder pid=47673 elapsed=0.1s timeout=3600s command='git diff --check' status=2]

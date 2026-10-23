@@ -33,7 +33,10 @@ fn project(name: &str, bound: &str) -> PathBuf {
 }
 
 fn check(root: &Path, json: bool) -> (Option<i32>, String) {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+    let mut command = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    );
     command.args(["hmi", "check", "--project"]).arg(root);
     if json {
         command.arg("--json");

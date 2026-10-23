@@ -1,0 +1,606 @@
+{
+  "journey": "J-17",
+  "workflow": "Browse ADS tags and use them in a program",
+  "bundle": {
+    "path": "editors/vscode/media/networkCanvasWebview.js",
+    "sha256": "42781816b0f436ce0f97e6b8d49ef193a9907a51709ff97cf8dc75634ec1add8",
+    "builtAt": "2026-07-09T22:11:23.969Z"
+  },
+  "theme": "Light+",
+  "project": "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project",
+  "rows_proven": [
+    "ADSC-02",
+    "ADSC-03",
+    "ADSC-05",
+    "ADSC-06",
+    "ADSC-07",
+    "IOMAP-02",
+    "ST-02",
+    "RUN-01"
+  ],
+  "rows_not_fully_proven": [
+    "ADSC-01",
+    "ADSC-04",
+    "RUN-04",
+    "LV-02",
+    "ERR-12"
+  ],
+  "steps": [
+    {
+      "step": "open Devices & Connections ADS topology"
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-configured-ads-client.png",
+      "bytes": 91538
+    },
+    {
+      "step": "click ADS endpoint",
+      "result": {
+        "clicked": true,
+        "id": "endpoint:ADS line 1:ads",
+        "text": "ADS clientCLIENT"
+      }
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-selected-tags-inspector.png",
+      "bytes": 127547
+    },
+    {
+      "step": "click Browse tags",
+      "result": {
+        "clicked": true,
+        "text": "Browse tags"
+      }
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-ads-port-301-selected.png",
+      "bytes": 126407
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-ads-port-301-unavailable.png",
+      "bytes": 131895
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-error.png",
+      "bytes": 126376
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-route.png",
+      "bytes": 126306
+    },
+    {
+      "step": "select ADS port 301 natively, observe host request, then return to 851",
+      "result": {
+        "validation": "deterministic runtime-wrapper boundary; no ADS hardware validation claimed",
+        "netId": "5.23.91.12.1.1",
+        "selectedPort": 301,
+        "nativeInputFocused": true,
+        "screenshot": "screenshots-raw/ADSC-05-ads-port-301-selected.png",
+        "errorScreenshot": "screenshots-raw/ADSC-05-ads-port-301-unavailable.png",
+        "theme": "Light+",
+        "themeSemantics": {
+          "panelLabel": "Browse tags",
+          "input": {
+            "tag": "input",
+            "type": "number",
+            "text": "301",
+            "visible": true,
+            "color": "rgb(97, 97, 97)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(0, 144, 241)"
+          },
+          "button": {
+            "tag": "button",
+            "type": "submit",
+            "text": "Browse symbols",
+            "visible": true,
+            "color": "rgb(255, 255, 255)",
+            "backgroundColor": "rgb(0, 122, 204)",
+            "borderColor": "rgb(0, 122, 204)"
+          },
+          "netId": {
+            "tag": "code",
+            "type": "",
+            "text": "5.23.91.12.1.1",
+            "visible": true,
+            "color": "rgb(97, 97, 97)",
+            "backgroundColor": "rgba(0, 0, 0, 0.1)",
+            "borderColor": "rgb(97, 97, 97)"
+          }
+        },
+        "errorReadability": {
+          "found": true,
+          "text": "Warning: ADS port unavailable: The selected ADS server did not answer. Check the port and that this server is running, then browse again.",
+          "visible": true,
+          "color": "rgb(191, 136, 3)",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderColor": "rgb(191, 136, 3)"
+        },
+        "emittedRequest": {
+          "args": [
+            "comm",
+            "browse-symbols",
+            "--protocol",
+            "ads",
+            "--kind",
+            "symbols",
+            "--json",
+            "--project",
+            "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project",
+            "--target",
+            "{\"ams_port\":301,\"auto_add_route\":false,\"host\":\"192.168.10.5\",\"local_net_id_set\":false,\"name\":\"line1\",\"points\":[{\"access\":\"read\",\"address\":null,\"symbol\":\"MAIN.Temperature\",\"type\":\"REAL\",\"var\":\"line1_temp\"},{\"access\":\"read\",\"address\":null,\"symbol\":\"GVL.LineReady\",\"type\":\"BOOL\",\"var\":\"line1_ready\"},{\"access\":\"write\",\"address\":null,\"symbol\":\"GVL.Setpoint\",\"type\":\"REAL\",\"var\":\"line1_setpoint\"},{\"access\":\"read\",\"address\":\"index 0x4020:0x0 · 2 bytes\",\"symbol\":null,\"type\":\"WORD\",\"var\":\"line1_status\"}],\"target_net_id\":\"5.23.91.12.1.1\",\"transport\":\"plain\"}",
+            "--connection-name",
+            "line1"
+          ],
+          "target": {
+            "ams_port": 301,
+            "auto_add_route": false,
+            "host": "192.168.10.5",
+            "local_net_id_set": false,
+            "name": "line1",
+            "points": [
+              {
+                "access": "read",
+                "address": null,
+                "symbol": "MAIN.Temperature",
+                "type": "REAL",
+                "var": "line1_temp"
+              },
+              {
+                "access": "read",
+                "address": null,
+                "symbol": "GVL.LineReady",
+                "type": "BOOL",
+                "var": "line1_ready"
+              },
+              {
+                "access": "write",
+                "address": null,
+                "symbol": "GVL.Setpoint",
+                "type": "REAL",
+                "var": "line1_setpoint"
+              },
+              {
+                "access": "read",
+                "address": "index 0x4020:0x0 · 2 bytes",
+                "symbol": null,
+                "type": "WORD",
+                "var": "line1_status"
+              }
+            ],
+            "target_net_id": "5.23.91.12.1.1",
+            "transport": "plain"
+          }
+        },
+        "structuredResponse": "ads_port_unavailable",
+        "draftInvalidation": {
+          "draftPort": 501,
+          "error": {
+            "value": "501",
+            "staleVisible": true,
+            "errorVisible": false,
+            "routeVisible": false,
+            "treeVisible": false,
+            "symbolSelectionCount": 0,
+            "allowDisabled": true,
+            "addDisabled": true,
+            "addText": "Add tags",
+            "text": "DEVICES & CONNECTIONS\nBrowse tags\nADS client\n✕\nAMS Net ID\n5.23.91.12.1.1\nADS port\nBrowse symbols\n\nEach ADS port is a separate server and symbol namespace. The server must support Symbol Upload.\n\nThe displayed ADS port has not been browsed yet. Browse it before selecting or adding symbols.\n\nAllow writes (default: read-only)\nAdd tags\n\nBrowse the edited ADS port before adding tags from that server."
+          },
+          "errorScreenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-error.png",
+          "route": {
+            "value": "501",
+            "staleVisible": true,
+            "errorVisible": false,
+            "routeVisible": false,
+            "treeVisible": false,
+            "symbolSelectionCount": 0,
+            "allowDisabled": true,
+            "addDisabled": true,
+            "addText": "Add tags",
+            "text": "DEVICES & CONNECTIONS\nBrowse tags\nADS client\n✕\nAMS Net ID\n5.23.91.12.1.1\nADS port\nBrowse symbols\n\nEach ADS port is a separate server and symbol namespace. The server must support Symbol Upload.\n\nThe displayed ADS port has not been browsed yet. Browse it before selecting or adding symbols.\n\nAllow writes (default: read-only)\nAdd tags\n\nBrowse the edited ADS port before adding tags from that server."
+          },
+          "routeScreenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-route.png",
+          "tree": {
+            "value": "501",
+            "staleVisible": true,
+            "errorVisible": false,
+            "routeVisible": false,
+            "treeVisible": false,
+            "symbolSelectionCount": 0,
+            "allowDisabled": true,
+            "addDisabled": true,
+            "addText": "Add tags",
+            "text": "DEVICES & CONNECTIONS\nBrowse tags\nADS client\n✕\nAMS Net ID\n5.23.91.12.1.1\nADS port\nBrowse symbols\n\nEach ADS port is a separate server and symbol namespace. The server must support Symbol Upload.\n\nThe displayed ADS port has not been browsed yet. Browse it before selecting or adding symbols.\n\nAllow writes (default: read-only)\nAdd tags\n\nBrowse the edited ADS port before adding tags from that server."
+          },
+          "treeScreenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-tree.png"
+        },
+        "returnedToPort": 851,
+        "followUpRequest": {
+          "args": [
+            "comm",
+            "browse-symbols",
+            "--protocol",
+            "ads",
+            "--kind",
+            "symbols",
+            "--json",
+            "--project",
+            "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project",
+            "--target",
+            "{\"ams_port\":851,\"auto_add_route\":false,\"host\":\"192.168.10.5\",\"local_net_id_set\":false,\"name\":\"line1\",\"points\":[{\"access\":\"read\",\"address\":null,\"symbol\":\"MAIN.Temperature\",\"type\":\"REAL\",\"var\":\"line1_temp\"},{\"access\":\"read\",\"address\":null,\"symbol\":\"GVL.LineReady\",\"type\":\"BOOL\",\"var\":\"line1_ready\"},{\"access\":\"write\",\"address\":null,\"symbol\":\"GVL.Setpoint\",\"type\":\"REAL\",\"var\":\"line1_setpoint\"},{\"access\":\"read\",\"address\":\"index 0x4020:0x0 · 2 bytes\",\"symbol\":null,\"type\":\"WORD\",\"var\":\"line1_status\"}],\"target_net_id\":\"5.23.91.12.1.1\",\"transport\":\"plain\"}",
+            "--connection-name",
+            "line1"
+          ],
+          "target": {
+            "ams_port": 851,
+            "auto_add_route": false,
+            "host": "192.168.10.5",
+            "local_net_id_set": false,
+            "name": "line1",
+            "points": [
+              {
+                "access": "read",
+                "address": null,
+                "symbol": "MAIN.Temperature",
+                "type": "REAL",
+                "var": "line1_temp"
+              },
+              {
+                "access": "read",
+                "address": null,
+                "symbol": "GVL.LineReady",
+                "type": "BOOL",
+                "var": "line1_ready"
+              },
+              {
+                "access": "write",
+                "address": null,
+                "symbol": "GVL.Setpoint",
+                "type": "REAL",
+                "var": "line1_setpoint"
+              },
+              {
+                "access": "read",
+                "address": "index 0x4020:0x0 · 2 bytes",
+                "symbol": null,
+                "type": "WORD",
+                "var": "line1_status"
+              }
+            ],
+            "target_net_id": "5.23.91.12.1.1",
+            "transport": "plain"
+          }
+        }
+      }
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-02-route-missing-recovery.png",
+      "bytes": 164164
+    },
+    {
+      "step": "click Create route",
+      "result": {
+        "clicked": true,
+        "text": "Create route"
+      }
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-03-create-route-admin-needed.png",
+      "bytes": 170186
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-tree.png",
+      "bytes": 127016
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-05-native-symbol-checkbox-quick-click.png",
+      "bytes": 165380
+    },
+    {
+      "step": "toggle ADS symbol checkbox with trusted 60 ms click and Space",
+      "result": {
+        "input": "X11 XTest",
+        "target": "Test group.TestSymbol30",
+        "graphRefreshes": 3,
+        "samples": 98,
+        "stableDomIdentity": true,
+        "stableRect": "783,493.84,13,13",
+        "quickClickHoldMs": 60,
+        "quickClickEventTypes": [
+          "pointerdown",
+          "mousedown",
+          "focus",
+          "pointerup",
+          "mouseup",
+          "click",
+          "input",
+          "change"
+        ],
+        "spaceEventTypes": [
+          "keydown",
+          "keypress",
+          "keyup",
+          "click",
+          "input",
+          "change"
+        ],
+        "rootPoint": {
+          "x": 1377.5,
+          "y": 650.34375
+        }
+      }
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-07-imported-ads-tags-in-st.png",
+      "bytes": 79767
+    },
+    {
+      "screenshot": "screenshots-raw/ADSC-07-compile-clean.png",
+      "bytes": 81666
+    }
+  ],
+  "routeRecoveryText": "truST Filter + Add Discover Edit This computer Reachable ADS line 1 Stopped Simulated I/O I/O ADS client CLIENT TwinCAT 5.23.91.12.1.1 ADS server 1 host · 1 runtime · 2 endpoints Devices & Connections / Client · endpoint ADS client ✕ Name ADS client Enabled true Config file ads.toml ADS link update interval (ms) 20 Connections line1 · 192.168.10.5 · AMS Net ID 5.23.91.12.1.1 · ADS port 851 - line1_temp ← MAIN.Temperature · REAL · read - line1_ready ← GVL.LineReady · BOOL · read - line1_setpoint ← GVL.Setpoint · REAL · write - line1_status (index 0x4020:0x0 · 2 bytes) · WORD · read State Configured · runtime is not running. Edit settings Browse tags Focus DEVICES & CONNECTIONS Browse tags ADS client ✕ AMS Net ID 5.23.91.12.1.1 ADS port Browse symbols Each ADS port is a separate server and symbol namespace. The server must support Symbol Upload. Warning: No ADS route to the TwinCAT system. Add the route, then browse again. Create route TwinCAT needs a route back to truST. Run one of these on the TwinCAT computer, then reopen Browse. Download PowerShell Copy # Generated by truST ADS onboarding. # Adds or replaces one TwinCAT ADS static route. No TwinCAT credentials are stored in this file. # Run this on the TwinCAT PLC/runtime that the truST ADS client connects to. $ErrorActionPreference = 'Stop' function Get-TrustRouteEncodingLabel([string]$Path) { if (-not (Test-Path $Path)) { return 'absent' } $bytes = [System.IO.File]::ReadAllBytes($Path) if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { return 'UTF-8 BOM' } if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { return 'UTF-16 LE BOM' } if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { return 'UTF-16 BE BOM' } return 'no BOM / existing default' } $RouteName = 'line1' $RouteAddress = '91.130.57.161' $RouteNetId = '91.130.57.161.1.1' $RouteXml = @' <Route> <Name>line1</Name> <Address>91.130.57.161</Address> <NetId>91.130.57.161.1.1</NetId> <Type>TCP_IP</Type> <Flags>0</Flags> </Route> '@ $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent()) if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { Write-Error 'Run this script from an elevated PowerShell prompt before it changes StaticRoutes.xml.' exit 1 } $runtimeRoots = @(Get-ChildItem -Path \"$env:ProgramData\\Beckhoff\\TwinCAT\\3.1\\Runtimes\" -Directory -ErrorAction SilentlyContin",
+  "adsPortSelection": {
+    "validation": "deterministic runtime-wrapper boundary; no ADS hardware validation claimed",
+    "netId": "5.23.91.12.1.1",
+    "selectedPort": 301,
+    "nativeInputFocused": true,
+    "screenshot": "screenshots-raw/ADSC-05-ads-port-301-selected.png",
+    "errorScreenshot": "screenshots-raw/ADSC-05-ads-port-301-unavailable.png",
+    "theme": "Light+",
+    "themeSemantics": {
+      "panelLabel": "Browse tags",
+      "input": {
+        "tag": "input",
+        "type": "number",
+        "text": "301",
+        "visible": true,
+        "color": "rgb(97, 97, 97)",
+        "backgroundColor": "rgb(255, 255, 255)",
+        "borderColor": "rgb(0, 144, 241)"
+      },
+      "button": {
+        "tag": "button",
+        "type": "submit",
+        "text": "Browse symbols",
+        "visible": true,
+        "color": "rgb(255, 255, 255)",
+        "backgroundColor": "rgb(0, 122, 204)",
+        "borderColor": "rgb(0, 122, 204)"
+      },
+      "netId": {
+        "tag": "code",
+        "type": "",
+        "text": "5.23.91.12.1.1",
+        "visible": true,
+        "color": "rgb(97, 97, 97)",
+        "backgroundColor": "rgba(0, 0, 0, 0.1)",
+        "borderColor": "rgb(97, 97, 97)"
+      }
+    },
+    "errorReadability": {
+      "found": true,
+      "text": "Warning: ADS port unavailable: The selected ADS server did not answer. Check the port and that this server is running, then browse again.",
+      "visible": true,
+      "color": "rgb(191, 136, 3)",
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "borderColor": "rgb(191, 136, 3)"
+    },
+    "emittedRequest": {
+      "args": [
+        "comm",
+        "browse-symbols",
+        "--protocol",
+        "ads",
+        "--kind",
+        "symbols",
+        "--json",
+        "--project",
+        "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project",
+        "--target",
+        "{\"ams_port\":301,\"auto_add_route\":false,\"host\":\"192.168.10.5\",\"local_net_id_set\":false,\"name\":\"line1\",\"points\":[{\"access\":\"read\",\"address\":null,\"symbol\":\"MAIN.Temperature\",\"type\":\"REAL\",\"var\":\"line1_temp\"},{\"access\":\"read\",\"address\":null,\"symbol\":\"GVL.LineReady\",\"type\":\"BOOL\",\"var\":\"line1_ready\"},{\"access\":\"write\",\"address\":null,\"symbol\":\"GVL.Setpoint\",\"type\":\"REAL\",\"var\":\"line1_setpoint\"},{\"access\":\"read\",\"address\":\"index 0x4020:0x0 · 2 bytes\",\"symbol\":null,\"type\":\"WORD\",\"var\":\"line1_status\"}],\"target_net_id\":\"5.23.91.12.1.1\",\"transport\":\"plain\"}",
+        "--connection-name",
+        "line1"
+      ],
+      "target": {
+        "ams_port": 301,
+        "auto_add_route": false,
+        "host": "192.168.10.5",
+        "local_net_id_set": false,
+        "name": "line1",
+        "points": [
+          {
+            "access": "read",
+            "address": null,
+            "symbol": "MAIN.Temperature",
+            "type": "REAL",
+            "var": "line1_temp"
+          },
+          {
+            "access": "read",
+            "address": null,
+            "symbol": "GVL.LineReady",
+            "type": "BOOL",
+            "var": "line1_ready"
+          },
+          {
+            "access": "write",
+            "address": null,
+            "symbol": "GVL.Setpoint",
+            "type": "REAL",
+            "var": "line1_setpoint"
+          },
+          {
+            "access": "read",
+            "address": "index 0x4020:0x0 · 2 bytes",
+            "symbol": null,
+            "type": "WORD",
+            "var": "line1_status"
+          }
+        ],
+        "target_net_id": "5.23.91.12.1.1",
+        "transport": "plain"
+      }
+    },
+    "structuredResponse": "ads_port_unavailable",
+    "draftInvalidation": {
+      "draftPort": 501,
+      "error": {
+        "value": "501",
+        "staleVisible": true,
+        "errorVisible": false,
+        "routeVisible": false,
+        "treeVisible": false,
+        "symbolSelectionCount": 0,
+        "allowDisabled": true,
+        "addDisabled": true,
+        "addText": "Add tags",
+        "text": "DEVICES & CONNECTIONS\nBrowse tags\nADS client\n✕\nAMS Net ID\n5.23.91.12.1.1\nADS port\nBrowse symbols\n\nEach ADS port is a separate server and symbol namespace. The server must support Symbol Upload.\n\nThe displayed ADS port has not been browsed yet. Browse it before selecting or adding symbols.\n\nAllow writes (default: read-only)\nAdd tags\n\nBrowse the edited ADS port before adding tags from that server."
+      },
+      "errorScreenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-error.png",
+      "route": {
+        "value": "501",
+        "staleVisible": true,
+        "errorVisible": false,
+        "routeVisible": false,
+        "treeVisible": false,
+        "symbolSelectionCount": 0,
+        "allowDisabled": true,
+        "addDisabled": true,
+        "addText": "Add tags",
+        "text": "DEVICES & CONNECTIONS\nBrowse tags\nADS client\n✕\nAMS Net ID\n5.23.91.12.1.1\nADS port\nBrowse symbols\n\nEach ADS port is a separate server and symbol namespace. The server must support Symbol Upload.\n\nThe displayed ADS port has not been browsed yet. Browse it before selecting or adding symbols.\n\nAllow writes (default: read-only)\nAdd tags\n\nBrowse the edited ADS port before adding tags from that server."
+      },
+      "routeScreenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-route.png",
+      "tree": {
+        "value": "501",
+        "staleVisible": true,
+        "errorVisible": false,
+        "routeVisible": false,
+        "treeVisible": false,
+        "symbolSelectionCount": 0,
+        "allowDisabled": true,
+        "addDisabled": true,
+        "addText": "Add tags",
+        "text": "DEVICES & CONNECTIONS\nBrowse tags\nADS client\n✕\nAMS Net ID\n5.23.91.12.1.1\nADS port\nBrowse symbols\n\nEach ADS port is a separate server and symbol namespace. The server must support Symbol Upload.\n\nThe displayed ADS port has not been browsed yet. Browse it before selecting or adding symbols.\n\nAllow writes (default: read-only)\nAdd tags\n\nBrowse the edited ADS port before adding tags from that server."
+      },
+      "treeScreenshot": "screenshots-raw/ADSC-05-port-501-draft-invalidates-tree.png"
+    },
+    "returnedToPort": 851,
+    "followUpRequest": {
+      "args": [
+        "comm",
+        "browse-symbols",
+        "--protocol",
+        "ads",
+        "--kind",
+        "symbols",
+        "--json",
+        "--project",
+        "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project",
+        "--target",
+        "{\"ams_port\":851,\"auto_add_route\":false,\"host\":\"192.168.10.5\",\"local_net_id_set\":false,\"name\":\"line1\",\"points\":[{\"access\":\"read\",\"address\":null,\"symbol\":\"MAIN.Temperature\",\"type\":\"REAL\",\"var\":\"line1_temp\"},{\"access\":\"read\",\"address\":null,\"symbol\":\"GVL.LineReady\",\"type\":\"BOOL\",\"var\":\"line1_ready\"},{\"access\":\"write\",\"address\":null,\"symbol\":\"GVL.Setpoint\",\"type\":\"REAL\",\"var\":\"line1_setpoint\"},{\"access\":\"read\",\"address\":\"index 0x4020:0x0 · 2 bytes\",\"symbol\":null,\"type\":\"WORD\",\"var\":\"line1_status\"}],\"target_net_id\":\"5.23.91.12.1.1\",\"transport\":\"plain\"}",
+        "--connection-name",
+        "line1"
+      ],
+      "target": {
+        "ams_port": 851,
+        "auto_add_route": false,
+        "host": "192.168.10.5",
+        "local_net_id_set": false,
+        "name": "line1",
+        "points": [
+          {
+            "access": "read",
+            "address": null,
+            "symbol": "MAIN.Temperature",
+            "type": "REAL",
+            "var": "line1_temp"
+          },
+          {
+            "access": "read",
+            "address": null,
+            "symbol": "GVL.LineReady",
+            "type": "BOOL",
+            "var": "line1_ready"
+          },
+          {
+            "access": "write",
+            "address": null,
+            "symbol": "GVL.Setpoint",
+            "type": "REAL",
+            "var": "line1_setpoint"
+          },
+          {
+            "access": "read",
+            "address": "index 0x4020:0x0 · 2 bytes",
+            "symbol": null,
+            "type": "WORD",
+            "var": "line1_status"
+          }
+        ],
+        "target_net_id": "5.23.91.12.1.1",
+        "transport": "plain"
+      }
+    }
+  },
+  "createRouteText": "truST Filter + Add Discover Edit This computer Reachable ADS line 1 Stopped Simulated I/O I/O ADS client CLIENT TwinCAT 5.23.91.12.1.1 ADS server 1 host · 1 runtime · 2 endpoints Devices & Connections / Client · endpoint ADS client ✕ Name ADS client Enabled true Config file ads.toml ADS link update interval (ms) 20 Connections line1 · 192.168.10.5 · AMS Net ID 5.23.91.12.1.1 · ADS port 851 - line1_temp ← MAIN.Temperature · REAL · read - line1_ready ← GVL.LineReady · BOOL · read - line1_setpoint ← GVL.Setpoint · REAL · write - line1_status (index 0x4020:0x0 · 2 bytes) · WORD · read State Configured · runtime is not running. Edit settings Browse tags Focus DEVICES & CONNECTIONS Browse tags ADS client ✕ AMS Net ID 5.23.91.12.1.1 ADS port Browse symbols Each ADS port is a separate server and symbol namespace. The server must support Symbol Upload. Route needs TwinCAT administrator access. Run the generated route script on the TwinCAT computer, then reopen Browse. Create route Automatic route creation is not available from this canvas in this build. Run the generated PowerShell as Administrator on the TwinCAT computer, or copy the static route values below, then reopen Browse. TwinCAT needs a route back to truST. Run one of these on the TwinCAT computer, then reopen Browse. Download PowerShell Copy # Generated by truST ADS onboarding. # Adds or replaces one TwinCAT ADS static route. No TwinCAT credentials are stored in this file. # Run this on the TwinCAT PLC/runtime that the truST ADS client connects to. $ErrorActionPreference = 'Stop' function Get-TrustRouteEncodingLabel([string]$Path) { if (-not (Test-Path $Path)) { return 'absent' } $bytes = [System.IO.File]::ReadAllBytes($Path) if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { return 'UTF-8 BOM' } if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { return 'UTF-16 LE BOM' } if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) { return 'UTF-16 BE BOM' } return 'no BOM / existing default' } $RouteName = 'line1' $RouteAddress = '91.130.57.161' $RouteNetId = '91.130.57.161.1.1' $RouteXml = @' <Route> <Name>line1</Name> <Address>91.130.57.161</Address> <NetId>91.130.57.161.1.1</NetId> <Type>TCP_IP</Type> <Flags>0</Flags> </Route> '@ $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent()) if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra",
+  "correlatedSymbolTree": {
+    "transport": "webview request -> extension host -> runtime wrapper -> scoped symbolTree response",
+    "port": 851,
+    "requestCount": 2,
+    "nodes": 60
+  },
+  "nativeCheckboxInteraction": {
+    "input": "X11 XTest",
+    "target": "Test group.TestSymbol30",
+    "graphRefreshes": 3,
+    "samples": 98,
+    "stableDomIdentity": true,
+    "stableRect": "783,493.84,13,13",
+    "quickClickHoldMs": 60,
+    "quickClickEventTypes": [
+      "pointerdown",
+      "mousedown",
+      "focus",
+      "pointerup",
+      "mouseup",
+      "click",
+      "input",
+      "change"
+    ],
+    "spaceEventTypes": [
+      "keydown",
+      "keypress",
+      "keyup",
+      "click",
+      "input",
+      "change"
+    ],
+    "rootPoint": {
+      "x": 1377.5,
+      "y": 650.34375
+    }
+  },
+  "compile": {
+    "version": 1,
+    "command": "check",
+    "ok": true,
+    "status": "ok",
+    "project": "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project",
+    "errors": 0,
+    "warnings": 0,
+    "issues": [],
+    "source_count": 3,
+    "sources": [
+      "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project/src/config.st",
+      "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project/src/generated/ads_generated.st",
+      "/tmp/issue94-97-final-42781816-light/runner-output/ads-client-program/project/src/main.st"
+    ],
+    "dependency_roots": [],
+    "resolved_dependencies": [],
+    "bytecode_size": 3220
+  },
+  "adsToml": "[[connections]]\nname = \"line1\"\ntarget_net_id = \"5.23.91.12.1.1\"\nhost = \"192.168.10.5\"\nams_port = 851\ntransport = \"plain\"\ninsecure_transport = true\n\n[[connections.points]]\nsymbol = \"MAIN.Temperature\"\nvar = \"line1_temp\"\ntype = \"REAL\"\nmode = \"poll\"\n\n[[connections.points]]\nsymbol = \"GVL.LineReady\"\nvar = \"line1_ready\"\ntype = \"BOOL\"\nmode = \"poll\"\n\n[[connections.points]]\nsymbol = \"GVL.Setpoint\"\nvar = \"line1_setpoint\"\ntype = \"REAL\"\naccess = \"write\"\n\n[[connections.points]]\nindex_group = 16416\nindex_offset = 0\nsize = 2\nvar = \"line1_status\"\ntype = \"WORD\"\n",
+  "verdict": "partial_provisional_lab_required"
+}

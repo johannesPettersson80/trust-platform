@@ -76,10 +76,9 @@ pub(crate) fn implements_in(
             if let Some(definition) = interface_defs
                 .values()
                 .find(|item| item.name.eq_ignore_ascii_case(&candidate))
+                && let Some(base) = &definition.base
             {
-                if let Some(base) = &definition.base {
-                    pending.push(base.to_string());
-                }
+                pending.push(base.to_string());
             }
         }
     }

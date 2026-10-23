@@ -1,4 +1,4 @@
-//! Simulation facts, speed and achieved speed of the debug simulator (specification 33, §6.1; specification 35, A2.2 to
+//! Simulation facts, speed and achieved speed of the debug simulator (specification 46, §6.1; specification 35, A2.2 to
 //! A2.4). The control server is exercised over its TCP endpoint, as the other control tests are.
 
 use std::fs;
@@ -10,7 +10,6 @@ use std::time::{Duration as StdDuration, Instant};
 use serde_json::json;
 use trust_runtime::control::ControlEndpoint;
 use trust_runtime::value::Duration;
-use trust_runtime::Runtime;
 
 use super::tests_part_02::{
     assert_control_ok, control_result, reserve_loopback_addr, send_control_request,
@@ -69,7 +68,11 @@ fn loaded_session(
     if let Some(simulation) = simulation {
         fs::write(root.join("simulation.toml"), simulation).unwrap();
     }
-    let mut session = DebugSession::new(Runtime::new());
+    let mut session = DebugSession::new(
+        trust_runtime::RuntimeBuilder::new()
+            .build()
+            .expect("admit an empty runtime"),
+    );
     session.update_source_options(source_options(&root));
     session
         .reload_program(Some(main.to_string_lossy().as_ref()))

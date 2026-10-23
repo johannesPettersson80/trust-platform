@@ -364,12 +364,11 @@ fn image_signals(lists: &[Option<&[Value]>]) -> Result<Vec<CompiledSignal>, Fail
         let Some(signal) = image_signal(entry) else {
             continue;
         };
-        if let Some(previous) = by_symbol.get(&signal.symbol) {
-            if previous.address != signal.address
-                || previous.iec_type.to_uppercase() != signal.iec_type.to_uppercase()
-            {
-                return Err(refusal(&texts::signal_identity_conflict(&signal.symbol)));
-            }
+        if let Some(previous) = by_symbol.get(&signal.symbol)
+            && (previous.address != signal.address
+                || previous.iec_type.to_uppercase() != signal.iec_type.to_uppercase())
+        {
+            return Err(refusal(&texts::signal_identity_conflict(&signal.symbol)));
         }
         by_symbol.insert(signal.symbol.clone(), signal);
     }
@@ -391,10 +390,10 @@ fn compiled_symbols(entries: &[Value]) -> Result<Vec<CompiledSymbol>, Failure> {
     let mut types: BTreeMap<String, String> = BTreeMap::new();
     let mut symbols = Vec::new();
     for symbol in entries.iter().filter_map(compiled_symbol) {
-        if let Some(previous) = types.get(&symbol.symbol) {
-            if previous.to_uppercase() != symbol.iec_type.to_uppercase() {
-                return Err(refusal(&texts::symbol_type_conflict(&symbol.symbol)));
-            }
+        if let Some(previous) = types.get(&symbol.symbol)
+            && previous.to_uppercase() != symbol.iec_type.to_uppercase()
+        {
+            return Err(refusal(&texts::symbol_type_conflict(&symbol.symbol)));
         }
         types.insert(symbol.symbol.clone(), symbol.iec_type.clone());
         symbols.push(symbol);

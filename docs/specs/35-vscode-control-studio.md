@@ -85,7 +85,7 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   as an unavailable sample that names no source, because the failure names none and the panel does not know the target; the same
   holds for the plant summary of a plant handoff.
 - `controlStudio/export` answers the loop's results for the engineer to save (B10.5). With `format` `json` it answers the complete typed workflow result: the `controlStudio/open` answer of the loop, with the study's sections as the page shows them and the additional channels of its identification, and without any key that names a credential (a token, a password, a secret or an authorization). It also carries, under `recordings`, the run context of each recording the study keeps whose run states one (B10.2, B10.5). With `format` `csv` it answers the signal table of one recording: the recording `recordingId` names, or else the recording the study's current Identify result was fitted from; a study with none refuses with the next action Identify. The table has one row per recorded sample with the columns of B10.5, and the additional channels as five columns each. The answer is `{"result": {"format", "suggestedFileName", "text"}}`. It writes nothing and starts nothing, and the request carries no runtime connection: the extension asks where to save the text.
-- `controlStudio/plantMonitor` answers the plant summary of a plant handoff (B1.1, B1.2). Its arguments are the handoff's project, plant and active configuration digest, the runtime's state (`runtimeStopped`, and whether its endpoint answered the probe, `endpointReachable`), and the connection (the endpoint and its control token). The engine makes one `plant.status` read of the runtime (specification 34, §20.4), bounded to two seconds, and answers `{"result": {"availability", "source", "plantId", "reason" or "status"}}`: unavailable with the sentence that says why, or available with the plant's status. The reasons are: "Runtime is stopped" (a stopped runtime whose endpoint does not answer; it is not read), "Runtime is unreachable" (a blank endpoint, or a read that cannot connect), "Runtime authorization was rejected" (a refused token), "Plant status is unsupported", "Plant status is malformed" (an answer that is not the protocol's form for this project), "Running plant revision is stale" (a revision other than the handoff's, checked before the plant), and "Plant no longer exists". The extension forwards the lifecycle's facts and posts the answer; it decides none of them.
+- `controlStudio/plantMonitor` answers the plant summary of a plant handoff (B1.1, B1.2). Its arguments are the handoff's project, plant and active configuration digest, the runtime's state (`runtimeStopped`, and whether its endpoint answered the probe, `endpointReachable`), and the connection (the endpoint and its control token). The engine makes one `plant.status` read of the runtime (specification 47, §20.4), bounded to two seconds, and answers `{"result": {"availability", "source", "plantId", "reason" or "status"}}`: unavailable with the sentence that says why, or available with the plant's status. The reasons are: "Runtime is stopped" (a stopped runtime whose endpoint does not answer; it is not read), "Runtime is unreachable" (a blank endpoint, or a read that cannot connect), "Runtime authorization was rejected" (a refused token), "Plant status is unsupported", "Plant status is malformed" (an answer that is not the protocol's form for this project), "Running plant revision is stale" (a revision other than the handoff's, checked before the plant), and "Plant no longer exists". The extension forwards the lifecycle's facts and posts the answer; it decides none of them.
 - `controlStudio/simulatorStart` decides a Start simulator request (A2.8): `{"result": {"decision": "start" | "join" | "reply", "reply"?}}`. The extension starts the local simulator through the runtime lifecycle service only on `start`; it joins the start in flight on `join`; it shows `reply` otherwise. `controlStudio/simulatorStartResult` takes the lifecycle service's outcome and answers the reply the page shows, `{"result": {"ok", "message" | "failure"}}`.
 - `controlStudio/chartExport` answers the file of a chart image the page renders (B10.5): `{"result": {"fileName", "filterLabel", "extension", "bytesBase64"}}`, or the refusal of the page's message. The engine checks the message against the session the panel shows, decodes its data URL (base64, or percent-encoded text whose bytes are UTF-8), and checks its MIME type against the data. It writes nothing; the extension shows the save dialog and writes the bytes.
 - `controlStudio/projectLoops` answers, for the workspace folders, each folder's loop files decided for the runtime: an accepted loop with its open request, a refused file with its reason, or no file (`missing`). It names the folder that declares a loop (the first whose loop has its revision, else the first whose loop has its id and project; A8.3), and the loops of an equipment: the accepted loops whose controller is the equipment's instance or a member of it, or the reason none is (B1.3). The extension opens, offers and locates from these answers and decides none of them.
@@ -528,7 +528,7 @@ is the same: a verb adds none and drops none.
 | This specification | Foundations (Part A), stage behaviour (Part B), controller structures (Part C) and acceptance (Part D). |
 | [Runtime protocol annex](control-studio-runtime-protocol.md) | The runtime operations Control Studio uses: requests, responses, checks and limits. |
 | [Numerical annex](control-studio-numerics.md) | Identification, tuning, analysis and evaluation mathematics. |
-| Specifications [32](32-control-pid.md), [33](33-simulation-plant-models.md), [34](34-vscode-plant-simulation-ui.md) | `Control.PID` execution, plant simulation, plant configuration UI. |
+| Specifications [32](45-control-pid.md), [33](46-simulation-plant-models.md), [34](47-vscode-plant-simulation-ui.md) | `Control.PID` execution, plant simulation, plant configuration UI. |
 
 When two documents seem to disagree, the purpose contract comes first, then the
 user-dictated workflow and page specifications, then this specification, then
@@ -614,7 +614,7 @@ history.
 runtime, never from editor settings:
 
 - whether simulation is enabled, its configured speed and its achieved speed
-  (specification 33, §6.1), and the speed words the runtime gives for them
+  (specification 46, §6.1), and the speed words the runtime gives for them
   (B9.2, annex E1.3);
 - whether all attached I/O is simulated: every attached driver identifies itself
   as simulated and no fieldbus client (ADS, OPC UA) is configured;
@@ -693,7 +693,7 @@ engine starts nothing itself.
 
 **A3.1 Process time** is the runtime's clock: the time the runtime reports with
 every scan. In simulation it advances in exact cycle steps at the configured
-speed (specification 33, §6.1). A runtime that cannot keep up runs behind real
+speed (specification 46, §6.1). A runtime that cannot keep up runs behind real
 time, and process time then advances more slowly; it never skips. Without
 simulation it follows the wall clock.
 
@@ -1070,7 +1070,7 @@ governs which action runs when. This part says what each stage does.
 project sidebar directly below Devices & Connections, from a configured
 simulated plant, from a configured loop and from the command palette. Without
 an open project the sidebar entry stays visible, disabled, with the reason. A
-handoff from the plant configuration (Specification 34) keeps its project,
+handoff from the plant configuration (Specification 47) keeps its project,
 plant and loop. Its plant summary is the engine's answer (`controlStudio/plantMonitor`,
 §0.1a): the runtime's `plant.status` decides whether the plant is available, and an
 unavailable plant names its reason. The page shows that answer in one line under the target
@@ -2303,12 +2303,12 @@ page of settings. These rules follow the user's direction of 8 October 2026.
     no context; its recording is kept as before.
   - `context.plant` is kept for a recording of a simulated target whose loop names
     a plant (`plantId`), and only when the runtime proves which configuration it
-    runs: its `plant.status` (specification 34, §20.4) reports the plant active
+    runs: its `plant.status` (specification 47, §20.4) reports the plant active
     under the revision of the saved configuration that its `plant.read` (§20.2)
     returns. It keeps `id`, `configurationRevision`, `configuration` (the plant's
     entry of the saved simulation configuration), `model`, `effectiveSeed` (the
     runtime's effective seed as decimal text, never the word `random`,
-    specification 33 §3.1), `uncertainties` and `scheduledEvents` (one canonical
+    specification 46 §3.1), `uncertainties` and `scheduledEvents` (one canonical
     JSON text each; the events are those of the saved configuration whose `plant`
     is this plant), `actuator` (the plant's actuator entry as canonical JSON, or
     "Not declared") and `validityRange` (`PV 0…100 °C; MV 0…100 %`: the ranges the
@@ -2497,7 +2497,7 @@ Each bound that a structure's setup applies to a gain, a time, a state or a coun
 
 #### Setpoint weight, measurement filter and anti-windup
 
-**Setpoint weight β.** A PID law MAY declare `proportionalSetpointWeightSymbol`: one unique bound `REAL` or `LREAL` record field, dimensionless (unit `1`), within 0 to 1. The proportional term is `Kp·(β·SP − PV)`. The integral term uses the full error. Manual PI and PID settings require β beside the gains. Predictions use β, as the controller does: `Control.PID` without integral action ignores β, so a P or PD law is predicted with β = 1 (specification 32 §3.10). β is written through the same complete record. A calculated candidate writes β = 1 unless β is pinned.
+**Setpoint weight β.** A PID law MAY declare `proportionalSetpointWeightSymbol`: one unique bound `REAL` or `LREAL` record field, dimensionless (unit `1`), within 0 to 1. The proportional term is `Kp·(β·SP − PV)`. The integral term uses the full error. Manual PI and PID settings require β beside the gains. Predictions use β, as the controller does: `Control.PID` without integral action ignores β, so a P or PD law is predicted with β = 1 (specification 45 §3.10). β is written through the same complete record. A calculated candidate writes β = 1 unless β is pinned.
 
 **Measurement filter Tf.** A PID law MAY declare `measurementFilterTimeSymbol`: one unique bound `REAL` or `LREAL` program setting in seconds, not negative. It holds the time Tf of the first-order filter on the measurement that the controller uses.
 
@@ -2588,7 +2588,7 @@ B5.3 applies to every structure. A structure that always validates on the model 
 
 ### C1. Control.PID single loop
 
-This structure is one `Control.PID` instance in a loop with `design: "pid"`. The primary guided PID journey executes this library block as Specification 32 defines it. An equation written separately in Control Studio is never a substitute.
+This structure is one `Control.PID` instance in a loop with `design: "pid"`. The primary guided PID journey executes this library block as Specification 45 defines it. An equation written separately in Control Studio is never a substitute.
 
 #### Setup
 
@@ -2608,7 +2608,7 @@ This structure is one `Control.PID` instance in a loop with `design: "pid"`. The
 
 - Identify follows B3. The input is the manual output (or the plant input). The output is the PID's own measurement.
 - In Manual, the excitation is a manual-output step. A manual output that the program copies from the output is stepped in Manual only, where the program does not write it. In Auto with a declared setpoint, Automatic uses a setpoint step (B3.3).
-- The model is one of the forms of B3.5. A model run gives the model's measurement to the PID through the feedback target `pid:<instance>` (Specification 33, section 13.2). The measurement then reaches the controller however the program computed it.
+- The model is one of the forms of B3.5. A model run gives the model's measurement to the PID through the feedback target `pid:<instance>` (Specification 46, section 13.2). The measurement then reaches the controller however the program computed it.
 
 #### Tune
 
@@ -2680,7 +2680,7 @@ Each non-formula candidate is labelled Constrained comparison. All candidates us
 
 For the stable first-order PD alternative, the steady error is `|ΔR + K·u₀| / (1 + K·Kp)`, where `K` is the first-order model's gain and `u₀` the operating-point input. Tune rejects a non-positive closed-loop DC denominator. It also rejects an error above the declared error allowance minus the transient margin. A PD candidate is not rejected merely because it has no integrator. Dynamic requirements still need actual-ST validation. In other formula domains, an unsupported P, PD or PID candidate is reported as unavailable, not synthesized from an unqualified rule.
 
-**Candidates and results.** Candidates use the exact PI, PD or PID form, timing, derivative filter, weights, limits, tracking and anti-windup behaviour of Specification 32. The result keeps the winning structure, the method, the limiting requirement, the rationale, the exact formula, λ, the scores, the rejected candidates and the conventions. Every generated candidate stays unapplied.
+**Candidates and results.** Candidates use the exact PI, PD or PID form, timing, derivative filter, weights, limits, tracking and anti-windup behaviour of Specification 45. The result keeps the winning structure, the method, the limiting requirement, the rationale, the exact formula, λ, the scores, the rejected candidates and the conventions. Every generated candidate stays unapplied.
 
 Formula references: S. Skogestad, "Simple analytic rules for model reduction and PID controller tuning", *Journal of Process Control* 13 (2003), 291–309; K. J. Åström and T. Hägglund, "Revisiting the Ziegler-Nichols step response method for PID control", *Journal of Process Control* 14 (2004), 635–650.
 

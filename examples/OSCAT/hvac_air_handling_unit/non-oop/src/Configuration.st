@@ -1,5 +1,5 @@
 CONFIGURATION AhuClassicConfiguration
-RESOURCE Cpu0 ON PLC
+RESOURCE AhuClassic ON PLC
     TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
     PROGRAM Ahu WITH MainTask : Main;
 END_RESOURCE

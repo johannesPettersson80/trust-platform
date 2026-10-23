@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import shlex
 import subprocess
 import sys
@@ -60,13 +62,24 @@ def write_line(line: str, *, log: TextIO | None) -> None:
         print(line, file=log, flush=True)
 
 
+def sink_safe_text(text: str, sink: TextIO) -> str:
+    encoding = getattr(sink, "encoding", None)
+    if not encoding:
+        return text
+    try:
+        text.encode(encoding)
+    except UnicodeEncodeError:
+        return text.encode(encoding, errors="backslashreplace").decode(encoding)
+    return text
+
+
 def stream_pipe(source: TextIO, sink: TextIO, log: TextIO | None, lock: threading.Lock) -> None:
     for line in source:
         with lock:
-            sink.write(line)
+            sink.write(sink_safe_text(line, sink))
             sink.flush()
             if log is not None:
-                log.write(line)
+                log.write(sink_safe_text(line, log))
                 log.flush()
 
 
@@ -87,6 +100,8 @@ def run_command(args: argparse.Namespace) -> int:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
+        errors="backslashreplace",
         bufsize=1,
     )
     assert process.stdout is not None
@@ -248,6 +263,42 @@ def run_self_test() -> int:
         errors.append("running line missing elapsed progress")
     if "state=timeout" not in timed_out or "reason=timeout" not in timed_out:
         errors.append("timeout line missing timeout reason")
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    invalid_utf8_probe = argparse.Namespace(
+        command=[
+            sys.executable,
+            "-c",
+            (
+                "import os; "
+                "os.write(1, b'out:' + bytes([0x90]) + b'\\n'); "
+                "os.write(2, b'err:' + bytes([0x90]) + b'\\n')"
+            ),
+        ],
+        cwd=None,
+        log=None,
+        phase="decode-probe",
+        target="invalid-utf8",
+        timeout_seconds=5.0,
+        progress_interval_seconds=1.0,
+        kill_grace_seconds=1.0,
+    )
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        probe_status = run_command(invalid_utf8_probe)
+    if probe_status != 0:
+        errors.append(f"invalid UTF-8 stream probe exited with {probe_status}")
+    if "out:\\x90" not in stdout.getvalue():
+        errors.append("invalid UTF-8 stdout byte was not streamed safely")
+    if "err:\\x90" not in stderr.getvalue():
+        errors.append("invalid UTF-8 stderr byte was not streamed safely")
+
+    cp1252_bytes = io.BytesIO()
+    cp1252_sink = io.TextIOWrapper(cp1252_bytes, encoding="cp1252", errors="strict")
+    stream_pipe(io.StringIO("emoji:\U0001f642\n"), cp1252_sink, None, threading.Lock())
+    cp1252_sink.flush()
+    if b"emoji:\\U0001f642" not in cp1252_bytes.getvalue():
+        errors.append("Unicode output was not escaped safely for a CP1252 sink")
 
     if errors:
         print("run_with_progress self-test: failed")

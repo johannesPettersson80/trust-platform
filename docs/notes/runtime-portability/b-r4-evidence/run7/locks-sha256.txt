@@ -1,0 +1,2 @@
+22618108254b8a73cd3cf648357f2aea8959e7259c8dc8999a214ced6b4912a7  Cargo.lock
+9bab28239d38d88a12eccc97d08407ec7a4d68dc1854096b7eaf63e189cec98a  firmware/trust-nucleo-f401re/Cargo.lock

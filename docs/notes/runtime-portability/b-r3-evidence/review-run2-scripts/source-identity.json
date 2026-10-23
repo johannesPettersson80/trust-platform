@@ -1,0 +1,54 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "scope": "Read-only comparison of newly authorized correction batch against accepted setup-m2; no execution",
+  "files": [
+    {
+      "path": "setup-run2/baseline.map",
+      "sha256": "912363b559ff1300f7a41d28a1b2b85365b1182c5fa1290039e859d6ec5bf9be"
+    },
+    {
+      "path": "setup-run2/board-batch.sh",
+      "sha256": "1a086f032a2a25a09d2ed7d238611369fe31632065336c477ceb26a78503673d"
+    },
+    {
+      "path": "setup-run2/builder-batch.sh",
+      "sha256": "1ee9e62f4574117121d6a1f3831df08f7ea031ff2471be7a9343bcb97bc537cd"
+    },
+    {
+      "path": "setup-run2/builder-preparation.sh",
+      "sha256": "3a2b82c5f976597f2ed36db93f9b5a101ec87d9ebb7fe44e505d9aa3a0a939d4"
+    },
+    {
+      "path": "setup-run2/canonical.sha256",
+      "sha256": "0a31687edc1f6cd7ca2e3909b5dbd9ff18a55f1c3e6512db1703a196992c92b3"
+    },
+    {
+      "path": "setup-run2/environment.sh",
+      "sha256": "92c0f497c989b501965013b075244bcbb1b5c07a905822c12fbe09b6c77a96ee"
+    },
+    {
+      "path": "setup-run2/fixture-sha256.txt",
+      "sha256": "6d108a02c9c614873d97eff800a09a1b7db461440479925c2822725a592b03a6"
+    },
+    {
+      "path": "setup-run2/format-once.sh",
+      "sha256": "81a1d515aaf19cc35e3a3b4485d7475c90f54cee35ab775173e601639bc640ee"
+    },
+    {
+      "path": "setup-run2/freeze-source.py",
+      "sha256": "3b0253189a8cc239c40c80685f80029a5424c32a73548cdee39cffef41a37e8a"
+    },
+    {
+      "path": "setup-run2/measure.sh",
+      "sha256": "6edab487a307459f8ea6928695bac4645587727383b3f748330c86a9b1846cb1"
+    },
+    {
+      "path": "setup-run2/prepare-metadata-index.py",
+      "sha256": "73181b62eaa131d77907bb75ea28cf10cb07ab1c7c445055366abc20135c16f9"
+    },
+    {
+      "path": "setup-run2/refresh-unsafe-location.py",
+      "sha256": "9db3f27aea3eaee4b8e11256c36e9f5eda118551e8de2433ea5c128f523b49ac"
+    }
+  ]
+}

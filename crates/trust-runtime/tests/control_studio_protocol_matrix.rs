@@ -1075,18 +1075,21 @@ impl Drop for RemoveDir {
 fn start_runtime(project: &Path, time_scale: u32) -> Runtime {
     let log = fs::File::create(project.join("runtime.log")).expect("create runtime.log");
     let stderr = log.try_clone().expect("share runtime.log");
-    let child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("run")
-        .arg("--project")
-        .arg(project)
-        .arg("--simulation")
-        .arg("--time-scale")
-        .arg(time_scale.to_string())
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(log))
-        .stderr(Stdio::from(stderr))
-        .spawn()
-        .expect("spawn trust-runtime run");
+    let child = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("run")
+    .arg("--project")
+    .arg(project)
+    .arg("--simulation")
+    .arg("--time-scale")
+    .arg(time_scale.to_string())
+    .stdin(Stdio::null())
+    .stdout(Stdio::from(log))
+    .stderr(Stdio::from(stderr))
+    .spawn()
+    .expect("spawn trust-runtime run");
     Runtime(child)
 }
 
@@ -1099,12 +1102,15 @@ fn log_tail(log: &Path) -> String {
 
 /// Builds the project with `trust-runtime build --project`, as the extension does before it starts a runtime.
 fn build_project(project: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .arg("build")
-        .arg("--project")
-        .arg(project)
-        .output()
-        .expect("run trust-runtime build");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .arg("build")
+    .arg("--project")
+    .arg(project)
+    .output()
+    .expect("run trust-runtime build");
     assert!(
         output.status.success(),
         "trust-runtime build failed:\n{}",

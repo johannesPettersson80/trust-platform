@@ -248,12 +248,11 @@ pub(in crate::db) fn check_global_external_links_with_project(
                     link_ok = false;
                 }
 
-                if link_ok {
-                    if let Some(symbol_id) = symbol_id {
-                        if let Some(symbol) = symbols.get_mut(symbol_id) {
-                            symbol.origin = Some(global.origin);
-                        }
-                    }
+                if link_ok
+                    && let Some(symbol_id) = symbol_id
+                    && let Some(symbol) = symbols.get_mut(symbol_id)
+                {
+                    symbol.origin = Some(global.origin);
                 }
             }
         }

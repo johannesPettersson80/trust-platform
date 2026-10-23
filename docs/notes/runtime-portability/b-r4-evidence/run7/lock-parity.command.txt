@@ -1,0 +1,1 @@
+bash -c cmp\ Cargo.lock\ \"\$B_EVIDENCE/root-before.lock\"\ \&\&\ cmp\ firmware/trust-nucleo-f401re/Cargo.lock\ \"\$B_EVIDENCE/firmware-before.lock\" 

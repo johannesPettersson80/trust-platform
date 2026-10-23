@@ -122,15 +122,13 @@ pub(super) fn check_value_with_context<C: ServerContext>(context: &C, args: Vec<
         .objects
         .iter()
         .any(|object| object.kind == PLACED_FACEPLATE)
+        && let Ok(bundle) = super::hmi_authoring::bundle::read_edited(&project.root, &project.open)
     {
-        if let Ok(bundle) = super::hmi_authoring::bundle::read_edited(&project.root, &project.open)
-        {
-            problems.extend(super::hmi_authoring::placements::check(
-                &page,
-                &bundle,
-                project.runtime.storage(),
-            ));
-        }
+        problems.extend(super::hmi_authoring::placements::check(
+            &page,
+            &bundle,
+            project.runtime.storage(),
+        ));
     }
     // A control bound to a field is checked against the policy when its instance is known.
     problems.extend(policy_problems(
@@ -197,19 +195,17 @@ fn pair_value<C: ServerContext>(context: &C, args: &CheckArgs, file: &str) -> Va
             })
             .collect(),
     };
-    if let Ok(bundle) = super::hmi_authoring::bundle::read_edited(&project.root, &project.open) {
-        if let Some((panel_file, bytes)) =
+    if let Ok(bundle) = super::hmi_authoring::bundle::read_edited(&project.root, &project.open)
+        && let Some((panel_file, bytes)) =
             super::hmi_authoring::bundle::faceplate_text(&bundle, &pair.faceplate)
-        {
-            if let Ok(panel) = super::hmi_authoring::documents::parse(
-                "faceplate",
-                panel_file,
-                &String::from_utf8_lossy(bytes),
-            ) {
-                problems.extend(super::hmi_authoring::command_checks::check(&project.runtime.metadata_snapshot(),&pair,&panel).into_iter()
+        && let Ok(panel) = super::hmi_authoring::documents::parse(
+            "faceplate",
+            panel_file,
+            &String::from_utf8_lossy(bytes),
+        )
+    {
+        problems.extend(super::hmi_authoring::command_checks::check(&project.runtime.metadata_snapshot(),&pair,&panel).into_iter()
                     .map(|(object,message)|json!({"line":line("faceplate"),"object":object,"message":message})));
-            }
-        }
     }
     json!({ "ok": true, "problems": problems })
 }

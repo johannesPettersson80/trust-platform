@@ -125,7 +125,7 @@ PI := 3.0;  // ERROR: Cannot modify CONSTANT
 | =, <> | ANY_ELEMENTARY | Incompatible types |
 
 The exact reviewed integer-base `**` extension is recorded in
-[`IEC_DEVIATIONS.md`](../IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation).
+[`IEC_DEVIATIONS.md`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-27---integer-base-exponentiation).
 
 ### 3.2 Statement Type Errors
 
@@ -162,7 +162,7 @@ IEC 61131-3 Ed.3 §6.6.1.4.1 requires VAR_IN_OUT parameters to be “properly ma
 | VAR_IN_OUT mapping | Missing binding, non-lvalue, constant target, temporary, reference-typed declaration, or non-exact type |
 | Non-formal calls | Positional argument count must match parameters (excluding EN/ENO) |
 | IEC call-form separation | IEC 61131-3 Ed.3 section 6.6.1.4.2 defines separate formal and non-formal lists |
-| truST mixed-call extension | A positional prefix followed by formal assignments is accepted; a repeated occupied parameter or positional argument after a formal assignment is rejected ([`DEV-018`](../IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls)) |
+| truST mixed-call extension | A positional prefix followed by formal assignments is accepted; a repeated occupied parameter or positional argument after a formal assignment is rejected ([`DEV-018`](https://github.com/johannesPettersson80/trust-platform/blob/main/docs/IEC_DEVIATIONS.md#2026-07-26---mixed-positional-prefix-and-formal-suffix-calls)) |
 | Writable aliasing | Two output/in-out/ENO connections resolve to the same or overlapping caller storage |
 | Execution control | EN/ENO supplied positionally, EN connected with `=>`, ENO connected with `:=`, or `REF(EN)` / `REF(ENO)` |
 
@@ -296,7 +296,7 @@ constant evaluation. A range whose lower bound exceeds its upper bound is
 invalid and is not normalized. The closed ordering and overlap policy is
 recorded in `docs/IEC_DECISIONS.md`.
 
-### 3.5 Standard Function Call Errors
+### 3.6 Standard Function Call Errors
 
 Standard functions and conversions (Tables 22–36) have fixed or extensible signatures with defined type categories. The type checker resolves overloads by argument types and reports errors when no valid overload matches. (IEC 61131-3 Ed.3, Tables 22–36)
 
@@ -316,7 +316,7 @@ result-type rules.
 | Overloaded conversions (`TO_DST`, `TRUNC_DST`) | Source type not convertible to requested destination |
 | Type-category mismatch | Arguments not in the required IEC generic category (ANY_INT/ANY_REAL/ANY_BIT/ANY_STRING/ANY_DATE) |
 
-### 3.6 Standard Function Block Call Errors
+### 3.7 Standard Function Block Call Errors
 
 Standard function blocks (Tables 43–46) have fixed or overloaded signatures. The type checker validates parameter names, directions, and types for standard FB calls, including counter/timer overloads. (IEC 61131-3 Ed.3, Tables 43–46)
 
@@ -329,7 +329,7 @@ Standard function blocks (Tables 43–46) have fixed or overloaded signatures. T
 | Explicit LTIME timer FBs (TP_LTIME/TON_LTIME/TOF_LTIME) | PT/ET not LTIME |
 | Output parameters | Non-assignable target or missing `=>` in formal call |
 
-### 3.7 Array Index Rules
+### 3.8 Array Index Rules
 
 IEC 61131-3 Ed.3 §6.4.4.5.1 requires array subscripts to be ANY_INT expressions and within declared bounds; the number of subscripts matches the declared dimensions.
 

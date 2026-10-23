@@ -21,8 +21,8 @@ pub fn run_test(
         anyhow::bail!("no ST sources found under {}", sources_root.display());
     }
 
-    let discovered_tests = discover_tests(&sources);
-    let mut tests = discovered_tests.clone();
+    let discovered = discover_tests(&sources);
+    let mut tests = discovered.clone();
     let discovered_total = tests.len();
     if let Some(filter) = filter.as_deref() {
         let needle = filter.to_ascii_lowercase();
@@ -50,7 +50,7 @@ pub fn run_test(
         return Ok(());
     }
 
-    let mut runtime = compile_test_runtime(&project_root, &discovered_tests)?;
+    let mut runtime = compile_test_runtime(&project_root, &discovered)?;
     if tests.is_empty() {
         let rendered = render_output(
             output,

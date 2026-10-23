@@ -1,0 +1,1 @@
+sha256sum --check /home/johannes/.cache/trust-portability-b-setup-run-3/fixture-sha256.txt 

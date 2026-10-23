@@ -1,4 +1,4 @@
-//! Specification 33 section 5.2: omitted state resolves to model-sized zeros.
+//! Specification 46 section 5.2: omitted state resolves to model-sized zeros.
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
 
 #[test]

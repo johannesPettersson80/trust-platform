@@ -8,7 +8,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::Serialize;
 use serde_json::json;
 
+mod browser_command;
 mod full_map;
+mod portability;
 mod software_map;
 
 use full_map::architecture_doctor_full_map;
@@ -31,6 +33,9 @@ fn run() -> Result<()> {
     };
     let root = workspace_root()?;
     match command.as_str() {
+        "browser-command" => browser_command::run(args.collect()),
+        "architecture-external-safety" => full_map::external_safety_gate(&root),
+        "portability" => portability::run(&root, args.collect()),
         "architecture-map" => architecture_map(&root),
         "architecture-doctor" => {
             let mode = args.next().unwrap_or_else(|| "--all".to_string());
@@ -49,7 +54,7 @@ fn print_usage() {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map"
+    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-external-safety\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask browser-command <probe|render> <executable> [browser arguments...]\n  cargo xtask portability pack <gpio.stbc> <application.bin>\n  cargo xtask portability build-firmware <board> <report.json>\n  cargo xtask portability inspect <board> <firmware.elf> <report.json>\n  cargo xtask portability footprint <current.map> <baseline.map> <report.json>\n  cargo xtask portability verify <board> <uart.txt> <report.json>\n  boards: nucleo-f401re, esp32c6-devkitc-1"
 }
 
 fn workspace_root() -> Result<PathBuf> {
@@ -348,6 +353,7 @@ fn check_runtime_initializer_no_cst(root: &Path) -> Result<CheckResult> {
 fn check_initializer_funnel(root: &Path) -> Result<CheckResult> {
     let allowed = [
         "crates/trust-runtime/src/host/harness/coerce.rs",
+        "crates/trust-runtime/src/host/harness/coerce_contract_tests.rs",
         "crates/trust-runtime/src/host/harness/initializer.rs",
     ];
     let runtime_src = root.join("crates/trust-runtime/src");

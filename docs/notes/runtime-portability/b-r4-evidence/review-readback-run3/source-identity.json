@@ -1,0 +1,4 @@
+{
+  "crates/trust-platform-stm32f4/src/hardware/reset.rs": "3db63888fa905eb1a000dd4cb02c0cc3a77d7b1531621dcc8a2d219fc7b823be",
+  "crates/trust-platform-stm32f4/src/hardware/emergency.rs": "1beaccd8309f4eeff1c7b5a34daa38ce148e884f92513644f6b31e649157a3ec"
+}

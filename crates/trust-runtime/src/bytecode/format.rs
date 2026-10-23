@@ -1,21 +1,30 @@
 //! Bytecode container format types.
 
-#![allow(missing_docs)]
-
 pub use trust_runtime_core::bytecode::{
-    BytecodeError, BytecodeMetadata, BytecodeVersion, ConstEntry, ConstPool, DebugEntry, DebugMap,
-    EnumVariant, Field, InterfaceImpl, InterfaceMethod, IoBinding, IoMap, MethodEntry, ParamEntry,
-    PouClassMeta, PouEntry, PouIndex, PouKind, ProcessImageConfig, RefEntry, RefLocation,
-    RefSegment, RefTable, ResourceEntry, ResourceMeta, ResourceMetadata, RetainInit,
-    RetainInitEntry, Section, SectionData, SectionEntry, SectionId, StringTable, TaskEntry,
-    TypeData, TypeEntry, TypeKind, TypeTable, VarMeta, VarMetaEntry, BYTECODE_MAX_CONST_NESTING,
+    BytecodeError, BytecodeMetadata, BytecodeModuleView, BytecodeVersion, ConstEntry, ConstPool,
+    DebugEntry, DebugMap, EnumVariant, Field, InterfaceImpl, InterfaceMethod, IoBinding, IoMap,
+    MethodEntry, ParamEntry, PouClassMeta, PouEntry, PouIndex, PouKind, ProcessImageConfig,
+    RefEntry, RefLocation, RefSegment, RefTable, RejectionReason, ResourceEntry, ResourceMeta,
+    ResourceMetadata, RetainInit, RetainInitEntry, Section, SectionData, SectionEntry, SectionId,
+    StringTable, TaskEntry, TypeData, TypeEntry, TypeKind, TypeTable, ValidatedBytecode,
+    ValidationLimits, ValidationStats, VarMeta, VarMetaEntry, BYTECODE_MAX_CONST_NESTING,
     BYTECODE_MAX_CONTAINER_BYTES, BYTECODE_MAX_INSTRUCTIONS, BYTECODE_MAX_LOCALS_PER_POU,
     BYTECODE_MAX_NATIVE_ARGUMENTS, BYTECODE_MAX_PARAMETERS_PER_POU, BYTECODE_MAX_REFERENCES,
-    NATIVE_CALL_KIND_FUNCTION, NATIVE_CALL_KIND_FUNCTION_BLOCK, NATIVE_CALL_KIND_METHOD,
-    NATIVE_CALL_KIND_STDLIB, SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
-};
-pub(crate) use trust_runtime_core::bytecode::{
-    HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
+    HEADER_FLAG_CRC32, HEADER_FLAG_LEGACY_TEMPORAL32, NATIVE_CALL_KIND_FUNCTION,
+    NATIVE_CALL_KIND_FUNCTION_BLOCK, NATIVE_CALL_KIND_METHOD, NATIVE_CALL_KIND_STDLIB,
+    SUPPORTED_MAJOR_VERSION, SUPPORTED_MINOR_VERSION,
 };
 
-include!("format/module.rs");
+mod module;
+pub use module::BytecodeModule;
+
+pub use trust_runtime_core::bytecode::{
+    ConstructionRoot, ConstructionRoots, InitializationOnce, InitializationPhase,
+    InitializationStage, InitializationTarget, InitializationTrigger, InitializerBodyKind,
+    InitializerEntry, InitializerIndex, StorageDeclaration, StorageLayout, StorageOwner,
+    StorageRole, BYTECODE_MAX_CONSTRUCTION_NODES, BYTECODE_MAX_CONSTRUCTION_RECORDS,
+};
+
+pub use trust_runtime_core::bytecode::{AccessBindingEntry, AccessBindings};
+
+pub use trust_runtime_core::bytecode::{opcodes, PartialAccessSpec};

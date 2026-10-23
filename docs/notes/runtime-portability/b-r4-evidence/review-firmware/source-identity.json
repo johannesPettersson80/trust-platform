@@ -1,0 +1,22 @@
+{
+  "reviewer": "/root/br1_static_registry",
+  "verdict": "Source accepted after pre-repaint guard correction; no compilation or physical bound claimed",
+  "files": [
+    {
+      "path": "firmware/trust-nucleo-f401re/src/runner.rs",
+      "sha256": "7fb25c30e390e6ba7eeb49704cda29a80e34a8ac9e6b63b7e139fa40c1eeb390"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/trace.rs",
+      "sha256": "d4dcbf1e4838b954eeaaad9de794af2e5bb8431c78bb294302573f3f8db220f2"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/lib.rs",
+      "sha256": "4f42907331cd5ba4e2f0c2484b506bf111cd3ca9c6229405f7317fa83b3b72d2"
+    },
+    {
+      "path": "firmware/trust-nucleo-f401re/src/stack_guard.rs",
+      "sha256": "f7ebf169a87faeb32440605bc88ccc2632e7a8aa3fb2a4576493a809c712d35e"
+    }
+  ]
+}

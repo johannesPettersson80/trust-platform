@@ -1,0 +1,27 @@
+[package]
+name = "trust-esp32c6-reference"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+resolver = "3"
+
+[dependencies]
+trust-board-fixture = { path = "../../crates/trust-board-fixture" }
+trust-platform-esp32 = { path = "../../crates/trust-platform-esp32" }
+esp-hal = { version = "=1.2.2", features = ["esp32c6", "unstable"] }
+esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c6"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+debug = 1
+panic = "abort"
+overflow-checks = true
+
+[profile.dev]
+panic = "abort"

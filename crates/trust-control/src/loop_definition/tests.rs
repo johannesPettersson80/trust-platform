@@ -730,10 +730,10 @@ fn every_shipped_loop_runs_on_the_rust_engine_or_is_parked_never_refused_otherwi
         let Ok(loop_definition) = LoopDefinition::decode(&text) else {
             continue;
         };
-        if let Err(failure) = loop_definition.rust_engine_support() {
-            if failure.cause != Cause::ControllerCapability {
-                problems.push(format!("{}: {failure:?}", file.display()));
-            }
+        if let Err(failure) = loop_definition.rust_engine_support()
+            && failure.cause != Cause::ControllerCapability
+        {
+            problems.push(format!("{}: {failure:?}", file.display()));
         }
     }
     assert!(problems.is_empty(), "{problems:#?}");

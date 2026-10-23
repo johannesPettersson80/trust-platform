@@ -1,0 +1,2 @@
+47d5cc75e01bd81e5479d58930ff2330bce6b4a66ee4c23e2509d2d0e2f24afa  crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc
+96b450d9748beba42b82c31b0f708485e7c34e97822f21d9324116e27df08840  crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.disassembly.txt

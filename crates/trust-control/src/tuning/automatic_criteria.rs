@@ -279,13 +279,12 @@ pub fn fill_requirements(
         None => Vec::new(),
     };
     let supplied = supplied.without_generated(&generated);
-    if generated.is_empty() {
-        if let Some(complete) = supplied
+    if generated.is_empty()
+        && let Some(complete) = supplied
             .complete()
             .filter(|record| record.validate().is_ok())
-        {
-            return Ok(complete);
-        }
+    {
+        return Ok(complete);
     }
     let excursions = test_excursions(evidence)?;
     let mut fields: Vec<String> = Vec::new();

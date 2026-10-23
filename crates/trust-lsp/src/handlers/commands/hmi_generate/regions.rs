@@ -56,7 +56,7 @@ const INDENT: &str = "    ";
 
 /// The SHA-256 of a region's text, in lowercase hexadecimal.
 fn checksum(content: &str) -> String {
-    format!("{:x}", Sha256::digest(content.as_bytes()))
+    hex::encode(Sha256::digest(content.as_bytes())).to_string()
 }
 
 /// A region with its markers, as the program text holds it.

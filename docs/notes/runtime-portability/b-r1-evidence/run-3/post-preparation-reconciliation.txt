@@ -1,0 +1,5 @@
+The nine-file independent correction review remains applicable after formatting.
+Only crates/trust-runtime-core/src/vm/call/mod.rs changed: rustfmt collapsed a map closure to one line, with identical tokens.
+No provenance file, lockfile or saved application changed during preparation.
+The root agent inspected the diff and reconciled the complete frozen manifest against the local source.
+This records formatting reconciliation, not a new independent source review or test result.

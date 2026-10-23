@@ -60,8 +60,8 @@ fn lesson22_executes_the_setpoint_weight_control_studio_applies() {
             *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
         }
         assert!(runtime
-            .storage_mut()
-            .set_instance_var(program, "Parameters", proposed.clone()));
+            .write_instance(program, "Parameters", proposed.clone())
+            .is_ok());
         for step in 10..13 {
             scan(&mut runtime, &mut simulation, &debug, step * 100, &[]);
             assert_eq!(
@@ -112,11 +112,9 @@ fn lesson23_filters_the_measurement_control_studio_applies() {
             panic!("Lesson23 must execute its P1 program");
         };
         assert!(
-            runtime.storage_mut().set_instance_var(
-                program,
-                "FilterTimeS",
-                Value::LReal(filter_seconds)
-            ),
+            runtime
+                .write_instance(program, "FilterTimeS", Value::LReal(filter_seconds))
+                .is_ok(),
             "Control Studio applies the filter time Tf to the program"
         );
         for step in 0..5 {
@@ -185,23 +183,19 @@ fn lesson24_updates_the_controller_on_the_measured_clock() {
                 "Manual holds the hot-reset heater command"
             );
         }
-        assert!(runtime.storage_mut().set_instance_var(
-            program,
-            "ControllerPeriodS",
-            Value::LReal(period)
-        ));
-        assert!(runtime.storage_mut().set_instance_var(program, "AssumedCycleS", Value::LReal(if measured { 0.0 } else { 0.1 })),
+        assert!(runtime
+            .write_instance(program, "ControllerPeriodS", Value::LReal(period))
+            .is_ok());
+        assert!(runtime.write_instance(program, "AssumedCycleS", Value::LReal(if measured { 0.0 } else { 0.1 })).is_ok(),
             "AssumedCycleS 0 uses the measured interval; a positive value assumes that fixed interval");
         debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
         let mut updates = Vec::new();
         let mut last_update_ms = None;
         for step in 5..60 {
             if step == 20 && delay > 0.0 {
-                assert!(runtime.storage_mut().set_instance_var(
-                    program,
-                    "DelayUpdateS",
-                    Value::LReal(delay)
-                ));
+                assert!(runtime
+                    .write_instance(program, "DelayUpdateS", Value::LReal(delay))
+                    .is_ok());
             }
             let before = controller_state(&runtime, program, "ProcessValue");
             scan(
@@ -270,8 +264,8 @@ fn lesson24_holds_the_command_over_an_unusable_interval() {
     }
     // One update 3 s late: its 3.1 s interval is longer than half the loop's 4.46 s ultimate period.
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "DelayUpdateS", Value::LReal(3.0)));
+        .write_instance(program, "DelayUpdateS", Value::LReal(3.0))
+        .is_ok());
     let mut late = None;
     for step in 20..70 {
         let output = number(&runtime, "%QL0");
@@ -374,28 +368,29 @@ fn lesson24_verifies_from_the_state_control_studio_presets() {
     ] {
         assert!(state.set_existing_field(field.into(), Value::LReal(value)));
     }
-    assert!(runtime.storage_mut().set_instance_var(
-        controller,
-        "StateValue",
-        Value::Struct(std::sync::Arc::new(state))
-    ));
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Initialized", Value::Bool(true)));
+        .write_instance(
+            controller,
+            "StateValue",
+            Value::Struct(std::sync::Arc::new(state))
+        )
+        .is_ok());
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "AutoMode", Value::Bool(true)));
+        .write_instance(program, "Initialized", Value::Bool(true))
+        .is_ok());
+    assert!(runtime
+        .write_instance(program, "AutoMode", Value::Bool(true))
+        .is_ok());
     // SetpointC is bound to %ML0: like Control Studio, write the address and the variable.
     runtime
-        .io_mut()
-        .write(
+        .write_io(
             &IoAddress::parse("%ML0").unwrap(),
             Value::LWord(38.0_f64.to_bits()),
         )
         .unwrap();
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "SetpointC", Value::LReal(38.0)));
+        .write_instance(program, "SetpointC", Value::LReal(38.0))
+        .is_ok());
     let mut outputs = Vec::new();
     let mut intervals = Vec::new();
     for sequence in 0..30_i64 {

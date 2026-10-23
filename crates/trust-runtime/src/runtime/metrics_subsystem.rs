@@ -22,10 +22,10 @@ impl MetricsSubsystem {
     }
 
     pub(super) fn set_execution_backend(&self, backend: ExecutionBackend) {
-        if let Some(metrics) = self.sink.as_ref() {
-            if let Ok(mut guard) = metrics.lock() {
-                guard.set_execution_backend(backend);
-            }
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.set_execution_backend(backend);
         }
     }
 
@@ -34,42 +34,42 @@ impl MetricsSubsystem {
     }
 
     pub(super) fn record_cycle(&self, duration: StdDuration) {
-        if let Some(metrics) = self.sink.as_ref() {
-            if let Ok(mut guard) = metrics.lock() {
-                guard.record_cycle(duration);
-            }
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.record_cycle(duration);
         }
     }
 
     pub(super) fn record_task(&self, name: &SmolStr, duration: StdDuration) {
-        if let Some(metrics) = self.sink.as_ref() {
-            if let Ok(mut guard) = metrics.lock() {
-                guard.record_task(name, duration);
-            }
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.record_task(name, duration);
         }
     }
 
     pub(super) fn record_profile_call(&self, kind: &str, name: &SmolStr, duration: StdDuration) {
-        if let Some(metrics) = self.sink.as_ref() {
-            if let Ok(mut guard) = metrics.lock() {
-                guard.record_call(kind, name, duration);
-            }
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.record_call(kind, name, duration);
         }
     }
 
     pub(super) fn record_overrun(&self, name: &SmolStr, missed: u64) {
-        if let Some(metrics) = self.sink.as_ref() {
-            if let Ok(mut guard) = metrics.lock() {
-                guard.record_overrun(name, missed);
-            }
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.record_overrun(name, missed);
         }
     }
 
     pub(super) fn record_fault(&self) {
-        if let Some(metrics) = self.sink.as_ref() {
-            if let Ok(mut guard) = metrics.lock() {
-                guard.record_fault();
-            }
+        if let Some(metrics) = self.sink.as_ref()
+            && let Ok(mut guard) = metrics.lock()
+        {
+            guard.record_fault();
         }
     }
 }

@@ -95,6 +95,10 @@ pub(crate) fn lower_configuration(
     }
 
     Ok(Some(ConfigModel {
+        configuration_name: config
+            .children()
+            .find(|node| node.kind() == SyntaxKind::Name)
+            .map(|node| SmolStr::new(node_text(&node))),
         resource_name,
         globals,
         tasks,

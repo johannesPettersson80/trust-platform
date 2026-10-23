@@ -12,7 +12,7 @@ use modbus_support::{
 use trust_runtime::error::RuntimeError;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 const MODBUS_CI_SCAN_BOUND: StdDuration = StdDuration::from_millis(150);
 
@@ -829,13 +829,14 @@ fn modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery() {
         "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
     ))
     .expect("params");
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 2, 0);
     let mut safe_state = IoSafeState::default();
     safe_state.outputs.push((
         IoAddress::parse("%QW0").expect("safe-state output word"),
         Value::Word(0x1234),
     ));
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.set_io_safe_state(safe_state);
     runtime.add_io_driver(
         "modbus-safe-state",
@@ -885,13 +886,14 @@ fn modbus_safe_state_handoff_reports_unconfirmed_worker_delivery() {
         "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
     ))
     .expect("params");
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(0, 2, 0);
     let mut safe_state = IoSafeState::default();
     safe_state.outputs.push((
         IoAddress::parse("%QW0").expect("safe-state output word"),
         Value::Word(0x1234),
     ));
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.set_io_safe_state(safe_state);
     runtime.add_io_driver(
         "modbus-safe-state",

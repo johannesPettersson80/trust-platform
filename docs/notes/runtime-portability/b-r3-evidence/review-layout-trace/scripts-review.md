@@ -1,0 +1,14 @@
+# B-R3 setup-m1 script source review
+
+Accepted at source level. Compared all shell/Python sources with the independently reviewed B-R2 final script set, including the corrected explicit erase boundaries and exact approved-manifest check. No scripts, shell syntax checks, formatters, builds, tests, validators or hardware commands were executed.
+
+- Task-owned paths/labels now identify B-R3 M1; the baseline map is byte-identical to retained B-R2 M2. Fixture identities and both lockfiles remain unchanged.
+- Preparation checks canonical-file pins, formats once, refreshes the existing HardFault location and provenance, checks locks/artifacts, and freezes source before independent approval. This includes the required line-133-to-final-formatted-location correction identified in the layout review.
+- Measurement requires the exact approved manifest, consumes its once-only marker, retains map evidence even when the capacity link fails, and treats absent/failed attribution as failure. It does not run tests or flash hardware.
+- Final validation additionally consumes one shared B-R3 batch marker outside the per-measurement folder. M1 and a possible M2 therefore cannot sequentially launch independent final batches. No retry loops were added. The coordinator still owns the authorized two-candidate maximum, review of any M2 revision and freeze integrity; future M2 scripts are not implicitly reviewed by this M1 identity.
+- New memory/numeric tests are reached by core-all-features, portable and i686 lib lanes; shared console budget tests remain in native-tools. The restored firmware renderer correctly leaves only existing application library tests, while the physical oracle remains mandatory and conditional on successful admission/fit/software gates.
+- Existing runtime vertical is deduplicated within integration suites. Both supply-chain graphs, target checks, lint, architecture, render/drift, format, provenance and immutable artifact checks remain allocated. Required failures and dependent unrun checks are recorded; independent steps continue.
+- Final batch inspects the already measured ELF and does not relink. A successful capacity link alone is not fit: the coordinator must also enforce the 16 KiB upper-margin decision before choosing the final candidate. No physical run is authorized by a measurement result alone.
+- Board script retains explicit sector-0 and 4..7 firmware erases, separate sector-1 application erase and no image-wide automatic erase; backup and firmware/checkpoint preservation checks remain before run reset. Hardware approval and artifact identity transfer remain coordinator responsibilities.
+
+Identity pins all files in setup-m1, including the exact baseline, fixture and canonical checksum inputs. Source review does not establish execution results or close B-R3.

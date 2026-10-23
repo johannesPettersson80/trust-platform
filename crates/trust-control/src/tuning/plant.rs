@@ -193,10 +193,10 @@ pub fn check_plant(
     unit: &str,
 ) -> Result<(), Refusal> {
     check_gain_value(plant.signed_gain())?;
-    if let TuningPlant::FirstOrder(model) = plant {
-        if !model.time_constant_seconds.is_finite() || model.time_constant_seconds <= 0.0 {
-            return Err(Refusal::new(texts::TIME_CONSTANT_NOT_POSITIVE));
-        }
+    if let TuningPlant::FirstOrder(model) = plant
+        && (!model.time_constant_seconds.is_finite() || model.time_constant_seconds <= 0.0)
+    {
+        return Err(Refusal::new(texts::TIME_CONSTANT_NOT_POSITIVE));
     }
     let delay = plant.delay_seconds();
     if !delay.is_finite() || delay < 0.0 {
@@ -229,10 +229,10 @@ fn check_amigo_domain(plant: &TuningPlant) -> Result<(), Refusal> {
     if delay <= 0.0 {
         return Err(Refusal::new(texts::AMIGO_NEEDS_DELAY));
     }
-    if let TuningPlant::FirstOrder(model) = plant {
-        if delay / model.time_constant_seconds > 1.0 {
-            return Err(Refusal::new(texts::AMIGO_DELAY_DOMAIN));
-        }
+    if let TuningPlant::FirstOrder(model) = plant
+        && delay / model.time_constant_seconds > 1.0
+    {
+        return Err(Refusal::new(texts::AMIGO_DELAY_DOMAIN));
     }
     Ok(())
 }

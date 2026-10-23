@@ -1,4 +1,4 @@
-//! The Control library's manual (`docs/guides/CONTROL_LIBRARY_GUIDE.md`, specifications 32 and
+//! The Control library's manual (`docs/guides/CONTROL_LIBRARY_GUIDE.md`, specifications 45 and
 //! 37): every Structured Text example in it compiles with the library and runs, and it names every
 //! type, function block, function and public method the library declares.
 

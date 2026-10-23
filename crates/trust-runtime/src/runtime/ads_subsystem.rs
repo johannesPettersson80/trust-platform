@@ -8,7 +8,9 @@ use crate::ads::diagnostics::{
     ADS_DIAGNOSTICS_SCHEMA_VERSION,
 };
 use crate::ads::onboarding::ActiveAdsDeviceSnapshot;
-use crate::ads::{AdsBridgeError, AdsConnectionBridge, AdsConnectionState, AdsWorkerThread};
+use crate::ads::{
+    AdsBridgeError, AdsConnectionBridge, AdsConnectionState, AdsLiveValue, AdsWorkerThread,
+};
 use crate::error::RuntimeError;
 use crate::memory::VariableStorage;
 
@@ -51,6 +53,31 @@ impl AdsSubsystem {
         });
     }
 
+    pub(super) fn prepare_rebind(
+        &self,
+        candidate: &crate::Runtime,
+    ) -> Result<Vec<Vec<crate::ads::AdsBinding>>, RuntimeError> {
+        self.connections
+            .iter()
+            .map(|connection| {
+                crate::ads::resolve_declared_bindings(
+                    candidate,
+                    &crate::ads::AdsConnectionConfig {
+                        route: connection.route.clone(),
+                        points: connection.bridge.points(),
+                    },
+                )
+                .map_err(|error| RuntimeError::InvalidConfig(error.to_string().into()))
+            })
+            .collect()
+    }
+
+    pub(super) fn commit_rebind(&mut self, bindings: Vec<Vec<crate::ads::AdsBinding>>) {
+        for (connection, bindings) in self.connections.iter_mut().zip(bindings) {
+            connection.bridge.replace_bindings(bindings);
+        }
+    }
+
     pub(super) fn connection_count(&self) -> usize {
         self.connections.len()
     }
@@ -88,6 +115,7 @@ impl AdsSubsystem {
             })
     }
 
+    #[cfg(test)]
     pub(super) fn apply_inputs(
         &mut self,
         storage: &mut VariableStorage,
@@ -102,6 +130,7 @@ impl AdsSubsystem {
         Ok(())
     }
 
+    #[cfg(test)]
     pub(super) fn capture_outputs(
         &mut self,
         storage: &mut VariableStorage,
@@ -116,13 +145,99 @@ impl AdsSubsystem {
         Ok(())
     }
 
+    pub(super) fn apply_inputs_with_cycle(
+        &mut self,
+        access: &mut trust_runtime_core::vm::CycleAccess<'_, '_>,
+        now_ms: u64,
+    ) -> Result<(), RuntimeError> {
+        for connection in &mut self.connections {
+            connection
+                .bridge
+                .apply_inputs_with_cycle(access, now_ms)
+                .map_err(|err| ads_runtime_error(&connection.name, err))?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn capture_outputs_with_cycle(
+        &mut self,
+        access: &mut trust_runtime_core::vm::CycleAccess<'_, '_>,
+        now_ms: u64,
+    ) -> Result<(), RuntimeError> {
+        for connection in &mut self.connections {
+            connection
+                .bridge
+                .capture_outputs_with_cycle(access, now_ms)
+                .map_err(|err| ads_runtime_error(&connection.name, err))?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn live_values(&self, storage: &VariableStorage) -> Vec<AdsLiveValue> {
+        self.connections
+            .iter()
+            .flat_map(|connection| {
+                connection.bridge.live_values(
+                    storage,
+                    connection.name.as_str(),
+                    connection.route.ams_port,
+                )
+            })
+            .collect()
+    }
+
+    /// Select once before any PLC mutation. No worker can mutate binding metadata
+    /// while this owner-local bridge borrow remains live.
+    pub(super) fn writable_live_bridge(
+        &mut self,
+        point_name: &str,
+    ) -> Result<Option<&mut AdsConnectionBridge>, RuntimeError> {
+        let mut found_read_only = false;
+        for connection in &mut self.connections {
+            match connection.bridge.live_value_writable(point_name) {
+                Some(true) => return Ok(Some(&mut connection.bridge)),
+                Some(false) => found_read_only = true,
+                None => {}
+            }
+        }
+        if found_read_only {
+            Err(RuntimeError::InvalidConfig(format!("ADS tag '{point_name}' is read-only. Enable writes for this tag and restart the runtime.").into()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub(super) fn queue_live_write(
+        &mut self,
+        point_name: &str,
+        value: crate::value::Value,
+    ) -> bool {
+        self.connections.iter_mut().any(|connection| {
+            connection
+                .bridge
+                .queue_live_write(point_name, value.clone())
+        })
+    }
+
+    pub(super) fn live_value_writable(&self, point_name: &str) -> Option<bool> {
+        let mut found_read_only = false;
+        for connection in &self.connections {
+            match connection.bridge.live_value_writable(point_name) {
+                Some(true) => return Some(true),
+                Some(false) => found_read_only = true,
+                None => {}
+            }
+        }
+        found_read_only.then_some(false)
+    }
+
     pub(super) fn shutdown(&mut self) -> Result<(), RuntimeError> {
         let mut first_error = None;
         for connection in &mut self.connections {
-            if let Some(worker) = connection.worker.take() {
-                if let Err(err) = worker.shutdown() {
-                    first_error.get_or_insert_with(|| ads_runtime_error(&connection.name, err));
-                }
+            if let Some(worker) = connection.worker.take()
+                && let Err(err) = worker.shutdown()
+            {
+                first_error.get_or_insert_with(|| ads_runtime_error(&connection.name, err));
             }
         }
         if let Some(error) = first_error {
@@ -139,6 +254,9 @@ impl Drop for AdsSubsystem {
 }
 
 fn ads_runtime_error(connection: &SmolStr, err: AdsBridgeError) -> RuntimeError {
+    if let Some(error) = err.execution_cause() {
+        return error.clone();
+    }
     RuntimeError::IoTransport(format!("ADS connection '{connection}': {err}").into())
 }
 
@@ -435,6 +553,180 @@ mod tests {
                 bridge,
                 worker: None,
             });
+        }
+    }
+
+    fn management_runtime(access: trust_ads_core::PointAccess) -> crate::Runtime {
+        let mut runtime = crate::harness::CompileSession::from_source(
+            "VAR_GLOBAL point : INT := 1; ordinary : INT := 2; END_VAR PROGRAM Main END_PROGRAM",
+        )
+        .build_runtime()
+        .unwrap();
+        let reference = runtime.storage().ref_for_global("point").unwrap();
+        let binding = crate::ads::AdsBinding {
+            point: crate::ads::AdsPointConfig {
+                point_name: "point".into(),
+                address: crate::ads::AdsPointAddress::Symbol("Remote.Value".into()),
+                data_type: trust_ads_core::AdsDataTypeDescriptor::scalar(
+                    "INT",
+                    trust_ads_core::IecDataType::Int,
+                ),
+                access,
+                mode: trust_ads_core::UpdateMode::Poll,
+                notification_mode: crate::ads::AdsNotificationMode::OnChange,
+                allow_retain_read: false,
+            },
+            reference,
+            quality_reference: None,
+            type_id: trust_hir::TypeId::INT,
+            retain: false,
+        };
+        // Two writable connections pin first-match behavior, not duplicate sends.
+        for _ in 0..2 {
+            runtime.ads.add_connection_for_test(
+                route(),
+                AdsConnectionBridge::new(vec![binding.clone()]).unwrap(),
+            );
+        }
+        runtime
+    }
+
+    #[test]
+    fn checked_management_write_rejects_before_queue_and_commits_one_selected_bridge() {
+        use crate::value::Value;
+        let mut runtime = management_runtime(trust_ads_core::PointAccess::ReadWrite);
+        assert!(runtime
+            .write_global_and_queue_ads("point", Value::Bool(true))
+            .is_err());
+        assert_eq!(runtime.storage().get_global("point"), Some(&Value::Int(1)));
+        assert!(runtime
+            .ads
+            .connections
+            .iter()
+            .all(|connection| connection.bridge.pending_write("point").is_none()));
+        runtime.set_execution_deadline(Some(std::time::Instant::now()));
+        assert_eq!(
+            runtime.write_global_and_queue_ads("point", Value::Int(8)),
+            Err(RuntimeError::ExecutionTimeout)
+        );
+        assert_eq!(runtime.storage().get_global("point"), Some(&Value::Int(1)));
+        assert!(runtime
+            .ads
+            .connections
+            .iter()
+            .all(|connection| connection.bridge.pending_write("point").is_none()));
+        runtime.set_execution_deadline(None);
+        runtime
+            .write_global_and_queue_ads("point", Value::Int(8))
+            .unwrap();
+        assert_eq!(runtime.storage().get_global("point"), Some(&Value::Int(8)));
+        assert_eq!(
+            runtime.ads.connections[0].bridge.pending_write("point"),
+            Some(Value::Int(8))
+        );
+        assert_eq!(
+            runtime.ads.connections[1].bridge.pending_write("point"),
+            None
+        );
+        runtime
+            .write_global_and_queue_ads("ordinary", Value::Int(9))
+            .unwrap();
+        assert_eq!(
+            runtime.storage().get_global("ordinary"),
+            Some(&Value::Int(9))
+        );
+        assert!(runtime
+            .ads
+            .connections
+            .iter()
+            .all(|connection| connection.bridge.pending_write("ordinary").is_none()));
+        assert!(!runtime.faulted());
+    }
+
+    #[test]
+    fn readonly_management_write_preserves_value_and_queue() {
+        let mut runtime = management_runtime(trust_ads_core::PointAccess::Read);
+        let error = runtime
+            .write_global_and_queue_ads("point", crate::value::Value::Int(8))
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("is read-only. Enable writes for this tag and restart the runtime."));
+        assert_eq!(
+            runtime.storage().get_global("point"),
+            Some(&crate::value::Value::Int(1))
+        );
+        assert!(runtime
+            .ads
+            .connections
+            .iter()
+            .all(|connection| connection.bridge.pending_write("point").is_none()));
+        assert!(!runtime.faulted());
+    }
+
+    #[test]
+    fn management_queue_uses_canonical_admitted_width_for_wire_encoding() {
+        use crate::value::Value;
+        use trust_ads_core::{AdsDataTypeDescriptor, IecDataType, PointAccess, UpdateMode};
+        for (declaration, wire, ty, expected, bytes) in [
+            (
+                "DINT",
+                IecDataType::Dint,
+                trust_hir::TypeId::DINT,
+                Value::DInt(7),
+                7i32.to_le_bytes().to_vec(),
+            ),
+            (
+                "REAL",
+                IecDataType::Real,
+                trust_hir::TypeId::REAL,
+                Value::Real(7.0),
+                7f32.to_le_bytes().to_vec(),
+            ),
+            (
+                "Alias",
+                IecDataType::Dint,
+                trust_hir::TypeId::DINT,
+                Value::DInt(7),
+                7i32.to_le_bytes().to_vec(),
+            ),
+        ] {
+            let source = format!("TYPE Alias : DINT; END_TYPE VAR_GLOBAL point : {declaration}; END_VAR PROGRAM Main END_PROGRAM");
+            let mut runtime = crate::harness::CompileSession::from_source(source)
+                .build_runtime()
+                .unwrap();
+            let descriptor = AdsDataTypeDescriptor::scalar(declaration, wire);
+            let binding = crate::ads::AdsBinding {
+                point: crate::ads::AdsPointConfig {
+                    point_name: "point".into(),
+                    address: crate::ads::AdsPointAddress::Symbol("Remote.Value".into()),
+                    data_type: descriptor.clone(),
+                    access: PointAccess::ReadWrite,
+                    mode: UpdateMode::Poll,
+                    notification_mode: crate::ads::AdsNotificationMode::OnChange,
+                    allow_retain_read: false,
+                },
+                reference: runtime.storage().ref_for_global("point").unwrap(),
+                quality_reference: None,
+                type_id: ty,
+                retain: false,
+            };
+            runtime
+                .ads
+                .add_connection_for_test(route(), AdsConnectionBridge::new(vec![binding]).unwrap());
+            runtime
+                .write_global_and_queue_ads("point", Value::Int(7))
+                .unwrap();
+            assert_eq!(runtime.storage().get_global("point"), Some(&expected));
+            let queued = runtime.ads.connections[0]
+                .bridge
+                .pending_write("point")
+                .unwrap();
+            assert_eq!(queued, expected);
+            assert_eq!(
+                trust_ads_core::ads_bytes_from_value(&descriptor, &queued).unwrap(),
+                bytes
+            );
         }
     }
 

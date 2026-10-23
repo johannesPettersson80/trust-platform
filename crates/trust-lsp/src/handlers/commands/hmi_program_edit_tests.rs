@@ -185,7 +185,7 @@ fn equipment_hardware_edits_validate_direction_and_wire_a_real_io_signal() {
     let wired = with_lsp_edits(&generated, &valid["edit"]["changes"][&uri]);
     assert!(wired.contains("    P101(AutoRun := Input, Running => Output);\n"), "{wired}");
     let mut harness = trust_runtime::harness::TestHarness::from_source(&wired).expect("the wired code compiles");
-    harness.runtime_mut().io_mut().write(&trust_runtime::io::IoAddress::parse("%IX0.0").unwrap(), trust_runtime::value::Value::Bool(true)).unwrap();
+    harness.runtime_mut().write_io(&trust_runtime::io::IoAddress::parse("%IX0.0").unwrap(), trust_runtime::value::Value::Bool(true)).unwrap();
     for _ in 0..2 {
         harness.advance_time(trust_runtime::value::Duration::from_millis(100));
         assert!(harness.cycle().errors.is_empty());

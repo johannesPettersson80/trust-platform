@@ -1,0 +1,11 @@
+cargo fmt --all -- --check 
+rustfmt --check --edition 2021 crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs crates/trust-runtime/tests/bytecode_vm_core/positive_paths.rs 
+python3 /home/johannes/.cache/trust-portability-a2-setup/freeze-source-7.py 
+cargo test --locked --no-fail-fast -p trust-runtime --lib --test bytecode_vm_core -- --nocapture --test-threads=1 
+python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-metadata-index-7.py 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-7/review-index python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.mutation_program_contract_tests scripts.verification.mutation_program_report_tests scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests scripts.verification.fuzz_program_source_contract_tests 
+cargo clippy --locked -p trust-runtime-core -p trust-runtime --all-targets --all-features -- -D warnings 
+bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+python3 /home/johannes/.cache/trust-portability-a2-setup/check-retained-evidence-7.py 
+git diff --check 
+env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-7/review-index python3 scripts/validate_verification_metadata.py 

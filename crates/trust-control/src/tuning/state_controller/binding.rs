@@ -139,18 +139,17 @@ pub fn decode_state_controller_binding(
         })
         .transpose()
         .ok()?;
-    if lqg {
-        if let (Some(initialization), Some(observer)) =
+    if lqg
+        && let (Some(initialization), Some(observer)) =
             (&initialization, &raw.observer_gain_symbols)
+    {
+        let names = raw.estimator_state_symbols.as_deref()?;
+        if names.len() != observer.len()
+            || !names
+                .iter()
+                .all(|name| has_real_state(initialization, name))
         {
-            let names = raw.estimator_state_symbols.as_deref()?;
-            if names.len() != observer.len()
-                || !names
-                    .iter()
-                    .all(|name| has_real_state(initialization, name))
-            {
-                return None;
-            }
+            return None;
         }
     }
     let estimator_model = if lqg {

@@ -1,0 +1,8 @@
+{
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r4/review-linked-image/run3-disassembly.txt": "a1a0faf58b230e3e1e250bdb513d897248a79c154044d182f82b121627650f79",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r4/run3/measurement/firmware.elf": "3ad794db9695f5106c22d1bdc0fc4901c51dfca370999bc8520adef28fae8b7c",
+  "/home/johannes/projects/.artifacts/runtime-portability-b/b-r4/run3/board/uart.txt": "407bb5105b4a8107c9f463274437ee3c7d6d248329e54f5fd3d5dac92d4b19e7",
+  "/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core/src/vm/construction/values.rs": "07e2af8d6f2b428708b7ce530b3a2504102a8b374d7888c6b523dde2e0a3ac16",
+  "/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core/src/vm/engine/initialization/construction.rs": "d7a2014bca3a6641a2577dfb4002ba4f65ba14ee11be9e0801b2d4dbe35bb7aa",
+  "/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.disassembly.txt": "1a3f57a52633ca2967966325ffb5efb176315c0fa127a5c1677ac6e8b23964cb"
+}

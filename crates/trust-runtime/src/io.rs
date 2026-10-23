@@ -8,6 +8,8 @@ mod modbus;
 pub use modbus::ModbusTcpDriver;
 mod mqtt;
 pub use mqtt::MqttIoDriver;
+mod mqtt_tag_mapping;
+pub use mqtt_tag_mapping::resolve_mqtt_tag_mappings;
 mod ethercat;
 pub use ethercat::{
     configured_ethercat_modules, discover_ethercat_modules, EthercatDiscoveryInfo,
@@ -34,6 +36,9 @@ include!("io/addressing.rs");
 include!("io/coercion.rs");
 include!("io/provenance.rs");
 include!("io/interface.rs");
+
+mod installed;
+pub use installed::InstalledIoView;
 
 #[cfg(test)]
 #[path = "io/provenance_contract_tests.rs"]

@@ -1,0 +1,13 @@
+   Compiling trust-nucleo-f401re v0.1.0 (/home/johannes/projects/trust-platform-portability-b/firmware/trust-nucleo-f401re)
+   Compiling trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+error: linking with `rust-lld` failed: exit status: 1
+  |
+  = note:  "rust-lld" "-flavor" "gnu" "<1 object files omitted>" "--as-needed" "-Bstatic" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/deps/rustcyaOOh5/libcortex_m-7d018d9ccaaa1149.rlib" "<sysroot>/lib/rustlib/thumbv7em-none-eabihf/lib/libcompiler_builtins-*.rlib" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/deps/rustcyaOOh5/raw-dylibs" "-Bdynamic" "--eh-frame-hdr" "-z" "noexecstack" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/trust-nucleo-f401re-3aadfc7c11c716f7/out" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/cortex-m-e69846fd69cc9587/out" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/cortex-m-rt-bbf0472d6f5ac5ba/out" "-L" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/build/stm32f4-d77c1365d95ff220/out" "-o" "/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b/thumbv7em-none-eabihf/release/deps/trust_nucleo_f401re-f3a4bd5c487e0071" "--gc-sections" "-Tlink.x" "-Tprofile.x" "-Map=trust-nucleo-f401re.map"
+  = note: some arguments are omitted. use `--verbose` to show all linker arguments
+  = note: rust-lld: error: firmware load image exceeds L2 code region
+          rust-lld: error: section '.rodata' will not fit in region 'FLASH': overflowed by 68196 bytes
+          rust-lld: error: section '.data' will not fit in region 'FLASH': overflowed by 68196 bytes
+          rust-lld: error: section '.gnu.sgstubs' will not fit in region 'FLASH': overflowed by 68224 bytes
+          
+
+error: could not compile `trust-nucleo-f401re` (bin "trust-nucleo-f401re") due to 1 previous error

@@ -521,10 +521,9 @@ fn named_write(
         writable,
         observed,
         transaction_id.to_owned(),
-    ) {
-        if planned.identity == write.identity {
-            return Ok(planned);
-        }
+    ) && planned.identity == write.identity
+    {
+        return Ok(planned);
     }
     Err(apply_refusal.unwrap_or_else(review_changed))
 }

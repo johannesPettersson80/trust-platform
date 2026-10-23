@@ -50,12 +50,11 @@ pub(super) fn with_chosen_alternatives(
                 .find(|other| other.path.eq_ignore_ascii_case(target))
                 .map(|other| other.block.as_str())
         });
-        if let Some(block) = block {
-            if !index.implements_capability(block, &kept[at].interface)
-                && index.implements_capability(block, &dependency.interface)
-            {
-                kept[at] = dependency.clone();
-            }
+        if let Some(block) = block
+            && !index.implements_capability(block, &kept[at].interface)
+            && index.implements_capability(block, &dependency.interface)
+        {
+            kept[at] = dependency.clone();
         }
     }
     let mut resolved = item.clone();

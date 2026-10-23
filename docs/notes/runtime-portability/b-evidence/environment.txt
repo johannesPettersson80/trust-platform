@@ -1,0 +1,25 @@
+scena-rust-builder
+/home/johannes/projects/trust-platform-portability-b
+df427259cc387a7a79fb81132be23e48ea1493d4
+rustc 1.95.0 (59807616e 2026-04-14)
+binary: rustc
+commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860
+commit-date: 2026-04-14
+host: x86_64-unknown-linux-gnu
+release: 1.95.0
+LLVM version: 22.1.2
+cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdb        492G  344G  123G  74% /mnt/HC_Volume_107089260
+/dev/sdb        492G  344G  123G  74% /mnt/HC_Volume_107089260
+/dev/sda1       301G  261G   27G  91% /
+CARGO_BUILD_JOBS=6
+CARGO_INCREMENTAL=0
+CARGO_TARGET_DIR=/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b
+RUSTUP_TOOLCHAIN=1.95.0
+TMPDIR=/mnt/HC_Volume_107089260/builder-storage/tmp/portability-b
+i686-unknown-linux-musl
+riscv32imac-unknown-none-elf
+thumbv7em-none-eabihf
+x86_64-pc-windows-gnu
+x86_64-unknown-linux-gnu

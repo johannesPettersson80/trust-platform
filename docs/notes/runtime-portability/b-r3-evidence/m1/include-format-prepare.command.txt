@@ -1,0 +1,1 @@
+rustfmt --edition 2021 --config-path rustfmt.toml crates/trust-runtime-core/src/program_model/ops/time_ops.rs 

@@ -1,0 +1,95 @@
+{
+  "review": "Independent source-only H1 output/input journals, M2 borrowed paths, L2 optional cache review",
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "aggregate_sha256": "f6c4228d929bc8bcf855bf4b025f63f5eb046fe67427b9787d0ec13876c71b4e",
+  "framing": "sorted UTF-8 relative path, NUL, raw file bytes, NUL",
+  "records": [
+    {
+      "path": "crates/trust-runtime-core/src/memory/cache.rs",
+      "sha256": "eafae2b8f94a89f2d9c86a2b70dbf3dcb6e0f023bc9119178806ce9b7180004e",
+      "bytes": 2833
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/instances.rs",
+      "sha256": "5592ef2315ae91d286dcd4a817dd733d6702205c9cd8e19edf16c4fd16800d07",
+      "bytes": 8769
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/references.rs",
+      "sha256": "15724a48603ccdf4cd910da8fae3eeb3bfc14dcb03ec46dededa0e6e8d8a928e",
+      "bytes": 9214
+    },
+    {
+      "path": "crates/trust-runtime-core/src/memory/storage.rs",
+      "sha256": "1daf8bd7708f57feea08b908ca1cc25aba034845b229cdaad2c58aaec69e8221",
+      "bytes": 3899
+    },
+    {
+      "path": "crates/trust-runtime-core/src/value/reference.rs",
+      "sha256": "d8fc344cb7a914cc51a87f0744a5382729915a8734e8e55c3912bfae4fac5699",
+      "bytes": 21782
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/call/bindings/targets.rs",
+      "sha256": "0f551854ece288ae47658ad65dbd873303e002a3a49a1a39be5fcf1be2753a95",
+      "bytes": 11739
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/context.rs",
+      "sha256": "b8a4412dc9cec4eefea5bc123a7c41309dc0fd0d20fa5238eec1e4adc64bc314",
+      "bytes": 4431
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/dispatch_refs.rs",
+      "sha256": "a881e8e1e9cea4f91b59bcb3b99647907edaa22f170ece10849464c9e62969f7",
+      "bytes": 19358
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/access.rs",
+      "sha256": "c001752edaad342cadcd5f296d5df3f19bd287a2c40baddea548ed207a324ba8",
+      "bytes": 4804
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/context.rs",
+      "sha256": "bf5656d252d00c6589eef3aaff1fb1446f0f88e20ba8da230e11d2185788d249",
+      "bytes": 10027
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io.rs",
+      "sha256": "0e48a0389830c867f6957a518b5418cba0f5084267a3b9dbe329e4379c0509f9",
+      "bytes": 12782
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/io/staging.rs",
+      "sha256": "bd3c13cdd89eea50f4e975966382807ea48e77cbdc0bf01bbe8e484a011402fc",
+      "bytes": 5318
+    },
+    {
+      "path": "crates/trust-runtime-core/src/vm/engine/output_transaction.rs",
+      "sha256": "00e0a3ee57d66bcb0a996de4acc73841a86b24cb1f088432837e7d36488b511f",
+      "bytes": 10282
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/context.rs",
+      "sha256": "eb8d265bc5f13b5d40102bcf6b7165b16b17119aa4ac11b352282c04845ed142",
+      "bytes": 4056
+    },
+    {
+      "path": "crates/trust-runtime/src/value/reference.rs",
+      "sha256": "a4c2bdefce3911446b203e48ea4c4a2643e484af460e27532bca49c3fce29e0f",
+      "bytes": 1818
+    },
+    {
+      "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+      "sha256": "9b9a2e494131541669e74fd5be32b296e765ff47b6b1016803a135230983e105",
+      "bytes": 3112
+    },
+    {
+      "path": "crates/trust-runtime/tests/source_free_cycle_contract.rs",
+      "sha256": "97936fe1f505991f54daa8afbaf60d165f15c39c21dfdef0ca2274f810a5ac07",
+      "bytes": 4021
+    }
+  ],
+  "status": "No remaining blocker found in reviewed delta; uncompiled and untested. Root budget/state migration not covered.",
+  "exclusions": "Earlier self-authored call/stdlib/construction/IO implementation is not independently approved; review covers peer-authored correction delta only."
+}

@@ -92,25 +92,28 @@ pub fn inline_value(state: &ServerState, params: InlineValueParams) -> Option<Ve
     let frame_id = u32::try_from(params.context.frame_id).ok();
     let mut owner_hints = Vec::new();
     for target in &data.targets {
-        if let Some(owner) = target.owner.as_ref() {
-            if !owner_hints
+        if let Some(owner) = target.owner.as_ref()
+            && !owner_hints
                 .iter()
                 .any(|name: &SmolStr| name.eq_ignore_ascii_case(owner))
-            {
-                owner_hints.push(owner.clone());
-            }
+        {
+            owner_hints.push(owner.clone());
         }
     }
     let (override_endpoint, override_auth) = runtime_control_override(state);
     let config = state.workspace_config_for_uri(uri);
-    let endpoint = config
-        .as_ref()
-        .and_then(|config| config.runtime.control_endpoint.as_deref())
-        .or(override_endpoint.as_deref());
-    let auth = config
-        .as_ref()
-        .and_then(|config| config.runtime.control_auth_token.as_deref())
-        .or(override_auth.as_deref());
+    let repository = config.as_ref().map(|config| &config.runtime);
+    let repository_endpoint = repository.and_then(|runtime| runtime.control_endpoint.as_deref());
+    let repository_auth = repository.and_then(|runtime| runtime.control_auth_token.as_deref());
+    // An endpoint from trust-lsp.toml is contacted only with the token configured next to it,
+    // so the editor's token never reaches an endpoint that the repository chose.
+    let (endpoint, auth) = match repository_endpoint {
+        Some(endpoint) => (Some(endpoint), repository_auth),
+        None => (
+            override_endpoint.as_deref(),
+            repository_auth.or(override_auth.as_deref()),
+        ),
+    };
     if let (Some(frame_id), Some(endpoint)) = (frame_id, endpoint) {
         debug!(
             "inlineValue runtime fetch uri={} endpoint={} auth_present={} owner_hints={}",

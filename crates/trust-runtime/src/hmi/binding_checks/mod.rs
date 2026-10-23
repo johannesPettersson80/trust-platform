@@ -100,10 +100,10 @@ pub fn check_page_with_remote(
             }
         }
         for (property, binding) in &object.bind {
-            if let Some(quality) = &binding.quality {
-                if let Err(message) = check_quality(quality, storage, remote) {
-                    problems.push(problem(object, Some(property), message));
-                }
+            if let Some(quality) = &binding.quality
+                && let Err(message) = check_quality(quality, storage, remote)
+            {
+                problems.push(problem(object, Some(property), message));
             }
             if let Err(message) =
                 check_direction(component, property, binding, object.command.is_some())
@@ -285,13 +285,13 @@ pub(super) fn check_binding_with_remote(
             binding.path
         ));
     }
-    if binding.direction != HmiBindingDirection::Read {
-        if let Some(reason) = write_block {
-            return Err(format!(
-                "\"{}\" {reason} and cannot be written",
-                binding.path
-            ));
-        }
+    if binding.direction != HmiBindingDirection::Read
+        && let Some(reason) = write_block
+    {
+        return Err(format!(
+            "\"{}\" {reason} and cannot be written",
+            binding.path
+        ));
     }
     Ok(())
 }
@@ -372,7 +372,7 @@ pub(super) fn member_write_block(
         vars.iter()
             .any(|var| var.constant && var.name.eq_ignore_ascii_case(member))
     };
-    if let Some(program) = find(metadata.programs(), type_name) {
+    if let Some(program) = find(metadata.program_templates(), type_name) {
         return is_constant(&program.vars).then(|| "is a constant".to_string());
     }
     let mut block = find(metadata.function_blocks(), type_name)?;

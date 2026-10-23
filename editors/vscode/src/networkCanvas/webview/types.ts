@@ -44,6 +44,7 @@ export interface NCEndpoint {
   name: string;
   role?: string;
   health: string;
+  runtimeHealth?: string;
   detail: string;
   dimmed?: boolean;
   live?: {
@@ -80,7 +81,7 @@ export interface NCRuntime {
   // Projection of the shared selected run target store. This is visual feedback only; the sidebar
   // remains the lifecycle/action owner.
   runTarget?: boolean;
-  // The local simulator's speed while it runs (specification 33, §6.1): configured, and achieved once measured;
+  // The local simulator's speed while it runs (specification 46, §6.1): configured, and achieved once measured;
   // and the speed words the runtime gives for them (specification 35, B9.2).
   simulationTimeScale?: number;
   simulationAchievedTimeScale?: number;

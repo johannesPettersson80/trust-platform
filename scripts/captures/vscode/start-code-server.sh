@@ -50,7 +50,7 @@ docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 VSCE_LOG="/tmp/trust-doc-captures-vsce.log"
 if ! (
   cd "$ROOT_DIR/editors/vscode"
-  npx --yes @vscode/vsce@2.27.0 package --skip-license --out "$VSIX_PATH"
+  npx --no-install vsce package --skip-license --out "$VSIX_PATH"
 ) >"$VSCE_LOG" 2>&1; then
   cat "$VSCE_LOG" >&2
   exit 1

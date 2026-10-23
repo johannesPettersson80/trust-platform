@@ -121,12 +121,15 @@ Each task needs:
 | `enabled` | bool | yes | Enables scan watchdog enforcement. |
 | `timeout_ms` | integer | yes | Must be `>= 1`. |
 | `action` | string | yes | `halt`, `safe_halt`, or `restart`. |
+| `hang_action` | string | no | `fault` (default) or `abort`. Used when the watchdog is enabled and a scan thread does not return. A hang is recorded as a watchdog-timeout fault while the blocked call is still running; `fault` keeps the process serving the control plane, which then refuses `pause`, `resume`, `restart` and `bytecode reload` until the process is restarted. `abort` exits the process with status 70 right after the fault is recorded, so no destructors run and a service manager can restart it. With `enabled = false` there is no supervisor, so a hang is not detected. Changing it through `config.set` takes effect at the next start. |
 
 ### `[runtime.fault]` (fault policy)
 
 | Key | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `policy` | string | yes | `halt`, `safe_halt`, or `restart`. |
+
+A halting fault (`halt` or `safe_halt`, a watchdog `halt` or `safe_halt` action, or an exhausted restart budget) leaves the resource `Faulted`. The runtime process keeps serving the control plane. `ctl restart warm` or `ctl restart cold` recovers it, and the process exits with status 1 when it stops while faulted.
 
 ## Networked / Optional Interfaces
 
@@ -493,6 +496,54 @@ producer_instances = ["First.OotProducer", "Second.OotProducer"]
 
 The runtime drains the listed instances in order and serializes their records
 through one shared-memory writer.
+
+#### `[runtime.openot.persistence]`
+
+This optional child section starts the off-scan canonical document consumer.
+Both `[runtime.openot].enabled` and persistence `enabled` must be true. The
+`backend` discriminator is the only database-selection authority; truST never
+falls back to a different backend.
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | Enables the persistence worker. |
+| `backend` | string | unset | Required when enabled: `sqlite`, `postgresql`, `timescaledb`, `mysql`, `sqlserver`, or `influxdb3`. |
+| `batch_size` | integer | `256` | Maximum canonical documents prepared per durable batch. |
+| `flush_interval_ms` | integer | `250` | Maximum idle interval between worker attempts. |
+| `queue_capacity` | integer | `4096` | Bounded host-side work capacity. |
+| `shutdown_timeout_ms` | integer | `5000` | Graceful worker shutdown budget. |
+| `retry_initial_ms` | integer | `250` | First transient-failure backoff. |
+| `retry_max_ms` | integer | `30000` | Backoff ceiling. |
+| `retry_multiplier` | integer | `2` | Bounded exponential multiplier. |
+| `retry_max_attempts` | integer | `20` | Consecutive transient failures before persistence faults. |
+
+All sizes, intervals, and retry values must be greater than zero;
+`retry_initial_ms` must not exceed `retry_max_ms`. Exactly the table matching
+the selected backend is required, and tables for unselected backends are
+rejected.
+
+Official release binaries compile every supported adapter. Custom builds may
+omit adapters with the `openot-database-sqlite`,
+`openot-database-postgresql`, `openot-database-timescaledb`,
+`openot-database-mysql`, `openot-database-sqlserver`, and
+`openot-database-influxdb3` Cargo features. TOML parsing remains stable in a
+reduced build: selecting a recognized omitted adapter fails startup with
+`backend_not_available` before truST reads that backend's secret environment
+variables or attempts a connection. It never falls back.
+
+Backend tables:
+
+| Table | Required keys | Notes |
+| --- | --- | --- |
+| `.sqlite` | `path` | Relative paths resolve against the bundle root. |
+| `.postgresql` | `connection_url_env`, `schema`, `tls`, `ca_cert_path` | `tls = "require"`; the named environment variable contains the URL. |
+| `.timescaledb` | `connection_url_env`, `schema`, `tls`, `ca_cert_path` | Requires the real TimescaleDB extension and creates the OpenOT hypertable. |
+| `.mysql` | `connection_url_env`, `database`, `tls`, `ca_cert_path` | Shared by separately verified MySQL and MariaDB products. |
+| `.sqlserver` | `connection_url_env`, `schema`, `tls`, `ca_cert_path` | Encrypted TDS; Azure SQL is not implied by local SQL Server support. |
+| `.influxdb3` | `host_env`, `token_env`, `database`, `spool_path`, `max_bytes`, `ca_cert_path` | Host/token come from environment; the bundle-relative SQLite spool and its positive byte limit are mandatory. |
+
+Complete examples and operational semantics are in
+[OpenOT Database Persistence](../../operate/openot-database-persistence.md).
 
 ### `[runtime.observability]`
 

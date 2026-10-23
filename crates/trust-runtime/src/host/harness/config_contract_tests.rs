@@ -1479,3 +1479,50 @@ END_CONFIGURATION
         );
     }
 }
+
+/// Specification 22: a production build leaves a configured project's `TEST_PROGRAM`s unbound
+/// and does not instantiate them, while an unbound ordinary PROGRAM is still refused. Catches a
+/// build that refuses a runnable project for its tests, or one that runs its tests in production.
+#[test]
+fn configuration_contract_leaves_test_programs_unbound_in_a_production_build() {
+    let runtime = compile_runtime(
+        r#"
+PROGRAM Main
+VAR Count : INT; END_VAR
+Count := Count + 1;
+END_PROGRAM
+TEST_PROGRAM CountStartsAtZero
+ASSERT_TRUE(FALSE);
+END_TEST_PROGRAM
+CONFIGURATION Plant
+RESOURCE Line ON PLC
+TASK Scan (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Main WITH Scan : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+    );
+    assert!(runtime.storage().get_global("Main").is_some());
+    assert!(
+        runtime.storage().get_global("CountStartsAtZero").is_none(),
+        "the test program is not instantiated"
+    );
+    assert_error_contains(
+        r#"
+PROGRAM Main
+END_PROGRAM
+PROGRAM Forgotten
+END_PROGRAM
+TEST_PROGRAM Probe
+ASSERT_TRUE(TRUE);
+END_TEST_PROGRAM
+CONFIGURATION Plant
+RESOURCE Line ON PLC
+TASK Scan (INTERVAL := T#10ms, PRIORITY := 1);
+PROGRAM Main WITH Scan : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
+        "unbound PROGRAM declaration(s) under CONFIGURATION: Forgotten.",
+    );
+}

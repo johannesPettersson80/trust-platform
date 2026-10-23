@@ -222,14 +222,14 @@ fn with_failure_stages(
     work: &ApplicationWork,
     worked: Result<Value, Failure>,
 ) -> Result<Value, Failure> {
-    if worked.is_err() {
-        if let Ok((application, evidence)) = state_now(
+    if worked.is_err()
+        && let Ok((application, evidence)) = state_now(
             &work.project_root,
             &work.storage_folder,
             &work.loop_definition,
-        ) {
-            context.stages_on_failure(application.stages(&evidence));
-        }
+        )
+    {
+        context.stages_on_failure(application.stages(&evidence));
     }
     worked
 }

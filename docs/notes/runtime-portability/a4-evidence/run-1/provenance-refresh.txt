@@ -1,0 +1,6 @@
+[gate-progress state=started phase=A4-provenance-refresh target=scena-rust-builder pid=2146177 elapsed=0.0s timeout=5400s command='bash scripts/refresh_a4_provenance.sh /home/johannes/.cache/trust-portability-a4-evidence/run-1/provenance']
+   Compiling verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-a4/crates/verification-cases)
+    Finished `dev` profile [unoptimized] target(s) in 0.39s
+     Running `/mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-a4/debug/examples/refresh_portability_provenance /home/johannes/.cache/trust-portability-a4-evidence/run-1/provenance`
+Error: "ambiguous or missing selector; review before refreshing"
+[gate-progress state=finished phase=A4-provenance-refresh target=scena-rust-builder pid=2146177 elapsed=1.1s timeout=5400s command='bash scripts/refresh_a4_provenance.sh /home/johannes/.cache/trust-portability-a4-evidence/run-1/provenance' status=1]

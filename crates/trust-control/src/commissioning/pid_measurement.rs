@@ -1,4 +1,4 @@
-//! The measurement of a library PID (specification 35, C1 "The measurement" and §17.1; specification 33 §13.2): the PID's own
+//! The measurement of a library PID (specification 35, C1 "The measurement" and §17.1; specification 46 §13.2): the PID's own
 //! `<instance>.StateValue.ProcessValue`, which its last Update received, and the feedback target that a simulated plant
 //! writes it to. Ported from `pidMeasurement.ts`. A PID group's members (C7) are parked and not ported.
 
@@ -26,7 +26,7 @@ pub fn measured_pid(loop_definition: &LoopDefinition, symbol: &str) -> Option<St
         .then(|| instance.clone())
 }
 
-/// Where a simulated plant writes a measurement (`plantFeedbackTarget`, specification 33 §13.2): its address when the signal
+/// Where a simulated plant writes a measurement (`plantFeedbackTarget`, specification 46 §13.2): its address when the signal
 /// has one; `pid:<instance>` for a library PID's own measurement, which the model gives to that PID as its Update receives;
 /// otherwise the program variable itself.
 #[must_use]

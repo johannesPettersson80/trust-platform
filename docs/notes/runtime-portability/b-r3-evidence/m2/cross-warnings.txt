@@ -1,0 +1,30 @@
+[gate-progress state=started phase=B-R3-cross-warnings target=scena-rust-builder pid=1643332 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross']
+[runtime-warning-gate] Host target warning-deny check
+    Checking trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-syntax)
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-tcads-native)
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/verification-cases)
+    Checking trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-hir)
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-plcopen)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ide)
+    Checking trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-wasm-analysis)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-server)
+    Checking trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime)
+[gate-progress state=running phase=B-R3-cross-warnings target=scena-rust-builder pid=1643332 elapsed=30.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross']
+    Finished `dev` profile [unoptimized] target(s) in 32.45s
+[runtime-warning-gate] Windows cross-target warning-deny check (x86_64-pc-windows-gnu)
+    Checking trust-syntax v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-syntax)
+   Compiling trust-runtime v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime)
+    Checking trust-tcads-native v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-tcads-native)
+    Checking verification-cases v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/verification-cases)
+    Checking trust-hir v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-hir)
+    Checking trust-plcopen v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-plcopen)
+    Checking trust-runtime-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-runtime-core)
+    Checking trust-ide v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ide)
+    Checking trust-wasm-analysis v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-wasm-analysis)
+    Checking trust-ads-core v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-core)
+    Checking trust-ads-server v0.24.71 (/home/johannes/projects/trust-platform-portability-b/crates/trust-ads-server)
+[gate-progress state=running phase=B-R3-cross-warnings target=scena-rust-builder pid=1643332 elapsed=60.1s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross']
+    Finished `dev` profile [unoptimized] target(s) in 32.97s
+[gate-progress state=finished phase=B-R3-cross-warnings target=scena-rust-builder pid=1643332 elapsed=66.4s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b env -u CC -u CXX bash scripts/check_runtime_cross_target_warnings.sh --require-cross' status=0]

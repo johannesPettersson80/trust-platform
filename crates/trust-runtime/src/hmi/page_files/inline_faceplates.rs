@@ -24,17 +24,17 @@ pub(super) fn check(
                 "a placed faceplate names its faceplate: faceplate = \"<name>\"".to_string(),
             ));
         }
-        if let Some(block) = &object.block {
-            if !is_type_name(block.get_ref()) {
-                errors.push(error_at(
-                    file,
-                    line_at(text, block.span().start),
-                    format!(
-                        "`{}` is not a function block type name such as `Plant.FB_Pump`",
-                        block.get_ref()
-                    ),
-                ));
-            }
+        if let Some(block) = &object.block
+            && !is_type_name(block.get_ref())
+        {
+            errors.push(error_at(
+                file,
+                line_at(text, block.span().start),
+                format!(
+                    "`{}` is not a function block type name such as `Plant.FB_Pump`",
+                    block.get_ref()
+                ),
+            ));
         }
     }
     if errors.is_empty() {

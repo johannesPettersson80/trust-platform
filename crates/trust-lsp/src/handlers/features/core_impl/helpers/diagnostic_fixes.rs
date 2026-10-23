@@ -221,21 +221,19 @@ pub(in super::super) fn infer_missing_var_type(
     {
         let mut children = assign_stmt.children();
         let lhs = children.next();
-        if let Some(lhs) = lhs {
-            if lhs.text_range().contains(name_node.text_range().start()) {
-                if let Some(expr_node) = assign_stmt
-                    .children()
-                    .filter(|node| is_expression_kind(node.kind()))
-                    .last()
-                {
-                    let expr_offset = u32::from(expr_node.text_range().start());
-                    let type_id = state.with_database(|db| {
-                        let expr_id = db.expr_id_at_offset(doc.file_id, expr_offset)?;
-                        Some(db.type_of(doc.file_id, expr_id))
-                    })?;
-                    return type_name_for_type_id(state, doc, type_id);
-                }
-            }
+        if let Some(lhs) = lhs
+            && lhs.text_range().contains(name_node.text_range().start())
+            && let Some(expr_node) = assign_stmt
+                .children()
+                .filter(|node| is_expression_kind(node.kind()))
+                .last()
+        {
+            let expr_offset = u32::from(expr_node.text_range().start());
+            let type_id = state.with_database(|db| {
+                let expr_id = db.expr_id_at_offset(doc.file_id, expr_offset)?;
+                Some(db.type_of(doc.file_id, expr_id))
+            })?;
+            return type_name_for_type_id(state, doc, type_id);
         }
     }
 

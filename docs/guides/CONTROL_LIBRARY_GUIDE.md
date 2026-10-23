@@ -8,7 +8,7 @@ with its operating point, and a static decoupler for two loops that disturb each
 converts PID settings written in another vendor's form.
 
 `PID` follows *A Practical Guide to PID Controller Implementation* exactly. The contracts are
-specification 32 (`docs/specs/32-control-pid.md`) for the PID and the filter and specification 37
+specification 45 (`docs/specs/45-control-pid.md`) for the PID and the filter and specification 37
 (`docs/specs/37-control-advanced-structures.md`) for the structures. The design reasons and the
 measured results are in the Control System Engineering report
 (`docs/guides/CONTROL_PID_ENGINEERING_REPORT.md`).
@@ -54,7 +54,7 @@ type, for example `PIDMode#Auto`.
   PID, and a stepped setpoint too when the derivative uses the setpoint.
 - The limits act in every mode, and the anti-windup keeps the integral from running away while
   the output is limited.
-- The library checks no values (specification 32, §8). Keep the parameters inside the ranges below
+- The library checks no values (specification 45, §8). Keep the parameters inside the ranges below
   and the inputs finite, and handle a failed signal and the safe output in your program.
 - The structures never change the PID. They prepare its measurement (Smith predictor) or its
   parameter record (gain scheduler), or turn its outputs into actuator commands (decoupler). Their

@@ -1,0 +1,4 @@
+{
+  "crates/trust-runtime-core/src/vm/construction/values.rs": "7e8a29ff571e9c1fbd24e1dcfcac52fa0a9bae2d9a050c02023340c1a3699a97",
+  "crates/trust-runtime-core/src/vm/construction/values/tests.rs": "e079fc4ccb7aee99b66c597d2f4f0f79ae055f5b21b5f19640310ea7a1ab40fc"
+}

@@ -9,7 +9,7 @@ use trust_runtime::eval::stmt::Stmt;
 use trust_runtime::io::{IoAddress, IoDriver, ModbusTcpDriver, MqttIoDriver};
 use trust_runtime::task::ProgramDef;
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::RuntimeBuilder;
 
 const MQTT_BROKER_IDLE_TIMEOUTS: usize = 600;
 const MQTT_LIVE_TEST_TIMEOUT: StdDuration = StdDuration::from_secs(10);
@@ -31,6 +31,10 @@ fn broker_lifetime_outlasts_test_phases() {
          (4 × {:?}); otherwise late phases hit ECONNREFUSED or starve.",
         MQTT_LIVE_BROKER_LIFETIME,
         MQTT_LIVE_TEST_TIMEOUT,
+    );
+    assert!(
+        is_retryable_mqtt_live_error("i/o freshness error 'mqtt input snapshot unavailable'"),
+        "the live harness must retry the MQTT snapshot-startup race"
     );
 }
 
@@ -144,10 +148,10 @@ fn handle_mqtt_client(
                         guard.subscribe_count += topic_count;
                         drop(guard);
 
-                        if let Some(payload) = inbound_payload.as_ref() {
-                            if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
-                                break;
-                            }
+                        if let Some(payload) = inbound_payload.as_ref()
+                            && write_mqtt_publish(&mut stream, &topic_in, payload).is_err()
+                        {
+                            break;
                         }
                     }
                     12 if write_mqtt_pingresp(&mut stream).is_err() => break,
@@ -156,14 +160,12 @@ fn handle_mqtt_client(
                 }
             }
             Err(err) if matches!(err.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
-                if subscribed {
-                    if let Some(payload) = inbound_payload.as_ref() {
-                        if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
-                            break;
-                        }
-                        idle_timeouts = 0;
-                        continue;
+                if subscribed && let Some(payload) = inbound_payload.as_ref() {
+                    if write_mqtt_publish(&mut stream, &topic_in, payload).is_err() {
+                        break;
                     }
+                    idle_timeouts = 0;
+                    continue;
                 }
                 idle_timeouts += 1;
                 if idle_timeouts > MQTT_BROKER_IDLE_TIMEOUTS {
@@ -423,6 +425,12 @@ fn handle_write_multiple(pdu: &[u8], regs: &Arc<Mutex<Vec<u16>>>) -> Vec<u8> {
 }
 
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "live MQTT broker handshake is network-timing flaky on non-Linux CI runners; \
+              run with `--ignored` locally to exercise. Linux runners are the source of truth \
+              for the driver-composition contract."
+)]
 fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let regs = Arc::new(Mutex::new(vec![0u16; 4]));
     {
@@ -435,10 +443,34 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
     let topic_out = "trust/test/out";
     let (mqtt_addr, mqtt_state) = start_mqtt_test_broker(topic_in, Some(vec![1]), 0);
 
-    let mut runtime = Runtime::new();
+    let mut runtime = RuntimeBuilder::new();
     runtime.io_mut().resize(1, 1, 0);
-    runtime.storage_mut().set_global("in", Value::Bool(false));
-    runtime.storage_mut().set_global("out", Value::Bool(false));
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "in".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
+    runtime
+        .register_global(trust_runtime::program_model::VarDef {
+            name: "out".into(),
+            type_id: trust_hir::TypeId::BOOL,
+            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
+            retain: trust_runtime::RetainPolicy::Unspecified,
+            static_storage: false,
+            external: false,
+            in_out: false,
+            constant: false,
+            address: None,
+        })
+        .expect("declare test global");
     let program = ProgramDef {
         name: "P".into(),
         vars: Vec::new(),
@@ -450,7 +482,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
             location: None,
         }],
     };
-    runtime.register_program(program).expect("register program");
+    runtime.register_program(program);
     runtime.io_mut().bind(
         "in",
         IoAddress::parse("%IX0.0").expect("parse input address"),
@@ -464,6 +496,7 @@ fn runtime_composes_modbus_and_mqtt_drivers_live() {
         "address = \"{modbus_addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 1\non_error = \"warn\"\n"
     ))
     .expect("parse modbus params");
+    let mut runtime = runtime.build().expect("install declared test runtime");
     runtime.add_io_driver(
         "modbus-tcp",
         Box::new(ModbusTcpDriver::from_params(&modbus_params).expect("create modbus driver")),

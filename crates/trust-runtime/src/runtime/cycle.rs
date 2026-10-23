@@ -5,7 +5,7 @@
 use smol_str::SmolStr;
 
 use crate::error;
-use crate::task::{evaluate_task_readiness, ProgramDef, TaskConfig};
+use crate::task::{evaluate_task_readiness, TaskConfig};
 use crate::value::Value;
 use std::sync::Arc;
 use trust_runtime_core::cycle::sort_ready_tasks_by_priority;
@@ -41,7 +41,6 @@ impl Runtime {
 
         let mut ready = std::mem::take(&mut self.ready_tasks_scratch);
         ready.clear();
-        self.cycle_task_runs.clear();
         if let Err(err) = self.collect_ready_tasks_into(&mut ready) {
             self.ready_tasks_scratch = ready;
             return Err(self.record_fault(err));
@@ -55,12 +54,6 @@ impl Runtime {
                 self.ready_tasks_scratch = ready;
                 return Err(self.record_fault(err));
             }
-            // The screens are served in the task where the program calls Hmi.Display.
-            if let Err(err) = self.serve_hmi_after_task() {
-                ready.clear();
-                self.ready_tasks_scratch = ready;
-                return Err(self.record_fault(err));
-            }
             if let Some(start) = task_timer {
                 self.metrics.record_task(&task.name, start.elapsed());
             }
@@ -68,9 +61,6 @@ impl Runtime {
         ready.clear();
         self.ready_tasks_scratch = ready;
         if let Err(err) = self.execute_background_programs() {
-            return Err(self.record_fault(err));
-        }
-        if let Err(err) = self.serve_hmi_after_task() {
             return Err(self.record_fault(err));
         }
 
@@ -83,12 +73,6 @@ impl Runtime {
 
         if let Err(err) = self.write_cycle_outputs() {
             return Err(self.record_fault(err));
-        }
-
-        if let Some(debug) = &self.debug {
-            // While running, the debug snapshot shows the last completed cycle (docs/specs/13-debug-adapter.md).
-            debug.refresh_snapshot_from_storage(&self.storage, self.current_time);
-            debug.finish_transfer_cycle(&self.storage, self.current_time);
         }
 
         if let Some(debug) = &self.debug {
@@ -162,10 +146,9 @@ impl Runtime {
                     self.storage.set_instance_var(id, name, write.value);
                 }
                 crate::debug::PendingVarTarget::Reference(reference) => {
-                    // An experiment's variable (Specification 35): a reference a reloaded
-                    // program no longer has is skipped, never a fault; the experiment reads its
-                    // variable back and reports what it finds.
-                    let _ = self.storage.write_by_ref(reference, write.value);
+                    if !self.storage.write_by_ref(reference, write.value) {
+                        return Err(error::RuntimeError::NullReference);
+                    }
                 }
                 crate::debug::PendingVarTarget::Local(frame_id, name) => {
                     let result = self.storage.with_frame(frame_id, |storage| {
@@ -188,9 +171,10 @@ impl Runtime {
                     .with_frame(frame_id, |storage| {
                         let instance_id =
                             storage.current_frame().and_then(|frame| frame.instance_id);
-                        crate::helper_eval::write_storage_lvalue(
+                        crate::helper_eval::write_storage_lvalue_with_abi(
                             storage,
                             &self.registry,
+                            crate::value::StorageAbi::LegacyTemporal32,
                             &self.profile,
                             instance_id,
                             &write.target,
@@ -199,9 +183,10 @@ impl Runtime {
                     })
                     .unwrap_or(Err(error::RuntimeError::InvalidFrame(frame_id.0)))?;
             } else {
-                crate::helper_eval::write_storage_lvalue(
+                crate::helper_eval::write_storage_lvalue_with_abi(
                     &mut self.storage,
                     &self.registry,
+                    crate::value::StorageAbi::LegacyTemporal32,
                     &self.profile,
                     None,
                     &write.target,
@@ -210,50 +195,6 @@ impl Runtime {
             }
         }
         Ok(())
-    }
-
-    /// Execute a program body in the runtime context.
-    pub fn execute_program(&mut self, program: &ProgramDef) -> Result<(), error::RuntimeError> {
-        self.ensure_vm_module_loaded()?;
-        super::vm::execute_program(self, program)
-    }
-
-    /// Execute a function block once by its declared type name.
-    pub fn execute_function_block_by_name(
-        &mut self,
-        name: &str,
-    ) -> Result<(), error::RuntimeError> {
-        let key = SmolStr::new(name.to_ascii_uppercase());
-        let fb = self
-            .function_blocks
-            .get(&key)
-            .cloned()
-            .ok_or_else(|| error::RuntimeError::UndefinedFunctionBlock(name.into()))?;
-        let instance_id = crate::instance::create_fb_instance(
-            &mut self.storage,
-            &self.registry,
-            &self.profile,
-            &self.classes,
-            &self.function_blocks,
-            &self.functions,
-            &self.stdlib,
-            &self.initializer_catalog,
-            &fb,
-        )?;
-
-        const TEMP_FB_REF_OWNER: &str = "__TRUST_TEST_FB_EXEC";
-        const TEMP_FB_REF_LOCAL: &str = "__trust_test_fb_ref";
-
-        self.storage.push_frame(TEMP_FB_REF_OWNER);
-        self.storage
-            .set_local(TEMP_FB_REF_LOCAL, Value::Instance(instance_id));
-        let reference = self
-            .storage
-            .ref_for_local(TEMP_FB_REF_LOCAL)
-            .ok_or(error::RuntimeError::NullReference)?;
-        let result = self.execute_function_block_ref(&reference);
-        self.storage.pop_frame();
-        result
     }
 
     fn execute_program_by_name(&mut self, name: &SmolStr) -> Result<(), error::RuntimeError> {
@@ -274,29 +215,6 @@ impl Runtime {
     }
 
     fn execute_task(&mut self, task: &TaskConfig) -> Result<(), error::RuntimeError> {
-        if let Some(debug) = self
-            .debug
-            .clone()
-            .filter(|debug| debug.has_parameter_transaction() || debug.has_transfer_transaction())
-        {
-            let metadata = self.metadata_snapshot();
-            // The runtime's own target fact decides whether a boundary write needs approval, never a request label (A2.4).
-            let physical_target = !self.simulated_target();
-            debug.commit_parameters(
-                &task.name,
-                &mut self.storage,
-                &metadata,
-                physical_target,
-                self.io.interface().bindings(),
-            );
-            debug.commit_transfer(
-                &task.name,
-                &mut self.storage,
-                &metadata,
-                physical_target,
-                self.io.interface().bindings(),
-            );
-        }
         if let Some(debug) = &self.debug {
             let thread_id = self.task_thread_ids.get(&task.name).copied();
             debug.set_current_thread(thread_id);
@@ -313,8 +231,6 @@ impl Runtime {
             self.execute_function_block_ref(fb_ref)?;
         }
         if let Some(debug) = &self.debug {
-            debug.confirm_parameters(&task.name, &mut self.storage, self.current_time);
-            debug.confirm_transfer_task(&task.name, &mut self.storage);
             debug.push_runtime_event(crate::debug::RuntimeEvent::TaskEnd {
                 name: task.name.clone(),
                 priority: task.priority,
@@ -342,35 +258,8 @@ impl Runtime {
         if let Some(debug) = debug {
             debug.set_current_thread(thread_id);
         }
-        if let Some(debug) = self
-            .debug
-            .clone()
-            .filter(|debug| debug.has_parameter_transaction() || debug.has_transfer_transaction())
-        {
-            let metadata = self.metadata_snapshot();
-            // The runtime's own target fact decides whether a boundary write needs approval, never a request label (A2.4).
-            let physical_target = !self.simulated_target();
-            debug.commit_parameters(
-                "$background",
-                &mut self.storage,
-                &metadata,
-                physical_target,
-                self.io.interface().bindings(),
-            );
-            debug.commit_transfer(
-                "$background",
-                &mut self.storage,
-                &metadata,
-                physical_target,
-                self.io.interface().bindings(),
-            );
-        }
         for program_name in &background {
             self.execute_program_by_name(program_name)?;
-        }
-        if let Some(debug) = &self.debug {
-            debug.confirm_parameters("$background", &mut self.storage, self.current_time);
-            debug.confirm_transfer_task("$background", &mut self.storage);
         }
         background.clear();
         self.background_program_names_scratch = background;
@@ -417,8 +306,6 @@ impl Runtime {
             }
             if let Some(due_at) = readiness.due_at {
                 ready.push(ReadyTask { index: idx, due_at });
-                self.cycle_task_runs
-                    .push((task.name.clone(), readiness.missed_intervals));
             }
         }
         Ok(())
@@ -432,21 +319,20 @@ impl Runtime {
         super::vm::execute_function_block_ref(self, reference)
     }
 
-    fn ensure_vm_module_loaded(&mut self) -> Result<(), error::RuntimeError> {
+    pub(crate) fn ensure_vm_module_loaded(&mut self) -> Result<(), error::RuntimeError> {
         if self.vm_module.is_some() {
             return Ok(());
         }
         let module = self.build_vm_module()?;
-        module.validate().map_err(error::RuntimeError::from)?;
-        let vm_module = Arc::new(super::vm::VmModule::from_bytecode(&module)?);
+        let validated = module.validated().map_err(error::RuntimeError::from)?;
+        let vm_module = Arc::new(super::vm::VmModule::from_validated(&validated)?);
         self.vm_module = Some(vm_module);
-        self.vm_statement_locations.clear();
         Ok(())
     }
 
     fn build_vm_module(&self) -> Result<crate::bytecode::BytecodeModule, error::RuntimeError> {
         if self.source_text_index.is_empty() {
-            return crate::bytecode::build_module_from_runtime(self).map_err(|err| {
+            return crate::bytecode::build_legacy_fixture_module(self, None).map_err(|err| {
                 error::RuntimeError::bytecode(
                     err.stable_code(),
                     format!("vm module build failed: {err}"),
@@ -463,7 +349,7 @@ impl Runtime {
                     .unwrap_or("")
             })
             .collect::<Vec<_>>();
-        crate::bytecode::build_module_from_runtime_with_sources(self, &sources).map_err(|err| {
+        crate::bytecode::build_legacy_fixture_module(self, Some(&sources)).map_err(|err| {
             error::RuntimeError::bytecode(
                 err.stable_code(),
                 format!("vm module build failed: {err}"),
@@ -474,11 +360,8 @@ impl Runtime {
     fn read_cycle_inputs(&mut self) -> Result<(), error::RuntimeError> {
         {
             let (interface, drivers) = self.io.interface_and_drivers_mut();
-            // A link switched off from the program is not read (specification 42, §4 item 6).
-            for entry in drivers.iter_mut().filter(|entry| entry.enabled) {
-                let started = std::time::Instant::now();
+            for entry in drivers {
                 entry.driver.read_inputs(interface.inputs_mut())?;
-                entry.read_time = started.elapsed();
             }
         }
         if let Some(debug) = self.debug.clone() {
@@ -492,7 +375,6 @@ impl Runtime {
         self.ads.apply_inputs(&mut self.storage, now_ms)?;
         self.opcua_client.apply_inputs(&mut self.storage, now_ms)?;
         self.update_io_health();
-        self.apply_link_states(i64::try_from(now_ms).unwrap_or(i64::MAX));
         Ok(())
     }
 
@@ -512,10 +394,8 @@ impl Runtime {
             self.check_output_commit_deadline()?;
             {
                 let (interface, drivers) = self.io.interface_and_drivers_mut();
-                for entry in drivers.iter_mut().filter(|entry| entry.enabled) {
-                    let started = std::time::Instant::now();
+                for entry in drivers {
                     entry.driver.write_outputs(interface.outputs())?;
-                    entry.write_time = started.elapsed();
                 }
             }
             Ok(())
@@ -545,9 +425,6 @@ impl Runtime {
     }
 
     fn record_fault(&mut self, err: error::RuntimeError) -> error::RuntimeError {
-        if let Some(debug) = &self.debug {
-            debug.fail_transfer(&err.to_string(), &mut self.storage);
-        }
         self.apply_fault(err, self.faults.decision())
     }
 
@@ -566,14 +443,7 @@ impl Runtime {
                 .into_iter()
                 .map(|(address, _)| address)
                 .collect();
-            debug.push_control_snapshot_at(
-                snapshot,
-                self.current_time.as_nanos(),
-                &self.storage,
-                &self.cycle_task_runs,
-                self.simulation_only_io(),
-                self.simulated_target(),
-            );
+            debug.push_io_snapshot(snapshot);
         }
     }
 }
@@ -581,6 +451,7 @@ impl Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::task::ProgramDef;
 
     #[test]
     fn cycle_program_scheduling_is_case_insensitive() {

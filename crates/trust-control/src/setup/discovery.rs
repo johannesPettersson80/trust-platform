@@ -531,14 +531,14 @@ fn check_controller_symbols(
         }
     }
     for (symbol, expected) in declared_controller_symbol_types(loop_definition) {
-        if let Some(entry) = compiled.symbols.iter().find(|entry| entry.symbol == symbol) {
-            if !entry.iec_type.eq_ignore_ascii_case(&expected) {
-                return Err(texts::controller_symbol_type(
-                    &symbol,
-                    &entry.iec_type,
-                    &expected,
-                ));
-            }
+        if let Some(entry) = compiled.symbols.iter().find(|entry| entry.symbol == symbol)
+            && !entry.iec_type.eq_ignore_ascii_case(&expected)
+        {
+            return Err(texts::controller_symbol_type(
+                &symbol,
+                &entry.iec_type,
+                &expected,
+            ));
         }
     }
     Ok(())

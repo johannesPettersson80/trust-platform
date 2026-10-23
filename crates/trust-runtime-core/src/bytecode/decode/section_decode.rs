@@ -1,0 +1,401 @@
+use super::*;
+
+pub(super) fn decode_section_data(
+    version: BytecodeVersion,
+    id: u16,
+    payload: &[u8],
+    budget: &mut DecodeBudget,
+) -> Result<SectionData, BytecodeError> {
+    let Some(kind) = SectionId::from_raw(id) else {
+        return Ok(SectionData::Raw(budget.copy(payload)?));
+    };
+    if version.major == 1
+        && matches!(
+            kind,
+            SectionId::StorageLayout
+                | SectionId::ConstructionRoots
+                | SectionId::Initializers
+                | SectionId::AccessBindings
+        )
+    {
+        return Ok(SectionData::Raw(budget.copy(payload)?));
+    }
+    let mut reader = BytecodeReader::new(payload);
+    let data = match kind {
+        SectionId::StringTable | SectionId::DebugStringTable => {
+            let context = match kind {
+                SectionId::StringTable => "STRING_TABLE",
+                SectionId::DebugStringTable => "DEBUG_STRING_TABLE",
+                _ => unreachable!("string table branch"),
+            };
+            let table = decode_string_table(version, &mut reader, context, budget)?;
+            match kind {
+                SectionId::StringTable => SectionData::StringTable(table),
+                SectionId::DebugStringTable => SectionData::DebugStringTable(table),
+                _ => unreachable!("string table branch"),
+            }
+        }
+        SectionId::TypeTable => {
+            SectionData::TypeTable(decode_type_table(version, payload, budget)?)
+        }
+        SectionId::ConstPool => SectionData::ConstPool(decode_const_pool(&mut reader, budget)?),
+        SectionId::RefTable => {
+            SectionData::RefTable(decode_ref_table(version, &mut reader, budget)?)
+        }
+        SectionId::PouIndex => {
+            SectionData::PouIndex(decode_pou_index(version, &mut reader, budget)?)
+        }
+        SectionId::PouBodies => SectionData::PouBodies(budget.copy(payload)?),
+        SectionId::ResourceMeta => {
+            SectionData::ResourceMeta(decode_resource_meta(&mut reader, budget)?)
+        }
+        SectionId::IoMap => SectionData::IoMap(decode_io_map(&mut reader, budget)?),
+        SectionId::DebugMap => SectionData::DebugMap(decode_debug_map(&mut reader, budget)?),
+        SectionId::VarMeta => SectionData::VarMeta(decode_var_meta(&mut reader, budget)?),
+        SectionId::RetainInit => SectionData::RetainInit(decode_retain_init(&mut reader, budget)?),
+        SectionId::StorageLayout
+        | SectionId::ConstructionRoots
+        | SectionId::Initializers
+        | SectionId::AccessBindings => construction::decode_construction(kind, payload, budget)?,
+    };
+    Ok(data)
+}
+
+pub(super) fn decode_const_pool(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<ConstPool, BytecodeError> {
+    let count = read_bounded_count(reader, 8, "CONST_POOL")?;
+    let mut entries = budget.vector(count)?;
+    for _ in 0..count {
+        let type_id = reader.read_u32()?;
+        let len = reader.read_u32()? as usize;
+        let payload = budget.copy(reader.read_bytes(len)?)?;
+        entries.push(ConstEntry { type_id, payload });
+    }
+    Ok(ConstPool { entries })
+}
+
+/// REF_TABLE count. Spec 12 §4.6.2: the fixed reference limit is reported as an entry limit
+/// before the section-bounds check, which then reads the count itself.
+fn read_ref_table_count(reader: &mut BytecodeReader<'_>) -> Result<usize, BytecodeError> {
+    let declared = reader.clone().read_u32()? as usize;
+    if declared > BYTECODE_MAX_REFERENCES {
+        return Err(BytecodeError::section_diagnostic(
+            SectionDiagnostic::ResourceLimit("REF_TABLE entries"),
+        ));
+    }
+    read_bounded_count(reader, 16, "REF_TABLE")
+}
+
+pub(super) fn decode_ref_table(
+    version: BytecodeVersion,
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<RefTable, BytecodeError> {
+    let count = read_ref_table_count(reader)?;
+    let mut entries = budget.vector(count)?;
+    for _ in 0..count {
+        let location = reader.read_u8()?;
+        let _flags = reader.read_u8()?;
+        let _reserved = reader.read_u16()?;
+        let owner_id = reader.read_u32()?;
+        let offset = reader.read_u32()?;
+        let segment_count = read_bounded_count(reader, 8, "REF_TABLE segment")?;
+        if location == 5 && !version.is_source_free() {
+            return Err(RejectionReason::InvalidRefLocation.into());
+        }
+        let location = RefLocation::from_raw(location)
+            .ok_or_else(|| BytecodeError::from(RejectionReason::InvalidRefLocation))?;
+        let mut segments = budget.vector(segment_count)?;
+        for _ in 0..segment_count {
+            let kind = reader.read_u8()?;
+            let _reserved = reader.read_bytes(3)?;
+            match kind {
+                0 => {
+                    let count = read_bounded_count(reader, 8, "REF_TABLE index")?;
+                    let mut indices = budget.vector(count)?;
+                    for _ in 0..count {
+                        indices.push(reader.read_i64()?);
+                    }
+                    segments.push(RefSegment::Index(indices));
+                }
+                1 => {
+                    let name_idx = reader.read_u32()?;
+                    segments.push(RefSegment::Field { name_idx });
+                }
+                _ => return Err(BytecodeError::from(RejectionReason::InvalidRefSegment)),
+            }
+        }
+        entries.push(RefEntry {
+            location,
+            owner_id,
+            offset,
+            segments,
+        });
+    }
+    Ok(RefTable { entries })
+}
+
+pub(super) fn decode_pou_index(
+    version: BytecodeVersion,
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<PouIndex, BytecodeError> {
+    let count = read_bounded_count(reader, 40, "POU_INDEX")?;
+    let mut entries = budget.vector(count)?;
+    for _ in 0..count {
+        let id = reader.read_u32()?;
+        let name_idx = reader.read_u32()?;
+        let kind = reader.read_u8()?;
+        let _flags = reader.read_u8()?;
+        let _reserved = reader.read_u16()?;
+        let code_offset = reader.read_u32()?;
+        let code_length = reader.read_u32()?;
+        let local_ref_start = reader.read_u32()?;
+        let local_ref_count = reader.read_u32()?;
+        if local_ref_count as usize > BYTECODE_MAX_LOCALS_PER_POU {
+            return Err(BytecodeError::from(
+                RejectionReason::PouIndexLocalReferenceCountExceedsFixedResourceLimit,
+            ));
+        }
+        let return_type_id = optional_u32(reader.read_u32()?);
+        let owner_pou_id = optional_u32(reader.read_u32()?);
+        let parameter_bytes = if version.uses_extended_layout() {
+            16
+        } else {
+            12
+        };
+        let param_count = read_bounded_count_with_limit(
+            reader,
+            parameter_bytes,
+            BYTECODE_MAX_PARAMETERS_PER_POU,
+            "POU_INDEX parameter",
+        )?;
+        let kind = PouKind::from_raw(kind)
+            .ok_or_else(|| BytecodeError::from(RejectionReason::InvalidPouKind))?;
+
+        let mut params = budget.vector(param_count)?;
+        for _ in 0..param_count {
+            let name_idx = reader.read_u32()?;
+            let type_id = reader.read_u32()?;
+            let direction = reader.read_u8()?;
+            let _flags = reader.read_u8()?;
+            let _reserved = reader.read_u16()?;
+            let default_const_idx = if version.uses_extended_layout() {
+                optional_u32(reader.read_u32()?)
+            } else {
+                None
+            };
+            params.push(crate::bytecode::ParamEntry {
+                name_idx,
+                type_id,
+                direction,
+                default_const_idx,
+            });
+        }
+
+        let class_meta = if kind.is_class_like() {
+            let parent_pou_id = optional_u32(reader.read_u32()?);
+            let interface_count = read_bounded_count(reader, 8, "POU_INDEX interface")?;
+            let mut interfaces = budget.vector(interface_count)?;
+            for _ in 0..interface_count {
+                let interface_type_id = reader.read_u32()?;
+                let method_count = read_bounded_count(reader, 4, "POU_INDEX vtable slot")?;
+                let mut vtable_slots = budget.vector(method_count)?;
+                for _ in 0..method_count {
+                    vtable_slots.push(reader.read_u32()?);
+                }
+                interfaces.push(InterfaceImpl {
+                    interface_type_id,
+                    vtable_slots,
+                });
+            }
+
+            let method_count = read_bounded_count(reader, 16, "POU_INDEX method")?;
+            let mut methods = budget.vector(method_count)?;
+            for _ in 0..method_count {
+                let name_idx = reader.read_u32()?;
+                let pou_id = reader.read_u32()?;
+                let vtable_slot = reader.read_u32()?;
+                let access = reader.read_u8()?;
+                let flags = reader.read_u8()?;
+                let _reserved = reader.read_u16()?;
+                methods.push(MethodEntry {
+                    name_idx,
+                    pou_id,
+                    vtable_slot,
+                    access,
+                    flags,
+                });
+            }
+            Some(PouClassMeta {
+                parent_pou_id,
+                interfaces,
+                methods,
+            })
+        } else {
+            None
+        };
+
+        entries.push(PouEntry {
+            id,
+            name_idx,
+            kind,
+            code_offset,
+            code_length,
+            local_ref_start,
+            local_ref_count,
+            return_type_id,
+            owner_pou_id,
+            params,
+            class_meta,
+        });
+    }
+    Ok(PouIndex { entries })
+}
+
+pub(super) fn decode_resource_meta(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<ResourceMeta, BytecodeError> {
+    let resource_count = read_bounded_count(reader, 20, "RESOURCE_META")?;
+    let mut resources = budget.vector(resource_count)?;
+    for _ in 0..resource_count {
+        let name_idx = reader.read_u32()?;
+        let inputs_size = reader.read_u32()?;
+        let outputs_size = reader.read_u32()?;
+        let memory_size = reader.read_u32()?;
+        let task_count = read_bounded_count(reader, 28, "RESOURCE_META task")?;
+        let mut tasks = budget.vector(task_count)?;
+        for _ in 0..task_count {
+            let name_idx = reader.read_u32()?;
+            let priority = reader.read_u32()?;
+            let interval_nanos = reader.read_i64()?;
+            let single_name_idx = optional_u32(reader.read_u32()?);
+            let program_count = read_bounded_count(reader, 4, "RESOURCE_META program")?;
+            let mut program_name_idx = budget.vector(program_count)?;
+            for _ in 0..program_count {
+                program_name_idx.push(reader.read_u32()?);
+            }
+            let fb_ref_count =
+                read_bounded_count(reader, 4, "RESOURCE_META function-block reference")?;
+            let mut fb_ref_idx = budget.vector(fb_ref_count)?;
+            for _ in 0..fb_ref_count {
+                fb_ref_idx.push(reader.read_u32()?);
+            }
+            tasks.push(crate::bytecode::TaskEntry {
+                name_idx,
+                priority,
+                interval_nanos,
+                single_name_idx,
+                program_name_idx,
+                fb_ref_idx,
+            });
+        }
+        resources.push(ResourceEntry {
+            name_idx,
+            inputs_size,
+            outputs_size,
+            memory_size,
+            tasks,
+        });
+    }
+    Ok(ResourceMeta { resources })
+}
+
+pub(super) fn decode_io_map(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<IoMap, BytecodeError> {
+    let binding_count = read_bounded_count(reader, 12, "IO_MAP")?;
+    let mut bindings = budget.vector(binding_count)?;
+    for _ in 0..binding_count {
+        let record = Record::<12>::read(reader)?;
+        let address_str_idx = record.word::<0>();
+        let ref_idx = record.word::<4>();
+        let type_id = record.optional::<8>();
+        bindings.push(IoBinding {
+            address_str_idx,
+            ref_idx,
+            type_id,
+        });
+    }
+    Ok(IoMap { bindings })
+}
+
+pub(super) fn decode_debug_map(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<DebugMap, BytecodeError> {
+    let entry_count = read_bounded_count(reader, 24, "DEBUG_MAP")?;
+    let mut entries = budget.vector(entry_count)?;
+    for _ in 0..entry_count {
+        let record = Record::<24>::read(reader)?;
+        let pou_id = record.word::<0>();
+        let code_offset = record.word::<4>();
+        let file_idx = record.word::<8>();
+        let line = record.word::<12>();
+        let column = record.word::<16>();
+        let kind = record.0[20];
+        entries.push(DebugEntry {
+            pou_id,
+            code_offset,
+            file_idx,
+            line,
+            column,
+            kind,
+        });
+    }
+    Ok(DebugMap { entries })
+}
+
+pub(super) fn decode_var_meta(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<VarMeta, BytecodeError> {
+    let entry_count = read_bounded_count(reader, 20, "VAR_META")?;
+    let mut entries = budget.vector(entry_count)?;
+    for _ in 0..entry_count {
+        let record = Record::<20>::read(reader)?;
+        let name_idx = record.word::<0>();
+        let type_id = record.word::<4>();
+        let ref_idx = record.word::<8>();
+        let retain = record.0[12];
+        let init_const_idx = record.optional::<16>();
+        entries.push(VarMetaEntry {
+            name_idx,
+            type_id,
+            ref_idx,
+            retain,
+            init_const_idx,
+        });
+    }
+    Ok(VarMeta { entries })
+}
+
+pub(super) fn decode_retain_init(
+    reader: &mut BytecodeReader<'_>,
+    budget: &mut DecodeBudget,
+) -> Result<RetainInit, BytecodeError> {
+    let entry_count = read_bounded_count(reader, 8, "RETAIN_INIT")?;
+    let mut entries = budget.vector(entry_count)?;
+    for _ in 0..entry_count {
+        let record = Record::<8>::read(reader)?;
+        let ref_idx = record.word::<0>();
+        let const_idx = record.word::<4>();
+        entries.push(RetainInitEntry { ref_idx, const_idx });
+    }
+    Ok(RetainInit { entries })
+}
+
+pub(super) fn optional_u32(value: u32) -> Option<u32> {
+    if value == u32::MAX {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+#[cfg(test)]
+mod fixed_record_tests;

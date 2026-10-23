@@ -16,6 +16,7 @@ Expected behavior still comes only from the named oracle or spec gap.
 | `duplicate_section` | Duplicate bytecode section | `required` | `SPEC_BYTECODE_FORMAT_001#validator-before-apply` |
 | `instructions_resource_limit` | Instruction-count resource limit | `required` | `SPEC_BYTECODE_FORMAT_001#fixed-resource-limits` |
 | `invalid_checksum` | Invalid bytecode checksum | `required` | `SPEC_BYTECODE_FORMAT_001` |
+| `invalid_section_layout` | Invalid bytecode section layout | `required` | `SPEC_BYTECODE_FORMAT_001#validator-before-apply` |
 | `jump_target_not_instruction_boundary` | Jump target not on instruction boundary | `required` | `SPEC_BYTECODE_FORMAT_001#validator-before-apply` |
 | `jump_target_out_of_bounds` | Jump target outside code | `required` | `SPEC_BYTECODE_FORMAT_001#validator-before-apply` |
 | `local_frame_reference_persistence` | Local-frame reference persistence | `required` | `SPEC_BYTECODE_FORMAT_001#validator-before-apply` |

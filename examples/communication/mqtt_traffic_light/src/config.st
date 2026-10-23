@@ -1,0 +1,6 @@
+CONFIGURATION Config
+RESOURCE CommMqttRes ON PLC
+    TASK MainTask (INTERVAL := T#100ms, PRIORITY := 1);
+    PROGRAM MainInstance WITH MainTask : TrafficLight;
+END_RESOURCE
+END_CONFIGURATION

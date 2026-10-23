@@ -1,0 +1,4 @@
+[gate-progress state=started phase=B-R4-affected-clippy target=scena-rust-builder pid=1798610 elapsed=0.0s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-platform-stm32f4 -p xtask --all-targets --all-features -- -D warnings']
+    Checking xtask v0.24.71 (/home/johannes/projects/trust-platform-portability-b/xtask)
+    Finished `dev` profile [unoptimized] target(s) in 2.27s
+[gate-progress state=finished phase=B-R4-affected-clippy target=scena-rust-builder pid=1798610 elapsed=2.4s timeout=7200s command='bash scripts/with_cargo_target_lease.sh /mnt/HC_Volume_107089260/builder-storage/cargo-targets/trust-portability-b cargo clippy --locked -p trust-platform-stm32f4 -p xtask --all-targets --all-features -- -D warnings' status=0]

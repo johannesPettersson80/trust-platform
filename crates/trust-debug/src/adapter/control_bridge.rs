@@ -51,7 +51,7 @@ impl DebugControlServer {
         project_root: Option<PathBuf>,
     ) -> Result<Self, RuntimeError> {
         let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
-        // The simulator loop paces with this speed, and `config.set` changes it (specification 33, §6.1 item 5). It is
+        // The simulator loop paces with this speed, and `config.set` changes it (specification 46, §6.1 item 5). It is
         // attached whatever the facts are at start: a reload can change them, and `config.set` refuses a physical target.
         let resource = resource.with_simulation_speed(session.simulation_speed());
         // The display is served at the debugged program's Hmi.Display call (specification 39, §18).
@@ -93,6 +93,7 @@ impl DebugControlServer {
             ))),
             debug_enabled: Arc::new(AtomicBool::new(true)),
             debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
+            openot_persistence_status: None,
             historian: None,
             pairing: None,
             ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
@@ -227,7 +228,7 @@ fn default_settings(session: &dyn DebugRuntime) -> RuntimeSettings {
 }
 
 /// The simulation settings for `facts`. The mode label and the warning are the ones the runtime binary shows in
-/// simulation mode (specification 33, §6.1 item 6).
+/// simulation mode (specification 46, §6.1 item 6).
 fn simulation_settings(facts: SimulationFacts) -> SimulationSettings {
     let warning = if facts.enabled {
         simulation_warning(facts.time_scale)
@@ -316,9 +317,7 @@ fn spawn_command_drain(
                 }
                 ResourceCommand::Pause
                 | ResourceCommand::Resume
-                | ResourceCommand::UpdateWatchdog(_)
-                | ResourceCommand::UpdateFaultPolicy(_)
-                | ResourceCommand::UpdateRetainSaveInterval(_)
+                | ResourceCommand::UpdateSchedulerPolicies(_)
                 | ResourceCommand::UpdateIoSafeState(_) => {}
             }
         }
@@ -339,6 +338,7 @@ fn disabled_ads_status(summary: &str) -> trust_runtime::ads::diagnostics::AdsSta
 
 fn empty_debug_snapshot() -> DebugSnapshot {
     DebugSnapshot {
+        storage_abi: Default::default(),
         storage: trust_runtime::memory::VariableStorage::new(),
         now: trust_runtime::value::Duration::ZERO,
     }
@@ -373,7 +373,11 @@ mod search_provenance_tests {
             fixture["snapshot"]["simulation"].as_str().unwrap(),
         )
         .unwrap();
-        let mut session = crate::DebugSession::new(trust_runtime::Runtime::new());
+        let mut session = crate::DebugSession::new(
+            trust_runtime::RuntimeBuilder::new()
+                .build()
+                .expect("admit an empty runtime"),
+        );
         session.update_source_options(crate::session::SourceOptionsUpdate {
             root: Some(root.to_string_lossy().into_owned()),
             include_globs: Some(vec!["**/*.st".into()]),
@@ -453,7 +457,11 @@ time_constant_s = 1.0
 "#,
         )
         .unwrap();
-        let mut session = crate::DebugSession::new(trust_runtime::Runtime::new());
+        let mut session = crate::DebugSession::new(
+            trust_runtime::RuntimeBuilder::new()
+                .build()
+                .expect("admit an empty runtime"),
+        );
         session.update_source_options(crate::session::SourceOptionsUpdate {
             root: Some(root.to_string_lossy().into_owned()),
             include_globs: Some(vec!["**/*.st".into()]),
@@ -531,7 +539,11 @@ mod display_read_tests {
         )
         .unwrap();
         let main = root.join("src/Main.st").to_string_lossy().into_owned();
-        let mut session = crate::DebugSession::new(trust_runtime::Runtime::new());
+        let mut session = crate::DebugSession::new(
+            trust_runtime::RuntimeBuilder::new()
+                .build()
+                .expect("admit an empty runtime"),
+        );
         session.update_source_options(crate::session::SourceOptionsUpdate {
             root: Some(root.to_string_lossy().into_owned()),
             include_globs: Some(vec!["**/*.st".into()]),

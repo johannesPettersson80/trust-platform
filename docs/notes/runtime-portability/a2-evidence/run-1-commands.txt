@@ -1,0 +1,18 @@
+cargo fmt --all 
+cargo fmt --all -- --check 
+python3 /home/johannes/.cache/trust-portability-a2-setup/prepare-evidence.py 
+cargo check --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf 
+cargo check --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf 
+cargo tree --locked -p trust-runtime-core --no-default-features --target thumbv7em-none-eabihf -e features 
+cargo tree --locked -p trust-runtime-core --no-default-features --target riscv32imac-unknown-none-elf -e features 
+cargo test --locked --no-fail-fast -p trust-runtime-core --all-features -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime-core --no-default-features --test bytecode_container --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_portable_load -- --nocapture --test-threads=1 
+cargo test --locked --no-fail-fast -p trust-runtime --test bytecode_container --test bytecode_metadata --test bytecode_decode_resource_bounds --test bytecode_sections --test bytecode_helpers --test process_image --test bytecode_validation --test bytecode_optional_sections --test bytecode_encoder --test bytecode_roundtrip --test bytecode_verification_cases --test bytecode_vm_core --test bytecode_vm_differential --test runtime_core_behavior_lock --test api_smoke --test debug_control --test complete_program --test runtime_reliability --test vars_access -- --nocapture --test-threads=1 
+cargo test --locked -p trust-runtime --lib bytecode::encoder:: -- --nocapture --test-threads=1 
+python3 -m unittest scripts.verification.bytecode_validator_mutation_tests 
+cargo clippy --locked --all-targets --all-features -- -D warnings 
+bash scripts/check_runtime_cross_target_warnings.sh --install-missing --require-cross 
+bash scripts/supply_chain_gate.sh 
+cargo run --locked -p xtask -- architecture-doctor --full-map 
+git diff --check 
+python3 scripts/validate_verification_metadata.py 

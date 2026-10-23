@@ -84,8 +84,7 @@ fn read_lreal(runtime: &Runtime, address: &IoAddress) -> f64 {
 
 fn write_lreal(runtime: &mut Runtime, address: &IoAddress, value: f64) {
     runtime
-        .io_mut()
-        .write(address, Value::LWord(value.to_bits()))
+        .write_io(address, Value::LWord(value.to_bits()))
         .expect("write LREAL process-image bits");
 }
 

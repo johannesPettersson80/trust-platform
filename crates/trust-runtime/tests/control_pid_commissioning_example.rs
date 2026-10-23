@@ -179,8 +179,8 @@ fn primary_pid_example_adopts_the_parameter_record_without_overwriting_it() {
         *std::sync::Arc::make_mut(record).field_mut(field).unwrap() = Value::LReal(value);
     }
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(program, "Parameters", proposed.clone()));
+        .write_instance(program, "Parameters", proposed.clone())
+        .is_ok());
     for _ in 0..3 {
         debug.enqueue_instance_write(program, "AutoMode", Value::Bool(true));
         debug.enqueue_io_write(

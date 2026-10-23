@@ -356,14 +356,14 @@ pub fn parse_attribute_entries_from_text(text: &str, range: TextRange) -> Vec<At
                         value: tokens[1].clone(),
                         range,
                     });
-                } else if tokens.len() == 1 {
-                    if let Some((_, value)) = part.split_once(":=") {
-                        entries.push(AttributeEntry {
-                            key: tokens[0].to_ascii_lowercase(),
-                            value: value.trim().trim_matches('\'').trim().to_string(),
-                            range,
-                        });
-                    }
+                } else if tokens.len() == 1
+                    && let Some((_, value)) = part.split_once(":=")
+                {
+                    entries.push(AttributeEntry {
+                        key: tokens[0].to_ascii_lowercase(),
+                        value: value.trim().trim_matches('\'').trim().to_string(),
+                        range,
+                    });
                 }
             }
         }
@@ -1290,25 +1290,23 @@ pub fn validate_attribute_map(
         ));
         return diagnostics;
     };
-    if kind == OotKind::Value {
-        if let Some(ty) = declared_type {
-            if !is_supported_value_type_name(ty) {
-                diagnostics.push(openot_error(
-                    oot_entry.range,
-                    "OpenOT value logging supports BOOL, integer, REAL, LREAL, and bounded STRING types only",
-                ));
-            }
-        }
+    if kind == OotKind::Value
+        && let Some(ty) = declared_type
+        && !is_supported_value_type_name(ty)
+    {
+        diagnostics.push(openot_error(
+        oot_entry.range,
+        "OpenOT value logging supports BOOL, integer, REAL, LREAL, and bounded STRING types only",
+    ));
     }
-    if kind == OotKind::Condition {
-        if let Some(ty) = declared_type {
-            if !ty.trim().eq_ignore_ascii_case("BOOL") {
-                diagnostics.push(openot_error(
-                    oot_entry.range,
-                    "OpenOT condition lifecycle commands must be BOOL variables",
-                ));
-            }
-        }
+    if kind == OotKind::Condition
+        && let Some(ty) = declared_type
+        && !ty.trim().eq_ignore_ascii_case("BOOL")
+    {
+        diagnostics.push(openot_error(
+            oot_entry.range,
+            "OpenOT condition lifecycle commands must be BOOL variables",
+        ));
     }
     if matches!(
         kind,
@@ -1320,18 +1318,16 @@ pub fn validate_attribute_map(
             | OotKind::OperatorLogout
             | OotKind::SecurityFailure
             | OotKind::ESignature
-    ) {
-        if let Some(ty) = declared_type {
-            if !ty.trim().eq_ignore_ascii_case("BOOL") {
-                diagnostics.push(openot_error(
-                    oot_entry.range,
-                    format!(
-                        "OpenOT {} events must be BOOL trigger variables",
-                        kind.as_str()
-                    ),
-                ));
-            }
-        }
+    ) && let Some(ty) = declared_type
+        && !ty.trim().eq_ignore_ascii_case("BOOL")
+    {
+        diagnostics.push(openot_error(
+            oot_entry.range,
+            format!(
+                "OpenOT {} events must be BOOL trigger variables",
+                kind.as_str()
+            ),
+        ));
     }
 
     let allowed = allowed_keys(kind);
@@ -1750,13 +1746,13 @@ fn validate_key_value(
                     "OpenOT deadband must be a numeric string",
                 ));
             }
-            if let Some(ty) = declared_type {
-                if !ty.trim().eq_ignore_ascii_case("REAL") {
-                    diagnostics.push(openot_error(
-                        entry.range,
-                        "OpenOT deadband is only valid on REAL value attributes",
-                    ));
-                }
+            if let Some(ty) = declared_type
+                && !ty.trim().eq_ignore_ascii_case("REAL")
+            {
+                diagnostics.push(openot_error(
+                    entry.range,
+                    "OpenOT deadband is only valid on REAL value attributes",
+                ));
             }
         }
         (OotKind::Value, "quality") if quality_code(&entry.value).is_none() => {
@@ -2014,15 +2010,14 @@ fn validate_state_category_model(attrs: &AttributeMap, diagnostics: &mut Vec<Dia
         }
     }
 
-    if let Some(category_entry) = category_entry {
-        if category_code(&category_entry.value) == Some(STATE_CATEGORY_PROCEDURAL)
-            && model_entry.is_none()
-        {
-            diagnostics.push(openot_error(
-                category_entry.range,
-                "OpenOT category := 'procedural' requires a 'model'",
-            ));
-        }
+    if let Some(category_entry) = category_entry
+        && category_code(&category_entry.value) == Some(STATE_CATEGORY_PROCEDURAL)
+        && model_entry.is_none()
+    {
+        diagnostics.push(openot_error(
+            category_entry.range,
+            "OpenOT category := 'procedural' requires a 'model'",
+        ));
     }
 }
 
@@ -2060,13 +2055,13 @@ fn validate_value_sampling(attrs: &AttributeMap, diagnostics: &mut Vec<Diagnosti
         _ => {}
     }
 
-    if let Some(entry) = interval_entry {
-        if sampling != Some("periodic") {
-            diagnostics.push(openot_error(
-                entry.range,
-                "OpenOT 'interval' is only valid with sampling := 'periodic'",
-            ));
-        }
+    if let Some(entry) = interval_entry
+        && sampling != Some("periodic")
+    {
+        diagnostics.push(openot_error(
+            entry.range,
+            "OpenOT 'interval' is only valid with sampling := 'periodic'",
+        ));
     }
 }
 

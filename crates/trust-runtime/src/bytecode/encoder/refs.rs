@@ -1,6 +1,6 @@
 use smol_str::SmolStr;
 
-use crate::memory::{FrameId, InstanceId, IoArea, MemoryLocation};
+use crate::memory::{InstanceId, IoArea, MemoryLocation};
 use crate::value::{ref_indices_from_iter, RefSegment as ValueRefSegment, Value, ValueRef};
 
 use crate::bytecode::{RefEntry, RefLocation, RefSegment};
@@ -19,10 +19,10 @@ impl<'a> BytecodeEncoder<'a> {
         if target.contains_index() {
             return Ok(None);
         }
-        if let Some(qualified) = target.qualified_name() {
-            if let Some(reference) = self.resolve_name_ref(ctx, &qualified)? {
-                return Ok(Some(reference));
-            }
+        if let Some(qualified) = target.qualified_name()
+            && let Some(reference) = self.resolve_name_ref(ctx, &qualified)?
+        {
+            return Ok(Some(reference));
         }
         match target {
             LValue::Name(name) => self.resolve_name_ref(ctx, name),
@@ -65,8 +65,28 @@ impl<'a> BytecodeEncoder<'a> {
         if let Some(reference) = ctx.static_ref(name) {
             return Ok(Some(reference.clone()));
         }
-        if let Some(instance_id) = ctx.instance_id {
-            if let Some(reference) = self
+        if self.authoring.is_some() {
+            if let Some(reference) = ctx
+                .instance_id
+                .and_then(|id| self.construction.bindings.instance(id, name))
+            {
+                return Ok(Some(reference.clone()));
+            }
+            let global = self.construction.bindings.global(name);
+            if let Some(alias) = self.construction.aliases.get(&key) {
+                if global.is_some() {
+                    return Err(BytecodeError::InvalidSection(
+                        "access alias conflicts with global".into(),
+                    ));
+                }
+                if alias.partial.is_none() {
+                    return Ok(Some(alias.reference.clone()));
+                }
+            }
+            return Ok(global.cloned());
+        }
+        if let Some(instance_id) = ctx.instance_id
+            && let Some(reference) = self
                 .runtime
                 .storage()
                 .ref_for_instance_recursive(instance_id, name.as_ref())
@@ -77,9 +97,8 @@ impl<'a> BytecodeEncoder<'a> {
                             .ref_for_instance_recursive(instance_id, key.as_ref())
                     })?
                 })
-            {
-                return Ok(Some(reference));
-            }
+        {
+            return Ok(Some(reference));
         }
         let access_binding = self
             .runtime
@@ -93,19 +112,19 @@ impl<'a> BytecodeEncoder<'a> {
             .or_else(|| {
                 (key != *name).then(|| self.runtime.storage().ref_for_global(key.as_ref()))?
             });
-        if let Some(binding) = access_binding {
-            if binding.partial.is_none() {
-                if global_ref.is_some() {
-                    return Err(BytecodeError::InvalidSection(
-                        format!(
-                            "VAR_ACCESS declaration '{}' conflicts with a global declaration",
-                            binding.name
-                        )
-                        .into(),
-                    ));
-                }
-                return Ok(Some(binding.reference.clone()));
+        if let Some(binding) = access_binding
+            && binding.partial.is_none()
+        {
+            if global_ref.is_some() {
+                return Err(BytecodeError::InvalidSection(
+                    format!(
+                        "VAR_ACCESS declaration '{}' conflicts with a global declaration",
+                        binding.name
+                    )
+                    .into(),
+                ));
             }
+            return Ok(Some(binding.reference.clone()));
         }
         Ok(global_ref)
     }
@@ -116,7 +135,12 @@ impl<'a> BytecodeEncoder<'a> {
         }
         let (location, owner_id) = match value_ref.location {
             MemoryLocation::Global => (RefLocation::Global, 0),
-            MemoryLocation::Local(FrameId(id)) => (RefLocation::Local, id),
+            MemoryLocation::Local(frame) => {
+                match self.construction.bodies.result_frames.get(&frame) {
+                    Some(initializer) => (RefLocation::InitializerResult, *initializer),
+                    None => (RefLocation::Local, frame.0),
+                }
+            }
             MemoryLocation::Instance(InstanceId(id)) => (RefLocation::Instance, id),
             MemoryLocation::Retain => (RefLocation::Retain, 0),
             MemoryLocation::Io(area) => {

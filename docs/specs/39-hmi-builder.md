@@ -306,7 +306,7 @@ Decided on 2 October 2026 while the user was away, approved by the user on 3 Oct
    While the runtime runs a simulation, a **SIMULATION** badge shows in the top bar, or at the top
    right with the session when there is no top bar, whatever `[top_bar]` turns on. It adds the
    speed when that is not 1× ("SIMULATION ×10"), and when the speed is above 1× and the achieved
-   speed is more than 5 % below it, both ("SIMULATION ×7 of ×10"; specification 33, §6.1). The
+   speed is more than 5 % below it, both ("SIMULATION ×7 of ×10"; specification 46, §6.1). The
    runtime gives these words: it decides the speed and whether the achieved speed is behind
    (specification 35, B9.2), and its status answer carries the same speed as the words
    `simulation_speed_text` (annex E1.3). The live stream sends
@@ -1014,7 +1014,7 @@ modes and authority (§3), common device behaviour (§4), each block (§6–§9)
 
 1. The PID panel operates a loop written as ordinary code around the real `Control.PID`
    (§10.5, Plant §8.1): initialization, tracking, bumpless transfer and whole-record parameter
-   updates (specification 32) are the code's, run through the PID's own methods.
+   updates (specification 45) are the code's, run through the PID's own methods.
 2. Operators use, in the runtime browser: the Manual/Auto switch, the setpoint, the manual output
    (in Manual) and the PV/SP/MV trend. The panel writes the loop's variables through the write
    rules Create PLC code adds (§12.2).
@@ -1196,7 +1196,7 @@ is not a block call but the ordinary code of §10.5.
 ### 10.5 PID loops as ordinary code
 
 Decided with the user on 7 October 2026: a PID loop is ordinary ST around the Control library's
-real `Control.PID` (specification 32), run through `Configure`, `Initialize` and `Update` as the
+real `Control.PID` (specification 45), run through `Configure`, `Initialize` and `Update` as the
 control course runs it, with no block around it, so Control Studio tunes it as it tunes every
 course loop (Plant §8.1). For a controller `Main.TIC101` (`block = "Control.PID"`) measuring
 `Main.TT101` and driving `Main.EH101`, Create PLC code writes:
@@ -2338,11 +2338,15 @@ Deliverables:
      the page;
    - **the HMI runs where the program calls it** (decided with the user on 3 October 2026):
      a block `Hmi.Display` of the HMI library (`libraries/hmi`), called in a program that runs
-     in any normal task the user chooses. After the task in which it was called, the runtime
-     applies the commands the screens queued, copies the values the open screens show and reads
-     the alarm states; the task's interval and priority are the HMI's, and no HMI work runs
-     between scans. Sending pages to browsers, logins and websockets stay on the web server's own
-     threads. The screens' values and commands follow §11.1; the editor's one-off reads (a
+     in any normal task the user chooses. At the end of each scan in which it was called, after
+     that scan's outputs are published and before the next scan, the runtime applies the
+     commands the screens queued, calls the methods they asked for (§21.2), copies the values
+     the open screens show and reads the alarm states, on the PLC thread; the calling task's
+     interval and priority set how often this happens, and a scan without a call does no HMI
+     work. A command therefore reaches every task before any output it affects is published.
+     (Integration with the shared execution engine, 23 October 2026: this work moved from
+     directly after the calling task to the end of that scan.) Sending pages to browsers, logins
+     and websockets stay on the web server's own threads. The screens' values and commands follow §11.1; the editor's one-off reads (a
      faceplate's block type, a command's readback, Live mode) also wait for the next call; the
      alarms are read at each call, by one walk of the program's instances (specification 40, §5).
      **New HMI Screen** (§4.10) adds the library, a `Screens` program calling the block in

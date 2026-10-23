@@ -16,13 +16,46 @@ pub fn sort_ready_tasks_by_priority(
     ready: &mut [ReadyTask],
     mut priority_for_index: impl FnMut(usize) -> u32,
 ) {
-    ready.sort_by_key(|entry| {
-        (
-            priority_for_index(entry.index),
-            entry.due_at.as_nanos(),
-            entry.index,
-        )
-    });
+    let result: Result<(), core::convert::Infallible> =
+        try_sort_ready_tasks_by_priority(ready, &mut priority_for_index, || Ok(()));
+    match result {
+        Ok(()) => (),
+        Err(impossible) => match impossible {},
+    }
+}
+
+/// The engine uses the same ordering with fallible per-operation budget charges.
+pub(crate) fn try_sort_ready_tasks_by_priority<E>(
+    ready: &mut [ReadyTask],
+    mut priority_for_index: impl FnMut(usize) -> u32,
+    mut charge: impl FnMut() -> Result<(), E>,
+) -> Result<(), E> {
+    crate::sort::heap_sort(ready.len(), &mut |operation| {
+        use crate::sort::Operation;
+        match operation {
+            Operation::Charge => {
+                charge()?;
+                Ok(false)
+            }
+            Operation::Less(left, right) => {
+                let left = ready[left];
+                let right = ready[right];
+                Ok((
+                    priority_for_index(left.index),
+                    left.due_at.as_nanos(),
+                    left.index,
+                ) < (
+                    priority_for_index(right.index),
+                    right.due_at.as_nanos(),
+                    right.index,
+                ))
+            }
+            Operation::Swap(left, right) => {
+                ready.swap(left, right);
+                Ok(false)
+            }
+        }
+    })
 }
 
 #[cfg(test)]
@@ -59,5 +92,43 @@ mod tests {
             [4, 3, 2, 1],
             "priority wins first, then earlier due_at, then lower task index"
         );
+    }
+    #[test]
+    fn shared_ready_sort_matches_priority_due_and_index_order_on_reversed_tasks() {
+        let mut ready = (0..513)
+            .rev()
+            .map(|index| ReadyTask {
+                index,
+                due_at: Duration::from_millis((index % 11) as i64),
+            })
+            .collect::<alloc::vec::Vec<_>>();
+        let mut expected = ready.clone();
+        expected.sort_by_key(|entry| {
+            (
+                (entry.index % 7) as u32,
+                entry.due_at.as_nanos(),
+                entry.index,
+            )
+        });
+        sort_ready_tasks_by_priority(&mut ready, |index| (index % 7) as u32);
+        assert_eq!(ready, expected);
+    }
+
+    #[test]
+    fn engine_ready_sort_stops_before_mutation_when_work_is_exhausted() {
+        let mut ready = [
+            ReadyTask {
+                index: 1,
+                due_at: Duration::ZERO,
+            },
+            ReadyTask {
+                index: 0,
+                due_at: Duration::ZERO,
+            },
+        ];
+        let before = ready;
+        let error = super::try_sort_ready_tasks_by_priority(&mut ready, |_| 0, || Err("exhausted"));
+        assert_eq!(error, Err("exhausted"));
+        assert_eq!(ready, before);
     }
 }

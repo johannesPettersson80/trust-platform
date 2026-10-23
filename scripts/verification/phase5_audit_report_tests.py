@@ -72,7 +72,7 @@ class Phase5AuditReportTests(unittest.TestCase):
         self.assertEqual(29, summary["taxonomy_routes"])
         self.assertEqual(11, summary["canonical_areas"])
         self.assertEqual(
-            {"assigned": 52, "excluded": 8, "report_only": 1, "supporting": 2},
+            {"assigned": 51, "excluded": 9, "report_only": 1, "supporting": 2},
             keyed_counts(summary["by_disposition"]),
         )
 

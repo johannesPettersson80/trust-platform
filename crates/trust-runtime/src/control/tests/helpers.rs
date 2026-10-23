@@ -10,7 +10,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use indexmap::IndexMap;
 use serde_json::json;
 
-use crate::debug::DebugVariableHandles;
+use crate::debug::{DebugVariableHandles, PendingVarTarget};
 use crate::error::RuntimeError;
 use crate::harness::TestHarness;
 use crate::historian::{AlertRule, HistorianConfig, HistorianService, RecordingMode};
@@ -119,10 +119,15 @@ fn control_test_state_with_status_reports(
     let debug = harness.runtime_mut().enable_debug();
     harness.cycle();
     let snapshot = crate::debug::DebugSnapshot {
+        storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
     };
-    debug.refresh_snapshot_from_storage(&snapshot.storage, snapshot.now);
+    debug.refresh_snapshot_from_storage_with_abi(
+        &snapshot.storage,
+        snapshot.now,
+        snapshot.storage_abi,
+    );
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {
@@ -161,9 +166,7 @@ fn control_test_state_with_status_reports(
                 ResourceCommand::MeshApply { .. }
                 | ResourceCommand::Pause
                 | ResourceCommand::Resume
-                | ResourceCommand::UpdateWatchdog(_)
-                | ResourceCommand::UpdateFaultPolicy(_)
-                | ResourceCommand::UpdateRetainSaveInterval(_)
+                | ResourceCommand::UpdateSchedulerPolicies(_)
                 | ResourceCommand::UpdateIoSafeState(_) => {}
             }
         }
@@ -205,6 +208,7 @@ fn control_test_state_with_status_reports(
         debug_enabled: Arc::new(AtomicBool::new(true)),
         debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         historian: None,
+        openot_persistence_status: None,
         pairing: None,
         ads_doctor_jobs: Arc::new(Mutex::new(AdsDoctorJobStore::default())),
         ads_client_config: Arc::new(Mutex::new(None)),

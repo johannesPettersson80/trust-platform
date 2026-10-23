@@ -51,8 +51,8 @@ fn lesson64_run(gains: (f64, f64), event: Event, updates: u64) -> Vec<Paired> {
         let mut writes = Vec::new();
         if step == 1 {
             assert!(runtime
-                .storage_mut()
-                .set_instance_var(p1, "VesselsAuto", Value::Bool(true)));
+                .write_instance(p1, "VesselsAuto", Value::Bool(true))
+                .is_ok());
             for parameters in ["Vessel1Parameters", "Vessel2Parameters"] {
                 set_program_record(
                     &mut runtime,
@@ -66,11 +66,9 @@ fn lesson64_run(gains: (f64, f64), event: Event, updates: u64) -> Vec<Paired> {
                     writes.push((["%ML0", "%ML8"][k], Value::LWord(37.0_f64.to_bits())))
                 }
                 Event::Load(k) => assert!(
-                    runtime.storage_mut().set_instance_var(
-                        p1,
-                        ["Load1Kw", "Load2Kw"][k],
-                        Value::LReal(10.0)
-                    ),
+                    runtime
+                        .write_instance(p1, ["Load1Kw", "Load2Kw"][k], Value::LReal(10.0))
+                        .is_ok(),
                     "load input {k}"
                 ),
             }
@@ -145,8 +143,8 @@ fn lesson64_both_pis_start_in_manual_at_the_resting_point() {
     }
     let p1 = program(&runtime);
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "VesselsAuto", Value::Bool(true)));
+        .write_instance(p1, "VesselsAuto", Value::Bool(true))
+        .is_ok());
     scan_every(&mut runtime, &mut simulation, &debug, 5000, 100, &[]);
     let heaters = [number(&runtime, "%QL0"), number(&runtime, "%QL8")];
     assert!(
@@ -266,8 +264,8 @@ fn lesson65_apply(runtime: &mut trust_runtime::Runtime, d: [[f64; 2]; 2], gains:
         ("D22", d[1][1]),
     ] {
         assert!(runtime
-            .storage_mut()
-            .set_instance_var(p1, name, Value::LReal(value)));
+            .write_instance(p1, name, Value::LReal(value))
+            .is_ok());
     }
     for parameters in ["Vessel1Parameters", "Vessel2Parameters"] {
         set_program_record(
@@ -302,15 +300,13 @@ fn lesson65_apply(runtime: &mut trust_runtime::Runtime, d: [[f64; 2]; 2], gains:
                 "{member}.{field}"
             );
         }
-        assert!(runtime.storage_mut().set_instance_var(
-            pid,
-            "StateValue",
-            Value::Struct(std::sync::Arc::new(state))
-        ));
+        assert!(runtime
+            .write_instance(pid, "StateValue", Value::Struct(std::sync::Arc::new(state)))
+            .is_ok());
     }
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "VesselsAuto", Value::Bool(true)));
+        .write_instance(p1, "VesselsAuto", Value::Bool(true))
+        .is_ok());
 }
 
 /// One 0.1 s update of the coupled vessels: both temperatures, both heater commands and both controller requests.
@@ -450,11 +446,9 @@ fn lesson66_run(coupling: f64, updates: u64) -> Vec<Cases> {
     let Value::Instance(program) = runtime.storage().get_global("P1").cloned().unwrap() else {
         panic!("P1 program")
     };
-    assert!(runtime.storage_mut().set_instance_var(
-        program,
-        "CouplingCase",
-        Value::LReal(coupling)
-    ));
+    assert!(runtime
+        .write_instance(program, "CouplingCase", Value::LReal(coupling))
+        .is_ok());
     let debug = runtime.enable_debug();
     let mut record = Vec::new();
     for step in 0..1 + updates {

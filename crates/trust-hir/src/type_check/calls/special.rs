@@ -33,50 +33,49 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             );
         }
 
-        if let Some(resolved) = self.checker.resolve().resolve_lvalue_root(expr) {
-            if let Some(symbol) = self.checker.symbols.get(resolved.id) {
-                if let Some(current_id) = self.checker.current_pou_symbol {
-                    if resolved.id == current_id
-                        && matches!(
-                            symbol.kind,
-                            SymbolKind::Function { .. } | SymbolKind::Method { .. }
-                        )
-                    {
-                        return self.checker.diagnostic_type_outcome(
-                            DiagnosticCode::InvalidOperation,
-                            expr.text_range(),
-                            "REF cannot take a reference to a function or method return variable",
-                        );
-                    }
-                }
-
-                if matches!(
+        if let Some(resolved) = self.checker.resolve().resolve_lvalue_root(expr)
+            && let Some(symbol) = self.checker.symbols.get(resolved.id)
+        {
+            if let Some(current_id) = self.checker.current_pou_symbol
+                && resolved.id == current_id
+                && matches!(
                     symbol.kind,
-                    SymbolKind::Variable {
-                        qualifier: VarQualifier::Temp
-                    }
-                ) {
+                    SymbolKind::Function { .. } | SymbolKind::Method { .. }
+                )
+            {
+                return self.checker.diagnostic_type_outcome(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    "REF cannot take a reference to a function or method return variable",
+                );
+            }
+
+            if matches!(
+                symbol.kind,
+                SymbolKind::Variable {
+                    qualifier: VarQualifier::Temp
+                }
+            ) {
+                return self.checker.diagnostic_type_outcome(
+                    DiagnosticCode::InvalidOperation,
+                    expr.text_range(),
+                    "REF cannot take a reference to a temporary variable",
+                );
+            }
+
+            if let Some(current_id) = self.checker.current_pou_symbol
+                && let Some(owner) = self.checker.symbols.get(current_id)
+            {
+                let is_function_like = matches!(
+                    owner.kind,
+                    SymbolKind::Function { .. } | SymbolKind::Method { .. }
+                );
+                if is_function_like && symbol.parent == Some(current_id) {
                     return self.checker.diagnostic_type_outcome(
                         DiagnosticCode::InvalidOperation,
                         expr.text_range(),
-                        "REF cannot take a reference to a temporary variable",
+                        "REF cannot take a reference to function-local variables",
                     );
-                }
-
-                if let Some(current_id) = self.checker.current_pou_symbol {
-                    if let Some(owner) = self.checker.symbols.get(current_id) {
-                        let is_function_like = matches!(
-                            owner.kind,
-                            SymbolKind::Function { .. } | SymbolKind::Method { .. }
-                        );
-                        if is_function_like && symbol.parent == Some(current_id) {
-                            return self.checker.diagnostic_type_outcome(
-                                DiagnosticCode::InvalidOperation,
-                                expr.text_range(),
-                                "REF cannot take a reference to function-local variables",
-                            );
-                        }
-                    }
                 }
             }
         }

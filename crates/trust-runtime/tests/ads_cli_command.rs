@@ -110,7 +110,10 @@ fn ads_import_cli_writes_idempotently_and_requires_force_for_drift() {
     let generated = root.join("nested/generated/ads_generated.st");
 
     let run_import = |force: bool| {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_trust-runtime"));
+        let mut command =
+            Command::new(std::env::var_os("CARGO_BIN_EXE_trust-runtime").expect(
+                "Cargo must provide trust-runtime binary while executing integration tests",
+            ));
         command.args([
             "ads",
             "import",
@@ -152,26 +155,29 @@ fn ads_import_cli_writes_idempotently_and_requires_force_for_drift() {
 
 #[test]
 fn ads_route_script_cli_emits_static_routes_json() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "route-script",
-            "--route-name",
-            "trust-runtime-line1",
-            "--target",
-            "192.168.10.5",
-            "--target-net-id",
-            "5.23.91.12.1.1",
-            "--local-ip",
-            "192.168.10.20",
-            "--local-net-id",
-            "192.168.10.20.1.1",
-            "--format",
-            "staticroutes",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads route-script");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "route-script",
+        "--route-name",
+        "trust-runtime-line1",
+        "--target",
+        "192.168.10.5",
+        "--target-net-id",
+        "5.23.91.12.1.1",
+        "--local-ip",
+        "192.168.10.20",
+        "--local-net-id",
+        "192.168.10.20.1.1",
+        "--format",
+        "staticroutes",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads route-script");
 
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -184,23 +190,26 @@ fn ads_route_script_cli_emits_static_routes_json() {
 
 #[test]
 fn ads_server_route_script_cli_emits_server_specific_static_routes_json() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "server",
-            "route-script",
-            "--route-name",
-            "trust-runtime-server",
-            "--server-ip",
-            "192.168.10.20",
-            "--server-net-id",
-            "192.168.10.20.1.1",
-            "--format",
-            "staticroutes",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads server route-script");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "server",
+        "route-script",
+        "--route-name",
+        "trust-runtime-server",
+        "--server-ip",
+        "192.168.10.20",
+        "--server-net-id",
+        "192.168.10.20.1.1",
+        "--format",
+        "staticroutes",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads server route-script");
 
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -214,22 +223,25 @@ fn ads_server_route_script_cli_emits_server_specific_static_routes_json() {
 
 #[test]
 fn ads_server_route_script_cli_human_output_uses_server_wording() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "server",
-            "route-script",
-            "--route-name",
-            "trust-runtime-server",
-            "--server-ip",
-            "192.168.10.20",
-            "--server-net-id",
-            "192.168.10.20.1.1",
-            "--format",
-            "gui",
-        ])
-        .output()
-        .expect("run trust-runtime ads server route-script");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "server",
+        "route-script",
+        "--route-name",
+        "trust-runtime-server",
+        "--server-ip",
+        "192.168.10.20",
+        "--server-net-id",
+        "192.168.10.20.1.1",
+        "--format",
+        "gui",
+    ])
+    .output()
+    .expect("run trust-runtime ads server route-script");
 
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -240,10 +252,13 @@ fn ads_server_route_script_cli_human_output_uses_server_wording() {
 
 #[test]
 fn ads_server_doctor_cli_requires_external_proof_pair() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args(["ads", "server", "doctor", "--external-kind", "pyads"])
-        .output()
-        .expect("run trust-runtime ads server doctor");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args(["ads", "server", "doctor", "--external-kind", "pyads"])
+    .output()
+    .expect("run trust-runtime ads server doctor");
 
     assert_failure_contains(
         &output,
@@ -254,17 +269,20 @@ fn ads_server_doctor_cli_requires_external_proof_pair() {
 #[cfg(feature = "ads-wire")]
 #[test]
 fn ads_doctor_write_probe_requires_the_complete_option_triplet() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "doctor",
-            "--target",
-            "192.0.2.1",
-            "--write-symbol",
-            "MAIN.SafeProbe",
-        ])
-        .output()
-        .expect("run trust-runtime ads doctor with incomplete write probe");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "doctor",
+        "--target",
+        "192.0.2.1",
+        "--write-symbol",
+        "MAIN.SafeProbe",
+    ])
+    .output()
+    .expect("run trust-runtime ads doctor with incomplete write probe");
 
     assert_failure_contains(
         &output,
@@ -275,21 +293,24 @@ fn ads_doctor_write_probe_requires_the_complete_option_triplet() {
 #[cfg(feature = "ads-wire")]
 #[test]
 fn ads_doctor_write_probe_rejects_an_invalid_scalar_before_network_use() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "doctor",
-            "--target",
-            "192.0.2.1",
-            "--write-symbol",
-            "MAIN.SafeProbe",
-            "--write-type",
-            "DINT",
-            "--write-value",
-            "not-an-integer",
-        ])
-        .output()
-        .expect("run trust-runtime ads doctor with invalid write value");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "doctor",
+        "--target",
+        "192.0.2.1",
+        "--write-symbol",
+        "MAIN.SafeProbe",
+        "--write-type",
+        "DINT",
+        "--write-value",
+        "not-an-integer",
+    ])
+    .output()
+    .expect("run trust-runtime ads doctor with invalid write value");
 
     assert_failure_contains(&output, "invalid DINT write value");
 }
@@ -303,19 +324,22 @@ fn ads_server_json_rejection_exits_nonzero_and_preserves_error() {
         "error_code": "ads_server_disabled",
     }));
 
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "server",
-            "status",
-            "--endpoint",
-            &endpoint,
-            "--token",
-            "ads-test-token",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads server status --json");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "server",
+        "status",
+        "--endpoint",
+        &endpoint,
+        "--token",
+        "ads-test-token",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads server status --json");
     let request = request_rx.recv().expect("captured ADS server request");
     server.join().expect("ADS control test server");
 
@@ -339,18 +363,21 @@ fn ads_server_json_rejection_exits_nonzero_and_preserves_error() {
 #[cfg(not(feature = "ads-wire"))]
 #[test]
 fn ads_discover_cli_requires_ads_wire_feature_without_faking_results() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "discover",
-            "--target",
-            "192.168.10.5",
-            "--target-net-id",
-            "5.23.91.12.1.1",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads discover");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "discover",
+        "--target",
+        "192.168.10.5",
+        "--target-net-id",
+        "5.23.91.12.1.1",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads discover");
 
     assert_failure_contains(
         &output,
@@ -361,18 +388,21 @@ fn ads_discover_cli_requires_ads_wire_feature_without_faking_results() {
 #[cfg(not(feature = "ads-wire"))]
 #[test]
 fn ads_browse_cli_requires_ads_wire_feature_without_faking_results() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "browse",
-            "--config",
-            "missing-ads.toml",
-            "--connection",
-            "line1",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads browse");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "browse",
+        "--config",
+        "missing-ads.toml",
+        "--connection",
+        "line1",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads browse");
 
     assert_failure_contains(
         &output,
@@ -383,18 +413,21 @@ fn ads_browse_cli_requires_ads_wire_feature_without_faking_results() {
 #[cfg(not(feature = "ads-wire"))]
 #[test]
 fn ads_doctor_cli_requires_ads_wire_feature_without_faking_results() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "doctor",
-            "--target",
-            "192.168.10.5",
-            "--target-net-id",
-            "5.23.91.12.1.1",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads doctor");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "doctor",
+        "--target",
+        "192.168.10.5",
+        "--target-net-id",
+        "5.23.91.12.1.1",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads doctor");
 
     assert_failure_contains(
         &output,
@@ -405,19 +438,22 @@ fn ads_doctor_cli_requires_ads_wire_feature_without_faking_results() {
 #[cfg(not(feature = "ads-wire"))]
 #[test]
 fn ads_validate_live_cli_requires_ads_wire_feature_without_reading_files() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "validate",
-            "--live",
-            "--config",
-            "missing-ads.toml",
-            "--generated",
-            "missing-ads-generated.st",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads validate --live");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "validate",
+        "--live",
+        "--config",
+        "missing-ads.toml",
+        "--generated",
+        "missing-ads-generated.st",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads validate --live");
 
     assert_failure_contains(
         &output,
@@ -431,22 +467,25 @@ fn ads_import_symbols_cli_requires_ads_wire_feature_without_faking_results() {
     let root = unique_temp_dir("ads-cli-import-symbols-no-wire");
     let ads_toml = root.join("ads.toml");
     let generated = root.join("src/generated/ads_generated.st");
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "import-symbols",
-            "--target",
-            "192.168.10.5",
-            "--target-net-id",
-            "5.23.91.12.1.1",
-            "--out",
-            ads_toml.to_str().expect("ads.toml path"),
-            "--gen",
-            generated.to_str().expect("generated path"),
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads import-symbols");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "import-symbols",
+        "--target",
+        "192.168.10.5",
+        "--target-net-id",
+        "5.23.91.12.1.1",
+        "--out",
+        ads_toml.to_str().expect("ads.toml path"),
+        "--gen",
+        generated.to_str().expect("generated path"),
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads import-symbols");
 
     assert_failure_contains(
         &output,
@@ -459,16 +498,19 @@ fn ads_import_symbols_cli_requires_ads_wire_feature_without_faking_results() {
 
 #[test]
 fn ads_route_remove_cli_emits_removal_artifact_json() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "route-remove",
-            "--route-name",
-            "trust-runtime-line1",
-            "--json",
-        ])
-        .output()
-        .expect("run trust-runtime ads route-remove");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "route-remove",
+        "--route-name",
+        "trust-runtime-line1",
+        "--json",
+    ])
+    .output()
+    .expect("run trust-runtime ads route-remove");
 
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -479,25 +521,28 @@ fn ads_route_remove_cli_emits_removal_artifact_json() {
 
 #[test]
 fn ads_add_route_cli_rejects_password_argument() {
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "add-route",
-            "--route-name",
-            "trust-runtime-line1",
-            "--target",
-            "192.168.10.5",
-            "--target-net-id",
-            "5.23.91.12.1.1",
-            "--local-ip",
-            "192.168.10.20",
-            "--local-net-id",
-            "192.168.10.20.1.1",
-            "--password",
-            "secret-from-argv",
-        ])
-        .output()
-        .expect("run trust-runtime ads add-route");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "add-route",
+        "--route-name",
+        "trust-runtime-line1",
+        "--target",
+        "192.168.10.5",
+        "--target-net-id",
+        "5.23.91.12.1.1",
+        "--local-ip",
+        "192.168.10.20",
+        "--local-net-id",
+        "192.168.10.20.1.1",
+        "--password",
+        "secret-from-argv",
+    ])
+    .output()
+    .expect("run trust-runtime ads add-route");
 
     assert_failure_contains(&output, "unexpected argument '--password'");
 }
@@ -505,28 +550,31 @@ fn ads_add_route_cli_rejects_password_argument() {
 #[cfg(not(feature = "ads-wire"))]
 #[test]
 fn ads_add_route_cli_does_not_echo_stdin_password_when_wire_feature_is_absent() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "add-route",
-            "--route-name",
-            "trust-runtime-line1",
-            "--target",
-            "192.168.10.5",
-            "--target-net-id",
-            "5.23.91.12.1.1",
-            "--local-ip",
-            "192.168.10.20",
-            "--local-net-id",
-            "192.168.10.20.1.1",
-            "--password-stdin",
-            "--json",
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn trust-runtime ads add-route");
+    let mut child = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "add-route",
+        "--route-name",
+        "trust-runtime-line1",
+        "--target",
+        "192.168.10.5",
+        "--target-net-id",
+        "5.23.91.12.1.1",
+        "--local-ip",
+        "192.168.10.20",
+        "--local-net-id",
+        "192.168.10.20.1.1",
+        "--password-stdin",
+        "--json",
+    ])
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .expect("spawn trust-runtime ads add-route");
     child
         .stdin
         .as_mut()
@@ -578,20 +626,23 @@ fn spawn_control_server(
 }
 
 fn run_ads_validate(config: &Path, snapshot: &Path, generated: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ads",
-            "validate",
-            "--offline",
-            "--config",
-            config.to_str().expect("config path"),
-            "--snapshot",
-            snapshot.to_str().expect("snapshot path"),
-            "--generated",
-            generated.to_str().expect("generated path"),
-        ])
-        .output()
-        .expect("run trust-runtime ads validate")
+    Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ads",
+        "validate",
+        "--offline",
+        "--config",
+        config.to_str().expect("config path"),
+        "--snapshot",
+        snapshot.to_str().expect("snapshot path"),
+        "--generated",
+        generated.to_str().expect("generated path"),
+    ])
+    .output()
+    .expect("run trust-runtime ads validate")
 }
 
 fn assert_success(output: &Output) {

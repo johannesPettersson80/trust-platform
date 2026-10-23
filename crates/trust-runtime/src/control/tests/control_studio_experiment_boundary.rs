@@ -13,6 +13,7 @@ fn boundary_io_snapshot(state: &ControlState, setpoint: i64) {
             name: Some(SmolStr::new("Setpoint")),
             address: crate::io::IoAddress::parse("%MW0").expect("experiment address"),
             value_type: Some(trust_hir::TypeId::LINT),
+            value_type_name: None,
             value: crate::io::IoSnapshotValue::Value(Value::LInt(setpoint)),
             source: None,
         }],
@@ -234,7 +235,7 @@ fn symbolic_experiment_is_refused_until_a_scan_of_the_reloaded_program_completes
         .refresh_snapshot_from_storage(&snapshot.storage, snapshot.now);
     state
         .debug
-        .finish_transfer_cycle(&snapshot.storage, snapshot.now);
+        .finish_transfer_cycle(&snapshot.storage, snapshot.now, snapshot.storage_abi);
     let started = start_symbol_experiment(&state, json!({"experiment_id": "symbol-2"}));
     assert!(started.ok, "{:?}", started.error);
 }

@@ -311,7 +311,7 @@ impl PlantInstance {
                         *damping_ratio,
                         *input_bias,
                     ),
-                    PlantModelConfig::StateSpace { ref a, ref b, .. } => {
+                    PlantModelConfig::StateSpace { a, b, .. } => {
                         if self.config.discrete_state_space {
                             model::step_discrete_state_space(
                                 &mut self.state,

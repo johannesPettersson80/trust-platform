@@ -239,14 +239,14 @@ fn apply_control_setting(
                 .unwrap_or_else(|| "request rejected".to_string()),
         };
     }
-    if let Some(root) = state.bundle_root.as_ref() {
-        if let Err(error) = update_runtime_toml(root, persisted_key, persisted_value) {
-            return SettingApplyResult {
-                ok: false,
-                restart_required: false,
-                message: format!("Failed to persist setting: {error}"),
-            };
-        }
+    if let Some(root) = state.bundle_root.as_ref()
+        && let Err(error) = update_runtime_toml(root, persisted_key, persisted_value)
+    {
+        return SettingApplyResult {
+            ok: false,
+            restart_required: false,
+            message: format!("Failed to persist setting: {error}"),
+        };
     }
     let restart_required = restart_on_success || result.restart_required;
     SettingApplyResult {

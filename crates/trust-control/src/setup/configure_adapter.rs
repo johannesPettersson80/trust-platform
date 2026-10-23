@@ -106,10 +106,10 @@ pub fn apply_mapping(
     // `configureControllerAdapter.ts`: a failed state check is kept only for a controller without an initialization. The
     // program's own law outside the served shape (C2), ON/OFF and state feedback are refused by the adapter above, so only the PID
     // initialization is left. A served program's own law is realized by its adapter.
-    if let Err(failure) = states {
-        if controller.pid_initialization.is_some() {
-            return Err(failure);
-        }
+    if let Err(failure) = states
+        && controller.pid_initialization.is_some()
+    {
+        return Err(failure);
     }
     commit(loop_definition, controller, parameter_binding);
     Ok(())

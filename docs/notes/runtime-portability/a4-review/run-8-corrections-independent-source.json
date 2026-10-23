@@ -1,0 +1,32 @@
+{
+  "base": "77b91381fcf1b1850611f88b397bbfe8d45e3523",
+  "run8_manifest_sha256": "f008f9f574853ebb3b0c9d8dfc65bf566676c636a4862e72fd38903adf0f362f",
+  "run8_artifact_index_sha256": "29a26e582aaf99b92856ccabc3bb51de1dc5b53f395cac6ae5a723b9b0f1ede5",
+  "review": "Independent source and preserved-log review; no builds/tests/formatters/validators",
+  "files": [
+    {
+      "path": "crates/trust-runtime-core/src/error_code.rs",
+      "failed_candidate_sha256": "ed6d4ac21232c86f595f8040b69e7d5c2945ff59680d383439d67b454ceac38b",
+      "failed_candidate_source": "run-8 frozen dirty-source manifest",
+      "corrected_sha256": "ec9905522e7d12f7d7937306d27524fdc807f7aeab0106c2a5fe702eb4bc0896"
+    },
+    {
+      "path": "crates/trust-runtime-core/tests/source_free_profile_admission.rs",
+      "failed_candidate_sha256": "39dbf3e843a814021ccfb3726a0ba2ffd1c705ada4e90e05252325d60646ecf5",
+      "failed_candidate_source": "run-8 frozen dirty-source manifest",
+      "corrected_sha256": "ab668737264bf964aa265e83aad46d0d1fbd0b4c35e5358f47a847502a487949"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/dispatch_sizeof.rs",
+      "failed_candidate_sha256": "bdb9da9545e78726e5a53d2852636f041de0b126e773e42583740ca02e424b41",
+      "failed_candidate_source": "run-8 full post-batch source archive; also independently matches Git base and retained builder source",
+      "corrected_sha256": "85fd5595a5e63081b999cc0382a3075f7718df2592662f56d240d5ef95758fed"
+    },
+    {
+      "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs",
+      "failed_candidate_sha256": "bbdb33d3ec3682d4e3d86d1b3e946eff8ff5d43256bddf9af9c1d77229089ad1",
+      "failed_candidate_source": "run-8 frozen dirty-source manifest",
+      "corrected_sha256": "ec52686796c7807dd1241437f0e25f170df1dba409ab589afbd2d31bef4ee54e"
+    }
+  ]
+}

@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod openot_support;
+#[path = "openot_telemetry/work_capture.rs"]
+mod work_capture;
+use openot_support::{build_st_runtime, with_work_charge_log};
 
 use open_ot_carriage::concurrent::{ConcurrentRawConsumer, ConcurrentStore};
 use open_ot_carriage::consumer::LossAccountingConsumer;
@@ -41,9 +44,18 @@ use time::OffsetDateTime;
 use trust_runtime::config::{
     OpenOtTelemetryConfig, OpenOtTelemetryFenceMode, OpenOtTelemetrySource,
 };
-use trust_runtime::harness::{CompileSession, SourceFile, TestHarness};
+use trust_runtime::harness::{SourceFile, TestHarness};
 use trust_runtime::memory::InstanceId;
 use trust_runtime::openot_authoring;
+#[cfg(feature = "openot-real-database-tests")]
+use trust_runtime::openot_persistence::{
+    DocumentSink, InfluxDb3DocumentSink, MySqlDocumentSink, PostgreSqlDocumentSink,
+    SqlServerDocumentSink, TimescaleDbDocumentSink,
+};
+use trust_runtime::openot_persistence::{
+    OpenOtDocumentSource, OpenOtPersistenceConsumer, OpenOtPersistenceWorker, PersistenceBatch,
+    PersistenceCheckpoint, PersistenceError, SharedMemoryOpenOtSource, SqliteDocumentSink,
+};
 use trust_runtime::value::Value;
 use trust_runtime::Runtime;
 
@@ -67,6 +79,7 @@ fn telemetry_config(path: PathBuf, capacity: usize) -> OpenOtTelemetryConfig {
         source: OpenOtTelemetrySource::Heartbeat,
         producer_instance: None,
         producer_instances: Vec::new(),
+        persistence: Default::default(),
     }
 }
 
@@ -107,15 +120,6 @@ fn reactor_program() -> String {
     openot_support::REACTOR_PROGRAM.to_owned()
 }
 
-fn openot_st_source_files(main_source: &str) -> Vec<SourceFile> {
-    let mut sources = openot_support::ST_LIBRARY_SOURCES
-        .iter()
-        .map(|(name, source)| SourceFile::with_path(*name, *source))
-        .collect::<Vec<_>>();
-    sources.push(SourceFile::with_path("main.st", main_source));
-    sources
-}
-
 fn openot_st_test_sources(test_name: &str, main_source: &str) -> Vec<String> {
     let mut sources = openot_support::ST_LIBRARY_SOURCES
         .iter()
@@ -124,21 +128,6 @@ fn openot_st_test_sources(test_name: &str, main_source: &str) -> Vec<String> {
     sources.push(openot_support::st_test_source(test_name).to_owned());
     sources.push(main_source.to_string());
     sources
-}
-
-fn build_st_runtime(main_source: &str) -> Runtime {
-    let session =
-        CompileSession::from_sources(openot_st_source_files(main_source)).label_errors(true);
-    let mut runtime = session
-        .build_runtime()
-        .unwrap_or_else(|err| panic!("build OpenOT ST runtime: {err}"));
-    let bytecode = session
-        .build_bytecode_bytes()
-        .unwrap_or_else(|err| panic!("build OpenOT ST bytecode: {err}"));
-    runtime
-        .apply_bytecode_bytes(&bytecode, None)
-        .unwrap_or_else(|err| panic!("apply OpenOT ST bytecode: {err}"));
-    runtime
 }
 
 fn one_message_per_scan_program() -> &'static str {
@@ -307,7 +296,12 @@ END_PROGRAM
     let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
     let mut harness = TestHarness::from_sources(&source_refs)
         .unwrap_or_else(|err| panic!("build OpenOT ST POU harness {fb_name}: {err}"));
-    harness.cycle();
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "OpenOT cycle failed before telemetry assertions: {:?}",
+        cycle.errors
+    );
 
     if harness.get_output("Passed") != Some(Value::Bool(true)) {
         for name in [
@@ -379,7 +373,12 @@ END_PROGRAM
     let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
     let mut harness = TestHarness::from_sources(&source_refs)
         .unwrap_or_else(|err| panic!("build scan-record burst POU harness: {err}"));
-    harness.cycle();
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "OpenOT cycle failed before telemetry assertions: {:?}",
+        cycle.errors
+    );
 
     assert_eq!(harness.get_output("Passed"), Some(Value::Bool(true)));
     assert_eq!(
@@ -461,7 +460,12 @@ END_PROGRAM
     let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
     let mut harness = TestHarness::from_sources(&source_refs)
         .unwrap_or_else(|err| panic!("build authoring API POU harness: {err}"));
-    harness.cycle();
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "OpenOT cycle failed before telemetry assertions: {:?}",
+        cycle.errors
+    );
 
     assert_eq!(harness.get_output("Passed"), Some(Value::Bool(true)));
 }
@@ -515,7 +519,12 @@ END_PROGRAM
     let source_refs = sources.iter().map(String::as_str).collect::<Vec<_>>();
     let mut harness = TestHarness::from_sources(&source_refs)
         .unwrap_or_else(|err| panic!("build value sampling POU harness: {err}"));
-    harness.cycle();
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "OpenOT cycle failed before telemetry assertions: {:?}",
+        cycle.errors
+    );
 
     assert_eq!(harness.get_output("Passed"), Some(Value::Bool(true)));
     assert_eq!(
@@ -571,7 +580,9 @@ END_PROGRAM
 #[test]
 fn openot_telemetry_publishes_crc_valid_heartbeats() {
     let path = temp_shm_path("heartbeat");
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new()
+        .build()
+        .expect("admit empty telemetry application");
     runtime
         .configure_openot_telemetry(&telemetry_config(path.clone(), 4096), None)
         .expect("configure OpenOT telemetry");
@@ -602,7 +613,9 @@ fn openot_telemetry_publishes_crc_valid_heartbeats() {
 #[test]
 fn openot_telemetry_publish_failure_is_fail_closed() {
     let path = temp_shm_path("too-small");
-    let mut runtime = Runtime::new();
+    let mut runtime = trust_runtime::RuntimeBuilder::new()
+        .build()
+        .expect("admit empty telemetry application");
     runtime
         .configure_openot_telemetry(&telemetry_config(path.clone(), 1), None)
         .expect("configure tiny OpenOT telemetry ring");
@@ -799,6 +812,849 @@ fn openot_telemetry_publishes_multi_program_authoring_sources_to_one_ring() {
     assert_eq!(accounting.lost(2), 0);
 
     drop(std::fs::remove_file(path));
+}
+
+#[test]
+fn openot_database_example_emits_every_documented_authored_event_family() {
+    let path = temp_shm_path("database-example-coverage");
+    let program = include_str!("../../../examples/openot_multi_program/src/Main.st");
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for_many(
+                path.clone(),
+                65_536,
+                &[
+                    "Filler.OotProducer",
+                    "BatchControl.OotProducer",
+                    "OperatorAudit.OotProducer",
+                    "SignatureAudit.OotProducer",
+                    "TypedValues.OotProducer",
+                    "ConditionLifecycle.OotProducer",
+                ],
+            ),
+            None,
+        )
+        .expect("configure database example OpenOT producers");
+    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
+    let mut consumer = ConcurrentRawConsumer::with_store(store);
+    let mut event_types = std::collections::BTreeSet::new();
+    let mut value_types = std::collections::BTreeSet::new();
+    let mut condition_classes = std::collections::BTreeSet::new();
+
+    for _ in 0..12 {
+        runtime.execute_cycle().expect("database example cycle");
+        let batch = consumer.poll().expect("poll database example");
+        event_types.extend(batch.records.iter().map(|read| read.record.event_type_id));
+        value_types.extend(
+            batch
+                .records
+                .iter()
+                .filter(|read| read.record.event_type_id == EVENT_VALUE_CHANGED)
+                .filter_map(|read| slot(&read.record, KEY_NEW_VALUE).map(|value| value.ty)),
+        );
+        condition_classes.extend(
+            batch
+                .records
+                .iter()
+                .filter(|read| {
+                    matches!(
+                        read.record.event_type_id,
+                        EVENT_CONDITION_ACTIVE | EVENT_CONDITION_CLEARED
+                    )
+                })
+                .map(|read| required_uint(&read.record, KEY_CONDITION_CLASS)),
+        );
+    }
+
+    for required in [
+        EVENT_MESSAGE,
+        EVENT_STATE_TRANSITION,
+        EVENT_VALUE_CHANGED,
+        EVENT_PARAMETER_CHANGE,
+        EVENT_CONDITION_ACTIVE,
+        EVENT_CONDITION_CLEARED,
+        EVENT_CONDITION_ACKNOWLEDGED,
+        EVENT_CONDITION_CONFIRMED,
+        EVENT_CONDITION_SHELVED,
+        EVENT_CONDITION_UNSHELVED,
+        EVENT_CONDITION_SUPPRESSED,
+        EVENT_CONDITION_UNSUPPRESSED,
+        EVENT_CONDITION_OUT_OF_SERVICE,
+        EVENT_CONDITION_IN_SERVICE,
+        EVENT_CONDITION_RESET,
+        EVENT_CONDITION_COMMENTED,
+        EVENT_CONDITION_PRIORITY_CHANGED,
+        EVENT_RECIPE_LOADED,
+        EVENT_RECIPE_APPROVED,
+        EVENT_MATERIAL_ADDITION,
+        EVENT_BATCH_EVENT,
+        EVENT_OPERATOR_ACTION,
+        EVENT_OPERATOR_LOGIN,
+        EVENT_OPERATOR_LOGOUT,
+        EVENT_SECURITY_ACCESS_FAILURE,
+        EVENT_ESIGNATURE,
+    ] {
+        assert!(
+            event_types.contains(&required),
+            "database example omitted event type 0x{required:04X}; emitted={event_types:?}"
+        );
+    }
+    assert_eq!(
+        value_types,
+        [
+            TY_BOOL, TY_SINT, TY_USINT, TY_INT, TY_UINT, TY_DINT, TY_UDINT, TY_LINT, TY_ULINT,
+            TY_REAL, TY_LREAL, TY_STRING,
+        ]
+        .into_iter()
+        .collect(),
+        "database example must preserve every supported authored value type"
+    );
+    assert_eq!(
+        condition_classes,
+        [0, 1].into_iter().collect(),
+        "database example must exercise alarm and interlock conditions"
+    );
+    let definition = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "Main.st", program,
+    )])
+    .expect("generate example coverage definition");
+    let state_categories: std::collections::BTreeSet<_> = definition["stateMachines"]
+        .as_array()
+        .expect("state machines")
+        .iter()
+        .filter_map(|state| state["category"].as_u64())
+        .collect();
+    assert_eq!(state_categories, [0, 1, 2].into_iter().collect());
+    let procedural_models: std::collections::BTreeSet<_> = definition["stateMachines"]
+        .as_array()
+        .expect("state machines")
+        .iter()
+        .filter_map(|state| state["proceduralModel"].as_str())
+        .collect();
+    assert_eq!(
+        procedural_models,
+        ["ISA-88", "PackML"].into_iter().collect()
+    );
+    let sampling_policies: std::collections::BTreeSet<_> = definition["values"]
+        .as_array()
+        .expect("values")
+        .iter()
+        .filter_map(|value| value["samplingPolicy"].as_str())
+        .collect();
+    assert!(sampling_policies.contains("on-change"));
+    assert!(sampling_policies.contains("deadband"));
+    assert!(sampling_policies.contains("periodic:250"));
+    assert!(sampling_policies.contains("hysteresis"));
+    assert!(definition["messageTemplates"]
+        .as_array()
+        .expect("message templates")
+        .iter()
+        .any(|message| message["argTypes"]
+            .as_array()
+            .is_some_and(|args| args.len() == 4)));
+    std::fs::remove_file(path).ok();
+}
+
+#[test]
+fn openot_database_example_coverage_manifest_names_the_reviewed_contract() {
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../examples/openot_multi_program/openot-coverage-manifest.json"
+    ))
+    .expect("parse canonical OpenOT coverage manifest");
+
+    assert_eq!(
+        manifest["supportedOpenOtRevision"],
+        "137f0e765f085c262651f479be35298b836ac891"
+    );
+    assert_eq!(
+        manifest["producerInstances"].as_array().map(Vec::len),
+        Some(6)
+    );
+    assert_eq!(manifest["valueTypes"].as_array().map(Vec::len), Some(12));
+    assert_eq!(
+        manifest["authoredEvents"]
+            .as_object()
+            .map(serde_json::Map::len),
+        Some(26)
+    );
+    assert_eq!(
+        manifest["databaseProducts"].as_array().map(Vec::len),
+        Some(7)
+    );
+    for policy in ["on-change", "deadband", "periodic:250", "hysteresis"] {
+        assert!(
+            manifest["samplingPolicies"].get(policy).is_some(),
+            "{policy}"
+        );
+    }
+    assert_eq!(
+        manifest["runtimeSystemEvents"],
+        serde_json::json!([
+            "Heartbeat",
+            "LoggerStarted",
+            "LoggerStopped",
+            "BufferCleared",
+            "RecordsDropped",
+            "SourceRegistered",
+            "DefinitionChanged",
+            "TimeSyncChanged",
+            "SourceHighWater"
+        ]),
+        "the manifest must distinguish runtime-authored system records"
+    );
+    assert_eq!(
+        manifest["consumerDocuments"]["Loss"]["bases"],
+        serde_json::json!(["authoritative", "inferred"])
+    );
+    for event in manifest["runtimeSystemEvents"]
+        .as_array()
+        .expect("runtime system events")
+    {
+        let event = event.as_str().expect("system event name");
+        assert!(
+            manifest["runtimeSystemTriggers"][event]
+                .as_str()
+                .is_some_and(|trigger| !trigger.trim().is_empty()),
+            "system event {event} needs a reviewed runtime or contract-fixture trigger"
+        );
+    }
+    assert_eq!(
+        manifest["consumerDocuments"]["Placeholder"]["preserves"],
+        serde_json::json!(["reason", "rawSlots"])
+    );
+    assert_eq!(
+        manifest["requiredProvenance"],
+        serde_json::json!([
+            "bufferId",
+            "source.id",
+            "source.name",
+            "source.path",
+            "source.hierarchy",
+            "runId",
+            "epoch.id",
+            "epoch.relation",
+            "epoch.definitionHash",
+            "sourceTimeNs",
+            "receiveTimeNs",
+            "flags"
+        ])
+    );
+    assert_eq!(
+        manifest["coverageGate"]["retrieval"],
+        "native documented query returns canonical JSON"
+    );
+    assert_eq!(
+        manifest["coverageGate"]["cardinality"],
+        "every expected identity exactly once unless explicitly idempotent"
+    );
+}
+
+#[test]
+fn openot_database_example_persists_real_st_documents_to_sqlite() {
+    let ring_path = temp_shm_path("database-example-sqlite-ring");
+    let database_root = temp_shm_path("database-example-sqlite");
+    let database_path = database_root.join("trust-logging.sqlite3");
+    let program = include_str!("../../../examples/openot_multi_program/src/Main.st");
+    let definition_json = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "main.st", program,
+    )])
+    .expect("generate canonical example definition");
+    let definition: DefinitionFile = serde_json::from_value(definition_json.clone())
+        .expect("parse canonical example definition");
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for_many(
+                ring_path.clone(),
+                65_536,
+                &[
+                    "Filler.OotProducer",
+                    "BatchControl.OotProducer",
+                    "OperatorAudit.OotProducer",
+                    "SignatureAudit.OotProducer",
+                    "TypedValues.OotProducer",
+                    "ConditionLifecycle.OotProducer",
+                ],
+            ),
+            None,
+        )
+        .expect("configure canonical example ring");
+    for _ in 0..12 {
+        runtime.execute_cycle().expect("canonical example cycle");
+    }
+
+    let mut expected_source =
+        SharedMemoryOpenOtSource::open(&ring_path).expect("open expected-document source");
+    let expected_poll = expected_source.poll().expect("poll expected documents");
+    let mut expected_consumer = OpenOtPersistenceConsumer::new(definition.clone(), None)
+        .expect("create expected-document resolver");
+    let expected_batch = expected_consumer
+        .prepare_batch(
+            &expected_poll.batch,
+            &expected_poll.snapshot,
+            DETERMINISTIC_SOURCE_TIME_BASE,
+            0,
+        )
+        .expect("resolve expected SQLite documents");
+    let mut expected_json = expected_batch
+        .documents
+        .iter()
+        .map(|document| to_json(document).expect("serialize expected SQLite document"))
+        .collect::<Vec<_>>();
+    expected_json.sort();
+    let source = SharedMemoryOpenOtSource::open(&ring_path).expect("open real shared-memory ring");
+    let consumer = OpenOtPersistenceConsumer::new(definition.clone(), None)
+        .expect("create canonical resolver");
+    let sink = SqliteDocumentSink::open_with_definitions(&database_path, vec![definition])
+        .expect("open real SQLite database");
+    let mut worker = OpenOtPersistenceWorker::new(source, consumer, sink);
+    let committed = worker
+        .run_once(DETERMINISTIC_SOURCE_TIME_BASE)
+        .expect("run complete persistence path")
+        .expect("canonical example produced a durable batch");
+
+    assert!(
+        committed.inserted >= 30,
+        "expected broad canonical workload"
+    );
+    assert_eq!(
+        worker.status().unresolved,
+        0,
+        "definition must resolve exactly"
+    );
+    assert_eq!(worker.status().loss_range_count, 0);
+    assert_eq!(worker.status().cursor_abs, worker.status().head_abs);
+    let status_cursor_abs = worker.status().cursor_abs;
+    let status_head_abs = worker.status().head_abs;
+    let status_unresolved = worker.status().unresolved;
+    let status_loss_range_count = worker.status().loss_range_count;
+    let connection = rusqlite::Connection::open(&database_path).expect("inspect persisted SQLite");
+    let persisted: i64 = connection
+        .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
+        .expect("count persisted documents");
+    let event_families: i64 = connection
+        .query_row(
+            "SELECT COUNT(DISTINCT event_name) FROM event_log",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count persisted event families");
+    assert_eq!(persisted, committed.inserted as i64);
+    assert!(
+        event_families >= 26,
+        "all authored event families must persist"
+    );
+    for table in [
+        "logged_values",
+        "alarm_history",
+        "message_log",
+        "state_history",
+        "batch_history",
+        "recipe_history",
+        "material_additions",
+        "operator_activity",
+        "audit_log",
+        "electronic_signatures",
+    ] {
+        let count: i64 = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap_or_else(|error| panic!("query descriptive {table}: {error}"));
+        assert!(count > 0, "real ST workload must populate {table}");
+    }
+    let mut actual_json = connection
+        .prepare("SELECT canonical_json FROM logging_records ORDER BY identity_key")
+        .expect("prepare exact SQLite JSON query")
+        .query_map([], |row| row.get::<_, String>(0))
+        .expect("query exact SQLite JSON")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("collect exact SQLite JSON");
+    actual_json.sort();
+    assert_eq!(actual_json, expected_json, "SQLite canonical JSON drift");
+
+    if let Some(evidence_root) = std::env::var_os("TRUST_OPENOT_EVIDENCE_DIR") {
+        let evidence_root = std::path::PathBuf::from(evidence_root);
+        std::fs::create_dir_all(&evidence_root).expect("create SQLite evidence directory");
+        drop(worker);
+        let retained_path = evidence_root.join("trust-logging.sqlite3");
+        std::fs::copy(&database_path, &retained_path).expect("retain validated SQLite database");
+        let mut source_wal = database_path.as_os_str().to_os_string();
+        source_wal.push("-wal");
+        let source_wal = std::path::PathBuf::from(source_wal);
+        let retained_wal = evidence_root.join("trust-logging.sqlite3-wal");
+        std::fs::copy(&source_wal, &retained_wal).expect("retain validated SQLite WAL snapshot");
+        let retained = rusqlite::Connection::open(&retained_path)
+            .expect("open retained SQLite database and WAL");
+        let retained_schema: i64 = retained
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("inspect retained SQLite schema version");
+        let retained_documents: i64 = retained
+            .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
+            .expect("inspect retained SQLite document count");
+        assert_eq!(retained_schema, 1);
+        assert_eq!(retained_documents, persisted);
+        retained
+            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+            .expect("checkpoint retained SQLite WAL snapshot");
+        drop(retained);
+        let retained = rusqlite::Connection::open_with_flags(
+            &retained_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .expect("reopen standalone retained SQLite database read-only");
+        let retained_schema: i64 = retained
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("inspect retained SQLite schema version");
+        let retained_documents: i64 = retained
+            .query_row("SELECT COUNT(*) FROM logging_records", [], |row| row.get(0))
+            .expect("inspect retained SQLite document count");
+        assert_eq!(retained_schema, 1);
+        assert_eq!(retained_documents, persisted);
+        std::fs::write(
+            evidence_root.join("openot-definition.json"),
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&definition_json)
+                    .expect("serialize retained OpenOT definition")
+            ),
+        )
+        .expect("retain generated OpenOT definition");
+        let reconciliation = serde_json::json!({
+            "schemaGeneration": 1,
+            "integrityCheck": "ok",
+            "persistedDocuments": persisted,
+            "insertedDocuments": committed.inserted,
+            "duplicateDocuments": committed.duplicated,
+            "eventFamilies": event_families,
+            "cursorAbs": status_cursor_abs,
+            "headAbs": status_head_abs,
+            "unresolved": status_unresolved,
+            "lossRangeCount": status_loss_range_count,
+        });
+        std::fs::write(
+            evidence_root.join("reconciliation.json"),
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&reconciliation)
+                    .expect("serialize SQLite reconciliation evidence")
+            ),
+        )
+        .expect("retain SQLite reconciliation evidence");
+        drop(connection);
+    } else {
+        drop(connection);
+    }
+    std::fs::remove_file(ring_path).ok();
+    std::fs::remove_dir_all(database_root).ok();
+}
+
+#[test]
+fn openot_persistence_forced_ring_overflow_persists_both_loss_bases() {
+    use open_ot_carriage::loss::records_dropped_record;
+    use open_ot_carriage::ring::LossRange;
+    use open_ot_shm::SharedRecordPublisher;
+
+    let ring_path = temp_shm_path("database-overflow-ring");
+    let database_root = temp_shm_path("database-overflow");
+    std::fs::create_dir_all(&database_root).expect("database root");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&database_root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure database root");
+    }
+    let database_path = database_root.join("trust-logging.sqlite3");
+    let mut publisher = SharedRecordPublisher::create(&ring_path, 4096).expect("publisher");
+    for seq in 0..200u64 {
+        publisher
+            .append_record(&Record::new(
+                DETERMINISTIC_SOURCE_TIME_BASE + seq,
+                1,
+                seq,
+                11,
+                EVENT_HEARTBEAT,
+            ))
+            .expect("publish overflowing heartbeat");
+    }
+    publisher
+        .append_record(&records_dropped_record(
+            0,
+            &LossRange {
+                run_id: 1,
+                source_id: 12,
+                first_seq: 5,
+                last_seq: 7,
+            },
+        ))
+        .expect("publish authoritative loss marker");
+    let source = SharedMemoryOpenOtSource::open_with_limits(&ring_path, 256, 256)
+        .expect("open lapped source");
+    let consumer = OpenOtPersistenceConsumer::new(open_ot_definition::sample_definition(), None)
+        .expect("create loss-accounting consumer");
+    let sink = SqliteDocumentSink::open(&database_path).expect("open SQLite sink");
+    let mut worker = OpenOtPersistenceWorker::new(source, consumer, sink);
+
+    worker.run_once(99).expect("persist lapped ring batch");
+
+    assert_eq!(worker.status().cursor_abs, worker.status().head_abs);
+    assert!(worker.status().loss_range_count >= 2);
+    assert!(worker.status().lost_record_count > 0);
+    let status_lost_record_count = worker.status().lost_record_count;
+    drop(worker);
+    let connection = rusqlite::Connection::open(&database_path).expect("inspect loss rows");
+    let mut statement = connection
+        .prepare(
+            "SELECT source_id,loss_basis,first_seq,last_seq,canonical_json \
+             FROM logging_records WHERE document_kind='loss' ORDER BY loss_basis,first_seq",
+        )
+        .expect("prepare loss query");
+    let rows = statement
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, u32>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Vec<u8>>(2)?,
+                row.get::<_, Vec<u8>>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        })
+        .expect("query loss rows")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("collect loss rows");
+    let bases = rows
+        .iter()
+        .map(|(_, basis, _, _, _)| basis.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(bases, ["authoritative", "inferred"].into_iter().collect());
+    assert!(rows.iter().all(|(_, _, first, last, json)| {
+        first.len() == 8
+            && last.len() == 8
+            && serde_json::from_str::<serde_json::Value>(json).is_ok()
+    }));
+    let decode =
+        |bytes: &[u8]| u64::from_be_bytes(bytes.try_into().expect("8-byte sequence identity"));
+    let inferred_source_11: u64 = rows
+        .iter()
+        .filter(|(source, basis, _, _, _)| *source == 11 && basis == "inferred")
+        .map(|(_, _, first, last, _)| decode(last) - decode(first) + 1)
+        .sum();
+    let authoritative_source_12 = rows
+        .iter()
+        .find(|(source, basis, _, _, _)| *source == 12 && basis == "authoritative")
+        .expect("authoritative source-12 loss row");
+    assert_eq!(decode(&authoritative_source_12.2), 5);
+    assert_eq!(decode(&authoritative_source_12.3), 7);
+    let delivered_source_11 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM logging_records \
+             WHERE document_kind='event' AND source_id=11",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .expect("delivered source-11 count");
+    let delivered_source_11 = u64::try_from(delivered_source_11).expect("nonnegative count");
+    assert_eq!(delivered_source_11 + inferred_source_11, 200);
+    assert_eq!(status_lost_record_count, inferred_source_11 + 3);
+    std::fs::remove_file(ring_path).ok();
+    std::fs::remove_dir_all(database_root).ok();
+}
+
+#[test]
+fn openot_slow_real_sqlite_consumer_remains_bounded_and_reports_ring_loss() {
+    use open_ot_shm::SharedRecordPublisher;
+    use trust_runtime::openot_persistence::{CommitOutcome, DocumentSink};
+
+    #[derive(Debug)]
+    struct DelayedSqliteSink {
+        inner: SqliteDocumentSink,
+        delay: std::time::Duration,
+    }
+
+    impl DocumentSink for DelayedSqliteSink {
+        fn load_checkpoint(
+            &mut self,
+            buffer_id: u32,
+            run_id: u64,
+        ) -> Result<Option<PersistenceCheckpoint>, PersistenceError> {
+            self.inner.load_checkpoint(buffer_id, run_id)
+        }
+
+        fn commit(&mut self, batch: &PersistenceBatch) -> Result<CommitOutcome, PersistenceError> {
+            std::thread::sleep(self.delay);
+            self.inner.commit(batch)
+        }
+    }
+
+    let ring_path = temp_shm_path("database-slow-consumer-ring");
+    let database_root = temp_shm_path("database-slow-consumer");
+    std::fs::create_dir_all(&database_root).expect("slow-consumer database root");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&database_root, std::fs::Permissions::from_mode(0o700))
+            .expect("secure slow-consumer root");
+    }
+    let database_path = database_root.join("trust-logging.sqlite3");
+    let mut publisher = SharedRecordPublisher::create(&ring_path, 4096).expect("publisher");
+    publisher
+        .append_record(&Record::new(
+            DETERMINISTIC_SOURCE_TIME_BASE,
+            1,
+            0,
+            11,
+            EVENT_HEARTBEAT,
+        ))
+        .expect("initial record");
+    let source = SharedMemoryOpenOtSource::open_with_limits(&ring_path, 256, 256)
+        .expect("open bounded slow source");
+    let consumer = OpenOtPersistenceConsumer::new(open_ot_definition::sample_definition(), None)
+        .expect("slow-consumer resolver");
+    let sink = DelayedSqliteSink {
+        inner: SqliteDocumentSink::open(&database_path).expect("slow real SQLite sink"),
+        delay: std::time::Duration::from_millis(150),
+    };
+    let worker = OpenOtPersistenceWorker::new(source, consumer, sink);
+    let handle = std::thread::spawn(move || {
+        let mut worker = worker;
+        worker.run_once(1).expect("delayed first commit");
+        worker
+    });
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    for seq in 1..=200u64 {
+        publisher
+            .append_record(&Record::new(
+                DETERMINISTIC_SOURCE_TIME_BASE + seq,
+                1,
+                seq,
+                11,
+                EVENT_HEARTBEAT,
+            ))
+            .expect("producer remains independent of slow database");
+    }
+    let mut worker = handle.join().expect("join delayed worker");
+    worker.run_once(2).expect("account overwritten ring");
+
+    assert!(worker.status().loss_range_count > 0);
+    assert!(worker.status().lost_record_count > 0);
+    assert!(worker.status().cursor_abs <= worker.status().head_abs);
+    std::fs::remove_file(ring_path).ok();
+    std::fs::remove_dir_all(database_root).ok();
+}
+
+#[cfg(feature = "openot-real-database-tests")]
+#[test]
+fn openot_database_example_persists_same_real_st_workload_to_every_network_backend() {
+    fn persist<D: DocumentSink>(
+        sink: &mut D,
+        batch: &trust_runtime::openot_persistence::PersistenceBatch,
+        backend: &str,
+    ) {
+        let committed = sink
+            .commit(batch)
+            .unwrap_or_else(|error| panic!("persist canonical workload to {backend}: {error:?}"));
+        assert_eq!(
+            committed.inserted,
+            batch.documents.len(),
+            "{backend} insert"
+        );
+        assert_eq!(
+            committed.checkpoint, batch.checkpoint,
+            "{backend} checkpoint"
+        );
+        while sink
+            .maintenance()
+            .unwrap_or_else(|error| panic!("maintain {backend}: {error:?}"))
+            > 0
+        {}
+    }
+
+    fn canonical_jsons(documents: &[open_ot_document::Document]) -> Vec<String> {
+        let mut jsons = documents
+            .iter()
+            .map(|document| to_json(document).expect("serialize canonical workload document"))
+            .collect::<Vec<_>>();
+        jsons.sort();
+        jsons
+    }
+
+    fn assert_exact(mut actual: Vec<String>, expected: &[String], backend: &str) {
+        actual.sort();
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "{backend} stored document count drift"
+        );
+        assert_eq!(actual, expected, "{backend} canonical JSON drift");
+    }
+
+    let ring_path = temp_shm_path("database-example-network-ring");
+    let program = include_str!("../../../examples/openot_multi_program/src/Main.st");
+    let definition_json = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
+        "main.st", program,
+    )])
+    .expect("generate canonical network definition");
+    let definition: DefinitionFile =
+        serde_json::from_value(definition_json).expect("parse canonical network definition");
+    let mut runtime = build_st_runtime(program);
+    runtime
+        .configure_openot_telemetry(
+            &st_fb_telemetry_config_for_many(
+                ring_path.clone(),
+                65_536,
+                &[
+                    "Filler.OotProducer",
+                    "BatchControl.OotProducer",
+                    "OperatorAudit.OotProducer",
+                    "SignatureAudit.OotProducer",
+                    "TypedValues.OotProducer",
+                    "ConditionLifecycle.OotProducer",
+                ],
+            ),
+            None,
+        )
+        .expect("configure canonical network ring");
+    for _ in 0..12 {
+        runtime.execute_cycle().expect("canonical network cycle");
+    }
+
+    let mut source = SharedMemoryOpenOtSource::open(&ring_path).expect("open canonical source");
+    let poll = source.poll().expect("poll canonical authored workload");
+    let mut consumer = OpenOtPersistenceConsumer::new(definition.clone(), None)
+        .expect("create canonical resolver");
+    let batch = consumer
+        .prepare_batch(
+            &poll.batch,
+            &poll.snapshot,
+            DETERMINISTIC_SOURCE_TIME_BASE,
+            0,
+        )
+        .expect("resolve canonical authored workload once");
+    assert!(
+        batch.documents.len() >= 30,
+        "canonical workload is too small"
+    );
+    assert!(batch
+        .documents
+        .iter()
+        .all(|document| matches!(document, open_ot_document::Document::Event(_))));
+    let expected = canonical_jsons(&batch.documents);
+
+    let pid = std::process::id();
+    let postgres_url = std::env::var("TRUST_TEST_OPENOT_POSTGRES_URL").expect("PostgreSQL URL");
+    let postgres_ca = std::env::var("TRUST_TEST_OPENOT_POSTGRES_CA").expect("PostgreSQL CA");
+    let mut postgres = PostgreSqlDocumentSink::open_with_definitions(
+        &postgres_url,
+        &format!("logging_e2e_{pid}"),
+        std::path::Path::new(&postgres_ca),
+        vec![definition.clone()],
+    )
+    .expect("open PostgreSQL e2e sink");
+    persist(&mut postgres, &batch, "PostgreSQL");
+    assert_exact(
+        postgres.canonical_jsons().expect("query PostgreSQL JSON"),
+        &expected,
+        "PostgreSQL",
+    );
+
+    let timescale_url = std::env::var("TRUST_TEST_OPENOT_TIMESCALE_URL").expect("Timescale URL");
+    let timescale_ca = std::env::var("TRUST_TEST_OPENOT_TIMESCALE_CA").expect("Timescale CA");
+    let mut timescale = TimescaleDbDocumentSink::open_with_definitions(
+        &timescale_url,
+        &format!("logging_e2e_{pid}"),
+        std::path::Path::new(&timescale_ca),
+        vec![definition.clone()],
+    )
+    .expect("open TimescaleDB e2e sink");
+    persist(&mut timescale, &batch, "TimescaleDB");
+    assert_exact(
+        timescale.canonical_jsons().expect("query TimescaleDB JSON"),
+        &expected,
+        "TimescaleDB",
+    );
+
+    for (name, url_env, ca_env) in [
+        (
+            "MySQL",
+            "TRUST_TEST_OPENOT_MYSQL_URL",
+            "TRUST_TEST_OPENOT_MYSQL_CA",
+        ),
+        (
+            "MariaDB",
+            "TRUST_TEST_OPENOT_MARIADB_URL",
+            "TRUST_TEST_OPENOT_MARIADB_CA",
+        ),
+    ] {
+        let url = std::env::var(url_env).unwrap_or_else(|_| panic!("{name} URL"));
+        let ca = std::env::var(ca_env).unwrap_or_else(|_| panic!("{name} CA"));
+        let mut sink = MySqlDocumentSink::open_with_definitions(
+            &url,
+            "trust_logging",
+            std::path::Path::new(&ca),
+            vec![definition.clone()],
+        )
+        .unwrap_or_else(|error| panic!("open {name} e2e sink: {error:?}"));
+        sink.reset_test_state()
+            .unwrap_or_else(|error| panic!("reset {name} fixture: {error:?}"));
+        persist(&mut sink, &batch, name);
+        assert_exact(
+            sink.canonical_jsons()
+                .unwrap_or_else(|error| panic!("query {name} JSON: {error:?}")),
+            &expected,
+            name,
+        );
+    }
+
+    let sqlserver_url = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_URL").expect("SQL Server URL");
+    let sqlserver_ca = std::env::var("TRUST_TEST_OPENOT_SQLSERVER_CA").expect("SQL Server CA");
+    let mut sqlserver = SqlServerDocumentSink::open_with_definitions(
+        &sqlserver_url,
+        &format!("logging_e2e_{pid}"),
+        std::path::Path::new(&sqlserver_ca),
+        vec![definition.clone()],
+    )
+    .expect("open SQL Server e2e sink");
+    persist(&mut sqlserver, &batch, "SQL Server");
+    assert_exact(
+        sqlserver.canonical_jsons().expect("query SQL Server JSON"),
+        &expected,
+        "SQL Server",
+    );
+
+    let influx_host = std::env::var("TRUST_TEST_OPENOT_INFLUX_HOST").expect("InfluxDB host");
+    let influx_token = std::env::var("TRUST_TEST_OPENOT_INFLUX_TOKEN").expect("InfluxDB token");
+    let influx_ca = std::env::var("TRUST_TEST_OPENOT_INFLUX_CA").expect("InfluxDB CA");
+    let spool_root = temp_shm_path("database-example-influx-spool");
+    let spool = spool_root.join("spool.sqlite3");
+    let mut influx = InfluxDb3DocumentSink::open_bounded_with_definitions(
+        &influx_host,
+        &influx_token,
+        "trust_logging",
+        &spool,
+        std::path::Path::new(&influx_ca),
+        u64::MAX,
+        vec![definition],
+    )
+    .expect("open InfluxDB 3 e2e sink");
+    persist(&mut influx, &batch, "InfluxDB 3");
+    // Influx acknowledges a WAL-synchronous write before the query engine's
+    // read snapshot necessarily exposes the batch. Verification waits for
+    // bounded query visibility; durability status still follows the write ack.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    let influx_json = loop {
+        let documents = influx
+            .remote_canonical_jsons_at(DETERMINISTIC_SOURCE_TIME_BASE)
+            .expect("query InfluxDB 3 JSON");
+        if documents.len() == expected.len() || std::time::Instant::now() >= deadline {
+            break documents;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    };
+    assert_exact(influx_json, &expected, "InfluxDB 3");
+
+    std::fs::remove_file(ring_path).ok();
+    std::fs::remove_dir_all(spool_root).ok();
 }
 
 #[test]
@@ -1024,140 +1880,9 @@ END_PROGRAM
 #[test]
 fn openot_telemetry_authoring_parameter_change_round_trip() {
     let path = temp_shm_path("authoring-parameter-change");
-    let program = r#"
-PROGRAM Main
-VAR
-    Phase : UINT;
-    OperatorName : STRING[32] := 'operator-a';
-    ReasonText : STRING[32] := 'audit change';
-    SetPoint : REAL {attribute 'oot' := 'value', 'id' := '2101', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText, 'auth' := 'Granted', 'unit' := 'bar', 'semanticRole' := 'setpoint'};
-    BatchCount : DINT {attribute 'oot' := 'value', 'id' := '2102', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText};
-    Enabled : BOOL {attribute 'oot' := 'value', 'id' := '2103', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText};
-    ModeText : STRING[16] {attribute 'oot' := 'value', 'id' := '2104', 'audit' := 'true', 'actor' := OperatorName, 'reason' := ReasonText};
-END_VAR
-
-CASE Phase OF
-    UINT#0:
-        SetPoint := REAL#10.0;
-        BatchCount := DINT#1;
-        Enabled := FALSE;
-        ModeText := 'manual';
-    UINT#1:
-        SetPoint := REAL#12.5;
-        BatchCount := DINT#2;
-        Enabled := TRUE;
-        ModeText := 'auto';
-END_CASE;
-Phase := Phase + UINT#1;
-END_PROGRAM
-"#;
+    let program = work_capture::parameter_change_program();
     let mut runtime = build_st_runtime(program);
-    runtime
-        .configure_openot_telemetry(
-            &st_fb_telemetry_config_for(path.clone(), 4096, "Main.OotProducer"),
-            None,
-        )
-        .expect("configure OpenOT ST FB telemetry");
-
-    let store = SharedConcurrentStore::open_existing(&path).expect("open telemetry shm");
-    let mut consumer = ConcurrentRawConsumer::with_store(store);
-
-    runtime
-        .execute_cycle()
-        .expect("first audited value cycle only seeds baselines");
-    let batch = consumer.poll().expect("poll seeded audited values");
-    assert_eq!(batch.records.len(), 0);
-
-    runtime
-        .execute_cycle()
-        .expect("second audited value cycle publishes changes");
-    let batch = consumer.poll().expect("poll audited value changes");
-    assert_eq!(batch.records.len(), 4);
-    assert!(batch
-        .records
-        .iter()
-        .all(|read| read.record.event_type_id == EVENT_PARAMETER_CHANGE));
-    assert!(batch
-        .records
-        .iter()
-        .all(|read| read.record.event_type_id != EVENT_VALUE_CHANGED));
-
-    let rendered = batch
-        .records
-        .iter()
-        .map(|read| render_record(&read.record))
-        .collect::<Vec<_>>();
-    assert_eq!(
-        rendered,
-        [
-            "ParameterChange source=1 seq=0 valueId=2101 previous=REAL(10) new=REAL(12.5) actor=operator-a reason=audit change authResult=0",
-            "ParameterChange source=1 seq=1 valueId=2102 previous=DINT(1) new=DINT(2) actor=operator-a reason=audit change",
-            "ParameterChange source=1 seq=2 valueId=2103 previous=BOOL(false) new=BOOL(true) actor=operator-a reason=audit change",
-            "ParameterChange source=1 seq=3 valueId=2104 previous=STRING(manual) new=STRING(auto) actor=operator-a reason=audit change",
-        ]
-    );
-
-    let definition_json = openot_authoring::definition_json_from_sources(&[SourceFile::with_path(
-        "parameter_change.st",
-        program,
-    )])
-    .expect("parameter-change definition");
-    assert_eq!(definition_json["values"][0]["valueId"], 2101);
-    assert_eq!(definition_json["values"][0]["name"], "SetPoint");
-    assert_eq!(definition_json["values"][0]["semanticRole"], 1);
-    assert_eq!(definition_json["values"][0]["unit"], 4);
-    assert_eq!(definition_json["operatorDefinitions"], json!([]));
-    let definition: DefinitionFile =
-        serde_json::from_value(definition_json).expect("definition parses");
-    let hash = compute_content_hash(&definition).expect("hash definition");
-    let snapshot = ControlBlockSnapshot {
-        version: 2,
-        caps: 0,
-        buffer_id: DEFAULT_BUFFER_ID,
-        buffer_bytes: 4096,
-        head_abs: batch.records.last().map_or(0, |record| record.end_abs),
-        oldest_abs: batch.records.first().map_or(0, |record| record.start_abs),
-        lost_count: 0,
-        run_id: 1,
-        epoch_id: 1,
-        epoch_first_abs: 0,
-        definition_hash: hash.carriage_hash,
-        prev_definition_hash: [0; 8],
-    };
-    let definition_set = DefinitionSet::current(&definition);
-    let resolution = resolve_record(
-        &batch.records[0].record,
-        batch.records[0].start_abs,
-        &snapshot,
-        &definition_set,
-    );
-    let context = RecordDocumentContext::new(
-        DEFAULT_BUFFER_ID,
-        batch.records[0].record.source_time,
-        hash.carriage_hash,
-        batch.records[0].record.flags,
-    )
-    .with_semantic_version(definition.header.semantic_version.clone());
-    let document = document_from_resolution(&resolution, &context);
-    let document_text = to_json(&document).expect("serialize parameter-change document");
-    assert!(
-        document_text.contains(r#""eventName":"ParameterChange""#),
-        "{document_text}"
-    );
-    assert!(
-        document_text.contains(r#""name":"value","type":"ValueRef","value":"SetPoint""#),
-        "{document_text}"
-    );
-    assert!(
-        document_text.contains(r#""name":"actor","type":"String","value":"operator-a""#),
-        "{document_text}"
-    );
-    assert!(
-        document_text.contains(r#""name":"reason","type":"String","value":"audit change""#),
-        "{document_text}"
-    );
-
-    drop(std::fs::remove_file(path));
+    work_capture::assert_parameter_change_round_trip(&mut runtime, path, program, false);
 }
 
 #[test]
@@ -2763,7 +3488,7 @@ fn write_main_program_var(runtime: &mut Runtime, name: &str, value: Value) {
         .ref_for_instance_recursive(main_id, name)
         .unwrap_or_else(|| panic!("missing generated Main.{name}"));
     assert!(
-        runtime.storage_mut().write_by_ref(reference, value),
+        runtime.write_reference(&reference, value).is_ok(),
         "write generated Main.{name}"
     );
 }

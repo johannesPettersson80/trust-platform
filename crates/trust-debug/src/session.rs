@@ -11,9 +11,7 @@ use trust_runtime::control::SourceFile as ControlSourceFile;
 use trust_runtime::debug::{DebugBreakpoint, DebugControl, HitCondition, LogFragment};
 #[cfg(test)]
 use trust_runtime::harness::TestHarness;
-use trust_runtime::harness::{
-    parse_debug_expression, CompileError, CompileSession, SourceFile as HarnessSourceFile,
-};
+use trust_runtime::harness::{CompileError, CompileSession, SourceFile as HarnessSourceFile};
 use trust_runtime::io::IoDriverRegistry;
 use trust_runtime::scheduler::SimulationSpeed;
 use trust_runtime::simulation::{SimulationConfig, SimulationController};
@@ -78,7 +76,7 @@ impl SourceOptions {
     }
 }
 
-/// The simulation facts of the loaded program (specification 35, A2.4; specification 33, §6.1). The target is simulated
+/// The simulation facts of the loaded program (specification 35, A2.4; specification 46, §6.1). The target is simulated
 /// unless a physical I/O driver is attached. Its speed is the configured `[simulation] time_scale`, or 1 when physical.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SimulationFacts {
@@ -232,11 +230,16 @@ impl DebugSession {
         };
         let sources = collect_sources(&path, &self.source_options)?;
         let (retained, current_time) = {
-            let runtime = self
+            let mut runtime = self
                 .runtime
                 .lock()
                 .map_err(|_| CompileError::new("runtime lock poisoned"))?;
-            (runtime.retain_snapshot(), runtime.current_time())
+            (
+                runtime
+                    .retain_snapshot()
+                    .map_err(|error| CompileError::new(error.to_string()))?,
+                runtime.current_time(),
+            )
         };
 
         let source_files = sources
@@ -258,7 +261,7 @@ impl DebugSession {
         let simulation = simulation_file
             .filter(|config| config.enabled)
             .map(SimulationController::new);
-        // The runtime reports the same simulation fact from its first cycle on (specification 33, §6.1).
+        // The runtime reports the same simulation fact from its first cycle on (specification 46, §6.1).
         runtime.set_simulation_enabled(facts.enabled);
         runtime.set_debug_control(self.control.clone());
         runtime
@@ -287,6 +290,10 @@ impl DebugSession {
         self.simulation_speed.set(facts.time_scale);
         self.simulation_facts = facts;
         self.replace_sources(&sources);
+
+        // Compiled watch expressions own the replaced type registry. The client
+        // retains its watch definitions and recompiles them on the next evaluate.
+        self.control.invalidate_schema_observations();
 
         // Ensure no stale breakpoints linger across reloads.
         self.control.clear_breakpoints();
@@ -443,7 +450,7 @@ impl DebugRuntime for DebugSession {
 }
 
 /// The project's `simulation.toml`, if it exists. Its speed applies even when its plants are disabled, because the
-/// debug simulator always simulates (specification 33, §6.1 item 2).
+/// debug simulator always simulates (specification 46, §6.1 item 2).
 fn load_project_simulation(
     program_path: &str,
     options: &SourceOptions,
@@ -469,6 +476,9 @@ fn display_path(path: &Path) -> String {
         display
     }
 }
+
+#[cfg(test)]
+mod mqtt_install_reload_tests;
 
 include!("session/breakpoint_manager.rs");
 include!("session/source_and_parse_helpers.rs");

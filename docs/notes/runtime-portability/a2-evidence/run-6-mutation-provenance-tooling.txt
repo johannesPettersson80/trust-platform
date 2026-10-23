@@ -1,0 +1,75 @@
+[gate-progress state=started phase=A2-mutation-provenance-tooling target=scena-rust-builder pid=38294 elapsed=0.0s timeout=3600s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-6/review-index python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.mutation_program_contract_tests scripts.verification.mutation_program_report_tests scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests scripts.verification.fuzz_program_source_contract_tests']
+[gate-progress state=running phase=A2-mutation-provenance-tooling target=scena-rust-builder pid=38294 elapsed=30.0s timeout=3600s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-6/review-index python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.mutation_program_contract_tests scripts.verification.mutation_program_report_tests scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests scripts.verification.fuzz_program_source_contract_tests']
+...............................F..F....F...E.........................................
+======================================================================
+ERROR: setUpClass (scripts.verification.mutation_program_report_tests.MutationProgramReportTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a2/scripts/verification/mutation_program_report_tests.py", line 67, in setUpClass
+    cls.state = build_live_mutation_program_state(
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        ROOT, require_clean_commit=False
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/johannes/projects/trust-platform-portability-a2/scripts/verification/mutation_program_live.py", line 120, in build_live_mutation_program_state
+    raise ValueError("; ".join(failures))
+ValueError: $.shards[1].result_artifact_path: string does not match schema pattern ^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\.json$; $.shards[2].result_artifact_path: string does not match schema pattern ^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\.json$; $.shards[3].result_artifact_path: string does not match schema pattern ^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\.json$; $.shards[4].result_artifact_path: string does not match schema pattern ^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\.json$
+
+======================================================================
+FAIL: test_live_manifest_and_source_execution_preflights_are_valid (scripts.verification.mutation_program_contract_tests.MutationProgramContractTests.test_live_manifest_and_source_execution_preflights_are_valid)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a2/scripts/verification/mutation_program_contract_tests.py", line 46, in test_live_manifest_and_source_execution_preflights_are_valid
+    self.assertEqual(
+    ~~~~~~~~~~~~~~~~^
+        [],
+        ^^^
+    ...<4 lines>...
+        ),
+        ^^
+    )
+    ^
+AssertionError: Lists differ: [] != ['$.shards[1].result_artifact_path: string[649 chars]on$']
+
+Second list contains 4 additional elements.
+First extra element 0:
+'$.shards[1].result_artifact_path: string does not match schema pattern ^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\\.json$'
+
+Diff is 737 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_measured_source_shard_requires_its_bound_artifact (scripts.verification.mutation_program_contract_tests.MutationProgramContractTests.test_measured_source_shard_requires_its_bound_artifact)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a2/scripts/verification/mutation_program_contract_tests.py", line 164, in test_measured_source_shard_requires_its_bound_artifact
+    self.assertEqual([], preexecution_failures)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [] != ['$.shards[1].result_artifact_path: string[649 chars]on$']
+
+Second list contains 4 additional elements.
+First extra element 0:
+'$.shards[1].result_artifact_path: string does not match schema pattern ^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\\.json$'
+
+Diff is 737 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_shard_execution_preflight_does_not_require_old_execution_artifacts (scripts.verification.mutation_program_contract_tests.MutationProgramContractTests.test_shard_execution_preflight_does_not_require_old_execution_artifacts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/johannes/projects/trust-platform-portability-a2/scripts/verification/mutation_program_contract_tests.py", line 208, in test_shard_execution_preflight_does_not_require_old_execution_artifacts
+    self.assertEqual([], artifact_failures)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [] != ['$.shards[1].result_artifact_path: string[649 chars]on$']
+
+Second list contains 4 additional elements.
+First extra element 0:
+'$.shards[1].result_artifact_path: string does not match schema pattern ^docs/internal/testing/evidence/plc-verification-program/2026-07-16/p10-[a-z0-9-]+-mutation\\.json$'
+
+Diff is 737 characters long. Set self.maxDiff to None to see it.
+
+----------------------------------------------------------------------
+Ran 84 tests in 47.576s
+
+FAILED (failures=3, errors=1)
+[gate-progress state=finished phase=A2-mutation-provenance-tooling target=scena-rust-builder pid=38294 elapsed=48.0s timeout=3600s command='env GIT_INDEX_FILE=/home/johannes/.cache/trust-portability-a2-evidence/run-6/review-index python3 -m unittest scripts.verification.bytecode_validator_mutation_tests scripts.verification.mutation_program_contract_tests scripts.verification.mutation_program_report_tests scripts.verification.gate_inventory_tests scripts.verification.metadata_validator.suite_contracts_tests scripts.verification.fuzz_program_source_contract_tests' status=1]

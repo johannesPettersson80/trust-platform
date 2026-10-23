@@ -276,11 +276,9 @@ fn lesson36_step(filter_time: Option<f64>, seconds: f64) -> Motion {
         scan_every(&mut runtime, &mut simulation, &debug, step * 20, 20, &[]);
     }
     if let Some(filter_time) = filter_time {
-        assert!(runtime.storage_mut().set_instance_var(
-            program,
-            "FilterTimeS",
-            Value::LReal(filter_time)
-        ));
+        assert!(runtime
+            .write_instance(program, "FilterTimeS", Value::LReal(filter_time))
+            .is_ok());
     }
     set_controller_state(
         &mut runtime,

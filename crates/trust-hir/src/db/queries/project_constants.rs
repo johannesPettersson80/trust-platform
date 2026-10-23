@@ -76,10 +76,12 @@ mod tests {
             &db,
             "NAMESPACE Plant VAR_GLOBAL CONSTANT N : INT := 4 + 1; END_VAR END_NAMESPACE"
                 .to_owned(),
+            TemporalStorage::default(),
         );
         let second = SourceInput::new(
             &db,
             "NAMESPACE Plant VAR_GLOBAL CONSTANT N : INT := 9; END_VAR END_NAMESPACE".to_owned(),
+            TemporalStorage::default(),
         );
         let files = [(FileId(0), first), (FileId(1), second)];
         let key = (Some(SmolStr::new("PLANT")), SmolStr::new("N"));

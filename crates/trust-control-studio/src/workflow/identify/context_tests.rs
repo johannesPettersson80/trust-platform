@@ -290,7 +290,7 @@ fn the_cancel_of_a_journaled_test_experiment_notes_it_as_the_cancel_of_a_campaig
     fs::remove_dir_all(&journal_folder).expect("clean up");
 }
 
-/// The `plant.read` answer of a project that saves the tank (specification 34, §20.2).
+/// The `plant.read` answer of a project that saves the tank (specification 47, §20.2).
 fn plant_read(revision: &str) -> Value {
     json!({
         "contract": "trust.plant", "schema_version": 1, "operation": "plant.read", "project_id": "project:sha256:abc",
@@ -304,7 +304,7 @@ fn plant_read(revision: &str) -> Value {
     })
 }
 
-/// The `plant.status` answer of a runtime that runs the tank under the saved configuration `revision` (specification 34, §20.4).
+/// The `plant.status` answer of a runtime that runs the tank under the saved configuration `revision` (specification 47, §20.4).
 fn plant_status(revision: &str) -> Value {
     json!({
         "contract": "trust.plant", "schema_version": 1, "operation": "plant.status", "project_id": "project:sha256:abc",
@@ -315,7 +315,7 @@ fn plant_status(revision: &str) -> Value {
 
 #[test]
 fn the_connected_runtime_states_the_plant_it_proves_it_runs_and_none_it_does_not() {
-    // Specification 34, §20.3: the saved configuration is evidence of the run only when the runtime reports it active.
+    // Specification 47, §20.3: the saved configuration is evidence of the run only when the runtime reports it active.
     let proven = FakeEndpoint::start(|request| match request["type"].as_str() {
         Some("plant.read") => Some(answer(request, plant_read("sha256:plant-1"))),
         Some("plant.status") => Some(answer(request, plant_status("sha256:plant-1"))),

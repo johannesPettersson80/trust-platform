@@ -51,15 +51,15 @@ impl DebugAdapter {
                 .last()
                 .map(|frame| {
                     let mut entries = Vec::new();
-                    if let Some(instance_id) = frame.instance_id {
-                        if let Some(instance) = storage.get_instance(instance_id) {
-                            entries.extend(instance.variables.iter().map(|(name, value)| {
-                                VarStateEntry {
-                                    name: name.to_string(),
-                                    value: format_var_state_value(value, storage),
-                                }
-                            }));
-                        }
+                    if let Some(instance_id) = frame.instance_id
+                        && let Some(instance) = storage.get_instance(instance_id)
+                    {
+                        entries.extend(instance.variables.iter().map(|(name, value)| {
+                            VarStateEntry {
+                                name: name.to_string(),
+                                value: format_var_state_value(value, storage),
+                            }
+                        }));
                     }
                     entries.extend(frame.variables.iter().map(|(name, value)| VarStateEntry {
                         name: name.to_string(),
@@ -76,12 +76,15 @@ impl DebugAdapter {
                     value: format_var_state_value(value, storage),
                 })
                 .collect();
-            let retain = storage
-                .retain()
-                .iter()
-                .map(|(name, value)| VarStateEntry {
-                    name: name.to_string(),
-                    value: format_var_state_value(value, storage),
+            let retain = super::retained::references(self.session.metadata(), storage)
+                .into_iter()
+                .filter_map(|(name, reference)| {
+                    storage
+                        .materialize_by_ref_ref(&reference)
+                        .map(|value| VarStateEntry {
+                            name: name.to_string(),
+                            value: format_var_state_value(&value, storage),
+                        })
                 })
                 .collect();
             let instances = storage
@@ -132,10 +135,10 @@ impl DebugAdapter {
 }
 
 fn format_var_state_value(value: &RuntimeValue, storage: &VariableStorage) -> String {
-    if let RuntimeValue::Instance(id) = value {
-        if let Some(instance) = storage.get_instance(*id) {
-            return instance.type_name.to_string();
-        }
+    if let RuntimeValue::Instance(id) = value
+        && let Some(instance) = storage.get_instance(*id)
+    {
+        return instance.type_name.to_string();
     }
     format_value(value)
 }

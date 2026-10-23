@@ -321,6 +321,13 @@ export function run(): Promise<void> {
   require("./control-studio-analysis-parameters.test");
   require("./control-studio-open-answer-fields.test");
   require("./control-studio-engine-parked.test");
+  require("./network-canvas-github-issues.test");
+  require("./ads-multiport-live-values.test");
+  require("./ads-discovery-results-rendered.test");
+  require("./live-values-webview-interactions.test");
+  require("./ads-tag-selection-interactions.test");
+  require("./ads-tag-config-mutation.test");
+  require("./network-canvas-session-model.test");
   require("./network-canvas-fleet-identity.test");
   require("./ads-status-summary.test");
   require("./connector-status-contract.test");

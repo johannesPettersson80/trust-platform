@@ -153,9 +153,9 @@ specifications continue to own their algorithms, interfaces and behavior:
 
 | Area | Authority path within the control implementation checkout |
 |---|---|
-| PID and filter | `docs/specs/32-control-pid.md` |
-| Plant simulation | `docs/specs/33-simulation-plant-models.md` |
-| Plant configuration UI | `docs/specs/34-vscode-plant-simulation-ui.md` |
+| PID and filter | `docs/specs/45-control-pid.md` |
+| Plant simulation | `docs/specs/46-simulation-plant-models.md` |
+| Plant configuration UI | `docs/specs/47-vscode-plant-simulation-ui.md` |
 | Control Studio | `docs/specs/35-vscode-control-studio.md` and `docs/specs/control-studio-complete-workflow-specification.md` |
 | Executed PID benchmarks | `docs/specs/36-control-pid-performance-evaluation.md` |
 | Composed advanced structures | `docs/specs/37-control-advanced-structures.md` |

@@ -1,6 +1,6 @@
 use alloc::{string::String, sync::Arc, vec::Vec};
 
-use indexmap::IndexMap;
+use crate::collections::OrderedMap as IndexMap;
 use smol_str::SmolStr;
 use trust_hir::types::{ArrayDimensionExt, TypeRegistry};
 use trust_hir::{Type, TypeId};
@@ -95,7 +95,7 @@ fn default_value_for_type(
             ))))
         }
         Type::Struct { name, fields } => {
-            let mut values = IndexMap::new();
+            let mut values = IndexMap::default();
             for field in fields {
                 let field_value = default_value_for_type_id(field.type_id, registry, profile)?;
                 values.insert(field.name.clone(), field_value);
@@ -119,7 +119,7 @@ fn default_value_for_type(
         Type::Subrange { base, lower, .. } => int_value_of_base(*base, *lower),
         Type::Null | Type::Interface { .. } => Ok(Value::Null),
         Type::Union { name, variants } => {
-            let mut values = IndexMap::new();
+            let mut values = IndexMap::default();
             for variant in variants {
                 let variant_value = default_value_for_type_id(variant.type_id, registry, profile)?;
                 values.insert(variant.name.clone(), variant_value);

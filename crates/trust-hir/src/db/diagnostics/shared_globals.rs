@@ -383,10 +383,10 @@ fn resolve_field_expr_global(
         } else {
             symbols.resolve_qualified(&parts[..len])
         };
-        if let Some(symbol_id) = symbol_id {
-            if let Some(global_id) = resolve_global_symbol(symbols, globals_by_key, symbol_id) {
-                return Some(global_id);
-            }
+        if let Some(symbol_id) = symbol_id
+            && let Some(global_id) = resolve_global_symbol(symbols, globals_by_key, symbol_id)
+        {
+            return Some(global_id);
         }
     }
     None

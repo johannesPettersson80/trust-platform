@@ -2742,10 +2742,17 @@ END_PROGRAM
         if !platform_matches {
             continue;
         }
+        let expected_built = match id {
+            "ethercat" => cfg!(all(unix, feature = "ethercat-wire")),
+            "ads" => cfg!(feature = "ads-wire"),
+            "ads_server" => cfg!(feature = "ads-server"),
+            "opcua" | "opcua_client" => cfg!(feature = "opcua-wire"),
+            _ => true,
+        };
         assert_eq!(
             capability.get("built").and_then(serde_json::Value::as_bool),
-            Some(true),
-            "default schema protocol {id} must be built in the official default runtime"
+            Some(expected_built),
+            "default schema protocol {id} must reflect the selected build features"
         );
     }
 }
@@ -2947,6 +2954,7 @@ END_PROGRAM
             name: Some(SmolStr::new("Input0")),
             address: crate::io::IoAddress::parse("%IX0.0").expect("input address"),
             value_type: None,
+            value_type_name: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(true)),
             source: None,
         }],
@@ -2954,6 +2962,7 @@ END_PROGRAM
             name: Some(SmolStr::new("Output0")),
             address: crate::io::IoAddress::parse("%QX0.0").expect("output address"),
             value_type: None,
+            value_type_name: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
             source: None,
         }],
@@ -4464,6 +4473,7 @@ END_PROGRAM
             name: Some(SmolStr::new("OUT0")),
             address: output.clone(),
             value_type: None,
+            value_type_name: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
             source: None,
         }],
@@ -4513,6 +4523,7 @@ END_PROGRAM
             name: Some(SmolStr::new("OUT0")),
             address: output.clone(),
             value_type: None,
+            value_type_name: None,
             value: crate::io::IoSnapshotValue::Value(crate::value::Value::Bool(false)),
             source: None,
         }],

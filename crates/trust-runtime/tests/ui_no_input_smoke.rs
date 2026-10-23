@@ -11,17 +11,20 @@ fn unreachable_endpoint() -> String {
 #[test]
 fn trust_runtime_ui_no_input_smoke() {
     let endpoint = unreachable_endpoint();
-    let output = Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
-        .args([
-            "ui",
-            "--endpoint",
-            &endpoint,
-            "--no-input",
-            "--refresh",
-            "10",
-        ])
-        .output()
-        .expect("run trust-runtime ui --no-input");
+    let output = Command::new(
+        std::env::var_os("CARGO_BIN_EXE_trust-runtime")
+            .expect("Cargo must provide trust-runtime binary while executing integration tests"),
+    )
+    .args([
+        "ui",
+        "--endpoint",
+        &endpoint,
+        "--no-input",
+        "--refresh",
+        "10",
+    ])
+    .output()
+    .expect("run trust-runtime ui --no-input");
 
     assert!(
         !output.status.success(),

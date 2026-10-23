@@ -339,17 +339,17 @@ fn call_expr_context(source: &str, call_expr: &SyntaxNode) -> Option<CallContext
         .ancestors()
         .find(|node| node.kind() == SyntaxKind::AssignStmt)
     {
-        if let Some(rhs_expr) = assign_rhs_expr(&assign_stmt) {
-            if node_token_range(&rhs_expr) == node_token_range(call_expr) {
-                let stmt_range = assign_stmt.text_range();
-                let indent = line_indent_at_offset(source, stmt_range.start());
-                return Some(CallContext {
-                    kind: CallContextKind::Expression,
-                    stmt_range,
-                    insert_offset: usize::from(stmt_range.start()),
-                    indent,
-                });
-            }
+        if let Some(rhs_expr) = assign_rhs_expr(&assign_stmt)
+            && node_token_range(&rhs_expr) == node_token_range(call_expr)
+        {
+            let stmt_range = assign_stmt.text_range();
+            let indent = line_indent_at_offset(source, stmt_range.start());
+            return Some(CallContext {
+                kind: CallContextKind::Expression,
+                stmt_range,
+                insert_offset: usize::from(stmt_range.start()),
+                indent,
+            });
         }
         return None;
     }
@@ -396,20 +396,19 @@ fn call_targets_function(
         root,
         symbols,
     );
-    if let Some(ResolvedTarget::Symbol(symbol_id)) = target {
-        if symbol_id == function_id {
-            return Some(callee_range);
-        }
+    if let Some(ResolvedTarget::Symbol(symbol_id)) = target
+        && symbol_id == function_id
+    {
+        return Some(callee_range);
     }
 
     if let Some(parts) = match callee.kind() {
         SyntaxKind::FieldExpr => qualified_name_from_field_expr(&callee),
         SyntaxKind::QualifiedName | SyntaxKind::Name => qualified_name_parts_from_node(&callee),
         _ => None,
-    } {
-        if symbols.resolve_qualified(&parts) == Some(function_id) {
-            return Some(callee_range);
-        }
+    } && symbols.resolve_qualified(&parts) == Some(function_id)
+    {
+        return Some(callee_range);
     }
 
     None
@@ -441,4 +440,3 @@ fn build_prefix_insert_text(source: &str, insert_offset: usize, line: &str) -> S
     }
     insert
 }
-

@@ -1,3 +1,4 @@
+#[path = "common/bytecode_helpers.rs"]
 mod bytecode_helpers;
 
 use std::collections::{BTreeMap, HashSet};
@@ -6,21 +7,21 @@ use std::path::{Path, PathBuf};
 
 use serde_json::json;
 use trust_runtime::bytecode::{
-    BytecodeModule, ConstEntry, ParamEntry, RefEntry, RefLocation, SectionData, SectionId,
-    BYTECODE_MAX_CONTAINER_BYTES as MAX_CONTAINER_BYTES,
+    BytecodeError, BytecodeModule, ConstEntry, ParamEntry, RefEntry, RefLocation, SectionData,
+    SectionId, BYTECODE_MAX_CONTAINER_BYTES as MAX_CONTAINER_BYTES,
     BYTECODE_MAX_INSTRUCTIONS as MAX_MODULE_INSTRUCTIONS,
     BYTECODE_MAX_LOCALS_PER_POU as MAX_LOCALS_PER_POU,
     BYTECODE_MAX_PARAMETERS_PER_POU as MAX_PARAMETERS_PER_POU,
     BYTECODE_MAX_REFERENCES as MAX_REFERENCES,
 };
-use trust_runtime::error::RuntimeError;
+use trust_runtime::error::{RuntimeError, StableErrorCode};
 use trust_runtime::execution_backend::ExecutionBackend;
 use trust_runtime::harness::TestHarness;
+use trust_runtime::runtime_core::vm::hosted::ensure_global_call_depth;
 use trust_runtime::runtime_core::vm::{
-    ensure_global_call_depth, VM_MAX_CALL_DEPTH as MAX_CALL_DEPTH,
-    VM_MAX_OPERAND_STACK as MAX_OPERAND_STACK,
+    VmTrap, VM_MAX_CALL_DEPTH as MAX_CALL_DEPTH, VM_MAX_OPERAND_STACK as MAX_OPERAND_STACK,
 };
-use trust_runtime::Runtime;
+use trust_runtime::value::Value;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
     TraceStep,
@@ -29,7 +30,7 @@ use verification_cases::{
 const TEST_ID: &str = "TEST_VM_RESOURCE_LIMIT_CASES_001";
 const CASE_FILE: &str = "verification/cases/bytecode_vm/VM_SEAM_DETERMINISM_LIMITS_001.toml";
 const CASE_FILE_DIGEST: &str =
-    "sha256:b1b2e994813b9b089d6386964ddf6134949d623bb1b60064075b2a5f38d24289";
+    "sha256:43b9709939e005fcc9b13203f5ffdd1134f47d7ff4ce2e225fa5374b006184f2";
 
 const EXECUTION_BUDGET_SOURCE: &str = r#"
 PROGRAM Main
@@ -147,23 +148,37 @@ fn rejection_outcome<T, E>(result: Result<T, E>) -> &'static str {
     }
 }
 
-fn apply_oversized_container() -> Result<(), RuntimeError> {
+/// One byte past the fixed container limit: a valid base module padded with zeros.
+fn oversized_container_bytes() -> Vec<u8> {
     let mut module = bytecode_helpers::base_module();
     module.flags = 0;
     let mut bytes = module.encode().expect("encode base module");
     bytes.resize(MAX_CONTAINER_BYTES.saturating_add(1), 0);
-    Runtime::new().apply_bytecode_bytes(&bytes, None)
+    bytes
 }
 
-fn module_above_instruction_limit() -> BytecodeModule {
+fn apply_oversized_container() -> Result<(), RuntimeError> {
+    trust_runtime::RuntimeBuilder::new()
+        .build()
+        .expect("admit empty application")
+        .apply_bytecode_bytes(&oversized_container_bytes(), None)
+}
+
+/// A module whose main body decodes to exactly `count` NOP instructions.
+fn module_with_instruction_count(count: usize) -> BytecodeModule {
     let mut module = bytecode_helpers::base_module();
-    set_main_body(&mut module, vec![0x00; MAX_MODULE_INSTRUCTIONS + 1]);
+    set_main_body(&mut module, vec![0x00; count]);
     module
 }
 
-fn module_above_reference_limit() -> BytecodeModule {
+fn module_above_instruction_limit() -> BytecodeModule {
+    module_with_instruction_count(MAX_MODULE_INSTRUCTIONS + 1)
+}
+
+/// A module whose REF_TABLE holds exactly `count` global references.
+fn module_with_references(count: usize) -> BytecodeModule {
     let mut module = bytecode_helpers::base_module();
-    let references = (0..=MAX_REFERENCES)
+    let references = (0..count)
         .map(|offset| RefEntry {
             location: RefLocation::Global,
             owner_id: 0,
@@ -175,9 +190,16 @@ fn module_above_reference_limit() -> BytecodeModule {
     module
 }
 
-fn module_above_local_limit() -> BytecodeModule {
+fn module_above_reference_limit() -> BytecodeModule {
+    module_with_references(MAX_REFERENCES + 1)
+}
+
+/// A module whose main POU declares `local_count` local references, backed by `ref_count`
+/// local REF_TABLE entries. Keeping the REF_TABLE within its own limit means only the POU
+/// count is over-limit, which is what the declared-count check then reports.
+fn module_with_locals(local_count: usize, ref_count: usize) -> BytecodeModule {
     let mut module = bytecode_helpers::base_module();
-    let references = (0..=MAX_LOCALS_PER_POU)
+    let references = (0..ref_count)
         .map(|offset| RefEntry {
             location: RefLocation::Local,
             owner_id: 1,
@@ -187,13 +209,18 @@ fn module_above_local_limit() -> BytecodeModule {
         .collect();
     set_ref_entries(&mut module, references);
     main_pou_mut(&mut module).local_ref_count =
-        u32::try_from(MAX_LOCALS_PER_POU + 1).expect("local limit fits u32");
+        u32::try_from(local_count).expect("local count fits u32");
     module
 }
 
-fn module_above_parameter_limit() -> BytecodeModule {
+fn module_above_local_limit() -> BytecodeModule {
+    module_with_locals(MAX_LOCALS_PER_POU + 1, 0)
+}
+
+/// A module whose main POU declares exactly `count` parameters.
+fn module_with_parameters(count: usize) -> BytecodeModule {
     let mut module = bytecode_helpers::base_module();
-    main_pou_mut(&mut module).params = (0..=MAX_PARAMETERS_PER_POU)
+    main_pou_mut(&mut module).params = (0..count)
         .map(|_| ParamEntry {
             name_idx: 0,
             type_id: 0,
@@ -204,7 +231,12 @@ fn module_above_parameter_limit() -> BytecodeModule {
     module
 }
 
-fn module_above_stack_limit() -> BytecodeModule {
+fn module_above_parameter_limit() -> BytecodeModule {
+    module_with_parameters(MAX_PARAMETERS_PER_POU + 1)
+}
+
+/// A module whose main body pushes `depth` constants, pops them all, and returns.
+fn module_with_stack_depth(depth: usize) -> BytecodeModule {
     let mut module = bytecode_helpers::base_module();
     if let Some(SectionData::ConstPool(pool)) = module.section_mut(SectionId::ConstPool) {
         pool.entries.push(ConstEntry {
@@ -215,15 +247,19 @@ fn module_above_stack_limit() -> BytecodeModule {
         panic!("base module must contain CONST_POOL");
     }
 
-    let mut body = Vec::with_capacity((MAX_OPERAND_STACK + 1) * 6 + 1);
-    for _ in 0..=MAX_OPERAND_STACK {
+    let mut body = Vec::with_capacity(depth * 6 + depth + 1);
+    for _ in 0..depth {
         body.push(0x10);
         body.extend_from_slice(&0u32.to_le_bytes());
     }
-    body.extend(std::iter::repeat_n(0x12, MAX_OPERAND_STACK + 1));
+    body.extend(std::iter::repeat_n(0x12, depth));
     body.push(0x06);
     set_main_body(&mut module, body);
     module
+}
+
+fn module_above_stack_limit() -> BytecodeModule {
+    module_with_stack_depth(MAX_OPERAND_STACK + 1)
 }
 
 fn execution_budget_outcome() -> Result<&'static str, String> {
@@ -235,11 +271,17 @@ fn execution_budget_outcome() -> Result<&'static str, String> {
         .map_err(|error| format!("select VM backend: {error}"))?;
     harness.runtime_mut().set_execution_deadline(None);
     let cycle = harness.cycle();
-    if cycle
-        .errors
-        .iter()
-        .any(|error| matches!(error, RuntimeError::ExecutionTimeout))
-    {
+    if cycle.errors.iter().any(|error| {
+        matches!(
+            error,
+            RuntimeError::ExecutionLimit {
+                kind: trust_runtime_core::error::ExecutionLimitKind::Work,
+                used,
+                requested,
+                limit,
+            } if used <= limit && *requested > limit - used
+        ) && error.stable_code() == RuntimeError::ExecutionTimeout.stable_code()
+    }) {
         Ok("execution_timeout")
     } else if cycle.errors.is_empty() {
         Ok("accepted")
@@ -333,4 +375,188 @@ impl StateProbe for ResourceLimitProbe {
             diagnostics: Vec::new(),
         })
     }
+}
+
+/// The text of a structural rejection; any other variant fails the test.
+fn invalid_section_text(error: &BytecodeError) -> String {
+    match error {
+        BytecodeError::InvalidSection(detail) => detail.to_string(),
+        other => panic!("expected InvalidSection, got {other:?}"),
+    }
+}
+
+#[test]
+fn container_limit_refuses_one_byte_past_64_mib_with_the_exact_header_error() {
+    // spec 12 §4.6: the encoded-container limit is checked before checksum or section
+    // decoding (module_decode.rs:18-21). On std builds the runtime wraps it as Bytecode.
+    match BytecodeModule::decode(&oversized_container_bytes()) {
+        Err(BytecodeError::InvalidHeader(text)) => assert_eq!(
+            text.as_str(),
+            "encoded container exceeds fixed resource limit"
+        ),
+        Err(other) => panic!("expected InvalidHeader, got {other:?}"),
+        Ok(_) => panic!("a container one byte above the fixed limit decoded"),
+    }
+    assert_eq!(
+        apply_oversized_container(),
+        Err(RuntimeError::Bytecode {
+            code: StableErrorCode::BytecodeInvalidHeader,
+            detail: "invalid bytecode header: encoded container exceeds fixed resource limit"
+                .into(),
+        })
+    );
+}
+
+#[test]
+fn oversized_container_refusal_keeps_the_installed_program_and_its_outputs() {
+    let source = r#"
+PROGRAM Main
+VAR
+    counter : DINT := DINT#0;
+END_VAR
+counter := counter + DINT#1;
+END_PROGRAM
+"#;
+    let mut harness = TestHarness::from_source(source).expect("compile installed program");
+    let first = harness.cycle();
+    assert!(first.errors.is_empty(), "{:?}", first.errors);
+    assert_eq!(harness.get_output("counter"), Some(Value::DInt(1)));
+    let cycles_before = harness.cycle_count();
+
+    let refused = harness
+        .runtime_mut()
+        .apply_bytecode_bytes(&oversized_container_bytes(), None);
+    assert_eq!(
+        refused,
+        Err(RuntimeError::Bytecode {
+            code: StableErrorCode::BytecodeInvalidHeader,
+            detail: "invalid bytecode header: encoded container exceeds fixed resource limit"
+                .into(),
+        })
+    );
+    assert_eq!(
+        harness.cycle_count(),
+        cycles_before,
+        "a refused container must not advance the cycle counter"
+    );
+    assert_eq!(
+        harness.get_output("counter"),
+        Some(Value::DInt(1)),
+        "a refused container must leave the outputs unchanged"
+    );
+
+    let second = harness.cycle();
+    assert!(second.errors.is_empty(), "{:?}", second.errors);
+    assert_eq!(
+        harness.get_output("counter"),
+        Some(Value::DInt(2)),
+        "the installed program must still run after the refusal"
+    );
+}
+
+#[test]
+fn instruction_limit_admits_the_fixed_count_and_refuses_one_more_with_its_exact_error() {
+    // spec 12 §4.6.2: the exact maximum is accepted. validate/instructions.rs:66 charges each
+    // decoded instruction before its opcode is read; resource_limits.rs:15-25 gives the text.
+    module_with_instruction_count(MAX_MODULE_INSTRUCTIONS)
+        .validate()
+        .expect("the exact instruction limit must validate");
+    let error = module_above_instruction_limit()
+        .validate()
+        .expect_err("one instruction past the limit must be refused");
+    assert_eq!(
+        invalid_section_text(&error),
+        "decoded module instructions exceed fixed resource limit"
+    );
+}
+
+#[test]
+fn reference_limit_admits_the_fixed_count_and_refuses_one_more_with_its_exact_error() {
+    module_with_references(MAX_REFERENCES)
+        .validate()
+        .expect("the exact reference limit must validate");
+    let error = module_above_reference_limit()
+        .validate()
+        .expect_err("one reference past the limit must be refused");
+    assert_eq!(
+        invalid_section_text(&error),
+        "REF_TABLE entries exceed fixed resource limit"
+    );
+}
+
+#[test]
+fn local_limit_admits_the_fixed_count_and_refuses_one_more_with_its_exact_error() {
+    module_with_locals(MAX_LOCALS_PER_POU, MAX_LOCALS_PER_POU)
+        .validate()
+        .expect("the exact local-reference limit must validate");
+    let error = module_above_local_limit()
+        .validate()
+        .expect_err("one local reference past the limit must be refused");
+    assert_eq!(
+        invalid_section_text(&error),
+        "POU local references exceed fixed resource limit"
+    );
+}
+
+#[test]
+fn parameter_limit_admits_the_fixed_count_and_refuses_one_more_with_its_exact_error() {
+    module_with_parameters(MAX_PARAMETERS_PER_POU)
+        .validate()
+        .expect("the exact parameter limit must validate");
+    let error = module_above_parameter_limit()
+        .validate()
+        .expect_err("one parameter past the limit must be refused");
+    assert_eq!(
+        invalid_section_text(&error),
+        "POU parameters exceed fixed resource limit"
+    );
+}
+
+#[test]
+fn operand_stack_limit_admits_the_fixed_depth_and_refuses_one_more_with_its_exact_error() {
+    // Stack depth is checked when a value is pushed (stack_shape.rs push_stack via
+    // budget.rs:82-87), so the refused push is the one that makes the depth 16,385.
+    module_with_stack_depth(MAX_OPERAND_STACK)
+        .validate()
+        .expect("the exact operand-stack depth must validate");
+    let error = module_above_stack_limit()
+        .validate()
+        .expect_err("one value past the operand-stack limit must be refused");
+    assert_eq!(
+        invalid_section_text(&error),
+        "operand stack values exceed fixed resource limit"
+    );
+}
+
+#[test]
+fn call_depth_admits_the_fixed_frame_count_and_refuses_one_more_as_call_stack_overflow() {
+    // frames.rs:11-18 returns VmTrap::CallStackOverflow for a total depth above 1,024.
+    ensure_global_call_depth(0, MAX_CALL_DEPTH).expect("the exact call depth must be admitted");
+    assert!(matches!(
+        ensure_global_call_depth(0, MAX_CALL_DEPTH + 1),
+        Err(VmTrap::CallStackOverflow)
+    ));
+}
+
+#[test]
+fn executed_instruction_refusal_is_the_exact_work_limit() {
+    // Each executed instruction charges one unit before it runs (dispatch.rs:275), and a
+    // refused charge reports the units already used and the single unit requested.
+    let mut harness = TestHarness::from_source(EXECUTION_BUDGET_SOURCE)
+        .expect("compile instruction-budget source");
+    harness
+        .runtime_mut()
+        .set_execution_backend(ExecutionBackend::BytecodeVm)
+        .expect("select VM backend");
+    harness.runtime_mut().set_execution_deadline(None);
+    let cycle = harness.cycle();
+    assert_eq!(
+        cycle.errors,
+        vec![RuntimeError::ExecutionLimit {
+            kind: trust_runtime_core::error::ExecutionLimitKind::Work,
+            used: trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+            requested: 1,
+            limit: trust_runtime_core::vm::VM_MAX_EXECUTED_INSTRUCTIONS,
+        }]
+    );
 }

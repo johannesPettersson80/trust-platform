@@ -42,14 +42,13 @@ pub(super) fn dispatch(
                 .lock()
                 .map_err(|_| "runtime metadata unavailable")?;
             // A task recording samples a task the program runs; another would record nothing.
-            if let Some(task) = spec.task.as_deref() {
-                if !metadata
+            if let Some(task) = spec.task.as_deref()
+                && !metadata
                     .tasks()
                     .iter()
                     .any(|configured| configured.name.eq_ignore_ascii_case(task))
-                {
-                    return Err(format!("The program runs no task named {task}."));
-                }
+            {
+                return Err(format!("The program runs no task named {task}."));
             }
             state
                 .debug

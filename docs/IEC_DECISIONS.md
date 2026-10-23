@@ -6,6 +6,27 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-23 - Unqualified variables of a nested instance in a RETAIN instance
+
+- Area: warm restart and the retain store (function-block and class instances)
+- IEC context:
+  - IEC 61131-3 Ed.3 §6.5.6.2: declaring an instance `RETAIN` treats all its
+    variables as `RETAIN`, except one its type qualifies itself, and except a
+    variable that is itself an instance, for which "the retain declaration of
+    the used function block type or class is applied".
+  - §6.5.6.1 (Figure 9): on a warm restart a variable with neither `RETAIN`
+    nor `NON_RETAIN` gets an implementer-specific value.
+- Decision:
+  - An unqualified variable of a nested instance inside an instance kept as a
+    whole keeps its value: the nested instance is kept as a whole unless it is
+    declared `NON_RETAIN`. A `RETAIN` or `NON_RETAIN` in the nested instance's
+    own type still decides its variables (specification 10 §4.8).
+- Reason:
+  - A standard counter or timer inside a retained block (`CTU`, `TON`) has no
+    qualifiers of its own; keeping the block's whole tree is what an engineer
+    who declares the block `RETAIN` expects, and it matches the retained-object
+    transfer of a warm restart of the running runtime.
+
 ## 2026-09-28 - Repeated aggregate element initializers
 
 - Area: array initializers, including arrays of function block instances
@@ -60,9 +81,16 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     successful call.
   - Mapping the same caller storage, including overlapping aggregate
     projections, to more than one writable formal in one call is rejected as
-    ambiguous. This applies to any pair of `VAR_OUTPUT`, `VAR_IN_OUT`, or
-    `ENO` connections. A read-only input may read storage that is also mapped
-    once as writable.
+    ambiguous when the source shows it: the same variable, a variable and one
+    of its members or elements, or elements whose index expressions are
+    written identically. This applies to any pair of `VAR_OUTPUT`,
+    `VAR_IN_OUT`, or `ENO` connections. A read-only input may read storage
+    that is also mapped once as writable.
+  - Writable connections that coincide only at run time, such as `A[i]` and
+    `A[j]` with `i = j`, or a dereferenced reference and the variable it
+    designates, are not an error. The validated transfer commits in formal
+    declaration order, so the value of the last declared formal remains.
+    (Decided 14 October 2026.)
   - Function and value-returning method results use the declared type default
     when `EN` is false. A skipped function-block or void-method call preserves
     its instance state and connected caller targets except for connected
@@ -70,8 +98,11 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
 - Reason:
   - A source-order, evaluate-once rule makes side effects auditable. Early
     execution-control gating prevents disabled calls from faulting through
-    unused arguments. Rejecting multiple writers and committing a validated
-    transfer as one unit removes declaration-order-dependent caller state.
+    unused arguments. Rejecting the multiple writers that the source shows,
+    and committing a validated transfer as one unit, removes ambiguous caller
+    state. Index values and reference targets are known only at run time; a
+    fixed declaration-order commit keeps those aliases deterministic without
+    an overlap check on every call.
 
 ## 2026-07-30 - Boolean short-circuit extent
 

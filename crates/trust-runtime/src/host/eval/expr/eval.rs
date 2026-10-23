@@ -4,7 +4,7 @@ use crate::error::RuntimeError;
 use crate::eval::ops::{apply_binary, apply_unary, BinaryOp};
 use crate::eval::EvalContext;
 use crate::stdlib::{conversions, time, StdParams};
-use crate::value::{size_of_type, ArrayValue, SizeOfError, StructValue, Value};
+use crate::value::{ArrayValue, SizeOfError, StructValue, Value};
 use indexmap::IndexMap;
 
 use super::access::{eval_indices, read_field, read_indices, read_name};
@@ -79,28 +79,25 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
                     if let Some(func) = functions.get(&key) {
                         return crate::eval::call_function(ctx, func, args);
                     }
-                    if !name.contains('.') {
-                        if let Some(using) = ctx.using {
-                            if let Some(func) =
-                                resolve_using_function(functions, name.as_str(), using)
-                            {
-                                return crate::eval::call_function(ctx, func, args);
-                            }
-                        }
+                    if !name.contains('.')
+                        && let Some(using) = ctx.using
+                        && let Some(func) = resolve_using_function(functions, name.as_str(), using)
+                    {
+                        return crate::eval::call_function(ctx, func, args);
                     }
                 }
                 if let Some(stdlib) = ctx.stdlib {
                     let has_named = args.iter().any(|arg| arg.name.is_some());
                     if let Some(entry) = stdlib.get(&key) {
                         let values = if has_named {
-                            bind_stdlib_named_args(ctx, &entry.params, args)?
+                            bind_stdlib_named_args(ctx, entry.params, args)?
                         } else {
                             eval_positional_args(ctx, args)?
                         };
                         return (entry.func)(&values);
                     }
                     if conversions::is_conversion_name(key.as_str()) {
-                        let params = StdParams::Fixed(vec![SmolStr::new("IN")]);
+                        let params = StdParams::Fixed(vec![SmolStr::new("IN")].into());
                         let values = if has_named {
                             bind_stdlib_named_args(ctx, &params, args)?
                         } else {
@@ -117,18 +114,17 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             } = &**target
             {
                 let base_value = eval_expr(ctx, base)?;
-                if let Value::Instance(id) = base_value {
-                    if let Some(method) = resolve_instance_method(ctx, id, field) {
-                        return crate::eval::call_method(ctx, &method, id, args);
-                    }
+                if let Value::Instance(id) = base_value
+                    && let Some(method) = resolve_instance_method(ctx, id, field)
+                {
+                    return crate::eval::call_method(ctx, &method, id, args);
                 }
             }
-            if let Expr::Name(name) = &**target {
-                if let Some(instance_id) = ctx.current_instance {
-                    if let Some(method) = resolve_instance_method(ctx, instance_id, name) {
-                        return crate::eval::call_method(ctx, &method, instance_id, args);
-                    }
-                }
+            if let Expr::Name(name) = &**target
+                && let Some(instance_id) = ctx.current_instance
+                && let Some(method) = resolve_instance_method(ctx, instance_id, name)
+            {
+                return crate::eval::call_method(ctx, &method, instance_id, args);
             }
 
             let target_value = eval_expr(ctx, target)?;
@@ -179,10 +175,10 @@ pub fn eval_expr(ctx: &mut EvalContext<'_>, expr: &Expr) -> Result<Value, Runtim
             read_indices(target_value, &index_values)
         }
         Expr::Field { target, field } => {
-            if let Some(qualified) = qualified_field_expr_name(expr) {
-                if let Ok(value) = read_name(ctx, &qualified) {
-                    return Ok(value);
-                }
+            if let Some(qualified) = qualified_field_expr_name(expr)
+                && let Ok(value) = read_name(ctx, &qualified)
+            {
+                return Ok(value);
             }
             let target_value = eval_expr(ctx, target)?;
             read_field(ctx, target_value, field)
@@ -269,9 +265,12 @@ fn qualified_field_expr_name(expr: &Expr) -> Option<SmolStr> {
 
 fn eval_size_of(ctx: &mut EvalContext<'_>, target: &SizeOfTarget) -> Result<Value, RuntimeError> {
     let size = match target {
-        SizeOfTarget::Type(type_id) => {
-            size_of_type(*type_id, ctx.registry).map_err(size_error_to_runtime)?
-        }
+        SizeOfTarget::Type(type_id) => crate::value::size_of_type_with_abi(
+            *type_id,
+            ctx.registry,
+            crate::value::StorageAbi::LegacyTemporal32,
+        )
+        .map_err(size_error_to_runtime)?,
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
     Ok(Value::DInt(size))

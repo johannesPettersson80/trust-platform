@@ -1,4 +1,4 @@
-//! The method `controlStudio/plantMonitor` (specification 35, §0.1a; specification 34, §20.4): the plant summary of a plant handoff.
+//! The method `controlStudio/plantMonitor` (specification 35, §0.1a; specification 47, §20.4): the plant summary of a plant handoff.
 //! Every decision is trust-control's (`trust_control::plant_monitor`). This module makes the one read that decision asks for, the
 //! runtime's `plant.status`, bounded by a short timeout so that a silent endpoint does not hold the engine for long.
 

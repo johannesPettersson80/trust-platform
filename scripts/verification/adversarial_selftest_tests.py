@@ -356,6 +356,15 @@ class AdversarialSelfTestFixtures(unittest.TestCase):
     def test_uncataloged_changed_test_is_reported(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            crate = root / "crates/trust-runtime"
+            tests = crate / "tests"
+            tests.mkdir(parents=True)
+            (crate / "Cargo.toml").write_text(
+                '[package]\nname = "trust-runtime"\nversion = "0.0.0"\n'
+            )
+            (tests / "new_case.rs").write_text(
+                "#[test]\nfn new_case() {}\n"
+            )
             (root / "verification").mkdir()
             (root / "verification/test-catalog.toml").write_text("")
 

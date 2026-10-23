@@ -53,13 +53,13 @@ fn lesson73_run(
     let p1 = program(&runtime);
     for (name, value) in ["K1", "K2", "N"].into_iter().zip(gains) {
         assert!(runtime
-            .storage_mut()
-            .set_instance_var(p1, name, Value::LReal(value)));
+            .write_instance(p1, name, Value::LReal(value))
+            .is_ok());
     }
     // The mode is written by symbol: the runtime refuses an Auto transfer whose mode flag is bound to I/O.
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "FeedbackEnabled", Value::Bool(feedback)));
+        .write_instance(p1, "FeedbackEnabled", Value::Bool(feedback))
+        .is_ok());
     debug.enqueue_io_write(
         IoAddress::parse("%ML0").unwrap(),
         Value::LWord(setpoint.to_bits()),
@@ -285,12 +285,12 @@ fn lesson74_run(
         .zip(LQG_GAINS.into_iter().chain(kalman))
     {
         assert!(runtime
-            .storage_mut()
-            .set_instance_var(p1, name, Value::LReal(value)));
+            .write_instance(p1, name, Value::LReal(value))
+            .is_ok());
     }
     assert!(runtime
-        .storage_mut()
-        .set_instance_var(p1, "FeedbackEnabled", Value::Bool(feedback)));
+        .write_instance(p1, "FeedbackEnabled", Value::Bool(feedback))
+        .is_ok());
     debug.enqueue_io_write(
         IoAddress::parse("%ML0").unwrap(),
         Value::LWord(setpoint.to_bits()),
