@@ -35,6 +35,10 @@ pub const MAGIC: [u8; 8] = *b"TRSTI001";
 pub const FORMAT_VERSION: u16 = 1;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
+
+/// Bit 0 of the header's flags: the image has no statement hooks, a release image built with
+/// `[build] debug = false` (specification 44 §5.2, §13.2).
+pub const FLAG_RELEASE: u32 = 1;
 /// The bytes of a section table entry.
 pub const SECTION_ENTRY_BYTES: usize = 16;
 /// The bytes before a table's records: its count and a reserved word.
@@ -228,6 +232,8 @@ pub struct Header {
     pub section_count: u32,
     /// The offset of the section table.
     pub section_table: u32,
+    /// The flags: [`FLAG_RELEASE`] for an image without statement hooks.
+    pub flags: u32,
 }
 
 impl Header {
@@ -255,7 +261,15 @@ impl Header {
             library,
             section_count: u32_at(bytes, 112),
             section_table: u32_at(bytes, 116),
+            flags: u32_at(bytes, 120),
         }
+    }
+
+    /// Whether the image is a release image, built without statement hooks: it is not debuggable
+    /// (specification 44 §13.2).
+    #[must_use]
+    pub const fn is_release(&self) -> bool {
+        self.flags & FLAG_RELEASE != 0
     }
 
     /// The compiler version as text, without its padding.

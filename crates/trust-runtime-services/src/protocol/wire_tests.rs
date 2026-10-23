@@ -8,7 +8,10 @@ use serde_json::json;
 use smol_str::SmolStr;
 
 use super::reply_writer::line;
-use super::{ControlAfterResponse, ControlRequest, ControlResponse, ReplyWriter, Written};
+use super::{
+    read_line, ControlAfterResponse, ControlRequest, ControlResponse, LineError, ReplyWriter,
+    Written,
+};
 use crate::transfer::{reserve_part, room_for, ReplyParts};
 
 fn wire(response: &ControlResponse) -> alloc::string::String {
@@ -143,6 +146,101 @@ fn request_without_valid_id_or_type_or_with_non_text_auth_is_rejected() {
     ] {
         assert!(decode(text).is_err(), "text={text}");
     }
+}
+
+/// The members of a request, to compare two readings of one line.
+type Fields = (
+    u64,
+    String,
+    Option<serde_json::Value>,
+    Option<String>,
+    Option<String>,
+);
+
+fn fields(request: ControlRequest) -> Fields {
+    (
+        request.id,
+        request.r#type,
+        request.params,
+        request.auth,
+        request.request_id,
+    )
+}
+
+/// What the line reader gives: the request's members, or the refusal with its error's text and
+/// whether the line was JSON (`true`) or not.
+fn read(line: &str) -> Result<Fields, (bool, String)> {
+    read_line(line).map(fields).map_err(|error| match error {
+        LineError::Unreadable(error) => (false, error.to_string()),
+        LineError::NotARequest(error) => (true, error.to_string()),
+    })
+}
+
+/// What the two readings give, the line as a JSON value and then the value as the envelope, which
+/// is how a request has always been read (specification 11, §6.8.1).
+fn read_through_a_value(line: &str) -> Result<Fields, (bool, String)> {
+    let value = serde_json::from_str::<serde_json::Value>(line)
+        .map_err(|error| (false, error.to_string()))?;
+    serde_json::from_value::<ControlRequest>(value)
+        .map(fields)
+        .map_err(|error| (true, error.to_string()))
+}
+
+#[test]
+fn a_request_read_straight_from_its_line_is_the_request_read_through_a_value() {
+    // Specification 11, §6.8.1: the line reader reads a request straight into its members, and
+    // every line gets what reading it as a JSON value and then as the envelope gives. Requests with
+    // every member, an escaped member name, `null` optional members, the alias `correlation_id`,
+    // unknown members of every kind of JSON value and white space between the tokens. Catches a
+    // straight reading that drops or misreads a member that the value's reading keeps.
+    for line in [
+        r#"{"id":1,"type":"status"}"#,
+        r#"{"id":18446744073709551615,"type":"io.write","params":{"address":"%QX0.0","value":true},"auth":"t","request_id":"r-1"}"#,
+        r#"{"id":9,"type":"config.set","params":{"log.level":"debug"},"auth":"secret","correlation_id":"cfg-agent-4"}"#,
+        r#"{"id":3,"type":"status"}"#,
+        r#"{"id":4,"type":"health","params":null,"auth":null,"request_id":null}"#,
+        r#"{"future":[1,2.5,"x",null,{"a":{"b":[]}}],"id":5,"type":"tasks.stats","flag":false}"#,
+        " { \"id\" : 6 , \"type\" : \"status\" } ",
+        r#"{"id":7,"type":"set","params":{"name":"Main.Text","value":"été 😀"}}"#,
+    ] {
+        let straight = read(line);
+        assert!(straight.is_ok(), "{line}: {straight:?}");
+        assert_eq!(straight, read_through_a_value(line), "{line}");
+    }
+}
+
+#[test]
+fn a_line_the_straight_reading_does_not_take_gets_what_the_value_reading_gives() {
+    // Specification 11, §6.8.1: a line is a request, or is refused with its error, exactly as the
+    // value's reading decides. Lines that are not JSON (an unpaired surrogate or an out-of-range
+    // number in a member the envelope does not name, which a reading that skips such members would
+    // take, and trailing text) are refused as unreadable; a duplicate `id` is the last one, as the
+    // value keeps it; an array of the members in order is a request; a duplicate of `request_id` by
+    // its alias, a fractional `id`, a missing `type` and a text `auth` are JSON that is not a
+    // request. Catches a straight reading that takes what the value's reading refuses, keeps the
+    // first of two `id`s, or answers with an error text of its own.
+    for line in [
+        "not json",
+        "",
+        r#"{"id":1,"type":"status","note":"\ud800"}"#,
+        r#"{"id":1,"type":"status","gain":1e400}"#,
+        r#"{"id":1,"type":"status"} trailing"#,
+        r#"{"id":1,"type":"status","id":2}"#,
+        r#"[3,"status",null,null]"#,
+        r#"{"id":1,"type":"status","request_id":"a","correlation_id":"b"}"#,
+        r#"{"id":1.0,"type":"status"}"#,
+        r#"{"id":1}"#,
+        r#"{"id":1,"type":"status","auth":7}"#,
+        "null",
+    ] {
+        assert_eq!(read(line), read_through_a_value(line), "{line}");
+    }
+    assert_eq!(
+        read(r#"{"id":1,"type":"status","id":2}"#).map(|request| request.0),
+        Ok(2)
+    );
+    assert!(matches!(read("not json"), Err((false, _))));
+    assert!(matches!(read(r#"{"id":1}"#), Err((true, _))));
 }
 
 #[test]

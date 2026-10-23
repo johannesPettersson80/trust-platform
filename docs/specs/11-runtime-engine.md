@@ -1784,16 +1784,24 @@ execution model, not an IEC deviation.
   recovery request: `restart` (warm or cold) runs the configured initialization
   and retain policy and then resumes cyclic execution (specification 34
   STATE-06); an online change prepares and commits as in section 6.7.1 and then
-  resumes; a termination signal or the explicit exit (section 6.9) ends the
-  resource. A failed recovery leaves the resource in FAULT with the new error.
-  `pause` and `resume` are rejected while faulted.
+  resumes; `shutdown` stops it as it stops a running resource (specification 34
+  STATE-08): the safe state is applied again, the retained values the variables
+  hold are saved, with the stores of the faulted scan's statements that ran (the
+  values a warm `restart` from the fault keeps, below "State after a faulting
+  scan"), and the resource is Stopped, or stays Faulted with that error when the
+  safe state is unconfirmed or the save fails; a termination signal or the
+  explicit exit (section 6.9) stops it in the same way and ends the process. A
+  failed recovery leaves the resource in FAULT with the new error. `pause` and
+  `resume` are rejected while faulted.
+- The root fault stays in `last_error`, and `status` reports it, until the next
+  start: a stop of the faulted resource keeps it, and a `restart` that starts the
+  program clears it.
 - The runtime process ends only on a termination signal, on the explicit exit,
   `shutdown` with `{"exit": true}` (specification 34 STATE-08), or on the hang
-  action `abort` below. A plain `shutdown` leaves the process running and a
-  faulted resource faulted. The
+  action `abort` below. A plain `shutdown` leaves the process running. The
   process exits with status 0 when the resource ends Stopped and with status 1
-  when it ends Faulted, so a service manager can tell a clean stop from a
-  failure.
+  when it ends Faulted or Stopped with the fault of the program it stopped, so a
+  service manager can tell a clean stop from a failure.
 
 **State after a faulting scan (hosted runtime):**
 - A scan that faults while its programs execute is not undone. The variables keep
@@ -2794,8 +2802,18 @@ address does not take ends the step before the scan, and the values written befo
 
 ###### Runtime control request, job, and state-surface contract
 
-Each newline-delimited control request is decoded exactly once. Malformed JSON
-returns a negative response without dispatch or mutation. A request type absent
+Each newline-delimited control request is read into one request and dispatched
+once. A line is read as a JSON value and the value as the request envelope: a
+line that is not JSON gets `invalid request: <error>` with id 0, no audit
+record, no dispatch and no mutation, and JSON that is not a request gets
+`invalid request: <error>` with id 0 and an audit record of type `invalid`, each
+error being the one of that reading. Every runtime first reads a line straight
+into the envelope's members, without building a JSON value of the whole line,
+and reads a line that this first reading does not take as above, so that every
+line gets the same result; the first reading takes an object with each of the
+envelope's members at most once and reads every other member as a JSON value
+that it drops (the ESP32-C6 took 0.35 ms to build the value of the shortest
+request, 23 October 2026). A request type absent
 from the registered operation set returns the stable error
 `unsupported request`; every registered type routes to its owning handler.
 Missing or malformed required parameters return a parameter error rather than
@@ -3075,13 +3093,16 @@ for every duration field and zero samples/calls. Recording a zero duration is a
 real sample, not an absent value.
 
 Cycle percentile reporting uses a rolling window of the most recent 512 cycle
-durations. The 513th sample evicts only the oldest sample. Snapshots sort a copy
-of the retained values and do not mutate collection order or future rollover.
-For a sorted population of `n`, p50, p95, and p99 use index
-`round((n - 1) * q)` for quantile `q`; quantiles below zero clamp to zero and
-above one clamp to one. An empty window reports zero percentiles, zero maximum,
-and zero samples. Every non-empty snapshot reports the exact retained sample
-count, p50 <= p95 <= p99 <= maximum, and finite values.
+durations. The 513th sample evicts only the oldest sample. Snapshots read the
+percentiles from a copy of the retained values, held on the stack and reordered
+by selection, without a sort of the whole copy (a metrics snapshot that sorted
+its copy took 0.9 ms on the ESP32-C6, 23 October 2026), and do not mutate
+collection order or future rollover. With the `n` values in ascending order,
+p50, p95, and p99 are the values at index `round((n - 1) * q)` for quantile `q`,
+rounded half away from zero; quantiles below zero clamp to zero and above one
+clamp to one. An empty window reports zero percentiles, zero maximum, and zero
+samples. Every non-empty snapshot reports the exact retained sample count, p50
+<= p95 <= p99 <= maximum, and finite values.
 
 Task identities are exact and independent. A recorded task duration creates or
 updates only that task. A positive missed-activation count increments both the

@@ -13,6 +13,7 @@ struct Sample {
     state_offset: u32,
     sorted: bool,
     without: Option<SectionId>,
+    release: bool,
 }
 
 impl Default for Sample {
@@ -22,6 +23,7 @@ impl Default for Sample {
             state_offset: 0,
             sorted: true,
             without: None,
+            release: false,
         }
     }
 }
@@ -43,6 +45,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
 
     let mut writer = ImageWriter::new(Target::X86_64, 1);
     writer.rustc = "1.99.0".into();
+    writer.release = spec.release;
     writer.module(CodeImage {
         code: vec![0xC3; 32],
         rodata: vec![0x11; 16],
@@ -285,6 +288,34 @@ fn an_image_reads_back_as_written() {
 #[test]
 fn an_image_is_written_deterministically() {
     assert_eq!(sample(&Sample::default()), sample(&Sample::default()));
+}
+
+/// A release image says so in bit 0 of the header flags at offset 120, and a debug image leaves the
+/// flags zero (specification 44 §5.2, §13.2). The flags lie under the header CRC, so a debug image
+/// whose flag is set afterwards is refused as damaged rather than read as a release image.
+#[test]
+fn a_release_image_says_so_in_its_header_flags() {
+    let debug = sample(&Sample::default());
+    assert_eq!(&debug[120..128], &[0; 8]);
+    assert!(!Image::parse(&debug).unwrap().header().is_release());
+
+    let release = sample(&Sample {
+        release: true,
+        ..Sample::default()
+    });
+    assert_eq!(&release[120..124], &[1, 0, 0, 0]);
+    assert_eq!(&release[124..128], &[0; 4]);
+    let image = Image::parse(&release).unwrap();
+    image.check_tables().unwrap();
+    assert!(image.header().is_release());
+    assert_eq!(image.header().flags, FLAG_RELEASE);
+
+    let mut altered = debug;
+    altered[120] = 1;
+    assert!(matches!(
+        Image::parse(&altered),
+        Err(ImageError::Crc { .. })
+    ));
 }
 
 /// Each damage is refused with its own reason before anything else is read.

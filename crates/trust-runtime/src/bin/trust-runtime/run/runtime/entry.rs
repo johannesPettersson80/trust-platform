@@ -621,7 +621,15 @@ pub fn run_runtime(
         server.shutdown();
     }
     join_result?;
-    if final_state == trust_runtime::scheduler::ResourceState::Faulted {
+    // A resource that ends Faulted, or Stopped with the fault of the program it stopped, exits with
+    // status 1, so a service manager can tell a clean stop from a failure (specification 11 §6.6;
+    // specification 34 STATE-08).
+    let ended_by_fault = match final_state {
+        trust_runtime::scheduler::ResourceState::Faulted => true,
+        trust_runtime::scheduler::ResourceState::Stopped => final_error.is_some(),
+        _ => false,
+    };
+    if ended_by_fault {
         let detail = final_error.map_or_else(|| "unknown fault".to_string(), |err| err.to_string());
         logger.log(
             LogLevel::Error,

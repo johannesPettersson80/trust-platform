@@ -180,26 +180,56 @@ fn empty_cycle_window_has_zero_finite_percentiles() {
 
 #[test]
 fn percentile_uses_documented_rounded_index_for_small_populations() {
-    let one = [7];
-    assert_eq!(percentile(&one, 0.50), 7);
-    assert_eq!(percentile(&one, 0.99), 7);
-
-    let two = [1, 9];
-    assert_eq!(percentile(&two, 0.50), 9);
-    assert_eq!(percentile(&two, 0.95), 9);
-
-    let four = [1, 2, 3, 4];
-    assert_eq!(percentile(&four, 0.50), 3);
-    assert_eq!(percentile(&four, 0.95), 4);
-    assert_eq!(percentile(&four, 0.99), 4);
+    // Specification 11: with the n values in ascending order, a percentile is the value at index
+    // round((n - 1) * q), here found by selection in values that are not in order. One value is
+    // every percentile; of two, 0.5 rounds away from zero to index 1; of four, p50 is index
+    // round(1.5) = 2, p95 round(2.85) = 3 and p99 round(2.97) = 3.
+    assert_eq!(
+        order_statistics(&mut [7], [rank(1, 0.50), rank(1, 0.99)]),
+        [7, 7]
+    );
+    assert_eq!(
+        order_statistics(&mut [9, 1], [rank(2, 0.50), rank(2, 0.95)]),
+        [9, 9]
+    );
+    let ranks = [0.50, 0.95, 0.99].map(|quantile| rank(4, quantile));
+    assert_eq!(ranks, [2, 3, 3]);
+    assert_eq!(order_statistics(&mut [4, 1, 3, 2], ranks), [3, 4, 4]);
 }
 
 #[test]
 fn percentile_clamps_quantile_bounds() {
-    let values = [2, 4, 8];
+    assert_eq!(rank(3, -10.0), 0);
+    assert_eq!(rank(3, 10.0), 2);
+    assert_eq!(
+        order_statistics(&mut [8, 2, 4], [rank(3, -10.0), rank(3, 10.0)]),
+        [2, 8]
+    );
+}
 
-    assert_eq!(percentile(&values, -10.0), 2);
-    assert_eq!(percentile(&values, 10.0), 8);
+#[test]
+fn percentiles_by_selection_are_the_values_of_the_sorted_window() {
+    // Specification 11: 600 cycles leave the newest 512 in the window. The first 88 take 10 s each,
+    // and the 512 after them are 1 to 512 ms in a scrambled order (k * 7 mod 512, 7 being prime to
+    // 512). Sorted, the window is 1 to 512 ms: p50 is index round(511 * 0.5) = 256, 257 ms; p95 index
+    // round(485.45) = 485, 486 ms; p99 index round(505.89) = 506, 507 ms; the maximum 512 ms.
+    // Catches a selection that answers a value of the wrong rank, one that reads the evicted 10 s
+    // cycles, and a snapshot that disturbs the window.
+    let mut window = CycleLatencyWindow::default();
+    for _ in 0..88 {
+        window.record(duration_ms(10_000));
+    }
+    for k in 0..512_u64 {
+        window.record(duration_ms(k * 7 % 512 + 1));
+    }
+    for _ in 0..2 {
+        let snapshot = window.snapshot();
+        assert_eq!(snapshot.window_samples, 512);
+        assert_eq!(snapshot.p50_ms, 257.0);
+        assert_eq!(snapshot.p95_ms, 486.0);
+        assert_eq!(snapshot.p99_ms, 507.0);
+        assert_eq!(snapshot.max_ms, 512.0);
+    }
 }
 
 #[test]

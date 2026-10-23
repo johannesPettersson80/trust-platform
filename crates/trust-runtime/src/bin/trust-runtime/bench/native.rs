@@ -1,7 +1,8 @@
 /// The project compiled for this computer and run by the kernel (specification 44 §14.3): cycle
 /// after cycle at the project's cycle interval in logical time, without waiting between cycles, as
-/// `bench project` runs the bytecode engine. Reports the time of each cycle, the time of each task's
-/// activations and the image's code and memory, which the RuSTy comparison reads.
+/// `bench project` runs the bytecode engine. The project's `[build] debug` chooses a debug or a
+/// release image (§13.2), as `trust-runtime build` does. Reports the time of each cycle, the time of
+/// each task's activations and the image's kind, code and memory, which the RuSTy comparison reads.
 fn run_native_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<BenchReport> {
     use trust_runtime::native::{self, NoHooks, Target, Toolchain};
 
@@ -15,12 +16,13 @@ fn run_native_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<Be
         .map_err(|error| anyhow::anyhow!("the native backend needs its toolchain: {error}"))?;
     let target = Target::this_cpu()
         .ok_or_else(|| anyhow::anyhow!("this computer's CPU has no native target"))?;
+    let debug = native::debug_hooks(&workload.project)?;
     let work = std::env::temp_dir().join(format!("trust-bench-native-{}", std::process::id()));
     let built = native::build(
         &sources,
         &native::Options {
             target,
-            hooks: true,
+            hooks: debug,
         },
         &toolchain,
         &work,
@@ -117,6 +119,7 @@ fn run_native_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<Be
                 .collect(),
         ),
         native_image: Some(NativeImageReport {
+            debug,
             bytes: built.image.len(),
             code: figure.code,
             rodata: figure.rodata,

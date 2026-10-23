@@ -1,8 +1,7 @@
-const DEPENDENCY_MANIFEST_FILES: &[&str] = &[
-    "trust-lsp.toml",
-    ".trust-lsp.toml",
-    "trustlsp.toml",
-];
+/// The file that holds a project's settings, its libraries and its build settings (specification
+/// 14), by the names it may have, in the order they are looked for.
+pub(crate) const PROJECT_SETTINGS_FILES: &[&str] =
+    &["trust-lsp.toml", ".trust-lsp.toml", "trustlsp.toml"];
 
 /// Build output summary for a bundle.
 #[derive(Debug, Clone)]

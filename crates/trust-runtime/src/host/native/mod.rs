@@ -18,6 +18,7 @@ mod lower;
 mod model;
 mod module;
 mod run;
+mod settings;
 mod stack;
 mod std_blocks;
 mod tables;
@@ -28,6 +29,7 @@ use std::path::Path;
 
 use crate::harness::SourceFile;
 pub use run::{load, HostCode};
+pub use settings::debug_hooks;
 pub use toolchain::{stack_frames, triple, Toolchain};
 pub use trust_runtime_core::native::image::Target;
 use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure};
@@ -72,6 +74,9 @@ pub enum NativeError {
     Module(String),
     /// The image could not be written or does not read back.
     Image(String),
+    /// The project's settings file cannot be read, or its build setting is not one the build takes
+    /// (specification 44 §13.2).
+    Settings(String),
 }
 
 impl std::fmt::Display for NativeError {
@@ -85,6 +90,7 @@ impl std::fmt::Display for NativeError {
             Self::Toolchain(message) => write!(f, "the Rust toolchain: {message}"),
             Self::Module(message) => write!(f, "the compiled module: {message}"),
             Self::Image(message) => write!(f, "the program image: {message}"),
+            Self::Settings(message) => write!(f, "the project's settings: {message}"),
         }
     }
 }
@@ -106,8 +112,9 @@ impl NativeError {
 pub struct Options {
     /// The CPU the module is for.
     pub target: Target,
-    /// Whether every statement calls the statement hook (specification 44 §13.2); a production
-    /// build without hooks cannot be debugged.
+    /// Whether every statement calls the statement hook, a debug image (specification 44 §13.2);
+    /// without the hooks the build is a release image, which says so in its header and cannot be
+    /// debugged.
     pub hooks: bool,
 }
 
@@ -190,6 +197,8 @@ pub fn build_with_tests(
         u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap_or(u16::MAX),
     );
     writer.rustc.clone_from(&toolchain.version);
+    // An image without statement hooks is a release image, and its header says so (§13.2).
+    writer.release = !options.hooks;
     writer.build_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());

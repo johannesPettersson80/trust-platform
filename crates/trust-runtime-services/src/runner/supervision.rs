@@ -107,8 +107,9 @@ where
     /// One poll of the faulted wait, as trust-runtime's faulted wait ends each poll period: the
     /// queued commands are dropped, an online change that succeeds recovers the program (specification
     /// 11 §6.6), a pending restart recovers the program, which then takes its boundary at once, and a
-    /// requested stop ends the program and keeps the fault, without a second safe-state write or a
-    /// retain save.
+    /// requested stop stops the program as a stop of a running one does (specification 34 STATE-08):
+    /// the safe outputs again and the retain save, and the resource is Stopped, or Faulted with the
+    /// stop's error. The root fault stays in `last_error` until the next start.
     fn faulted_poll(&mut self, now: MonotonicInstant) {
         let _ = self.shell.resource.take_commands();
         if self.apply_online_change() {
@@ -124,6 +125,9 @@ where
                 Ok(()) => {
                     self.restarts.reset();
                     self.shell.resource.set_state(ResourceState::Running);
+                    // The restart began the task timing now, and the cycle grid begins with it, not
+                    // at the poll's boundary (specification 10 §4.3).
+                    self.next_boundary = None;
                     self.take_boundary();
                     return;
                 }
@@ -132,7 +136,7 @@ where
             }
         }
         if self.shell.stop_requested() {
-            self.end();
+            self.stop();
             return;
         }
         self.next_boundary = Some(now.saturating_add(TimeSpan::new(FAULTED_WAIT_POLL)));
@@ -373,9 +377,10 @@ where
         );
     }
 
-    /// A requested stop of a running or paused program, as trust-runtime stops it: the safe
-    /// outputs and then the retain save, and the resource is Stopped, or Faulted with the first
-    /// failure; the program has then ended.
+    /// A requested stop of a running, paused or faulted program, as trust-runtime stops it: the
+    /// safe outputs and then the retain save, and the resource is Stopped, or Faulted with the first
+    /// failure; the program has then ended. A stop that succeeds keeps the root fault of a faulted
+    /// program in `last_error` until the next start (specification 34 STATE-08).
     fn stop(&mut self) {
         // A stop's safe state clears the queued writes and active forces, as trust-runtime's
         // `apply_io_safe_state` does (specification 11 §6.9.2).

@@ -1081,6 +1081,45 @@ END_TEST_FUNCTION_BLOCK
     let _ = std::fs::remove_dir_all(&project);
 }
 
+/// The test image is the kind of image the project deploys (specification 44 §13.2, §14.2): a debug
+/// image when the project has no settings file, a release image when its `trust-lsp.toml` says
+/// `[build] debug = false`, which bit 0 of the header flags tells. Catches test images that ignore
+/// the setting, as they did when every test image was built without hooks. The test needs the
+/// toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+#[test]
+fn the_test_image_is_the_kind_of_image_the_project_builds() {
+    use trust_runtime::native::{Target, Toolchain};
+    use trust_runtime_core::native::image::Image;
+
+    let project = std::env::temp_dir().join(format!("trust-dev-image-kind-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&project);
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(
+        project.join("src/tests.st"),
+        "TEST_PROGRAM Holds\nASSERT_TRUE(IN := TRUE);\nEND_TEST_PROGRAM\n",
+    )
+    .expect("write the test");
+    let sources_root = resolve_sources_root(&project, None).expect("sources");
+    let sources = load_sources(&sources_root).expect("load");
+    let discovered = discover_tests(&sources);
+    let toolchain = Toolchain::from_env()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let host = Target::this_cpu().expect("a computer target");
+    let release = || {
+        let built = build_test_image(&project, &discovered, host, &toolchain)
+            .expect("the test image builds");
+        Image::parse(&built.image)
+            .expect("the image reads back")
+            .header()
+            .is_release()
+    };
+    assert!(!release(), "a project without settings tests a debug image");
+    std::fs::write(project.join("trust-lsp.toml"), "[build]\ndebug = false\n")
+        .expect("write the settings");
+    assert!(release(), "[build] debug = false tests a release image");
+    let _ = std::fs::remove_dir_all(&project);
+}
+
 #[test]
 fn a_device_runs_the_tests_compiled_for_it() {
     // Specification 44 §14.2 and specification 22: `--device` with `--target` runs the native

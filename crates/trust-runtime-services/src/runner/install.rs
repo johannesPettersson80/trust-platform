@@ -23,7 +23,7 @@
 //! The same state tells the loop which container its program came from, so that a `restart` of the
 //! Stopped resource can find a newer committed container and load it in place
 //! ([`Runner::with_program_loader`](crate::runner::Runner::with_program_loader)), and it answers
-//! `program.active` from the store in bounded reads.
+//! `program.active` from the store in bounded reads, which it keeps until the store is written.
 
 mod retained;
 
@@ -92,6 +92,9 @@ struct Parts {
     began: bool,
     /// What the loop knows of the container its program came from, once it can load another in place.
     reload: Option<Reload>,
+    /// The identities `program.active` reports, kept from their reading until the store is written
+    /// (specification 34 §11.2).
+    identities: Option<ProgramIdentities>,
 }
 
 /// What the loop knows of the container its program came from (specification 34 STATE-08).
@@ -150,6 +153,7 @@ impl InstallState {
         let _ = self.with(|parts| {
             parts.store = Some(store);
             parts.retained_check = Some(retained_check);
+            parts.identities = None;
         });
     }
 
@@ -232,11 +236,11 @@ impl InstallState {
         .flatten()
     }
 
-    /// The identities `program.active` reports, read from the store in bounded reads. `None` when the
-    /// loop keeps no store, and the platform answers.
+    /// The identities `program.active` reports: those read since the store was last written, or read
+    /// from the store now in bounded reads. `None` when the loop keeps no store, and the platform
+    /// answers.
     pub(super) fn identities(&self) -> Option<Result<ProgramIdentities, IdentityError>> {
-        self.with(|parts| parts.store.as_mut().map(identity::identities))
-            .flatten()
+        self.with(Parts::identities).flatten()
     }
 
     /// The retained-value check of an install (decision G13), which the device built: the warm start
@@ -465,6 +469,20 @@ impl InstallState {
 }
 
 impl Parts {
+    /// The identities of the store: those kept since it was last written, or read now and kept. Only
+    /// a step of the work writes the store, and every step drops them (specification 34 §11.2).
+    fn identities(&mut self) -> Option<Result<ProgramIdentities, IdentityError>> {
+        let store = self.store.as_mut()?;
+        if let Some(kept) = self.identities {
+            return Some(Ok(kept));
+        }
+        let read = identity::identities(store);
+        if let Ok(identities) = read {
+            self.identities = Some(identities);
+        }
+        Some(read)
+    }
+
     /// Whether the store's newest committed container is newer than the one the program came from.
     fn newer_container(&mut self) -> Result<bool, ScanError> {
         let (Some(store), Some(reload)) = (self.store.as_mut(), self.reload.as_ref()) else {
@@ -539,6 +557,8 @@ impl Parts {
         let Some(Pending { work, reply }) = self.pending.take() else {
             return Step::Idle;
         };
+        // The step may write the store, so the identities it held are read again when asked for.
+        self.identities = None;
         let (transfer, mut write, part) = match work {
             Work::Commit(commit) => {
                 return match commit.step(store) {

@@ -21,7 +21,9 @@ use trust_runtime::io::IoDriverStatus;
 use trust_runtime::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
 use trust_runtime::mesh::MeshTopologyEvidence;
 use trust_runtime::metrics::RuntimeMetrics;
-use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
+use trust_runtime::scheduler::{
+    ResourceCommand, ResourceControl, ResourceState, StdClock, StepRefusal,
+};
 use trust_runtime::settings::{
     BaseSettings, DiscoverySettings, MeshSettings, RuntimeSettings, SimulationSettings, WebSettings,
 };
@@ -218,7 +220,14 @@ fn spawn_command_drain(
                 ResourceCommand::Pause
                 | ResourceCommand::Resume
                 | ResourceCommand::UpdateSchedulerPolicies(_)
-                | ResourceCommand::UpdateIoSafeState(_) => {}
+                | ResourceCommand::UpdateIoSafeState(_)
+                // A debug session installs no program.
+                | ResourceCommand::ProgramInstalled => {}
+                // The debugger runs the program, so it takes no step, as a running resource
+                // refuses one (specification 11 section 6.8.1).
+                ResourceCommand::StepCycle { respond_to, .. } => {
+                    let _ = respond_to.send(Err(StepRefusal::NotStopped(ResourceState::Running)));
+                }
             }
         }
     })

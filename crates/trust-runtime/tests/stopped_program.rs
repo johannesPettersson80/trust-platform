@@ -222,11 +222,13 @@ fn a_paused_program_stops_like_a_running_one() {
 }
 
 #[test]
-fn a_program_stop_of_a_faulted_resource_leaves_it_faulted_and_the_thread_serving() {
-    // Specification 34 STATE-08 and 11 section 6.6: a fault has stopped the program already, so
-    // `shutdown` stops nothing more, and the faulted resource stays faulted with its fault.
-    // Wrong behaviour: the program stop ends the thread or turns the fault into a clean Stopped.
-    let (handle, _signal) = spawn_runner(DIVIDE, "stopped-faulted");
+fn a_program_stop_of_a_faulted_resource_stops_it_keeps_the_fault_and_a_restart_starts_it() {
+    // Specification 34 STATE-08 and 11 section 6.6 (the owner, 23 October 2026): `shutdown` stops a
+    // faulted resource as it stops a running one. The thread keeps serving, the resource is Stopped
+    // and the root fault stays in `last_error` until the next start; a cold restart then starts the
+    // program anew and clears it. Wrong behaviour: the faulted resource stays Faulted (and so takes
+    // no install), the stop ends the thread, or the fault is lost before the next start.
+    let (handle, signal) = spawn_runner(DIVIDE, "stopped-faulted");
     let control = handle.control();
     let mut updates = IndexMap::new();
     updates.insert(SmolStr::new("divisor"), Value::DInt(0));
@@ -242,17 +244,20 @@ fn a_program_stop_of_a_faulted_resource_leaves_it_faulted_and_the_thread_serving
     });
 
     control.stop_program();
+    wait_until("the stop of the faulted resource", || {
+        control.state() == ResourceState::Stopped
+    });
     thread::sleep(HOLD);
-
-    assert_eq!(control.state(), ResourceState::Faulted);
+    assert_eq!(control.state(), ResourceState::Stopped);
     assert_eq!(control.last_error(), Some(RuntimeError::DivisionByZero));
     let _ = snapshot(&control);
+
+    request_restart(&signal, RestartMode::Cold);
+    wait_until("the restart after the stop", || {
+        control.state() == ResourceState::Running
+    });
+    assert_eq!(control.last_error(), None);
     stop_and_join(handle);
-    assert_eq!(
-        control.state(),
-        ResourceState::Faulted,
-        "the exit keeps the fault, so the process exits with status 1"
-    );
 }
 
 /// The first read announces itself and waits for the test to release it, like a driver call that

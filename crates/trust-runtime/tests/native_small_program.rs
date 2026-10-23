@@ -4,6 +4,7 @@
 //!
 //! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
+use trust_runtime::error::{ExecutionLimitKind, RuntimeError};
 use trust_runtime::harness::SourceFile;
 use trust_runtime::native::{
     build, build_with_tests, load, Device, NoHooks, Options, Target, Toolchain,
@@ -72,6 +73,91 @@ fn a_program_without_read_only_data_builds_for_the_c6_and_runs_here() {
                 .expect("the scan runs");
         }
         assert_eq!(program.value("MAIN.COUNT"), Some(Value::UDInt(3)));
+    }
+}
+
+/// A loop that never ends, in a 10 ms task: each pass adds one to `Turns`.
+const ENDLESS: &str = "
+PROGRAM Spinner
+VAR
+    Turns : UDINT;
+END_VAR
+WHILE TRUE DO
+    Turns := Turns + 1;
+END_WHILE;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Spinner;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_release_image_counts_only_loop_passes_and_still_ends_an_endless_loop() {
+    // Specification 44 §13.2 and NX-10: an image built without statement hooks is a release image,
+    // which bit 0 of its header flags says, and its budget counts only the passes through loops.
+    // With a budget of 1,000, the release image's scan runs 1,000 passes of the loop, each adding
+    // one to `Turns`, and the 1,001st pass ends it with `InfiniteLoop`. The debug image of the same
+    // program counts the WHILE statement (999 left), then each pass and its assignment (two each):
+    // 499 passes leave one, the 500th pass takes it, and its assignment ends the scan before it
+    // stores, so `Turns` is 499. The stores before the fault stay (specification 11 §6.6). Catches
+    // a release image that loses the loop's count (its scan would never end), one that still
+    // carries the statement hooks (499), a debug image without them (1,000), and a header that
+    // does not tell the two apart.
+    let toolchain = Toolchain::from_env()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    for (hooks, release, turns) in [(false, true, 1_000), (true, false, 499)] {
+        let work = std::env::temp_dir().join(format!(
+            "trust-native-release-{}-{hooks}",
+            std::process::id()
+        ));
+        let built = build(
+            &[SourceFile::new(ENDLESS)],
+            &Options { target, hooks },
+            &toolchain,
+            &work,
+        )
+        .unwrap_or_else(|error| panic!("the spinner builds (hooks {hooks}): {error}"));
+        let _ = std::fs::remove_dir_all(&work);
+        let device = Device {
+            target,
+            program_memory: 1 << 20,
+            task_stack: 1 << 20,
+            max_statements: 1_000,
+        };
+        let mut program = load(&built.image, &device).expect("the image loads");
+        assert_eq!(
+            program.image().header().is_release(),
+            release,
+            "hooks {hooks}"
+        );
+        program.cold_start(Duration::ZERO).expect("the cold start");
+        // The task is first due at 10 ms (specification 10 §4.3).
+        program
+            .scan(Duration::ZERO, &mut NoHooks)
+            .expect("no task is due at the start");
+        let error = program
+            .scan(Duration::from_millis(10), &mut NoHooks)
+            .expect_err("the endless loop ends the scan");
+        assert!(
+            matches!(
+                error,
+                RuntimeError::ExecutionLimit {
+                    kind: ExecutionLimitKind::Work,
+                    ..
+                }
+            ),
+            "hooks {hooks}: {error:?}"
+        );
+        assert_eq!(
+            program.value("MAIN.TURNS"),
+            Some(Value::UDInt(turns)),
+            "hooks {hooks}"
+        );
     }
 }
 
@@ -239,19 +325,18 @@ action = \"halt\"
 policy = \"halt\"
 ";
 
-#[test]
-fn bench_project_runs_the_project_compiled_on_the_kernel() {
-    // Specification 44 §14.3: `bench project --execution-backend native` runs the project compiled
-    // for this computer, each cycle one scan of the kernel at the next 10 ms of logical time. One
-    // warmup and four measured cycles at 10 to 50 ms each run the task `Fast`, due first 10 ms after
-    // the start (specification 10 §4.3), so `Main.Count` is 5, and the task's four measured
-    // activations are timed. The report names the native backend and the image it built. Catches a
-    // bench that runs the bytecode engine under the native name, a cycle that does not advance the
-    // logical time (the task would run once), and warmups timed as measured cycles.
-    let project = std::env::temp_dir().join(format!("trust-native-bench-{}", std::process::id()));
+/// The report of `trust-runtime bench project --execution-backend native` on the counter project in
+/// folder `name`, with `settings` as its `trust-lsp.toml` when given: one warmup and four measured
+/// cycles, watching `Main.Count`.
+fn bench_counter(name: &str, settings: Option<&str>) -> serde_json::Value {
+    let project = std::env::temp_dir().join(format!("trust-native-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&project);
     std::fs::create_dir_all(project.join("src")).expect("create the project");
     std::fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("write runtime.toml");
     std::fs::write(project.join("src/main.st"), COUNTER).expect("write the program");
+    if let Some(settings) = settings {
+        std::fs::write(project.join("trust-lsp.toml"), settings).expect("write the settings");
+    }
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
         .args(["bench", "project", "--project"])
         .arg(&project)
@@ -277,13 +362,49 @@ fn bench_project_runs_the_project_compiled_on_the_kernel() {
     );
     let report: serde_json::Value =
         serde_json::from_slice(&output.stdout).expect("the bench writes JSON");
-    let report = &report["report"];
+    report["report"].clone()
+}
+
+#[test]
+fn bench_project_runs_the_project_compiled_on_the_kernel() {
+    // Specification 44 §14.3: `bench project --execution-backend native` runs the project compiled
+    // for this computer, each cycle one scan of the kernel at the next 10 ms of logical time. One
+    // warmup and four measured cycles at 10 to 50 ms each run the task `Fast`, due first 10 ms after
+    // the start (specification 10 §4.3), so `Main.Count` is 5, and the task's four measured
+    // activations are timed. The report names the native backend and the image it built, a debug
+    // image for a project without settings (§13.2). Catches a bench that runs the bytecode engine
+    // under the native name, a cycle that does not advance the logical time (the task would run
+    // once), warmups timed as measured cycles, and a release image by default.
+    let report = bench_counter("bench", None);
     assert_eq!(report["execution_backend"], "native");
     assert_eq!(report["watched_globals"]["Main.Count"], 5);
     assert_eq!(report["tasks"][0]["name"], "Fast");
     assert_eq!(report["tasks"][0]["activations"], 4);
+    assert_eq!(report["native_image"]["debug"], true, "{report}");
     assert!(
         report["native_image"]["code"].as_u64().unwrap_or(0) > 0,
         "the report names the image's code: {report}"
+    );
+}
+
+#[test]
+fn bench_project_measures_a_release_image_when_the_project_asks_for_one() {
+    // Specification 44 §13.2 and §14.3: a project whose `trust-lsp.toml` says `[build] debug = false`
+    // is measured as a release image, which the report says, and runs as the debug image does:
+    // `Main.Count` is 5 after the same cycles. Its code is smaller than the debug image's, which
+    // carries a hook for each statement. Catches a bench that ignores the setting, the measurement
+    // M4 compares with RuSTy.
+    let release = bench_counter("bench-release", Some("[build]\ndebug = false\n"));
+    assert_eq!(release["native_image"]["debug"], false, "{release}");
+    assert_eq!(release["watched_globals"]["Main.Count"], 5);
+    assert_eq!(release["tasks"][0]["activations"], 4);
+    let debug = bench_counter("bench-debug", Some("[build]\ndebug = true\n"));
+    assert_eq!(debug["native_image"]["debug"], true, "{debug}");
+    let code = |report: &serde_json::Value| report["native_image"]["code"].as_u64().unwrap_or(0);
+    assert!(
+        code(&release) < code(&debug),
+        "release code {} bytes, debug code {} bytes",
+        code(&release),
+        code(&debug)
     );
 }

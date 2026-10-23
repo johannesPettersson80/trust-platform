@@ -2,8 +2,10 @@
 //! lifecycle (hosted runtime)"; specification 34 STATE-06).
 //!
 //! A halting fault leaves the scan thread alive and idle. It executes no task and commits no
-//! outputs. It waits here for a recovery request (a restart, or an online change), serves
-//! read-only and configuration commands, and ends only on a stop request.
+//! outputs. It waits here for a recovery request (a restart, or an online change) and serves
+//! read-only and configuration commands. A `shutdown` stops the faulted resource as it stops a
+//! running one, and an exit request does the same and ends the thread (specification 34 STATE-08);
+//! the scan loop runs both stops.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::RecvTimeoutError;
@@ -30,13 +32,16 @@ const FAULTED_WAIT_POLL: StdDuration =
 pub(super) enum FaultedWait {
     /// A recovery succeeded. The resource is `Running` again and the scan loop resumes.
     Resumed,
-    /// A stop request ended the thread. The resource stays `Faulted`. No second safe-state write
-    /// and no retain save happen here, so the last periodic checkpoint stays authoritative.
-    Stopped,
+    /// A `shutdown` asked to stop the faulted resource (specification 34 STATE-08). The scan loop
+    /// stops it and waits in the state the stop leaves.
+    StopRequested,
+    /// An exit request, the explicit exit or a termination signal, ends the thread. The scan loop
+    /// stops the resource first, as a `shutdown` does.
+    Exit,
 }
 
 /// Records a halting fault whose fault action has already run, then waits for recovery or stop.
-/// `last_error` keeps this root fault until a recovery succeeds.
+/// `last_error` keeps this root fault until the next start.
 pub(super) fn halt_and_wait<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     stop: &AtomicBool,
@@ -58,7 +63,8 @@ pub(super) fn halt_and_wait<C: Clock + Clone>(
     )
 }
 
-/// Waits in the faulted state until a recovery succeeds or a stop is requested.
+/// Waits in the faulted state until a recovery succeeds, a `shutdown` asks for a stop or an exit is
+/// requested.
 pub(super) fn wait_while_faulted<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     stop: &AtomicBool,
@@ -68,17 +74,14 @@ pub(super) fn wait_while_faulted<C: Clock + Clone>(
     automatic_restarts: &mut AutomaticRestartLimiter,
 ) -> FaultedWait {
     loop {
-        // A stop request is checked first, so no recovery runs after a stop.
+        // An exit request is checked first, so no recovery runs after it.
         if stop.load(Ordering::SeqCst) {
-            return FaultedWait::Stopped;
+            return FaultedWait::Exit;
         }
-        // A `shutdown` of a faulted program stops nothing more: the fault has stopped it
-        // (specification 34, STATE-08). The request released the debugger's hold, so the
-        // debugger is armed again for the program's next start.
-        if supervision.take_program_stop()
-            && let Some(debug) = runner.runtime.debug_control()
-        {
-            debug.rearm_after_stop();
+        // A `shutdown` stops the faulted resource as it stops a running one (specification 34,
+        // STATE-08). The start after the stop arms the debugger again, as after any stop.
+        if supervision.take_program_stop() {
+            return FaultedWait::StopRequested;
         }
         let online_change_applied = match next_command(runner) {
             Some(command) => serve_command(runner, command),

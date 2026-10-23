@@ -109,8 +109,9 @@ fn run_resource_loop_core<C, F>(
     let mut paused = false;
     let mut restarts = AutomaticRestartLimiter::default();
     let mut hang_supervisor: Option<supervisor::HangSupervisor> = None;
-    // The nominal start of the next cycle on the cycle grid, once a cycle has completed; any other
-    // pass of the loop starts the grid again from its cycle.
+    // The nominal start of the next cycle on the cycle grid, once a cycle has completed. A restart,
+    // a start after a stop, a recovery from a fault and a resume begin the grid again at the start
+    // of their first cycle (specification 10 §4.3), so each of them drops it.
     let mut boundary: Option<Duration> = None;
     if let Some(gate) = runner.start_gate.as_ref() {
         set_resource_state(&state, ResourceState::Ready);
@@ -128,25 +129,29 @@ fn run_resource_loop_core<C, F>(
                 return;
             }
             paused = false;
+            boundary = None;
             continue;
         }
 
         if stop.load(Ordering::SeqCst) {
-            stop_resource(&mut runner, &shared);
+            stopping::stop_resource(&mut runner, &shared);
             break;
         }
 
         if supervision.take_program_stop() {
-            if stop_program(&mut runner, &shared, &mut restarts) == Next::Exit {
+            if stopping::stop_program(&mut runner, &shared, &mut restarts) == Next::Exit {
                 return;
             }
             paused = false;
+            boundary = None;
             continue;
         }
 
         drain_commands(&mut runner, &state, &mut paused);
 
         if let Some(mode) = faulted::take_pending_restart(&runner) {
+            // The restart restarts the task timing now, and the grid with it.
+            boundary = None;
             match runner.restart_or_reload(mode) {
                 Ok(()) => {
                     restarts.reset();
@@ -225,7 +230,7 @@ struct LoopShared<'a> {
 enum Next {
     /// A recovery succeeded, so the loop continues with the next pass.
     Continue,
-    /// A stop request ended the faulted wait, so the thread ends.
+    /// An exit request ended the wait, after the stop it asks for, so the thread ends.
     Exit,
 }
 
@@ -245,7 +250,7 @@ fn halt<C: Clock + Clone>(
         restarts,
         fault,
     );
-    next_after(wait)
+    stopping::follow_faulted_wait(wait, runner, shared, restarts)
 }
 
 /// Tries an automatic warm restart; when the retry budget is spent or the restart fails, the
@@ -274,14 +279,7 @@ fn retry_or_wait<C: Clock + Clone>(
         shared.supervision,
         restarts,
     );
-    next_after(wait)
-}
-
-fn next_after(wait: faulted::FaultedWait) -> Next {
-    match wait {
-        faulted::FaultedWait::Resumed => Next::Continue,
-        faulted::FaultedWait::Stopped => Next::Exit,
-    }
+    stopping::follow_faulted_wait(wait, runner, shared, restarts)
 }
 
 /// Follows the shared decision for a cycle error: the watchdog action for a timeout or limit
@@ -325,57 +323,6 @@ fn handle_watchdog_overrun<C: Clock + Clone>(
             Some(halt(runner, shared, restarts, err))
         }
     }
-}
-
-/// Applies the safe state and saves the retain store for a stop request. A stop request ends the
-/// thread at once, so a stop-time failure is recorded without entering the faulted wait.
-fn stop_resource<C: Clock + Clone>(runner: &mut ResourceRunner<C>, shared: &LoopShared<'_>) {
-    let safe_state = runner.runtime.apply_io_safe_state();
-    let retain_save = runner.runtime.save_retain_store();
-    let (next, stop_error) = stop_outcome(safe_state, retain_save);
-    if let Some(err) = stop_error {
-        set_last_error(shared.last_error, err);
-    }
-    set_resource_state(shared.state, next);
-}
-
-/// Stops the program for the control `shutdown`, as `stop_resource` does for an exit, and then
-/// waits for a restart or an exit (specification 34, STATE-08).
-///
-/// A restart queued before the stop is dropped with the program it was meant for; one that arrives
-/// once the state reads `Stopped` starts the program. The stop leaves the resource `Stopped`, or
-/// `Faulted` when the stop outputs are unconfirmed or the save fails, and the wait follows the
-/// state it left.
-fn stop_program<C: Clock + Clone>(
-    runner: &mut ResourceRunner<C>,
-    shared: &LoopShared<'_>,
-    restarts: &mut AutomaticRestartLimiter,
-) -> Next {
-    let safe_state = runner.runtime.apply_io_safe_state();
-    let retain_save = runner.runtime.save_retain_store();
-    let (next, stop_error) = stop_outcome(safe_state, retain_save);
-    let _ = faulted::take_pending_restart(runner);
-    if let Some(err) = stop_error {
-        set_last_error(shared.last_error, err);
-    }
-    runner.reload_required = true;
-    set_resource_state(shared.state, next);
-    if next == ResourceState::Stopped {
-        match stopped::wait_while_stopped(runner, shared, restarts) {
-            stopped::StoppedWait::Started => return Next::Continue,
-            stopped::StoppedWait::Exited => return Next::Exit,
-            // The program did not start: the resource is faulted with the reason.
-            stopped::StoppedWait::Failed => {}
-        }
-    }
-    next_after(faulted::wait_while_faulted(
-        runner,
-        shared.stop,
-        shared.state,
-        shared.last_error,
-        shared.supervision,
-        restarts,
-    ))
 }
 
 /// Serves every queued command: pause and resume change the loop's state, the others act on the
@@ -595,10 +542,12 @@ mod runner_loop_poison_tests {
     }
 
     /// Stops the loop once the injected fault has been recorded, so the faulted wait can end.
+    /// Asks for the exit once the resource reads `Faulted`, or after 5 s; the thread returns whether
+    /// it saw the resource faulted.
     fn stop_once_faulted(
         state: Arc<Mutex<ResourceState>>,
         stop: Arc<AtomicBool>,
-    ) -> std::thread::JoinHandle<()> {
+    ) -> std::thread::JoinHandle<bool> {
         std::thread::spawn(move || {
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
             while *recover_mutex_lock(state.lock()) != ResourceState::Faulted
@@ -606,7 +555,9 @@ mod runner_loop_poison_tests {
             {
                 std::thread::sleep(std::time::Duration::from_millis(1));
             }
+            let faulted = *recover_mutex_lock(state.lock()) == ResourceState::Faulted;
             stop.store(true, Ordering::SeqCst);
+            faulted
         })
     }
 
@@ -820,9 +771,14 @@ mod runner_loop_poison_tests {
                 panic!("intentional VM/program execution panic");
             },
         );
-        stopper.join().expect("stop helper");
+        assert!(
+            stopper.join().expect("stop helper"),
+            "the cycle panic faults the resource"
+        );
 
-        assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Faulted);
+        // The exit request then stops the faulted resource as a running one is stopped, and the
+        // root fault stays reported (specification 34 STATE-08; specification 11 section 6.6).
+        assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Stopped);
         let error = recover_mutex_lock(last_error.lock())
             .clone()
             .expect("panic must set last_error");

@@ -142,6 +142,49 @@ fn the_faulted_wait_takes_a_restart_at_its_next_poll_and_keeps_the_records() {
 }
 
 #[test]
+fn a_recovery_by_restart_begins_the_cycle_grid_at_its_first_scan() {
+    // Specification 10 §4.3: a recovery from a fault by a restart begins the tasks' timing again at
+    // the moment its first cycle starts, and the cycle grid with it. The scan at 0 ms faults; the
+    // faulted wait's poll is due at 10 ms but its wake comes 3 ms late, so the pass at 13 ms takes
+    // the restart that came at 5 ms, begins the task timing at 13 ms and scans there. The next scan
+    // is due one interval later, at 23 ms, when the restarted task is due: a pass at 20 ms runs no
+    // scan, and the one at 23 ms scans. Catches a grid that goes on from the poll's boundary, whose
+    // scan at 20 ms would find the task not yet due (the host had this defect after a restart until
+    // 23 October 2026).
+    let fixture = Fixture::board_probe();
+    fixture
+        .script
+        .borrow_mut()
+        .failing_scans
+        .push_back(RuntimeError::DivisionByZero);
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
+    let _ = fixture.call_at(&mut runner, 5, &restart(1, "warm"));
+    let _ = fixture.take_calls();
+    let _ = fixture.wait.take_calls();
+
+    fixture.pass_at(&mut runner, 13);
+    assert_eq!(
+        fixture.take_calls(),
+        [
+            from_checkpoint(RestartMode::Warm),
+            CycleCall::TaskTiming(ms(13)),
+            scan(13)
+        ],
+        "the late poll takes the restart and scans at once"
+    );
+    assert_eq!(
+        fixture.wait.take_deadlines(),
+        [ms(23)],
+        "the grid begins at the restart's first scan"
+    );
+    fixture.pass_at(&mut runner, 20);
+    fixture.pass_at(&mut runner, 23);
+    assert_eq!(fixture.take_calls(), [scan(23)]);
+}
+
+#[test]
 fn at_a_poll_of_the_faulted_wait_a_restart_comes_before_a_stop() {
     let fixture = Fixture::board_probe();
     fixture

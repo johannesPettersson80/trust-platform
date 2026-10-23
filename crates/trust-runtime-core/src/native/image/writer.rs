@@ -89,6 +89,9 @@ pub struct ImageWriter {
     pub rustc: String,
     /// The program library's version and flags hash.
     pub library: [u8; 16],
+    /// Whether the image is a release image, built without statement hooks (specification 44
+    /// §13.2); its header flags say so.
+    pub release: bool,
     module: CodeImage,
     sections: BTreeMap<u32, Vec<u8>>,
 }
@@ -108,6 +111,7 @@ impl ImageWriter {
             source_hash: [0; 32],
             rustc: String::new(),
             library: [0; 16],
+            release: false,
             module: CodeImage::default(),
             sections: BTreeMap::new(),
         }
@@ -182,6 +186,8 @@ impl ImageWriter {
         image[112..116].copy_from_slice(&count.to_le_bytes());
         let table = u32::try_from(HEADER_BYTES).map_err(|_| WriteError::TooLong)?;
         image[116..120].copy_from_slice(&table.to_le_bytes());
+        let flags = if self.release { super::FLAG_RELEASE } else { 0 };
+        image[120..124].copy_from_slice(&flags.to_le_bytes());
         for (index, (id, offset, bytes)) in placed.iter().enumerate() {
             let entry = HEADER_BYTES + index * SECTION_ENTRY_BYTES;
             let offset32 = u32::try_from(*offset).map_err(|_| WriteError::TooLong)?;

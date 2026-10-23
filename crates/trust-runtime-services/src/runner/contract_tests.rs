@@ -557,7 +557,13 @@ fn stopped_and_faulted_resources_refuse_pause_and_resume_as_trust_runtime_does()
 }
 
 #[test]
-fn shutdown_while_faulted_keeps_the_fault_and_a_restart_starts_the_program_anew() {
+fn shutdown_of_a_faulted_program_stops_it_keeps_the_fault_and_a_restart_starts_it_anew() {
+    // Specification 34 STATE-08 (the owner, 23 October 2026): a `shutdown` of a faulted resource
+    // stops it as it stops a running one. At the faulted wait's next poll, 10 ms after the fault,
+    // the outputs take the safe state again and the retained values are saved, and the resource is
+    // Stopped; the root fault stays in `last_error` and `status` until the next start, which clears
+    // it. Catches the old rule, under which a faulted resource stayed Faulted and so took no install,
+    // and a stop that forgets the fault.
     let fixture = Fixture::board_probe();
     fixture
         .script
@@ -566,23 +572,24 @@ fn shutdown_while_faulted_keeps_the_fault_and_a_restart_starts_the_program_anew(
         .push_back(RuntimeError::DivisionByZero);
     let mut runner = fixture.runner();
     fixture.pass_at(&mut runner, 0);
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
     let _ = fixture.take_calls();
 
     let reply = fixture.call_at(&mut runner, 3, &request(1, "shutdown"));
     assert_eq!(reply["result"], json!({"status": "stopping"}));
     fixture.pass_at(&mut runner, 10);
     assert_eq!(
-        runner.resource_state(),
-        ResourceState::Faulted,
-        "trust-runtime's faulted wait ends on a stop at its next poll and keeps the fault"
-    );
-    assert_eq!(
         fixture.take_calls(),
-        [] as [CycleCall; 0],
-        "no second safe-state write and no retain save"
+        [CycleCall::SafeOutputs, CycleCall::SaveRetain],
+        "the stop applies the safe state again and saves the retained values"
     );
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    assert_eq!(runner.last_error(), Some(RuntimeError::DivisionByZero));
+    let status = fixture.call(&mut runner, &request(2, "status"));
+    assert_eq!(status["result"]["state"], json!("stopped"));
+    assert_eq!(status["result"]["fault"], json!("division by zero"));
 
-    let _ = fixture.call_at(&mut runner, 12, &restart(2, "cold"));
+    let _ = fixture.call_at(&mut runner, 12, &restart(3, "cold"));
     assert_eq!(
         fixture.take_calls(),
         [
@@ -594,6 +601,70 @@ fn shutdown_while_faulted_keeps_the_fault_and_a_restart_starts_the_program_anew(
     );
     assert_eq!(runner.resource_state(), ResourceState::Running);
     assert_eq!(runner.last_error(), None);
+}
+
+#[test]
+fn shutdown_after_a_failed_start_leaves_the_resource_stopped_with_the_reason() {
+    // Specification 34 STATE-08: a start that failed left the resource Faulted with no program
+    // running and the outputs as the stop before it left them, so `shutdown` makes it Stopped at
+    // once, with no second safe-state write and no retain save, and keeps the reason until the
+    // next start. Catches a `shutdown` that the ended program ignores, which left such a chip
+    // Faulted with no way to install a program, and a stop that writes outputs or retained values
+    // for a program that never ran.
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    let _ = fixture.call_at(&mut runner, 2, &request(1, "shutdown"));
+    fixture.pass_at(&mut runner, 10);
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    let unreadable = RuntimeError::RetainStore(smol_str::SmolStr::new("checkpoint unreadable"));
+    fixture
+        .script
+        .borrow_mut()
+        .failing_restarts
+        .push_back(unreadable.clone());
+    let _ = fixture.call_at(&mut runner, 12, &restart(2, "warm"));
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
+    let _ = fixture.take_calls();
+
+    let reply = fixture.call_at(&mut runner, 14, &request(3, "shutdown"));
+    assert_eq!(reply["result"], json!({"status": "stopping"}));
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    assert_eq!(fixture.take_calls(), [] as [CycleCall; 0]);
+    assert_eq!(runner.last_error(), Some(unreadable));
+    fixture.pass_at(&mut runner, 30);
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+
+    let _ = fixture.call_at(&mut runner, 32, &restart(4, "cold"));
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+    assert_eq!(runner.last_error(), None);
+}
+
+#[test]
+fn a_stop_of_a_faulted_program_whose_safe_state_fails_stays_faulted_with_that_error() {
+    // Specification 34 STATE-08 and 11 §6.6: the stop of a faulted resource follows the rule of
+    // every stop, so an unconfirmed safe state leaves it Faulted with that error instead of the root
+    // fault. Catches a faulted stop that reports Stopped although its outputs are not confirmed safe.
+    let fixture = Fixture::board_probe();
+    fixture
+        .script
+        .borrow_mut()
+        .failing_scans
+        .push_back(RuntimeError::DivisionByZero);
+    let mut runner = fixture.runner();
+    fixture.pass_at(&mut runner, 0);
+    let unconfirmed = RuntimeError::ControlError(smol_str::SmolStr::new("safe state unconfirmed"));
+    fixture.script.borrow_mut().safe_outputs_error = Some(unconfirmed.clone());
+    let _ = fixture.take_calls();
+
+    let _ = fixture.call_at(&mut runner, 3, &request(1, "shutdown"));
+    fixture.pass_at(&mut runner, 10);
+    assert_eq!(
+        fixture.take_calls(),
+        [CycleCall::SafeOutputs, CycleCall::SaveRetain]
+    );
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
+    assert_eq!(runner.last_error(), Some(unconfirmed));
 }
 
 #[test]

@@ -377,9 +377,48 @@ fn halting_fault_keeps_the_process_serving_until_a_warm_restart_recovers_it() {
 }
 
 #[test]
+fn a_shutdown_stops_a_faulted_runtime_with_its_fault_and_a_restart_recovers_it() {
+    // Spec 34 STATE-08 and 11 section 6.6 (the owner, 23 October 2026): a plain `shutdown` stops a
+    // faulted resource as it stops a running one; the process keeps serving, `status` reports
+    // `stopped` with the root fault until the next start, and `restart warm` starts the program
+    // anew without it (the retained flag keeps the fault from tripping again). Catches the old rule, under which a faulted resource stayed faulted and so
+    // took no install.
+    let mut runtime = counter_faults_on_a_written_value().start();
+    runtime.wait_for_snapshot(WAIT, "a running scan", |s| s.scan() >= 3);
+    runtime.ctl_ok(&["io-write", "%MW0", "1000"]);
+    runtime.wait_until(WAIT, "the division fault to be reported", || {
+        runtime.ctl_ok(&["status"]).contains("state=faulted")
+    });
+
+    runtime.ctl_ok(&["shutdown"]);
+    runtime.wait_until(WAIT, "the stop of the faulted resource", || {
+        runtime.ctl_ok(&["status"]).contains("state=stopped")
+    });
+    let line = runtime.ctl_ok(&["status"]);
+    assert!(
+        line.contains("state=stopped") && line.contains("fault=division by zero"),
+        "status must report the stop and keep the root fault: {line}"
+    );
+    assert!(
+        runtime.is_running(),
+        "a plain shutdown must not end the process\n{}",
+        runtime.diagnostics()
+    );
+
+    runtime.ctl_ok(&["restart", "warm"]);
+    runtime.wait_until(WAIT, "the warm restart to start the program", || {
+        runtime.ctl_ok(&["status"]).contains("state=running")
+    });
+    runtime.wait_for_snapshot(WAIT, "a scan after the restart", |s| s.scan() >= 1);
+    runtime.assert_running_without_fault();
+}
+
+#[test]
 fn stopped_faulted_runtime_exits_with_status_one() {
     // Spec 11 section 6.6: the process exits with status 0 when the resource ends Stopped and with
-    // status 1 when it ends Faulted, so a service manager can tell a clean stop from a failure.
+    // status 1 when it ends Faulted or Stopped with the fault of the program it stopped, so a
+    // service manager can tell a clean stop from a failure. The plain `shutdown` stops the faulted
+    // resource and keeps its fault (spec 34 STATE-08), and the explicit exit then ends the process.
     let mut runtime = counter_faults_on_a_written_value().start();
     runtime.wait_for_snapshot(WAIT, "a running scan", |s| s.scan() >= 3);
 
@@ -387,15 +426,17 @@ fn stopped_faulted_runtime_exits_with_status_one() {
     runtime.wait_until(WAIT, "the division fault to be reported", || {
         runtime.ctl_ok(&["status"]).contains("state=faulted")
     });
+    runtime.ctl_ok(&["shutdown"]);
+    runtime.wait_until(WAIT, "the stop of the faulted resource", || {
+        runtime.ctl_ok(&["status"]).contains("state=stopped")
+    });
 
-    // Decision Q11 on computers (18 October 2026): the exit is the explicit one. A plain `shutdown`
-    // leaves the faulted resource faulted and the process running.
     runtime.ctl_ok(&["shutdown", "--exit"]);
     let exit = runtime.wait_for_exit(Duration::from_secs(10));
     assert_eq!(
         exit.code(),
         Some(1),
-        "a runtime that stops while faulted must exit with status 1\n{}",
+        "a runtime that stopped a faulted program must exit with status 1\n{}",
         runtime.diagnostics()
     );
 }

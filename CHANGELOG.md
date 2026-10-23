@@ -46,6 +46,36 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   written and read back, and `program.install` checks the container in the slot and programs only
   its header, the magic last (specification 34 §5.1). An upload begun while the program runs is held
   in memory as before. A client waits up to 5 seconds for each begin and part reply.
+- Added: release images. A project whose `trust-lsp.toml` says `[build] debug = false` is compiled
+  without debug hooks by `trust-runtime build --target`, `bench project --execution-backend native`
+  and `trust-dev test --execution-backend native`; without the setting each builds a debug image, as
+  `trust-runtime build` did before, so `trust-dev test` now tests the kind of image the project
+  deploys (its test images had no hooks). A release image says so in its header and in the build's
+  report (`"debug": false`), still ends a loop that never ends at the statement budget, which then
+  counts the passes through loops, and cannot be debugged (specification 44 §13.2). On an x86-64
+  computer the pasteurizer's control task takes 150 ns per activation as a release image instead of
+  221 to 231 ns, and its code is 21,184 bytes instead of 47,504.
+- Changed: a control request costs less, most on a chip: a request line is read straight into the
+  request, without first building a JSON value of the whole line; the cycle percentiles that
+  `status` reports are read by selection from a copy on the stack instead of from a sorted copy on
+  the heap; and a chip answers `program.active` from the identities it has read until an install
+  writes its program store, instead of reading the store at every request. Replies and refusals are
+  unchanged. A chip still serves requests between cycles, so a client that polls it delays the
+  activations of a 1 ms task until milestone M5 serves requests in a context the tasks preempt
+  (specification 34 STATE-08).
+- Changed: `shutdown` stops a faulted resource as it stops a running one, on a chip and on a
+  computer: the outputs take the safe state again, the retained values are saved, and the resource
+  is Stopped, keeping its fault in `status` until the next start. A program that faults at every
+  start can therefore be stopped, replaced with `program.install` and started; before, a faulted
+  resource stayed faulted and took no install. A process that exits after stopping a faulted
+  resource still exits with status 1. The device link's stop no longer restarts a faulted program
+  on its way to Stopped.
+- Fixed: after a `restart`, a start after `shutdown` or a recovery from a fault, trust-runtime on a
+  computer went on with the cycle grid of the program before, so its next cycle could come less than
+  an interval after the restart, when the restarted tasks were not yet due, and their first
+  activation came an interval late; the grid now begins at the restart's first cycle, as on a chip
+  (specification 10 §4.3). A chip's recovery from a fault by `restart` now begins the grid at its
+  first scan too, instead of at the poll of the faulted wait.
 - Fixed: the ESP32-C6 no longer ends a reply with a full 64-byte USB packet. The host passes on a
   transfer's bytes only after a shorter packet, so a reply whose length was a multiple of 64 bytes
   (a 1,984-byte `status`, for example) kept its last 64 bytes in the host until the next request,

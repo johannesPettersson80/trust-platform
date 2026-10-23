@@ -8,6 +8,7 @@ mod response;
 
 pub(crate) use reply_writer::{ReplyWriter, Written};
 pub use request::ControlRequest;
+pub(crate) use request::{read_line, LineError};
 pub use response::{ControlAfterResponse, ControlResponse};
 
 #[cfg(test)]

@@ -163,7 +163,8 @@ The selected declaration is then invoked at its own boundary:
 instance.
 
 With `--execution-backend native` the tests run compiled for this computer
-(specification 44 §14.2). With `--device <port> --target <target>` they run
+(specification 44 §14.2), as a debug or a release image as the project's
+`[build] debug` chooses (specification 44 §13.2). With `--device <port> --target <target>` they run
 on that device instead: the same image, compiled for the target, is installed
 once over the device's control link, and each selected test runs by one
 `cycle.step` that restarts the program cold and runs its test program's body

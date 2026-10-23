@@ -92,6 +92,9 @@ struct TaskLatencyReport {
 /// The size of a program image and its memory figure (specification 44 §10.4), in bytes.
 #[derive(Debug, Clone, Serialize)]
 struct NativeImageReport {
+    /// Whether the image has statement hooks, a debug image, or is a release image (specification
+    /// 44 §13.2).
+    debug: bool,
     bytes: usize,
     code: u64,
     rodata: u64,

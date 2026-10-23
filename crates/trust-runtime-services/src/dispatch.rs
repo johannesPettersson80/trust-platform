@@ -23,7 +23,9 @@ use crate::events::{wall_time, RuntimeEvent};
 use crate::live_values::{io_requests, var_requests};
 use crate::loading::program_install;
 use crate::ports::{AuditRecord, ControlHost};
-use crate::protocol::{ControlAfterResponse, ControlRequest, ControlResponse};
+use crate::protocol::{
+    read_line, ControlAfterResponse, ControlRequest, ControlResponse, LineError,
+};
 use crate::resource::operations;
 use crate::status::{self, EventRead};
 
@@ -70,11 +72,14 @@ pub fn prepare_line_within<H: ControlHost>(
     client: Option<&str>,
     max_len: usize,
 ) -> PreparedLine {
-    let value = match serde_json::from_str::<serde_json::Value>(line) {
-        Ok(value) => value,
-        Err(err) => return link_reply::within(unreadable_line(&err), max_len, host),
+    let admitted = match read_line(line) {
+        Ok(request) => admit(request, host, client),
+        Err(LineError::Unreadable(err)) => {
+            return link_reply::within(unreadable_line(&err), max_len, host);
+        }
+        Err(LineError::NotARequest(err)) => Err(not_a_request(&err, host, client)),
     };
-    let admitted = match admit(value, host, client) {
+    let admitted = match admitted {
         Ok(admitted) => admitted,
         Err(refused) => return link_reply::within(refused, max_len, host),
     };
@@ -96,9 +101,10 @@ pub(crate) fn reply_within<H: ControlHost>(
 
 /// The response to one request line, before it is serialized.
 fn respond<H: ControlHost>(line: &str, host: &H, client: Option<&str>) -> ControlResponse {
-    match serde_json::from_str::<serde_json::Value>(line) {
-        Ok(value) => dispatch_value(value, host, client),
-        Err(err) => unreadable_line(&err),
+    match read_line(line) {
+        Ok(request) => dispatch_request(request, host, client),
+        Err(LineError::Unreadable(err)) => unreadable_line(&err),
+        Err(LineError::NotARequest(err)) => not_a_request(&err, host, client),
     }
 }
 
@@ -146,10 +152,43 @@ pub fn dispatch_value<H: ControlHost>(
     host: &H,
     client: Option<&str>,
 ) -> ControlResponse {
-    match admit(value, host, client) {
+    match serde_json::from_value::<ControlRequest>(value) {
+        Ok(request) => dispatch_request(request, host, client),
+        Err(err) => not_a_request(&err, host, client),
+    }
+}
+
+/// Answers one request.
+fn dispatch_request<H: ControlHost>(
+    request: ControlRequest,
+    host: &H,
+    client: Option<&str>,
+) -> ControlResponse {
+    match admit(request, host, client) {
         Ok(admitted) => answer(admitted, host, client),
         Err(refused) => refused,
     }
+}
+
+/// The answer to JSON that is not a request: `invalid request: <error>` with id 0 and an audit
+/// record of type `invalid`.
+fn not_a_request<H: ControlHost>(
+    err: &serde_json::Error,
+    host: &H,
+    client: Option<&str>,
+) -> ControlResponse {
+    let error = format!("invalid request: {err}");
+    let audit_id = host.record_audit(AuditRecord {
+        request_id: 0,
+        request_type: SmolStr::new("invalid"),
+        correlation_id: None,
+        ok: false,
+        error: Some(SmolStr::new(&error)),
+        auth_present: false,
+        client,
+        details: None,
+    });
+    ControlResponse::error(0, error).with_audit_id(audit_id)
 }
 
 /// A request that may be served: it could be read, its role allows it and its surface is
@@ -159,30 +198,12 @@ struct Admitted {
     role: AccessRole,
 }
 
-/// Reads `value` as a request and checks its access. A request that is refused is answered and
-/// audited here.
+/// Checks the access of `request`. A request that is refused is answered and audited here.
 fn admit<H: ControlHost>(
-    value: serde_json::Value,
+    mut request: ControlRequest,
     host: &H,
     client: Option<&str>,
 ) -> Result<Admitted, ControlResponse> {
-    let mut request: ControlRequest = match serde_json::from_value(value) {
-        Ok(request) => request,
-        Err(err) => {
-            let error = format!("invalid request: {err}");
-            let audit_id = host.record_audit(AuditRecord {
-                request_id: 0,
-                request_type: SmolStr::new("invalid"),
-                correlation_id: None,
-                ok: false,
-                error: Some(SmolStr::new(&error)),
-                auth_present: false,
-                client,
-                details: None,
-            });
-            return Err(ControlResponse::error(0, error).with_audit_id(audit_id));
-        }
-    };
     stamp_credential_channel_param(&mut request, client);
     let role = match host.request_role(&request, client) {
         Ok(role) => role,

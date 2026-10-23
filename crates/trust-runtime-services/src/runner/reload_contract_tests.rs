@@ -970,6 +970,72 @@ fn program_active_reports_both_containers_in_bounded_reads() {
 }
 
 #[test]
+fn program_active_reads_the_store_once_until_the_store_is_written() {
+    // Specification 34 §11.2 (`program.active`): a chip keeps the identities it has read in its
+    // memory and reads the store again only after the store was written. Slot A holds sequence 2 and
+    // slot B sequence 5, which the program came from. The first `program.active` reads the headers
+    // and records; a second one reads nothing and reports the same. The fixture program is then
+    // installed as sequence 6 into slot A, the slot the program did not come from, which writes the
+    // store; the next `program.active` reads the store again and reports sequence 6 as active and 5
+    // as previous. Catches identities read from the flash at every request (the C6 took 4.6 ms for
+    // one, 23 October 2026), and identities kept across a write of the store, which would still
+    // report sequence 5 as active after the install.
+    let flash = FlashProbe::from_slots([
+        slot_with(&committed_image(2, RetainMode::None)),
+        slot_with(&committed_image(5, RetainMode::File)),
+    ]);
+    let rig = Rig::new(flash, CheckpointProbe::erased());
+    let mut runner = rig.runner(Some(5));
+    rig.ports.pass_at(&mut runner, 0);
+    let identity = |sequence: u64| {
+        json!({
+            "sequence": sequence,
+            "program_sha256": hex(&sha256(PROGRAM)),
+            "bytes": 6_412,
+        })
+    };
+    let reads = || {
+        rig.flash
+            .ops()
+            .iter()
+            .filter(|operation| matches!(operation, FlashOp::Read { .. }))
+            .count()
+    };
+
+    let first = rig.ports.call(&mut runner, &request(1, "program.active"));
+    assert_eq!(
+        first["result"],
+        json!({"active": identity(5), "previous": identity(2)})
+    );
+    let read_by_the_first = reads();
+    assert!(
+        read_by_the_first > 0,
+        "the first program.active reads the store"
+    );
+    let second = rig.ports.call(&mut runner, &request(2, "program.active"));
+    assert_eq!(second["result"], first["result"]);
+    assert_eq!(
+        reads(),
+        read_by_the_first,
+        "the second program.active reads nothing"
+    );
+
+    rig.stop(&mut runner);
+    let installed = rig.install(&mut runner, &transfer_of(RetainMode::None), 40);
+    assert_eq!(installed["result"]["sequence"], json!(6));
+    let read_before = reads();
+    let third = rig.ports.call(&mut runner, &request(41, "program.active"));
+    assert_eq!(
+        third["result"],
+        json!({"active": identity(6), "previous": identity(5)})
+    );
+    assert!(
+        reads() > read_before,
+        "program.active reads the written store again"
+    );
+}
+
+#[test]
 fn a_cold_step_after_an_install_loads_the_installed_program_and_steps_it_stopped() {
     // Specification 11 §6.8.1: a step's cold restart loads a program installed since the program
     // was loaded, as `restart` loads it (specification 34 STATE-08), and the resource stays Stopped.

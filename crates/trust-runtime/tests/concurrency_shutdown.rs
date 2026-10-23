@@ -169,7 +169,7 @@ fn stop_while_paused_ends_the_thread_in_stopped() {
 }
 
 #[test]
-fn stop_during_a_hung_driver_call_drops_queued_commands_and_ends_faulted() {
+fn stop_during_a_hung_driver_call_drops_queued_commands_and_keeps_the_hang_fault() {
     let hung = spawn_blocking_input("shutdown-hung", Some(100));
     let control = hung.handle.control();
     hung.entered
@@ -206,10 +206,15 @@ fn stop_during_a_hung_driver_call_drops_queued_commands_and_ends_faulted() {
     }
     assert_eq!(
         control.state(),
-        ResourceState::Faulted,
-        "the hang is the final state (specification 11, section 6.6)"
+        ResourceState::Stopped,
+        "the exit stops the resource the hang faulted, once the call returns (specification 34 \
+         STATE-08)"
     );
-    assert_eq!(control.last_error(), Some(RuntimeError::WatchdogTimeout));
+    assert_eq!(
+        control.last_error(),
+        Some(RuntimeError::WatchdogTimeout),
+        "and keeps the hang's fault, so the process exits with status 1"
+    );
     assert!(!control.is_hung(), "the blocked call has returned");
     assert_eq!(
         outputs.load(Ordering::SeqCst),
@@ -261,10 +266,14 @@ fn stop_while_faulted_answers_or_drops_every_command_within_the_bound() {
     client.join().expect("client thread");
     assert_eq!(
         control.state(),
-        ResourceState::Faulted,
-        "a stop keeps a faulted resource faulted"
+        ResourceState::Stopped,
+        "a stop stops a faulted resource (specification 34 STATE-08)"
     );
-    assert_eq!(control.last_error(), Some(RuntimeError::DivisionByZero));
+    assert_eq!(
+        control.last_error(),
+        Some(RuntimeError::DivisionByZero),
+        "and keeps its fault"
+    );
 }
 
 #[test]

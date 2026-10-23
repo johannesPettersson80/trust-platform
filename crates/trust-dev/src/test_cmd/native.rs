@@ -35,18 +35,19 @@ fn test_program(case: &DiscoveredTest) -> SmolStr {
 }
 
 /// The program image of the project at `project_root` with every test of `discovered`, each an
-/// instance of its test program that no task runs, compiled for `target` with `hooks` (specification
-/// 44 §14.2).
+/// instance of its test program that no task runs, compiled for `target` as the project's
+/// `[build] debug` chooses, a debug or a release image like the one the project deploys
+/// (specification 44 §13.2, §14.2).
 fn build_test_image(
     project_root: &Path,
     discovered: &[DiscoveredTest],
     target: trust_runtime::native::Target,
-    hooks: bool,
     toolchain: &trust_runtime::native::Toolchain,
 ) -> anyhow::Result<trust_runtime::native::Build> {
     use trust_runtime::harness::SourceFile;
-    use trust_runtime::native::{build_with_tests, Options};
+    use trust_runtime::native::{build_with_tests, debug_hooks, Options};
 
+    let hooks = debug_hooks(project_root)?;
     let mut sources = collect_project_source_files(project_root, None)?;
     let runners = function_block_runners(discovered);
     if !runners.is_empty() {
@@ -61,7 +62,16 @@ fn build_test_image(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-    let work = std::env::temp_dir().join(format!("trust-dev-test-{}", std::process::id()));
+    // A folder of this process and this project, so that builds of two projects running at once in
+    // one process, as the tests of trust-dev do, never share one: a build removes its folder when
+    // it ends.
+    let project_name = project_root
+        .file_name()
+        .map_or_else(|| "project".into(), |name| name.to_string_lossy());
+    let work = std::env::temp_dir().join(format!(
+        "trust-dev-test-{}-{project_name}",
+        std::process::id()
+    ));
     let built = build_with_tests(
         &sources,
         &programs,
@@ -89,7 +99,7 @@ fn execute_native_tests(
     let toolchain = Toolchain::from_env()
         .map_err(|error| anyhow::anyhow!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
     let host = Target::this_cpu().context("this computer's CPU has no native target")?;
-    let built = build_test_image(project_root, discovered, host, false, &toolchain)?;
+    let built = build_test_image(project_root, discovered, host, &toolchain)?;
     let device = Device {
         target: host,
         program_memory: 1 << 30,
@@ -137,7 +147,7 @@ fn execute_native_tests_on_device(
         target_named(target).ok_or_else(|| anyhow::anyhow!("unknown target '{target}'"))?;
     let toolchain = Toolchain::from_env()
         .map_err(|error| anyhow::anyhow!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
-    let built = build_test_image(project_root, discovered, target, false, &toolchain)?;
+    let built = build_test_image(project_root, discovered, target, &toolchain)?;
     let work = std::env::temp_dir().join(format!("trust-dev-device-{}", std::process::id()));
     let mut link = DeviceLink::open(port)?;
     let prepared = link

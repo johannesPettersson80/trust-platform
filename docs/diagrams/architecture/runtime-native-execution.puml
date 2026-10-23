@@ -17,11 +17,14 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
     component "trust-plc-lib\narithmetic, conversion, mathematics,\nbits, text, dates and times,\ntimers, counters, edges, bistables" as library
     component "trust-plc-abi\nCx, areas, faults, references,\nclass ids; module side" as abiModule
     component "trust-plc-mem\nmemcpy, memset, memcmp\nfor computer modules" as memModule
-    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure" as image
+    component "trust-lsp.toml [build] debug\n(host/native/settings.rs; true when absent):\na debug image with statement hooks\nor a release image without them (§13.2)" as buildSetting
+    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure, header flag release" as image
     artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record
     component "trust-dev test --execution-backend native\nTEST_PROGRAMs as instances without a task;\neach test: cold start, run_instance once" as testRunner
     hir --> model
     model --> generator
+    buildSetting ..> generator
+    buildSetting --> testRunner : tests the kind of image the project builds
     generator --> toolchain
     library --> toolchain
     abiModule --> toolchain

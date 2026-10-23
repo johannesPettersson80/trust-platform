@@ -291,7 +291,11 @@ fn online_change_recovers_a_faulted_resource() {
 }
 
 #[test]
-fn stop_while_faulted_ends_the_thread_and_keeps_the_faulted_state() {
+fn an_exit_while_faulted_stops_the_resource_and_keeps_the_fault() {
+    // Specification 11 section 6.6 and 34 STATE-08: an exit request stops a faulted resource as
+    // `shutdown` does and ends the thread; the resource ends Stopped with the root fault kept, so
+    // the process exits with status 1. Wrong behaviour: the exit hangs in the faulted wait, or it
+    // drops the fault, which would give a service manager a clean exit status.
     let (mut handle, _signal) = spawn(DIVIDE_PROGRAM);
     let control = handle.control();
     fault_running_resource(&handle, &control, None);
@@ -311,7 +315,7 @@ fn stop_while_faulted_ends_the_thread_and_keeps_the_faulted_state() {
         .expect("joiner thread")
         .expect("resource thread ends without panicking");
 
-    assert_eq!(control.state(), ResourceState::Faulted);
+    assert_eq!(control.state(), ResourceState::Stopped);
     assert_eq!(control.last_error(), Some(RuntimeError::DivisionByZero));
 }
 

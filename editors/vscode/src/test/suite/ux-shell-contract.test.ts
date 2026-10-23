@@ -941,18 +941,18 @@ suite("Phase 4 — Live Values (v5 shell)", () => {
     const web = readSrc("ioPanel.webview.js");
     const status = readSrc("io-panel/status.ts");
     // The status reply's access capabilities are built by the shared runtime services
-    // (specification 34 ARCH-11), the same code on every runtime.
+    // (specification 34 ARCH-11), the same code on every runtime, as typed members of the reply.
     const runtime = fs.readFileSync(
-      path.join(workspaceRoot(), "crates", "trust-runtime-services", "src", "dispatch.rs"),
+      path.join(workspaceRoot(), "crates", "trust-runtime-services", "src", "status", "reply.rs"),
       "utf8"
     );
 
     assert.ok(
-      runtime.includes('"access"') &&
-        runtime.includes('"io"') &&
-        runtime.includes('"write"') &&
-        runtime.includes('"force"') &&
-        runtime.includes('"release"') &&
+      runtime.includes("access: Option<AccessCapabilities>") &&
+        runtime.includes("io: IoAccess") &&
+        runtime.includes("write: bool") &&
+        runtime.includes("force: bool") &&
+        runtime.includes("release: bool") &&
         runtime.includes("connect with an engineer token"),
       "runtime status must expose role-derived I/O capabilities"
     );

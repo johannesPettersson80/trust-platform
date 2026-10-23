@@ -1,8 +1,9 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.9 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.10 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
-  Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026),
+  Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
+  release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -268,7 +269,8 @@ pool at an offset, every offset is relative to the start of the image.
 | 96 | 16 | Program library version and flags hash (first 16 bytes of its SHA-256) |
 | 112 | 4 | Section count |
 | 116 | 4 | Offset of the section table |
-| 120 | 8 | Reserved, zero |
+| 120 | 4 | Flags: bit 0 set when the image has no statement hooks, a release image (§13.2); the other bits zero |
+| 124 | 4 | Reserved, zero |
 
 ### 5.3 Sections
 
@@ -782,9 +784,16 @@ Specification 34's TIME-01 to TIME-07 hold. TIME-08's work-unit model is replace
 
 **NX-10. Statement budget.** The kernel gives each task activation a budget of statements
 (`runtime.toml` `[resource] max_statements_per_scan`, default 1,000,000; a chip's descriptor may
-lower the maximum). Each statement and each loop iteration decrements `cx.budget`; at zero the scan
-ends with `InfiniteLoop` (specification 10 §10). This bounds a scan's work in every program,
-including a `WHILE TRUE DO` loop, at a cost of one decrement and one branch per statement.
+lower the maximum). Each statement and each pass through a loop takes one from `cx.budget` before it
+runs: a statement before any of its work, a pass of `WHILE` or `FOR` before its test, a pass of
+`REPEAT` before its body. One that finds the budget at zero ends the scan with `InfiniteLoop`
+instead (specification 10 §10), so an activation runs at most its budget of statements and passes,
+and the stores of the statements that ran stay (specification 11 §6.6). This bounds a scan's work
+in every program, including a `WHILE TRUE DO` loop, at a cost of one decrement and one branch per
+statement. A release image (§13.2) counts the passes through loops only. Outside loops a scan
+executes each statement at most once per call, so the budget still ends every loop that does not
+end, after another count of work than the debug image of the same program; the depth of calls is
+bounded by the task stack (§8.5) in a release image as in a debug image.
 
 **NX-11. Elapsed-time supervision.** The watchdog of specification 11 §6.6 and 34 TIME-04 supervises
 each task's wall time as today; a hardware watchdog on the chips as today.
@@ -1069,9 +1078,24 @@ Two loads and a branch when no breakpoint is set. The kernel sets a statement's 
 breakpoint, for a step (the bits of every statement that may follow, cleared after the stop) and for
 a pause (every bit); conditions, hit counts and logpoints are evaluated by the kernel in `api.stop`
 as today. `api.stop` runs the hold of specification 34 STATE-07 and 11 §6.9 (serving the link,
-applying writes at the safe point, the production-mode hold rules) and returns. A production image
-may be built without hooks (`build.debug = false`): it is not debuggable and says so in its header
-flags, as CODESYS's "release" build does.
+applying writes at the safe point, the production-mode hold rules) and returns.
+
+**Release images** (the owner, 23 October 2026, "make sure its professional and that we dont take
+short cuts"). The project setting `[build] debug` in the project's `trust-lsp.toml` (specification
+14), `true` when it is absent, chooses the image that `trust-runtime build --target`, `bench project
+--execution-backend native` and `trust-dev test --execution-backend native` compile, so a project's
+tests run the kind of image it deploys, as CODESYS's and TwinCAT's debug and release builds do; the
+conformance suite's cases are debug images. With `debug = false` the generator emits no statement
+hook: no statement records its number in `cx.stmt`, and none counts against the budget, which the
+passes through loops still take (NX-10). The image is a release image and says so in bit 0 of its
+header flags (§5.2), and the build's report says `"debug": false`. A release image is not
+debuggable: a request that needs the hooks (a breakpoint, a step, a pause at a statement, the
+statement position of a fault) is refused with `the program was built without debug hooks ([build]
+debug = false)` from milestone M3, which brings the debugger of compiled programs; its scan, its
+values, Live Values, online change and every other service are those of a debug image. The hooks are
+about half of a scan's time and more than half of its code: the pasteurizer's control task takes 221
+to 231 ns per activation with them and 150 ns without, and its code is 47,504 bytes with them and
+21,184 without (x86-64, 23 October 2026, §14.3).
 
 ### 13.3 Variables, Live Values, HMI and services
 
@@ -1124,17 +1148,18 @@ control link, the first step's cold restart loading it; its trace must equal the
 artifact (owner, 23 October 2026).
 
 `trust-dev test --execution-backend native` runs a project's tests compiled for the computer
-(specification 22, the test POUs): one image holds every `TEST_PROGRAM` as an instance of its name
-that no task runs, and each test runs after a cold restart, its program's body once, as the
-bytecode runner runs it (`NativeProgram::run_instance`); a test passes, fails with the runtime's
-message of its failed assertion, or ends with its error. The assertions are compiled as the
-runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs through
-a test program the runner adds to the image, which holds one instance of it and calls its body
-once, as the bytecode runner runs a temporary instance of it. On a device the tests run through
-`cycle.step` (specification 11 §6.8.1): `trust-dev test --execution-backend native --device <port>
---target <target>` builds the same image for the device's target, installs it, and runs each test
-by one step that restarts the program cold and runs the test program's body (`run`); the device
-finds the body by the instance's number in its root symbol (§5.7).
+(specification 22, the test POUs): one image, a debug or a release image as the project's `[build]
+debug` chooses (§13.2), holds every `TEST_PROGRAM` as an instance of its name that no task runs, and
+each test runs after a cold restart, its program's body once, as the bytecode runner runs it
+(`NativeProgram::run_instance`); a test passes, fails with the runtime's message of its failed
+assertion, or ends with its error. The assertions are compiled as the runtime's functions decide
+them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs through a test program the runner adds
+to the image, which holds one instance of it and calls its body once, as the bytecode runner runs a
+temporary instance of it. On a device the tests run through `cycle.step` (specification 11 §6.8.1):
+`trust-dev test --execution-backend native --device <port> --target <target>` builds the same image
+for the device's target, installs it, and runs each test by one step that restarts the program cold
+and runs the test program's body (`run`); the device finds the body by the instance's number in its
+root symbol (§5.7).
 
 A project compiled and the same project in the runtime run in lockstep at the project's cycle
 interval, and every variable the image names a value of is compared after every scan
@@ -1150,7 +1175,11 @@ read as a `CHAR` with a null dereference, where specification 02 §6 makes it an
 
 From M2, CI compiles the pasteurizer's control program and the OSCAT corpus with RuSTy and with
 truST on x86-64 and reports the scan time of each and the size of the generated code. Acceptance
-for M4: truST is not slower than RuSTy on either, within 5%, and its RAM figure is smaller.
+for M4: truST is not slower than RuSTy on either, within 5%, and its RAM figure is smaller. truST is
+measured with release images (§13.2), the build a production deployment runs, as RuSTy has no
+debugger hooks either (the owner, 23 October 2026); truST keeps its overflow, finite-value and bounds
+checks, which RuSTy does not make. On 23 October 2026 the pasteurizer's control task took 150 ns per
+activation as a release image and 221 to 231 ns as a debug image, against RuSTy's 140 ns.
 
 ### 14.4 Milestones
 
@@ -1161,7 +1190,7 @@ for M4: truST is not slower than RuSTy on either, within 5%, and its RAM figure 
 | M2 | 6–8 | the whole conformance corpus passes on Linux and the C6 with identical outputs; retain through the map; the RuSTy benchmark running |
 | M3 | 9–11 | online change on the pasteurizer while it runs with outputs unchanged; breakpoints, stepping, Live Values, HMI, OPC UA and Modbus by the symbol table on both chips; the U5A9 at the numbers of §14.1; install checks complete |
 | M4 | 12–14 | trust-runtime on Linux, Windows and macOS on the new kernel; the simulator; the extension's toolchain download; the old execution layer deleted (§15); the RuSTy acceptance; the release |
-| M5 | after | hardware protection (§10.5); preemptive tasks (§16); Wi-Fi on the C6 with the freed RAM |
+| M5 | after | hardware protection (§10.5); preemptive tasks, with the control requests served in a context the tasks preempt (§16; the owner, 23 October 2026); Wi-Fi on the C6 with the freed RAM |
 
 A milestone is accepted by its numbers in the weekly report, nothing else. A change to this
 specification between milestones needs a written reason and the owner's approval.
@@ -1183,9 +1212,11 @@ specification between milestones needs a written reason and the owner's approval
 ## 16. Later work, outside this version
 
 - Preemptive task scheduling with priorities (IEC §6.8.2 allows preemptive and non-preemptive
-  scheduling; v1 is non-preemptive as today), one stack per task, I/O consistency per task.
+  scheduling; v1 is non-preemptive as today), one stack per task, I/O consistency per task, and the
+  control requests served in a context that the tasks preempt, so that a request no longer delays a
+  due activation (specification 34 STATE-08; milestone M5, the owner, 23 October 2026).
 - Several resources per image and several images per kernel (checklist S17, S18).
-- Run-length coded `INIT`; a production image without hooks on by default for releases.
+- Run-length coded `INIT`; a release image (§13.2) by default for releases.
 - A `TRSTI` reader in the LSP so that a project opened without its sources can be browsed from the
   image's symbols and embedded sources.
 
@@ -1220,3 +1251,4 @@ reported as the runtime's `AssertionFailed` with its message.
 | 0.7 | 23 October 2026 | Exact where milestone M2's conversions and frames decided within the approved design: a frame starts at each call at its initial values and its types' defaults, computed by the build (§6.7); numbers, characters and BCD to and from text as the runtime converts them (§6.8); the interface gains the kernel function `read_real`, the runtime's own reader of reals, which no module can carry because it can panic, and becomes version 2 (§8.2); a computer's module links the toolchain's memory functions, modules are compiled without RELRO, and the image builder relaxes x86-64 loads from the global offset table of the functions the module defines (§4.5, §4.6); a test's failed assertion is a fault of its own, 17 or 18, worded by the kernel as the runtime words it, and `trust-dev test` runs a project's tests compiled (§14.2, Appendix A). |
 | 0.8 | 23 October 2026 | Exact where milestone M2's corpus decided within the approved design: the stack bound is the deepest static call chain read from the module's call relocations, a cycle through calls bound by an instance's class turning once for each instance, with 4 KiB for the kernel functions and a quarter more (§8.5); a literal takes the type of where it goes with its sign (§6.6); a failed assertion of two texts lays them in the stack area, which the build sizes, for the kernel to word (§7.1, Appendix A); a function block instance given as an input of a method or a function is the caller's, and a result of a function block's type is a reference to the instance, so calls chain (§6.4); a `RETAIN` variable of a function block is laid with its instance and kept as the runtime keeps it (§11); `trust-dev test` runs a `TEST_FUNCTION_BLOCK` through a test program that calls it once (§14.2); a `CASE` on a text or a real is a chain of tests (§6.6); adjacent literals of a text are joined at build, so a text of literals is written from its bytes and no array of pieces holds a pointer a module would need a relocation for (§5.3). |
 | 0.9 | 23 October 2026 | The owner approved the kernel interface version 2 of 0.7 (§8.2) and chose how the corpus runs on a device: the control request `cycle.step` on every runtime (specification 11 §6.8.1), through which `trust-runtime conformance --device --target` installs and steps each case, and `trust-dev test --device --target` runs a project's tests, each by a step that runs its test program's body (§14.2); a program root's symbol carries the instance's number, by which a device finds the body (§5.7). |
+| 0.10 | 23 October 2026 | Release images and the request context of M5 (the owner, 23 October 2026, on three questions: "i agree with your advice on all points, just make sure its professional and that we dont take short cuts"). §13.2: the project setting `[build] debug` (specification 14), `true` when absent, chooses a debug image or a release image without statement hooks for `trust-runtime build --target`, `bench project --execution-backend native` and `trust-dev test --execution-backend native`; the conformance suite's cases are debug images; a release image says so in bit 0 of the header flags at offset 120 (§5.2), which were reserved, and in the build's report, and the debugger of M3 refuses what needs the hooks with `the program was built without debug hooks ([build] debug = false)`. NX-10 made exact: each statement and each pass through a loop takes one from the budget before it runs, one that finds it at zero ends the scan, and a release image counts the passes through loops only. §14.3: M4 compares release images with RuSTy. M5 and §16: the control requests are served in a context the tasks preempt. |

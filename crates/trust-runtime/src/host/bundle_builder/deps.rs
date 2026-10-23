@@ -137,7 +137,7 @@ fn load_dependency_manifest(root: &Path) -> anyhow::Result<DependencyManifestFil
 }
 
 fn find_dependency_manifest(root: &Path) -> Option<PathBuf> {
-    DEPENDENCY_MANIFEST_FILES
+    PROJECT_SETTINGS_FILES
         .iter()
         .map(|name| root.join(name))
         .find(|path| path.is_file())

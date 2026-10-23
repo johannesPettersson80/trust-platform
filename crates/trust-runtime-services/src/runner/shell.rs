@@ -56,6 +56,7 @@ use trust_runtime_core::ports::{
     ControlLink, HardwareWatchdog, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass,
     PortError, RunnerWait, TimeSpan, WakeReason, WakeToken,
 };
+use trust_runtime_core::scheduler::ResourceState;
 
 use super::debugger::ChipDebug;
 use super::host::{ProgramView, RunnerHost};
@@ -450,9 +451,17 @@ where
             after_response,
             Some(ControlAfterResponse::StopResource | ControlAfterResponse::ExitRuntime)
         );
-        if stops && !self.resource.ended() {
+        if !stops {
+            return;
+        }
+        if !self.resource.ended() {
             self.stop_requested.set(true);
             self.debug.release_for_stop();
+        } else if self.resource.state() == ResourceState::Faulted {
+            // A start that failed left the resource Faulted with no program running, and the
+            // outputs as the stop before it left them: the stop leaves it Stopped and keeps the
+            // error until the next start (specification 34 STATE-08).
+            self.resource.set_state(ResourceState::Stopped);
         }
     }
 

@@ -138,17 +138,24 @@ impl CycleLatencyWindow {
         }
     }
 
+    /// The percentiles of the window, read from a copy on the stack by selection: no heap, and no
+    /// sort of the whole copy (a metrics snapshot that sorted its copy took 0.9 ms on the ESP32-C6,
+    /// 23 October 2026).
     fn snapshot(&self) -> CyclePercentilesSnapshot {
-        if self.len == 0 {
+        let recorded = &self.values[..self.len];
+        let Some(max) = recorded.iter().copied().max() else {
             return CyclePercentilesSnapshot::default();
-        }
-        let mut values = self.values[..self.len].to_vec();
-        values.sort_unstable();
+        };
+        let mut copy = [0u64; CYCLE_LATENCY_WINDOW_SIZE];
+        let values = &mut copy[..self.len];
+        values.copy_from_slice(recorded);
+        let ranks = [0.50, 0.95, 0.99].map(|quantile| rank(self.len, quantile));
+        let [p50, p95, p99] = order_statistics(values, ranks);
         CyclePercentilesSnapshot {
-            p50_ms: millis(percentile(&values, 0.50)),
-            p95_ms: millis(percentile(&values, 0.95)),
-            p99_ms: millis(percentile(&values, 0.99)),
-            max_ms: millis(values.last().copied().unwrap_or(0)),
+            p50_ms: millis(p50),
+            p95_ms: millis(p95),
+            p99_ms: millis(p99),
+            max_ms: millis(max),
             window_samples: u64::try_from(self.len).unwrap_or(u64::MAX),
         }
     }
@@ -695,23 +702,39 @@ pub struct ProfilingSnapshot {
     pub top_contributors: Vec<BudgetContributorSnapshot>,
 }
 
-/// The value at `quantile` of `sorted_values`, by the rounded index.
+/// The index of `quantile` among `len` values in ascending order: `round((len - 1) * quantile)`,
+/// the quantile clamped to 0 and 1 (specification 11, the cycle percentiles).
 #[allow(
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss
 )] // the index is rounded from a clamped, non-negative position
-fn percentile(sorted_values: &[u64], quantile: f64) -> u64 {
-    if sorted_values.is_empty() {
-        return 0;
+fn rank(len: usize, quantile: f64) -> usize {
+    let last = len.saturating_sub(1);
+    let position = (last as f64) * quantile.clamp(0.0, 1.0);
+    (trust_runtime_core::numeric::math::round(position) as usize).min(last)
+}
+
+/// The values at the indexes `ranks`, in ascending order and each less than the length, that
+/// `values` would have sorted ascending. Each is found by a selection in the part above the one
+/// found before, which holds only values no smaller, so the three percentiles of the window take
+/// about two comparisons per value in all, where a sort takes about nine. `values` is reordered.
+fn order_statistics<const N: usize>(values: &mut [u64], ranks: [usize; N]) -> [u64; N] {
+    let mut found = [0u64; N];
+    // `values[..start]` holds the `start` smallest values once a selection has run.
+    let mut start = 0;
+    let mut previous: Option<(usize, u64)> = None;
+    for (slot, rank) in found.iter_mut().zip(ranks) {
+        if let Some((_, value)) = previous.filter(|(at, _)| *at == rank) {
+            *slot = value;
+            continue;
+        }
+        let (_, value, _) = values[start..].select_nth_unstable(rank - start);
+        *slot = *value;
+        previous = Some((rank, *value));
+        start = rank + 1;
     }
-    let clamped = quantile.clamp(0.0, 1.0);
-    let position = (sorted_values.len().saturating_sub(1) as f64) * clamped;
-    let index = trust_runtime_core::numeric::math::round(position) as usize;
-    sorted_values
-        .get(index)
-        .copied()
-        .unwrap_or_else(|| sorted_values.last().copied().unwrap_or(0))
+    found
 }
 
 #[cfg(test)]

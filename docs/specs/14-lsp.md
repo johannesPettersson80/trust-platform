@@ -772,7 +772,7 @@ The stable resolver codes are:
 - Library/dependency graphs report missing references (L001), version mismatches (L002), conflicting declarations (L003), and dependency cycles (L004).
 - `[[libraries]]` can declare `docs` (array of markdown files) to attach vendor library documentation to hover/completion. Each file uses `# SymbolName` headings followed by doc text.
 - `[workspace]` controls multi-root federation: `priority` orders root results for workspace symbol search, and `visibility` (`public`, `private`, `hidden`) filters which roots participate when querying (private roots only appear for non-empty queries) (tooling behavior, non-IEC).
-- `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults.
+- `[build]` exposes project compile flags (`flags`), `defines`, and optional `target`/`profile` defaults. `debug` (a Boolean, `true` when absent) chooses the native program image that `trust-runtime build --target` compiles: `false` builds a release image without debug hooks (specification 44 §13.2); `profile` does not choose the image. The language server reads no other meaning into `debug`.
 - `[[targets]]` describes target profiles (`name`, `profile`, `flags`, `defines`) surfaced to LSP clients for toolchain selection.
 - `[indexing]` budgets (`max_files`, `max_ms`) bound large workspace indexing.
 - `[indexing]` cache options: `cache` (default true) enables persistent index caching across sessions; `cache_dir` overrides the cache location. Cache reuse checks file metadata and stored content hashes.

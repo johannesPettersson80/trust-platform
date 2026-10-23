@@ -121,7 +121,7 @@ pub fn run_native_build(
     emit_source: bool,
     ci: bool,
 ) -> anyhow::Result<()> {
-    use trust_runtime::native::{build, triple, Options, Toolchain};
+    use trust_runtime::native::{build, debug_hooks, triple, Options, Toolchain};
     let bundle_root = match bundle {
         Some(path) => path,
         None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
@@ -131,6 +131,8 @@ pub fn run_native_build(
         &bundle_root,
         sources.as_deref(),
     )?;
+    // The project's `[build] debug` chooses a debug or a release image (specification 44 §13.2).
+    let debug = debug_hooks(&bundle_root)?;
     let toolchain = Toolchain::from_env()?;
     let build_folder = bundle_root.join("build");
     let work = build_folder.join("native").join(triple(target));
@@ -138,7 +140,7 @@ pub fn run_native_build(
         &files,
         &Options {
             target,
-            hooks: true,
+            hooks: debug,
         },
         &toolchain,
         &work,
@@ -160,6 +162,7 @@ pub fn run_native_build(
         "command": "build",
         "status": "ok",
         "target": triple(target),
+        "debug": debug,
         "image": image.display().to_string(),
         "image_bytes": built.image.len(),
         "record": record.display().to_string(),
@@ -186,7 +189,12 @@ pub fn run_native_build(
     }
     println!("{}", style::success(format!("Wrote {}", image.display())));
     println!(
-        "Image {} bytes: code {}, read-only data {}, starting memory {}",
+        "{} {} bytes: code {}, read-only data {}, starting memory {}",
+        if debug {
+            "Debug image"
+        } else {
+            "Release image (no debug hooks)"
+        },
         built.image.len(),
         figure.code,
         figure.rodata,

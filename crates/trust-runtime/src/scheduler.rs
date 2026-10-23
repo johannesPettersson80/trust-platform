@@ -22,7 +22,9 @@ use command_queue::{command_channel, try_queue};
 pub use command_queue::{CommandSendError, ReloadClaim, RESOURCE_COMMAND_CAPACITY};
 // The supervisor's decisions are shared runtime code (spec 34 ARCH-11); the threads, waits and
 // restarts below call them.
-use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+// The step's request, outcome and refusal travel in `ResourceCommand::StepCycle`, so a crate that
+// serves resource commands names them from here.
+pub use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use trust_runtime_services::resource::commands::{
     running_command_effect, CommandClass, RunningCommandEffect,
 };
@@ -41,6 +43,7 @@ mod command_queue;
 mod faulted;
 mod stepped;
 mod stopped;
+mod stopping;
 mod supervisor;
 
 #[cfg(test)]

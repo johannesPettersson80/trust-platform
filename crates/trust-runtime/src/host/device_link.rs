@@ -301,19 +301,16 @@ impl DeviceLink {
         }
     }
 
-    /// Leaves the device Stopped: a running program is shut down, and a faulted one, which takes
-    /// nothing but a restart (specification 34 STATE-04), is restarted and then shut down.
+    /// Leaves the device Stopped: `shutdown` stops a running, paused or faulted program
+    /// (specification 34 STATE-08), and a faulted one is never started again on the way.
     ///
     /// # Errors
     ///
-    /// The [`DeviceLinkError`] of a request, or of a device that does not stop.
+    /// The [`DeviceLinkError`] of a request, or of a device that does not stop: one whose stop
+    /// failed stays faulted with the stop's error.
     pub fn stop(&mut self) -> Result<(), DeviceLinkError> {
-        match self.state()?.as_str() {
-            "stopped" => return Ok(()),
-            "faulted" => {
-                self.call("restart", Some(json!({"mode": "cold"})), REPLY_WAIT)?;
-            }
-            _ => {}
+        if self.state()? == "stopped" {
+            return Ok(());
         }
         self.call("shutdown", None, REPLY_WAIT)?;
         self.wait_for("stopped")
