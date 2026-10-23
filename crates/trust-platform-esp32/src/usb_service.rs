@@ -147,7 +147,9 @@ where
 
 /// Continues the reply in flight into the IN FIFO whenever the FIFO can take bytes: at most one
 /// FIFO, into what [`UsbFifo::in_fifo_free`] shows is free, marking the packet done (`WR_DONE`),
-/// and the IN FIFO's empty interrupt is disabled once nothing is unsent (design §2.2).
+/// and the IN FIFO's empty interrupt is disabled once nothing is unsent (design §2.2). The last
+/// packet of a reply is never a full FIFO, so it ends the host's transfer (specification 34,
+/// Appendix D.2).
 ///
 /// A watchdog core reset does not reset the USB-Serial/JTAG peripheral, and after it the
 /// peripheral can report the IN FIFO free while its empty event never arrives (specification 34,
@@ -157,10 +159,20 @@ pub fn resume_reply<F>(fifo: &mut F, link: &mut DeviceLineLink)
 where
     F: UsbFifo,
 {
-    if link.unsent().is_empty() || !fifo.in_fifo_free() {
+    let unsent = link.unsent();
+    if unsent.is_empty() || !fifo.in_fifo_free() {
         return;
     }
-    let written = fifo.write_in(link.unsent());
+    // A bulk transfer ends at a packet shorter than the endpoint's 64 bytes, and the host's CDC-ACM
+    // driver passes on what it has read only when a transfer ends or its two-packet buffer fills:
+    // a reply whose last packet were a full 64 bytes would wait in the host until the next packet.
+    // So the last 64 bytes go out as 63 and then 1 (specification 34, Appendix D.2).
+    let take = if unsent.len() == FIFO_BYTES {
+        FIFO_BYTES - 1
+    } else {
+        unsent.len()
+    };
+    let written = fifo.write_in(&unsent[..take]);
     link.mark_sent(written);
     if link.unsent().is_empty() {
         // Nothing is unsent: `send_frame` enables the interrupt again with the next reply.

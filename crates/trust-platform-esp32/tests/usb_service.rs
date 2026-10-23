@@ -272,6 +272,41 @@ fn the_in_fifo_is_filled_64_bytes_at_a_time_then_its_interrupt_is_disabled() {
     assert!(!fifo.in_empty_enabled);
 }
 
+/// A reply whose bytes fill whole packets ends with a packet shorter than 64 bytes.
+///
+/// Specification 34, Appendix D.2: a bulk transfer ends at a packet shorter than the endpoint's 64
+/// bytes, and the host's CDC-ACM driver passes on what it has read only when a transfer ends or its
+/// two-packet buffer fills. The bench's `status` replies of 1,984 bytes with their line feed, 31
+/// full packets, kept their last packet in the host until the next request, and the client gave up.
+/// The same reply here goes out as 30 packets of 64 bytes, one of 63 and one of 1. The wrong
+/// behaviour: a 31st full packet, which waits in the host.
+#[test]
+fn a_reply_of_whole_packets_ends_with_a_short_packet() {
+    let reply = vec![b'a'; 1_983];
+    let mut link = DeviceLineLink::new(PeerClass::Local);
+    assert_eq!(link.send_frame(&reply, now()), Ok(()));
+    assert_eq!(link.unsent().len(), 1_984);
+    let mut fifo = FakeFifo {
+        in_empty_enabled: true,
+        ..FakeFifo::default()
+    };
+    let wake = Wake::default();
+    let mut packets = Vec::new();
+    for _ in 0..40 {
+        fifo.pending.in_empty = true;
+        service(&mut fifo, &mut link, &wake);
+        if !fifo.in_fifo.is_empty() {
+            packets.push(fifo.in_fifo.len());
+            // The host reads the packet.
+            fifo.in_fifo.clear();
+        }
+    }
+    let mut expected = vec![64; 30];
+    expected.extend([63, 1]);
+    assert_eq!(packets, expected);
+    assert!(link.unsent().is_empty());
+}
+
 /// A reply in flight is continued by the next servicing pass even when the IN-empty event is lost
 /// and the FIFO already reports room.
 ///

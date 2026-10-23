@@ -3827,7 +3827,14 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   boot, and reports their count. A non-record line anywhere else fails the run. The same port
   carries the control link (specification 34, PORT-05), and a watchdog core reset does not reset
   the USB-Serial/JTAG peripheral, so the firmware clears its CDC-ACM FIFOs and interrupt state as
-  it binds the link at boot, and the link answers after any reset the firmware survives.
+  it binds the link at boot, and the link answers after any reset the firmware survives. A reply is
+  written into the 64-byte IN FIFO one packet at a time, and its last packet is never a full 64
+  bytes: a bulk transfer ends at a packet shorter than the endpoint's 64 bytes, and the host's
+  CDC-ACM driver passes on what it has read only when a transfer ends or its read buffer (two
+  packets) fills, so a reply whose last packet is a full one waits in the host until the next
+  packet arrives. The bench met this on 23 October 2026: `status` replies of 1,984 bytes, 31 full
+  packets, kept their last packet in the host until the next request, and the client gave up after
+  5 seconds. The last 64 bytes of a reply therefore go out as a packet of 63 bytes and one of 1.
 - **Supervision.** `esp_hal::init` disables the RTC and timer-group watchdogs. The firmware arms
   MWDT0 (TIMG0), stage 0 resetting the system, with F401's 4,000 ms interval. After the deliberately
   withheld feed the chip reports reset reason 0x07 (`CoreMwdt0`; the ROM prints

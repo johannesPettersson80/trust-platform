@@ -45,6 +45,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   written and read back, and `program.install` checks the container in the slot and programs only
   its header, the magic last (specification 34 §5.1). An upload begun while the program runs is held
   in memory as before. A client waits up to 5 seconds for each begin and part reply.
+- Fixed: the ESP32-C6 no longer ends a reply with a full 64-byte USB packet. The host passes on a
+  transfer's bytes only after a shorter packet, so a reply whose length was a multiple of 64 bytes
+  (a 1,984-byte `status`, for example) kept its last 64 bytes in the host until the next request,
+  and the client timed out; the last 64 bytes now go out as 63 and 1.
 - Added: `trust-runtime bench project --execution-backend native` runs a project compiled for this
   computer on the kernel, cycle after cycle in logical time, and reports each task's time per
   activation and the image's code and memory figure (specification 44 §14.3).
