@@ -33,7 +33,7 @@ pub use strings::{Str, StrView, WStr, WStrView};
 
 /// The version of this interface. A module carries the version it was built against in its image's
 /// header, and a kernel runs only a module of its own version (specification 44 §8.2, §10.2).
-pub const INTERFACE_VERSION: u32 = 2;
+pub const INTERFACE_VERSION: u32 = 3;
 
 /// The id of the input area, `%I` (specification 44 §7.1).
 pub const AREA_INPUTS: u8 = 1;
@@ -126,6 +126,8 @@ pub struct Cx {
     pub now_ns: i64,
     /// The statements this activation may still execute (specification 44 §8.4).
     pub budget: u32,
+    /// The recursive calls this activation may still make (specification 44 §6.4, §8.5).
+    pub depth: u32,
     /// The id of the statement being executed (specification 44 §13).
     pub stmt: u32,
     /// Not 0 while the kernel wants statements to look at their breakpoint bits: a breakpoint is

@@ -8,6 +8,7 @@ use super::front::{first_token_start, last_token_end, Front, StatementIds};
 use super::init::StartingMemory;
 use super::model::Model;
 use super::module::Module;
+use super::stack::StackFigure;
 use super::types::{Kind, Member, Ty, TypeInfo};
 use super::NativeError;
 use trust_plc_abi as abi;
@@ -230,7 +231,8 @@ pub(super) struct Inputs<'g> {
     pub(super) generated: &'g Generated,
     pub(super) module: &'g Module,
     pub(super) memory: &'g StartingMemory,
-    pub(super) stack: u64,
+    /// The stack bound and the call level (specification 44 §8.5).
+    pub(super) stack: StackFigure,
 }
 
 fn align8(value: usize) -> usize {
@@ -637,13 +639,14 @@ pub(super) fn write(
         64 * (model.tasks.len() as u64) + (inputs.ids.order.len() as u64).div_ceil(8) + 256;
     let mut figure = MemoryFigure {
         areas: area_bytes,
-        stack: inputs.stack,
+        stack: inputs.stack.bound,
         bookkeeping,
         retain_capture: 0,
-        total: area_bytes + inputs.stack + bookkeeping,
+        total: area_bytes + inputs.stack.bound + bookkeeping,
         code: inputs.module.code.code.len() as u64,
         rodata: inputs.module.code.rodata.len() as u64,
         init: init_bytes,
+        call_level: inputs.stack.call_level,
     };
     writer.section(SectionId::MemFig, figure.bytes().to_vec());
     // The capture of the retained values holds the largest checkpoint payload twice, the one it

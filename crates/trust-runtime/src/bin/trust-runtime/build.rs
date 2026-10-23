@@ -172,6 +172,7 @@ pub fn run_native_build(
             "bookkeeping": figure.bookkeeping,
             "retain_capture": figure.retain_capture,
             "total": figure.total,
+            "call_level": figure.call_level,
         },
         "flash": {
             "code": figure.code,

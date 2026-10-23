@@ -7,8 +7,8 @@ use alloc::vec::Vec;
 use core::cell::Cell;
 
 use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
-use trust_plc_abi::module::{fault, run};
-use trust_plc_abi::{Cx, FaultCode, AREA_INSTANCES};
+use trust_plc_abi::module::{enter, fault, leave, run};
+use trust_plc_abi::{Cx, Fault, FaultCode, AREA_INSTANCES};
 
 use super::*;
 use crate::native::image::{
@@ -54,7 +54,21 @@ entry!(dividing_by_zero, |cx, _| Err(fault(
 
 entry!(nothing, |_, _| Ok(()));
 
-/// The module of the tests: code offset 0 counts, 16 divides by zero, 32 does nothing.
+/// A recursion that does not end: each call counts in byte 0 and calls itself again.
+fn deeper(cx: &mut Cx, view: &[Cell<u8>; 8]) -> Result<(), Fault> {
+    view[0].set(view[0].get().wrapping_add(1));
+    enter(cx)?;
+    let result = deeper(cx, view);
+    leave(cx);
+    result
+}
+
+entry!(recursing, |cx, areas| {
+    let view: &[Cell<u8>; 8] = areas.view(cx, AREA_INSTANCES)?;
+    deeper(cx, view)
+});
+
+/// The module of the tests: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 recurses.
 struct StandIn;
 
 impl ModuleCode for StandIn {
@@ -63,6 +77,7 @@ impl ModuleCode for StandIn {
             0 => Some(Entry::from_fn(counting)),
             16 => Some(Entry::from_fn(dividing_by_zero)),
             32 => Some(Entry::from_fn(nothing)),
+            48 => Some(Entry::from_fn(recursing)),
             _ => None,
         }
     }
@@ -79,7 +94,7 @@ pub(crate) fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8
         bit: 1,
         flags: 0,
     };
-    image_with(body, total, stack, target, out, 0)
+    image_with(body, total, stack, target, out, 0, 0)
 }
 
 /// The image of [`image`] with its one binding `binding` and a marker image of `markers` bytes.
@@ -90,6 +105,7 @@ fn image_with(
     target: Target,
     binding: IoBindRecord,
     markers: u64,
+    call_level: u64,
 ) -> Vec<u8> {
     let mut strings = StringPool::new();
     let main = strings.add("MAIN");
@@ -195,6 +211,7 @@ fn image_with(
         MemoryFigure {
             total,
             stack,
+            call_level,
             ..MemoryFigure::default()
         }
         .bytes()
@@ -325,7 +342,7 @@ fn a_start_publishes_the_marker_variables_and_keeps_the_image() {
         bit: 0,
         flags: 0,
     };
-    let bytes = image_with(0, 100, 50, device.target, count_at_mb0, 2);
+    let bytes = image_with(0, 100, 50, device.target, count_at_mb0, 2, 0);
     let image = admit(&bytes, &device).unwrap();
     let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
     program.cold_start(Duration::ZERO).unwrap();
@@ -383,6 +400,39 @@ fn a_module_fault_ends_the_scan() {
     assert_eq!(result, Err(RuntimeError::DivisionByZero));
     assert_eq!(program.outputs[0], 0xAA);
     assert_eq!(program.last_fault().detail[0], 7);
+}
+
+/// A recursion takes the call depth the task stack holds beyond the stack bound (specification 44
+/// §6.4, §8.5): with a task stack of 4,096 bytes, a bound of 1,000 and call levels of 512 bytes, an
+/// activation may make (4,096 - 1,000) / 512 = 6 recursive calls, so the recursion runs 7 times,
+/// the entry's call and 6 recursive ones, and the 7th recursive call ends the scan as the bytecode
+/// engine ends a call beyond its call levels. The count starts at 5, its initial value, so it reads
+/// 12 after the first activation and 19 after the next, which has the whole depth again.
+#[test]
+fn a_recursion_takes_the_depth_its_task_stack_holds() {
+    use crate::value::Value;
+    let device = device();
+    let out = IoBindRecord {
+        symbol: 2,
+        area: 2,
+        size: 0,
+        byte: 0,
+        bit: 1,
+        flags: 0,
+    };
+    let bytes = image_with(48, 100, 1000, device.target, out, 0, 512);
+    let image = admit(&bytes, &device).unwrap();
+    let mut program = NativeProgram::new(image, StandIn, &device, &WITHOUT_DEBUGGER).unwrap();
+    program.cold_start(Duration::ZERO).unwrap();
+    let result = program.scan(Duration::from_nanos(10 * MS), &mut NoHooks);
+    assert_eq!(
+        result,
+        Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error())
+    );
+    assert_eq!(program.value("MAIN.COUNT"), Some(Value::USInt(12)));
+    let again = program.scan(Duration::from_nanos(20 * MS), &mut NoHooks);
+    assert!(again.is_err());
+    assert_eq!(program.value("MAIN.COUNT"), Some(Value::USInt(19)));
 }
 
 /// Each fault code maps to its runtime error with its numbers.

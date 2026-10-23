@@ -55,6 +55,22 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   counts the passes through loops, and cannot be debugged (specification 44 §13.2). On an x86-64
   computer the pasteurizer's control task takes 150 ns per activation as a release image instead of
   221 to 231 ns, and its code is 21,184 bytes instead of 47,504.
+- Added: compiled programs may be recursive, as interpreted ones are: a function, a method or a
+  function block that calls itself, directly, through others or through an interface, runs within
+  a call depth that the kernel works out from the task's stack, the stack beyond the program's
+  bound in the bytes one turn of its largest cycle takes, which the build reports as `call_level`.
+  A recursion that does not end ends the scan with the error a call beyond the bytecode engine's
+  call levels gives (`invalid bytecode 'vm call stack overflow'`) instead of overrunning the stack
+  (specification 44 §6.4, §8.5). The kernel interface is version 3: a kernel refuses an image of
+  another version, so a chip's firmware and its programs are updated together.
+- Changed: compiled programs make their checks where they can fail and nowhere else, none dropped
+  (specification 44 §6.5, §6.6): an array element at a constant index inside the bounds is not
+  checked when the scan runs; a chain of real `+ - *` on variables and literals checks its result at
+  its last operation, which faults in the same cases and statement as a check of each; and a release
+  image keeps a `FOR` loop's counter in a register when nothing in the body but the loop can change
+  it. On an x86-64 computer the pasteurizer's control task takes 140 to 151 ns per activation as a
+  release image instead of 150 ns (RuSTy 140 to 141 ns), and its code is 20,188 bytes instead of
+  21,184.
 - Changed: a control request costs less on a chip: a request line is read straight into the request,
   without first building a JSON value of the whole line (on the ESP32-C6 about 0.08 ms less per
   request), and a chip answers `program.active` from the identities it has read until an install

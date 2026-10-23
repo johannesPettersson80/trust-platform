@@ -49,7 +49,8 @@ pub fn compare(project: &Path, cycle_ms: i64, scans: i64) -> Result<usize, Strin
 }
 
 /// Runs `sources` for `scans` scans of `cycle_ms` on both, as [`compare`] does; `label` names its
-/// work folder.
+/// work folder. The module is a debug image, or a release image when `TRUST_COMPARE_RELEASE` is
+/// set (specification 44 §13.2), which holds the control variables of loops (§6.6).
 pub fn compare_sources(
     label: &str,
     sources: &[SourceFile],
@@ -67,7 +68,7 @@ pub fn compare_sources(
         sources,
         &Options {
             target: host,
-            hooks: true,
+            hooks: std::env::var_os("TRUST_COMPARE_RELEASE").is_none(),
         },
         &toolchain,
         &work,
@@ -77,7 +78,9 @@ pub fn compare_sources(
     let device = Device {
         target: host,
         program_memory: 1 << 30,
-        task_stack: 1 << 24,
+        // No more than a test's thread has, 2 MiB; a recursion's call depth spends it
+        // (specification 44 §8.5).
+        task_stack: 1 << 20,
         max_statements: 1_000_000,
     };
     let mut program = load(&built.image, &device).map_err(|error| error.to_string())?;

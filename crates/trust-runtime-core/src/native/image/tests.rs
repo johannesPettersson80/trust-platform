@@ -212,6 +212,7 @@ fn sample(spec: &Sample) -> Vec<u8> {
             code: 32,
             rodata: 16,
             init: 8,
+            call_level: 40,
         }
         .bytes()
         .to_vec(),
@@ -276,6 +277,7 @@ fn an_image_reads_back_as_written() {
         &[7, 0, 0, 0, 3, 0, 0, 0]
     );
     assert_eq!(image.memory_figure().total, 592);
+    assert_eq!(image.memory_figure().call_level, 40);
     let types = image.table::<TypeRecord>().unwrap();
     let program = types.get(1).unwrap();
     let detail = &image.section_bytes(SectionId::Types)[program.detail as usize..];

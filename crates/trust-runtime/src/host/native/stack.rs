@@ -1,7 +1,8 @@
-//! The stack bound of a compiled program (specification 44 §8.5): the deepest static chain of calls
-//! from each entry point of the linked module, every function's frame from the compiler's
-//! `prolog-epilog` remarks, the kernel functions a statement may call on the same stack, and a
-//! margin of a quarter. The call graph comes from the call relocations the link keeps
+//! The stack bound of a compiled program (specification 44 §8.5): the deepest chain of calls from
+//! each entry point of the linked module, a recursion's cycle counted once, every function's frame
+//! from the compiler's `prolog-epilog` remarks, the kernel functions a statement may call on the same
+//! stack, and a margin of a quarter; and the bytes of one call level of a recursion, which the call
+//! depth bounds (§6.4). The call graph comes from the call relocations the link keeps
 //! (`--emit-relocs`).
 
 use std::collections::HashMap;
@@ -36,12 +37,21 @@ fn calls(target: Target) -> (&'static [u32], i64) {
     }
 }
 
-/// The bound of the stack every entry point named in `entries` may take, from the linked module
-/// `elf` built for `target` and the compiler's frames `frames`: the deepest chain over all of them,
-/// with the kernel's functions, and a quarter more. A chain that comes back to a function it
-/// passed goes through a call bound by an instance's class, an interface's or an override's
-/// (IEC 61131-3 has no recursion, which trust-hir refuses): each turn runs on another instance, so
-/// the functions of the cycle count once for each of the program's `instances` with a class id.
+/// The stack a module takes (specification 44 §8.5).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct StackFigure {
+    /// The bound of the stack every entry point may take, a recursion's cycle counted once.
+    pub(super) bound: u64,
+    /// The most one recursive call adds until the next: the frames of the largest cycle, and a
+    /// quarter more; 0 for a module without a cycle.
+    pub(super) call_level: u64,
+}
+
+/// The stack every entry point named in `entries` may take, from the linked module `elf` built for
+/// `target` and the compiler's frames `frames`: the deepest chain over all of them, with the kernel's
+/// functions, and a quarter more. A chain that comes back to a function it passed is a recursion
+/// (§6.4), whose cycle counts once in the bound, all its frames together; each further turn takes a
+/// call level of the call depth.
 ///
 /// # Errors
 ///
@@ -51,8 +61,7 @@ pub(super) fn bound(
     target: Target,
     frames: &[(String, u64)],
     entries: &[String],
-    instances: u64,
-) -> Result<u64, NativeError> {
+) -> Result<StackFigure, NativeError> {
     let refuse = |reason: String| NativeError::Module(reason);
     let file = object::File::parse(elf).map_err(|error| refuse(format!("{error}")))?;
     let Some(text) = file.section_by_name(".text") else {
@@ -114,8 +123,8 @@ pub(super) fn bound(
             }
             _ => None,
         };
+        // A function's call of itself is kept: it is a recursion's cycle of one.
         if let Some(callee) = called.and_then(containing)
-            && callee != caller
             && !callees[caller].contains(&callee)
         {
             callees[caller].push(callee);
@@ -129,11 +138,14 @@ pub(super) fn bound(
             *frame = (*frame).max(*bytes);
         }
     }
+    // A call on x86-64 pushes its return address outside the frame the compiler reports; the
+    // other targets keep it in a register or in the frame.
+    let return_address = if target == Target::X86_64 { 8 } else { 0 };
     let frames: Vec<u64> = functions
         .iter()
-        .map(|(start, _, _)| frame_at.get(start).copied().unwrap_or(UNKNOWN_FRAME))
+        .map(|(start, _, _)| frame_at.get(start).copied().unwrap_or(UNKNOWN_FRAME) + return_address)
         .collect();
-    let deepest = deepest_chains(&callees, &frames, instances.max(1));
+    let (deepest, cycle) = deepest_chains(&callees, &frames);
     let mut worst = 0u64;
     for entry in entries {
         let Some(index) = starts.get(entry).copied().and_then(containing) else {
@@ -142,13 +154,17 @@ pub(super) fn bound(
         worst = worst.max(deepest[index]);
     }
     let total = worst.saturating_add(KERNEL_FUNCTIONS);
-    Ok(total.saturating_add(total.div_ceil(4)))
+    Ok(StackFigure {
+        bound: total.saturating_add(total.div_ceil(4)),
+        call_level: cycle.saturating_add(cycle.div_ceil(4)),
+    })
 }
 
 /// The deepest chain of frames from each function of the call graph `callees`, each function's
-/// frame in `frames`: a group of functions that call one another in a cycle counts all its frames
-/// once a turn, for `turns` turns.
-fn deepest_chains(callees: &[Vec<usize>], frames: &[u64], turns: u64) -> Vec<u64> {
+/// frame in `frames`, a group of functions that call one another in a cycle counting all its frames
+/// once; and the frames of the largest cycle, 0 for a graph without one. A group is a cycle when it
+/// has several functions or its one function calls itself.
+fn deepest_chains(callees: &[Vec<usize>], frames: &[u64]) -> (Vec<u64>, u64) {
     let (group, groups) = cycle_groups(callees);
     let mut members: Vec<Vec<usize>> = vec![Vec::new(); groups];
     for (function, &of) in group.iter().enumerate() {
@@ -156,16 +172,19 @@ fn deepest_chains(callees: &[Vec<usize>], frames: &[u64], turns: u64) -> Vec<u64
     }
     // The groups are numbered callers first, so every callee's group is done before its caller's.
     let mut deepest_group = vec![0u64; groups];
+    let mut largest_cycle = 0u64;
     for of in (0..groups).rev() {
         let own: u64 = members[of]
             .iter()
             .map(|&function| frames[function])
             .fold(0, u64::saturating_add);
-        let own = if members[of].len() > 1 {
-            own.saturating_mul(turns)
-        } else {
-            own
-        };
+        let cycle = members[of].len() > 1
+            || members[of]
+                .iter()
+                .any(|&function| callees[function].contains(&function));
+        if cycle {
+            largest_cycle = largest_cycle.max(own);
+        }
         let below = members[of]
             .iter()
             .flat_map(|&function| &callees[function])
@@ -175,13 +194,16 @@ fn deepest_chains(callees: &[Vec<usize>], frames: &[u64], turns: u64) -> Vec<u64
             .unwrap_or(0);
         deepest_group[of] = own.saturating_add(below);
     }
-    group.iter().map(|&of| deepest_group[of]).collect()
+    (
+        group.iter().map(|&of| deepest_group[of]).collect(),
+        largest_cycle,
+    )
 }
 
 /// The group of each function, the functions that call one another in a cycle in one group, and
 /// the number of groups, numbered so that a group's callers come before it (Kosaraju's two walks,
 /// without recursion).
-fn cycle_groups(callees: &[Vec<usize>]) -> (Vec<usize>, usize) {
+pub(super) fn cycle_groups(callees: &[Vec<usize>]) -> (Vec<usize>, usize) {
     let count = callees.len();
     // The order in which a depth-first walk of the calls finishes each function.
     let mut finished = Vec::with_capacity(count);
@@ -246,26 +268,41 @@ mod tests {
     fn the_deepest_chain_follows_the_deepest_callee() {
         let callees = vec![vec![1, 2], vec![2], vec![], vec![]];
         let frames = [16, 32, 64, 100];
-        let deepest = deepest_chains(&callees, &frames, 5);
+        let (deepest, cycle) = deepest_chains(&callees, &frames);
         assert_eq!(deepest[0], 112);
         assert_eq!(deepest[1], 96);
         assert_eq!(deepest[3], 100);
+        assert_eq!(cycle, 0, "a graph without a cycle has no call level");
     }
 
-    /// A cycle through calls bound by an instance's class turns once for each instance: `e` (8)
-    /// calls `a` (16), `a` and `b` (32) call each other, and `b` calls `c` (64). With 3 instances
-    /// the cycle counts (16 + 32) × 3 = 144 bytes, and `c` below it 64, so `e` is 8 + 144 + 64 =
-    /// 216. Catches a cycle refused, counted once, or counted per function instead of per turn.
+    /// Specification 44 §8.5: a recursion's cycle counts once in the chain, all its frames
+    /// together, and its frames are the call level that each further turn takes of the call depth.
+    /// `e` (8) calls `a` (16), `a` and `b` (32) call each other, and `b` calls `c` (64): `e` is
+    /// 8 + (16 + 32) + 64 = 120, and the call level 48. Catches a cycle counted once per class
+    /// instance, as before 23 October 2026, or not at all, and a call level of one frame.
     #[test]
-    fn a_cycle_turns_once_for_each_instance() {
+    fn a_cycle_counts_once_and_its_frames_are_the_call_level() {
         let callees = vec![vec![1], vec![2], vec![1, 3], vec![]];
         let frames = [8, 16, 32, 64];
-        let deepest = deepest_chains(&callees, &frames, 3);
-        assert_eq!(deepest[0], 216);
+        let (deepest, cycle) = deepest_chains(&callees, &frames);
+        assert_eq!(deepest[0], 120);
         assert_eq!(
-            deepest[1], 208,
+            deepest[1], 112,
             "a function of the cycle starts the whole cycle"
         );
         assert_eq!(deepest[3], 64);
+        assert_eq!(cycle, 48);
+    }
+
+    /// A function that calls itself is a cycle of one: its frame is the call level. `f` (24) calls
+    /// itself and `g` (40): `f` is 24 + 40 = 64, the call level 24. Catches a call of a function to
+    /// itself left out of the graph, which no call level would bound.
+    #[test]
+    fn a_function_that_calls_itself_is_a_cycle_of_one() {
+        let callees = vec![vec![0, 1], vec![]];
+        let frames = [24, 40];
+        let (deepest, cycle) = deepest_chains(&callees, &frames);
+        assert_eq!(deepest[0], 64);
+        assert_eq!(cycle, 24);
     }
 }

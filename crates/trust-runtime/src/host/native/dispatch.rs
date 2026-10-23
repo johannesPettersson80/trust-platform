@@ -16,6 +16,7 @@ use super::classes::Owner;
 use super::emit::{method_function, signature, Signature};
 use super::lower::Need;
 use super::model::Model;
+use super::recursion::CallGraph;
 use super::types::{mangle, Kind, Ty};
 use super::NativeError;
 use crate::program_model::MethodDef;
@@ -228,7 +229,11 @@ fn same_signature(
 }
 
 /// The dispatchers `needs` names, as Rust functions.
-pub(super) fn emit(model: &mut Model<'_>, needs: &[Need]) -> Result<String, NativeError> {
+pub(super) fn emit(
+    model: &mut Model<'_>,
+    needs: &[Need],
+    graph: &mut CallGraph,
+) -> Result<String, NativeError> {
     let mut out = String::new();
     for need in needs {
         match need {
@@ -239,10 +244,14 @@ pub(super) fn emit(model: &mut Model<'_>, needs: &[Need]) -> Result<String, Nati
                     names,
                     returns,
                 } = signature(model, method.return_type, &method.params)?;
+                let dispatcher = virtual_function(model, *ty, name);
+                graph.dispatcher(&dispatcher, &method_function(owner, method));
+                for arm in &arms {
+                    graph.dispatcher(&dispatcher, &method_function(arm.owner, arm.method));
+                }
                 let _ = writeln!(
                     out,
-                    "fn {}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{",
-                    virtual_function(model, *ty, name),
+                    "fn {dispatcher}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{",
                     model.types.info(*ty).rust
                 );
                 let field = class_field(model, *ty)?;
@@ -276,10 +285,13 @@ pub(super) fn emit(model: &mut Model<'_>, needs: &[Need]) -> Result<String, Nati
                     names,
                     returns,
                 } = signature(model, declared.return_type, &declared.params)?;
+                let dispatcher = interface_function(interface, name);
+                for arm in &arms {
+                    graph.dispatcher(&dispatcher, &method_function(arm.owner, arm.method));
+                }
                 let _ = writeln!(
                     out,
-                    "fn {}(cx: &mut Cx, w: &World<'_>, r: &abi::RefValue{parameters}) -> R<{returns}> {{\n    match w.areas.class_of(cx, r)? {{",
-                    interface_function(interface, name)
+                    "fn {dispatcher}(cx: &mut Cx, w: &World<'_>, r: &abi::RefValue{parameters}) -> R<{returns}> {{\n    match w.areas.class_of(cx, r)? {{"
                 );
                 for arm in &arms {
                     same_signature(model, (&interface_name, declared), (arm.owner, arm.method))?;
@@ -298,10 +310,10 @@ pub(super) fn emit(model: &mut Model<'_>, needs: &[Need]) -> Result<String, Nati
                 );
             }
             Need::Body(ty) => {
+                let dispatcher = body_function(model, *ty);
                 let _ = writeln!(
                     out,
-                    "fn {}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{",
-                    body_function(model, *ty),
+                    "fn {dispatcher}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{",
                     model.types.info(*ty).rust
                 );
                 let field = class_field(model, *ty)?;
@@ -319,18 +331,17 @@ pub(super) fn emit(model: &mut Model<'_>, needs: &[Need]) -> Result<String, Nati
                     if !derived {
                         continue;
                     }
+                    let derived_body = format!("fb_{}", mangle(&model.types.info(class_ty).name));
+                    graph.dispatcher(&dispatcher, &derived_body);
                     let _ = writeln!(
                         out,
-                        "        {class} => {{\n            {}\n            fb_{}(cx, w, s)\n        }}",
-                        downcast(model, class_ty, class),
-                        mangle(&model.types.info(class_ty).name)
+                        "        {class} => {{\n            {}\n            {derived_body}(cx, w, s)\n        }}",
+                        downcast(model, class_ty, class)
                     );
                 }
-                let _ = writeln!(
-                    out,
-                    "        _ => fb_{}(cx, w, me),\n    }}\n}}\n",
-                    mangle(&model.types.info(*ty).name)
-                );
+                let own_body = format!("fb_{}", mangle(&model.types.info(*ty).name));
+                graph.dispatcher(&dispatcher, &own_body);
+                let _ = writeln!(out, "        _ => {own_body}(cx, w, me),\n    }}\n}}\n");
             }
             Need::Function(_) | Need::Method(..) => {}
         }

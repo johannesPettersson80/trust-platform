@@ -7,7 +7,7 @@
 use trust_runtime::error::{ExecutionLimitKind, RuntimeError};
 use trust_runtime::harness::SourceFile;
 use trust_runtime::native::{
-    build, build_with_tests, load, Device, NoHooks, Options, Target, Toolchain,
+    build, build_with_tests, load, Build, Device, NoHooks, Options, Target, Toolchain,
 };
 use trust_runtime::value::{Duration, Value};
 
@@ -157,6 +157,82 @@ fn a_release_image_counts_only_loop_passes_and_still_ends_an_endless_loop() {
             program.value("MAIN.TURNS"),
             Some(Value::UDInt(turns)),
             "hooks {hooks}"
+        );
+    }
+}
+
+/// An array read and written at constant indexes and at a computed one.
+const INDEXES: &str = "
+PROGRAM Indexes
+VAR
+    Table : ARRAY[1..4] OF INT := [10, 20, 30, 40];
+    i : INT := 3;
+    First : INT;
+    Last : INT;
+    Computed : INT;
+END_VAR
+First := Table[1];
+Last := Table[4];
+Table[2] := 25;
+Computed := Table[i] + Table[2];
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Indexes;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_constant_index_inside_the_bounds_is_not_checked() {
+    // Specification 44 §6.5: the array index is checked wherever it is not a constant inside the
+    // bounds. `Table[1]`, `Table[4]` and `Table[2]` are constants inside 1..4, so the module indexes
+    // the array directly, and only the computed `Table[i]` goes through the library's check, the
+    // one `lib::at` of the generated source. After one scan `First` is 10, `Last` 40, `Table[2]`
+    // 25 and `Computed` 30 + 25 = 55. Catches a constant index checked when the scan runs, and a
+    // constant index that misses the lower bound (`First` would read 20, or the build fail).
+    let toolchain = Toolchain::from_env()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let work = std::env::temp_dir().join(format!("trust-native-indexes-{}", std::process::id()));
+    let built = build(
+        &[SourceFile::new(INDEXES)],
+        &Options {
+            target,
+            hooks: false,
+        },
+        &toolchain,
+        &work,
+    )
+    .unwrap_or_else(|error| panic!("the program builds: {error}"));
+    let _ = std::fs::remove_dir_all(&work);
+    assert_eq!(
+        built.source.matches("lib::at(").count(),
+        1,
+        "{}",
+        built.source
+    );
+    let device = Device {
+        target,
+        program_memory: 1 << 20,
+        task_stack: 1 << 20,
+        max_statements: 1_000,
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::ZERO, &mut NoHooks)
+        .expect("no task is due at the start");
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    for (variable, expected) in [("MAIN.FIRST", 10), ("MAIN.LAST", 40), ("MAIN.COMPUTED", 55)] {
+        assert_eq!(
+            program.value(variable),
+            Some(Value::Int(expected)),
+            "{variable}"
         );
     }
 }
@@ -407,4 +483,334 @@ fn bench_project_measures_a_release_image_when_the_project_asks_for_one() {
         code(&release),
         code(&debug)
     );
+}
+
+/// `source` built for this computer, a debug image with `hooks` and a release image without
+/// (specification 44 §13.2), and the device it runs on.
+fn built_here(source: &str, label: &str, hooks: bool) -> (Build, Device) {
+    let toolchain = Toolchain::from_env()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let work = std::env::temp_dir().join(format!(
+        "trust-native-{label}-{hooks}-{}",
+        std::process::id()
+    ));
+    let built = build(
+        &[SourceFile::new(source)],
+        &Options { target, hooks },
+        &toolchain,
+        &work,
+    )
+    .unwrap_or_else(|error| panic!("{label} builds: {error}"));
+    let _ = std::fs::remove_dir_all(&work);
+    let device = Device {
+        target,
+        program_memory: 1 << 20,
+        task_stack: 1 << 20,
+        max_statements: 1_000,
+    };
+    (built, device)
+}
+
+/// A chain of real `+ - *` on variables.
+const CHAIN: &str = "
+PROGRAM Chain
+VAR
+    A : REAL := 1.5;
+    B : REAL := 2.0;
+    C : REAL := 0.25;
+    D : REAL := 1.0;
+    Result : REAL;
+END_VAR
+Result := A * B + C - D;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Chain;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_chain_of_real_operations_is_checked_at_its_last_operation() {
+    // Specification 44 §6.5: in a chain of real `+ - *` whose operands are variables and literals,
+    // only the last operation checks that its result is finite. `A * B + C - D` is
+    // `((A * B) + C) - D`, so the module checks the subtraction alone: one `lib::fsub` and no
+    // `lib::fmul` or `lib::fadd`. The result is 1.5 * 2.0 + 0.25 - 1.0 = 2.25, exact in binary32.
+    // Catches every operation of the chain checked, and an operation of the chain computed wrong
+    // when it is not checked.
+    let (built, device) = built_here(CHAIN, "chain", false);
+    for (function, count) in [("lib::fsub(", 1), ("lib::fadd(", 0), ("lib::fmul(", 0)] {
+        assert_eq!(
+            built.source.matches(function).count(),
+            count,
+            "{function}\n{}",
+            built.source
+        );
+    }
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    assert_eq!(program.value("MAIN.RESULT"), Some(Value::Real(2.25)));
+}
+
+/// `Big * 2.0` leaves the range of `REAL`; the chain multiplies the infinity by zero.
+const OVERFLOW_IN_A_CHAIN: &str = "
+PROGRAM Overflowing
+VAR
+    Big : REAL := 3.0E38;
+    Result : REAL := 7.0;
+END_VAR
+Result := Big * 2.0 * 0.0;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Overflowing;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// `Big * 2.0` leaves the range of `REAL` before a call that counts itself.
+const OVERFLOW_BEFORE_A_CALL: &str = "
+VAR_GLOBAL
+    Calls : DINT;
+END_VAR
+
+FUNCTION Counted : REAL
+VAR_INPUT
+    x : REAL;
+END_VAR
+VAR_EXTERNAL
+    Calls : DINT;
+END_VAR
+Calls := Calls + 1;
+Counted := x;
+END_FUNCTION
+
+PROGRAM Overflowing
+VAR
+    Big : REAL := 3.0E38;
+    Result : REAL := 7.0;
+END_VAR
+Result := Big * 2.0 + Counted(x := 1.0);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Overflowing;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_real_overflow_in_a_chain_ends_the_statement_where_its_operation_would() {
+    // Specification 05 §7.1: a result outside its type is an overflow, the operands are evaluated
+    // left first, and the error aborts the assignment before its store. Specification 44 §6.5
+    // checks a chain of real `+ - *` at its last operation only where nothing between can fault
+    // or write. 3.0E38 * 2.0 is beyond the largest `REAL`, 3.4028235E38, so both statements end
+    // the scan with `Overflow` and `Result` keeps 7.0. In the first, the module's only check is
+    // the last multiplication's, and the infinity times zero is NaN, which is not finite either.
+    // In the second, a call follows the overflow, so the multiplication is checked itself and
+    // `Counted` never runs: `Calls` stays 0. Catches a chain checked for infinity only (NaN would
+    // be stored), and a chain checked at its end across a call (`Calls` would be 1).
+    let (built, device) = built_here(OVERFLOW_IN_A_CHAIN, "overflow-chain", false);
+    assert_eq!(
+        built.source.matches("lib::fmul(").count(),
+        1,
+        "{}",
+        built.source
+    );
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let error = program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect_err("the overflow ends the scan");
+    assert_eq!(error, RuntimeError::Overflow);
+    assert_eq!(program.value("MAIN.RESULT"), Some(Value::Real(7.0)));
+
+    let (built, device) = built_here(OVERFLOW_BEFORE_A_CALL, "overflow-call", false);
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let error = program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect_err("the overflow ends the scan");
+    assert_eq!(error, RuntimeError::Overflow);
+    assert_eq!(program.value("CALLS"), Some(Value::DInt(0)));
+    assert_eq!(program.value("MAIN.RESULT"), Some(Value::Real(7.0)));
+}
+
+/// Three loops over an array: to the end, to an `EXIT`, and past the bounds.
+const LOOPS: &str = "
+PROGRAM Loops
+VAR
+    Values : ARRAY[1..4] OF INT := [10, 20, 30, 40];
+    I : INT;
+    J : INT;
+    K : INT;
+    Total : INT;
+END_VAR
+FOR I := 1 TO 4 DO
+    Total := Total + Values[I];
+END_FOR;
+FOR J := 1 TO 4 DO
+    IF Values[J] = 30 THEN
+        EXIT;
+    END_IF;
+END_FOR;
+FOR K := 4 TO 10 DO
+    Total := Total + Values[K];
+END_FOR;
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Loops;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_release_image_holds_a_loops_control_variable_and_writes_it_at_each_pass() {
+    // Specification 44 §6.6: a release image holds a `FOR` loop's control variable in a local when
+    // nothing in the body but the loop can write it, and writes the variable at the start of each
+    // pass; the debug image reads it where it lies. The first loop adds 10 + 20 + 30 + 40 = 100
+    // and leaves `I` at 5, the value that ended it (IEC §7.3.3.4.2); the second leaves `J` at 3,
+    // where `EXIT` left it; the third adds `Values[4]`, 140, and ends the scan at `K` = 5 with the
+    // index fault for 5 outside 1..4, `K` holding 5. Both images give these values; the release
+    // image's body reads no control variable from its place. Catches a held variable not written
+    // back at the end, at an `EXIT` or before a fault, and a release image that reads it anyway.
+    for hooks in [true, false] {
+        let (built, device) = built_here(LOOPS, "loops", hooks);
+        for variable in ["me.I.get()", "me.J.get()", "me.K.get()"] {
+            let reads = built.source.matches(variable).count();
+            assert_eq!(
+                reads > 0,
+                hooks,
+                "hooks {hooks}: {variable}\n{}",
+                built.source
+            );
+        }
+        let mut program = load(&built.image, &device).expect("the image loads");
+        program.cold_start(Duration::ZERO).expect("the cold start");
+        let error = program
+            .scan(Duration::from_millis(10), &mut NoHooks)
+            .expect_err("the third loop indexes past the bounds");
+        assert_eq!(
+            error,
+            RuntimeError::IndexOutOfBounds {
+                index: 5,
+                lower: 1,
+                upper: 4
+            },
+            "hooks {hooks}"
+        );
+        for (variable, expected) in [
+            ("MAIN.I", 5),
+            ("MAIN.J", 3),
+            ("MAIN.K", 5),
+            ("MAIN.TOTAL", 140),
+        ] {
+            assert_eq!(
+                program.value(variable),
+                Some(Value::Int(expected)),
+                "hooks {hooks}: {variable}"
+            );
+        }
+    }
+}
+
+/// Two loops whose control variable changes in their body other than by an assignment there: a
+/// method of the function block adds 5 to it, and a global that a `VAR_IN_OUT` names adds 4.
+const WRITERS: &str = "
+VAR_GLOBAL
+    G : INT;
+END_VAR
+
+FUNCTION_BLOCK Stepper
+VAR_OUTPUT
+    I : INT;
+    Passes : INT;
+END_VAR
+METHOD PUBLIC Skip
+I := I + 5;
+END_METHOD
+FOR I := 1 TO 10 DO
+    Passes := Passes + 1;
+    THIS.Skip();
+END_FOR;
+END_FUNCTION_BLOCK
+
+FUNCTION Run : INT
+VAR_IN_OUT
+    X : INT;
+END_VAR
+VAR_EXTERNAL
+    G : INT;
+END_VAR
+VAR
+    N : INT;
+END_VAR
+FOR X := 1 TO 10 DO
+    N := N + 1;
+    G := G + 4;
+END_FOR;
+Run := N;
+END_FUNCTION
+
+PROGRAM Writers
+VAR
+    S : Stepper;
+    Stepped : INT;
+    Last : INT;
+    Aliased : INT;
+END_VAR
+S();
+Stepped := S.Passes;
+Last := S.I;
+Aliased := Run(X := G);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Writers;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+#[test]
+fn a_loop_whose_body_can_reach_its_control_variable_reads_it_at_each_use() {
+    // Specification 44 §6.6: a release image holds no control variable that a call or a
+    // `VAR_IN_OUT` in the body can reach. IEC §7.3.3.4.2 tests the variable at each pass. In
+    // `Stepper` the pass at I = 1 runs `Skip`, I = 6, the increment makes 7, the pass at 7 makes
+    // 12 and the increment 13, past 10: two passes, `I` 13. In `Run`, `X` is `G`: the pass at 1
+    // adds 4, G = 5, the increment makes 6, the pass at 6 makes 10 and the increment 11: two
+    // passes, `G` 11. Catches a held variable that misses a write by a method or through an
+    // alias: ten passes each.
+    let (built, device) = built_here(WRITERS, "writers", false);
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    for (variable, expected) in [
+        ("MAIN.STEPPED", 2),
+        ("MAIN.LAST", 13),
+        ("MAIN.ALIASED", 2),
+        ("G", 11),
+    ] {
+        assert_eq!(
+            program.value(variable),
+            Some(Value::Int(expected)),
+            "{variable}"
+        );
+    }
 }

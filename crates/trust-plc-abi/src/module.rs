@@ -297,6 +297,33 @@ fn budget_used(cx: &mut Cx) -> Fault {
     fault(cx, FaultCode::InfiniteLoop, 0, 0, 0)
 }
 
+/// Takes one from the call depth before a recursive call (specification 44 §6.4); [`leave`] gives it
+/// back when the call returns.
+///
+/// # Errors
+///
+/// [`FaultCode::CallDepth`] when no depth is left.
+#[inline]
+pub fn enter(cx: &mut Cx) -> Result<(), Fault> {
+    if cx.depth == 0 {
+        return Err(depth_used(cx));
+    }
+    cx.depth -= 1;
+    Ok(())
+}
+
+/// Gives back the call depth that [`enter`] took, when the recursive call returns, with a fault too.
+#[inline]
+pub fn leave(cx: &mut Cx) {
+    cx.depth = cx.depth.saturating_add(1);
+}
+
+#[cold]
+#[inline(never)]
+fn depth_used(cx: &mut Cx) -> Fault {
+    fault(cx, FaultCode::CallDepth, 0, 0, 0)
+}
+
 #[cold]
 #[inline(never)]
 #[allow(unsafe_code)]
@@ -356,4 +383,21 @@ pub fn fault(cx: &mut Cx, code: FaultCode, a: i64, b: i64, c: i64) -> Fault {
         detail: [a, b, c],
     };
     Fault::new(code)
+}
+
+/// Makes the recursive call `call` (specification 44 §6.4): takes one from the call depth before it
+/// runs and gives it back when it returns, with a fault too. It is a function of its own that the
+/// module never inlines, nor a body that makes such a call, so every turn of a recursion passes
+/// through two functions and the link keeps a relocation for each call of the cycle, from which the
+/// build finds the cycle's frames (§8.5); a call of a function to itself would keep none.
+///
+/// # Errors
+///
+/// [`FaultCode::CallDepth`] when no depth is left, and the fault of `call`.
+#[inline(never)]
+pub fn recurse<T>(cx: &mut Cx, call: impl FnOnce(&mut Cx) -> Result<T, Fault>) -> Result<T, Fault> {
+    enter(cx)?;
+    let result = call(cx);
+    leave(cx);
+    result
 }

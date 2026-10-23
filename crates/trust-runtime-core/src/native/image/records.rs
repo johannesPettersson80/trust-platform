@@ -596,11 +596,15 @@ pub struct MemoryFigure {
     pub rodata: u64,
     /// The starting memory, in flash on a chip.
     pub init: u64,
+    /// The bytes of one call level of a recursion, which the total does not count: the most a
+    /// recursive call adds to the stack until the next (specification 44 §8.5); 0 for a program
+    /// without one.
+    pub call_level: u64,
 }
 
 impl MemoryFigure {
     /// The bytes of `MEMFIG`.
-    pub const BYTES: usize = 64;
+    pub const BYTES: usize = 72;
 
     /// The figure in `bytes`.
     #[must_use]
@@ -614,6 +618,7 @@ impl MemoryFigure {
             code: u64_at(bytes, 40),
             rodata: u64_at(bytes, 48),
             init: u64_at(bytes, 56),
+            call_level: u64_at(bytes, 64),
         }
     }
 
@@ -630,6 +635,7 @@ impl MemoryFigure {
             self.code,
             self.rodata,
             self.init,
+            self.call_level,
         ]
         .into_iter()
         .enumerate()

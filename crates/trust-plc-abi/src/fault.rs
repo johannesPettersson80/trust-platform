@@ -84,11 +84,14 @@ pub enum FaultCode {
     /// A test's `ASSERT_NEAR` failed: the expected, the actual and the delta in binary64:
     /// `runtime_assertion_failed`.
     AssertionNear = 18,
+    /// A recursive call found no call depth left (specification 44 §6.4): the bytecode engine's
+    /// call beyond its call levels, `vm call stack overflow`.
+    CallDepth = 19,
 }
 
 impl FaultCode {
     /// Every code, in the order of their numbers.
-    pub const ALL: [Self; 18] = [
+    pub const ALL: [Self; 19] = [
         Self::DivisionByZero,
         Self::ModuloByZero,
         Self::Overflow,
@@ -107,6 +110,7 @@ impl FaultCode {
         Self::ModuleInternal,
         Self::AssertionFailed,
         Self::AssertionNear,
+        Self::CallDepth,
     ];
 
     /// The code numbered `raw`, or `None` for a number no code has.

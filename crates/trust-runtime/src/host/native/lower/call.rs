@@ -413,13 +413,13 @@ impl<'a> Lowerer<'_, 'a> {
         leading.extend(receiver);
         let Some(ret) = crate::native::emit::return_type(self.model, ret)? else {
             arguments.splice(0..0, leading);
-            self.line(&format!("{function}({})?;", arguments.join(", ")));
+            self.call_line(function, &arguments.join(", "));
             return Ok(Called::Nothing);
         };
         let info = self.info(ret).clone();
         if super::is_scalar(&info.kind) {
             arguments.splice(0..0, leading);
-            let value = self.bind(&format!("{function}({})?", arguments.join(", ")));
+            let value = self.call_value(function, &arguments.join(", "));
             return match want {
                 Want::Scalar(target) => {
                     let converted = self.convert(node, &value, ret, *target)?;
@@ -435,12 +435,38 @@ impl<'a> Lowerer<'_, 'a> {
         ));
         leading.push(format!("&{temp}"));
         arguments.splice(0..0, leading);
-        self.line(&format!("{function}({})?;", arguments.join(", ")));
+        self.call_line(function, &arguments.join(", "));
         Ok(Called::Place(Place {
             expr: temp,
             ty: ret,
             is_ref: false,
         }))
+    }
+
+    /// The call of the generated function `function` with `arguments` as a statement, its fault
+    /// passed on.
+    fn call_line(&mut self, function: &str, arguments: &str) {
+        let call = self.generated_call(function, arguments);
+        self.line(&format!("{call}?;"));
+    }
+
+    /// The value of the call of the generated function `function` with `arguments`, bound to a
+    /// temporary, as [`Self::call_line`] calls it.
+    fn call_value(&mut self, function: &str, arguments: &str) -> String {
+        let call = self.generated_call(function, arguments);
+        self.bind(&format!("{call}?"))
+    }
+
+    /// The call of `function` with `arguments`, which are values already computed: a recursive call
+    /// through the library's `recurse`, which takes one from the call depth before it runs and
+    /// gives it back when it returns, with a fault too (specification 44 §6.4).
+    fn generated_call(&mut self, function: &str, arguments: &str) -> String {
+        self.called.insert(function.to_string());
+        if self.recursive.contains(function) {
+            format!("recurse(cx, |cx| {function}({arguments}))")
+        } else {
+            format!("{function}({arguments})")
+        }
     }
 
     fn function_call(
@@ -542,7 +568,7 @@ impl<'a> Lowerer<'_, 'a> {
         }
         match body {
             Body::User(function) => {
-                self.line(&format!("{function}(cx, w, {})?;", instance.reference()));
+                self.call_line(&function, &format!("cx, w, {}", instance.reference()));
             }
             Body::Library((function, timed)) => {
                 let time = if timed { ", cx.now_ns" } else { "" };

@@ -228,24 +228,6 @@ impl<'a> Model<'a> {
         })
     }
 
-    /// The instances with a class id the program holds, in its globals and its program instances:
-    /// the most instances a chain of calls bound by their class can pass (specification 44 §8.5).
-    pub(super) fn class_instances(&self) -> u64 {
-        let globals = self
-            .globals
-            .iter()
-            .map(|global| self.types.class_instances(global.ty));
-        let programs = self.instances.iter().flat_map(|instance| {
-            let program = &self.program_types[instance.program];
-            program
-                .members
-                .iter()
-                .chain(&program.retained)
-                .map(|member| self.types.class_instances(member.ty))
-        });
-        globals.chain(programs).fold(0, u64::saturating_add)
-    }
-
     /// The global named `name`, compared without case.
     pub(super) fn global(&self, name: &str) -> Option<&Global> {
         self.globals

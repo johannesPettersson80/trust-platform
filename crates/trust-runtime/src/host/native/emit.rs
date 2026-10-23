@@ -2,27 +2,21 @@
 //! the areas as `#[repr(C)]` structures of cells with an assertion of every offset, every POU as a
 //! function, and the entry points the kernel calls.
 
+use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
 use smol_str::SmolStr;
 
 use super::classes::Owner;
+use super::entries::{entries, reference_initializers, Entry};
 use super::front::{Front, StatementIds};
 use super::lower::{Frame, Lowerer, Need, Place, PRELUDE};
 use super::model::{AreaLayout, Model};
+use super::recursion::{CallGraph, Recursion};
 use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
 use crate::program_model::{FunctionDef, MethodDef, Param, VarDef};
-use trust_runtime_core::native::image::{EntryKind, Target};
-
-/// An entry point of the module.
-pub(super) struct Entry {
-    /// The exported symbol.
-    pub(super) symbol: String,
-    pub(super) kind: EntryKind,
-    /// The program instance's index for a program body.
-    pub(super) index: u32,
-}
+use trust_runtime_core::native::image::Target;
 
 /// The generated crate and what the image's tables need of it.
 pub(super) struct Generated {
@@ -93,7 +87,8 @@ fn body_of(node: &trust_syntax::syntax::SyntaxNode) -> Option<trust_syntax::synt
         .find(|child| child.kind() == trust_syntax::syntax::SyntaxKind::StmtList)
 }
 
-/// Generates the crate of `model` for `target`.
+/// Generates the crate of `model` for `target`, with the calls `recursion` names bounded by the call
+/// depth, and returns it with its call graph (specification 44 §6.4).
 ///
 /// # Errors
 ///
@@ -104,7 +99,9 @@ pub(super) fn generate<'a>(
     ids: &StatementIds,
     target: Target,
     hooks: bool,
-) -> Result<Generated, NativeError> {
+    recursion: &Recursion,
+) -> Result<(Generated, CallGraph), NativeError> {
+    let mut graph = CallGraph::default();
     let mut functions = String::new();
     let mut pous = 0usize;
     let mut statement_pous = vec![u16::MAX; ids.order.len()];
@@ -154,7 +151,9 @@ pub(super) fn generate<'a>(
         };
         index += 1;
         let pou = u16::try_from(pous).unwrap_or(u16::MAX);
-        let (text, statements, needs) = body(front, model, ids, &item, hooks)?;
+        let (text, statements, needs, name, called) =
+            body(front, model, ids, &item, hooks, recursion)?;
+        graph.body(&name, called);
         pous += 1;
         for statement in statements {
             if let Some(slot) = statement_pous.get_mut(statement as usize) {
@@ -173,7 +172,7 @@ pub(super) fn generate<'a>(
             }
         }
     }
-    functions.push_str(&super::dispatch::emit(model, &dispatchers)?);
+    functions.push_str(&super::dispatch::emit(model, &dispatchers, &mut graph)?);
 
     let mut source = String::new();
     source.push_str(
@@ -199,11 +198,14 @@ pub(super) fn generate<'a>(
     source.push_str(
         "\n#[panic_handler]\nfn panic(_: &core::panic::PanicInfo<'_>) -> ! {\n    loop {}\n}\n",
     );
-    Ok(Generated {
-        source,
-        entries,
-        statement_pous,
-    })
+    Ok((
+        Generated {
+            source,
+            entries,
+            statement_pous,
+        },
+        graph,
+    ))
 }
 
 /// Queues the body of the function or method `need` names, once; returns whether it is new.
@@ -276,14 +278,16 @@ fn method_body(
     accessor(K::PropertyGet, &method.name)
 }
 
-/// The Rust of one body, its statements and the POUs it calls.
+/// The Rust of one body, its statements, the POUs it calls, its function's name and the generated
+/// functions it calls; its calls that `recursion` names take one from the call depth.
 fn body<'a>(
     front: &Front,
     model: &mut Model<'a>,
     ids: &StatementIds,
     item: &Work<'a>,
     hooks: bool,
-) -> Result<(String, Vec<u32>, Vec<Need>), NativeError> {
+    recursion: &Recursion,
+) -> Result<GeneratedBody, NativeError> {
     use trust_syntax::syntax::SyntaxKind as K;
     match item {
         Work::Program(index) => {
@@ -306,15 +310,15 @@ fn body<'a>(
                 )));
             };
             let source = &front.sources[file];
+            let name = format!("prog_{}", mangle(&def.name));
             let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Program(*index), hooks);
+            lowerer.recursive = recursion.callees_of(&name);
             declare_locals(&mut lowerer, &def.temps)?;
             if let Some(list) = body_of(&node) {
                 lowerer.statements(list.children())?;
             }
             lowerer.line("Ok(())");
-            let needs = lowerer.needs.clone();
-            let (text, statements) = lowerer.finish();
-            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
+            Ok(finished(lowerer, &signature, name))
         }
         Work::FunctionBlock(ty) => {
             let info = model.types.info(*ty).clone();
@@ -340,16 +344,16 @@ fn body<'a>(
                 )));
             };
             let source = &front.sources[file];
+            let name = format!("fb_{}", mangle(&def.name));
             let mut lowerer =
                 Lowerer::new(model, source, file, ids, Frame::FunctionBlock(*ty), hooks);
+            lowerer.recursive = recursion.callees_of(&name);
             declare_locals(&mut lowerer, &def.temps)?;
             if let Some(list) = body_of(&node) {
                 lowerer.statements(list.children())?;
             }
             lowerer.line("Ok(())");
-            let needs = lowerer.needs.clone();
-            let (text, statements) = lowerer.finish();
-            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
+            Ok(finished(lowerer, &signature, name))
         }
         Work::Method(owner, method, ty) => {
             let info = model.types.info(*ty).clone();
@@ -361,7 +365,9 @@ fn body<'a>(
                 )));
             };
             let source = &front.sources[file];
+            let name = method_function(*owner, method);
             let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Method(*ty), hooks);
+            lowerer.recursive = recursion.callees_of(&name);
             let (parameters, returns) = frame(
                 &mut lowerer,
                 &method.name,
@@ -381,14 +387,11 @@ fn body<'a>(
             }
             let exit = lowerer.exit.clone();
             lowerer.line(&exit);
-            let needs = lowerer.needs.clone();
-            let (text, statements) = lowerer.finish();
             let signature = format!(
-                "fn {}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
-                method_function(*owner, method),
+                "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
                 info.rust
             );
-            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
+            Ok(finished(lowerer, &signature, name))
         }
         Work::Function(def) => {
             let Some((file, node)) = find_pou(front, K::Function, &def.name, None) else {
@@ -398,7 +401,9 @@ fn body<'a>(
                 )));
             };
             let source = &front.sources[file];
+            let name = format!("f_{}", mangle(&def.name));
             let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Function, hooks);
+            lowerer.recursive = recursion.callees_of(&name);
             let (parameters, returns) = frame(
                 &mut lowerer,
                 &def.name,
@@ -417,15 +422,36 @@ fn body<'a>(
             }
             let exit = lowerer.exit.clone();
             lowerer.line(&exit);
-            let needs = lowerer.needs.clone();
-            let (text, statements) = lowerer.finish();
-            let signature = format!(
-                "fn f_{}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n",
-                mangle(&def.name)
-            );
-            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
+            let signature =
+                format!("fn {name}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n");
+            Ok(finished(lowerer, &signature, name))
         }
     }
+}
+
+/// One body as [`body`] generates it: its Rust, its statements, the POUs it needs, its function's
+/// name and the generated functions it calls.
+type GeneratedBody = (String, Vec<u32>, Vec<Need>, String, BTreeSet<String>);
+
+/// The body `lowerer` wrote, under `signature`, as the function `name`. A body that makes a
+/// recursive call is never inlined, so that no cycle collapses into a call of a function to itself,
+/// which the link keeps no relocation for (specification 44 §6.4, §8.5).
+fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String) -> GeneratedBody {
+    let needs = lowerer.needs.clone();
+    let called = lowerer.called.clone();
+    let attribute = if lowerer.recursive.is_empty() {
+        ""
+    } else {
+        "#[inline(never)]\n"
+    };
+    let (text, statements) = lowerer.finish();
+    (
+        format!("{attribute}{signature}{text}}}\n\n"),
+        statements,
+        needs,
+        name,
+        called,
+    )
 }
 
 /// The Rust name of method `method` of `owner`.
@@ -806,186 +832,4 @@ impl<'a> World<'a> {
 
 ",
     );
-}
-
-/// The `REF(variable)` initializers of the globals and of the program instances' variables
-/// (specification 44 §6.7) as Rust statements: a reference names where its variable lies, which the
-/// starting memory cannot hold, so the cold-start and the warm-start initialization set it.
-fn reference_initializers(front: &Front, model: &Model<'_>) -> Result<Vec<String>, NativeError> {
-    let mut lines = Vec::new();
-    let configured = front
-        .lowered
-        .configuration
-        .iter()
-        .flat_map(|configuration| configuration.globals.iter());
-    for global in &model.globals {
-        let Some(init) = front
-            .lowered
-            .globals
-            .iter()
-            .chain(configured.clone())
-            .find(|init| init.name.eq_ignore_ascii_case(&global.name))
-        else {
-            continue;
-        };
-        let area = if global.retained { "r" } else { "g" };
-        let place = format!("w.{area}.{}", rust_field(&global.name));
-        reference_line(
-            model,
-            None,
-            &place,
-            global.ty,
-            init.initializer.as_ref(),
-            &mut lines,
-        )?;
-    }
-    for instance in &model.instances {
-        let program = &model.program_types[instance.program];
-        for var in program.def.vars.iter().filter(|var| !var.external) {
-            let Some((member, retained)) = program.member(&var.name) else {
-                continue;
-            };
-            let area = if retained { "r" } else { "p" };
-            let place = format!("w.{area}.{}.{}", rust_field(&instance.name), member.field());
-            let scope = Some((instance.name.as_str(), instance.program));
-            reference_line(
-                model,
-                scope,
-                &place,
-                member.ty,
-                var.initializer.as_ref(),
-                &mut lines,
-            )?;
-        }
-    }
-    Ok(lines)
-}
-
-/// The statement that gives the variable at `place`, of type `ty`, its `REF` initializer.
-fn reference_line(
-    model: &Model<'_>,
-    scope: Option<(&str, usize)>,
-    place: &str,
-    ty: Ty,
-    initializer: Option<&crate::program_model::Expr>,
-    lines: &mut Vec<String>,
-) -> Result<(), NativeError> {
-    use crate::program_model::Expr;
-    use crate::value::Value;
-    if !matches!(model.types.info(ty).kind, Kind::Ref { .. }) {
-        return Ok(());
-    }
-    match initializer {
-        None | Some(Expr::Literal(Value::Null | Value::Reference(None))) => Ok(()),
-        Some(Expr::Ref(target)) => {
-            let target = initializer_place(model, scope, target).ok_or_else(|| {
-                NativeError::unsupported(format!("the reference initializer of {place}"))
-            })?;
-            lines.push(format!(
-                "{place}.set(w.areas.refer(cx, &{target}, abi::RefValue::VARIABLE)?);"
-            ));
-            Ok(())
-        }
-        Some(_) => Err(NativeError::unsupported(format!(
-            "the reference initializer of {place}"
-        ))),
-    }
-}
-
-/// The Rust place of the variable `target` names, seen from the program instance `scope` (its
-/// name and its type's index) or from the globals: a variable, and members of it.
-fn initializer_place(
-    model: &Model<'_>,
-    scope: Option<(&str, usize)>,
-    target: &crate::program_model::LValue,
-) -> Option<String> {
-    use crate::program_model::LValue;
-    fn walk(
-        model: &Model<'_>,
-        scope: Option<(&str, usize)>,
-        target: &LValue,
-    ) -> Option<(String, Ty)> {
-        match target {
-            LValue::Name(name) => {
-                if let Some((instance, program)) = scope
-                    && let Some((member, retained)) = model.program_types[program].member(name)
-                {
-                    let area = if retained { "r" } else { "p" };
-                    return Some((
-                        format!("w.{area}.{}.{}", rust_field(instance), member.field()),
-                        member.ty,
-                    ));
-                }
-                let global = model.global(name)?;
-                let area = if global.retained { "r" } else { "g" };
-                Some((format!("w.{area}.{}", rust_field(&global.name)), global.ty))
-            }
-            LValue::Field { target, field } => {
-                let (base, ty) = walk(model, scope, target)?;
-                let member = model
-                    .types
-                    .info(ty)
-                    .members()
-                    .iter()
-                    .find(|member| member.name.eq_ignore_ascii_case(field))?;
-                Some((format!("{base}.{}", member.field()), member.ty))
-            }
-            LValue::Index { .. } | LValue::Deref(_) => None,
-        }
-    }
-    walk(model, scope, target).map(|(place, _)| place)
-}
-
-fn entries(
-    source: &mut String,
-    model: &Model<'_>,
-    target: Target,
-    references: &[String],
-) -> Vec<Entry> {
-    let abi = if target == Target::X86_64 {
-        "sysv64"
-    } else {
-        "C"
-    };
-    let mut entries = Vec::new();
-    for (index, instance) in model.instances.iter().enumerate() {
-        let program = &model.program_types[instance.program];
-        let symbol = format!("trust_entry_p{index}");
-        let field = rust_field(&instance.name);
-        let _ = writeln!(
-            source,
-            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        prog_{}(cx, &w, &w.p.{field}, &w.r.{field})\n    }})\n}}\n",
-            mangle(&program.def.name)
-        );
-        entries.push(Entry {
-            symbol,
-            kind: EntryKind::ProgramBody,
-            index: u32::try_from(index).unwrap_or(u32::MAX),
-        });
-    }
-    let initialization = if references.is_empty() {
-        "run(cx, |_, _| Ok(()))".to_string()
-    } else {
-        let _ = writeln!(
-            source,
-            "fn init_references(cx: &mut Cx, w: &World<'_>) -> R<()> {{\n    {}\n    Ok(())\n}}\n",
-            references.join("\n    ")
-        );
-        "run(cx, |cx, areas| {\n        let w = World::new(cx, &areas)?;\n        init_references(cx, &w)\n    })".to_string()
-    };
-    for (symbol, kind) in [
-        ("trust_entry_cold", EntryKind::ColdInit),
-        ("trust_entry_warm", EntryKind::WarmInit),
-    ] {
-        let _ = writeln!(
-            source,
-            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    {initialization}\n}}\n"
-        );
-        entries.push(Entry {
-            symbol: symbol.to_string(),
-            kind,
-            index: 0,
-        });
-    }
-    entries
 }

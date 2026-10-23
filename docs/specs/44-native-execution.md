@@ -1,9 +1,11 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.10 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.12 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
-  release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026),
+  release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
+  recursion bounded by a call depth and the interface version 3 of 0.11 and the cheaper checks of
+  0.12 chosen by the owner on 23 October 2026),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -301,7 +303,7 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 | 12 | `RETAIN` | yes | The retain map (§5.10). |
 | 13 | `FILES` | yes | The file table: for each source file its label (specification 12 §7.5.1.4's label rule, kept) as a string offset. |
 | 14 | `SOURCE` | no | The project's ST sources, concatenated with a file table of their own, when the project sets `build.embed_source = true` (default true on computers, false on chips). |
-| 15 | `MEMFIG` | yes | The memory figure (§10.4): 8-byte fields as `build.json` names them. |
+| 15 | `MEMFIG` | yes | The memory figure (§10.4): 8-byte fields as `build.json` names them, the ninth the bytes of one call level (§8.5). |
 | 16 | `SIGN` | no | The signature (§5.11). Always the last section. |
 
 ### 5.4 Entry table
@@ -480,9 +482,22 @@ interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is
 | Edge-qualified inputs (`R_EDGE`, `F_EDGE`, Tables 40 and 47) | a hidden previous-value byte in the instance and the edge computed at the call, as specification 03 §3 says |
 | Test POUs (specification 04) | compiled only by the test build, never into an image |
 
-Calls are direct Rust calls; there is no call table in the program. IEC 61131-3 has no recursion
-(§6.6.2.1, §6.6.3.1); trust-hir refuses it, so every call chain is static and the stack bound
-computable (§8.5).
+Calls are direct Rust calls; there is no call table in the program. IEC 61131-3 leaves the recursive
+call of POUs and methods to the implementer (§6.6.1.1), and truST runs it, as its bytecode engine
+does, bounded by a call depth (the owner, 23 October 2026). The build finds the cycles of the
+program's call graph, in which a POU calls each POU its body calls and a dispatcher of §6.4 calls
+each method or body it can reach; a call that a body makes to a POU of its own cycle, its own body
+included, is a recursive call. A recursive call goes through the library's `recurse`, which takes
+one from `cx.depth` before the call runs and gives it back when it returns, with a fault too; one
+that finds `cx.depth` at zero ends the scan with `CallDepth` (Appendix A), which the kernel reports
+as the bytecode engine reports a call beyond its call levels, with the runtime error whose text is
+`invalid bytecode 'vm call stack overflow'`. Every cycle
+goes through a body, so every turn of a recursion takes at least one. `recurse` and every body that
+makes a recursive call are never inlined (`#[inline(never)]`), so every turn passes through at least
+two functions and the link keeps a call relocation for each call of the cycle, from which §8.5
+finds it, also where the compiler would otherwise make a function call itself, a call that the
+assembler can resolve inside the function's own section without a relocation. The kernel gives each activation the depth its task stack
+holds (§8.5); a program without a cycle makes no recursive call and needs no depth.
 
 ### 6.5 Checks the generated code makes
 
@@ -494,6 +509,7 @@ named fault (§8.6) by returning `Err(Fault)` up the call chain; no panic occurs
 | Array index within bounds (IEC §6.4.4.5) | every index that is not a constant inside the bounds | `IndexOutOfBounds` |
 | Subrange on assignment (IEC §6.4.4.4) | every assignment to a subrange variable from a wider value | `SubrangeViolation` |
 | Integer overflow (specification 05 §3: a runtime error) | `+ - * NEG ABS` on integers: `checked_*` | `IntegerOverflow` |
+| Real result outside the type (specification 05 §7.1; specification 07 §3) | every real `+ - * /` and `**`: a result that is not finite. In a chain of real `+ - *`, through parentheses and signs, whose operands are literals and variables read where they lie (no dereference, no property, no index but a constant inside the bounds), only the chain's last operation: an infinity or a NaN stays one through `+ - *` and the sign, so the chain faults whenever one of its operations would, in the same statement, before the store, with nothing written or called in between; a chain with any other operand checks every operation | `Overflow` |
 | Division and modulo by zero (IEC §6.6.2.5.8) | `/`, `MOD` | `DivisionByZero` |
 | Conversion range (IEC §6.6.2.5.2 to §6.6.2.5.7, specification 07) | every `*_TO_*` that can fail, through the library | the library's error |
 | String capacity (IEC §6.4.2.2 note, specification 02 §6) | every string assignment and `VAR_IN_OUT` binding: longer strings are cut to the capacity as specification 02 says | none (cut), `StringCapacityExceeded` for the 65,535 maximum |
@@ -520,7 +536,18 @@ a selector of another elementary type, a text, a real or a time, read once, its 
 `=` compares them),
 `FOR` (the bound and step evaluated once, IEC §7.3.3.4.2), `WHILE`, `REPEAT`, `EXIT`, `CONTINUE`,
 `RETURN` and `JMP` map to Rust control flow. Each statement begins with the statement hook (§13.2)
-and the budget count (§8.4). Partial access to `ANY_BIT` (`x.%X3`, IEC §6.6.1.3) is a masked
+and the budget count (§8.4). A release image (§13.2) holds a `FOR` loop's control variable in a
+Rust local when nothing in the body but the loop can write it: the variable is a local of the POU or
+a variable of its program or function block instance, not a `VAR_IN_OUT`, and the body calls
+nothing, dereferences nothing, reaches no property and no `VAR_IN_OUT`, and has no `FOR` over the
+same variable (trust-hir refuses an assignment to it in the body). The loop writes the variable at
+the start of each pass, before the pass's budget count, so the variable holds the pass's value
+wherever the scan can end, by the loop's end, an `EXIT`, a `RETURN` or a fault; the body reads the
+local, so the compiler checks an index by the variable once in a pass, or not at all where the
+loop's bounds keep it inside the array's. No other writer exists: requests and forces write
+variables at cycle boundaries only (specification 11, the variable mutation contract), and tasks do
+not preempt one another (§16). A debug image reads the variable where it lies, since the debugger
+may write it at any statement. Partial access to `ANY_BIT` (`x.%X3`, IEC §6.6.1.3) is a masked
 read-modify-write. Direct addresses (IEC §6.5.5) are offsets into the input, output and marker
 areas, computed at build; an address outside the configured process image is a build error.
 
@@ -735,6 +762,7 @@ pub struct Cx {
     pub areas: [Area; 7],        // base pointer and length of each area, §7.1
     pub now_ns: i64,             // the task's logical time, TIME() (specification 11 §5.2.1)
     pub budget: u32,             // statements left in this activation, §8.4
+    pub depth: u32,              // recursive calls this activation may still make, §6.4, §8.5
     pub stmt: u32,               // the id of the statement being executed, §13
     pub armed: u32,              // not 0 while statements look at their breakpoint bits
     pub breakpoint_bytes: u32,   // the bytes of the breakpoint bits
@@ -754,17 +782,17 @@ pub struct KernelApi {
 ```
 
 `StopFn` is `fn(*mut Cx, u32) -> u32`, `DebugWriteFn` `fn(*mut Cx, u32) -> u32` and `ReadRealFn`
-`fn(*mut Cx, *const u8, u32, *mut f64) -> u32`, in the convention §4.4 names. `read_real` reads
-the real of `STRING_TO_REAL` and `STRING_TO_LREAL` from the text the program library copied,
-trimmed and took the separators out of (§6.8), with the runtime's own reader, so that a text reads
-alike in the bytecode engine and on every kernel; that reader cannot be compiled into a module,
-which must not be able to panic (§8.6). It returns 0 and the value, or the fault's code
-(`TypeMismatch`). The interface is version 2 since it has this function (version 1 had two; the
-owner approved version 2 on 23 October 2026). A module records a fault in `Cx::fault` (its code, the statement and up to
-three numbers: the index and the bounds, the value and the bounds) and returns its code; no kernel
-function is called for it. A statement looks at its breakpoint bit only while `armed` is set, so a
-statement costs a store of its id, a decrement of the budget and two branches when no debugger is
-armed.
+`fn(*mut Cx, *const u8, u32, *mut f64) -> u32`, in the convention §4.4 names. `read_real` reads the
+real of `STRING_TO_REAL` and `STRING_TO_LREAL` from the text the program library copied, trimmed and
+took the separators out of (§6.8), with the runtime's own reader, so that a text reads alike in the
+bytecode engine and on every kernel; that reader cannot be compiled into a module, which must not be
+able to panic (§8.6). It returns 0 and the value, or the fault's code (`TypeMismatch`). The
+interface is version 3 since `Cx` carries the call depth of §6.4 (the owner, 23 October 2026);
+version 2 added `read_real` (version 1 had two functions; the owner approved version 2 on 23 October
+2026). A module records a fault in `Cx::fault` (its code, the statement and up to three numbers: the
+index and the bounds, the value and the bounds) and returns its code; no kernel function is called
+for it. A statement looks at its breakpoint bit only while `armed` is set, so a statement costs a
+store of its id, a decrement of the budget and two branches when no debugger is armed.
 
 Three functions are the whole interface a scan can call. Everything else a program needs (time,
 inputs, outputs, markers, retain) is memory the kernel prepared before the scan. The kernel calls
@@ -800,22 +828,25 @@ each task's wall time as today; a hardware watchdog on the chips as today.
 
 ### 8.5 Stacks
 
-Each task runs its activations on the kernel's task stack (one stack in the cooperative scheduler
-of v1; one per task when preemption comes, §16). The build computes each task's stack bound: the
-compiler's `prolog-epilog` remarks (§4.5) give every function's frame; the call graph of the
-linked module (its call relocations, kept by `--emit-relocs`) gives the deepest static chain of each
-task's programs; the bound is the deepest chain's sum over every entry point, plus 4 KiB for the
-kernel functions a statement may call on the same stack (§8.2), plus 25%. A call is a call
-relocation of the target (`R_X86_64_PLT32`, `R_RISCV_CALL`, `R_ARM_THM_CALL`, `R_AARCH64_CALL26`
-and their tail-call forms); a function the compiler gives no remark for, one of the target's
-builtins linked outside the link-time optimization, counts 512 bytes. IEC 61131-3 has no recursion,
-which trust-hir refuses, so a chain that comes back to a function it passed goes through a call
-bound by an instance's class (an interface's or an override's, §6.4), as a decorator calls the
-instance it decorates: each turn runs on another instance, so the functions of such a cycle count
-once for every instance with a class id the program holds. The image's `MEMFIG` carries the bound; the kernel refuses an image whose
-bound exceeds its task stack (specification 34 MEM-03: the C6's main stack window), with both
-numbers. The kernel fills the stack with a pattern at start and checks the high-water mark after
-every scan; a mark inside the margin is the fault `StackOverflow`. §10.5 adds a hardware guard.
+Each task runs its activations on the kernel's task stack (one stack in the cooperative scheduler of
+v1; one per task when preemption comes, §16). The build computes each task's stack bound: the
+compiler's `prolog-epilog` remarks (§4.5) give every function's frame, to which a call on x86-64
+adds the 8 bytes of the return address it pushes; the call graph of the linked module (its call
+relocations, kept by `--emit-relocs`) gives the deepest chain of each task's programs, in which the
+functions of a cycle, the calls of a recursion (§6.4), count once, all their frames together; the
+bound is the deepest chain's sum over every entry point, plus 4 KiB for the kernel functions a
+statement may call on the same stack (§8.2), plus 25%. A call is a call relocation of the target
+(`R_X86_64_PLT32`, `R_RISCV_CALL`, `R_ARM_THM_CALL`, `R_AARCH64_CALL26` and their tail-call forms);
+a function the compiler gives no remark for, one of the target's builtins linked outside the
+link-time optimization, counts 512 bytes. A recursive call adds at most the frames of one cycle
+until the next recursive call, so the bytes of one call level are the largest sum of a cycle's
+frames, plus 25%, and 0 for a program without a cycle. The image's `MEMFIG` carries the bound and
+the call level; the kernel refuses an image whose bound exceeds its task stack (specification 34
+MEM-03: the C6's main stack window), with both numbers, and gives each activation the depth (task
+stack − bound) / call level, the recursive calls its task stack holds beyond the bound. A computer's
+kernel gives as its task stack no more than the stack of the thread it runs a module on. The kernel
+fills the stack with a pattern at start and checks the high-water mark after every scan; a mark
+inside the margin is the fault `StackOverflow`. §10.5 adds a hardware guard.
 
 ### 8.6 Faults
 
@@ -951,9 +982,12 @@ the interpreter's heap of three regions held at most 64 KB in one block.
 The build computes what the program needs in RAM, replacing the device-side figure of specification
 34 MEM-12 (C1-21): the areas' lengths (§5.5), the stack bound (§8.5), the kernel's per-program
 bookkeeping (tasks, breakpoints: one bit per statement, Live Values queues, as the kernel version
-declares in a table of constants per device class), and the retain capture buffer: twice the
-largest checkpoint payload of the retain map (§11), the payload a capture fills and the one a save
-leaves it (specification 34 MEM-09), computed by the kernel's own bound from the image's tables. It is written to `MEMFIG` and `build.json`, shown by the tools before
+declares in a table of constants per device class), and the retain capture buffer: twice the largest
+checkpoint payload of the retain map (§11), the payload a capture fills and the one a save leaves it
+(specification 34 MEM-09), computed by the kernel's own bound from the image's tables. The figure
+carries with them the bytes of one call level of a recursion (§8.5), which its total does not count:
+the depth the kernel gives an activation spends the task stack beyond the bound, not the memory for
+programs. It is written to `MEMFIG` and `build.json` (`call_level`), shown by the tools before
 deploy, and checked by the device against the program memory it measures at boot (specification 34
 Appendix D.2 and D.5 define that measurement; it changes only by no longer subtracting a prepared
 program). `status` and `capabilities` report it as today, in the parts they have: the areas as the
@@ -1179,7 +1213,9 @@ for M4: truST is not slower than RuSTy on either, within 5%, and its RAM figure 
 measured with release images (§13.2), the build a production deployment runs, as RuSTy has no
 debugger hooks either (the owner, 23 October 2026); truST keeps its overflow, finite-value and bounds
 checks, which RuSTy does not make. On 23 October 2026 the pasteurizer's control task took 150 ns per
-activation as a release image and 221 to 231 ns as a debug image, against RuSTy's 140 ns.
+activation as a release image and 221 to 231 ns as a debug image, against RuSTy's 140 ns; with the
+checks of 0.12 (§6.5, §6.6) it took 141, 151 and 140 ns in three runs, against RuSTy's 141, 140 and
+140 ns, the median of 360,000 activations each, which the timer resolves to about 10 ns.
 
 ### 14.4 Milestones
 
@@ -1236,7 +1272,9 @@ by their bytes, and a failed comparison of texts lays each in the stack area as 
 length in two bytes and its bytes, the second at an even offset, and gives their offsets for their
 bytes), 18
 `AssertionNear` (`ASSERT_NEAR`: the expected, the actual and the delta in binary64); both are
-reported as the runtime's `AssertionFailed` with its message.
+reported as the runtime's `AssertionFailed` with its message. 19 `CallDepth` (a recursive call that
+finds no depth left, §6.4) is reported as the bytecode engine's call beyond its call levels,
+`VmTrap::CallStackOverflow`, whose text is `invalid bytecode 'vm call stack overflow'`.
 
 ## Appendix B — Revision history
 
@@ -1252,3 +1290,5 @@ reported as the runtime's `AssertionFailed` with its message.
 | 0.8 | 23 October 2026 | Exact where milestone M2's corpus decided within the approved design: the stack bound is the deepest static call chain read from the module's call relocations, a cycle through calls bound by an instance's class turning once for each instance, with 4 KiB for the kernel functions and a quarter more (§8.5); a literal takes the type of where it goes with its sign (§6.6); a failed assertion of two texts lays them in the stack area, which the build sizes, for the kernel to word (§7.1, Appendix A); a function block instance given as an input of a method or a function is the caller's, and a result of a function block's type is a reference to the instance, so calls chain (§6.4); a `RETAIN` variable of a function block is laid with its instance and kept as the runtime keeps it (§11); `trust-dev test` runs a `TEST_FUNCTION_BLOCK` through a test program that calls it once (§14.2); a `CASE` on a text or a real is a chain of tests (§6.6); adjacent literals of a text are joined at build, so a text of literals is written from its bytes and no array of pieces holds a pointer a module would need a relocation for (§5.3). |
 | 0.9 | 23 October 2026 | The owner approved the kernel interface version 2 of 0.7 (§8.2) and chose how the corpus runs on a device: the control request `cycle.step` on every runtime (specification 11 §6.8.1), through which `trust-runtime conformance --device --target` installs and steps each case, and `trust-dev test --device --target` runs a project's tests, each by a step that runs its test program's body (§14.2); a program root's symbol carries the instance's number, by which a device finds the body (§5.7). |
 | 0.10 | 23 October 2026 | Release images and the request context of M5 (the owner, 23 October 2026, on three questions: "i agree with your advice on all points, just make sure its professional and that we dont take short cuts"). §13.2: the project setting `[build] debug` (specification 14), `true` when absent, chooses a debug image or a release image without statement hooks for `trust-runtime build --target`, `bench project --execution-backend native` and `trust-dev test --execution-backend native`; the conformance suite's cases are debug images; a release image says so in bit 0 of the header flags at offset 120 (§5.2), which were reserved, and in the build's report, and the debugger of M3 refuses what needs the hooks with `the program was built without debug hooks ([build] debug = false)`. NX-10 made exact: each statement and each pass through a loop takes one from the budget before it runs, one that finds it at zero ends the scan, and a release image counts the passes through loops only. §14.3: M4 compares release images with RuSTy. M5 and §16: the control requests are served in a context the tasks preempt. |
+| 0.11 | 23 October 2026 | Recursion bounded by a call depth (the owner, 23 October 2026, "i agree with what you suggest"). §6.4 said that IEC 61131-3 has no recursion and that trust-hir refuses it; IEC 61131-3 leaves recursion to the implementer (§6.6.1.1), trust-hir refuses only a type that holds itself, and the bytecode engine runs recursion within its call levels, so a native image of a recursive program built with a stack bound that counted a cycle once. §6.4: a call that a body makes to a POU of its own cycle of the call graph takes one from `cx.depth` and gives it back when it returns, through the library's `recurse`; none left ends the scan with `CallDepth`, reported as the bytecode engine's call beyond its call levels (Appendix A); `recurse` and every body that makes such a call are never inlined, so the link keeps a call relocation for every call of a cycle, which a function's call of itself need not keep. §8.2: `Cx` gains `depth`, and the interface becomes version 3. §8.5: a cycle counts once in the stack bound, all its frames together, instead of once for each instance with a class id; `MEMFIG` carries the bytes of one call level, and the kernel gives each activation the depth its task stack holds beyond the bound; a computer's kernel claims no more task stack than its thread has. |
+| 0.12 | 23 October 2026 | The checks of M4 made cheaper, none dropped (the owner, 23 October 2026, on why truST's pasteurizer control task took 150 ns per activation against RuSTy's 140 ns: the checks RuSTy does not make). §6.5: the check of a real result, which the library made and the table did not list, is listed, and a chain of real `+ - *` whose operands can neither fault nor write is checked at its last operation, which faults in the same cases and the same statement. §6.6: a release image holds a `FOR` loop's control variable in a local when nothing in the body but the loop can write it, and writes it at the start of each pass. The constant index inside the bounds, unchecked since 0.1, is now unchecked in the generated code too. |

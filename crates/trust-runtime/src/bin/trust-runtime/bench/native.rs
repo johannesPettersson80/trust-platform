@@ -33,7 +33,9 @@ fn run_native_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<Be
     let device = native::Device {
         target,
         program_memory: 1 << 30,
-        task_stack: 1 << 24,
+        // No more than the thread the module runs on has: 8 MiB for a main thread, 2 MiB for a
+        // test's thread; a recursion's call depth spends it (specification 44 §8.5).
+        task_stack: 1 << 20,
         max_statements: 1_000_000,
     };
     let mut program =

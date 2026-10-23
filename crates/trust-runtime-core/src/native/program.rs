@@ -16,8 +16,8 @@ use trust_plc_abi::kernel::{Entry, InPlace};
 use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
 
 use super::image::{
-    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, SectionId, SymbolRecord,
-    Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE, SYMBOL_PROGRAM,
+    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure, SectionId,
+    SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE, SYMBOL_PROGRAM,
 };
 use super::retain;
 use super::values::{damaged, read_value, AreaBytes, Types, Writer};
@@ -288,6 +288,8 @@ pub struct NativeProgram<'i, C> {
     ready: Vec<ReadyTask>,
     cx: Cx,
     budget: u32,
+    /// The recursive calls an activation may make (specification 44 §6.4, §8.5).
+    depth: u32,
     /// The input image the drivers fill (`%I`).
     pub inputs: Vec<u8>,
     /// The output image the drivers drive (`%Q`).
@@ -387,6 +389,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         let inputs = vec![0; lengths[0]];
         let outputs = vec![0; lengths[1]];
+        let depth = call_depth(device, &image.memory_figure());
         let mut program = Self {
             image,
             code,
@@ -399,6 +402,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             ready: Vec::new(),
             cx: Cx::new(api),
             budget: device.max_statements,
+            depth,
             inputs,
             outputs,
         };
@@ -736,6 +740,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.cx.task = task;
         self.cx.now_ns = now.as_nanos();
         self.cx.budget = self.budget;
+        self.cx.depth = self.depth;
         self.cx.fault = FaultRecord::default();
         let code = function.call(&mut self.cx);
         if code == 0 {
@@ -861,6 +866,17 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     }
 }
 
+/// The recursive calls an activation of a program with memory figure `figure` may make on `device`:
+/// the task stack beyond the stack bound, in call levels (specification 44 §8.5). A program without
+/// a recursion makes no recursive call, and its depth is never taken.
+fn call_depth(device: &Device, figure: &MemoryFigure) -> u32 {
+    if figure.call_level == 0 {
+        return u32::MAX;
+    }
+    let spare = device.task_stack.saturating_sub(figure.stack);
+    u32::try_from(spare / figure.call_level).unwrap_or(u32::MAX)
+}
+
 /// The runtime error of the fault `code` with its record (specification 44 §8.6, Appendix A).
 pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError {
     let [a, b, c] = record.detail;
@@ -894,6 +910,8 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
         Some(FaultCode::AssertionFailed | FaultCode::AssertionNear) => {
             RuntimeError::AssertionFailed("assertion failed".into())
         }
+        // A recursion beyond the depth is the bytecode engine's call beyond its call levels.
+        Some(FaultCode::CallDepth) => crate::vm::VmTrap::CallStackOverflow.into_runtime_error(),
         Some(
             FaultCode::StackOverflow | FaultCode::MemoryProtection | FaultCode::ModuleInternal,
         )

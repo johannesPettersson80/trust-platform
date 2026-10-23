@@ -1490,8 +1490,8 @@ The validator walks every call target from every entry and, conservatively, of e
 module, so a target reached only by method or interface dispatch still counts: a `CALL` to a
 function or function block, a method call and an interface call over every POU that can implement
 the method, and a nested instance declaration as the initialization it runs. The engine reserves
-the lesser of that depth and `max_call_depth`. A call graph with a cycle, which IEC 61131-3 forbids
-but the engine still executes, has no static depth and reserves for `max_call_depth`, exactly as
+the lesser of that depth and `max_call_depth`. A call graph with a cycle, a recursion, which IEC 61131-3 leaves
+to the implementer (§6.6.1.1) and the engine executes, has no static depth and reserves for `max_call_depth`, exactly as
 before. `max_call_depth` remains the admission ceiling and the runtime depth check is unchanged
 (MEM-02).
 

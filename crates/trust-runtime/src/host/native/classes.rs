@@ -437,29 +437,6 @@ impl<'a> Types<'a> {
 }
 
 impl Types<'_> {
-    /// The instances with a class id that a value of type `ty` holds: itself, its elements and the
-    /// instances among its variables.
-    pub(super) fn class_instances(&self, ty: Ty) -> u64 {
-        match &self.info(ty).kind {
-            Kind::Fb { class, members, .. } => members
-                .iter()
-                .map(|member| self.class_instances(member.ty))
-                .fold(u64::from(*class != 0), u64::saturating_add),
-            Kind::Array { elem, dims } => dims
-                .iter()
-                .map(|(lower, upper)| {
-                    u64::try_from(upper.saturating_sub(*lower).saturating_add(1)).unwrap_or(0)
-                })
-                .fold(1, u64::saturating_mul)
-                .saturating_mul(self.class_instances(*elem)),
-            Kind::Struct { members } => members
-                .iter()
-                .map(|member| self.class_instances(member.ty))
-                .fold(0, u64::saturating_add),
-            _ => 0,
-        }
-    }
-
     /// Whether a value of type `ty` holds an instance with a class id: itself, an element or a
     /// member.
     pub(super) fn holds_class(&self, ty: Ty) -> bool {

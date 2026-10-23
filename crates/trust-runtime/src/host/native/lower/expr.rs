@@ -389,12 +389,7 @@ impl Lowerer<'_, '_> {
         let (Some(left), Some(right)) = (children.next(), children.next()) else {
             return Err(self.unsupported(node, "an operator without two operands"));
         };
-        let Some(op) = node
-            .children_with_tokens()
-            .filter_map(|element| element.into_token())
-            .find(|token| !token.kind().is_trivia())
-            .map(|token| token.kind())
-        else {
+        let Some(op) = super::effects::operator(node) else {
             return Err(self.unsupported(node, "an operator without its sign"));
         };
         use SyntaxKind as K;
@@ -464,6 +459,18 @@ impl Lowerer<'_, '_> {
                 }
                 let a = self.scalar_to(&left, ty)?;
                 let b = self.scalar_to(&right, ty)?;
+                if elem.is_real()
+                    && matches!(op, K::Plus | K::Minus | K::Star)
+                    && self.inside_pure_chain(node)
+                {
+                    // The chain's last operation checks the result (§6.5).
+                    let sign = match op {
+                        K::Plus => "+",
+                        K::Minus => "-",
+                        _ => "*",
+                    };
+                    return Ok(format!("({a} {sign} {b})"));
+                }
                 let function = match (op, elem.is_real()) {
                     (K::Plus, false) => "add",
                     (K::Minus, false) => "sub",
@@ -488,11 +495,7 @@ impl Lowerer<'_, '_> {
         let Some(operand) = node.children().next() else {
             return Err(self.unsupported(node, "an operator without its operand"));
         };
-        let op = node
-            .children_with_tokens()
-            .filter_map(|element| element.into_token())
-            .find(|token| !token.kind().is_trivia())
-            .map(|token| token.kind());
+        let op = super::effects::operator(node);
         let value = self.scalar_to(&operand, ty)?;
         let Some(elem) = self.info(ty).scalar() else {
             return Err(self.unsupported(node, "an operator on a value that is no scalar"));
@@ -858,7 +861,7 @@ fn date_time(value: Value) -> Option<Literal> {
 
 /// Whether `node` is a literal with a sign, `-273.15` or `+5`: a unary minus or plus of a literal,
 /// whose tokens `literal_value` reads with the sign.
-fn signed_literal(node: &SyntaxNode) -> bool {
+pub(super) fn signed_literal(node: &SyntaxNode) -> bool {
     node.kind() == SyntaxKind::UnaryExpr
         && node
             .children_with_tokens()

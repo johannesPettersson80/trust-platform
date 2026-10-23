@@ -6,9 +6,10 @@ use core::mem::{align_of, size_of};
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use crate::kernel::{read_real, without_debugger, RealReader, WITHOUT_DEBUGGER};
-use crate::module::{run, stmt, tick};
+use crate::module::{recurse, run, stmt, tick};
 use crate::{
-    plain_struct, Cx, FaultCode, KernelApi, RefValue, Str, WStr, AREA_GLOBALS, AREA_INSTANCES,
+    plain_struct, Cx, Fault, FaultCode, KernelApi, RefValue, Str, WStr, AREA_GLOBALS,
+    AREA_INSTANCES,
 };
 
 /// A reference is 16 bytes on every target (§7.3): a layout of 24 or 12 would put the next
@@ -46,8 +47,9 @@ fn fault_codes_are_numbered_from_one_in_appendix_order() {
     assert_eq!(FaultCode::ModuleInternal as u32, 16);
     assert_eq!(FaultCode::AssertionFailed as u32, 17);
     assert_eq!(FaultCode::AssertionNear as u32, 18);
+    assert_eq!(FaultCode::CallDepth as u32, 19);
     assert_eq!(FaultCode::from_raw(0), None);
-    assert_eq!(FaultCode::from_raw(19), None);
+    assert_eq!(FaultCode::from_raw(20), None);
 }
 
 plain_struct! {
@@ -135,6 +137,52 @@ fn the_budget_ends_an_endless_loop() {
     assert_eq!(cx.fault.code, FaultCode::InfiniteLoop as u32);
     assert_eq!(cx.fault.stmt, 7);
     assert_eq!(cx.budget, 0);
+}
+
+/// A recursive call takes one from the call depth before it runs and gives it back when it
+/// returns, with a fault too, and one that finds none left ends the call with `CallDepth`
+/// (specification 44 §6.4): with a depth of 3, a function that calls itself on and on runs 4 times,
+/// the outermost call and three recursive ones, and the fourth recursive call finds the depth at
+/// zero; after the fault every call has given its depth back, so the activation's depth is 3 again.
+#[test]
+fn the_call_depth_ends_a_recursion_that_does_not_end() {
+    fn deeper(cx: &mut Cx, runs: &Cell<u32>) -> Result<(), Fault> {
+        runs.set(runs.get() + 1);
+        recurse(cx, |cx| deeper(cx, runs))
+    }
+    let mut cx = context();
+    cx.depth = 3;
+    let runs = Cell::new(0u32);
+    let result = run(&raw mut cx, |cx, _| deeper(cx, &runs));
+    assert_eq!(result, FaultCode::CallDepth as u32);
+    assert_eq!(runs.get(), 4);
+    assert_eq!(cx.fault.code, FaultCode::CallDepth as u32);
+    assert_eq!(cx.depth, 3);
+}
+
+/// A recursive call that returns gives its value back and its depth too (specification 44 §6.4):
+/// with a depth of 2, the call sees 1 left while it runs, returns 7, and the depth is 2 again; with
+/// none left the call does not run. Catches a depth not given back after a call that returns.
+#[test]
+fn a_recursive_call_returns_its_value_and_its_depth() {
+    let mut cx = context();
+    cx.depth = 2;
+    let inside = Cell::new(u32::MAX);
+    let value = recurse(&mut cx, |cx| {
+        inside.set(cx.depth);
+        Ok(7)
+    });
+    assert_eq!(value, Ok(7));
+    assert_eq!(inside.get(), 1);
+    assert_eq!(cx.depth, 2);
+    cx.depth = 0;
+    let ran = Cell::new(false);
+    let refused = recurse(&mut cx, |_| {
+        ran.set(true);
+        Ok(())
+    });
+    assert_eq!(refused, Err(Fault::new(FaultCode::CallDepth)));
+    assert!(!ran.get());
 }
 
 static STOPS: AtomicU32 = AtomicU32::new(0);
@@ -246,12 +294,13 @@ fn a_stop_can_end_the_scan() {
     assert!(!reached.get());
 }
 
-/// A kernel of another interface version is refused before the body runs: a module of version 2
-/// does not run in a kernel of version 1, whose function table has no `read_real`.
+/// A kernel of another interface version is refused before the body runs: a module of version 3
+/// (specification 44 §8.2) does not run in a kernel of version 2, whose context has no call depth,
+/// and the fault names both versions.
 #[test]
 fn another_interface_version_is_refused() {
     let mut cx = context();
-    cx.version = 1;
+    cx.version = 2;
     let ran = Cell::new(false);
     let result = run(&raw mut cx, |_, _| {
         ran.set(true);
@@ -259,7 +308,7 @@ fn another_interface_version_is_refused() {
     });
     assert_eq!(result, FaultCode::ModuleInternal as u32);
     assert!(!ran.get());
-    assert_eq!(cx.fault.detail[..2], [1, 2]);
+    assert_eq!(cx.fault.detail[..2], [2, 3]);
 }
 
 /// The other areas are untouched: an area id outside 1 to 7 is refused.

@@ -12,6 +12,7 @@ mod call;
 mod case;
 mod conversions;
 mod dates;
+mod effects;
 mod expr;
 mod functions;
 mod object;
@@ -19,6 +20,8 @@ mod strings;
 
 pub(super) use call::{ident as ident_of, parameter};
 pub(super) use expr::byte_string;
+
+use std::collections::BTreeSet;
 
 use smol_str::SmolStr;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
@@ -99,6 +102,14 @@ pub(super) struct Lowerer<'m, 'a> {
     pub(super) exit: String,
     /// The functions and methods the body calls, which the crate must hold too.
     pub(super) needs: Vec<Need>,
+    /// The generated functions the body calls, by their Rust names (specification 44 §6.4).
+    pub(super) called: BTreeSet<String>,
+    /// The callees whose calls take one from the call depth: those of the body's own cycle
+    /// (specification 44 §6.4).
+    pub(super) recursive: BTreeSet<String>,
+    /// The control variables of the enclosing `FOR` loops that a release image holds in Rust
+    /// locals: each one's place and the local's name (specification 44 §6.6).
+    held: Vec<(String, String)>,
 }
 
 /// A POU a body calls.
@@ -151,6 +162,9 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             statements: Vec::new(),
             exit: "return Ok(());".into(),
             needs: Vec::new(),
+            called: BTreeSet::new(),
+            recursive: BTreeSet::new(),
+            held: Vec::new(),
         }
     }
 
@@ -358,8 +372,12 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         self.line(&format!("{}.set({stored});", place.expr));
     }
 
-    /// Reads the scalar in `place` as a Rust value of its type.
+    /// Reads the scalar in `place` as a Rust value of its type: from the local that holds it when
+    /// it is the control variable of a loop that holds it.
     pub(super) fn load(&self, place: &Place) -> String {
+        if let Some((_, local)) = self.held.iter().find(|(held, _)| *held == place.expr) {
+            return local.clone();
+        }
         match self.info(place.ty).scalar() {
             Some(Elem::Bool) => format!("({}.get() != 0)", place.expr),
             _ => format!("{}.get()", place.expr),
@@ -465,12 +483,27 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         self.line(&format!(
             "if {step} == 0 {{ return Err(fault(cx, abi::FaultCode::ForStepZero, 0, 0, 0)); }}"
         ));
-        self.store_scalar(&place, &start);
+        // A release image holds the control variable in a local when nothing in the body but the
+        // loop can write it, and writes it at the start of each pass, so the variable holds the
+        // pass's value wherever the scan can end; a debug image's debugger can write it at any
+        // statement (§6.6).
+        let held = if !self.hooks && self.holds_control(node, &call::ident(&control)) {
+            let local = self.temp();
+            self.line(&format!("let mut {local} = {start};"));
+            Some(local)
+        } else {
+            self.store_scalar(&place, &start);
+            None
+        };
         self.labels += 1;
         let exit = format!("'l{}", self.labels);
         let next = format!("'n{}", self.labels);
         self.line(&format!("{exit}: loop {{"));
         self.indent += 1;
+        if let Some(local) = &held {
+            self.store_scalar(&place, local);
+            self.held.push((place.expr.clone(), local.clone()));
+        }
         self.line("tick(cx)?;");
         let current = self.load(&place);
         let ended = if elem.is_signed() {
@@ -496,8 +529,16 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         // The increment that would leave the type is a fault, not a wrapped value (specification
         // 10 §5.3).
         let current = self.load(&place);
-        let advanced = self.bind(&format!("lib::add(cx, {current}, {step})?"));
-        self.store_scalar(&place, &advanced);
+        match held {
+            Some(local) => {
+                self.line(&format!("{local} = lib::add(cx, {current}, {step})?;"));
+                self.held.pop();
+            }
+            None => {
+                let advanced = self.bind(&format!("lib::add(cx, {current}, {step})?"));
+                self.store_scalar(&place, &advanced);
+            }
+        }
         self.indent -= 1;
         self.line("}");
         Ok(())
@@ -761,6 +802,15 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             .is_some_and(|parent| matches!(parent.kind, trust_hir::SymbolKind::Namespace))
     }
 
+    /// The value of the index `index` when it is an integer literal, which the build can compare
+    /// with the bounds (§6.5).
+    fn constant_index(&mut self, index: &SyntaxNode, ty: Ty) -> Option<i64> {
+        if index.kind() != SyntaxKind::Literal {
+            return None;
+        }
+        self.constant_integer(index, ty).ok()
+    }
+
     /// `array[i, j]`: each index checked against its dimension's bounds (§6.5), one nesting of
     /// Rust arrays per dimension.
     fn index_place(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
@@ -779,7 +829,16 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         }
         let lint = self.model.types.elem(Elem::LInt);
         let mut current = array.reference();
-        for (index, (lower, _)) in indices.iter().zip(dims) {
+        for (index, (lower, upper)) in indices.iter().zip(dims) {
+            // A constant inside the bounds is not checked (§6.5): it indexes the Rust array, whose
+            // bound the compiler checks when it builds the module.
+            if let Some(constant) = self
+                .constant_index(index, lint)
+                .filter(|constant| (*lower..=*upper).contains(constant))
+            {
+                current = self.bind(&format!("&({current})[{}]", constant - lower));
+                continue;
+            }
             let value = self.scalar_to(index, lint)?;
             current = self.bind(&format!("lib::at(cx, {current}, {value}, {lower})?"));
         }
@@ -794,7 +853,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
 /// The program library's and the interface's Rust names every generated crate uses.
 pub(super) const PRELUDE: &str = "use core::cell::Cell;
 use trust_plc_abi::{self as abi, plain_struct, Cx, Fault, Plain, Str, WStr};
-use trust_plc_abi::module::{fault, run, stmt as st, tick, Areas};
+use trust_plc_abi::module::{fault, recurse, run, stmt as st, tick, Areas};
 use trust_plc_lib as lib;
 
 type R<T> = Result<T, Fault>;

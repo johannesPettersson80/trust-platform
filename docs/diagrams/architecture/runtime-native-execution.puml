@@ -13,16 +13,19 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
     component "trust-hir\nrecorded types and resolved symbols\n(FileAnalysis)" as hir
     component "host/native/front + model + classes\nlayout of areas, instances, tasks,\nbindings, class ids, starting memory" as model
     component "host/native/lower + emit + dispatch\none Rust crate per program; calls bound\nby class id; no unsafe in generated code" as generator
+    component "host/native/recursion\ncall graph of the generated crate;\na call into its own cycle takes one\nfrom Cx.depth (§6.4)" as recursion
     component "pinned rustc + rust-lld\n(toolchain bundle, §4.6)\nstatic PIE, no relocations" as toolchain
     component "trust-plc-lib\narithmetic, conversion, mathematics,\nbits, text, dates and times,\ntimers, counters, edges, bistables" as library
     component "trust-plc-abi\nCx, areas, faults, references,\nclass ids; module side" as abiModule
     component "trust-plc-mem\nmemcpy, memset, memcmp\nfor computer modules" as memModule
     component "trust-lsp.toml [build] debug\n(host/native/settings.rs; true when absent):\na debug image with statement hooks\nor a release image without them (§13.2)" as buildSetting
-    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure, header flag release" as image
+    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure with the call level,\nheader flag release" as image
     artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record
     component "trust-dev test --execution-backend native\nTEST_PROGRAMs as instances without a task;\neach test: cold start, run_instance once" as testRunner
     hir --> model
     model --> generator
+    generator --> recursion : call graph
+    recursion --> generator : again, with the recursive calls
     buildSetting ..> generator
     buildSetting --> testRunner : tests the kind of image the project builds
     generator --> toolchain
@@ -61,7 +64,7 @@ package "ESP32-C6 firmware --features native" as chipPkg #LightCyan {
     runner --> cycle : run_scan(now, deadline, observer)
     cycle --> kernel : scan(now, task hooks)
     kernel --> module : Entry::call(Cx)
-    module ..> kernelFunctions : Cx::api (interface version 2)
+    module ..> kernelFunctions : Cx::api (interface version 3)
     codeRegion ..> module : executes
     cycle --> retainStore : capture at the output sample,\nstep between scans, save at stop
     retainStore --> kernel : capture_retain /\nwarm_start_from

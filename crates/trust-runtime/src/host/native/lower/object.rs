@@ -236,7 +236,7 @@ impl<'a> Lowerer<'_, 'a> {
 
     /// The property `node` names, by its name: a member of an instance or of an interface, or,
     /// inside a method, of the instance itself; a frame variable of the name is the variable.
-    fn property_name(&self, node: &SyntaxNode) -> Option<String> {
+    pub(super) fn property_name(&self, node: &SyntaxNode) -> Option<String> {
         let name = match node.kind() {
             SyntaxKind::NameRef => {
                 let name = ident(node);

@@ -11,12 +11,14 @@
 mod classes;
 mod dispatch;
 mod emit;
+mod entries;
 mod frame_init;
 mod front;
 mod init;
 mod lower;
 mod model;
 mod module;
+mod recursion;
 mod run;
 mod settings;
 mod stack;
@@ -141,7 +143,7 @@ pub fn generate_source(sources: &[SourceFile], options: &Options) -> Result<Stri
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry, &[])?;
-    let generated = emit::generate(&front, &mut model, &ids, options.target, options.hooks)?;
+    let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     Ok(generated.source)
 }
 
@@ -176,7 +178,7 @@ pub fn build_with_tests(
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry, tests)?;
-    let generated = emit::generate(&front, &mut model, &ids, options.target, options.hooks)?;
+    let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     let memory = init::starting_memory(sources, tests, &mut model)?;
     let symbols: Vec<String> = generated
         .entries
@@ -185,13 +187,7 @@ pub fn build_with_tests(
         .collect();
     let (elf, remarks) = toolchain.compile(&generated.source, options.target, &symbols, work)?;
     let module = module::extract(&elf, options.target, &symbols)?;
-    let stack = stack::bound(
-        &elf,
-        options.target,
-        &stack_frames(&remarks),
-        &symbols,
-        model.class_instances(),
-    )?;
+    let stack = stack::bound(&elf, options.target, &stack_frames(&remarks), &symbols)?;
     let mut writer = ImageWriter::new(
         options.target,
         u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap_or(u16::MAX),
