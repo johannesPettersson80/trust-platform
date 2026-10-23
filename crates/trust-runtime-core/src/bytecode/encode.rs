@@ -6,8 +6,9 @@ use super::align4;
 mod buffer;
 mod construction;
 use super::{
-    BytecodeError, BytecodeModuleView, BytecodeVersion, SectionData, SectionEntry, TypeData,
-    TypeEntry, TypeKind, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC, SECTION_ENTRY_SIZE,
+    BytecodeError, BytecodeModuleView, BytecodeVersion, PouIndex, PouKind, SectionData,
+    SectionEntry, TypeData, TypeEntry, TypeKind, TypeTable, HEADER_FLAG_CRC32, HEADER_SIZE, MAGIC,
+    SECTION_ENTRY_SIZE,
 };
 use buffer::{encoded_count, encoded_extent, Buffer};
 
@@ -149,59 +150,7 @@ fn encode_section_data(
             }
         }
         SectionData::PouIndex(index) => {
-            out.extend_from_slice(&encoded_count(index.entries.len())?.to_le_bytes())?;
-            for entry in &index.entries {
-                out.extend_from_slice(&entry.id.to_le_bytes())?;
-                out.extend_from_slice(&entry.name_idx.to_le_bytes())?;
-                out.push(entry.kind as u8)?;
-                out.push(0)?;
-                out.extend_from_slice(&0u16.to_le_bytes())?;
-                out.extend_from_slice(&entry.code_offset.to_le_bytes())?;
-                out.extend_from_slice(&entry.code_length.to_le_bytes())?;
-                out.extend_from_slice(&entry.local_ref_start.to_le_bytes())?;
-                out.extend_from_slice(&entry.local_ref_count.to_le_bytes())?;
-                out.extend_from_slice(&entry.return_type_id.unwrap_or(u32::MAX).to_le_bytes())?;
-                out.extend_from_slice(&entry.owner_pou_id.unwrap_or(u32::MAX).to_le_bytes())?;
-                out.extend_from_slice(&encoded_count(entry.params.len())?.to_le_bytes())?;
-                for param in &entry.params {
-                    out.extend_from_slice(&param.name_idx.to_le_bytes())?;
-                    out.extend_from_slice(&param.type_id.to_le_bytes())?;
-                    out.push(param.direction)?;
-                    out.push(0)?;
-                    out.extend_from_slice(&0u16.to_le_bytes())?;
-                    if version.uses_extended_layout() {
-                        out.extend_from_slice(
-                            &param.default_const_idx.unwrap_or(u32::MAX).to_le_bytes(),
-                        )?;
-                    }
-                }
-                if let Some(meta) = &entry.class_meta {
-                    out.extend_from_slice(&meta.parent_pou_id.unwrap_or(u32::MAX).to_le_bytes())?;
-                    out.extend_from_slice(&encoded_count(meta.interfaces.len())?.to_le_bytes())?;
-                    for interface in &meta.interfaces {
-                        out.extend_from_slice(&interface.interface_type_id.to_le_bytes())?;
-                        out.extend_from_slice(
-                            &encoded_count(interface.vtable_slots.len())?.to_le_bytes(),
-                        )?;
-                        for slot in &interface.vtable_slots {
-                            out.extend_from_slice(&slot.to_le_bytes())?;
-                        }
-                    }
-                    out.extend_from_slice(&encoded_count(meta.methods.len())?.to_le_bytes())?;
-                    for method in &meta.methods {
-                        out.extend_from_slice(&method.name_idx.to_le_bytes())?;
-                        out.extend_from_slice(&method.pou_id.to_le_bytes())?;
-                        out.extend_from_slice(&method.vtable_slot.to_le_bytes())?;
-                        out.push(method.access)?;
-                        out.push(method.flags)?;
-                        out.extend_from_slice(&0u16.to_le_bytes())?;
-                    }
-                } else if entry.kind.is_class_like() {
-                    out.extend_from_slice(&u32::MAX.to_le_bytes())?;
-                    out.extend_from_slice(&0u32.to_le_bytes())?;
-                    out.extend_from_slice(&0u32.to_le_bytes())?;
-                }
-            }
+            out = encode_pou_index_section(version, index, limit)?;
         }
         SectionData::PouBodies(bodies) => out.extend_from_slice(bodies)?,
         SectionData::ResourceMeta(meta) => {
@@ -281,6 +230,72 @@ fn encode_section_data(
         SectionData::Raw(raw) => out.extend_from_slice(raw)?,
     }
     Ok(out.into_vec())
+}
+
+fn encode_pou_index_section(
+    version: BytecodeVersion,
+    index: &PouIndex,
+    limit: usize,
+) -> Result<Buffer, BytecodeError> {
+    let mut out = Buffer::new(limit);
+    out.extend_from_slice(&encoded_count(index.entries.len())?.to_le_bytes())?;
+    for entry in &index.entries {
+        out.extend_from_slice(&entry.id.to_le_bytes())?;
+        out.extend_from_slice(&entry.name_idx.to_le_bytes())?;
+        out.push(entry.kind as u8)?;
+        // Program records carry the class-meta tail only when they declare
+        // methods or textual actions; the flag tells the decoder the tail is
+        // present.
+        let entry_flags = if entry.class_meta.is_some() && entry.kind == PouKind::Program {
+            PouKind::FLAG_CLASS_META
+        } else {
+            0
+        };
+        out.push(entry_flags)?;
+        out.extend_from_slice(&0u16.to_le_bytes())?;
+        out.extend_from_slice(&entry.code_offset.to_le_bytes())?;
+        out.extend_from_slice(&entry.code_length.to_le_bytes())?;
+        out.extend_from_slice(&entry.local_ref_start.to_le_bytes())?;
+        out.extend_from_slice(&entry.local_ref_count.to_le_bytes())?;
+        out.extend_from_slice(&entry.return_type_id.unwrap_or(u32::MAX).to_le_bytes())?;
+        out.extend_from_slice(&entry.owner_pou_id.unwrap_or(u32::MAX).to_le_bytes())?;
+        out.extend_from_slice(&encoded_count(entry.params.len())?.to_le_bytes())?;
+        for param in &entry.params {
+            out.extend_from_slice(&param.name_idx.to_le_bytes())?;
+            out.extend_from_slice(&param.type_id.to_le_bytes())?;
+            out.push(param.direction)?;
+            out.push(0)?;
+            out.extend_from_slice(&0u16.to_le_bytes())?;
+            if version.uses_extended_layout() {
+                out.extend_from_slice(&param.default_const_idx.unwrap_or(u32::MAX).to_le_bytes())?;
+            }
+        }
+        if let Some(meta) = &entry.class_meta {
+            out.extend_from_slice(&meta.parent_pou_id.unwrap_or(u32::MAX).to_le_bytes())?;
+            out.extend_from_slice(&encoded_count(meta.interfaces.len())?.to_le_bytes())?;
+            for interface in &meta.interfaces {
+                out.extend_from_slice(&interface.interface_type_id.to_le_bytes())?;
+                out.extend_from_slice(&encoded_count(interface.vtable_slots.len())?.to_le_bytes())?;
+                for slot in &interface.vtable_slots {
+                    out.extend_from_slice(&slot.to_le_bytes())?;
+                }
+            }
+            out.extend_from_slice(&encoded_count(meta.methods.len())?.to_le_bytes())?;
+            for method in &meta.methods {
+                out.extend_from_slice(&method.name_idx.to_le_bytes())?;
+                out.extend_from_slice(&method.pou_id.to_le_bytes())?;
+                out.extend_from_slice(&method.vtable_slot.to_le_bytes())?;
+                out.push(method.access)?;
+                out.push(method.flags)?;
+                out.extend_from_slice(&0u16.to_le_bytes())?;
+            }
+        } else if entry.kind.is_class_like() {
+            out.extend_from_slice(&u32::MAX.to_le_bytes())?;
+            out.extend_from_slice(&0u32.to_le_bytes())?;
+            out.extend_from_slice(&0u32.to_le_bytes())?;
+        }
+    }
+    Ok(out)
 }
 
 fn encode_type_table(

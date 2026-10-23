@@ -514,3 +514,72 @@ END_PROGRAM
     );
     assert!(!error.trim().is_empty(), "{error}");
 }
+
+// IEC_DECISIONS 2026-10-11: `RETAIN PERSISTENT` is the accepted
+// WAGO/CODESYS vendor extension — persistent storage implies retention, so
+// the combined section keeps the Persistent policy (either spelling order).
+#[test]
+fn qualifier_projection_global_state_accepts_retain_persistent_vendor_extension() {
+    let runtime = runtime(
+        r#"
+VAR_GLOBAL RETAIN PERSISTENT
+    BootState : INT;
+END_VAR
+PROGRAM Main
+END_PROGRAM
+"#,
+    );
+    assert_eq!(
+        runtime.globals()["BootState"].retain,
+        RetainPolicy::Persistent
+    );
+}
+
+#[test]
+fn qualifier_projection_global_state_accepts_persistent_retain_order() {
+    let runtime = runtime(
+        r#"
+VAR_GLOBAL PERSISTENT RETAIN
+    BootState : INT;
+END_VAR
+PROGRAM Main
+END_PROGRAM
+"#,
+    );
+    assert_eq!(
+        runtime.globals()["BootState"].retain,
+        RetainPolicy::Persistent
+    );
+}
+
+#[test]
+fn qualifier_projection_global_state_rejects_every_other_qualifier_combination() {
+    // Only the RETAIN PERSISTENT pair passes. Which layer rejects the rest
+    // (front-end E202 or the harness qualifier rule) is an implementation
+    // detail; the contract is that nothing else compiles.
+    for (fixture, label) in [
+        (
+            "VAR_GLOBAL RETAIN NON_RETAIN\n    x : INT;\nEND_VAR\n",
+            "RETAIN NON_RETAIN",
+        ),
+        (
+            "VAR_GLOBAL NON_RETAIN PERSISTENT\n    x : INT;\nEND_VAR\n",
+            "NON_RETAIN PERSISTENT",
+        ),
+        (
+            "VAR_GLOBAL RETAIN RETAIN\n    x : INT;\nEND_VAR\n",
+            "duplicate",
+        ),
+        (
+            "VAR_GLOBAL RETAIN CONSTANT\n    x : INT;\nEND_VAR\n",
+            "RETAIN CONSTANT",
+        ),
+        (
+            "VAR_GLOBAL RETAIN PERSISTENT CONSTANT\n    x : INT;\nEND_VAR\n",
+            "pair plus CONSTANT",
+        ),
+    ] {
+        let error = compile_error(&format!("{fixture}\nPROGRAM Main\nEND_PROGRAM\n"));
+        assert!(!error.trim().is_empty(), "{label} must still be rejected");
+    }
+}

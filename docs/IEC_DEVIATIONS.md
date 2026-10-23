@@ -321,3 +321,29 @@ re-check them against this rule when touched.
 - Mitigation:
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
+
+## 2026-10-21 - Declaration sizes from initializer-backed variables
+
+- Area: `STRING`/`WSTRING` declared lengths and array dimension bounds.
+- Normative IEC requirement: IEC 61131-3 Ed.3 requires the `STRING` declared
+  length to be an integer literal (§6.3.3, Table 10) and array limits to be
+  constant expressions (§6.4.4.5.1); a plain (non-`CONSTANT`) variable is
+  neither. The standard text was unavailable on the authoring machine; the
+  clause numbers mirror the citations already used in
+  `docs/specs/02-data-types.md`.
+- truST behavior and conflict:
+  - Declaration sizes may name a plain variable whose own initializer is a
+    literal or constant expression, including qualified names
+    (`STRING(GVLMqtt.uiLenMsgState)`) and bound expressions
+    (`ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)]`). The declared initial value
+    fixes the size at compile time.
+  - This accepts real CODESYS/e!COCKPIT projects that size buffers from
+    ordinary GVL variables, which the strict reading rejects.
+- Impact: the size is fixed from the declared initial value; runtime writes
+  to the variable never resize anything (CODESYS compiles sizes the same
+  way).
+- Mitigation: the leniency applies only to the two declaration-size
+  contexts. TEMP and interface-direction sections are excluded, chains
+  through other mutable variables stay undecidable with the standing
+  diagnostics, and every other constant-expression context keeps the strict
+  rule.

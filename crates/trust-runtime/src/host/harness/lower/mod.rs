@@ -2,8 +2,9 @@ mod expr;
 mod stmt;
 
 pub(super) use expr::{
-    const_duration_from_node, const_int_from_node, lower_expr, lower_expr_with_context,
-    lower_lvalue, parse_subrange, parse_subrange_in, resolve_initializer_enum_variant,
+    const_duration_from_node, const_int_from_node, const_size_int_from_node, lower_expr,
+    lower_expr_with_context, lower_lvalue, parse_subrange, parse_subrange_in,
+    resolve_initializer_enum_variant,
 };
 pub(super) use stmt::lower_stmt_list;
 

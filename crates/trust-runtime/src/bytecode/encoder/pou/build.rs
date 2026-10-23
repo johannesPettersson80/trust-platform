@@ -245,6 +245,32 @@ impl<'a> BytecodeEncoder<'a> {
             }
         }
 
+        // Program-scoped methods and textual actions (e!COCKPIT dialect)
+        // encode exactly like owner methods; the program POU entry carries
+        // the method table when any exist.
+        for (_owner, program) in self.programs().iter() {
+            if program.methods.is_empty() {
+                continue;
+            }
+            let owner_id = self
+                .pou_ids
+                .program_id(&program.name)
+                .ok_or_else(|| BytecodeError::InvalidSection("method owner missing".into()))?;
+            for method in &program.methods {
+                self.emit_method_entry(
+                    &program.name,
+                    method,
+                    owner_id,
+                    &mut EmittedPouBuffers {
+                        entries: &mut entries,
+                        bodies: &mut bodies,
+                        debug_entries: &mut debug_entries,
+                        offset: &mut offset,
+                    },
+                )?;
+            }
+        }
+
         Ok((PouIndex { entries }, bodies, debug_entries))
     }
 

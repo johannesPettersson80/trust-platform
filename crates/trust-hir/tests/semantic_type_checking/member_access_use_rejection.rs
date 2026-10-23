@@ -67,8 +67,8 @@ END_PROGRAM
 }
 
 #[test]
-fn member_access_default_fb_variable_rejects_external_access() {
-    assert_invalid(
+fn member_access_default_fb_variable_is_externally_accessible() {
+    check_no_errors(
         r#"
 FUNCTION_BLOCK Device
 VAR
@@ -86,8 +86,8 @@ END_PROGRAM
 }
 
 #[test]
-fn member_access_default_fb_method_rejects_external_call() {
-    assert_invalid(
+fn member_access_default_fb_method_is_externally_callable() {
+    check_no_errors(
         r#"
 FUNCTION_BLOCK Device
 METHOD Read : INT
@@ -106,8 +106,8 @@ END_PROGRAM
 }
 
 #[test]
-fn member_access_default_fb_property_rejects_external_write() {
-    assert_invalid(
+fn member_access_default_fb_property_is_externally_writable() {
+    check_no_errors(
         r#"
 FUNCTION_BLOCK Device
 PROPERTY Value : INT

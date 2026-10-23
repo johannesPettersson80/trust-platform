@@ -138,11 +138,6 @@ fn qualifier_contract_rejects_retain_non_retain_combination() {
 }
 
 #[test]
-fn qualifier_contract_rejects_retain_persistent_combination() {
-    assert_invalid_operation(&program_section("VAR", "RETAIN PERSISTENT"));
-}
-
-#[test]
 fn qualifier_contract_rejects_non_retain_persistent_combination() {
     assert_invalid_operation(&program_section("VAR", "NON_RETAIN PERSISTENT"));
 }

@@ -10,7 +10,7 @@ The ST language statements are:
 
 | Category | Statements |
 |----------|------------|
-| Assignment | `:=`, `?=` |
+| Assignment | `:=`, `?=`, `REF=` (vendor extension) |
 | Call | Function, Function Block, Method |
 | Control | `RETURN` |
 | Selection | `IF...THEN...END_IF`, `CASE...OF...END_CASE` |
@@ -90,6 +90,41 @@ Checks if assignment is valid (for interface references). If the instance implem
   A null dereference reports a runtime error before the target statement makes
   any write.
 
+### Reference Rebinding (`REF=` vendor extension)
+
+```
+refInt REF= someInt;
+refA REF= refB;
+refInt REF= NULL;
+```
+
+CODESYS-style reference rebinding is accepted as a vendor extension. `REF=`
+rebinds which storage a `REFERENCE TO` variable denotes; it never copies the
+pointed-to value and never performs the `?=` checked-copy fallback.
+
+**Rules**:
+- The left side of `REF=` must be a `REFERENCE TO` variable. Applying `REF=`
+  to a value or to a `POINTER TO` target is a compile-time error.
+- `ref REF= variable` rebinds `ref` to the storage of `variable`; the source
+  must be a valid assignment lvalue and must not be `CONSTANT`-qualified.
+  The source's type must match the reference target exactly, or bind under
+  the vendor rules: strings of any declared size are mutually bindable, and
+  a derived `STRUCT` variable binds behind a base-`STRUCT` reference.
+  Numeric widening never aliases — a `WORD` variable cannot bind behind an
+  `INT` reference. Pointer notation: `ref := REF(variable)`.
+- `ref1 REF= ref2` rebinds `ref1` to the same storage as `ref2`; the two
+  reference target types must be compatible in either direction.
+- `ref REF= NULL` (or the integer literal `0`) clears the reference; the
+  variable is invalid until it is rebound.
+- `REF=` follows the ordinary assignment-statement guards for its target
+  (constant and accessibility checks); it is not accepted as a declaration
+  initializer in this profile.
+- Lexical form: `REF=` is a single fused operator lexeme, matched
+  case-insensitively and by longest match (`ref=1` lexes as the operator
+  followed by `1`, never as an identifier followed by `=`; `REF` is a
+  reserved word, so no identifier can collide). `REF` and `=` separated by
+  whitespace are two tokens and do not form the operator.
+
 ## 3. Call Statements (Section 7.3.3.2.4)
 
 Call statements share one syntax skeleton and then refine the callable target:
@@ -137,6 +172,11 @@ Shared rules:
 - `=>` is only valid for `VAR_OUTPUT` / `ENO` bindings and is invalid for
   non-output parameters. `:=` is valid only for `VAR_INPUT`, `VAR_IN_OUT`, and
   `EN`. (IEC 61131-3 Ed.3, 6.6.1.4.2)
+- An empty binding — `output =>` or `input :=` with no target, at the end of
+  the argument list or before a comma — is accepted as a CODESYS vendor
+  extension and skips that parameter: an output stays unconnected and an
+  input keeps its held value; no missing-binding diagnostic fires. `?=`
+  still requires a target — a dangling `?=` remains a parse error.
 - A named parameter may appear at most once and must belong to the selected
   callable.
 - The same caller storage, including overlapping aggregate projections, cannot
@@ -162,8 +202,8 @@ that ordering valid. Named `:=` and `=>` forms preserve their operator and
 target syntax, including selected, indexed, and dereferenced output targets.
 
 The parser rejects a leading comma, a doubled trailing comma, a missing comma
-between actuals, a named input without its expression, a named output without
-its target, an unclosed argument list, or a call statement without its required
+between actuals, a named input without its expression, an unclosed argument
+list, or a call statement without its required
 terminator. Recovery stops at the bounded call or statement boundary and must
 not reinterpret a malformed actual as a sibling statement.
 
@@ -229,6 +269,25 @@ Motor1.Start();
 Motor1.SetSpeed(NewSpeed := 1000);
 Status := Motor1.GetStatus();
 ```
+
+A method of the enclosing POU is additionally callable by bare name without a
+receiver (implicit self) — program-scoped methods (e!COCKPIT dialect, spec 04
+§4) and methods of the enclosing function block. From other POUs a
+program-scoped method resolves through the program-singleton member access
+(`ProgramName.method_name(parameters)`, spec 04 §4). Scope variables keep
+precedence over the enclosing-POU member scan, and arguments and the return
+value follow the shared call rules above.
+
+### 3.5 Textual Action Calls (CODESYS vendor extension; spec 04 §8)
+
+An action declared inside a `FUNCTION_BLOCK` or `PROGRAM` is invoked by its
+bare name inside the owning POU body, qualified by the owning program
+(`ProgramName.action_name()`), or through a function-block instance
+(`instance.action_name()`). An action call takes no arguments, returns no
+value, and is invalid in value position. In call position a scope variable
+with the same spelling shadows the action; otherwise the callee resolves as a
+function first and then as an owner-scoped action or method, and an
+unresolved name keeps the ordinary undefined-function diagnostic.
 
 ## 4. RETURN Statement (Section 7.3.3.2.4; truST DEV-022)
 

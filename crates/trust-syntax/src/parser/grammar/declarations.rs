@@ -39,6 +39,10 @@ impl Parser<'_, '_> {
                 | TokenKind::KwGet
                 | TokenKind::KwSet
                 | TokenKind::KwStep
+                // CODESYS-legit identifier names (OSCAT pins `ON`/`SET`,
+                // enum member `Null`); see spec 01 §3 contextual keywords.
+                | TokenKind::KwOn
+                | TokenKind::KwNull
         )
     }
 
@@ -56,6 +60,11 @@ impl Parser<'_, '_> {
                     self.bump();
                 }
                 continue;
+            }
+
+            // CODESYS DUT inheritance (vendor extension): `TYPE x EXTENDS y`.
+            if self.at(TokenKind::KwExtends) {
+                self.parse_extends_clause();
             }
 
             if self.at(TokenKind::Colon) {
@@ -151,7 +160,7 @@ impl Parser<'_, '_> {
 
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::EnumValue);
-            if self.at(TokenKind::Ident) {
+            if self.at_name_token() {
                 self.parse_name();
             } else {
                 self.error("expected enumeration value");
@@ -215,7 +224,7 @@ impl Parser<'_, '_> {
 
         while !self.at(TokenKind::RParen) && !self.at_end() {
             self.start_node(SyntaxKind::EnumValue);
-            if self.at(TokenKind::Ident) {
+            if self.at_name_token() {
                 self.parse_name();
             } else {
                 self.error("expected enumeration value");
@@ -571,6 +580,15 @@ impl Parser<'_, '_> {
             self.finish_node();
         } else if self.at(TokenKind::KwRefTo) {
             self.start_node(SyntaxKind::ReferenceType);
+            self.bump();
+            self.parse_type_ref();
+            self.finish_node();
+        } else if self.source.at_ident_ci("REFERENCE") && self.peek_kind_n(1) == TokenKind::KwTo {
+            // CODESYS `REFERENCE TO` spelling (contextual vendor keyword):
+            // recognized only in type position followed by TO, so
+            // identifiers named `reference` keep parsing everywhere else.
+            self.start_node(SyntaxKind::ReferenceType);
+            self.bump();
             self.bump();
             self.parse_type_ref();
             self.finish_node();

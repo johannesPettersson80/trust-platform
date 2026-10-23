@@ -216,6 +216,15 @@ pInt := REF(myInt);    // Get reference
 pInt^ := 100;          // Dereference and assign
 ```
 
+**Reference auto-dereference (vendor extension)**: a `REFERENCE TO T` operand
+in value position denotes the referenced value (CODESYS parity). Member
+access, indexing, arithmetic, and assignment copy through the reference
+without `^`; `^` remains valid on references. Equality comparisons (`=`, `<>`)
+also auto-dereference, comparing the denoted values; ordering comparisons
+(`<`, `<=`, `>`, `>=`) still require an explicit `^` dereference.
+`POINTER TO` operands keep requiring explicit `^` and never participate in
+arithmetic.
+
 ## 5. Expression Types
 
 ### 5.1 Constant Expressions

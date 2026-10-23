@@ -6,6 +6,87 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-18 - Program-scoped METHOD declarations (e!COCKPIT dialect)
+
+- Area: Program organization unit declarations
+- IEC context:
+  - IEC 61131-3 Ed.3 scopes method declarations to classes (6.6.5.4) and
+    function blocks (6.6.7.2); Table 47 (PROGRAM declaration) defines no
+    method member for programs.
+  - e!COCKPIT/CODESYS export programs with attached methods (plcopen
+    `addData` methods under the program POU), and the program body calls
+    them by bare name without a `THIS` qualifier.
+- Decision:
+  - truST accepts `METHOD ... END_METHOD` declarations inside the program
+    body of the textual file grammar, collects them as program-owned
+    methods, and lowers them as sub-bodies of the program singleton
+    instance dispatched through the program's method table. Bare-name
+    self-calls resolve in call position after scope variables; qualified
+    `ProgramName.method()` uses the existing program-singleton member
+    access. `PROPERTY` declarations remain rejected in program bodies.
+  - Textual ACTION sub-bodies on programs and function blocks lower the
+    same way (CODESYS textual POU parts); SFC action control remains out of
+    scope per `sfc-profile.md`.
+- Reason:
+  - The plcopen importer and the ST mirror already carry these constructs
+    faithfully; a front-end/file-grammar rejection diverges from the vendor
+    dialect without adding IEC conformance, because IEC has no competing
+    program-method requirement to conflict with.
+
+## 2026-10-18 - Contextual identifier names ON, NULL, SET (vendor dialect)
+
+- Area: Keywords versus identifiers (lexical elements)
+- IEC context:
+  - IEC 61131-3 Ed.3 Table 1 (6.1.3) lists `NULL`, `ON`, and `SET` as
+    keywords and Table 2 (6.1.4) requires identifiers to differ from
+    keywords; rule 3 of 6.1.3 forbids using keywords for other purposes
+    (e.g., variable names).
+  - CODESYS/e!COCKPIT treats these spellings as contextual in practice, and
+    real libraries use them as identifiers: the OSCAT `TIMER_EXT` input pin
+    `ON`, the OSCAT `FF_DRE` input pin `SET`, and the WAGO `eChar` enum
+    member `Null`.
+- Decision:
+  - truST accepts `ON`, `NULL`, and `SET` as identifier names for variables,
+    members (struct/union fields), parameters, and enum values, and resolves
+    `ON` as a value reference in expression position. POU names, method
+    names, and the remaining reserved words stay rejected.
+  - The keyword positions are unchanged and win in their structural
+    contexts: `NULL` remains the reference literal in value position (a bare
+    `null` is never the variable; reach it through member access), and `ON`
+    remains the `RESOURCE ... ON <name>` separator.
+- Reason:
+  - Front-end rejection of identifiers that the vendor dialect and real
+    libraries legitimately use forces source rewrites (dropped stub pins,
+    renamed members) without adding IEC conformance, because IEC-silent
+    identifier tolerance is a compatibility choice, not a normative
+    conflict.
+
+## 2026-10-11 - RETAIN PERSISTENT combination (vendor extension)
+
+- Area: Variable-section retention qualifiers
+- IEC context:
+  - IEC 61131-3 Ed.3 Figure 7 and section 6.5.6 define `RETAIN` and
+    `NON_RETAIN` as alternative storage specifiers and do not define a
+    `PERSISTENT` keyword for ST variable sections; IEC warm-restart semantics
+    (6.5.6.2) attach retention, while persistent behavior is a vendor
+    cold-restart concept. IEC therefore specifies no meaning for a combined
+    `RETAIN PERSISTENT` section.
+  - The 2026-07-30 decision below recorded the stricter reading: at most one
+    of `CONSTANT`, `RETAIN`, `NON_RETAIN`, or `PERSISTENT` per section.
+- Decision:
+  - truST accepts `RETAIN PERSISTENT` in state-owning sections as a
+    WAGO/CODESYS vendor extension: persistent storage implies retention, so
+    the combined section is preserved by restart paths that honor either
+    policy.
+  - Duplicates of a qualifier, `NON_RETAIN` combined with `RETAIN` or
+    `PERSISTENT`, and retention on sections that do not own state remain
+    errors per the 2026-07-30 placement rules.
+- Reason:
+  - WAGO PFC projects (e!COCKPIT/CODESYS dialect) legitimately declare
+    `VAR_GLOBAL RETAIN PERSISTENT`; front-end rejection diverges from the
+    dialect without adding IEC conformance, because IEC has no competing
+    normative requirement for the combination.
+
 ## 2026-07-30 - POU call evaluation, execution control, and output transfer
 
 - Area: Function, function-block, and method calls

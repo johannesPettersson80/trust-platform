@@ -7,6 +7,7 @@ use trust_runtime::RuntimeBuilder;
 
 fn inc_program(name: &str, var: &str) -> ProgramDef {
     ProgramDef {
+        methods: Vec::new(),
         name: name.into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -260,6 +261,7 @@ fn priority_order() {
     }
 
     let prog_a = ProgramDef {
+        methods: Vec::new(),
         name: "A".into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -271,6 +273,7 @@ fn priority_order() {
         }],
     };
     let prog_b = ProgramDef {
+        methods: Vec::new(),
         name: "B".into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -382,6 +385,7 @@ fn fifo_order_by_due_time_within_priority() {
     }
 
     let prog_a = ProgramDef {
+        methods: Vec::new(),
         name: "A".into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -393,6 +397,7 @@ fn fifo_order_by_due_time_within_priority() {
         }],
     };
     let prog_b = ProgramDef {
+        methods: Vec::new(),
         name: "B".into(),
         vars: Vec::new(),
         temps: Vec::new(),

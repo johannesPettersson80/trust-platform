@@ -46,6 +46,7 @@ mod tests {
             temps: Vec::new(),
             using: Vec::new(),
             body: Vec::new(),
+            methods: Vec::new(),
         });
         let mut runtime = builder.build().unwrap();
         let mut selected = resource("Plant");

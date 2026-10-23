@@ -141,6 +141,79 @@ pub(crate) fn resolve_project_global_constants(
     Ok(constants)
 }
 
+/// Declared initial values of plain (non-constant) global variables, for
+/// declaration-size lowering only (IEC_DEVIATIONS 2026-10-21). Each
+/// initializer is evaluated against true constants alone, so chains through
+/// other mutable variables stay undecidable; unresolved initializers are
+/// skipped silently and the size site reports when a name is needed.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn resolve_project_declared_sizes(
+    syntaxes: &[SyntaxNode],
+    registry: &mut trust_hir::types::TypeRegistry,
+    profile: DateTimeProfile,
+    semantic_db: &dyn SemanticDatabase,
+    file_ids: &[FileId],
+    statement_locations: &mut [Vec<SourceLocation>],
+    constants: &CompileTimeConsts,
+    storage_abi: crate::value::StorageAbi,
+) -> CompileTimeConsts {
+    let mut declared = CompileTimeConsts::with_storage_abi(storage_abi);
+    for (file_index, syntax) in syntaxes.iter().enumerate() {
+        for var_block in syntax
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::VarBlock)
+        {
+            let Ok(kind) = var_block_kind(&var_block) else {
+                continue;
+            };
+            if !matches!(kind, VarBlockKind::Global)
+                || var_block_qualifiers(&var_block).is_ok_and(|qualifiers| qualifiers.constant)
+            {
+                continue;
+            }
+            for declaration in var_block
+                .children()
+                .filter(|node| node.kind() == SyntaxKind::VarDecl)
+            {
+                let Ok(parts) = parse_var_decl(&declaration) else {
+                    continue;
+                };
+                let Some(initializer) = parts.initializer else {
+                    continue;
+                };
+                let names = parts
+                    .names
+                    .iter()
+                    .map(|name| namespace_qualified_name(&var_block, name.as_str()))
+                    .collect::<Vec<_>>();
+                let pending = PendingConstant {
+                    names: parts.names.clone(),
+                    type_ref: parts.type_ref.clone(),
+                    initializer: initializer.clone(),
+                    using: collect_using_directives(&var_block),
+                    file_index,
+                };
+                let mut ctx = LoweringContext {
+                    registry,
+                    profile,
+                    using: pending.using.clone(),
+                    file_id: file_ids[file_index].0,
+                    semantic_db: Some(semantic_db),
+                    semantic_file_id: Some(file_ids[file_index]),
+                    statement_locations: &mut statement_locations[file_index],
+                    compile_time_consts: constants.clone(),
+                };
+                if let Ok(value) = evaluate_constant(&pending, &mut ctx) {
+                    for name in &names {
+                        declared.insert_declared_size(name.as_str(), value.clone());
+                    }
+                }
+            }
+        }
+    }
+    declared
+}
+
 pub(crate) fn resolve_pou_local_constants(
     node: &SyntaxNode,
     ctx: &mut LoweringContext<'_>,
@@ -209,7 +282,52 @@ pub(crate) fn resolve_pou_local_constants(
         Err(last_error.unwrap_or_else(|| {
             CompileError::new("unable to resolve local constant dependency graph")
         }))
+    }?;
+    record_pou_declared_sizes(node, ctx)
+}
+
+/// Plain `VAR`/`VAR_STAT` initializers become declared sizes for this POU
+/// (IEC_DEVIATIONS 2026-10-21). Evaluated against constants and local
+/// constants only — never against other declared sizes — mirroring the
+/// project-global pass. TEMP sections are excluded (per-invocation values).
+fn record_pou_declared_sizes(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<(), CompileError> {
+    for var_block in node
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::VarBlock)
+    {
+        let kind = var_block_kind(&var_block)?;
+        if !matches!(kind, VarBlockKind::Var | VarBlockKind::Stat)
+            || var_block_qualifiers(&var_block)?.constant
+        {
+            continue;
+        }
+        for declaration in var_block
+            .children()
+            .filter(|child| child.kind() == SyntaxKind::VarDecl)
+        {
+            let parts = parse_var_decl(&declaration)?;
+            let Some(initializer) = parts.initializer else {
+                continue;
+            };
+            let pending = PendingConstant {
+                names: parts.names.clone(),
+                type_ref: parts.type_ref,
+                initializer,
+                using: ctx.using.clone(),
+                file_index: 0,
+            };
+            if let Ok(value) = evaluate_constant(&pending, ctx) {
+                for name in &parts.names {
+                    ctx.compile_time_consts
+                        .insert_declared_size(name.as_str(), value.clone());
+                }
+            }
+        }
     }
+    Ok(())
 }
 
 fn evaluate_constant(

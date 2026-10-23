@@ -1340,10 +1340,25 @@ Runtime exposes an ST-complete PLCopen XML profile through `trust-runtime plcope
   - ST POUs (`PROGRAM`, `FUNCTION`, `FUNCTION_BLOCK`)
   - supported `types/dataTypes` subset (`elementary`, `derived`, `array`, `struct`, `enum`, `subrange`) materialized as generated `TYPE` declarations
   - project model declarations in `instances/configurations/resources/tasks/program instances`
+  - CODESYS/e!COCKPIT vendor dialect constructs (import):
+    - derived names with `REFERENCE TO` / `POINTER TO` prefixes project to native
+      pointer/reference declarations (the analyzer owns auto-deref and `REF=` semantics);
+      array dimension bounds pass through verbatim as constant expressions
+    - `datatypeinheritance` addData (`<Extends>Base</Extends>`) emits `TYPE x EXTENDS y`;
+      an unprojectable marker skips the dataType fail-closed (`PLCO404`)
+    - `pouinheritance` addData emits `EXTENDS`/`IMPLEMENTS` on FUNCTION_BLOCK
+      declarations (synthesized headers and raw ST bodies alike)
+    - project-level `<Interface>` objects import as declaration-only `INTERFACE`
+      blocks (METHOD signature stubs, `EXTENDS` honored, properties rendered as METHODs)
+    - `globalVars` container qualifiers (`retain`/`persistent`/`constant`) carry into
+      the rendered `VAR_GLOBAL` header
+    - e!COCKPIT `MixedAttrsVarList` attributes views and identical whole-list
+      duplicate copies are merged into the primary list (`PLCO223`) instead of
+      multiplying into `_N.st` files
 - `trust-runtime plcopen import` emits a migration report at
   `interop/plcopen-migration-report.json` with:
   - discovered/imported/skipped POU counts
-  - imported type/project-model counts (`imported_data_types`, `discovered_configurations`, `imported_configurations`, `imported_resources`, `imported_tasks`, `imported_program_instances`)
+  - imported type/project-model counts (`imported_data_types`, `imported_interfaces`, `discovered_configurations`, `imported_configurations`, `imported_resources`, `imported_tasks`, `imported_program_instances`)
   - source coverage (% imported/discovered)
   - semantic-loss score (weighted from skipped POUs + unsupported nodes/warnings)
   - compatibility coverage summary (`supported_items`, `partial_items`, `unsupported_items`, `support_percent`, `verdict`)

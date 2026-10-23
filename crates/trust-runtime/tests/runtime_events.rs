@@ -29,6 +29,7 @@ fn runtime_events_include_cycle_and_task() {
     }
 
     let program = ProgramDef {
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -86,6 +87,7 @@ fn runtime_event_overrun_emitted() {
             .unwrap();
     }
     runtime.register_program(ProgramDef {
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -143,6 +145,7 @@ fn runtime_event_fault_emitted() {
             .unwrap();
     }
     runtime.register_program(ProgramDef {
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),

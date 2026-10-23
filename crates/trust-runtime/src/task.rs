@@ -4,7 +4,7 @@
 
 use smol_str::SmolStr;
 
-use crate::program_model::{Stmt, VarDef};
+use crate::program_model::{MethodDef, Stmt, VarDef};
 
 /// Program definition for execution.
 #[derive(Debug, Clone)]
@@ -14,6 +14,10 @@ pub struct ProgramDef {
     pub temps: Vec<VarDef>,
     pub using: Vec<SmolStr>,
     pub body: Vec<Stmt>,
+    /// Program-scoped methods and textual actions (e!COCKPIT dialect):
+    /// sub-bodies sharing the program singleton instance, dispatched through
+    /// the program's method table.
+    pub methods: Vec<MethodDef>,
 }
 
 #[cfg(test)]

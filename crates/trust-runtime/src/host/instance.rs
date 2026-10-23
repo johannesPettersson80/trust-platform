@@ -700,6 +700,7 @@ mod tests {
             temps: Vec::new(),
             using: Vec::new(),
             body: Vec::new(),
+            methods: Vec::new(),
         };
         let class = ClassDef {
             name: "Counter".into(),

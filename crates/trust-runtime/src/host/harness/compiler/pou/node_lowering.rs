@@ -23,6 +23,22 @@ fn lower_program_node(
         }
     }
     let body = lower_stmt_list(program_node, &mut ctx)?;
+    // Program-scoped METHODs and textual ACTIONs (e!COCKPIT dialect) nest
+    // inside the program's statement list; they lower as sub-bodies of the
+    // program singleton and are skipped by the statement walk above.
+    let mut methods = Vec::new();
+    for method_node in program_node
+        .descendants()
+        .filter(|child| child.kind() == SyntaxKind::Method)
+    {
+        methods.push(lower_method_node(&method_node, &mut ctx)?);
+    }
+    for action_node in program_node
+        .descendants()
+        .filter(|child| child.kind() == SyntaxKind::Action)
+    {
+        methods.push(lower_action_node(&action_node, &mut ctx)?);
+    }
     Ok(LoweredProgram {
         program: ProgramDef {
             name,
@@ -30,6 +46,7 @@ fn lower_program_node(
             temps: vars.temps,
             using: ctx.using.clone(),
             body,
+            methods,
         },
         external_names: vars.external_names,
         globals,
@@ -84,6 +101,15 @@ fn lower_function_block_node(
         .filter(|child| child.kind() == SyntaxKind::Property)
     {
         methods.extend(lower_property_methods(&property_node, ctx)?);
+    }
+    // CODESYS textual actions: same-instance sub-bodies (no parameters, no
+    // return, no storage of their own) callable by bare name from the FB
+    // body; encoding and dispatch reuse the FB method table.
+    for action_node in node
+        .children()
+        .filter(|child| child.kind() == SyntaxKind::Action)
+    {
+        methods.push(lower_action_node(&action_node, ctx)?);
     }
     let body = lower_stmt_list(node, ctx)?;
     Ok(FunctionBlockDef {
@@ -271,6 +297,45 @@ fn lower_method_node(
         locals,
         static_locals,
         using: method_ctx.using.clone(),
+        body,
+    })
+}
+
+/// CODESYS textual action: a zero-parameter, no-return sub-body sharing the
+/// owner's variables. It lowers exactly like a method so encoding and VM
+/// dispatch reuse the owner's method table; a bare-name call from the owner
+/// body already encodes as an implicit-self method call.
+fn lower_action_node(
+    node: &SyntaxNode,
+    ctx: &mut LoweringContext<'_>,
+) -> Result<MethodDef, CompileError> {
+    let name_node = node
+        .children()
+        .find(|child| child.kind() == SyntaxKind::Name)
+        .ok_or_else(|| CompileError::new("missing action name"))?;
+    let name: SmolStr = node_text(&name_node).into();
+
+    let using = collect_using_directives(node);
+    let mut action_ctx = LoweringContext {
+        registry: ctx.registry,
+        profile: ctx.profile,
+        using,
+        file_id: ctx.file_id,
+        semantic_db: ctx.semantic_db,
+        semantic_file_id: ctx.semantic_file_id,
+        statement_locations: ctx.statement_locations,
+        compile_time_consts: ctx.compile_time_consts.clone(),
+    };
+
+    let body = lower_stmt_list(node, &mut action_ctx)?;
+
+    Ok(MethodDef {
+        name,
+        return_type: None,
+        params: Vec::new(),
+        locals: Vec::new(),
+        static_locals: Vec::new(),
+        using: action_ctx.using.clone(),
         body,
     })
 }

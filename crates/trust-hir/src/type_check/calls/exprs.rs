@@ -15,6 +15,12 @@ impl<'a, 'b> CallChecker<'a, 'b> {
 
         let base_type = self.checker.expr().check_expression(&children[0]);
         let resolved_base = self.checker.resolve_alias_type(base_type);
+        // CODESYS-style reference auto-deref: indexing a reference to an
+        // array/string indexes the referenced value.
+        let resolved_base = match self.checker.symbols.type_by_id(resolved_base) {
+            Some(Type::Reference { target }) => self.checker.resolve_alias_type(*target),
+            _ => resolved_base,
+        };
         let index_count = children.len().saturating_sub(1);
         let mut index_exprs = Vec::new();
 
@@ -23,8 +29,11 @@ impl<'a, 'b> CallChecker<'a, 'b> {
             let idx_type_raw = self.checker.expr().check_expression(idx_expr);
             let idx_type = self.checker.resolve_alias_type(idx_type_raw);
             index_exprs.push((idx_expr.clone(), idx_type_raw, idx_type));
+            // CODESYS parity (vendor extension): enum-typed subscripts
+            // are accepted alongside integer subscripts.
             if let Some(ty) = self.checker.symbols.type_by_id(idx_type)
                 && !ty.is_integer()
+                && !matches!(ty, Type::Enum { .. })
             {
                 self.checker.diagnostics.error(
                     DiagnosticCode::InvalidArrayIndex,
@@ -134,6 +143,26 @@ impl<'a, 'b> CallChecker<'a, 'b> {
         if let Some(symbol_id) = self
             .checker
             .resolve_ref()
+            .resolve_program_qualified_member(node)
+            && let Some(symbol) = self.checker.symbols.get(symbol_id)
+        {
+            return SemanticOutcome::Resolved(symbol.type_id);
+        }
+
+        // CODESYS qualified enum member access (`EnumType.Member`): the base
+        // names a type, not a value, so resolve the member directly to the
+        // enum type instead of reporting the type as a value.
+        if let Some(enum_type) = self
+            .checker
+            .resolve_ref()
+            .resolve_qualified_enum_member(node)
+        {
+            return SemanticOutcome::Resolved(enum_type);
+        }
+
+        if let Some(symbol_id) = self
+            .checker
+            .resolve_ref()
             .resolve_namespace_qualified_symbol(node)
             && let Some(symbol) = self.checker.symbols.get(symbol_id)
         {
@@ -168,6 +197,16 @@ impl<'a, 'b> CallChecker<'a, 'b> {
                 .checker
                 .suppressed_type_outcome(DiagnosticCode::CannotResolve, base.text_range());
         }
+
+        // CODESYS-style reference auto-deref: member access on a reference
+        // resolves against the referenced type.
+        let (base_type, resolved_base) = match self.checker.symbols.type_by_id(resolved_base) {
+            Some(Type::Reference { target }) => {
+                let deref_type = *target;
+                (deref_type, self.checker.resolve_alias_type(deref_type))
+            }
+            _ => (base_type, resolved_base),
+        };
 
         if let Some(ty) = self.checker.symbols.type_by_id(resolved_base) {
             match ty {

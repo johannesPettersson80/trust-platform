@@ -27,6 +27,7 @@ fn symbols_in_scope(
                 SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
                 SymbolKind::Program
                 | SymbolKind::ProgramInstance
+                | SymbolKind::Action
                 | SymbolKind::Parameter { .. }
                 | SymbolKind::Namespace
                 | SymbolKind::Configuration
@@ -469,6 +470,7 @@ fn using_scope_symbol_completions(
                         SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
                         SymbolKind::Program
                         | SymbolKind::ProgramInstance
+                        | SymbolKind::Action
                         | SymbolKind::Parameter { .. }
                         | SymbolKind::Namespace
                         | SymbolKind::Configuration

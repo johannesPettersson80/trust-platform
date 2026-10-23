@@ -62,6 +62,7 @@ impl SymbolCollector<'_> {
     pub(super) fn visit_node(&mut self, node: &SyntaxNode) {
         match node.kind() {
             SyntaxKind::Program => self.collect_pou(node, SymbolKind::Program, TypeId::VOID),
+            SyntaxKind::Action => self.collect_action(node),
             SyntaxKind::Configuration => self.collect_configuration(node),
             SyntaxKind::Resource => self.collect_resource(node),
             SyntaxKind::TaskConfig => self.collect_task_config(node),
@@ -231,7 +232,10 @@ impl SymbolCollector<'_> {
                     self.table
                         .get(id)
                         .filter(|sym| {
-                            matches!(sym.kind, SymbolKind::Class | SymbolKind::FunctionBlock)
+                            matches!(
+                                sym.kind,
+                                SymbolKind::Class | SymbolKind::FunctionBlock | SymbolKind::Program
+                            )
                         })
                         .map(|_| id)
                 });
@@ -256,6 +260,26 @@ impl SymbolCollector<'_> {
         // Pop scope and parent
         self.parent_stack.pop();
         self.table.pop_scope();
+    }
+
+    /// CODESYS textual action (vendor extension): an invocable child symbol
+    /// of its owning program/function block. Actions live outside the
+    /// owning scope so a variable of the same name keeps shadowing them;
+    /// resolution goes through the POU child scan in call position. The
+    /// body itself is type-checked separately.
+    fn collect_action(&mut self, node: &SyntaxNode) {
+        let Some((name, range)) = name_from_node(node) else {
+            return;
+        };
+        let mut symbol = Symbol::new(
+            SymbolId::UNKNOWN,
+            name,
+            SymbolKind::Action,
+            TypeId::VOID,
+            range,
+        );
+        symbol.parent = self.current_parent();
+        self.table.add_symbol_raw(symbol);
     }
 
     fn collect_configuration(&mut self, node: &SyntaxNode) {
@@ -389,8 +413,13 @@ impl SymbolCollector<'_> {
             return Visibility::Public;
         };
         match parent.kind {
-            SymbolKind::Class | SymbolKind::FunctionBlock => Visibility::Protected,
-            SymbolKind::Interface => Visibility::Public,
+            // Classes default to Protected (IEC 61131-3 Ed.3 object model).
+            // Function blocks default to Public: classic IEC reaches members
+            // through the instance name (`fbInstance.var`), and CODESYS
+            // projects rely on it — restriction is opt-in via
+            // VAR_PROTECTED/VAR_PRIVATE.
+            SymbolKind::Class => Visibility::Protected,
+            SymbolKind::Interface | SymbolKind::FunctionBlock => Visibility::Public,
             _ => Visibility::Public,
         }
     }
@@ -509,12 +538,18 @@ impl SymbolCollector<'_> {
         let range = symbol.range;
 
         let upper_name = name.to_ascii_uppercase();
+        // Context-sensitive keyword names (CODESYS dialect, spec 01 §3):
+        // variable, member, and enum-member declarations may spell ON/NULL/SET
+        // — OSCAT pins (TIMER_EXT.ON, FF_DRE.SET) and eChar.Null exist in the
+        // wild. POU-level names keep the reserved table.
         let allow_reserved = (matches!(symbol.kind, SymbolKind::Parameter { .. })
-            && matches!(upper_name.as_str(), "EN" | "ENO"))
+            && matches!(upper_name.as_str(), "EN" | "ENO" | "ON" | "NULL" | "SET"))
             || (matches!(symbol.kind, SymbolKind::Method { .. })
                 && matches!(upper_name.as_str(), "GET" | "SET"))
             || (matches!(symbol.kind, SymbolKind::Variable { .. })
-                && matches!(upper_name.as_str(), "STEP"));
+                && matches!(upper_name.as_str(), "STEP" | "ON" | "NULL" | "SET"))
+            || (matches!(symbol.kind, SymbolKind::EnumValue { .. })
+                && is_contextual_keyword_name(&name));
         self.validate_identifier(&name, range, allow_reserved);
 
         // Check for duplicate in current scope

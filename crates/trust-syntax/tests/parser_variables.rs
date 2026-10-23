@@ -539,3 +539,63 @@ END_FUNCTION_BLOCK"#,
         parsed.errors()
     );
 }
+
+#[test]
+// Context-sensitive keywords (CODESYS dialect, spec 01 §3): ON/NULL/SET
+// spell real OSCAT pins and enum members, so they parse as identifiers in
+// declaration positions. NULL stays the literal in value position.
+fn test_var_names_with_contextual_keywords() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"PROGRAM Test
+VAR_INPUT
+    on : BOOL;
+    set : BOOL;
+END_VAR
+VAR
+    null : BOOL;
+    timer : TIMER_EXT;
+END_VAR
+    on := set;
+    timer.on := TRUE;
+    timer.set := FALSE;
+END_PROGRAM"#
+    ));
+}
+
+#[test]
+// Enum members may spell ON/NULL/SET (eChar.Null exists in WagoTypesCommon).
+fn test_enum_members_with_contextual_keywords() {
+    insta::assert_snapshot!(snapshot_parse(
+        r#"TYPE eChar :
+(
+    Null,
+    Space,
+    On,
+    Set
+);
+END_TYPE"#
+    ));
+}
+
+#[test]
+// NULL remains the null literal in expression position; ON may name a
+// variable and appears as a NameRef.
+fn test_contextual_keywords_in_expressions() {
+    let source = r#"PROGRAM Test
+VAR
+    on : BOOL;
+    p : REF_TO INT;
+END_VAR
+    on := TRUE;
+    p := NULL;
+    IF on THEN
+        on := FALSE;
+    END_IF;
+END_PROGRAM"#;
+    let parsed = parse(source);
+    assert!(
+        parsed.ok(),
+        "expected contextual-keyword statements to parse, got: {:?}",
+        parsed.errors()
+    );
+}

@@ -8,10 +8,18 @@ use crate::types::{ArrayDimensionExt, StructField, UnionVariant};
 impl SymbolCollector<'_> {
     pub(super) fn collect_type_symbols(&mut self, node: &SyntaxNode) {
         let mut pending: Option<(SmolStr, TextRange)> = None;
+        let mut pending_extends: Option<SmolStr> = None;
         for child in node.children() {
             match child.kind() {
                 SyntaxKind::Name => {
                     pending = name_from_node(&child);
+                }
+                SyntaxKind::ExtendsClause => {
+                    pending_extends = qualified_name_parts(&child).map(|(parts, _)| {
+                        let names: Vec<SmolStr> =
+                            parts.iter().map(|(name, _)| name.clone()).collect();
+                        qualified_name_string(&names)
+                    });
                 }
                 SyntaxKind::StructDef
                 | SyntaxKind::UnionDef
@@ -21,7 +29,12 @@ impl SymbolCollector<'_> {
                     let Some((type_name, name_range)) = pending.take() else {
                         continue;
                     };
-                    self.register_type_symbol(&child, type_name, name_range);
+                    self.register_type_symbol(
+                        &child,
+                        type_name,
+                        name_range,
+                        pending_extends.take(),
+                    );
                 }
                 _ => {}
             }
@@ -33,6 +46,7 @@ impl SymbolCollector<'_> {
         type_def: &SyntaxNode,
         type_name: SmolStr,
         name_range: TextRange,
+        extends_base: Option<SmolStr>,
     ) {
         let qualified_name = self.qualify_current_name(&type_name);
         self.register_type_symbol_with_qualified_name(
@@ -40,6 +54,7 @@ impl SymbolCollector<'_> {
             type_name,
             qualified_name,
             name_range,
+            extends_base,
         );
     }
 
@@ -49,6 +64,7 @@ impl SymbolCollector<'_> {
         type_name: SmolStr,
         qualified_name: SmolStr,
         name_range: TextRange,
+        extends_base: Option<SmolStr>,
     ) {
         let errors_before_formation = self.diagnostics.error_count();
         // Create TYPE symbol first with placeholder type_id, so that nested symbols
@@ -66,6 +82,15 @@ impl SymbolCollector<'_> {
         );
         symbol.parent = self.current_parent();
         let type_symbol_id = self.declare_symbol(symbol);
+
+        // CODESYS DUT inheritance (vendor extension): record the base on the
+        // TYPE symbol so field resolution and subtype checks can walk the
+        // chain, including across files via the project symbol import.
+        if let Some(base) = extends_base
+            && type_def.kind() == SyntaxKind::StructDef
+        {
+            self.table.set_extends(type_symbol_id, base);
+        }
 
         // Push TYPE symbol onto parent stack so enum values get it as parent
         self.parent_stack.push(type_symbol_id);
@@ -379,7 +404,11 @@ impl SymbolCollector<'_> {
                 self.check_required_default_expression(field_type, expr);
             }
             for (field_name, range) in field_names {
-                self.validate_identifier(&field_name, range, false);
+                self.validate_identifier(
+                    &field_name,
+                    range,
+                    is_contextual_keyword_name(&field_name),
+                );
                 let key = field_name.to_ascii_uppercase();
                 if let Some(previous) = seen_fields.insert(key, range) {
                     self.diagnostics.add(
@@ -463,7 +492,11 @@ impl SymbolCollector<'_> {
                 self.check_required_default_expression(field_type, expr);
             }
             for (field_name, range) in field_names {
-                self.validate_identifier(&field_name, range, false);
+                self.validate_identifier(
+                    &field_name,
+                    range,
+                    is_contextual_keyword_name(&field_name),
+                );
                 let key = field_name.to_ascii_uppercase();
                 if let Some(previous) = seen_variants.insert(key, range) {
                     self.diagnostics.add(
@@ -505,7 +538,11 @@ impl SymbolCollector<'_> {
         for child in node.children() {
             if child.kind() == SyntaxKind::EnumValue {
                 if let Some((value_name, range)) = name_from_node(&child) {
-                    self.validate_identifier(&value_name, range, false);
+                    self.validate_identifier(
+                        &value_name,
+                        range,
+                        is_contextual_keyword_name(&value_name),
+                    );
                     // Check for explicit value assignment
                     let value = self.extract_enum_value(&child).unwrap_or(next_value);
                     values.push((value_name.clone(), value));
@@ -515,7 +552,11 @@ impl SymbolCollector<'_> {
             } else if child.kind() == SyntaxKind::Name {
                 // Simple enum value without EnumValue wrapper
                 if let Some((value_name, range)) = name_from_node(&child) {
-                    self.validate_identifier(&value_name, range, false);
+                    self.validate_identifier(
+                        &value_name,
+                        range,
+                        is_contextual_keyword_name(&value_name),
+                    );
                     values.push((value_name.clone(), next_value));
                     value_symbols.push((value_name, next_value, range));
                     next_value += 1;
@@ -717,7 +758,9 @@ impl SymbolCollector<'_> {
         let mut values = Vec::new();
         let scopes = scope_chain_for_node(node);
         for child in node.children().filter(|n| is_expression_kind(n.kind())) {
-            let value = self.eval_int_expr_in_scope(&child, &scopes)?;
+            // Declaration-size context: bounds may name plain
+            // initializer-backed variables (IEC_DEVIATIONS 2026-10-21).
+            let value = self.eval_declared_size_expr_in_scope(&child, &scopes)?;
             values.push(value);
         }
         if values.len() >= 2 {
@@ -792,7 +835,9 @@ impl SymbolCollector<'_> {
         // Look for length specification
         if let Some(expr) = node.children().find(|n| is_expression_kind(n.kind())) {
             let scopes = scope_chain_for_node(node);
-            match self.try_eval_optional_int_expr_in_scope(&expr, &scopes) {
+            // Declaration-size context: the length may name a plain
+            // initializer-backed variable (IEC_DEVIATIONS 2026-10-21).
+            match self.try_eval_declared_size_expr_in_scope(&expr, &scopes) {
                 Ok(Some(value)) => {
                     if value <= 0 {
                         self.diagnostics.error(

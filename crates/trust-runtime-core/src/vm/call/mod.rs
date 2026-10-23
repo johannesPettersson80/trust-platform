@@ -329,6 +329,9 @@ fn dispatch_native_vm_call(
                 .get(&type_key)
                 .copied()
                 .or_else(|| module.class_ids.get(&type_key).copied())
+                // Program-scoped methods and actions dispatch against the
+                // program singleton instance.
+                .or_else(|| module.program_ids.get(&type_key).copied())
                 .ok_or_else(|| {
                     VmTrap::Runtime(RuntimeError::UndefinedField(target_name.clone()))
                 })?;

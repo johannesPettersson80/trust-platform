@@ -238,8 +238,16 @@ impl<'a> BytecodeEncoder<'a> {
     fn class_like_def(&self, key: &SmolStr) -> Option<ClassLikeDef<'_>> {
         if let Some(fb) = self.runtime.function_blocks().get(key) {
             Some(ClassLikeDef::FunctionBlock(fb))
+        } else if let Some(class) = self.runtime.classes().get(key) {
+            Some(ClassLikeDef::Class(class))
         } else {
-            self.runtime.classes().get(key).map(ClassLikeDef::Class)
+            // Programs are not registered into the builder view the way
+            // function blocks and classes are; go through the encoder's
+            // program set (authoring input or builder map).
+            self.programs()
+                .iter()
+                .find(|(name, _)| normalize_name(name) == *key)
+                .map(|(_, program)| ClassLikeDef::Program(program))
         }
     }
 
@@ -279,6 +287,14 @@ impl<'a> BytecodeEncoder<'a> {
                         }
                     }
                     current = class.base.clone();
+                }
+                ClassLikeDef::Program(program) => {
+                    for var in &program.vars {
+                        if self.authoring.is_none() || !var.external {
+                            insert_self_field(&mut fields, &var.name);
+                        }
+                    }
+                    current = None;
                 }
             }
         }

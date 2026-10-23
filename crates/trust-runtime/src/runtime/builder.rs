@@ -416,6 +416,7 @@ mod tests {
             temps: Vec::new(),
             using: Vec::new(),
             body: Vec::new(),
+            methods: Vec::new(),
         });
         builder.register_task(TaskConfig {
             name: "Scan".into(),
@@ -451,6 +452,7 @@ mod tests {
             temps: Vec::new(),
             using: vec!["PlantLibrary".into()],
             body: Vec::new(),
+            methods: Vec::new(),
         };
         builder.register_program(template.clone());
         let mut instance = template.clone();

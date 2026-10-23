@@ -20,6 +20,11 @@ pub(crate) struct CompileTimeConsts {
     global_reserved: indexmap::IndexSet<SmolStr>,
     local_values: IndexMap<SmolStr, Value>,
     local_reserved: indexmap::IndexSet<SmolStr>,
+    /// Declared initial values of plain (non-constant) variables
+    /// (IEC_DEVIATIONS 2026-10-21). Never consulted by ordinary
+    /// compile-time-constant evaluation; only declaration-size lowering
+    /// builds the size-evaluation view that merges them in.
+    declared_sizes: IndexMap<SmolStr, Value>,
 }
 
 impl CompileTimeConsts {
@@ -48,6 +53,28 @@ impl CompileTimeConsts {
 
     pub(crate) fn insert_local(&mut self, name: &str, value: Value) {
         self.local_values.insert(Self::key(name), value);
+    }
+
+    pub(crate) fn insert_declared_size(&mut self, name: &str, value: Value) {
+        self.declared_sizes.insert(Self::key(name), value);
+    }
+
+    pub(crate) fn declared_sizes_is_empty(&self) -> bool {
+        self.declared_sizes.is_empty()
+    }
+
+    pub(crate) fn absorb_declared_sizes(&mut self, declared: Self) {
+        for (name, value) in declared.declared_sizes {
+            self.declared_sizes.insert(name, value);
+        }
+    }
+
+    /// The view declaration-size lowering evaluates against: true constants
+    /// plus the declared initial values of plain variables.
+    pub(crate) fn size_evaluation_view(&self) -> Self {
+        let mut view = self.clone();
+        view.global_values.extend(self.declared_sizes.clone());
+        view
     }
 
     fn lookup(&self, name: &str, using: &[SmolStr]) -> Option<Value> {

@@ -59,6 +59,11 @@ pub enum PouKind {
 }
 
 impl PouKind {
+    /// Entry flags byte: the record carries class-meta tail fields. Reserved
+    /// for `PROGRAM` records, whose meta is otherwise absent; function-block
+    /// and class records always carry the tail and read it by kind.
+    pub const FLAG_CLASS_META: u8 = 0x01;
+
     /// Decode a known wire discriminant; return `None` for an unknown value.
     #[must_use]
     pub fn from_raw(value: u8) -> Option<Self> {
@@ -76,6 +81,14 @@ impl PouKind {
     #[must_use]
     pub fn is_class_like(self) -> bool {
         matches!(self, Self::FunctionBlock | Self::Class)
+    }
+
+    /// Whether the record's class-meta tail is present, either unconditionally
+    /// by kind or flagged for kinds whose meta is optional (program-scoped
+    /// methods and textual actions).
+    #[must_use]
+    pub fn has_class_meta(self, entry_flags: u8) -> bool {
+        self.is_class_like() || (self == Self::Program && entry_flags & Self::FLAG_CLASS_META != 0)
     }
 }
 

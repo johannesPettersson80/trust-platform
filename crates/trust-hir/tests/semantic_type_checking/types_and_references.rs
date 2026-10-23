@@ -579,3 +579,395 @@ END_PROGRAM
 "#,
     );
 }
+
+#[test]
+fn test_reference_to_spelling_is_ref_to_alias() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REFERENCE TO INT; END_VAR
+    r := REF(x);
+    r^ := 5;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_ref_bind_rebinds_to_variable_storage() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; y : INT; r1 : REF_TO INT; r2 : REF_TO INT; END_VAR
+    r1 REF= x;
+    r2 REF= r1;
+    r1 REF= NULL;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_value_target() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    x REF= r;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_computed_source() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= x + 1;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_ref_bind_rejects_constant_source() {
+    // Spec 06 section 2: the REF= source must not be CONSTANT-qualified.
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR CONSTANT limit : INT := 10; END_VAR
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= limit;
+END_PROGRAM
+"#,
+        DiagnosticCode::ConstantModification,
+    );
+}
+
+#[test]
+fn test_reference_auto_deref_field_access() {
+    check_no_errors(
+        r#"
+TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE
+PROGRAM Test
+    VAR p : Point; r : REFERENCE TO Point; v : INT; END_VAR
+    r REF= p;
+    v := r.x;
+    r.x := 7;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_pointer_field_access_still_requires_deref() {
+    check_has_error(
+        r#"
+TYPE Point : STRUCT x : INT; END_STRUCT END_TYPE
+PROGRAM Test
+    VAR p : POINTER TO Point; v : INT; END_VAR
+    v := p.x;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn test_reference_auto_deref_array_index() {
+    check_no_errors(
+        r#"
+TYPE Data : ARRAY[0..3] OF INT; END_TYPE
+PROGRAM Test
+    VAR a : Data; r : REFERENCE TO Data; v : INT; END_VAR
+    r REF= a;
+    v := r[2];
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_copy_through_assignment() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    r REF= x;
+    x := r;
+    r := 3;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_argument_copy_through() {
+    check_no_errors(
+        r#"
+FUNCTION Scale : INT
+    VAR_INPUT
+        v : INT;
+    END_VAR
+    Scale := v * 2;
+END_FUNCTION
+PROGRAM Test
+    VAR r : REF_TO INT; out : INT; END_VAR
+    out := Scale(r);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_in_out_argument_binding() {
+    check_no_errors(
+        r#"
+FUNCTION_BLOCK FBSwap
+    VAR_IN_OUT io : INT; END_VAR
+END_FUNCTION_BLOCK
+PROGRAM Test
+    VAR r : REF_TO INT; fb : FBSwap; END_VAR
+    fb(r);
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_arithmetic_copy_through() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR x : INT; r : REF_TO INT; END_VAR
+    x := r + 1;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_reference_arithmetic_between_references() {
+    check_no_errors(
+        r#"
+PROGRAM Test
+    VAR a : REF_TO INT; b : REF_TO INT; x : INT; END_VAR
+    x := a + b;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_enum_typed_array_index_is_accepted() {
+    // CODESYS parity (vendor extension): an enum value or enum-typed
+    // variable is accepted as an array subscript.
+    check_no_errors(
+        r#"
+TYPE EAxis : (AxisX, AxisY); END_TYPE
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        axis : EAxis;
+        vx : INT;
+    END_VAR
+    vx := table[AxisX];
+    vx := table[axis];
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn test_non_integer_array_index_still_rejected() {
+    check_has_error(
+        r#"
+PROGRAM Test
+    VAR
+        table : ARRAY[0..1] OF INT;
+        label : STRING;
+        vx : INT;
+    END_VAR
+    vx := table[label];
+END_PROGRAM
+"#,
+        DiagnosticCode::InvalidArrayIndex,
+    );
+}
+
+// CODESYS vendor parity (IEC_DEVIATIONS 2026-10-21): declaration sizes may
+// name plain initializer-backed variables, not only true constants.
+#[test]
+fn test_string_length_from_initialized_global_variable() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+NAMESPACE GVLMqtt
+    VAR_GLOBAL
+        uiLenMsgState : UINT := 968;
+    END_VAR
+END_NAMESPACE
+FUNCTION_BLOCK fbPayload
+    VAR
+        pTemplate : STRING(GVLMqtt.uiLenMsgState);
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let name = symbols.iter().find(|s| s.name == "pTemplate").unwrap();
+    let type_id = symbols.resolve_alias_type(name.type_id);
+    let Type::String { max_len } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected string type");
+    };
+    assert_eq!(*max_len, Some(968));
+}
+
+#[test]
+fn test_string_length_from_initialized_local_variable() {
+    let mut db = Database::new();
+    let file = FileId(0);
+    db.set_source_text(
+        file,
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR
+        uiLen : UINT := 240;
+        name : STRING(uiLen);
+    END_VAR
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let symbols = db.file_symbols(file);
+    let name = symbols.iter().find(|s| s.name == "name").unwrap();
+    let type_id = symbols.resolve_alias_type(name.type_id);
+    let Type::String { max_len } = symbols.type_by_id(type_id).unwrap() else {
+        panic!("expected string type");
+    };
+    assert_eq!(*max_len, Some(240));
+}
+
+#[test]
+fn test_string_length_unresolvable_variable_chain_still_diagnoses() {
+    // The leniency covers strictly-valued initializers only: a chain
+    // through another mutable variable stays undecidable and keeps the
+    // standing diagnostic.
+    check_has_error(
+        r#"
+FUNCTION_BLOCK FB_Test
+    VAR
+        uiOuter : UINT := 12;
+        uiInner : UINT := uiOuter;
+        name : STRING(uiInner);
+    END_VAR
+END_FUNCTION_BLOCK
+"#,
+        DiagnosticCode::UndefinedVariable,
+    );
+}
+
+#[test]
+fn reference_binds_lvalue_string_of_any_declared_size() {
+    check_no_errors(
+        r#"
+PROGRAM P
+VAR
+    buffer : STRING[255];
+    sizedRef : REFERENCE TO STRING[968];
+    openRef : REFERENCE TO STRING;
+END_VAR
+sizedRef REF= buffer;
+openRef REF= buffer;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn reference_binds_lvalue_derived_struct_behind_base_reference() {
+    check_no_errors(
+        r#"
+TYPE stBase : STRUCT
+    a : INT;
+END_STRUCT
+END_TYPE
+TYPE stDerived EXTENDS stBase : STRUCT
+    b : INT;
+END_STRUCT
+END_TYPE
+PROGRAM P
+VAR
+    d : stDerived;
+    r : REFERENCE TO stBase;
+END_VAR
+r REF= d;
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn reference_still_rejects_lvalue_of_unrelated_type() {
+    check_has_error(
+        r#"
+PROGRAM P
+VAR
+    flag : BOOL;
+    r : REFERENCE TO INT;
+END_VAR
+r REF= flag;
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}
+
+#[test]
+fn equality_comparison_auto_dereferences_references() {
+    check_no_errors(
+        r#"
+PROGRAM P
+VAR
+    buffer : STRING[255];
+    textRef : REFERENCE TO STRING;
+    value : INT;
+    intRef : REFERENCE TO INT;
+END_VAR
+IF textRef = buffer THEN
+    value := 1;
+END_IF
+IF intRef = value THEN
+    value := 2;
+END_IF
+END_PROGRAM
+"#,
+    );
+}
+
+#[test]
+fn ordering_comparison_still_requires_explicit_dereference() {
+    check_has_error(
+        r#"
+PROGRAM P
+VAR
+    value : INT;
+    intRef : REFERENCE TO INT;
+END_VAR
+IF intRef < value THEN
+    value := 1;
+END_IF
+END_PROGRAM
+"#,
+        DiagnosticCode::TypeMismatch,
+    );
+}

@@ -452,6 +452,8 @@ fn is_name_token(kind: SyntaxKind) -> bool {
             | SyntaxKind::KwGet
             | SyntaxKind::KwSet
             | SyntaxKind::KwStep
+            | SyntaxKind::KwOn
+            | SyntaxKind::KwNull
     )
 }
 

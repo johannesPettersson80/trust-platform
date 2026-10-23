@@ -82,6 +82,7 @@ fn io_driver_reads_and_writes_at_cycle_bounds() {
         .expect("declare test global");
 
     let program = ProgramDef {
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),
@@ -178,6 +179,7 @@ fn composed_drivers_are_invoked_in_order() {
         .expect("declare test global");
 
     let program = ProgramDef {
+        methods: Vec::new(),
         name: "P".into(),
         vars: Vec::new(),
         temps: Vec::new(),

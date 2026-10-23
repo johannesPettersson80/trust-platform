@@ -148,7 +148,7 @@ impl SymbolCollector<'_> {
 
         let scopes = scope_chain_for_node(expr);
         let mut guard = FxHashSet::default();
-        match self.try_eval_int_expr(expr, &scopes, &mut guard) {
+        match self.try_eval_int_expr(expr, &scopes, &mut guard, false) {
             Ok(_) => {}
             Err(ConstEvalError::UndefinedName(name))
                 if self.table.resolve(name.as_str(), scope).is_some() =>
@@ -315,6 +315,20 @@ impl SymbolCollector<'_> {
     ) -> Option<InitializerConstViolation> {
         let parts = qualified_const_parts(node)?;
         let name = parts.last()?.clone();
+        // CODESYS qualified enum member access (`EnumType.Member`): the
+        // referenced value is a constant of the enum type.
+        if parts.len() >= 2
+            && self
+                .table
+                .qualified_enum_member_type(
+                    &parts[..parts.len() - 1].join("."),
+                    name.as_str(),
+                    scope,
+                )
+                .is_some()
+        {
+            return None;
+        }
         let symbol_id = match self.resolve_initializer_reference(&parts, scope) {
             InitializerReferenceResolution::Found(symbol_id) => symbol_id,
             InitializerReferenceResolution::Ambiguous => {
@@ -383,10 +397,20 @@ impl SymbolCollector<'_> {
         scope: ScopeId,
     ) -> InitializerReferenceResolution {
         if parts.len() > 1 {
-            return self.table.resolve_qualified(parts).map_or(
-                InitializerReferenceResolution::NotFound,
-                InitializerReferenceResolution::Found,
-            );
+            if let Some(symbol_id) = self.table.resolve_qualified(parts) {
+                return InitializerReferenceResolution::Found(symbol_id);
+            }
+            // CODESYS qualified enum member access (`EnumType.Member`,
+            // optionally namespace-qualified): the type-qualified form
+            // resolves to the enum's value, a legal constant initializer.
+            let (type_parts, member) = parts.split_at(parts.len() - 1);
+            if let Some(type_symbol) =
+                self.table
+                    .enum_type_member_symbol(type_parts, member[0].as_str(), scope)
+            {
+                return InitializerReferenceResolution::Found(type_symbol);
+            }
+            return InitializerReferenceResolution::NotFound;
         }
         let Some(name) = parts.first() else {
             return InitializerReferenceResolution::NotFound;

@@ -3,6 +3,7 @@ enum PlcopenPouType {
     Program,
     Function,
     FunctionBlock,
+    Action,
 }
 
 impl PlcopenPouType {
@@ -11,6 +12,7 @@ impl PlcopenPouType {
             Self::Program => "program",
             Self::Function => "function",
             Self::FunctionBlock => "functionBlock",
+            Self::Action => "action",
         }
     }
 
@@ -19,6 +21,7 @@ impl PlcopenPouType {
             Self::Program => "PROGRAM",
             Self::Function => "FUNCTION",
             Self::FunctionBlock => "FUNCTION_BLOCK",
+            Self::Action => "ACTION",
         }
     }
 
@@ -27,6 +30,7 @@ impl PlcopenPouType {
             Self::Program => "END_PROGRAM",
             Self::Function => "END_FUNCTION",
             Self::FunctionBlock => "END_FUNCTION_BLOCK",
+            Self::Action => "END_ACTION",
         }
     }
 
@@ -40,6 +44,7 @@ impl PlcopenPouType {
             "program" | "prg" => Some(Self::Program),
             "function" | "fc" | "fun" => Some(Self::Function),
             "functionblock" | "fb" => Some(Self::FunctionBlock),
+            "action" | "act" => Some(Self::Action),
             _ => None,
         }
     }

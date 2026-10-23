@@ -196,6 +196,8 @@ impl Parser<'_, '_> {
                         | TokenKind::KwGet
                         | TokenKind::KwSet
                         | TokenKind::KwStep
+                        | TokenKind::KwOn
+                        | TokenKind::KwNull
                 ) {
                     self.bump();
                 } else {
@@ -209,6 +211,7 @@ impl Parser<'_, '_> {
             | TokenKind::KwGet
             | TokenKind::KwSet
             | TokenKind::KwStep
+            | TokenKind::KwOn
             | TokenKind::KwTime
             | TokenKind::KwRef
             | TokenKind::KwNew
@@ -229,6 +232,8 @@ impl Parser<'_, '_> {
                         | TokenKind::KwGet
                         | TokenKind::KwSet
                         | TokenKind::KwStep
+                        | TokenKind::KwOn
+                        | TokenKind::KwNull
                 ) {
                     self.bump();
                 } else {
@@ -288,6 +293,8 @@ impl Parser<'_, '_> {
                             self.current(),
                             TokenKind::KwArray | TokenKind::KwPointer | TokenKind::KwRefTo
                         )
+                        || (self.source.at_ident_ci("REFERENCE")
+                            && self.peek_kind_n(1) == TokenKind::KwTo)
                     {
                         self.parse_type_ref();
                     } else if self.current().can_start_expr() {
@@ -401,19 +408,34 @@ impl Parser<'_, '_> {
             self.start_node(SyntaxKind::Arg);
 
             // Check for named argument
-            if self.at_name_token()
+            let named_op = if self.at_name_token()
                 && matches!(
                     self.peek_kind_n(1),
                     TokenKind::Assign | TokenKind::Arrow | TokenKind::RefAssign
-                )
-            {
+                ) {
+                Some(self.peek_kind_n(1))
+            } else {
+                None
+            };
+
+            if let Some(op) = named_op {
                 self.start_node(SyntaxKind::Name);
                 self.bump();
                 self.finish_node();
                 self.bump(); // :=, =>, ?=
-            }
 
-            self.parse_expression();
+                // CODESYS parity: an empty right-hand side on a named
+                // binding skips it — `done =>` discards the output and
+                // `xRst := ,` leaves the parameter unbound. `?=` still
+                // requires a target.
+                if !(matches!(op, TokenKind::Arrow | TokenKind::Assign)
+                    && (self.at(TokenKind::RParen) || self.at(TokenKind::Comma)))
+                {
+                    self.parse_expression();
+                }
+            } else {
+                self.parse_expression();
+            }
             self.finish_node();
 
             if self.at(TokenKind::Comma) {

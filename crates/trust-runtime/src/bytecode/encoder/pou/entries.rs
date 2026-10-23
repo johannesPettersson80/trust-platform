@@ -35,6 +35,14 @@ impl<'a> BytecodeEncoder<'a> {
         id: u32,
     ) -> Result<PouEntry, BytecodeError> {
         let name_idx = self.strings.intern(program.name.clone());
+        // Program-scoped methods ride the same class-meta section as FB and
+        // CLASS method tables; absent methods keep the historical meta-less
+        // entry so existing artifacts stay byte-compatible.
+        let class_meta = if program.methods.is_empty() {
+            None
+        } else {
+            Some(self.class_meta(program, None)?)
+        };
         Ok(PouEntry {
             id,
             name_idx,
@@ -46,7 +54,7 @@ impl<'a> BytecodeEncoder<'a> {
             return_type_id: None,
             owner_pou_id: None,
             params: Vec::new(),
-            class_meta: None,
+            class_meta,
         })
     }
 

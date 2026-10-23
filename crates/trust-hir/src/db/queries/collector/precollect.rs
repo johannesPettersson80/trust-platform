@@ -67,6 +67,7 @@ impl SymbolCollector<'_> {
         node: &SyntaxNode,
         namespace: &[SmolStr],
         pou_stack: &[SmolStr],
+        origin: FileId,
     ) {
         let mut current_namespace: Vec<SmolStr> = namespace.to_vec();
         let mut current_pou_stack: Vec<SmolStr> = pou_stack.to_vec();
@@ -79,17 +80,49 @@ impl SymbolCollector<'_> {
             current_pou_stack.extend(pou_scope_parts(node));
         }
 
-        if node.kind() == SyntaxKind::VarBlock && const_block_is_precollectable(node) {
+        if node.kind() == SyntaxKind::VarBlock {
             let current_scope = const_scope_identity(&current_namespace, &current_pou_stack);
-            self.collect_const_block(node, &current_scope);
+            if const_block_is_precollectable(node) {
+                self.collect_const_block(node, &current_scope, origin);
+            } else if var_block_declares_sizes(node) {
+                self.collect_declared_value_block(node, &current_scope);
+            }
         }
 
         for child in node.children() {
-            self.precollect_constants(&child, &current_namespace, &current_pou_stack);
+            self.precollect_constants(&child, &current_namespace, &current_pou_stack, origin);
         }
     }
 
-    pub(super) fn collect_const_block(&mut self, node: &SyntaxNode, scope: &Option<SmolStr>) {
+    /// Initializers of plain (non-constant) variables, for declaration-size
+    /// evaluation only: CODESYS resolves `STRING(GVLMqtt.uiLenMsgState)` and
+    /// symbolic array bounds from the declared initial value even when the
+    /// variable is not a constant (IEC_DEVIATIONS 2026-10-21). External,
+    /// access, interface-direction, and TEMP sections are excluded — those
+    /// initializers do not declare boot-time values here.
+    fn collect_declared_value_block(&mut self, node: &SyntaxNode, scope: &Option<SmolStr>) {
+        for var_decl in node.children().filter(|n| n.kind() == SyntaxKind::VarDecl) {
+            let Some(expr) = var_decl
+                .children()
+                .find(|child| is_expression_kind(child.kind()))
+            else {
+                continue;
+            };
+            for name_node in var_decl.children().filter(|n| n.kind() == SyntaxKind::Name) {
+                if let Some((name, _)) = name_from_node(&name_node) {
+                    let key = const_key(scope, name.as_str());
+                    self.declared_exprs.entry(key).or_insert(expr.clone());
+                }
+            }
+        }
+    }
+
+    pub(super) fn collect_const_block(
+        &mut self,
+        node: &SyntaxNode,
+        scope: &Option<SmolStr>,
+        origin: FileId,
+    ) {
         for var_decl in node.children().filter(|n| n.kind() == SyntaxKind::VarDecl) {
             let expr = var_decl
                 .children()
@@ -101,7 +134,9 @@ impl SymbolCollector<'_> {
             for name_node in var_decl.children().filter(|n| n.kind() == SyntaxKind::Name) {
                 if let Some((name, _)) = name_from_node(&name_node) {
                     let key = const_key(scope, name.as_str());
-                    self.const_exprs.entry(key).or_insert(expr.clone());
+                    self.const_exprs
+                        .entry(key)
+                        .or_insert((origin, expr.clone()));
                 }
             }
         }
@@ -131,4 +166,15 @@ fn const_block_is_precollectable(node: &SyntaxNode) -> bool {
         | VarQualifier::Static
         | VarQualifier::Access => false,
     }
+}
+
+/// Plain sections whose initializers declare boot-time values usable as
+/// declaration sizes. Interface-direction, external, and TEMP sections are
+/// excluded (see `collect_declared_value_block`); TEMP values are
+/// per-invocation and must not become compile-time sizes.
+fn var_block_declares_sizes(node: &SyntaxNode) -> bool {
+    matches!(
+        var_qualifier_from_block(node),
+        VarQualifier::Global | VarQualifier::Local | VarQualifier::Static
+    )
 }
