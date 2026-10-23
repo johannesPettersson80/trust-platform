@@ -272,13 +272,17 @@ impl<'a> Lowerer<'_, 'a> {
         for (param, arg) in bound {
             let ty = self.model.ty(param.type_id)?;
             let info = self.info(ty).clone();
-            if param.direction == ParamDirection::InOut {
-                // A `VAR_IN_OUT` is the caller's variable itself (IEC §6.6.1.2.2), an instance
-                // of a derived type as its base (§6.6.8.3).
+            if param.direction == ParamDirection::InOut
+                || (param.direction == ParamDirection::In && info.kind.is_instance())
+            {
+                // A `VAR_IN_OUT` is the caller's variable itself (IEC §6.6.1.2.2), and a function
+                // block instance given as an input is the caller's instance, whose outputs the
+                // callee reads (§6.6.3.4.1, Table 42 feature 9a), as the runtime passes it; an
+                // instance of a derived type as its base (§6.6.8.3).
                 let Some(arg) = arg else {
                     return Err(self.unsupported(
                         node,
-                        format!("the VAR_IN_OUT {} without its variable", param.name),
+                        format!("the parameter {} without its variable", param.name),
                     ));
                 };
                 let place = self.place(&arg.value)?;
@@ -407,20 +411,7 @@ impl<'a> Lowerer<'_, 'a> {
     ) -> Result<Called, NativeError> {
         let mut leading = vec!["cx".to_string(), "w".to_string()];
         leading.extend(receiver);
-        let ret = match ret {
-            Some(ret)
-                if self
-                    .model
-                    .types
-                    .registry()
-                    .get(ret)
-                    .is_some_and(|ty| !matches!(ty, trust_hir::Type::Void)) =>
-            {
-                Some(self.model.ty(ret)?)
-            }
-            _ => None,
-        };
-        let Some(ret) = ret else {
+        let Some(ret) = crate::native::emit::return_type(self.model, ret)? else {
             arguments.splice(0..0, leading);
             self.line(&format!("{function}({})?;", arguments.join(", ")));
             return Ok(Called::Nothing);

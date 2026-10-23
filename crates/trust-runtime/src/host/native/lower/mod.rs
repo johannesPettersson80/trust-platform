@@ -9,6 +9,7 @@
 
 mod assertions;
 mod call;
+mod case;
 mod conversions;
 mod dates;
 mod expr;
@@ -311,7 +312,17 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             Kind::Str(_) => self.store_text(place, value),
             Kind::WStr(_) => Err(self.unsupported(value, "WSTRING values")),
             Kind::Ref { target } => {
-                let reference = self.reference_to(value, Some(*target))?;
+                let reference = match self.instance_source(*target, value)? {
+                    // A result of a function block's type names the instance assigned to it,
+                    // `THIS` or an instance (§6.4; IEC §6.6.5.7.2).
+                    Some(source) => {
+                        let instance = self.as_type(value, &source, *target)?;
+                        self.bind(&format!(
+                            "w.areas.refer(cx, {instance}, abi::RefValue::INSTANCE)?"
+                        ))
+                    }
+                    None => self.reference_to(value, Some(*target))?,
+                };
                 self.line(&format!("{}.set({reference});", place.expr));
                 Ok(())
             }
@@ -417,90 +428,6 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     fn condition(&mut self, node: &SyntaxNode) -> Result<String, NativeError> {
         let bool_ty = self.model.types.elem(Elem::Bool);
         self.scalar_to(node, bool_ty)
-    }
-
-    fn case_statement(&mut self, node: &SyntaxNode) -> Result<(), NativeError> {
-        let mut children = node.children();
-        let Some(selector) = children.next() else {
-            return Err(self.unsupported(node, "CASE without a selector"));
-        };
-        let selector_ty = self.type_of(&selector)?;
-        let Some(elem) = self
-            .info(selector_ty)
-            .scalar()
-            .filter(|elem| elem.is_integer() || elem.is_bits() || *elem == Elem::Char)
-        else {
-            return Err(self.unsupported(&selector, "a CASE selector that is not an integer"));
-        };
-        let value = self.scalar(&selector)?;
-        let value = self.bind(&value);
-        self.line(&format!("match {value} {{"));
-        self.indent += 1;
-        let mut has_else = false;
-        for branch in children {
-            match branch.kind() {
-                SyntaxKind::CaseBranch => {
-                    let mut patterns = Vec::new();
-                    for label in branch
-                        .children()
-                        .filter(|child| child.kind() == SyntaxKind::CaseLabel)
-                    {
-                        patterns.push(self.case_label(&label, selector_ty, elem)?);
-                    }
-                    self.line(&format!("{} => {{", patterns.join(" | ")));
-                    self.indent += 1;
-                    self.statements(
-                        branch
-                            .children()
-                            .filter(|child| child.kind() != SyntaxKind::CaseLabel),
-                    )?;
-                    self.indent -= 1;
-                    self.line("}");
-                }
-                SyntaxKind::ElseBranch => {
-                    has_else = true;
-                    self.line("_ => {");
-                    self.indent += 1;
-                    self.statements(branch.children())?;
-                    self.indent -= 1;
-                    self.line("}");
-                }
-                _ => {}
-            }
-        }
-        if !has_else {
-            self.line("_ => {}");
-        }
-        self.indent -= 1;
-        self.line("}");
-        Ok(())
-    }
-
-    /// One CASE label as a Rust pattern: a value or an inclusive range, of the selector's type.
-    fn case_label(
-        &mut self,
-        label: &SyntaxNode,
-        selector: Ty,
-        elem: Elem,
-    ) -> Result<String, NativeError> {
-        let Some(range) = label.children().next() else {
-            return Err(self.unsupported(label, "an empty CASE label"));
-        };
-        let bounds: Vec<SyntaxNode> = if range.kind() == SyntaxKind::Subrange {
-            range.children().collect()
-        } else {
-            vec![range]
-        };
-        let mut values = Vec::with_capacity(2);
-        for bound in &bounds {
-            let value = self.constant_integer(bound, selector)?;
-            values.push(format!("{value}{}", elem.rust()));
-        }
-        match values.as_slice() {
-            [single] => Ok(single.clone()),
-            [lower, upper] => Ok(format!("{lower}..={upper}")),
-            _ => Err(self.unsupported(label, "a CASE label of more than two bounds")),
-        }
     }
 
     fn for_statement(&mut self, node: &SyntaxNode) -> Result<(), NativeError> {
@@ -662,8 +589,43 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             }
             SyntaxKind::IndexExpr => self.index_place(node),
             SyntaxKind::DerefExpr => self.deref_place(node),
+            SyntaxKind::CallExpr => self.result_instance(node),
             other => Err(self.unsupported(node, format!("a {other:?} as a place"))),
         }
+    }
+
+    /// The instance `value` names when a reference to an instance of type `target` takes it:
+    /// `THIS`, `SUPER` or a value of a function block's type; `None` for a reference value.
+    fn instance_source(
+        &mut self,
+        target: Ty,
+        value: &SyntaxNode,
+    ) -> Result<Option<Place>, NativeError> {
+        if !self.info(target).kind.is_instance() {
+            return Ok(None);
+        }
+        if let Some(place) = self.object_place(value) {
+            return place.map(Some);
+        }
+        if self
+            .type_of(value)
+            .is_ok_and(|ty| self.info(ty).kind.is_instance())
+        {
+            return self.place(value).map(Some);
+        }
+        Ok(None)
+    }
+
+    /// The instance the result of call `node` names, a call of a function block's type: the
+    /// receiver of a chained call `b.SetVolume(10).Build()` (§6.4).
+    fn result_instance(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
+        let ty = self.type_of(node)?;
+        if !self.info(ty).kind.is_instance() {
+            return Err(self.unsupported(node, "a call as a place"));
+        }
+        let reference = self.model.types.reference(ty);
+        let result = self.call_aggregate(node, reference)?;
+        Ok(self.dereference(&format!("{}.get()", result.expr), ty))
     }
 
     /// `reference^`: the variable a reference names, checked as specification 44 §7.3 says.

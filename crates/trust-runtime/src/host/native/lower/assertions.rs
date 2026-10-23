@@ -7,7 +7,7 @@ use trust_syntax::syntax::SyntaxNode;
 
 use super::call::{Arg, Called};
 use super::Lowerer;
-use crate::native::types::Elem;
+use crate::native::types::{Elem, Kind, Ty};
 use crate::native::NativeError;
 
 /// The assertion `name` this module lowers: its formal parameters and its comparison, `None` for
@@ -82,6 +82,12 @@ impl Lowerer<'_, '_> {
             (Some(sign), [left, right]) => {
                 let left_ty = self.type_of(left)?;
                 let right_ty = self.type_of(right)?;
+                if matches!(self.info(left_ty).kind, Kind::Str(_))
+                    && matches!(self.info(right_ty).kind, Kind::Str(_))
+                {
+                    self.assert_texts(name, sign, (left, left_ty), (right, right_ty))?;
+                    return Ok(Called::Nothing);
+                }
                 let (Some(_), Some(_)) =
                     (self.info(left_ty).scalar(), self.info(right_ty).scalar())
                 else {
@@ -106,5 +112,38 @@ impl Lowerer<'_, '_> {
             _ => return Err(self.unsupported(node, format!("{name} with these inputs"))),
         }
         Ok(Called::Nothing)
+    }
+
+    /// The comparison `sign` of assertion `name` of two texts, by their bytes as the runtime
+    /// compares two strings; a failed one lays both texts in the stack area, whose length the
+    /// build raises to hold them (specification 44 §7.1, Appendix A).
+    fn assert_texts(
+        &mut self,
+        name: &str,
+        sign: &str,
+        (left, left_ty): (&SyntaxNode, Ty),
+        (right, right_ty): (&SyntaxNode, Ty),
+    ) -> Result<(), NativeError> {
+        let (a, a_capacity) = self.text_ref(left)?;
+        let (b, b_capacity) = self.text_ref(right)?;
+        let holds = match sign {
+            "==" => "== core::cmp::Ordering::Equal",
+            "!=" => "!= core::cmp::Ordering::Equal",
+            ">" => "== core::cmp::Ordering::Greater",
+            "<" => "== core::cmp::Ordering::Less",
+            ">=" => "!= core::cmp::Ordering::Less",
+            _ => "!= core::cmp::Ordering::Greater",
+        };
+        // Each text as a string lies, its length in two bytes and its bytes, the second at an even
+        // offset.
+        let bytes = (2 + a_capacity).next_multiple_of(2) + 2 + b_capacity;
+        self.model.stack = self.model.stack.max(bytes);
+        self.line(&format!(
+            "if !(lib::compare(({a}).view(), ({b}).view()) {holds}) {{ let stack: &[Cell<u8>; {bytes}] = w.areas.view(cx, abi::AREA_STACK)?; return Err(lib::text_assertion_failed(cx, stack, lib::Assertion::{}, ({a}).view(), ({b}).view(), {}, {})); }}",
+            variant(name),
+            left_ty.0,
+            right_ty.0
+        ));
+        Ok(())
     }
 }

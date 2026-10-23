@@ -287,6 +287,13 @@ pub(super) enum Kind {
     },
 }
 
+impl Kind {
+    /// Whether a value of the kind is an instance of a function block or a class.
+    pub(super) fn is_instance(&self) -> bool {
+        matches!(self, Kind::Fb { .. } | Kind::StdFb(_))
+    }
+}
+
 /// A type with its layout and its name in the generated Rust.
 #[derive(Clone, Debug)]
 pub(super) struct TypeInfo {
@@ -637,16 +644,25 @@ impl<'a> Types<'a> {
     }
 
     /// The variables of `owner` as the members of its instances, after its base (or its class id)
-    /// as `first`: the inputs, outputs and in-outs, then the variables.
+    /// as `first`: the inputs, outputs and in-outs, then the variables. A `RETAIN` variable is a
+    /// member like the others: the runtime keeps no member of an instance across a warm restart and
+    /// writes none into a checkpoint (specification 11 §6.7), and a compiled program does the same
+    /// (specification 44 §11).
     pub(super) fn own_members(
         &mut self,
         owner: Owner<'a>,
         first: Option<(SmolStr, Ty, u8)>,
     ) -> Result<Vec<(SmolStr, Ty, u8)>, NativeError> {
-        let name = owner.name();
         let mut fields: Vec<(SmolStr, Ty, u8)> = first.into_iter().collect();
         for param in owner.params() {
             let ty = self.of(param.type_id)?;
+            if param.direction == ParamDirection::In && self.info(ty).kind.is_instance() {
+                return Err(NativeError::unsupported(format!(
+                    "the function block instance {} as an input of {}",
+                    param.name,
+                    owner.name()
+                )));
+            }
             let (ty, flags) = match param.direction {
                 ParamDirection::In => (ty, SYMBOL_INPUT),
                 ParamDirection::Out => (ty, SYMBOL_OUTPUT),
@@ -658,15 +674,6 @@ impl<'a> Types<'a> {
         for var in owner.vars() {
             if var.external {
                 continue;
-            }
-            if matches!(
-                var.retain,
-                crate::RetainPolicy::Retain | crate::RetainPolicy::Persistent
-            ) {
-                return Err(NativeError::unsupported(format!(
-                    "VAR RETAIN {} inside function block {name}",
-                    var.name
-                )));
             }
             let ty = self.of(var.type_id)?;
             let mut flags = if var.constant { SYMBOL_CONSTANT } else { 0 };

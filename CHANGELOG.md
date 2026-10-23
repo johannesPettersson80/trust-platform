@@ -63,6 +63,20 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Added: `trust-dev test --execution-backend native` runs a project's `TEST_PROGRAM`s compiled for
   the computer, each after a cold restart, with the bytecode runner's results and the runtime's
   messages of failed assertions (`ASSERT_EQUAL`, `ASSERT_NEAR`, `ASSERT_TRUE`, …).
+- Added: compiled tests compare texts in `ASSERT_EQUAL` and the other comparisons, with the
+  runtime's message of a failed one (`expected 'N', actual 'NE'`); a compiled method takes a
+  function block instance as an input, the caller's instance, and a method that returns its own
+  instance (`SetVolume := THIS`) chains (`b.SetVolume(10).Build()`); a `RETAIN` variable of a
+  function block compiles and is kept as the runtime keeps it; `trust-dev test --execution-backend
+  native` runs `TEST_FUNCTION_BLOCK`s too. The OSCAT examples' tests give the same results compiled
+  and interpreted.
+- Fixed: a compiled program refused `T0 := -273.15` for a `REAL`: a literal with a sign takes the
+  type of where it goes; a `CASE` on a `STRING` or a `REAL`, which the language allows, did not
+  compile; and a text made of literals only (`CONCAT('N', 'E')`, `'AB' > 'B'`, a `CASE` label) gave
+  a module with writable data, which the build refused.
+- Changed: the stack a compiled program needs is the deepest chain of calls the build reads from
+  the module, not the sum of every function's frame; calls through interfaces that come back to a
+  function, as a decorator's do, count once for each instance.
 - Changed: the kernel interface of compiled programs is version 2: a kernel reads the real of
   `STRING_TO_REAL` with the runtime's own reader for the program. An image built before must be
   rebuilt.

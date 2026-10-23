@@ -18,6 +18,7 @@ mod lower;
 mod model;
 mod module;
 mod run;
+mod stack;
 mod std_blocks;
 mod tables;
 mod toolchain;
@@ -157,10 +158,13 @@ pub fn build_with_tests(
         .collect();
     let (elf, remarks) = toolchain.compile(&generated.source, options.target, &symbols, work)?;
     let module = module::extract(&elf, options.target, &symbols)?;
-    // Until the call graph is read from the module (specification 44 §8.5), the bound is the sum
-    // of every function's frame, which no static call chain exceeds since IEC 61131-3 has no
-    // recursion.
-    let stack: u64 = stack_frames(&remarks).iter().map(|(_, bytes)| *bytes).sum();
+    let stack = stack::bound(
+        &elf,
+        options.target,
+        &stack_frames(&remarks),
+        &symbols,
+        model.class_instances(),
+    )?;
     let mut writer = ImageWriter::new(
         options.target,
         u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap_or(u16::MAX),

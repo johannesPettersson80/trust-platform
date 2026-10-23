@@ -479,7 +479,9 @@ pub(super) struct Signature {
     pub(super) returns: String,
 }
 
-/// The type a function or a method returns, none for `VOID` or no return type.
+/// The type a function or a method returns, none for `VOID` or no return type. A result of a
+/// function block's type is a reference to the instance it names, as `THIS` is a reference to the
+/// own instance (IEC §6.6.5.7.2) and the runtime returns the instance itself (§6.4).
 pub(super) fn return_type(
     model: &mut Model<'_>,
     ret: Option<trust_hir::TypeId>,
@@ -492,7 +494,11 @@ pub(super) fn return_type(
                 .get(ret)
                 .is_some_and(|ty| !matches!(ty, trust_hir::Type::Void)) =>
         {
-            Ok(Some(model.ty(ret)?))
+            let ty = model.ty(ret)?;
+            if model.types.info(ty).kind.is_instance() {
+                return Ok(Some(model.types.reference(ty)));
+            }
+            Ok(Some(ty))
         }
         _ => Ok(None),
     }
@@ -563,7 +569,10 @@ fn frame(
             ty: ret,
             is_ref: false,
         };
-        super::frame_init::start(lowerer, &place, ret_id, None, &own)?;
+        // A reference to an instance starts as `NULL`, as the declaration leaves it.
+        if !matches!(info.kind, Kind::Ref { .. }) {
+            super::frame_init::start(lowerer, &place, ret_id, None, &own)?;
+        }
         if super::lower::is_scalar(&info.kind) {
             let value = lowerer.load(&place);
             lowerer.exit = format!("return Ok({value});");
@@ -604,6 +613,11 @@ fn frame(
                     &param.name,
                 )?;
             }
+            continue;
+        }
+        // A function block instance given as an input is the caller's instance (§6.4).
+        if info.kind.is_instance() {
+            lowerer.declare_reference(&param.name, ty, &argument);
             continue;
         }
         let local = lowerer.declare(&param.name, ty);

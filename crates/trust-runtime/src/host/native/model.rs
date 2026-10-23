@@ -140,6 +140,9 @@ pub(super) struct Model<'a> {
     pub(super) area_p: AreaLayout,
     /// The bytes of the input, output and marker images that the bindings reach.
     pub(super) images: [u32; 3],
+    /// The bytes of the stack area: the largest pair of texts that a failed assertion lays there
+    /// for the kernel (specification 44 §7.1, Appendix A), 0 without one.
+    pub(super) stack: u32,
 }
 
 impl<'a> Model<'a> {
@@ -220,7 +223,26 @@ impl<'a> Model<'a> {
             area_r,
             area_p,
             images,
+            stack: 0,
         })
+    }
+
+    /// The instances with a class id the program holds, in its globals and its program instances:
+    /// the most instances a chain of calls bound by their class can pass (specification 44 §8.5).
+    pub(super) fn class_instances(&self) -> u64 {
+        let globals = self
+            .globals
+            .iter()
+            .map(|global| self.types.class_instances(global.ty));
+        let programs = self.instances.iter().flat_map(|instance| {
+            let program = &self.program_types[instance.program];
+            program
+                .members
+                .iter()
+                .chain(&program.retained)
+                .map(|member| self.types.class_instances(member.ty))
+        });
+        globals.chain(programs).fold(0, u64::saturating_add)
     }
 
     /// The global named `name`, compared without case.

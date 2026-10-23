@@ -36,7 +36,7 @@ pub use arith::{
     abs, add, div, fadd, fdiv, finite, fmul, fneg, fpow, fsub, mul, neg, pow, rem, sub, Integer,
     Real, Signed,
 };
-pub use assertions::{assert_near, assertion_failed, Assertion, Operand};
+pub use assertions::{assert_near, assertion_failed, text_assertion_failed, Assertion, Operand};
 pub use bistables::{rs, sr, Rs, Sr};
 pub use bits::{rol, ror, shift_bool, shift_count, shl, shr, Bits};
 pub use convert::{

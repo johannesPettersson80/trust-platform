@@ -828,3 +828,91 @@ fn text_conversions_compute_as_the_runtime_computes_them() {
     family.call("UINT", "OUT := WORD_BCD_TO_UINT(w[i]);");
     family.run();
 }
+
+/// Literals with a sign take the type of where they go, as the runtime lowers them (specification
+/// 05 §2): `REAL := -273.15` rounds the binary64 value -273.15 once to binary32, an integer literal
+/// with a sign goes to a `REAL` or a narrower integer, and a signed literal as an operand takes the
+/// operation's type.
+#[test]
+fn signed_literals_take_the_type_of_where_they_go() {
+    let count = 6;
+    let mut family = Family::new("signed literals", count);
+    let values: Vec<String> = ["0.5", "-1.25", "3.0", "-0.0", "100.0", "-7.5"]
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect();
+    family.input("x", "REAL", &values);
+    family.call("REAL", "OUT := -273.15;");
+    family.call("LREAL", "OUT := -273.15;");
+    family.call("REAL", "OUT := -1;");
+    family.call("INT", "OUT := -5;");
+    family.call("DINT", "OUT := +7;");
+    family.call("SINT", "OUT := -128;");
+    family.call("REAL", "OUT := x[i] * -2.5;");
+    family.call("REAL", "OUT := x[i] - -1.0E-3;");
+    family.call("LREAL", "OUT := -1.60217653E-19;");
+    family.run();
+}
+
+/// A CASE whose selector is a text or a real compares it with each label in source order, as `=`
+/// compares them, and runs the first branch that matches, else its ELSE, else nothing
+/// (specification 06 §6; IEC §7.3.3.3.3): `'B'` takes the branch of `'B', 'C'`, `''` the empty
+/// label, `'AB'` and `'b'` the ELSE; `-0.0` equals the label `0.0`, `2.5` and `3.25` take the
+/// branch of `2.5, 3.25`, and `3.0` matches no label. The selector is read once, so a branch that
+/// changes it runs alone. Catches a text compared by its length or its first byte, a branch taken
+/// out of source order, an ELSE taken although a label matched or missing when none did, and a
+/// real compared by its bits. (The runtime compiles no range of reals, which trust-hir accepts.)
+#[test]
+fn case_selects_by_texts_and_reals() {
+    let count = 6;
+    let mut family = Family::new("case selectors", count);
+    let texts: Vec<String> = ["'A'", "'B'", "'C'", "''", "'AB'", "'b'"]
+        .iter()
+        .map(|text| (*text).to_string())
+        .collect();
+    family.input("s", "STRING[4]", &texts);
+    let reals: Vec<String> = ["1.5", "2.5", "-0.0", "0.0", "3.25", "3.0"]
+        .iter()
+        .map(|value| (*value).to_string())
+        .collect();
+    family.input("x", "REAL", &reals);
+    family.call(
+        "INT",
+        "CASE s[i] OF 'A': OUT := 1; 'B', 'C': OUT := 2; '': OUT := 4; ELSE OUT := 3; END_CASE;",
+    );
+    family.call("INT", "OUT := 9; CASE s[i] OF 'B': OUT := 5; END_CASE;");
+    family.call(
+        "INT",
+        "CASE s[i] OF 'A': s[i] := 'B'; OUT := 1; 'B': OUT := 2; ELSE OUT := 3; END_CASE;",
+    );
+    family.call(
+        "INT",
+        "CASE x[i] OF 1.5: OUT := 1; 2.5, 3.25: OUT := 2; 0.0: OUT := 3; ELSE OUT := 4; END_CASE;",
+    );
+    family.run();
+}
+
+/// Texts made of literals only compile and give the runtime's values: concatenations of literals,
+/// nested too, a comparison of two literals, a text compared with a concatenation of literals, the
+/// length of one, and one cut at its destination's capacity. A module holds no writable data
+/// (specification 44 §5.3), so a text of literals is written by a call that takes its bytes; a
+/// constant array of literal pieces was promoted to a static whose pointers needed relocations, and
+/// the build refused the module for writable data. Catches that refusal, and literals joined in
+/// the wrong order.
+#[test]
+fn texts_of_literals_only_compile_and_match_the_runtime() {
+    let count = 4;
+    let mut family = Family::new("literal texts", count);
+    let texts: Vec<String> = ["'AB'", "'NE'", "''", "'B'"]
+        .iter()
+        .map(|text| (*text).to_string())
+        .collect();
+    family.input("s", "STRING[4]", &texts);
+    family.call("STRING[4]", "OUT := CONCAT('N', 'E');");
+    family.call("STRING[8]", "OUT := CONCAT('a', CONCAT('b', 'c'));");
+    family.call("BOOL", "OUT := 'AB' > 'B';");
+    family.call("BOOL", "OUT := s[i] = CONCAT('N', 'E');");
+    family.call("INT", "OUT := LEN(CONCAT('xy', 'z'));");
+    family.call("STRING[2]", "OUT := CONCAT('abc', 'def');");
+    family.run();
+}

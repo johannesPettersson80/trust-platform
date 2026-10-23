@@ -1,7 +1,7 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.7 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
-  0.7 make exact what the implementation of milestones M1 and M2 decided within that design,
+- **Status:** 0.8 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+  0.8 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
@@ -466,7 +466,7 @@ interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is
 | `PROGRAM` (§6.6.4) | an instance struct in the instance area; a body function `fn prog_<name>(cx: &mut Cx, me: &mut <Prog>) -> R`; its task entry calls the body |
 | `FUNCTION` (§6.6.2) | `fn f_<name>(cx: &mut Cx, inputs…, in_outs: &mut …) -> Result<T, Fault>`; `VAR` and `VAR_TEMP` are Rust locals; `EN`/`ENO` as specification 04 §EN/ENO |
 | `FUNCTION_BLOCK` (§6.6.3) | an instance struct (`VAR_INPUT`, `VAR_OUTPUT`, `VAR`, `VAR_IN_OUT` as `Ref`, nested instances inline); a body function taking `&mut` instance; a call writes the inputs, calls the body, reads the outputs (IEC §6.6.3.4) |
-| `METHOD` (§6.6.5.4, §6.6.7.2) | a function taking `&mut` instance; inputs by value, `VAR_IN_OUT` as the caller's variable, `VAR_OUTPUT` as a place in the caller that the caller copies to the output's variable after the call (IEC §6.6.1.4); `THIS` is the instance; a call without an instance (`m()`) is a call on `THIS`; `SUPER.m()` is a direct call of the base's method on the instance's base part |
+| `METHOD` (§6.6.5.4, §6.6.7.2) | a function taking `&mut` instance; inputs by value, `VAR_IN_OUT` as the caller's variable, `VAR_OUTPUT` as a place in the caller that the caller copies to the output's variable after the call (IEC §6.6.1.4); `THIS` is the instance; a call without an instance (`m()`) is a call on `THIS`; `SUPER.m()` is a direct call of the base's method on the instance's base part. A function block instance given as an input of a method or a function is the caller's instance, whose outputs the callee reads (IEC §6.6.3.4.1, Table 42 feature 9a), as the runtime passes it; a result of a function block's type is a reference to the instance assigned to it, as `THIS` is a reference to the own instance (§6.6.5.7.2), so that `b.SetVolume(10).Build()` calls `Build` on `b`; it starts as `NULL`, and an instance that lies in no area cannot be named, which is the fault `ReferenceLifetime` (§7.3). A function block instance as an input of a function block, and such a result assigned to a variable, are not compiled yet (NX-09) |
 | `CLASS` (§6.6.5), inheritance (`EXTENDS`, also of function blocks, §6.6.7) | the base struct embedded as the first field, so an instance of a derived type is an instance of its base at the same address; a method the type does not declare is its base's. A call is bound statically when no type derived from the receiver's declared type overrides the method (IEC §6.6.8.5 note); otherwise, and for the body of a function block that a derived type extends, the call is a `match` on the instance's class id, the derived types that override as arms and the declared type's method as the default (§6.6.8.3 to §6.6.8.5). `REF` of a derived instance stored in a reference to its base, and a derived instance as the argument of a base's `VAR_IN_OUT`, are the instance's base part |
 | `INTERFACE` (§6.6.6), dynamic binding | the build knows every class (closed world): a call through an interface reference is a `match` on the instance's class id over every laid-out type that implements the interface, directly, through a base or through an interface that extends it, each arm a direct call of the method that type reaches; a type that implements no method of the name (an abstract base) has no arm. The class id lies in the first four bytes of every instance of a hierarchy that implements an interface or has more than one type, one id per type, given in the order the types are laid out; the starting memory holds each instance's id, and an instance of a type outside such hierarchies has none. A variable that holds such an instance cannot be a frame variable (a function's or a method's `VAR`, a `VAR_TEMP`): a dynamic call reaches an instance only where it lies in an area, so the build refuses it (NX-09). An interface's value is `NULL`, or the reference of kind instance to an instance or `THIS`; two interface values are equal when they name the same instance. `?=` (Table 52) is a `match` on the class id as well |
 | `ACTION` (specification 04 §8) | a method of its POU |
@@ -505,10 +505,15 @@ another value.
 
 ### 6.6 Expressions and statements (IEC §6.6.1, §7.3)
 
+A literal without a type takes the type of where it goes, its sign included: `T0 := -273.15` for a
+`REAL` `T0` is the `REAL` nearest -273.15, as the runtime takes it, not an `LREAL` narrowed.
 Operators follow specification 05's precedence and the standard's types: integer `/` truncates
 toward zero and `MOD` takes the dividend's sign, as Rust's do; `**` through the library; bit-string
 operators on the unsigned types; comparisons of strings by the library (byte order); `AND_THEN` and
-`OR_ELSE` short-circuit. `IF`, `CASE` (with ranges and enumeration values, as a Rust `match`),
+`OR_ELSE` short-circuit. `IF`, `CASE` (with ranges and enumeration values, as a Rust `match` on
+an integer, a bit string, a `CHAR` or an enumeration, and as a chain of tests in source order on
+a selector of another elementary type, a text, a real or a time, read once, its labels compared as
+`=` compares them),
 `FOR` (the bound and step evaluated once, IEC §7.3.3.4.2), `WHILE`, `REPEAT`, `EXIT`, `CONTINUE`,
 `RETURN` and `JMP` map to Rust control flow. Each statement begins with the statement hook (§13.2)
 and the budget count (§8.4). Partial access to `ANY_BIT` (`x.%X3`, IEC §6.6.1.3) is a masked
@@ -642,7 +647,7 @@ the module through `Cx` (§8.3):
 | 4 | `G` globals | `VAR_GLOBAL` without `RETAIN` | `INIT` |
 | 5 | `R` retain | every `RETAIN` variable: globals and program variables (IEC §6.5.6) | the checkpoint at warm restart, `INIT` at cold restart |
 | 6 | `P` instances | each program's instance with its variables and nested FB instances, non-retained | `INIT` |
-| 7 | stack | function and method frames, `VAR_TEMP`, temporaries; one per task | — |
+| 7 | stack | the texts a failed assertion of two texts lays there for the kernel (Appendix A); the build gives it the length of the largest such pair, 0 without one. Function and method frames, `VAR_TEMP` and temporaries lie on the task's stack (§8.5) | zero |
 
 `RETAIN` members of a program or FB instance lie in `R`, the rest of the instance in `P`: the
 generator splits such an instance into two structs, one in each area, and its code reaches each
@@ -787,9 +792,15 @@ Each task runs its activations on the kernel's task stack (one stack in the coop
 of v1; one per task when preemption comes, §16). The build computes each task's stack bound: the
 compiler's `prolog-epilog` remarks (§4.5) give every function's frame; the call graph of the
 linked module (its call relocations, kept by `--emit-relocs`) gives the deepest static chain of each
-task's programs; the bound is that chain's sum plus the library's declared maximum plus 25%. Until
-the call graph is read, the bound is the sum of every function's frame, which no static chain
-exceeds since IEC 61131-3 has no recursion (1,584 bytes for the reference workload on the C6). The image's `MEMFIG` carries the bound; the kernel refuses an image whose
+task's programs; the bound is the deepest chain's sum over every entry point, plus 4 KiB for the
+kernel functions a statement may call on the same stack (§8.2), plus 25%. A call is a call
+relocation of the target (`R_X86_64_PLT32`, `R_RISCV_CALL`, `R_ARM_THM_CALL`, `R_AARCH64_CALL26`
+and their tail-call forms); a function the compiler gives no remark for, one of the target's
+builtins linked outside the link-time optimization, counts 512 bytes. IEC 61131-3 has no recursion,
+which trust-hir refuses, so a chain that comes back to a function it passed goes through a call
+bound by an instance's class (an interface's or an override's, §6.4), as a decorator calls the
+instance it decorates: each turn runs on another instance, so the functions of such a cycle count
+once for every instance with a class id the program holds. The image's `MEMFIG` carries the bound; the kernel refuses an image whose
 bound exceeds its task stack (specification 34 MEM-03: the C6's main stack window), with both
 numbers. The kernel fills the stack with a pattern at start and checks the high-water mark after
 every scan; a mark inside the margin is the fault `StackOverflow`. §10.5 adds a hardware guard.
@@ -981,6 +992,12 @@ values:
   checkpoint into a fresh start of the new image in the same way, before anything is written, and
   refuses the install with the restore's reason.
 
+A `RETAIN` variable of a function block's or a class's type is a member of each instance, laid with
+the instance: the runtime writes no member of an instance into a checkpoint and keeps none across a
+warm restart (specification 11 §6.7 writes the globals and the programs' variables), so a compiled
+program does the same and the checkpoints stay interchangeable. IEC §6.5.6 retains such a variable;
+specification 11 and this section change together when the runtime does.
+
 The checkpoint's identity is the record's (specification 34 §5.1): the image's SHA-256 and its
 retain-schema identity (§10.1).
 
@@ -1103,8 +1120,9 @@ path by its full name, and a program variable by its name alone when one program
 that no task runs, and each test runs after a cold restart, its program's body once, as the
 bytecode runner runs it (`NativeProgram::run_instance`); a test passes, fails with the runtime's
 message of its failed assertion, or ends with its error. The assertions are compiled as the
-runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` is not
-compiled yet.
+runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs through
+a test program the runner adds to the image, which holds one instance of it and calls its body
+once, as the bytecode runner runs a temporary instance of it.
 
 A project compiled and the same project in the runtime run in lockstep at the project's cycle
 interval, and every variable the image names a value of is compared after every scan
@@ -1170,7 +1188,10 @@ as the work limit of TIME-08, `runtime_execution_timeout`), 14 `StackOverflow`, 
 `MemoryProtection`, 16 `ModuleInternal` (the last three reported as an invalid execution state until
 the runtime has errors of their own), 17 `AssertionFailed` (a test's comparison or truth assertion:
 the operands' bytes, and the assertion with the type table's indexes of the operands' types; the
-kernel reads the operands through the type table and words the runtime's message), 18
+kernel reads the operands through the type table and words the runtime's message; two texts compare
+by their bytes, and a failed comparison of texts lays each in the stack area as a string lies, its
+length in two bytes and its bytes, the second at an even offset, and gives their offsets for their
+bytes), 18
 `AssertionNear` (`ASSERT_NEAR`: the expected, the actual and the delta in binary64); both are
 reported as the runtime's `AssertionFailed` with its message.
 
@@ -1185,3 +1206,4 @@ reported as the runtime's `AssertionFailed` with its message.
 | 0.5 | 23 October 2026 | Exact where milestone M2's coverage decided within the approved design: the conformance suite runs on a computer's kernel and a project runs in lockstep with the runtime, variable by variable (§14.2); references, `REF`, `^` and a function block's `VAR_IN_OUT` as a stored reference (§7.3); and the object-oriented constructs (§6.2, §6.4, §6.5, §7.2, §7.3): an instance of a derived type holds its base first; only a hierarchy that implements an interface or has more than one type holds class ids, so a function block of neither pays no bytes; a call is bound statically unless a derived type overrides the method, and then, as through an interface, by a `match` on the class id over the laid-out types; such an instance is never a frame variable; a property is a call of its `GET` or `SET`; a method's outputs are copied to their variables after the call; a call through a `NULL` interface is a null dereference. The runtime's two departures from the standard that the comparison found are listed in §14.2. |
 | 0.6 | 23 October 2026 | Exact where milestone M2's standard functions decided within the approved design: how the program library carries the runtime's rules over, function by function, for the numerical, bit, selection, comparison, string, counter and bistable functions and for dates and times (§6.8); a date and time range fault is reported as the runtime reports it, no longer as an overflow (Appendix A); the runtime's third departure from the standard, a `STRING` character above U+00FF read as a `CHAR` (§14.2). |
 | 0.7 | 23 October 2026 | Exact where milestone M2's conversions and frames decided within the approved design: a frame starts at each call at its initial values and its types' defaults, computed by the build (§6.7); numbers, characters and BCD to and from text as the runtime converts them (§6.8); the interface gains the kernel function `read_real`, the runtime's own reader of reals, which no module can carry because it can panic, and becomes version 2 (§8.2); a computer's module links the toolchain's memory functions, modules are compiled without RELRO, and the image builder relaxes x86-64 loads from the global offset table of the functions the module defines (§4.5, §4.6); a test's failed assertion is a fault of its own, 17 or 18, worded by the kernel as the runtime words it, and `trust-dev test` runs a project's tests compiled (§14.2, Appendix A). |
+| 0.8 | 23 October 2026 | Exact where milestone M2's corpus decided within the approved design: the stack bound is the deepest static call chain read from the module's call relocations, a cycle through calls bound by an instance's class turning once for each instance, with 4 KiB for the kernel functions and a quarter more (§8.5); a literal takes the type of where it goes with its sign (§6.6); a failed assertion of two texts lays them in the stack area, which the build sizes, for the kernel to word (§7.1, Appendix A); a function block instance given as an input of a method or a function is the caller's, and a result of a function block's type is a reference to the instance, so calls chain (§6.4); a `RETAIN` variable of a function block is laid with its instance and kept as the runtime keeps it (§11); `trust-dev test` runs a `TEST_FUNCTION_BLOCK` through a test program that calls it once (§14.2); a `CASE` on a text or a real is a chain of tests (§6.6); adjacent literals of a text are joined at build, so a text of literals is written from its bytes and no array of pieces holds a pointer a module would need a relocation for (§5.3). |

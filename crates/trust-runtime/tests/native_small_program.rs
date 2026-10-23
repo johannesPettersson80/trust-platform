@@ -1,5 +1,6 @@
 //! A program without read-only data compiles into a module whose code starts at address 0, for the
-//! C6 and for this computer, and runs (specification 44 §4.5, §5.3).
+//! C6 and for this computer, and runs (specification 44 §4.5, §5.3); the stack bound holds the
+//! frames of the calls a program makes (§8.5).
 //!
 //! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -70,4 +71,69 @@ fn a_program_without_read_only_data_builds_for_the_c6_and_runs_here() {
         }
         assert_eq!(program.value("MAIN.COUNT"), Some(Value::UDInt(3)));
     }
+}
+
+/// A function whose frame holds a 1,000-element `DINT` array, 4,000 bytes, which the program's body
+/// calls in every scan; the array's cells are read and written at indexes the compiler cannot know.
+const DEEP: &str = "
+FUNCTION Deep : DINT
+VAR_INPUT
+    seed : DINT;
+END_VAR
+VAR
+    cells : ARRAY[0..999] OF DINT;
+    i : INT;
+END_VAR
+FOR i := 0 TO 999 DO
+    cells[(i * 7 + seed) MOD 1000] := cells[i] + i;
+END_FOR;
+Deep := cells[seed MOD 1000];
+END_FUNCTION
+
+PROGRAM Caller
+VAR
+    Seed : DINT := 7;
+    Result : DINT;
+END_VAR
+Seed := Seed + 1;
+Result := Deep(seed := Seed);
+END_PROGRAM
+
+CONFIGURATION Probe
+RESOURCE Probe ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM Main WITH Fast : Caller;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// The stack bound of the C6's image holds the frame of the function the body calls (specification
+/// 44 §8.5): `Deep`'s 4,000-byte array lies on the chain from the task's entry, inlined into the
+/// body or called, so the bound is at least (4,000 + 4,096) × 1.25 = 10,120 bytes, and it fits the
+/// C6's task stack of 43,816 bytes. Catches a bound that loses a callee's frame, which a call the
+/// call graph does not resolve would drop; and, as the program's cold-start and warm-start
+/// initializations hold the same code, which the link folds into one function under both names, a
+/// bound that finds an entry point only under the name the folding kept (the build refused every
+/// such program with "the module has no entry point trust_entry_warm").
+#[test]
+fn the_stack_bound_holds_the_frame_of_a_called_function() {
+    let toolchain = Toolchain::from_env()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let work = std::env::temp_dir().join(format!("trust-native-deep-{}", std::process::id()));
+    let built = build(
+        &[SourceFile::new(DEEP)],
+        &Options {
+            target: Target::Rv32imac,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("the caller builds for the C6");
+    let _ = std::fs::remove_dir_all(&work);
+    let stack = built.figure.stack;
+    assert!(
+        (10_120..=43_816).contains(&stack),
+        "stack bound {stack} bytes"
+    );
 }

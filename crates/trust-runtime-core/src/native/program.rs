@@ -279,7 +279,7 @@ impl ScanHooks for NoHooks {}
 pub struct NativeProgram<'i, C> {
     image: Image<'i>,
     code: C,
-    areas: [Memory; 6],
+    areas: [Memory; 7],
     entries: Vec<Entry>,
     cold: Option<usize>,
     warm: Option<usize>,
@@ -294,13 +294,17 @@ pub struct NativeProgram<'i, C> {
     pub outputs: Vec<u8>,
 }
 
-/// The index of area `id` in a program's memory, 1 to 6.
+/// The index of area `id` in a program's memory, 1 to 7.
 fn slot(id: u8) -> Option<usize> {
-    usize::from(id).checked_sub(1).filter(|index| *index < 6)
+    usize::from(id).checked_sub(1).filter(|index| *index < 7)
 }
 
 /// The index of the retain area in a program's memory.
 const RETAIN: usize = trust_plc_abi::AREA_RETAIN as usize - 1;
+
+/// The index of the stack area in a program's memory: the texts of a failed assertion
+/// (specification 44 §7.1).
+const STACK: usize = trust_plc_abi::AREA_STACK as usize - 1;
 
 /// Whether area `id` is a process image: `%I`, `%Q` or `%M`.
 fn process_image(id: u32) -> bool {
@@ -337,7 +341,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             }
             entries.push(function);
         }
-        let mut lengths = [0usize; 6];
+        let mut lengths = [0usize; 7];
         for area in image.table::<AreaRecord>().map_err(table_error)?.iter() {
             if let Some(index) = u8::try_from(area.id).ok().and_then(slot) {
                 lengths[index] = usize::try_from(area.length).unwrap_or(0);
@@ -743,7 +747,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             // through the type table.
             let types = Types::of(&self.image)?;
             Err(RuntimeError::AssertionFailed(
-                assertions::message(&types, &self.cx.fault, code).into(),
+                assertions::message(&types, &self.cx.fault, code, &self.areas[STACK]).into(),
             ))
         } else {
             Err(fault_error(&self.cx.fault, code, self.budget))
@@ -792,7 +796,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         if symbol.flags & SYMBOL_PROGRAM != 0 {
             return Err(RuntimeError::TypeMismatch);
         }
-        let area = slot(symbol.area).ok_or(RuntimeError::TypeMismatch)?;
+        // A frame variable's symbol names the stack area, where no variable lies between calls.
+        let area = slot(symbol.area)
+            .filter(|area| *area != STACK)
+            .ok_or(RuntimeError::TypeMismatch)?;
         Ok((symbol, area))
     }
 

@@ -36,6 +36,35 @@ impl Text {
     }
 }
 
+/// `parts` with adjacent literals joined into one: a text of literals only is then one byte
+/// string, written by a call that takes it, and no array of pieces holds a pointer to a literal. A
+/// constant array would be promoted to a static whose pointers a position-independent module could
+/// reach only through relocations, which a module has none of (specification 44 §5.3).
+fn joined(parts: &[Text]) -> Vec<Text> {
+    let mut joined: Vec<Text> = Vec::with_capacity(parts.len());
+    for part in parts {
+        if let (Some(Text::Bytes(last)), Text::Bytes(bytes)) = (joined.last_mut(), part) {
+            last.extend_from_slice(bytes);
+            continue;
+        }
+        joined.push(match part {
+            Text::Bytes(bytes) => Text::Bytes(bytes.clone()),
+            Text::Str {
+                reference,
+                capacity,
+            } => Text::Str {
+                reference: reference.clone(),
+                capacity: *capacity,
+            },
+        });
+    }
+    joined
+}
+
+/// The longest text a string function or a concatenation may give, in bytes (specification 07
+/// §8.1): a longer literal text is concatenated, which refuses it as the runtime does.
+const MAX_TEXT_BYTES: usize = 65_535;
+
 /// `bytes` as a Rust byte string literal.
 pub(in crate::native) fn byte_string(bytes: &[u8]) -> String {
     let mut out = String::from("b\"");
@@ -84,8 +113,11 @@ impl Lowerer<'_, '_> {
         node: &SyntaxNode,
         target: Ty,
     ) -> Result<String, NativeError> {
-        // A literal takes the type of where it goes, as the runtime lowers it.
-        if node.kind() == SyntaxKind::Literal && is_scalar(&self.info(target).kind) {
+        // A literal, also one with a sign (`-273.15`), takes the type of where it goes, as the
+        // runtime lowers it.
+        if (node.kind() == SyntaxKind::Literal || signed_literal(node))
+            && is_scalar(&self.info(target).kind)
+        {
             return self.literal(node, target);
         }
         let ty = self.type_of(node)?;
@@ -671,10 +703,13 @@ impl Lowerer<'_, '_> {
         place: &Place,
         value: &SyntaxNode,
     ) -> Result<(), NativeError> {
-        let parts = self.text(value)?;
+        let written = self.text(value)?;
+        let parts = joined(&written);
         let target = place.reference();
         match parts.as_slice() {
-            [Text::Bytes(bytes)] => {
+            // A literal is cut to the capacity; literals concatenated past the longest text are
+            // refused as the concatenation refuses them.
+            [Text::Bytes(bytes)] if written.len() == 1 || bytes.len() <= MAX_TEXT_BYTES => {
                 self.line(&format!(
                     "lib::assign_bytes(({target}).view(), {});",
                     byte_string(bytes)
@@ -702,6 +737,17 @@ impl Lowerer<'_, '_> {
     pub(super) fn text_temp(&mut self, parts: &[Text], capacity: u32) -> String {
         let temp = self.temp();
         self.line(&format!("let {temp} = Str::<{capacity}>::new();"));
+        let written = parts.len();
+        let parts = joined(parts);
+        if let [Text::Bytes(bytes)] = parts.as_slice()
+            && (written == 1 || bytes.len() <= MAX_TEXT_BYTES)
+        {
+            self.line(&format!(
+                "lib::assign_bytes({temp}.view(), {});",
+                byte_string(bytes)
+            ));
+            return format!("&{temp}");
+        }
         let pieces: Vec<String> = parts.iter().map(Text::piece).collect();
         self.line(&format!(
             "lib::concat(cx, {temp}.view(), &[{}])?;",
@@ -808,6 +854,21 @@ fn date_time(value: Value) -> Option<Literal> {
         Value::Ldt(value) => Literal::DateTime(Elem::Ldt, value.nanos()),
         _ => return None,
     })
+}
+
+/// Whether `node` is a literal with a sign, `-273.15` or `+5`: a unary minus or plus of a literal,
+/// whose tokens `literal_value` reads with the sign.
+fn signed_literal(node: &SyntaxNode) -> bool {
+    node.kind() == SyntaxKind::UnaryExpr
+        && node
+            .children_with_tokens()
+            .filter_map(|element| element.into_token())
+            .find(|token| !token.kind().is_trivia())
+            .is_some_and(|token| matches!(token.kind(), SyntaxKind::Minus | SyntaxKind::Plus))
+        && node
+            .children()
+            .next()
+            .is_some_and(|operand| operand.kind() == SyntaxKind::Literal)
 }
 
 /// A binary32 value as an exact Rust literal: its bits.

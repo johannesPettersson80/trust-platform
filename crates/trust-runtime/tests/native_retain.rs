@@ -3,19 +3,19 @@
 //! run by the kernel, and run by the runtime, writes the same STRN v3 payload byte for byte, and
 //! each restores the checkpoint the other wrote.
 //!
-//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use trust_runtime::harness::{SourceFile, TestHarness};
-use trust_runtime::native::{build, load, Device, NoHooks, Options, Target, Toolchain};
-use trust_runtime::value::Duration;
+use trust_runtime::native::{build, load, Build, Device, NoHooks, Options, Target, Toolchain};
+use trust_runtime::value::{Duration, Value};
 use trust_runtime::{RestartMode, RetainSnapshot};
 use trust_runtime_core::retain::capture::RetainCapture;
 use trust_runtime_core::retain::codec::decode_snapshot_payload_v3;
 use trust_runtime_core::retain::RetainSnapshot as Checkpoint;
 
 /// Retained globals and program variables of every kind a checkpoint holds, a retained function
-/// block instance it leaves out, and a variable without `RETAIN`; the program changes them in
-/// every scan.
+/// block instance it leaves out, a function block with a `RETAIN` variable, and a variable without
+/// `RETAIN`; the program changes them in every scan.
 const PROGRAM: &str = "
 TYPE Mode :
 (
@@ -43,6 +43,20 @@ VAR_GLOBAL RETAIN
     Since : TIME := T#2s;
 END_VAR
 
+FUNCTION_BLOCK Calibrated
+VAR_INPUT
+    X : REAL;
+END_VAR
+VAR_OUTPUT
+    Y : REAL;
+END_VAR
+VAR RETAIN
+    Offset : REAL := 0.5;
+END_VAR
+Offset := Offset + 1.0;
+Y := X + Offset;
+END_FUNCTION_BLOCK
+
 PROGRAM Probe
 VAR RETAIN
     Total : DINT := -7;
@@ -52,6 +66,7 @@ VAR RETAIN
 END_VAR
 VAR
     Speed : INT;
+    Cal : Calibrated;
 END_VAR
 Total := Total + 1;
 Count := Count + 2;
@@ -63,6 +78,7 @@ Flag := NOT Flag;
 Since := Since + T#10ms;
 Timer(IN := TRUE, PT := T#1s);
 Speed := Speed + 1;
+Cal(X := 1.0);
 END_PROGRAM
 
 CONFIGURATION Bench
@@ -88,12 +104,13 @@ fn runtime_payload(runtime: &mut TestHarness) -> Vec<u8> {
     payload
 }
 
-#[test]
-fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
+/// The probe compiled for this computer, in a work folder of its own named `name`, and the device
+/// it runs on.
+fn compiled(name: &str) -> (Build, Device) {
     let toolchain = Toolchain::from_env()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
-    let work = std::env::temp_dir().join(format!("trust-native-retain-{}", std::process::id()));
+    let work = std::env::temp_dir().join(format!("trust-native-{name}-{}", std::process::id()));
     let built = build(
         &[SourceFile::new(PROGRAM)],
         &Options {
@@ -111,6 +128,12 @@ fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
         task_stack: 1 << 20,
         max_statements: 1_000,
     };
+    (built, device)
+}
+
+#[test]
+fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
+    let (built, device) = compiled("retain");
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
     let mut runtime = TestHarness::from_source(PROGRAM).expect("the runtime builds the probe");
@@ -180,4 +203,39 @@ fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
         .apply_retain_snapshot(&restored)
         .expect("the kernel's checkpoint restores into the runtime");
     assert_eq!(runtime_payload(&mut runtime), native);
+}
+
+/// A `RETAIN` variable of a function block's type is a member of each instance, which the runtime
+/// keeps across no warm restart and writes into no checkpoint (specification 44 §11; specification
+/// 11 §6.7): after three scans `Cal.Offset` is 0.5 + 3 × 1.0 = 3.5 in both, and after a warm
+/// restart it is its starting value 0.5 in both, while the program's retained `Total` keeps
+/// -7 + 3 = -4. Catches a compiled program that refuses the declaration, or one that keeps the
+/// member where the runtime does not.
+#[test]
+fn a_retained_variable_of_a_function_block_starts_again_at_a_warm_restart_as_in_the_runtime() {
+    let (built, device) = compiled("retain-member");
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    let mut runtime = TestHarness::from_source(PROGRAM).expect("the runtime builds the probe");
+    for scan in 1..=3i64 {
+        program
+            .scan(Duration::from_nanos(scan * 10 * MS), &mut NoHooks)
+            .expect("the native scan");
+        runtime.advance_time(Duration::from_millis(10));
+        let result = runtime.cycle();
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
+    }
+    assert_eq!(program.value("MAIN.CAL.OFFSET"), Some(Value::Real(3.5)));
+    assert_eq!(runtime.get_output("Cal.Offset"), Some(Value::Real(3.5)));
+
+    program
+        .warm_start(Duration::from_nanos(30 * MS))
+        .expect("the warm restart");
+    runtime
+        .restart(RestartMode::Warm)
+        .expect("the runtime's warm restart");
+    assert_eq!(program.value("MAIN.CAL.OFFSET"), Some(Value::Real(0.5)));
+    assert_eq!(runtime.get_output("Cal.Offset"), Some(Value::Real(0.5)));
+    assert_eq!(program.value("MAIN.TOTAL"), Some(Value::DInt(-4)));
+    assert_eq!(runtime.get_output("Total"), Some(Value::DInt(-4)));
 }

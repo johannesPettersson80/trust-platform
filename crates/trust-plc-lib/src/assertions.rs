@@ -1,10 +1,12 @@
 //! The assertions of a test (specification 07, MP-014; specification 44 §6.8): a failed assertion ends the
 //! test with a fault whose record carries what the kernel needs to write the runtime's message:
-//! the operands' bytes and the type table's indexes of their types, or the three reals of
-//! `ASSERT_NEAR`.
+//! the operands' bytes and the type table's indexes of their types, the offsets of two texts laid
+//! in the stack area, or the three reals of `ASSERT_NEAR`.
+
+use core::cell::Cell;
 
 use trust_plc_abi::module::fault;
-use trust_plc_abi::{Cx, Fault, FaultCode};
+use trust_plc_abi::{Cx, Fault, FaultCode, StrView};
 
 /// The assertion of a failed comparison, as the kernel reads it from the fault record's third
 /// number (specification 44 Appendix A).
@@ -53,6 +55,47 @@ pub fn assertion_failed(
         right as i64,
         described as i64,
     )
+}
+
+/// The fault of a failed comparison `assertion` of the texts `left` and `right`, of the types at
+/// `left_type` and `right_type` of the type table: each text is laid in `stack`, the stack area,
+/// as a string lies (its length in bytes in two bytes, then its bytes), `left` at 0 and `right` at
+/// the even offset after it, and the fault's first two numbers are the two offsets (specification
+/// 44 Appendix A). The build gives the stack area the length of the largest pair of texts.
+#[must_use]
+pub fn text_assertion_failed(
+    cx: &mut Cx,
+    stack: &[Cell<u8>],
+    assertion: Assertion,
+    left: StrView<'_>,
+    right: StrView<'_>,
+    left_type: u32,
+    right_type: u32,
+) -> Fault {
+    let right_at = lay(stack, 0, left);
+    lay(stack, right_at, right);
+    assertion_failed(
+        cx,
+        assertion,
+        0,
+        u64::try_from(right_at).unwrap_or(u64::MAX),
+        left_type,
+        right_type,
+    )
+}
+
+/// Lays `text` in `stack` from `at` as a string lies, and returns the even offset after it.
+fn lay(stack: &[Cell<u8>], at: usize, text: StrView<'_>) -> usize {
+    let len = text.len();
+    // A string's length is at most 65,535 (specification 44 §7.6).
+    let length = u16::try_from(len).unwrap_or(u16::MAX).to_le_bytes();
+    let bytes = length
+        .into_iter()
+        .chain((0..len).map(|index| text.byte(index)));
+    for (cell, byte) in stack.iter().skip(at).zip(bytes) {
+        cell.set(byte);
+    }
+    (at + 2 + len).next_multiple_of(2)
 }
 
 /// `ASSERT_NEAR(EXPECTED, ACTUAL, DELTA)` of three reals in binary64, as the runtime decides it: a

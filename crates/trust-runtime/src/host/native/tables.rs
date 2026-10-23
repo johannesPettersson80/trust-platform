@@ -258,7 +258,7 @@ fn areas(
     writer: &mut ImageWriter,
     model: &Model<'_>,
     memory: &StartingMemory,
-) -> ([AreaRecord; 6], u64) {
+) -> ([AreaRecord; 7], u64) {
     let mut init = Vec::new();
     let mut place = |bytes: &[u8]| -> u32 {
         let offset = align8(init.len());
@@ -294,6 +294,7 @@ fn areas(
             AREA_HAS_INIT,
             instances,
         ),
+        area(abi::AREA_STACK, model.stack, 0, 0),
     ];
     writer.table(&areas, &[]);
     let bytes = init.len() as u64;

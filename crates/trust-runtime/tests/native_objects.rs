@@ -224,6 +224,141 @@ sum := t.Split(v := 47, tens => tens, ones => ones);
 END_PROGRAM
 ";
 
+/// A method given a function block instance as an input, which picks a child of it through an
+/// interface and keeps it after the call (IEC §6.6.3.4.1, Table 42 feature 9a).
+const INSTANCE_INPUT: &str = "
+INTERFACE INode
+    METHOD Value : INT
+    END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK Node IMPLEMENTS INode
+VAR
+    v : INT;
+END_VAR
+METHOD PUBLIC Value : INT
+Value := v;
+END_METHOD
+METHOD PUBLIC Set
+VAR_INPUT
+    n : INT;
+END_VAR
+v := n;
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Pair
+VAR_OUTPUT
+    Count : INT := 2;
+END_VAR
+VAR
+    first : Node;
+    second : Node;
+END_VAR
+METHOD PUBLIC Child : INode
+VAR_INPUT
+    index : INT;
+END_VAR
+IF index = 1 THEN
+    Child := first;
+ELSE
+    Child := second;
+END_IF;
+END_METHOD
+METHOD PUBLIC Fill
+first.Set(n := 10);
+second.Set(n := 20);
+END_METHOD
+METHOD PUBLIC Raise
+second.Set(n := second.Value() + 10);
+END_METHOD
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK Picker
+VAR
+    picked : INode;
+END_VAR
+METHOD PUBLIC Pick : INT
+VAR_INPUT
+    p : Pair;
+END_VAR
+picked := p.Child(index := p.Count);
+Pick := picked.Value();
+END_METHOD
+METHOD PUBLIC Again : INT
+Again := picked.Value();
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    pair : Pair;
+    picker : Picker;
+    now : INT;
+    later : INT;
+END_VAR
+pair.Fill();
+now := picker.Pick(p := pair);
+pair.Raise();
+later := picker.Again();
+END_PROGRAM
+";
+
+/// A builder whose methods return the builder itself, `THIS`, so that calls chain (IEC
+/// §6.6.5.7.2).
+const CHAINED: &str = "
+TYPE Recipe :
+STRUCT
+    Volume : REAL;
+    Speed : REAL;
+    Valid : BOOL;
+END_STRUCT
+END_TYPE
+
+FUNCTION_BLOCK Builder
+VAR
+    r : Recipe;
+END_VAR
+METHOD PUBLIC Volume : Builder
+VAR_INPUT
+    v : REAL;
+END_VAR
+r.Volume := v;
+Volume := THIS;
+END_METHOD
+METHOD PUBLIC Speed : Builder
+VAR_INPUT
+    s : REAL;
+END_VAR
+r.Speed := s;
+Speed := THIS;
+END_METHOD
+METHOD PUBLIC Build : Recipe
+r.Valid := r.Volume > 0.0 AND r.Speed > 0.0;
+Build := r;
+END_METHOD
+METHOD PUBLIC CurrentSpeed : REAL
+CurrentSpeed := r.Speed;
+END_METHOD
+END_FUNCTION_BLOCK
+
+PROGRAM Main
+VAR
+    b : Builder;
+    made : Recipe;
+    volume : REAL;
+    speed : REAL;
+    valid : BOOL;
+    kept : REAL;
+END_VAR
+made := b.Volume(v := 10.0).Speed(s := 45.0).Build();
+volume := made.Volume;
+speed := made.Speed;
+valid := made.Valid;
+kept := b.CurrentSpeed();
+END_PROGRAM
+";
+
 /// The program of `source`, compiled for this computer, cold-started.
 fn program(source: &str) -> NativeProgram<'static, trust_runtime::native::HostCode> {
     static BUILDS: AtomicUsize = AtomicUsize::new(0);
@@ -339,6 +474,44 @@ fn properties_and_method_outputs() {
         ("MAIN.SUM", Value::Int(11)),
         ("MAIN.TENS", Value::Int(4)),
         ("MAIN.ONES", Value::Int(7)),
+    ] {
+        assert_eq!(program.value(variable), Some(expected), "{variable}");
+    }
+}
+
+/// A function block instance given as an input is the caller's instance (IEC §6.6.3.4.1, Table 42
+/// feature 9a; specification 44 §6.4): `Pick` reads `pair.Count`, 2, picks `pair.second`, whose
+/// value `Fill` made 20, and keeps it; after `pair.Raise()` makes it 30, `Again` reads 30 through
+/// the kept interface. A copy of `pair` would give `Again` the copy's child, which no longer exists
+/// after the call: the build refused it before, and a copy would end the scan with
+/// `ReferenceLifetime` where `Pick` takes the reference.
+#[test]
+fn an_instance_given_as_an_input_is_the_callers_instance() {
+    let mut program = program(INSTANCE_INPUT);
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    for (variable, expected) in [("MAIN.NOW", Value::Int(20)), ("MAIN.LATER", Value::Int(30))] {
+        assert_eq!(program.value(variable), Some(expected), "{variable}");
+    }
+}
+
+/// A method's result of a function block's type names the instance assigned to it, here `THIS`
+/// (IEC §6.6.5.7.2; specification 44 §6.4): `b.Volume(10.0).Speed(45.0).Build()` sets the volume
+/// and the speed of `b` itself and builds the recipe 10.0, 45.0, valid; `b` then holds the speed
+/// 45.0. A result that copied the instance would leave `b`'s speed 0.0, as `Speed` would set it on
+/// the copy.
+#[test]
+fn a_method_that_returns_this_chains_on_the_instance() {
+    let mut program = program(CHAINED);
+    program
+        .scan(Duration::from_millis(10), &mut NoHooks)
+        .expect("the scan runs");
+    for (variable, expected) in [
+        ("MAIN.VOLUME", Value::Real(10.0)),
+        ("MAIN.SPEED", Value::Real(45.0)),
+        ("MAIN.VALID", Value::Bool(true)),
+        ("MAIN.KEPT", Value::Real(45.0)),
     ] {
         assert_eq!(program.value(variable), Some(expected), "{variable}");
     }

@@ -901,9 +901,13 @@ END_TEST_PROGRAM
 /// the runtime's words (specification 44 §14.2): `ASSERT_EQUAL` of `INT#5` and `INT#4` fails
 /// "expected 5, actual 4"; `ASSERT_NEAR` of 1.0 and 1.5 within 0.1 fails with the binary64 spelling
 /// of the `REAL` 0.1, 0.10000000149011612, and the difference 0.5; `ASSERT_TRUE(FALSE)` fails; an
-/// enumeration is written `Type::Value`; and a test that asserts what holds passes. Each test starts
-/// from a cold restart, so `Counter` is 1 in both tests that count. The tests need the toolchain of
-/// specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+/// enumeration is written `Type::Value`; a text is quoted with `$$` for `$` and `$'` for `'`, so the
+/// text `it's $5` is written `'it$'s $$5'`; two texts compare by their bytes, so `'AB'` is less than
+/// `'B'` and not greater; a test function block runs its body once on a fresh instance, so `Calls`
+/// goes from its initial 10 to 11 and the latch it sets holds, while a latch set and reset in one
+/// call is FALSE; and a test that asserts what holds passes. Each test starts from a cold restart,
+/// so `Counter` is 1 in both tests that count. The tests need the toolchain of specification 44
+/// §4.6 at `TRUST_TOOLCHAIN`.
 #[test]
 fn native_backend_runs_tests_as_the_bytecode_backend_does() {
     let project =
@@ -949,6 +953,53 @@ VAR
 END_VAR
 ASSERT_EQUAL(EXPECTED := Color#Red, ACTUAL := c);
 END_TEST_PROGRAM
+
+TEST_PROGRAM TextsPass
+ASSERT_EQUAL(EXPECTED := CONCAT('N', 'E'), ACTUAL := 'NE');
+ASSERT_LESS(VALUE := 'AB', BOUND := 'B');
+END_TEST_PROGRAM
+
+TEST_PROGRAM TextFails
+VAR
+    direction : STRING[8] := 'NE';
+END_VAR
+ASSERT_EQUAL(EXPECTED := 'it$'s $$5', ACTUAL := direction);
+END_TEST_PROGRAM
+
+TEST_PROGRAM TextOrderFails
+ASSERT_GREATER(VALUE := 'AB', BOUND := 'B');
+END_TEST_PROGRAM
+
+FUNCTION_BLOCK Latch
+VAR_INPUT
+    Arm : BOOL;
+    Clear : BOOL;
+END_VAR
+VAR_OUTPUT
+    Q : BOOL;
+END_VAR
+Q := (Q OR Arm) AND NOT Clear;
+END_FUNCTION_BLOCK
+
+TEST_FUNCTION_BLOCK LatchHolds
+VAR
+    Dut : Latch;
+    Calls : INT := 10;
+END_VAR
+Calls := Calls + 1;
+Dut(Arm := TRUE);
+Dut(Arm := FALSE);
+ASSERT_TRUE(IN := Dut.Q);
+ASSERT_EQUAL(EXPECTED := INT#11, ACTUAL := Calls);
+END_TEST_FUNCTION_BLOCK
+
+TEST_FUNCTION_BLOCK LatchFails
+VAR
+    Dut : Latch;
+END_VAR
+Dut(Arm := TRUE, Clear := TRUE);
+ASSERT_TRUE(IN := Dut.Q);
+END_TEST_FUNCTION_BLOCK
 "#,
     )
     .expect("write the tests");
@@ -986,6 +1037,23 @@ END_TEST_PROGRAM
             "ColorFails",
             TestOutcome::Failed,
             "ASSERT_EQUAL failed: expected Color::Red, actual Color::Green",
+        ),
+        ("TextsPass", TestOutcome::Passed, ""),
+        (
+            "TextFails",
+            TestOutcome::Failed,
+            "ASSERT_EQUAL failed: expected 'it$'s $$5', actual 'NE'",
+        ),
+        (
+            "TextOrderFails",
+            TestOutcome::Failed,
+            "ASSERT_GREATER failed: value 'AB' is not greater than bound 'B'",
+        ),
+        ("LatchHolds", TestOutcome::Passed, ""),
+        (
+            "LatchFails",
+            TestOutcome::Failed,
+            "ASSERT_TRUE expected TRUE, got FALSE",
         ),
     ] {
         assert_eq!(
