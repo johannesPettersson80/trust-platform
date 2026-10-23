@@ -41,6 +41,15 @@ const fn slot_base(slot: Slot) -> u32 {
     }
 }
 
+/// The window a program slot is mapped in: one of its own, so mapping one slot leaves the other's
+/// bytes in place (specification 34 MEM-14).
+const fn slot_window(slot: Slot) -> u32 {
+    match slot {
+        Slot::A => 0,
+        Slot::B => 1,
+    }
+}
+
 /// The absolute address of the `len` bytes at `offset` in `slot`, or `None` when the offset or the
 /// length is not a whole number of program units, or when the bytes do not lie inside the slot
 /// (specification 34 §5.1: an install writes whole units inside its slot).
@@ -113,7 +122,7 @@ impl<R: RawFlash> ProgramFlash for ProgramSlots<R> {
         let inside = offset.checked_add(len)? <= SLOT_BYTES;
         inside
             .then(|| slot_base(slot) + offset)
-            .and_then(|address| self.raw.map_at(address, len))
+            .and_then(|address| self.raw.map_at(slot_window(slot), address, len))
     }
 }
 
@@ -152,8 +161,11 @@ impl<R: RawFlash> RawFlash for SharedFlash<R> {
         flash.erase_at(address)
     }
 
-    fn map_at(&mut self, address: u32, len: u32) -> Option<&'static [u8]> {
-        self.flash.try_borrow_mut().ok()?.map_at(address, len)
+    fn map_at(&mut self, window: u32, address: u32, len: u32) -> Option<&'static [u8]> {
+        self.flash
+            .try_borrow_mut()
+            .ok()?
+            .map_at(window, address, len)
     }
 }
 

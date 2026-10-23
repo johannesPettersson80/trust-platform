@@ -15,6 +15,11 @@
 //! check with its program store, built from [`check_retained_values`], which reads the newest
 //! checkpoint through a handle on the checkpoint slots.
 //!
+//! While the resource is Stopped, an upload is written into the store as its parts arrive (§5.1): the
+//! erase of `transfer.begin` and the write of each part run in steps as a commit does, and their
+//! replies wait in the same way. `program.install` of such an upload checks it where it lies in its
+//! slot and commits only its header and magic.
+//!
 //! The same state tells the loop which container its program came from, so that a `restart` of the
 //! Stopped resource can find a newer committed container and load it in place
 //! ([`Runner::with_program_loader`](crate::runner::Runner::with_program_loader)), and it answers
@@ -37,14 +42,16 @@ use smol_str::SmolStr;
 use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::ProgramStore;
+use trust_runtime_core::retain::checkpoint::{FlashError, Slot};
 
 use crate::installation::Admitted;
 use crate::loading::identity::{self, IdentityError};
-use crate::loading::install::{self, Install, InstallError, Progress};
+use crate::loading::install::{self, Checked, Install, InstallError, Progress};
 use crate::loading::select::{self, Booted, ScanError, SelectError};
+use crate::loading::upload::{self, StoreWrite};
 use crate::ports::{ProgramIdentities, ProgramIdentity, TransferSessionError};
 use crate::protocol::ControlResponse;
-use crate::transfer::TransferSession;
+use crate::transfer::{Received, StoredUpload, TransferError, TransferId, TransferSession};
 
 /// What a pass of the loop learns of the commit that runs.
 pub(super) enum Step {
@@ -77,7 +84,9 @@ struct Parts {
     store: Option<ProgramStore>,
     /// The device's retained-value check of an install (decision G13).
     retained_check: Option<RetainedCheck>,
-    /// The commit that runs, one step in each pass.
+    /// The upload written into the store, and the slot it is written into (§5.1).
+    upload: Option<(TransferId, Slot)>,
+    /// The commit or the write that runs, one step in each pass.
     pending: Option<Pending>,
     /// The request being answered began the commit; the loop takes this once it has answered.
     began: bool,
@@ -96,19 +105,32 @@ struct Reload {
 /// the newest checkpoint (specification 11 §6.7.1).
 type RetainedCheck = Box<dyn FnMut(&Admitted<'_>) -> Result<(), RuntimeError>>;
 
-/// A commit that runs, and the reply its request is owed.
+/// A commit or a write that runs, and the reply its request is owed.
 struct Pending {
-    commit: Install,
+    work: Work,
     /// Set by the loop right after the request is answered.
     reply: Option<Owed>,
 }
 
-/// The request that an install answers, and the reply it gets when the commit succeeds.
+/// The flash work of a request, which runs one step in each pass.
+enum Work {
+    /// The commit of `program.install`.
+    Commit(Install),
+    /// The erase of `transfer.begin` (`part` false) or the write of a part (`part` true) of the
+    /// upload `transfer`, written into the store (§5.1).
+    Upload {
+        transfer: TransferId,
+        write: StoreWrite,
+        part: bool,
+    },
+}
+
+/// The request that the work answers, and the reply it gets when the work succeeds.
 struct Owed {
     /// The request number, which the failure of a step is answered with.
     id: u64,
-    /// The `installed` reply, written when the request was answered.
-    installed: String,
+    /// The reply written when the request was answered: `installed`, or the transfer's.
+    reply: String,
 }
 
 impl InstallState {
@@ -257,16 +279,178 @@ impl InstallState {
             .unwrap_or(false)
     }
 
-    /// Holds `installed`, the reply to request `id`, until the commit ends. Returns false when no
-    /// commit runs.
-    pub(super) fn hold_reply(&self, id: u64, installed: String) -> bool {
+    /// Holds `reply`, the reply to request `id`, until the work ends. Returns false when no work
+    /// runs.
+    pub(super) fn hold_reply(&self, id: u64, reply: String) -> bool {
         self.with(|parts| {
             parts.pending.as_mut().is_some_and(|pending| {
-                pending.reply = Some(Owed { id, installed });
+                pending.reply = Some(Owed { id, reply });
                 true
             })
         })
         .unwrap_or(false)
+    }
+
+    /// Opens an upload of `bytes` bytes whose SHA-256 is `digest` in the loop's session (PORT-05).
+    /// While the resource is Stopped (`stopped`) and the store maps its slots for reading in place,
+    /// the upload is written into the store as its parts arrive (§5.1): its slot is chosen now, and
+    /// the erase of the slot's first unit begins, whose step the reply waits for. Otherwise the
+    /// upload is held in memory.
+    ///
+    /// # Errors
+    ///
+    /// [`TransferSessionError::Unsupported`] when the loop keeps no session, and
+    /// [`TransferSessionError::Unavailable`] when its state is in use. The refusal of the upload
+    /// itself is the inner error's text.
+    pub(super) fn begin_upload(
+        &self,
+        bytes: u64,
+        digest: [u8; 32],
+        stopped: bool,
+    ) -> Result<Result<TransferId, String>, TransferSessionError> {
+        let mut guard = self
+            .0
+            .try_borrow_mut()
+            .map_err(|_| TransferSessionError::Unavailable)?;
+        let parts = &mut *guard;
+        let session = parts
+            .transfers
+            .as_mut()
+            .ok_or(TransferSessionError::Unsupported)?;
+        // The install checks an upload in the store where it lies in its slot, so a store that cannot
+        // be read in place keeps its uploads in memory.
+        let in_place = stopped
+            && parts
+                .store
+                .as_mut()
+                .is_some_and(|store| store.flash.map(Slot::A, 0, 1).is_some());
+        let Some(store) = parts.store.as_mut().filter(|_| in_place) else {
+            return Ok(session
+                .begin(bytes, digest)
+                .map_err(|error| error.to_string()));
+        };
+        let held = parts.reload.as_ref().and_then(|reload| reload.loaded);
+        let slot = match upload::slot(store, held) {
+            Ok(slot) => slot,
+            Err(error) => return Ok(Err(error.to_string())),
+        };
+        let transfer = match session.begin_in_store(bytes, digest) {
+            Ok(transfer) => transfer,
+            Err(error) => return Ok(Err(error.to_string())),
+        };
+        parts.upload = Some((transfer, slot));
+        parts.pending = Some(Pending {
+            work: Work::Upload {
+                transfer,
+                write: StoreWrite::begin(store, slot),
+                part: false,
+            },
+            reply: None,
+        });
+        parts.began = true;
+        Ok(Ok(transfer))
+    }
+
+    /// Takes the part at `offset` of the open upload `transfer` from its base64 `encoded` with its
+    /// CRC-32 `crc`, and returns the next offset (PORT-05). A part of an upload written into the
+    /// store is checked now and written in steps, whose last step the reply waits for; the next
+    /// offset is then the one after the part. A repeat of one of its received parts is compared with
+    /// the bytes the slot holds, where they are mapped.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::begin_upload`].
+    pub(super) fn receive_part(
+        &self,
+        transfer: TransferId,
+        offset: u64,
+        encoded: &str,
+        crc: u32,
+    ) -> Result<Result<usize, String>, TransferSessionError> {
+        let mut guard = self
+            .0
+            .try_borrow_mut()
+            .map_err(|_| TransferSessionError::Unavailable)?;
+        let parts = &mut *guard;
+        let session = parts
+            .transfers
+            .as_mut()
+            .ok_or(TransferSessionError::Unsupported)?;
+        let received = match session.part(transfer, offset, encoded, crc) {
+            Ok(Received::Next(next)) => return Ok(Ok(next)),
+            Ok(received) => received,
+            Err(error) => return Ok(Err(error.to_string())),
+        };
+        let slot = parts
+            .upload
+            .filter(|(id, _)| *id == transfer)
+            .map(|(_, slot)| slot);
+        let len = session.part_bytes(transfer).map_or(0, <[u8]>::len);
+        let (Some(store), Some(slot), Ok(at), Ok(length)) = (
+            parts.store.as_mut(),
+            slot,
+            u32::try_from(offset),
+            u32::try_from(len),
+        ) else {
+            return Ok(Err(TransferError::InStore.to_string()));
+        };
+        if let Received::Write { offset } = received {
+            parts.pending = Some(Pending {
+                work: Work::Upload {
+                    transfer,
+                    write: StoreWrite::part(store, slot, at, length),
+                    part: true,
+                },
+                reply: None,
+            });
+            parts.began = true;
+            return Ok(Ok(offset + len));
+        }
+        let Some(stored) = store.flash.map(slot, at, length) else {
+            return Ok(Err(InstallError::Flash(FlashError::Read).to_string()));
+        };
+        Ok(session
+            .repeated(transfer, stored)
+            .map_err(|error| error.to_string()))
+    }
+
+    /// The bytes of the complete upload `upload` where they lie in the slot it was written into, for
+    /// the install's checks (§11.2). `None` when the store holds no such upload or cannot map it.
+    pub(super) fn stored_region(&self, upload: &StoredUpload) -> Option<&'static [u8]> {
+        self.with(|parts| {
+            let (_, slot) = parts.upload.filter(|(id, _)| *id == upload.transfer)?;
+            let len = u32::try_from(upload.bytes).ok()?;
+            parts.store.as_mut()?.flash.map(slot, 0, len)
+        })
+        .flatten()
+    }
+
+    /// Begins the commit of `upload`, written into the store and checked as `checked`, and returns
+    /// the identity the commit gives the program: the commit programs only its header and magic
+    /// (§5.1).
+    ///
+    /// # Errors
+    ///
+    /// The refusal as plain text: no program store, work that already runs, an upload the loop did
+    /// not write, or a container the store cannot take.
+    pub(super) fn begin_stored(
+        &self,
+        upload: StoredUpload,
+        checked: Checked,
+    ) -> Result<ProgramIdentity, String> {
+        self.with(|parts| parts.begin_stored(upload, checked))
+            .unwrap_or_else(|| Err(String::from("the program store is in use")))
+    }
+
+    /// Ends the upload written into the store, if one is open: a `restart` that starts the resource
+    /// ends it, so no part of it is written while the program runs (PORT-05).
+    pub(super) fn end_store_upload(&self) {
+        let _ = self.with(|parts| {
+            if let Some(session) = parts.transfers.as_mut() {
+                session.end_store_upload();
+            }
+            parts.upload = None;
+        });
     }
 
     /// Whether a commit runs, so that its reply is the one in flight and the loop reads no request.
@@ -308,41 +492,122 @@ impl Parts {
         let held = self.reload.as_ref().and_then(|reload| reload.loaded);
         let commit =
             install::start(store, container, checked, held).map_err(|error| error.to_string())?;
+        Ok(self.run_commit(commit))
+    }
+
+    /// Begins the commit of `upload`, written into the store (§5.1).
+    fn begin_stored(
+        &mut self,
+        upload: StoredUpload,
+        checked: Checked,
+    ) -> Result<ProgramIdentity, String> {
+        let store = self
+            .store
+            .as_mut()
+            .ok_or_else(|| String::from("the platform does not store programs"))?;
+        if self.pending.is_some() {
+            return Err(String::from("a program install is already running"));
+        }
+        let Some((_, slot)) = self.upload.take().filter(|(id, _)| *id == upload.transfer) else {
+            return Err(TransferError::Unknown.to_string());
+        };
+        let commit = install::start_stored(store, slot, upload.header, upload.bytes, checked)
+            .map_err(|error| error.to_string())?;
+        Ok(self.run_commit(commit))
+    }
+
+    /// Makes `commit` the work that runs, and returns the identity it gives the program.
+    fn run_commit(&mut self, commit: Install) -> ProgramIdentity {
         let committed = commit.identity();
         self.pending = Some(Pending {
-            commit,
+            work: Work::Commit(commit),
             reply: None,
         });
         self.began = true;
-        Ok(ProgramIdentity {
+        ProgramIdentity {
             sequence: committed.sequence,
             program_sha256: committed.program_sha256,
             bytes: committed.program_bytes,
-        })
+        }
     }
 
-    /// Advances the commit by one step: the store's next erase, program, read-back or commit point.
+    /// Advances the work by one step: the store's next erase, program, read-back or commit point.
     fn step(&mut self) -> Step {
         let Some(store) = self.store.as_mut() else {
             return Step::Idle;
         };
-        let Some(Pending { commit, reply }) = self.pending.take() else {
+        let Some(Pending { work, reply }) = self.pending.take() else {
             return Step::Idle;
         };
-        match commit.step(store) {
-            Ok(Progress::Pending(commit)) => {
-                self.pending = Some(Pending { commit, reply });
+        let (transfer, mut write, part) = match work {
+            Work::Commit(commit) => {
+                return match commit.step(store) {
+                    Ok(Progress::Pending(commit)) => {
+                        self.pending = Some(Pending {
+                            work: Work::Commit(commit),
+                            reply,
+                        });
+                        Step::Running
+                    }
+                    Ok(Progress::Committed(_)) => Step::Finished(reply.map(|owed| owed.reply)),
+                    Err(error) => {
+                        Step::Finished(reply.map(|owed| failure_reply(owed.id, &error.to_string())))
+                    }
+                };
+            }
+            Work::Upload {
+                transfer,
+                write,
+                part,
+            } => (transfer, write, part),
+        };
+        let Some(session) = self.transfers.as_mut() else {
+            return Step::Finished(None);
+        };
+        // A begin writes no bytes; a part writes the bytes that wait in the session's part buffer.
+        let bytes = if part {
+            session.part_bytes(transfer)
+        } else {
+            Some(&[][..])
+        };
+        let Some(bytes) = bytes else {
+            return Step::Finished(None);
+        };
+        match write.step(store, bytes) {
+            Ok(false) => {
+                self.pending = Some(Pending {
+                    work: Work::Upload {
+                        transfer,
+                        write,
+                        part,
+                    },
+                    reply,
+                });
                 Step::Running
             }
-            Ok(Progress::Committed(_)) => Step::Finished(reply.map(|owed| owed.installed)),
-            Err(error) => Step::Finished(reply.map(|owed| failure_reply(owed.id, &error))),
+            Ok(true) if part => match session.written(transfer) {
+                Ok(_) => Step::Finished(reply.map(|owed| owed.reply)),
+                Err(error) => {
+                    Step::Finished(reply.map(|owed| failure_reply(owed.id, &error.to_string())))
+                }
+            },
+            Ok(true) => Step::Finished(reply.map(|owed| owed.reply)),
+            Err(error) => {
+                // A begin whose erase failed leaves no upload open; a part whose write failed leaves
+                // its upload at the same next offset, so the client sends the part again.
+                if !part {
+                    let _ = session.abort(transfer);
+                    self.upload = None;
+                }
+                Step::Finished(reply.map(|owed| failure_reply(owed.id, &error.to_string())))
+            }
         }
     }
 }
 
-/// The reply to request `id` when a step of its commit failed: the step's error. The reply carries no
+/// The reply to request `id` when a step of its work failed: the step's error. The reply carries no
 /// audit record id, because the request was audited when it was answered.
-fn failure_reply(id: u64, error: &InstallError) -> String {
+fn failure_reply(id: u64, error: &str) -> String {
     serde_json::to_string(&ControlResponse::error(id, error.to_string())).unwrap_or_else(|_| {
         String::from(r#"{"id":0,"ok":false,"error":"response serialization failed"}"#)
     })

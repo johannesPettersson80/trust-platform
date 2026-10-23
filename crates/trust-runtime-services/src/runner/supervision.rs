@@ -185,8 +185,11 @@ where
     /// zero, the events, metrics and task statistics start empty, and its first scan is due at
     /// once. When the program store holds a committed container newer than the one the program came
     /// from, the loop loads that container in place first ([`Self::load_or_restart`]). A program that
-    /// cannot start stays ended and faulted with the reason, and the next restart tries again.
+    /// cannot start stays ended and faulted with the reason, and the next restart tries again. An
+    /// upload written into the program store ends here, so that no part of it is written while the
+    /// program runs (specification 34, PORT-05).
     pub(super) fn start(&mut self, mode: RestartMode) {
+        self.shell.install.end_store_upload();
         match self.load_or_restart(mode) {
             Ok(events) => self.begin_program(events),
             Err(error) => {

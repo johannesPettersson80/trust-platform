@@ -7,7 +7,7 @@
 //! through these ports and hold no platform state themselves.
 
 use alloc::collections::VecDeque;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
@@ -24,11 +24,12 @@ use crate::events::RuntimeEvent;
 use crate::installation::Admitted;
 use crate::live_values::io_requests::IoQueuePort;
 use crate::live_values::var_requests::VariableQueuePort;
+use crate::loading::install::Checked;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::CommandSendError;
 use crate::status::{IoDriverStatus, StatusSettings};
-use crate::transfer::TransferSession;
+use crate::transfer::{Received, StoredUpload, TransferError, TransferId, TransferSession};
 
 /// Access rights of the control connection.
 pub trait AccessPort {
@@ -309,6 +310,66 @@ pub trait RecordsPort {
         Err(TransferSessionError::Unsupported)
     }
 
+    /// Opens an upload of `bytes` bytes whose SHA-256 is `digest` (specification 34, PORT-05). The
+    /// default opens it in the platform's session, held in memory; a chip's loop writes an upload
+    /// that begins while its resource is Stopped into its program store instead (§5.1).
+    ///
+    /// # Errors
+    ///
+    /// The [`TransferSessionError`] of a platform that gives out no session. The refusal of the
+    /// upload itself is the inner error's text.
+    fn begin_upload(
+        &self,
+        bytes: u64,
+        digest: [u8; 32],
+    ) -> Result<Result<TransferId, String>, TransferSessionError> {
+        self.with_transfers(|session| {
+            session
+                .begin(bytes, digest)
+                .map_err(|error| error.to_string())
+        })
+    }
+
+    /// Takes the part at `offset` of the open upload `transfer` from its base64 `encoded` with its
+    /// CRC-32 `crc`, and returns the upload's next offset (PORT-05). The default takes it in the
+    /// platform's session, which holds its uploads in memory; a chip's loop writes a part of an
+    /// upload in its program store into the store (§5.1).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::begin_upload`].
+    fn receive_part(
+        &self,
+        transfer: TransferId,
+        offset: u64,
+        encoded: &str,
+        crc: u32,
+    ) -> Result<Result<usize, String>, TransferSessionError> {
+        self.with_transfers(|session| part_in_memory(session, transfer, offset, encoded, crc))
+    }
+
+    /// The bytes of `upload`, written into the program store, where they lie in their slot, which the
+    /// install's checks read (specification 34 §5.1, §11.2). The default is none: a platform that
+    /// writes no upload into a store holds no such upload.
+    fn stored_upload(&self, _upload: &StoredUpload) -> Option<&'static [u8]> {
+        None
+    }
+
+    /// Commits `upload`, written into the program store and checked as `checked`, by programming its
+    /// header and magic (specification 34 §5.1, §11.2), and returns the identity the store gives the
+    /// program. The default refuses.
+    ///
+    /// # Errors
+    ///
+    /// The store's refusal or failure, as plain text.
+    fn commit_stored(
+        &self,
+        _upload: StoredUpload,
+        _checked: Checked,
+    ) -> Result<ProgramIdentity, String> {
+        Err("the platform does not store programs".into())
+    }
+
     /// The selected program and the program before it, which `program.active` reports (specification
     /// 34 §11.2). The default is no program store, so `program.active` answers `unsupported request`.
     fn program_identities(&self) -> Option<ProgramIdentities> {
@@ -358,6 +419,25 @@ pub trait RecordsPort {
     /// The store's refusal or failure, as plain text.
     fn commit_program(&self, _container: Vec<u8>) -> Result<ProgramIdentity, String> {
         Err("the platform does not store programs".into())
+    }
+}
+
+/// The part at `offset` of the upload `transfer` in `session`, which holds its uploads in memory: the
+/// upload's next offset, or the refusal's text (specification 34, PORT-05). An upload written into a
+/// program store is refused here, because only the loop that writes the store takes its parts.
+pub(crate) fn part_in_memory(
+    session: &mut TransferSession,
+    transfer: TransferId,
+    offset: u64,
+    encoded: &str,
+    crc: u32,
+) -> Result<usize, String> {
+    match session.part(transfer, offset, encoded, crc) {
+        Ok(Received::Next(next)) => Ok(next),
+        Ok(Received::Write { .. } | Received::Repeat { .. }) => {
+            Err(TransferError::InStore.to_string())
+        }
+        Err(error) => Err(error.to_string()),
     }
 }
 

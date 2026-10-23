@@ -14,33 +14,37 @@ use crate::ports::{ControlHost, ProgramIdentities, ProgramIdentity, RecordsPort}
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::status::{check_number_members, invalid_params, MemberKind};
 use crate::transfer::wire::{self, WireError};
-use crate::transfer::{TransferError, TransferId, TransferSession};
+use crate::transfer::{Complete, TransferError, TransferId, TransferSession};
 
 /// Answers one of the five transfer operations through the platform's session, or refuses it when
-/// the platform keeps no session.
+/// the platform keeps no session. `transfer.begin` and `transfer.part` go through the host, which
+/// holds an upload in memory or, on a chip whose resource is Stopped, writes it into its program
+/// store (specification 34 §5.1).
 pub(super) fn answer_transfer<H: ControlHost>(
     request: &ControlRequest,
     host: &H,
 ) -> ControlResponse {
-    match host.with_transfers(|session| transfer_reply(request, session)) {
-        Ok(response) => response,
-        Err(refused) => refused.refusal(request.id),
-    }
-}
-
-/// The reply to a transfer operation whose session the platform has given out.
-fn transfer_reply(request: &ControlRequest, session: &mut TransferSession) -> ControlResponse {
     let id = request.id;
+    if let Err(refused) = host.with_transfers(|_| ()) {
+        return refused.refusal(id);
+    }
     let Some(params) = request.params.as_ref() else {
         return ControlResponse::error(id, "missing params".into());
     };
-    match transfer_result(id, request.r#type.as_str(), params, session) {
+    let result = match request.r#type.as_str() {
+        "transfer.begin" => begin(id, params, host),
+        "transfer.part" => part(id, params, host),
+        kind => host
+            .with_transfers(|session| transfer_result(id, kind, params, session))
+            .unwrap_or_else(|refused| Err(refused.refusal(id))),
+    };
+    match result {
         Ok(result) => ControlResponse::ok(id, result),
         Err(refusal) => refusal,
     }
 }
 
-/// The result of the transfer operation `kind`, or its refusal.
+/// The result of the transfer operation `kind` that reads or ends a transfer, or its refusal.
 fn transfer_result(
     id: u64,
     kind: &str,
@@ -48,8 +52,6 @@ fn transfer_result(
     session: &mut TransferSession,
 ) -> Result<Value, ControlResponse> {
     match kind {
-        "transfer.begin" => begin(id, params, session),
-        "transfer.part" => part(id, params, session),
         "transfer.status" => {
             let transfer = transfer_member(id, params)?;
             session
@@ -70,7 +72,7 @@ fn transfer_result(
 }
 
 /// `transfer.begin {bytes, sha256}`: opens an upload.
-fn begin(id: u64, params: &Value, session: &mut TransferSession) -> Result<Value, ControlResponse> {
+fn begin<H: ControlHost>(id: u64, params: &Value, host: &H) -> Result<Value, ControlResponse> {
     check_number_members(
         id,
         params,
@@ -80,15 +82,16 @@ fn begin(id: u64, params: &Value, session: &mut TransferSession) -> Result<Value
         ],
     )?;
     let request = wire::begin_request(params).map_err(|error| wire_refusal(id, &error))?;
-    session
-        .begin(request.bytes, request.digest)
-        .map(wire::begin_reply)
-        .map_err(|error| session_refusal(id, &error))
+    match host.begin_upload(request.bytes, request.digest) {
+        Ok(Ok(transfer)) => Ok(wire::begin_reply(transfer)),
+        Ok(Err(refusal)) => Err(ControlResponse::error(id, refusal)),
+        Err(refused) => Err(refused.refusal(id)),
+    }
 }
 
 /// `transfer.part {transfer, offset, data, crc32}`: stores one part. The base64 of `data` is
 /// borrowed from the request and decoded into the session's part buffer.
-fn part(id: u64, params: &Value, session: &mut TransferSession) -> Result<Value, ControlResponse> {
+fn part<H: ControlHost>(id: u64, params: &Value, host: &H) -> Result<Value, ControlResponse> {
     check_number_members(
         id,
         params,
@@ -100,15 +103,16 @@ fn part(id: u64, params: &Value, session: &mut TransferSession) -> Result<Value,
         ],
     )?;
     let request = wire::part_request(params).map_err(|error| wire_refusal(id, &error))?;
-    session
-        .part(
-            request.transfer,
-            request.offset,
-            request.encoded,
-            request.crc32,
-        )
-        .map(wire::part_reply)
-        .map_err(|error| session_refusal(id, &error))
+    match host.receive_part(
+        request.transfer,
+        request.offset,
+        request.encoded,
+        request.crc32,
+    ) {
+        Ok(Ok(next_offset)) => Ok(wire::part_reply(next_offset)),
+        Ok(Err(refusal)) => Err(ControlResponse::error(id, refusal)),
+        Err(refused) => Err(refused.refusal(id)),
+    }
 }
 
 /// `transfer.get {transfer, offset, len}`: reads up to a part of the held reply, and frees the reply
@@ -136,17 +140,44 @@ pub(crate) fn transfer_member(id: u64, params: &Value) -> Result<TransferId, Con
     wire::transfer_request(params).map_err(|error| wire_refusal(id, &error))
 }
 
-/// Takes the bytes of the complete transfer `transfer`, which ends it (specification 34, PORT-05).
-/// An incomplete or unknown transfer is refused with the session's own text, and stays as it is.
+/// Takes the complete transfer `transfer`, which ends it (specification 34, PORT-05): the bytes of
+/// an upload held in memory, or what the session kept of one written into the program store. An
+/// incomplete or unknown transfer is refused with the session's own text, and stays as it is.
+pub(crate) fn take_upload<H: ControlHost>(
+    id: u64,
+    transfer: TransferId,
+    host: &H,
+) -> Result<Complete, ControlResponse> {
+    match host.with_transfers(|session| session.take_complete(transfer)) {
+        Ok(Ok(complete)) => Ok(complete),
+        Ok(Err(error)) => Err(ControlResponse::error(id, error.to_string())),
+        Err(refused) => Err(refused.refusal(id)),
+    }
+}
+
+/// Takes the bytes of the complete transfer `transfer`, held in memory, which ends it, as
+/// [`take_upload`] does. An upload written into the program store, which only `program.install`
+/// takes, is refused and stays open.
 pub(crate) fn take_complete<H: ControlHost>(
     id: u64,
     transfer: TransferId,
     host: &H,
 ) -> Result<Vec<u8>, ControlResponse> {
-    match host.with_transfers(|session| session.take_complete(transfer)) {
-        Ok(Ok(bytes)) => Ok(bytes),
-        Ok(Err(error)) => Err(ControlResponse::error(id, error.to_string())),
-        Err(refused) => Err(refused.refusal(id)),
+    let in_store = host
+        .with_transfers(|session| session.in_store(transfer))
+        .map_err(|refused| refused.refusal(id))?;
+    if in_store {
+        return Err(ControlResponse::error(
+            id,
+            TransferError::InStore.to_string(),
+        ));
+    }
+    match take_upload(id, transfer, host)? {
+        Complete::Memory(bytes) => Ok(bytes),
+        Complete::Store(_) => Err(ControlResponse::error(
+            id,
+            TransferError::InStore.to_string(),
+        )),
     }
 }
 

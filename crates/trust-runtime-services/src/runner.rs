@@ -592,6 +592,9 @@ mod scan_contract_tests;
 mod step_contract_tests;
 
 #[cfg(test)]
+mod store_upload_contract_tests;
+
+#[cfg(test)]
 mod stopped_contract_tests;
 
 #[cfg(test)]

@@ -10,6 +10,11 @@
 //! the header and the first half of the magic, read back what was programmed, and program the second
 //! half of the magic last: that is the commit point. An install that stops at any step leaves the
 //! previous program selected, because the target slot is never the newest committed one.
+//!
+//! An upload that a chip wrote into its store as it arrived (specification 34 §5.1;
+//! [`super::upload`]) has its payloads in the slot already: [`check_bytes`] checks it there, with the
+//! header the transfer session kept, and [`start_stored`] begins a commit that programs only the
+//! header and the magic.
 
 use alloc::vec::Vec;
 use core::fmt;
@@ -31,7 +36,8 @@ use trust_runtime_core::watchdog::RetainMode;
 use super::read_padded;
 use super::select::{self, ScanError};
 use crate::installation::{
-    self, AdmissionError, Admitted, ProgramFormat, SequencedAdmitted, SEQUENCED_HEADER_BYTES,
+    self, AdmissionError, Admitted, ContainerBytes, ProgramFormat, SequencedAdmitted,
+    SEQUENCED_HEADER_BYTES,
 };
 
 /// The bytes of a `TRSTA002` header: the payloads start here (specification 34 §5.1).
@@ -153,8 +159,11 @@ pub struct Install {
     geometry: FlashGeometry,
     /// The bytes a program or a read-back step covers: whole program units, at most one budget.
     chunk: u32,
+    /// The container's bytes from its start, up to `written_end`.
     container: Vec<u8>,
-    container_len: u32,
+    /// The end of the bytes this commit programs and reads back: the container's length, or the end
+    /// of its header when its payloads were written into the slot as they arrived.
+    written_end: u32,
     sequence: u64,
     program_sha256: [u8; 32],
     program_bytes: usize,
@@ -278,14 +287,7 @@ pub fn start(
         });
     };
     let order = select::order(store).map_err(InstallError::Scan)?;
-    let sequence = match order.newest {
-        Some(newest) => newest
-            .header
-            .sequence
-            .checked_add(1)
-            .ok_or(InstallError::SequenceExhausted)?,
-        None => installation::FIRST_SEQUENCE,
-    };
+    let sequence = next_sequence(&order)?;
     let slot = install_slot(&order, held);
     installation::set_sequence(&mut container, sequence)
         .map_err(|error| InstallError::Admission(AdmissionError::Container(error)))?;
@@ -294,13 +296,75 @@ pub fn start(
         geometry,
         chunk: step_bytes(store.program_budget, geometry.program_unit()),
         container,
-        container_len,
+        written_end: container_len,
         sequence,
         program_sha256,
         program_bytes,
         erase_units: container_len.div_ceil(geometry.erase_unit()),
         phase: Phase::Erase { unit: 0 },
     })
+}
+
+/// Begins the commit of a container of `container_len` bytes that was written into `slot` as its
+/// upload arrived, and that [`check_bytes`] has passed: `header` is the container's header, which
+/// the transfer session kept (specification 34 §5.1). The container takes the next install sequence,
+/// written into `header`, and the commit programs the header after the magic and the first half of
+/// the magic, reads them back, and programs the second half of the magic last. It erases nothing:
+/// the upload's first part found the slot's units erased.
+///
+/// # Errors
+///
+/// [`InstallError::SlotTooSmall`] when the container is longer than a slot,
+/// [`InstallError::Scan`] when the committed containers cannot be ordered,
+/// [`InstallError::SequenceExhausted`] when the newest sequence cannot count higher, and
+/// [`InstallError::Admission`] when `header` is no `TRSTA002` header.
+pub fn start_stored(
+    store: &mut ProgramStore,
+    slot: Slot,
+    mut header: Vec<u8>,
+    container_len: usize,
+    checked: Checked,
+) -> Result<Install, InstallError> {
+    let geometry = store.flash.geometry();
+    let slot_len = geometry.slot_len();
+    if u32::try_from(container_len)
+        .ok()
+        .is_none_or(|len| len > slot_len)
+    {
+        return Err(InstallError::SlotTooSmall {
+            needed: container_len,
+            available: slot_len as usize,
+        });
+    }
+    let order = select::order(store).map_err(InstallError::Scan)?;
+    let sequence = next_sequence(&order)?;
+    installation::set_sequence(&mut header, sequence)
+        .map_err(|error| InstallError::Admission(AdmissionError::Container(error)))?;
+    Ok(Install {
+        slot,
+        geometry,
+        chunk: step_bytes(store.program_budget, geometry.program_unit()),
+        container: header,
+        written_end: HEADER_END,
+        sequence,
+        program_sha256: checked.program_sha256,
+        program_bytes: checked.program_bytes,
+        erase_units: 0,
+        phase: Phase::Program(Cursor::start(&program_ranges(HEADER_END))),
+    })
+}
+
+/// The install sequence of the next commit: one more than the newest committed container's, or the
+/// first sequence when none is committed.
+fn next_sequence(order: &select::Order) -> Result<u64, InstallError> {
+    match order.newest {
+        Some(newest) => newest
+            .header
+            .sequence
+            .checked_add(1)
+            .ok_or(InstallError::SequenceExhausted),
+        None => Ok(installation::FIRST_SEQUENCE),
+    }
 }
 
 /// What the checks of [`check`] found of an admitted program.
@@ -356,8 +420,24 @@ pub fn check(
     device: &DeviceDescriptor,
     retain_check: impl FnOnce(&Admitted<'_>) -> Result<(), RuntimeError>,
 ) -> Result<Checked, InstallError> {
+    check_bytes(ContainerBytes::whole(container), device, retain_check)
+}
+
+/// [`check`] of a container whose header and payloads may lie apart: an upload that a chip wrote
+/// into its program store, whose payloads the checks read where they lie in the slot and whose
+/// header the transfer session kept (specification 34 §5.1, §11.2). The checks, their order and
+/// their texts are those of [`check`].
+///
+/// # Errors
+///
+/// The [`InstallError`] of the first check that refuses. Nothing has been written when it returns.
+pub fn check_bytes(
+    container: ContainerBytes<'_>,
+    device: &DeviceDescriptor,
+    retain_check: impl FnOnce(&Admitted<'_>) -> Result<(), RuntimeError>,
+) -> Result<Checked, InstallError> {
     let SequencedAdmitted { admitted, .. } =
-        installation::admit_sequenced(container, device).map_err(InstallError::Admission)?;
+        installation::admit_sequenced_bytes(container, device).map_err(InstallError::Admission)?;
     retain_check(&admitted).map_err(retain_refusal)?;
     let program_bytes = admitted.program.len();
     let program_sha256 = admitted.record.application.program_sha256;
@@ -450,15 +530,16 @@ pub(super) fn step_bytes(budget: usize, program_unit: u32) -> u32 {
     (budget / program_unit).max(1) * program_unit
 }
 
-/// The ranges the program steps write, in order: the payloads, the header after the magic, then the
-/// first half of the magic.
-fn program_ranges(container_len: u32) -> [Range<u32>; 3] {
-    [HEADER_END..container_len, HEADER_AFTER_MAGIC, MAGIC_FIRST]
+/// The ranges the program steps write, in order: the payloads up to `written_end`, the header after
+/// the magic, then the first half of the magic. A commit whose payloads are in the slot already has
+/// `written_end` at the end of the header, and programs no payload.
+fn program_ranges(written_end: u32) -> [Range<u32>; 3] {
+    [HEADER_END..written_end, HEADER_AFTER_MAGIC, MAGIC_FIRST]
 }
 
 /// The ranges the read-back checks: every byte the program steps wrote before the commit point.
-fn verify_ranges(container_len: u32) -> [Range<u32>; 2] {
-    [MAGIC_FIRST, HEADER_AFTER_MAGIC.start..container_len]
+fn verify_ranges(written_end: u32) -> [Range<u32>; 2] {
+    [MAGIC_FIRST, HEADER_AFTER_MAGIC.start..written_end]
 }
 
 /// The next chunk of at most `budget` bytes of `ranges`, which the cursor moves past, or `None`
@@ -480,7 +561,7 @@ fn next_chunk(ranges: &[Range<u32>], cursor: &mut Cursor, budget: u32) -> Option
 /// The bytes padded to whole program units with erased (0xFF) bytes. A program never sets a bit to
 /// 1, so the padding leaves the erased flash it lands on as it is; it lies inside the erase units
 /// the container took.
-fn padded(bytes: &[u8], program_unit: u32) -> Vec<u8> {
+pub(super) fn padded(bytes: &[u8], program_unit: u32) -> Vec<u8> {
     let mut padded = bytes.to_vec();
     padded.resize(bytes.len().next_multiple_of(program_unit as usize), 0xff);
     padded
@@ -532,7 +613,7 @@ impl Install {
         self.phase = if next < self.erase_units {
             Phase::Erase { unit: next }
         } else {
-            Phase::Program(Cursor::start(&program_ranges(self.container_len)))
+            Phase::Program(Cursor::start(&program_ranges(self.written_end)))
         };
         Ok(Progress::Pending(self))
     }
@@ -543,7 +624,7 @@ impl Install {
         store: &mut ProgramStore,
         mut cursor: Cursor,
     ) -> Result<Progress, InstallError> {
-        let ranges = program_ranges(self.container_len);
+        let ranges = program_ranges(self.written_end);
         if let Some(chunk) = next_chunk(&ranges, &mut cursor, self.chunk) {
             let bytes = padded(self.bytes(&chunk), self.geometry.program_unit());
             store
@@ -552,7 +633,7 @@ impl Install {
                 .map_err(InstallError::Flash)?;
             self.phase = Phase::Program(cursor);
         } else {
-            self.phase = Phase::Verify(Cursor::start(&verify_ranges(self.container_len)));
+            self.phase = Phase::Verify(Cursor::start(&verify_ranges(self.written_end)));
         }
         Ok(Progress::Pending(self))
     }
@@ -563,7 +644,7 @@ impl Install {
         store: &mut ProgramStore,
         mut cursor: Cursor,
     ) -> Result<Progress, InstallError> {
-        let ranges = verify_ranges(self.container_len);
+        let ranges = verify_ranges(self.written_end);
         if let Some(chunk) = next_chunk(&ranges, &mut cursor, self.chunk) {
             let len = (chunk.end - chunk.start) as usize;
             let read =

@@ -41,11 +41,12 @@ pub trait RawFlash {
     /// [`FlashError::Erase`] when the flash reports the erase as failed.
     fn erase_at(&mut self, address: u32) -> Result<(), FlashError>;
 
-    /// The `len` bytes at `address` where they lie in the address space, when the flash is mapped
-    /// for reading in place (specification 34 MEM-14); `None` when it is not. The bytes stay valid
-    /// as `ProgramFlash::map` says.
-    fn map_at(&mut self, address: u32, len: u32) -> Option<&'static [u8]> {
-        let _ = (address, len);
+    /// The `len` bytes at `address` where they lie in the address space, mapped in window `window`
+    /// for reading in place (specification 34 MEM-14), or `None` when the flash is not mapped. Each
+    /// program slot has a window of its own, so mapping one slot leaves the other's bytes in place;
+    /// the bytes stay valid as `ProgramFlash::map` says.
+    fn map_at(&mut self, window: u32, address: u32, len: u32) -> Option<&'static [u8]> {
+        let _ = (window, address, len);
         None
     }
 }

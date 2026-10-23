@@ -1,13 +1,14 @@
-//! The program image window (specification 34 MEM-14, the program image in place): the C6's MMU maps
+//! The program image windows (specification 34 MEM-14, the program image in place): the C6's MMU maps
 //! the flash pages that hold an installed container into the cache's address space, above the
 //! firmware's own pages, so that the runtime reads the program where it lies in its slot.
 //!
 //! The MMU maps 256 pages of 64 KiB from `0x4200_0000`. The firmware's code and read-only data take
 //! the first entries, and the bootloader keeps the last entry for its own flash reads, as esp-hal
-//! leaves it when it maps PSRAM on the chips that have it. The window takes the entries after the
-//! highest one the firmware maps, found once, before this module writes any entry. A mapping
-//! replaces the window's earlier one, which the runtime no longer reads by then
-//! (`ProgramFlash::map`).
+//! leaves it when it maps PSRAM on the chips that have it. Each program slot has a window of its own,
+//! [`WINDOW_PAGES`] entries, after the highest entry the firmware maps, found once, before this module
+//! writes any entry: an install reads a container written into one slot while the runtime reads its
+//! program in the other (specification 34 §5.1). A mapping replaces the same window's earlier one,
+//! which the runtime no longer reads by then (`ProgramFlash::map`).
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -26,17 +27,21 @@ const ORIGIN: u32 = 0x4200_0000;
 /// `addr` (`esp32c6.rom.ld` of esp-rom-sys).
 const CACHE_INVALIDATE_ADDR: usize = 0x4000_0648;
 
-/// The window's first entry, 0 until it is found (entry 0 is always the firmware's).
+/// The entries of one window: the pages a program slot of 3,056 KiB spans, 48 when it starts on a
+/// page and 49 when it does not (slot B starts at 0x4F_C000).
+pub(super) const WINDOW_PAGES: u32 = (crate::program_flash::SLOT_BYTES).div_ceil(PAGE_BYTES) + 1;
+
+/// The first windows' first entry, 0 until it is found (entry 0 is always the firmware's).
 static WINDOW: AtomicU32 = AtomicU32::new(0);
 
-/// The `len` bytes of flash from `address` where the window maps them, or `None` when they do not
-/// fit the window.
-pub(super) fn map(address: u32, len: u32) -> Option<&'static [u8]> {
+/// The `len` bytes of flash from `address` where window `index` maps them, or `None` when they do not
+/// fit the window or the window does not fit the MMU.
+pub(super) fn map(index: u32, address: u32, len: u32) -> Option<&'static [u8]> {
     let end = address.checked_add(len)?.checked_sub(1)?;
     let first_page = address / PAGE_BYTES;
     let pages = end / PAGE_BYTES - first_page + 1;
-    let window = window();
-    if window + pages >= ENTRIES {
+    let window = window().checked_add(index.checked_mul(WINDOW_PAGES)?)?;
+    if pages > WINDOW_PAGES || window + pages >= ENTRIES {
         return None;
     }
     for page in 0..pages {

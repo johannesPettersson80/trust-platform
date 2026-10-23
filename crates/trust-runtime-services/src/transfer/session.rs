@@ -1,7 +1,9 @@
-//! The transfers of one boot (specification 34, PORT-05): one open upload, staged in RAM in parts
-//! until its last byte arrives, and one held reply, kept in the parts it was written in and read
-//! back in ranges. An upload reserves both of its buffers at begin, so a part allocates nothing. The
-//! rules here hold on every runtime; their JSON shapes are in [`crate::transfer::wire`].
+//! The transfers of one boot (specification 34, PORT-05): one open upload, and one held reply, kept
+//! in the parts it was written in and read back in ranges. An upload is held in memory until its last
+//! byte arrives, or a chip writes it into its program store part by part (§5.1), and the session then
+//! keeps only the container's header and the SHA-256 of the bytes written so far. An upload reserves
+//! its buffers at begin, so a part allocates nothing. The rules here hold on every runtime; their JSON
+//! shapes are in [`crate::transfer::wire`].
 
 use alloc::borrow::Cow;
 use alloc::collections::TryReserveError;
@@ -11,7 +13,7 @@ use core::fmt;
 use base64::engine::general_purpose::STANDARD;
 use base64::{DecodeSliceError, Engine as _};
 use trust_runtime_core::crc32;
-use trust_runtime_core::deployment::sha256;
+use trust_runtime_core::deployment::{sha256, Sha256Stream};
 
 use super::ids::{IdSequence, TransferId};
 use super::reply_parts::{reserve_part, PartReserve, ReplyParts};
@@ -19,6 +21,10 @@ use super::reply_parts::{reserve_part, PartReserve, ReplyParts};
 /// The length of every part of an upload but the last, and the longest part a held reply is read
 /// in (specification 34, PORT-05).
 pub const PART_BYTES: usize = 4_096;
+
+/// The bytes of a container's header, which the session keeps of an upload written into a program
+/// store until the install programs it (specification 34 §5.1).
+pub const HEADER_BYTES: usize = crate::installation::SEQUENCED_HEADER_BYTES;
 
 /// Why a transfer operation was refused. A refusal changes nothing, except that an upload whose
 /// SHA-256 does not match is dropped (see [`TransferError::Sha256Mismatch`]).
@@ -122,6 +128,9 @@ pub enum TransferError {
         /// The length asked for.
         len: u64,
     },
+    /// The upload is written into the program store, which only `program.install` takes and only
+    /// the platform that writes the store serves: `the upload is written into the program store`.
+    InStore,
 }
 
 impl fmt::Display for TransferError {
@@ -189,6 +198,7 @@ impl fmt::Display for TransferError {
                     "reply part of {len} bytes is above {PART_BYTES} bytes"
                 )
             }
+            Self::InStore => formatter.write_str("the upload is written into the program store"),
         }
     }
 }
@@ -213,6 +223,50 @@ pub struct Status {
     pub next_offset: usize,
     /// The upload's size, in bytes.
     pub bytes: usize,
+}
+
+/// What a part did to its upload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Received {
+    /// The part is stored, or it repeats a received part with the same bytes: the upload's next
+    /// offset.
+    Next(usize),
+    /// The part is the next one of an upload written into a program store. Its bytes wait in the part
+    /// buffer ([`TransferSession::part_bytes`]) until the platform has written them at `offset`, and
+    /// [`TransferSession::written`] then takes them (specification 34 §5.1).
+    Write {
+        /// The offset of the part's first byte in the upload.
+        offset: usize,
+    },
+    /// The part repeats the received part at `offset` of an upload written into a program store,
+    /// with the length a part there has. The platform compares it with the bytes the store holds
+    /// there through [`TransferSession::repeated`].
+    Repeat {
+        /// The offset of the part's first byte in the upload.
+        offset: usize,
+    },
+}
+
+/// A complete upload, as the operation that uses it takes it.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Complete {
+    /// An upload held in memory: its bytes.
+    Memory(Vec<u8>),
+    /// An upload written into a program store.
+    Store(StoredUpload),
+}
+
+/// A complete upload that a chip wrote into its program store (specification 34 §5.1): every byte
+/// but the container's header lies in the store, and the session kept the header.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredUpload {
+    /// The id the upload had.
+    pub transfer: TransferId,
+    /// The upload's length, in bytes.
+    pub bytes: usize,
+    /// The upload's first bytes, up to [`HEADER_BYTES`]: the container's header, which the store
+    /// does not hold.
+    pub header: Vec<u8>,
 }
 
 /// The head of a held reply: the id that names it, its length and its SHA-256.
@@ -277,25 +331,51 @@ pub struct TransferSession {
     reply: Option<HeldReply>,
 }
 
-/// An open upload. Both buffers are reserved at begin and freed with the upload. `buffer` holds
-/// the whole container, and its bytes before `next_offset` are received. `part` is where each part
-/// is decoded before its bytes are copied into `buffer`.
+/// An open upload. Its buffers are reserved at begin and freed with the upload. `part` is where each
+/// part is decoded, and `decoded` is the length of the part it holds; the bytes before `next_offset`
+/// are received.
 #[derive(Debug)]
 struct Upload {
     id: TransferId,
     digest: [u8; 32],
-    buffer: Vec<u8>,
     part: Vec<u8>,
+    decoded: usize,
     next_offset: usize,
+    bytes: usize,
+    held: Held,
+}
+
+/// Where an upload's received bytes are (specification 34, PORT-05 and §5.1).
+#[derive(Debug)]
+enum Held {
+    /// In memory: the whole upload, whose bytes before the next offset are received.
+    Memory(Vec<u8>),
+    /// In a program store, which the platform writes part by part.
+    Store(InStore),
+}
+
+/// What the session keeps of an upload written into a program store: the container's header, which
+/// the install programs, the SHA-256 of the bytes written so far, and the offset of the part that
+/// waits in the part buffer for the platform.
+#[derive(Debug)]
+struct InStore {
+    header: Vec<u8>,
+    hash: Sha256Stream,
+    waiting: Option<usize>,
 }
 
 impl Upload {
     fn state(&self) -> State {
-        if self.next_offset == self.buffer.len() {
+        if self.next_offset == self.bytes {
             State::Complete
         } else {
             State::Receiving
         }
+    }
+
+    /// The length a part at `offset` has: a whole part, or the rest of the upload.
+    fn part_len(&self, offset: usize) -> usize {
+        PART_BYTES.min(self.bytes - offset)
     }
 }
 
@@ -359,27 +439,74 @@ impl TransferSession {
     /// [`TransferError::IdsUsedUp`] when the boot has no ids left, and
     /// [`TransferError::Sha256Mismatch`] for an empty upload whose digest is not that of no bytes.
     pub fn begin(&mut self, bytes: u64, digest: [u8; 32]) -> Result<TransferId, TransferError> {
+        let size = self.admit(bytes)?;
+        let buffer = (self.reserve)(size).map_err(|_| TransferError::NoRoom { bytes })?;
+        self.open(size, digest, Held::Memory(buffer))
+    }
+
+    /// Opens an upload of `bytes` bytes whose SHA-256 is `digest` that the platform writes into its
+    /// program store part by part, and returns its id (specification 34 §5.1). The session reserves
+    /// the part buffer and the container's header only, and works the SHA-256 out part by part.
+    ///
+    /// # Errors
+    ///
+    /// Those of [`Self::begin`], with [`TransferError::NoRoom`] when the heap cannot hold the part
+    /// buffer and the header.
+    pub fn begin_in_store(
+        &mut self,
+        bytes: u64,
+        digest: [u8; 32],
+    ) -> Result<TransferId, TransferError> {
+        let size = self.admit(bytes)?;
+        let mut header =
+            (self.reserve)(size.min(HEADER_BYTES)).map_err(|_| TransferError::NoRoom { bytes })?;
+        header.clear();
+        self.open(
+            size,
+            digest,
+            Held::Store(InStore {
+                header,
+                hash: Sha256Stream::new(),
+                waiting: None,
+            }),
+        )
+    }
+
+    /// The size of an upload of `bytes` bytes, checked before anything is reserved.
+    fn admit(&self, bytes: u64) -> Result<usize, TransferError> {
         if let Some(open) = &self.upload {
             return Err(TransferError::Busy(open.id));
         }
-        let size = usize::try_from(bytes)
+        usize::try_from(bytes)
             .ok()
             .filter(|size| *size <= self.max_bytes)
             .ok_or(TransferError::TooLarge {
                 bytes,
                 max: self.max_bytes,
-            })?;
-        let buffer = (self.reserve)(size).map_err(|_| TransferError::NoRoom { bytes })?;
+            })
+    }
+
+    /// Opens the upload of `size` bytes held in `held`: reserves its part buffer and gives it an id.
+    /// An upload of no bytes is complete at once, so its digest is checked here.
+    fn open(
+        &mut self,
+        size: usize,
+        digest: [u8; 32],
+        held: Held,
+    ) -> Result<TransferId, TransferError> {
+        let bytes = size as u64;
         let part = (self.reserve)(PART_BYTES).map_err(|_| TransferError::NoRoom { bytes })?;
         let id = self.ids.next_id().ok_or(TransferError::IdsUsedUp)?;
         let upload = Upload {
             id,
             digest,
-            buffer,
             part,
+            decoded: 0,
             next_offset: 0,
+            bytes: size,
+            held,
         };
-        if upload.state() == State::Complete && sha256(&upload.buffer) != upload.digest {
+        if upload.state() == State::Complete && sha256(&[]) != upload.digest {
             return Err(TransferError::Sha256Mismatch);
         }
         self.upload = Some(upload);
@@ -387,15 +514,19 @@ impl TransferSession {
     }
 
     /// Decodes the part at `offset` of the open upload `id` from its standard base64 `encoded`,
-    /// checks that `crc` is the CRC-32 of its bytes, stores it when it is the next part, and returns
-    /// the next offset.
+    /// checks that `crc` is the CRC-32 of its bytes, and stores it when it is the next part.
     ///
     /// The bytes are decoded into the part buffer that begin reserved, and the CRC-32 is checked
     /// there before anything is copied into the upload. A part at the next offset is stored; it is
     /// as long as a part at its offset is. A repeat of a received part is acknowledged again when
     /// its bytes are the received ones, and refused when they are other bytes. When the last byte
     /// arrives, the SHA-256 of the upload is compared with the one begin gave, and a mismatch drops
-    /// the upload with its buffers.
+    /// the upload with its buffers. The result is the next offset, [`Received::Next`].
+    ///
+    /// A part of an upload written into a program store is checked the same way, but the platform
+    /// stores it: the next part is [`Received::Write`], which [`Self::written`] takes once the
+    /// platform has written it, and a repeat of a received part is [`Received::Repeat`], which the
+    /// platform compares with the store through [`Self::repeated`].
     ///
     /// # Errors
     ///
@@ -412,8 +543,11 @@ impl TransferSession {
         offset: u64,
         encoded: &str,
         crc: u32,
-    ) -> Result<usize, TransferError> {
+    ) -> Result<Received, TransferError> {
         let upload = self.open_upload_mut(id)?;
+        if let Held::Store(stored) = &mut upload.held {
+            stored.waiting = None;
+        }
         let decoded = STANDARD
             .decode_slice(encoded, &mut upload.part[..])
             .map_err(|error| match error {
@@ -423,11 +557,11 @@ impl TransferSession {
         if crc32::checksum(&upload.part[..decoded]) != crc {
             return Err(TransferError::PartCrc { offset });
         }
+        upload.decoded = decoded;
         let received = upload.next_offset;
-        let bytes = upload.buffer.len();
         let start = usize::try_from(offset).ok();
-        if start == Some(received) && received < bytes {
-            let expected = PART_BYTES.min(bytes - received);
+        if start == Some(received) && received < upload.bytes {
+            let expected = upload.part_len(received);
             if decoded != expected {
                 return Err(TransferError::PartLength {
                     offset,
@@ -436,13 +570,20 @@ impl TransferSession {
                 });
             }
             let end = received + expected;
-            upload.buffer[received..end].copy_from_slice(&upload.part[..decoded]);
+            let buffer = match &mut upload.held {
+                Held::Memory(buffer) => buffer,
+                Held::Store(stored) => {
+                    stored.waiting = Some(received);
+                    return Ok(Received::Write { offset: received });
+                }
+            };
+            buffer[received..end].copy_from_slice(&upload.part[..decoded]);
             upload.next_offset = end;
-            if end == bytes && sha256(&upload.buffer) != upload.digest {
+            if end == upload.bytes && sha256(buffer) != upload.digest {
                 self.upload = None;
                 return Err(TransferError::Sha256Mismatch);
             }
-            return Ok(end);
+            return Ok(Received::Next(end));
         }
         let repeat = start.filter(|start| *start < received && start.is_multiple_of(PART_BYTES));
         let Some(start) = repeat else {
@@ -451,12 +592,127 @@ impl TransferSession {
                 next_offset: received,
             });
         };
-        let expected = PART_BYTES.min(bytes - start);
-        if decoded == expected && upload.part[..decoded] == upload.buffer[start..start + expected] {
-            Ok(received)
-        } else {
-            Err(TransferError::PartOtherBytes { offset })
+        let expected = upload.part_len(start);
+        if decoded != expected {
+            return Err(TransferError::PartOtherBytes { offset });
         }
+        match &mut upload.held {
+            Held::Memory(buffer) if upload.part[..decoded] == buffer[start..start + expected] => {
+                Ok(Received::Next(received))
+            }
+            Held::Memory(_) => Err(TransferError::PartOtherBytes { offset }),
+            Held::Store(stored) => {
+                stored.waiting = Some(start);
+                Ok(Received::Repeat { offset: start })
+            }
+        }
+    }
+
+    /// The bytes of the part that waits in the part buffer of the upload `id` for the platform: the
+    /// next part to write ([`Received::Write`]), or a repeat to compare ([`Received::Repeat`]).
+    /// `None` when no part of an upload written into a program store waits.
+    #[must_use]
+    pub fn part_bytes(&self, id: TransferId) -> Option<&[u8]> {
+        let upload = self.upload.as_ref().filter(|upload| upload.id == id)?;
+        match &upload.held {
+            Held::Store(InStore {
+                waiting: Some(_), ..
+            }) => Some(&upload.part[..upload.decoded]),
+            _ => None,
+        }
+    }
+
+    /// Takes the part that waited for the platform as written into the program store, and returns
+    /// the next offset (specification 34 §5.1). Its bytes are added to the SHA-256, and its first
+    /// bytes are kept as the container's header when it starts before [`HEADER_BYTES`]. When it is
+    /// the last part, the SHA-256 of the upload is compared with the one begin gave, and a mismatch
+    /// drops the upload.
+    ///
+    /// # Errors
+    ///
+    /// [`TransferError::Unknown`] when `id` is not the open upload or no part of it waits to be
+    /// written, and [`TransferError::Sha256Mismatch`] when the completed upload is not the one begin
+    /// named.
+    pub fn written(&mut self, id: TransferId) -> Result<usize, TransferError> {
+        let upload = self.open_upload_mut(id)?;
+        let received = upload.next_offset;
+        let end = received + upload.decoded;
+        let Held::Store(stored) = &mut upload.held else {
+            return Err(TransferError::Unknown);
+        };
+        if stored.waiting.take() != Some(received) {
+            return Err(TransferError::Unknown);
+        }
+        let part = &upload.part[..upload.decoded];
+        if received < HEADER_BYTES {
+            let header_end = HEADER_BYTES.min(end);
+            stored
+                .header
+                .extend_from_slice(&part[..header_end - received]);
+        }
+        stored.hash.update(part);
+        upload.next_offset = end;
+        if end == upload.bytes && core::mem::take(&mut stored.hash).finish() != upload.digest {
+            self.upload = None;
+            return Err(TransferError::Sha256Mismatch);
+        }
+        Ok(end)
+    }
+
+    /// Compares the repeat that waits in the part buffer of the upload `id` with `stored`, the bytes
+    /// the program store holds at the part's offset, and returns the next offset when they are the
+    /// same bytes. The bytes before [`HEADER_BYTES`], which the store does not hold, are compared
+    /// with the header the session kept, whatever `stored` holds there.
+    ///
+    /// # Errors
+    ///
+    /// [`TransferError::Unknown`] when `id` is not the open upload or no repeat of it waits, and
+    /// [`TransferError::PartOtherBytes`] when the bytes differ; the received bytes stay.
+    pub fn repeated(&mut self, id: TransferId, stored: &[u8]) -> Result<usize, TransferError> {
+        let upload = self.open_upload_mut(id)?;
+        let Held::Store(kept) = &mut upload.held else {
+            return Err(TransferError::Unknown);
+        };
+        let Some(offset) = kept
+            .waiting
+            .take()
+            .filter(|offset| *offset < upload.next_offset)
+        else {
+            return Err(TransferError::Unknown);
+        };
+        let part = &upload.part[..upload.decoded];
+        let in_header = HEADER_BYTES.saturating_sub(offset).min(part.len());
+        let header_same = in_header == 0
+            || kept.header.get(offset..offset + in_header) == Some(&part[..in_header]);
+        let same = header_same && stored.get(in_header..part.len()) == Some(&part[in_header..]);
+        if same {
+            Ok(upload.next_offset)
+        } else {
+            Err(TransferError::PartOtherBytes {
+                offset: offset as u64,
+            })
+        }
+    }
+
+    /// Whether the open upload `id` is written into a program store.
+    #[must_use]
+    pub fn in_store(&self, id: TransferId) -> bool {
+        self.upload
+            .as_ref()
+            .is_some_and(|upload| upload.id == id && matches!(upload.held, Held::Store(_)))
+    }
+
+    /// Ends the open upload when it is written into a program store, and returns its id: a `restart`
+    /// that starts the resource ends it, so that no part of it is written while the program runs
+    /// (specification 34, PORT-05). An upload held in memory stays open.
+    pub fn end_store_upload(&mut self) -> Option<TransferId> {
+        let id = self
+            .upload
+            .as_ref()
+            .filter(|upload| matches!(upload.held, Held::Store(_)))?
+            .id;
+        self.upload = None;
+        Some(id)
     }
 
     /// The state of the open upload `id`, with its next offset and its size.
@@ -471,27 +727,35 @@ impl TransferSession {
         Ok(Status {
             state: upload.state(),
             next_offset: upload.next_offset,
-            bytes: upload.buffer.len(),
+            bytes: upload.bytes,
         })
     }
 
-    /// Takes the bytes of the complete upload `id` and ends the upload, so the next begin is
-    /// accepted. The part buffer is freed with the upload.
+    /// Takes the complete upload `id` and ends the upload, so the next begin is accepted: the bytes
+    /// of an upload held in memory, or what the session kept of one written into a program store.
+    /// The part buffer is freed with the upload.
     ///
     /// # Errors
     ///
     /// [`TransferError::Unknown`] when `id` is not the open upload and
     /// [`TransferError::NotComplete`] while bytes are still missing; the upload stays open then.
-    pub fn take_complete(&mut self, id: TransferId) -> Result<Vec<u8>, TransferError> {
+    pub fn take_complete(&mut self, id: TransferId) -> Result<Complete, TransferError> {
         let upload = self.open_upload_mut(id)?;
         if upload.state() != State::Complete {
             return Err(TransferError::NotComplete {
                 next_offset: upload.next_offset,
-                bytes: upload.buffer.len(),
+                bytes: upload.bytes,
             });
         }
         let complete = self.upload.take().ok_or(TransferError::Unknown)?;
-        Ok(complete.buffer)
+        Ok(match complete.held {
+            Held::Memory(buffer) => Complete::Memory(buffer),
+            Held::Store(stored) => Complete::Store(StoredUpload {
+                transfer: complete.id,
+                bytes: complete.bytes,
+                header: stored.header,
+            }),
+        })
     }
 
     /// Frees the buffers and the id of the open upload `id`, or of the held reply `id`.
@@ -620,13 +884,15 @@ impl TransferSession {
             .ok_or(TransferError::Unknown)
     }
 
-    /// The capacity of the open upload's buffer. A test reads it to see that a refused begin kept
-    /// nothing and that an abort freed the buffer.
+    /// The capacity of the open upload's buffer: the whole upload's held in memory, or the header's
+    /// of one written into a program store. A test reads it to see that a refused begin kept nothing
+    /// and that an abort freed the buffer.
     #[cfg(test)]
     pub(crate) fn buffer_capacity(&self) -> usize {
-        self.upload
-            .as_ref()
-            .map_or(0, |upload| upload.buffer.capacity())
+        self.upload.as_ref().map_or(0, |upload| match &upload.held {
+            Held::Memory(buffer) => buffer.capacity(),
+            Held::Store(stored) => stored.header.capacity(),
+        })
     }
 
     /// The capacity of the open upload's part buffer. A test reads it to see that every part is

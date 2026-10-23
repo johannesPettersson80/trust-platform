@@ -38,6 +38,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `trust-dev test --execution-backend native --device <port> --target esp32c6` runs a project's
   tests on a device with it: the project is compiled and installed once, and each test is one step
   that restarts the program cold and runs its test program (specification 22).
+- Changed: a chip whose resource is Stopped writes an upload into its program store as the parts
+  arrive, instead of holding it in its heap, so a program as large as a program slot installs: on
+  the ESP32-C6 up to 3,056 KiB, where the heap held about 100 KB. `transfer.begin` erases the first
+  unit of the slot the install will commit, each `transfer.part` is answered once its bytes are
+  written and read back, and `program.install` checks the container in the slot and programs only
+  its header, the magic last (specification 34 §5.1). An upload begun while the program runs is held
+  in memory as before. A client waits up to 5 seconds for each begin and part reply.
 - Added: `trust-runtime bench project --execution-backend native` runs a project compiled for this
   computer on the kernel, cycle after cycle in logical time, and reports each task's time per
   activation and the image's code and memory figure (specification 44 §14.3).

@@ -15,14 +15,18 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use serde_json::json;
 
-use super::{wire, ReplyPart, State, Status, TransferError, TransferId, TransferSession};
+use super::{
+    wire, Complete, Received, ReplyPart, State, Status, TransferError, TransferId, TransferSession,
+};
 
 /// SHA-256 of `abc` (FIPS 180-2, appendix B.1).
-const DIGEST_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+pub(super) const DIGEST_ABC: &str =
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 /// SHA-256 of no bytes (FIPS 180-2).
 const DIGEST_EMPTY: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 /// SHA-256 of `pattern(5000)`.
-const DIGEST_5000: &str = "69dbee893909fa17d1be397e0c07691336fe42049c29d403467d3d4a1fc3b5a1";
+pub(super) const DIGEST_5000: &str =
+    "69dbee893909fa17d1be397e0c07691336fe42049c29d403467d3d4a1fc3b5a1";
 /// SHA-256 of `pattern(9000)`.
 pub(super) const DIGEST_9000: &str =
     "4b81efbd205e7fb4e42bc0d72d9d7413642298735289d35a74c1755883bcc45c";
@@ -33,7 +37,7 @@ pub(super) const DIGEST_TEN_PARTS: &str =
 /// CRC-32 of `pattern(4096)`, which is also the first part of `pattern(5000)`.
 pub(super) const CRC_PART_0: u32 = 0xd465_f907;
 /// CRC-32 of `pattern(5000)[4096..]`, the 904-byte last part of a 5,000-byte upload.
-const CRC_5000_LAST: u32 = 0x6508_4d9b;
+pub(super) const CRC_5000_LAST: u32 = 0x6508_4d9b;
 /// CRC-32 of `pattern(5000)[..4000]`.
 const CRC_4000: u32 = 0xe0e4_d2de;
 /// CRC-32 of `pattern(9000)[4096..8192]`.
@@ -43,7 +47,7 @@ pub(super) const CRC_9000_LAST: u32 = 0xd588_1d0a;
 /// CRC-32 of `pattern(808)`, the last part of `ten_parts()`.
 const CRC_TAIL_808: u32 = 0x6693_c423;
 /// CRC-32 of 4,096 bytes of `0xee`.
-const CRC_OTHER_BYTES: u32 = 0xd036_f404;
+pub(super) const CRC_OTHER_BYTES: u32 = 0xd036_f404;
 /// CRC-32 of `abc`.
 const CRC_ABC: u32 = 0x3524_41c2;
 /// CRC-32 of `abcd`.
@@ -79,12 +83,12 @@ pub(super) fn digest(text: &str) -> [u8; 32] {
 }
 
 /// The standard base64 of `bytes`: the `data` of a part.
-fn encoded(bytes: &[u8]) -> String {
+pub(super) fn encoded(bytes: &[u8]) -> String {
     STANDARD.encode(bytes)
 }
 
 /// A reservation the heap refuses, as `try_reserve_exact` refuses a size it cannot hold.
-fn heap_refuses(_len: usize) -> Result<Vec<u8>, TryReserveError> {
+pub(super) fn heap_refuses(_len: usize) -> Result<Vec<u8>, TryReserveError> {
     Err(Vec::<u8>::new()
         .try_reserve_exact(usize::MAX)
         .expect_err("usize::MAX bytes never fit"))
@@ -125,9 +129,15 @@ fn part_at_another_offset_is_refused_and_nothing_is_stored() {
             bytes: 5000
         })
     );
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
-    assert_eq!(session.part(id, 4096, &last, CRC_5000_LAST), Ok(5000));
-    assert_eq!(session.take_complete(id), Ok(data));
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
+    assert_eq!(
+        session.part(id, 4096, &last, CRC_5000_LAST),
+        Ok(Received::Next(5000))
+    );
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
 }
 
 #[test]
@@ -141,10 +151,19 @@ fn repeated_part_with_the_same_bytes_is_acknowledged_again() {
     let id = session
         .begin(5000, digest(DIGEST_5000))
         .expect("a 5,000-byte upload opens");
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
-    assert_eq!(session.part(id, 4096, &last, CRC_5000_LAST), Ok(5000));
-    assert_eq!(session.take_complete(id), Ok(data));
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
+    assert_eq!(
+        session.part(id, 4096, &last, CRC_5000_LAST),
+        Ok(Received::Next(5000))
+    );
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
 }
 
 #[test]
@@ -159,7 +178,10 @@ fn repeated_offset_with_other_bytes_is_refused() {
     let id = session
         .begin(5000, digest(DIGEST_5000))
         .expect("a 5,000-byte upload opens");
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
     assert_eq!(
         session.part(id, 0, &other, CRC_OTHER_BYTES),
         Err(TransferError::PartOtherBytes { offset: 0 })
@@ -172,8 +194,11 @@ fn repeated_offset_with_other_bytes_is_refused() {
             bytes: 5000
         })
     );
-    assert_eq!(session.part(id, 4096, &last, CRC_5000_LAST), Ok(5000));
-    assert_eq!(session.take_complete(id), Ok(data));
+    assert_eq!(
+        session.part(id, 4096, &last, CRC_5000_LAST),
+        Ok(Received::Next(5000))
+    );
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
 }
 
 #[test]
@@ -199,7 +224,10 @@ fn part_with_a_wrong_crc_is_refused_and_next_offset_is_unchanged() {
             bytes: 5000
         })
     );
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
 }
 
 #[test]
@@ -303,7 +331,10 @@ fn progress_survives_a_new_host_session() {
     let id = session
         .begin(5000, digest(DIGEST_5000))
         .expect("a 5,000-byte upload opens");
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
     // The next host session asks where the upload is and carries on from there.
     assert_eq!(
         session.status(id),
@@ -313,8 +344,11 @@ fn progress_survives_a_new_host_session() {
             bytes: 5000
         })
     );
-    assert_eq!(session.part(id, 4096, &last, CRC_5000_LAST), Ok(5000));
-    assert_eq!(session.take_complete(id), Ok(data));
+    assert_eq!(
+        session.part(id, 4096, &last, CRC_5000_LAST),
+        Ok(Received::Next(5000))
+    );
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
 }
 
 #[test]
@@ -405,7 +439,7 @@ fn a_correct_container_completes_and_is_taken_once() {
     let id = session
         .begin(3, digest(DIGEST_ABC))
         .expect("a 3-byte upload opens");
-    assert_eq!(session.part(id, 0, "YWJj", CRC_ABC), Ok(3));
+    assert_eq!(session.part(id, 0, "YWJj", CRC_ABC), Ok(Received::Next(3)));
     assert_eq!(
         session.status(id),
         Ok(Status {
@@ -414,7 +448,10 @@ fn a_correct_container_completes_and_is_taken_once() {
             bytes: 3
         })
     );
-    assert_eq!(session.take_complete(id), Ok(b"abc".to_vec()));
+    assert_eq!(
+        session.take_complete(id),
+        Ok(Complete::Memory(b"abc".to_vec()))
+    );
     assert_eq!(session.part_buffer_capacity(), 0);
     assert_eq!(session.status(id), Err(TransferError::Unknown));
 }
@@ -429,7 +466,10 @@ fn an_upload_is_taken_only_when_complete() {
     let id = session
         .begin(5000, digest(DIGEST_5000))
         .expect("a 5,000-byte upload opens");
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
     assert_eq!(
         session.take_complete(id),
         Err(TransferError::NotComplete {
@@ -474,9 +514,15 @@ fn a_short_part_in_the_middle_is_refused_and_nothing_is_stored() {
             expected: 4096
         })
     );
-    assert_eq!(session.part(id, 0, &first, CRC_PART_0), Ok(4096));
-    assert_eq!(session.part(id, 4096, &last, CRC_5000_LAST), Ok(5000));
-    assert_eq!(session.take_complete(id), Ok(data));
+    assert_eq!(
+        session.part(id, 0, &first, CRC_PART_0),
+        Ok(Received::Next(4096))
+    );
+    assert_eq!(
+        session.part(id, 4096, &last, CRC_5000_LAST),
+        Ok(Received::Next(5000))
+    );
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
 }
 
 #[test]
@@ -495,7 +541,7 @@ fn a_part_longer_than_the_rest_of_the_upload_is_refused() {
             expected: 3
         })
     );
-    assert_eq!(session.part(id, 0, "YWJj", CRC_ABC), Ok(3));
+    assert_eq!(session.part(id, 0, "YWJj", CRC_ABC), Ok(Received::Next(3)));
 }
 
 #[test]
@@ -576,7 +622,7 @@ fn an_empty_upload_is_complete_at_once_only_with_the_digest_of_no_bytes() {
             bytes: 0
         })
     );
-    assert_eq!(session.take_complete(id), Ok(Vec::new()));
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(Vec::new())));
     assert_eq!(session.part_buffer_capacity(), 0);
 }
 
@@ -616,11 +662,11 @@ fn parts_are_decoded_without_allocating() {
         let offset = u64::try_from(start).expect("an offset fits a u64");
         assert_eq!(
             session.part(id, offset, &encoded(&payload[start..end]), crc),
-            Ok(end)
+            Ok(Received::Next(end))
         );
         assert_eq!(session.part_buffer_capacity(), 4_096);
     }
-    assert_eq!(session.take_complete(id), Ok(payload));
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(payload)));
 }
 
 #[test]

@@ -20,7 +20,9 @@ pub use configuration::{
     Configuration, ControlMode, GpioInput, GpioOutput, HangAction, IoDriver, LogLevel,
     SafeStateEntry, TaskOverride,
 };
-pub use identity::{configuration_identity, retain_schema_identity, sha256, sha256_parts};
+pub use identity::{
+    configuration_identity, retain_schema_identity, sha256, sha256_parts, Sha256Stream,
+};
 pub use refusal::{AdmissionRefusal, DeploymentRecordError, LimitKind};
 
 use crate::bytecode::BytecodeVersion;

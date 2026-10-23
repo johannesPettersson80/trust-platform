@@ -156,6 +156,30 @@ pub struct Installed<'a> {
     pub record: &'a [u8],
 }
 
+/// A container as a reader finds it: the bytes that hold its header, and the region from its start in
+/// which its payloads lie at their offsets. A container in memory is both at once
+/// ([`ContainerBytes::whole`]). One that a chip wrote into its program store has its header in the
+/// transfer session and its payloads in the slot, whose first bytes are erased until the install
+/// programs the header (specification 34 §5.1); a reader reads no byte of the header from the region.
+#[derive(Debug, Clone, Copy)]
+pub struct ContainerBytes<'a> {
+    /// The container's first bytes: at least its header and entry table.
+    pub header: &'a [u8],
+    /// The container's bytes from its start, of which a reader reads only the payloads.
+    pub region: &'a [u8],
+}
+
+impl<'a> ContainerBytes<'a> {
+    /// The container `container`, all of whose bytes are in memory.
+    #[must_use]
+    pub const fn whole(container: &'a [u8]) -> Self {
+        Self {
+            header: container,
+            region: container,
+        }
+    }
+}
+
 /// The payloads of a `TRSTA002` container and the install sequence its header holds.
 pub struct Sequenced<'a> {
     /// The install sequence. The committed container with the highest sequence is the newest.
@@ -435,10 +459,10 @@ fn entries(
 
 /// Checks a container of `version` in the order of specification 34 §5.1 and returns where its
 /// payloads lie. Nothing is returned before every check has passed.
-fn check(region: &[u8], version: Version) -> Result<Payloads, InstallationError> {
-    let table = entries(region, version, region.len())?;
+fn check(container: ContainerBytes<'_>, version: Version) -> Result<Payloads, InstallationError> {
+    let table = entries(container.header, version, container.region.len())?;
     for entry in table {
-        if crc32::checksum(&region[entry.offset..entry.end]) != entry.crc {
+        if crc32::checksum(&container.region[entry.offset..entry.end]) != entry.crc {
             return Err(InstallationError::PayloadChecksum(entry.kind));
         }
     }
@@ -477,7 +501,7 @@ pub fn decode(region: &[u8]) -> Result<Installed<'_>, InstallationError> {
         format,
         program,
         record,
-    } = check(region, Version::Plain)?;
+    } = check(ContainerBytes::whole(region), Version::Plain)?;
     Ok(Installed {
         format,
         program: &region[program],
@@ -496,19 +520,32 @@ pub fn decode(region: &[u8]) -> Result<Installed<'_>, InstallationError> {
 /// [`InstallationError::NoProgram`] when the region is erased or does not start with the `TRSTA002`
 /// magic; otherwise the [`InstallationError`] naming the first check that failed.
 pub fn decode_sequenced(region: &[u8]) -> Result<Sequenced<'_>, InstallationError> {
+    decode_sequenced_bytes(ContainerBytes::whole(region))
+}
+
+/// [`decode_sequenced`] of a container whose header and payloads may lie apart: the header is read
+/// from `container.header` and the payloads from `container.region` (specification 34 §5.1, an
+/// upload written into the store). The checks and their order are those of [`decode_sequenced`].
+///
+/// # Errors
+///
+/// Those of [`decode_sequenced`].
+pub fn decode_sequenced_bytes(
+    container: ContainerBytes<'_>,
+) -> Result<Sequenced<'_>, InstallationError> {
     let Payloads {
         format,
         program,
         record,
-    } = check(region, Version::Sequenced)?;
+    } = check(container, Version::Sequenced)?;
     let mut sequence = [0u8; 8];
-    sequence.copy_from_slice(&region[SEQUENCE_OFFSET..SEQUENCE_OFFSET + 8]);
+    sequence.copy_from_slice(&container.header[SEQUENCE_OFFSET..SEQUENCE_OFFSET + 8]);
     Ok(Sequenced {
         sequence: u64::from_le_bytes(sequence),
         installed: Installed {
             format,
-            program: &region[program],
-            record: &region[record],
+            program: &container.region[program],
+            record: &container.region[record],
         },
     })
 }
@@ -711,10 +748,24 @@ pub fn admit_sequenced<'a>(
     region: &'a [u8],
     device: &DeviceDescriptor,
 ) -> Result<SequencedAdmitted<'a>, AdmissionError> {
+    admit_sequenced_bytes(ContainerBytes::whole(region), device)
+}
+
+/// [`admit_sequenced`] of a container whose header and payloads may lie apart, as
+/// [`decode_sequenced_bytes`] reads it: an upload that a chip wrote into its program store, which the
+/// install admits before it programs the header (specification 34 §5.1, §11.2).
+///
+/// # Errors
+///
+/// Those of [`admit_sequenced`].
+pub fn admit_sequenced_bytes<'a>(
+    container: ContainerBytes<'a>,
+    device: &DeviceDescriptor,
+) -> Result<SequencedAdmitted<'a>, AdmissionError> {
     let Sequenced {
         sequence,
         installed,
-    } = decode_sequenced(region).map_err(AdmissionError::Container)?;
+    } = decode_sequenced_bytes(container).map_err(AdmissionError::Container)?;
     let (record, limits) = admit_payloads(&installed, device)?;
     Ok(SequencedAdmitted {
         sequence,

@@ -45,8 +45,8 @@ impl RawFlash for FlashStorage<'_> {
         self.erase(address, end).map_err(|_| FlashError::Erase)
     }
 
-    /// The bytes where the program image window maps them (specification 34 MEM-14).
-    fn map_at(&mut self, address: u32, len: u32) -> Option<&'static [u8]> {
-        super::image_window::map(address, len)
+    /// The bytes where program image window `window` maps them (specification 34 MEM-14).
+    fn map_at(&mut self, window: u32, address: u32, len: u32) -> Option<&'static [u8]> {
+        super::image_window::map(window, address, len)
     }
 }

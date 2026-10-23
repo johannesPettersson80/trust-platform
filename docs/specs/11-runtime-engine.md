@@ -2725,8 +2725,13 @@ counted as 5 milliseconds each. A container of 100 KiB (102,400 bytes) gives
 bytes) gives 4 + 305.6 + 122.24, about 432 seconds. The bound is the same on
 every runtime, because a client sends the same request to each: a computer
 commits with no erase or program step and replies sooner, and the bound is then
-only a limit. Every other request keeps the 750 millisecond read bound,
-the transfer operations included, with one exception: a chip answers a `restart` that makes it
+only a limit. A chip whose resource is Stopped writes an upload into its program store as its
+parts arrive (specification 34 §5.1), so it answers `transfer.begin` after one erase and each
+`transfer.part` after the erase, the program and the read-back of the part. A client reads those
+two replies for up to 5 seconds on every runtime: the pass that reads the request (4 seconds),
+one erase (0.4 seconds) and the sixteen program and sixteen read-back steps of a 4,096-byte part
+(0.16 seconds). Every other request keeps the 750 millisecond read bound,
+the other transfer operations included, with one exception: a chip answers a `restart` that makes it
 load a newer container (specification 34 STATE-08) with `restart queued` at once, and then serves no
 request until the load ends, because it reads, checks, prepares and constructs the container in one
 step of its control loop. The first request after such a `restart` waits for the whole load, which the

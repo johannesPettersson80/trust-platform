@@ -30,18 +30,19 @@ use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
+use crate::loading::install::Checked;
 use crate::loading::reload;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch, ProgramControl,
-    ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
+    part_in_memory, AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch,
+    ProgramControl, ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
     TransferSessionError,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
 use crate::resource::replies::no_installed_program;
 use crate::status::{IoDriverStatus, StatusSettings};
-use crate::transfer::TransferSession;
+use crate::transfer::{StoredUpload, TransferId, TransferSession};
 
 /// What the platform supplies to the resource loop besides the link, the wait, the clock and the
 /// installed program: the access rights, the audit sink, the wall clock, the values the platform
@@ -352,6 +353,57 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
         } else {
             self.platform.with_transfers(use_session)
         }
+    }
+
+    /// An upload in the loop's own session, written into its program store while the resource is
+    /// Stopped (specification 34 §5.1), else in the platform's session.
+    fn begin_upload(
+        &self,
+        bytes: u64,
+        digest: [u8; 32],
+    ) -> Result<Result<TransferId, String>, TransferSessionError> {
+        if self.install.keeps_transfers() {
+            let stopped = matches!(self.resource.state(), ResourceState::Stopped);
+            self.install.begin_upload(bytes, digest, stopped)
+        } else {
+            self.platform.with_transfers(|session| {
+                session
+                    .begin(bytes, digest)
+                    .map_err(|error| error.to_string())
+            })
+        }
+    }
+
+    /// A part of an upload in the loop's own session, which a store upload writes into the store
+    /// (specification 34 §5.1), else in the platform's session.
+    fn receive_part(
+        &self,
+        transfer: TransferId,
+        offset: u64,
+        encoded: &str,
+        crc: u32,
+    ) -> Result<Result<usize, String>, TransferSessionError> {
+        if self.install.keeps_transfers() {
+            self.install.receive_part(transfer, offset, encoded, crc)
+        } else {
+            self.platform
+                .with_transfers(|session| part_in_memory(session, transfer, offset, encoded, crc))
+        }
+    }
+
+    /// The bytes of an upload the loop wrote into its store, where they lie in its slot.
+    fn stored_upload(&self, upload: &StoredUpload) -> Option<&'static [u8]> {
+        self.install.stored_region(upload)
+    }
+
+    /// Begins the stepped commit of an upload the loop wrote into its store: its header and magic
+    /// (specification 34 §5.1, §11.2).
+    fn commit_stored(
+        &self,
+        upload: StoredUpload,
+        checked: Checked,
+    ) -> Result<ProgramIdentity, String> {
+        self.install.begin_stored(upload, checked)
     }
 
     fn program_identities(&self) -> Option<ProgramIdentities> {
