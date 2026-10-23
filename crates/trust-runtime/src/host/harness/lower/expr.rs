@@ -49,6 +49,21 @@ pub(crate) mod literal_text {
     pub(crate) fn time(text: &str) -> Result<Value, CompileError> {
         super::parse_time_literal(text)
     }
+
+    /// A `DATE` or `LDATE` literal, in the date and time profile of every runtime.
+    pub(crate) fn date(text: &str) -> Result<Value, CompileError> {
+        super::parse_date_literal(text, super::DateTimeProfile::default())
+    }
+
+    /// A `TIME_OF_DAY` or `LTIME_OF_DAY` literal.
+    pub(crate) fn time_of_day(text: &str) -> Result<Value, CompileError> {
+        super::parse_tod_literal(text, super::DateTimeProfile::default())
+    }
+
+    /// A `DATE_AND_TIME` or `LDATE_AND_TIME` literal.
+    pub(crate) fn date_and_time(text: &str) -> Result<Value, CompileError> {
+        super::parse_dt_literal(text, super::DateTimeProfile::default())
+    }
 }
 
 include!("expr/lowering.rs");

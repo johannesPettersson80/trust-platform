@@ -14,7 +14,7 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
     component "host/native/front + model + classes\nlayout of areas, instances, tasks,\nbindings, class ids, starting memory" as model
     component "host/native/lower + emit + dispatch\none Rust crate per program; calls bound\nby class id; no unsafe in generated code" as generator
     component "pinned rustc + rust-lld\n(toolchain bundle, §4.6)\nstatic PIE, no relocations" as toolchain
-    component "trust-plc-lib\narithmetic, conversion, text,\ntimers and edges" as library
+    component "trust-plc-lib\narithmetic, conversion, mathematics,\nbits, text, dates and times,\ntimers, counters, edges, bistables" as library
     component "trust-plc-abi\nCx, areas, faults, references,\nclass ids; module side" as abiModule
     artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure" as image
     artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record

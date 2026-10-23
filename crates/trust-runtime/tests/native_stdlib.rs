@@ -524,3 +524,185 @@ fn standard_function_blocks_run_as_the_runtime_runs_them() {
     family.call("BOOL", &format!("{} OUT := TRUE;", body.join(" ")));
     family.run();
 }
+
+/// A date-time literal `prefix#` of `millis` milliseconds since 1970-01-01: `DT#2026-10-23-12:34:56.789`.
+fn date_time(prefix: &str, millis: i64) -> String {
+    let days = millis.div_euclid(86_400_000);
+    let of_day = millis.rem_euclid(86_400_000);
+    // Hinnant's civil_from_days, as in the runtime.
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = mp + if mp < 10 { 3 } else { -9 };
+    let year = y + i64::from(m <= 2);
+    let (hour, minute, second, milli) = (
+        of_day / 3_600_000,
+        of_day / 60_000 % 60,
+        of_day / 1000 % 60,
+        of_day % 1000,
+    );
+    match prefix {
+        "DATE" | "LDATE" => format!("{prefix}#{year:04}-{m:02}-{d:02}"),
+        "TOD" | "LTOD" => format!("{prefix}#{hour:02}:{minute:02}:{second:02}.{milli:03}"),
+        _ => {
+            format!("{prefix}#{year:04}-{m:02}-{d:02}-{hour:02}:{minute:02}:{second:02}.{milli:03}")
+        }
+    }
+}
+
+/// The date and time operators and functions (specification 07 §9; IEC Tables 36 and 37): a
+/// duration added to a time of day or a date and time in whole milliseconds, dates and times taken
+/// apart, durations scaled by integers and reals, the calendar built from components and split
+/// into them, the day of the week, and the conversions between the date and time types, on dates
+/// from 1900 to 2200, near midnight and with durations that cross days.
+#[test]
+fn date_and_time_functions_compute_as_the_runtime_computes_them() {
+    let count = 48;
+    let mut numbers = Numbers(23);
+    let mut family = Family::new("dates", count);
+    let millis: Vec<i64> = (0..count)
+        .map(|index| match index % 6 {
+            0 => 0,
+            1 => 86_399_999,
+            2 => -1,
+            _ => i64::try_from(numbers.integer(-2_208_988_800_000, 7_258_118_400_000)).unwrap(),
+        })
+        .collect();
+    let other: Vec<i64> = millis.iter().rev().copied().collect();
+    let dt = |prefix: &str, values: &[i64]| -> Vec<String> {
+        values
+            .iter()
+            .map(|value| date_time(prefix, *value))
+            .collect()
+    };
+    family.input("stamp", "DT", &dt("DT", &millis));
+    family.input("stamp2", "DT", &dt("DT", &other));
+    family.input("lstamp", "LDT", &dt("LDT", &millis));
+    family.input("day", "DATE", &dt("DATE", &millis));
+    family.input("day2", "DATE", &dt("DATE", &other));
+    family.input("clock", "TOD", &dt("TOD", &millis));
+    family.input("clock2", "TOD", &dt("TOD", &other));
+    family.input("lclock", "LTOD", &dt("LTOD", &millis));
+    let durations: Vec<String> = (0..count)
+        .map(|index| match index % 5 {
+            0 => "T#0ms".to_string(),
+            1 => "T#1d".to_string(),
+            2 => "T#-1h".to_string(),
+            _ => format!("T#{}ms", numbers.integer(-100_000_000, 100_000_000)),
+        })
+        .collect();
+    family.input("span", "TIME", &durations);
+    let long: Vec<String> = durations.iter().map(|text| format!("L{text}")).collect();
+    family.input("lspan", "LTIME", &long);
+    let factors: Vec<String> = (0..count)
+        .map(|_| numbers.integer(-5, 5).to_string())
+        .collect();
+    family.input("n", "DINT", &factors);
+    let unsigned: Vec<String> = (0..count)
+        .map(|_| numbers.integer(0, 9).to_string())
+        .collect();
+    family.input("un", "UDINT", &unsigned);
+    let reals: Vec<String> = reals(&mut numbers, count)
+        .into_iter()
+        .map(|value| real64(value.clamp(-1e6, 1e6)))
+        .collect();
+    family.input("r", "LREAL", &reals);
+    for (name, ty, low, high) in [
+        ("yr", "INT", 1899, 2201),
+        ("mo", "INT", 0, 13),
+        ("dy", "INT", 0, 32),
+        ("hr", "INT", -1, 24),
+        ("mi", "INT", -1, 60),
+        ("se", "INT", -1, 60),
+        ("ms", "INT", -1, 1000),
+    ] {
+        let values: Vec<String> = (0..count)
+            .map(|_| numbers.integer(low, high).to_string())
+            .collect();
+        family.input(name, ty, &values);
+    }
+    family.call("DT", "OUT := stamp[i] + span[i];");
+    family.call("DT", "OUT := stamp[i] - span[i];");
+    family.call("TOD", "OUT := clock[i] + span[i];");
+    family.call("TOD", "OUT := clock[i] - span[i];");
+    family.call("LDT", "OUT := lstamp[i] + lspan[i];");
+    family.call("LTOD", "OUT := lclock[i] - lspan[i];");
+    family.call("TIME", "OUT := day[i] - day2[i];");
+    family.call("TIME", "OUT := clock[i] - clock2[i];");
+    family.call("TIME", "OUT := stamp[i] - stamp2[i];");
+    family.call("TIME", "OUT := span[i] * n[i];");
+    family.call("TIME", "OUT := span[i] / n[i];");
+    family.call("TIME", "OUT := span[i] * un[i];");
+    family.call("TIME", "OUT := span[i] * r[i];");
+    family.call("TIME", "OUT := span[i] / r[i];");
+    family.call("TIME", "OUT := ADD_TIME(span[i], span[i]);");
+    family.call("TOD", "OUT := ADD_TOD_TIME(clock[i], span[i]);");
+    family.call("DT", "OUT := SUB_DT_TIME(stamp[i], span[i]);");
+    family.call("TIME", "OUT := SUB_DT_DT(stamp[i], stamp2[i]);");
+    family.call("TIME", "OUT := MUL_TIME(span[i], n[i]);");
+    family.call("TIME", "OUT := DIV_TIME(span[i], n[i]);");
+    family.call("DT", "OUT := CONCAT_DATE_TOD(day[i], clock[i]);");
+    family.call("LDT", "OUT := CONCAT_DATE_LTOD(day[i], lclock[i]);");
+    family.call("DATE", "OUT := CONCAT_DATE(yr[i], mo[i], dy[i]);");
+    family.call("TOD", "OUT := CONCAT_TOD(hr[i], mi[i], se[i], ms[i]);");
+    family.call(
+        "DT",
+        "OUT := CONCAT_DT(yr[i], mo[i], dy[i], hr[i], mi[i], se[i], ms[i]);",
+    );
+    family.call("INT", "OUT := DAY_OF_WEEK(day[i]);");
+    family.call("DATE", "OUT := DT_TO_DATE(stamp[i]);");
+    family.call("TOD", "OUT := DT_TO_TOD(stamp[i]);");
+    family.call("LDT", "OUT := DT_TO_LDT(stamp[i]);");
+    family.call("DT", "OUT := LDT_TO_DT(lstamp[i]);");
+    family.call("LTOD", "OUT := TOD_TO_LTOD(clock[i]);");
+    family.call("TOD", "OUT := LTOD_TO_TOD(lclock[i]);");
+    family.call("TIME", "OUT := span[i] * 3;");
+    family.call("TIME", "OUT := span[i] / 2.5;");
+    family.call("DATE", "OUT := LDT_TO_DATE(lstamp[i]);");
+    family.call("TOD", "OUT := LDT_TO_TOD(lstamp[i]);");
+    family.call("LTOD", "OUT := LDT_TO_LTOD(lstamp[i]);");
+    family.call("LTOD", "OUT := DT_TO_LTOD(stamp[i]);");
+    family.call("LTIME", "OUT := lstamp[i] - DT_TO_LDT(stamp2[i]);");
+    family.call("LTOD", "OUT := CONCAT_LTOD(hr[i], mi[i], se[i], ms[i]);");
+    family.call(
+        "LDT",
+        "OUT := CONCAT_LDT(yr[i], mo[i], dy[i], hr[i], mi[i], se[i], ms[i]);",
+    );
+    family.call(
+        "DATE",
+        "OUT := CONCAT_DATE(DAY := dy[i], MONTH := mo[i], YEAR := yr[i]);",
+    );
+    family.call("BOOL", "OUT := stamp[i] < stamp2[i];");
+    family.call("BOOL", "OUT := clock[i] >= clock2[i];");
+    family.call("DT", "OUT := DT#2026-10-23-12:00:00 + span[i];");
+    family.call("TOD", "OUT := TOD#23:59:59.999 + span[i];");
+    family
+        .declarations
+        .push("    y : INT; m : USINT; dd : DINT; h : INT; mm : INT; s : INT; f : INT;".into());
+    family.call(
+        "BOOL",
+        "SPLIT_DATE(IN := day[i], YEAR => y, MONTH => m, DAY => dd); OUT := TRUE;",
+    );
+    family.call(
+        "BOOL",
+        "SPLIT_DT(stamp[i], y, m, dd, h, mm, s, f); OUT := TRUE;",
+    );
+    family.call(
+        "BOOL",
+        "SPLIT_TOD(IN := clock[i], HOUR => h, MINUTE => mm, SECOND => s, MILLISECOND => f); OUT := TRUE;",
+    );
+    family.call(
+        "BOOL",
+        "SPLIT_LDT(lstamp[i], y, m, dd, h, mm, s, f); OUT := TRUE;",
+    );
+    family.call(
+        "BOOL",
+        "SPLIT_LTOD(IN := lclock[i], HOUR => h, MINUTE => mm, SECOND => s, MILLISECOND => f); OUT := TRUE;",
+    );
+    family.run();
+}

@@ -27,7 +27,7 @@ use crate::io_image::FlatImages;
 use crate::retain::capture::RetainCapture;
 use crate::retain::RetainSnapshot;
 use crate::task::{evaluate_task_readiness, TaskState};
-use crate::value::Duration;
+use crate::value::{DateTimeError, Duration};
 use crate::vm::RetainApplyEvent;
 
 /// Where a platform put an admitted module's code: the entry point at each offset of `CODE`
@@ -829,7 +829,8 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
     match FaultCode::from_raw(code) {
         Some(FaultCode::DivisionByZero) => RuntimeError::DivisionByZero,
         Some(FaultCode::ModuloByZero) => RuntimeError::ModuloByZero,
-        Some(FaultCode::Overflow | FaultCode::DateTimeRange) => RuntimeError::Overflow,
+        Some(FaultCode::Overflow) => RuntimeError::Overflow,
+        Some(FaultCode::DateTimeRange) => RuntimeError::DateTimeRange(DateTimeError::OutOfRange),
         Some(FaultCode::IndexOutOfBounds) => RuntimeError::IndexOutOfBounds {
             index: a,
             lower: b,

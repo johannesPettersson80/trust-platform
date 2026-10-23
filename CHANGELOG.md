@@ -46,6 +46,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   function forms, the counters in all their count types, `SR`, `RS` and Mitsubishi's `DIFU` and
   `DIFD`, each giving the runtime's results and faults on every input the comparison tried. The
   conformance suite passes all 21 cases on compiled programs, and the Mitsubishi example compiles.
+- Added: compiled programs take dates and times: the operators on `DATE`, `TIME_OF_DAY`,
+  `DATE_AND_TIME` and their long forms, the date and time functions (`CONCAT_DATE`, `SPLIT_DT`,
+  `DAY_OF_WEEK`, `ADD_TOD_TIME`, `MUL_TIME`, …), the conversions between the date and time types
+  and their literals, each giving the runtime's results and faults on every input the comparison
+  tried. A date and time range fault of a compiled program is reported as the runtime reports it,
+  not as an overflow.
 - Fixed: `ABS(-0.0)` of a compiled program kept the minus sign of zero; it is `0.0`, as in the
   runtime.
 - Fixed: a compiled program bound a standard function's formal arguments by position, so

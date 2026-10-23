@@ -1,7 +1,7 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.5 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
-  0.5 make exact what the implementation of milestones M1 and M2 decided within that design,
+- **Status:** 0.6 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+  0.6 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
@@ -563,6 +563,16 @@ How the library carries the runtime's rules over, function by function:
 - The counters count in `INT`, `DINT`, `LINT`, `UDINT` or `ULINT` and stop at the type's limits
   (specification 08 §4); `SR`, `RS`, `R_TRIG` and `F_TRIG` are the standard's bodies, and
   Mitsubishi's `DIFU` and `DIFD` are `R_TRIG` and `F_TRIG`, as the runtime takes them.
+- Dates and times hold what the runtime's values hold (specification 07 §9; IEC §6.4.2, Tables
+  36 and 37): a `TIME` and an `LTIME` nanoseconds, a `DATE`, a `TIME_OF_DAY` and a
+  `DATE_AND_TIME` milliseconds since 1970-01-01, and their long forms nanoseconds. A duration added
+  to or taken from a millisecond value counts in whole milliseconds toward zero, and a result
+  outside the type is a date and time range fault; a time of day is not wrapped at midnight; two
+  dates or times apart, the long forms' sums and a duration scaled by a number are overflows
+  outside their type. The calendar functions (`CONCAT_DATE`, `CONCAT_DT`, `DAY_OF_WEEK`, …) count
+  days as the runtime does, a component outside its range an overflow, and a `SPLIT_*` converts
+  every component to its output's type before it writes any, as the runtime writes them in one
+  transaction.
 - `AND`, `OR`, `XOR`, `NOT` and `MOD` are keywords of the language: their function forms are no
   Structured Text, and the operators stand for them.
 
@@ -1103,7 +1113,7 @@ specification between milestones needs a written reason and the owner's approval
 `trust-plc-abi` numbers the faults a module raises, and the kernel maps each to the runtime error of
 specification 10 §10.2 named after it: 1 `DivisionByZero`, 2 `ModuloByZero`, 3 `Overflow`, 4
 `IndexOutOfBounds` (index, lower, upper), 5 `SubrangeViolation` (value, lower, upper), 6
-`NullReference`, 7 `ForStepZero`, 8 `TypeMismatch`, 9 `DateTimeRange` (reported as `Overflow`), 10
+`NullReference`, 7 `ForStepZero`, 8 `TypeMismatch`, 9 `DateTimeRange`, 10
 `StringCapacityExceeded`, 11 `ReferenceLifetime`, 12 `NonFiniteValue`, 13 `InfiniteLoop` (reported
 as the work limit of TIME-08, `runtime_execution_timeout`), 14 `StackOverflow`, 15
 `MemoryProtection`, 16 `ModuleInternal` (the last three reported as an invalid execution state until
@@ -1118,3 +1128,4 @@ the runtime has errors of their own).
 | 0.3 | 22 October 2026 | Exact where running the reference workload on the C6 decided within the approved design: the container keeps `TRSTA002` and holds an image as entry kind 3 at a 64-byte boundary, and the image's record comes from its tables (§10.1); the install check runs the kernel's checks (§10.2); the C6 copies the module into a 128 KiB program code region of RAM instead of running it from the flash cache, measured 0.063 ms average and 0.178 ms worst for the control task over an hour against 0.243 ms and 1.05 ms in place, a module too large for the region running in place (§10.3); the figure's parts in `status` (§10.4); the compiled cycle and the sampling grid, whose drift lost activations on every runtime and is corrected in specification 10 §4.3 (§8.7); retain held in memory until M2 (§11); `status`, `io.read` and refused Live Values writes until M3 (§13.3). |
 | 0.4 | 22 October 2026 | Exact where milestone M2's retain decided within the approved design: the capture writes the codec's bytes from the retain area through the type table, without building values, and leaves out a variable that holds an instance as the interpreter does; the restore applies specification 11 §6.7's migrations against the type table and gives a structure member the checkpoint lacks its starting value; a retained variable the checkpoint lacks keeps its value, as the interpreter's warm restart keeps it; the install check restores the newest checkpoint into the new image (§11); the process images are carried over a restart and the variables at `%M` published after it, as specification 11 §6.7 says (§6.7); the retain capture of the figure is twice the kernel's payload bound (§10.4). |
 | 0.5 | 23 October 2026 | Exact where milestone M2's coverage decided within the approved design: the conformance suite runs on a computer's kernel and a project runs in lockstep with the runtime, variable by variable (§14.2); references, `REF`, `^` and a function block's `VAR_IN_OUT` as a stored reference (§7.3); and the object-oriented constructs (§6.2, §6.4, §6.5, §7.2, §7.3): an instance of a derived type holds its base first; only a hierarchy that implements an interface or has more than one type holds class ids, so a function block of neither pays no bytes; a call is bound statically unless a derived type overrides the method, and then, as through an interface, by a `match` on the class id over the laid-out types; such an instance is never a frame variable; a property is a call of its `GET` or `SET`; a method's outputs are copied to their variables after the call; a call through a `NULL` interface is a null dereference. The runtime's two departures from the standard that the comparison found are listed in §14.2. |
+| 0.6 | 23 October 2026 | Exact where milestone M2's standard functions decided within the approved design: how the program library carries the runtime's rules over, function by function, for the numerical, bit, selection, comparison, string, counter and bistable functions and for dates and times (§6.8); a date and time range fault is reported as the runtime reports it, no longer as an overflow (Appendix A); the runtime's third departure from the standard, a `STRING` character above U+00FF read as a `CHAR` (§14.2). |

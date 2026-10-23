@@ -59,6 +59,9 @@ impl Lowerer<'_, '_> {
         if let Some(formals) = super::strings::text_function(name) {
             return self.call_text_function(node, name, formals, args, &want);
         }
+        if super::dates::is_date_function(name) {
+            return self.call_date_function(node, name, args, &want);
+        }
         let values = self.standard_arguments(node, name, args)?;
         if name == "CONCAT" {
             let mut parts = Vec::new();
@@ -577,6 +580,12 @@ impl Lowerer<'_, '_> {
         let truncate = name == "TRUNC";
         let converted = if src == dst || (src.is_duration() && dst.is_duration()) {
             source
+        } else if let Some((call, faults)) = super::dates::date_conversion(src, dst, &source) {
+            if faults {
+                self.bind(&call)
+            } else {
+                call
+            }
         } else if src == Elem::Bool && (dst.is_integer() || dst.is_bits()) {
             format!("({source} as {rust})")
         } else if src.is_integer() && dst.is_integer() {

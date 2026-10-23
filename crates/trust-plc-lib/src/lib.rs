@@ -22,6 +22,7 @@ mod bistables;
 mod bits;
 mod convert;
 mod counters;
+mod dates;
 mod edges;
 mod math;
 mod select;
@@ -45,6 +46,13 @@ pub use counters::{
     ctu_ulint, ctud_dint, ctud_int, ctud_lint, ctud_udint, ctud_ulint, CtdDint, CtdInt, CtdLint,
     CtdUdint, CtdUlint, CtuDint, CtuInt, CtuLint, CtuUdint, CtuUlint, CtudDint, CtudInt, CtudLint,
     CtudUdint, CtudUlint,
+};
+pub use dates::{
+    concat_date, concat_date_ltod, concat_date_tod, concat_dt, concat_ldt, concat_ltod, concat_tod,
+    day_of_week, dt_to_date, dt_to_ltod, dt_to_tod, ldt_to_date, ldt_to_ltod, ldt_to_tod,
+    nanos_add, nanos_to_ticks, scale_real, scale_signed, scale_unsigned, split_date, split_dt,
+    split_ldt, split_ltod, split_tod, ticks_add, ticks_diff, ticks_to_nanos, NANOS_PER_DAY,
+    NANOS_PER_TICK, TICKS_PER_DAY,
 };
 pub use edges::{f_trig, r_trig, FTrig, RTrig};
 pub use math::{atan2_32, atan2_64, expt32, expt64, real32, real64, Math};

@@ -8,6 +8,7 @@
 //! that the faults of a statement come in the order its operands are written.
 
 mod call;
+mod dates;
 mod expr;
 mod functions;
 mod object;

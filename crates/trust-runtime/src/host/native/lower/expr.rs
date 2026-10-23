@@ -414,6 +414,9 @@ impl Lowerer<'_, '_> {
                 Ok(format!("({a} {sign} {b})"))
             }
             K::Plus | K::Minus | K::Star | K::Slash | K::KwMod | K::Power => {
+                if let Some(value) = self.date_time_operator(node, &left, &right, op)? {
+                    return Ok(value);
+                }
                 let Some(elem) = self.info(ty).scalar() else {
                     return Err(self.unsupported(node, "arithmetic on a value that is no scalar"));
                 };
@@ -499,6 +502,7 @@ impl Lowerer<'_, '_> {
             Literal::Real64(value) if elem == Elem::LReal => float64(value),
             Literal::Real32(value) if elem == Elem::LReal => float64(f64::from(value)),
             Literal::Nanos(value) if elem.is_duration() => format!("{value}i64"),
+            Literal::DateTime(kind, value) if kind == elem => format!("{value}i64"),
             // A character literal: one character, U+0000 to U+00FF for a `CHAR` and to U+FFFF
             // for a `WCHAR` (IEC §6.3.3, Table 6).
             Literal::Text(bytes) if matches!(elem, Elem::Char | Elem::WChar) => {
@@ -564,6 +568,15 @@ impl Lowerer<'_, '_> {
                     }
                     _ => return Err(self.unsupported(node, "this duration literal")),
                 },
+                SyntaxKind::DateLiteral => {
+                    result = date_time(literal_text::date(text).map_err(error)?);
+                }
+                SyntaxKind::TimeOfDayLiteral => {
+                    result = date_time(literal_text::time_of_day(text).map_err(error)?);
+                }
+                SyntaxKind::DateAndTimeLiteral => {
+                    result = date_time(literal_text::date_and_time(text).map_err(error)?);
+                }
                 SyntaxKind::StringLiteral => {
                     result = Some(Literal::Text(
                         literal_text::string(text, false)
@@ -777,8 +790,24 @@ pub(super) enum Literal {
     Real32(f32),
     Real64(f64),
     Nanos(i64),
+    /// A date, a time of day or a date and time: its type and its value.
+    DateTime(Elem, i64),
     Text(Vec<u8>),
     Enum(i64),
+}
+
+/// The literal of a date and time value: milliseconds since 1970-01-01 for a `DATE`, a
+/// `TIME_OF_DAY` and a `DATE_AND_TIME`, nanoseconds for their long forms.
+fn date_time(value: Value) -> Option<Literal> {
+    Some(match value {
+        Value::Date(value) => Literal::DateTime(Elem::Date, value.ticks()),
+        Value::Tod(value) => Literal::DateTime(Elem::Tod, value.ticks()),
+        Value::Dt(value) => Literal::DateTime(Elem::Dt, value.ticks()),
+        Value::LDate(value) => Literal::DateTime(Elem::LDate, value.nanos()),
+        Value::LTod(value) => Literal::DateTime(Elem::LTod, value.nanos()),
+        Value::Ldt(value) => Literal::DateTime(Elem::Ldt, value.nanos()),
+        _ => return None,
+    })
 }
 
 /// A binary32 value as an exact Rust literal: its bits.

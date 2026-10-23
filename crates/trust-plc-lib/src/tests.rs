@@ -507,3 +507,72 @@ fn function_blocks_lie_in_declaration_order() {
     let trigger = RTrig::ZEROED;
     let _: &Cell<u8> = &trigger.M;
 }
+
+/// Dates count days from 1970-01-01, a Thursday (specification 07 §9): 2026-10-23 is day 20,749
+/// (56 years with 14 leap days, then 295 days), 1,792,713,600,000 ms, a Friday; 2000-02-29 is day
+/// 11,016; 1900 is no leap year; a split counts toward the calendar, so the millisecond before 1970
+/// is 1969-12-31 23:59:59.999; a `TIME_OF_DAY` is not wrapped, so -1 ms splits into a millisecond
+/// of -1; the day of the earliest `DATE_AND_TIME` has no midnight in range.
+#[test]
+fn dates_count_days_from_1970() {
+    let mut cx = cx();
+    assert_eq!(concat_date(&mut cx, 2026, 10, 23), Ok(1_792_713_600_000));
+    assert_eq!(day_of_week(1_792_713_600_000), 5);
+    assert_eq!(day_of_week(0), 4);
+    assert_eq!(day_of_week(-86_400_000), 3);
+    assert_eq!(concat_date(&mut cx, 2000, 2, 29), Ok(951_782_400_000));
+    assert_eq!(split_date(951_782_400_000), [2000, 2, 29]);
+    assert_eq!(code(concat_date(&mut cx, 1900, 2, 29)), OVERFLOW);
+    assert_eq!(code(concat_date(&mut cx, 2000, 13, 1)), OVERFLOW);
+    assert_eq!(split_dt(-1), [1969, 12, 31, 23, 59, 59, 999]);
+    assert_eq!(concat_dt(&mut cx, 1969, 12, 31, 23, 59, 59, 999), Ok(-1));
+    assert_eq!(concat_tod(&mut cx, 23, 59, 59, 999), Ok(86_399_999));
+    assert_eq!(code(concat_tod(&mut cx, 24, 0, 0, 0)), OVERFLOW);
+    assert_eq!(concat_ltod(&mut cx, 0, 0, 1, 5), Ok(1_005_000_000));
+    assert_eq!(split_tod(&mut cx, -1), Ok([0, 0, 0, -1]));
+    assert_eq!(code(split_tod(&mut cx, i64::MAX)), OVERFLOW);
+    assert_eq!(dt_to_date(&mut cx, -1), Ok(-86_400_000));
+    assert_eq!(code(dt_to_date(&mut cx, i64::MIN)), OVERFLOW);
+    assert_eq!(ldt_to_date(-1), -86_400_000);
+    assert_eq!(ldt_to_tod(-1), 86_399_999);
+    assert_eq!(nanos_to_ticks(-1), -1);
+    assert_eq!(
+        concat_date_ltod(&mut cx, 86_400_000, 5),
+        Ok(86_400_000_000_005)
+    );
+}
+
+/// A duration added to a millisecond value counts whole milliseconds toward zero, so -1.5 ms
+/// moves it back by 1; a result outside the type is a date and time range fault; two dates apart
+/// are nanoseconds, and 9.3E12 ms (about 295 years) is more than a `TIME` holds; a duration scaled
+/// by an unsigned factor keeps its sign and reaches the most negative `TIME`; a real factor cuts
+/// toward zero and an infinite one is an overflow (specification 07 §9).
+#[test]
+fn durations_move_dates_in_whole_milliseconds() {
+    let mut cx = cx();
+    let range = FaultCode::DateTimeRange as u32;
+    assert_eq!(ticks_add(&mut cx, 0, -1_500_000, true), Ok(-1));
+    assert_eq!(ticks_add(&mut cx, 0, 1_999_999, true), Ok(1));
+    assert_eq!(ticks_add(&mut cx, 10, 3_000_000, false), Ok(7));
+    assert_eq!(code(ticks_add(&mut cx, i64::MAX, 1_000_000, true)), range);
+    assert_eq!(code(concat_date_tod(&mut cx, i64::MAX, 1)), range);
+    assert_eq!(ticks_diff(&mut cx, 86_400_000, 0), Ok(86_400_000_000_000));
+    assert_eq!(code(ticks_diff(&mut cx, 9_300_000_000_000, 0)), OVERFLOW);
+    assert_eq!(scale_unsigned(&mut cx, i64::MIN, 1, true), Ok(i64::MIN));
+    assert_eq!(scale_unsigned(&mut cx, -5, 2, false), Ok(-2));
+    assert_eq!(
+        code(scale_signed(&mut cx, 5, 0, false)),
+        FaultCode::DivisionByZero as u32
+    );
+    assert_eq!(scale_real(&mut cx, 1_000, 0.5, true), Ok(500));
+    assert_eq!(scale_real(&mut cx, -3, 2.0, false), Ok(-1));
+    assert_eq!(
+        code(scale_real(&mut cx, 1_000, f64::INFINITY, true)),
+        OVERFLOW
+    );
+    assert_eq!(code(scale_real(&mut cx, i64::MAX, 2.0, true)), OVERFLOW);
+    assert_eq!(
+        code(scale_real(&mut cx, 1_000, 0.0, false)),
+        FaultCode::DivisionByZero as u32
+    );
+}

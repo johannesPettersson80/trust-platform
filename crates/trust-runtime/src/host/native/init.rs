@@ -309,6 +309,12 @@ fn scalar(elem: Elem, value: &Value) -> Option<[u8; 8]> {
         Value::UDInt(value) | Value::DWord(value) => i128::from(*value),
         Value::ULInt(value) | Value::LWord(value) => i128::from(*value),
         Value::Time(value) | Value::LTime(value) => i128::from(value.as_nanos()),
+        Value::Date(value) => i128::from(value.ticks()),
+        Value::Tod(value) => i128::from(value.ticks()),
+        Value::Dt(value) => i128::from(value.ticks()),
+        Value::LDate(value) => i128::from(value.nanos()),
+        Value::LTod(value) => i128::from(value.nanos()),
+        Value::Ldt(value) => i128::from(value.nanos()),
         Value::Enum(value) => i128::from(value.numeric_value()),
         Value::Real(value) => {
             return match elem {
