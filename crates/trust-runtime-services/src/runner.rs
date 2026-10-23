@@ -69,16 +69,19 @@ mod reload;
 mod retain;
 mod shell;
 mod state;
+mod stepping;
 mod supervision;
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::alloc::Layout;
+use core::cell::Cell;
 use core::ptr::NonNull;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, PortError, ProgramStore, RunnerWait, TimeSpan,
     WakeReason,
@@ -113,6 +116,7 @@ use crate::transfer::TransferSession;
 use program::Program;
 use shell::Shell;
 use state::{Records, ResourceCell};
+use stepping::LentProgram;
 
 /// Requests the loop answers in one pass before it does the pass's other work (the retained
 /// checkpoint step, the platform's idle work and the watchdog feed), so that a busy link cannot
@@ -183,6 +187,10 @@ pub struct Runner<L, W, Y, P, C> {
     /// due again as soon as it is taken after a scan that overran its interval, and without this
     /// grant such a program would never let the link be answered (specification 34, STATE-08).
     request_grant: bool,
+    /// The installation generation and the logical time of the last stepped scan (`cycle.step`,
+    /// specification 11 §6.8.1). A step of another generation is no step since the resource
+    /// stopped: every start and every restart of the program installs the next generation.
+    last_step: Cell<Option<(Generation, value::Duration)>>,
 }
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
@@ -256,6 +264,7 @@ where
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
             request_grant: false,
+            last_step: Cell::new(None),
         }
     }
 
@@ -302,6 +311,7 @@ where
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
             request_grant: false,
+            last_step: Cell::new(None),
         }
     }
 
@@ -497,7 +507,11 @@ where
                 self.shell.hold_back(received);
                 return true;
             }
-            let after_response = self.shell.serve(received, &self.cycle);
+            let program = LentProgram::new(&mut self.cycle, &self.last_step, &self.clock);
+            let after_response = self.shell.serve(received, &program);
+            if let Some((id, request)) = self.shell.step.take_held() {
+                self.finish_loading_step(id, request);
+            }
             self.after_reply(after_response);
         }
         true
@@ -573,6 +587,9 @@ mod reply_contract_tests;
 
 #[cfg(test)]
 mod scan_contract_tests;
+
+#[cfg(test)]
+mod step_contract_tests;
 
 #[cfg(test)]
 mod stopped_contract_tests;

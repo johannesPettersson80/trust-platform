@@ -14,6 +14,7 @@ use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::WallClock;
 use trust_runtime_services::access::{AccessRole, AuthFailure};
 use trust_runtime_services::capabilities::LastReset;
+use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use trust_runtime_services::events::{store_event, RuntimeEvent};
 use trust_runtime_services::installation::{self, Admitted};
 use trust_runtime_services::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -37,7 +38,7 @@ use crate::config::ControlMode;
 use crate::debug::ControlAction;
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
-use crate::scheduler::ResourceState;
+use crate::scheduler::{ResourceCommand, ResourceState};
 use crate::value::Value;
 use crate::RestartMode;
 
@@ -143,7 +144,33 @@ impl ResourcePort for ControlState {
     fn starts_when_stopped(&self) -> bool {
         true
     }
+
+    /// The scan thread runs the step in its stopped wait (specification 11 section 6.8.1); the
+    /// request waits for its answer as long as a reload waits for its commit.
+    fn step_cycle(&self, request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
+        let (reply, replies) = std::sync::mpsc::channel();
+        let command = ResourceCommand::StepCycle {
+            request: Box::new(request.clone()),
+            respond_to: reply,
+        };
+        match self.resource.send_command(command) {
+            Ok(()) => {}
+            Err(CommandSendError::Full) => return Err(StepRefusal::Busy),
+            Err(CommandSendError::Closed) => {
+                return Err(StepRefusal::NotStopped(self.resource.state()));
+            }
+        }
+        replies.recv_timeout(STEP_WAIT).unwrap_or_else(|_| {
+            Err(StepRefusal::Unavailable(format!(
+                "the scan thread did not answer the step within {} s",
+                STEP_WAIT.as_secs()
+            )))
+        })
+    }
 }
+
+/// How long `cycle.step` waits for the scan thread's answer, the commit bound of a reload.
+const STEP_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
 
 impl StatusPort for ControlState {
     fn resource_name(&self) -> &str {
@@ -283,8 +310,14 @@ impl RecordsPort for ControlState {
             .ok_or_else(|| String::from("no project folder"))?;
         let sequenced =
             installation::decode_sequenced(&container).map_err(|error| error.to_string())?;
-        crate::deployment::program_store::install(root, sequenced.installed.program)
-            .map_err(|error| error.to_string())
+        let identity = crate::deployment::program_store::install(root, sequenced.installed.program)
+            .map_err(|error| error.to_string())?;
+        // The stopped scan thread notes it: its next stepped cold restart loads the program
+        // (specification 11 section 6.8.1). A `restart` loads it after any stop.
+        let _ = self
+            .resource
+            .send_command(ResourceCommand::ProgramInstalled);
+        Ok(identity)
     }
 }
 

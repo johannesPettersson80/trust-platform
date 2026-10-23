@@ -15,6 +15,7 @@ use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::hold::HoldHandle;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
@@ -195,6 +196,26 @@ pub trait ResourceCycle {
     /// The health of the program's I/O drivers, in `io.toml` order, which `status` and `health`
     /// report before the drivers the platform runs itself.
     fn io_drivers(&self) -> Vec<IoDriverStatus>;
+
+    /// Runs one stepped scan of the stopped program (`cycle.step`, specification 11 §6.8.1): the
+    /// restart the request asks for, at logical time `restart_at`; the request's inputs; one scan at
+    /// the request's time, its due tasks by priority and then its programs without a task; and the
+    /// request's watches. The scan neither reads nor drives the drivers, captures no retained value
+    /// and is seen by no observer; its outputs are published into the output image only. Its error is
+    /// in the outcome and is not latched. `deadline` bounds the scan as the watchdog bounds every
+    /// scan.
+    ///
+    /// # Errors
+    ///
+    /// The [`StepRefusal`] of a name that names no single variable, before anything changes; of a
+    /// restart that failed; of a value that its variable or address does not take; or of a watched
+    /// value that cannot be read.
+    fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: Duration,
+        deadline: Option<MonotonicInstant>,
+    ) -> Result<StepOutcome, StepRefusal>;
 
     /// Gives the cycle the loop's pass for a scan that a debugger holds (specification 13, "Safe
     /// Points"; specification 34, STATE-07). The loop calls it once, when it starts.

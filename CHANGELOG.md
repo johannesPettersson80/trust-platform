@@ -27,6 +27,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   compiled programs: each case is built for this computer and run by the kernel, and its trace is
   compared with the same expected artifacts (specification 44 §14.2). A project without a
   `CONFIGURATION` now compiles as the runtime runs it, each `PROGRAM` as an instance of its name.
+- Added: the control request `cycle.step` runs one scan of a stopped program at a time the client
+  gives, with the values it gives written before and the values it names read after, on a computer
+  and on a chip alike (specification 11 §6.8.1). The scan touches no driver and starts no task, its
+  fault is reported and not latched, and a cold restart in it loads a program installed since the
+  last one. `trust-runtime conformance --execution-backend native --device <port> --target esp32c6`
+  runs the conformance suite on a device with it: each case is compiled for the device, installed
+  and stepped cycle by cycle, and its trace is compared with the same expected artifacts.
 - Added: compiled programs take references (`REF_TO`, `REF()`, `^`, `NULL`) and `VAR_IN_OUT` in
   function blocks, functions and methods, and the Siemens profile's `#local` names. The PLCopen
   motion single-axis library and its demonstration, OSCAT's `TICKER` and twelve example projects

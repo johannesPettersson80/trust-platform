@@ -142,15 +142,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     fn restart_or_reload(&mut self, mode: crate::RestartMode) -> Result<(), RuntimeError> {
         let after_stop = self.reload_required;
         // A failed load leaves `reload_required` set, so the next restart loads again.
-        if let Some(loader) = self.program_loader.as_mut().filter(|_| after_stop) {
-            let started = loader(&mut self.runtime, mode)?;
-            self.cycle_interval = started.cycle_interval;
-            self.time_scale = started.time_scale.max(1);
-            self.simulation = started.simulation;
-            self.hang_action = started.hang_action;
-            self.program_origin = self.clock.now();
-            self.runtime.reset_task_timing(Duration::ZERO);
-        } else {
+        if !(after_stop && self.load_installed(mode)?) {
             self.restart_with_retain_store(mode)?;
         }
         if after_stop {
@@ -160,6 +152,23 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             self.reload_required = false;
         }
         Ok(())
+    }
+
+    /// Loads the installed program anew through the program loader and starts it in `mode`, as a
+    /// new process starts it: its logical time begins at zero. False, with nothing changed, for a
+    /// runner without a loader.
+    fn load_installed(&mut self, mode: crate::RestartMode) -> Result<bool, RuntimeError> {
+        let Some(loader) = self.program_loader.as_mut() else {
+            return Ok(false);
+        };
+        let started = loader(&mut self.runtime, mode)?;
+        self.cycle_interval = started.cycle_interval;
+        self.time_scale = started.time_scale.max(1);
+        self.simulation = started.simulation;
+        self.hang_action = started.hang_action;
+        self.program_origin = self.clock.now();
+        self.runtime.reset_task_timing(Duration::ZERO);
+        Ok(true)
     }
 
     /// Execute one cycle using the current clock time.

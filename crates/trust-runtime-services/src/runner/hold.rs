@@ -37,6 +37,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::VariableStorage;
 use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
+use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
 use trust_runtime_core::vm::StatementFrame;
 
@@ -44,6 +45,7 @@ use super::debugger::{Boundary, StatementStart};
 use super::host::ProgramView;
 use super::shell::Shell;
 use super::{RunnerPlatform, FRAMES_PER_PASS, REPLY_SERVICE_INTERVAL};
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::status::IoDriverStatus;
 
 /// The halted state of a held scan, lent to the hold for the length of one hook call: the storage
@@ -163,6 +165,11 @@ impl ProgramView for HeldProgram<'_> {
         let health = drivers.clone();
         self.drivers.set(drivers);
         health
+    }
+
+    /// A held scan is a running program's, which no step runs (specification 11 §6.8.1).
+    fn step(&self, _request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
+        Err(StepRefusal::NotStopped(ResourceState::Running))
     }
 }
 

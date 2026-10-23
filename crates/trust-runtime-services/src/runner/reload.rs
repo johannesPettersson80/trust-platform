@@ -183,8 +183,13 @@ where
 
     /// Drops the program that ended, loads the newest committed container in its place and starts it
     /// in `mode`. A program that cannot start leaves the loop without one, with the reason.
-    fn reload(&mut self, mode: RestartMode) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
+    pub(super) fn reload(
+        &mut self,
+        mode: RestartMode,
+    ) -> Result<Vec<RetainApplyEvent>, RuntimeError> {
         self.unload();
+        // A program loaded in place has stepped no scan (`cycle.step`).
+        self.last_step.set(None);
         self.shell.feed();
         match self.build(mode) {
             Ok(Built {

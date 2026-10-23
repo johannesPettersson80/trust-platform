@@ -14,5 +14,6 @@ pub mod program;
 mod record;
 pub mod retain;
 mod values;
+pub mod variables;
 
 pub use functions::{RuntimeReals, KERNEL_FUNCTIONS};

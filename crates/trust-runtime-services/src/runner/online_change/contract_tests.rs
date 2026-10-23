@@ -38,6 +38,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 
 use super::{address_text, prepare_candidate, unwired_binding, Candidate};
 use crate::chip::process_io::record_lines;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::events::EVENT_STORE_CAPACITY;
 use crate::loading::select::Booted;
 use crate::runner::engine::{
@@ -169,6 +170,15 @@ impl ResourceCycle for ChangeCycle {
             format!("timing {} {}", self.name, logical_ms(now)),
         );
         self.engine.reset_task_timing(now);
+    }
+
+    fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: value::Duration,
+        deadline: Option<MonotonicInstant>,
+    ) -> Result<StepOutcome, StepRefusal> {
+        self.engine.step(request, restart_at, deadline)
     }
 
     fn generation(&self) -> Generation {

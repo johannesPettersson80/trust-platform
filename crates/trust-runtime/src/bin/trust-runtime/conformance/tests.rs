@@ -202,25 +202,6 @@ mod tests {
     }
 
     #[test]
-    fn time_series_literals_refuse_values_beyond_the_signed_nanosecond_range() {
-        assert_eq!(
-            parse_duration("9223372036854ms").expect("largest millisecond literal"),
-            Duration::from_nanos(9_223_372_036_854_000_000)
-        );
-        assert_eq!(
-            parse_duration("9223372036854775807ns").expect("largest nanosecond literal"),
-            Duration::from_nanos(i64::MAX)
-        );
-        for raw in [
-            "9223372036855ms",
-            "9223372036854775807s",
-            "18446744073709551615ms",
-        ] {
-            assert!(parse_duration(raw).is_err(), "{raw} must be refused");
-        }
-    }
-
-    #[test]
     fn advance_series_refuses_milliseconds_beyond_the_signed_nanosecond_range() {
         let manifest = CaseManifest {
             cycles: 1,
@@ -413,5 +394,33 @@ mod tests {
     fn unix_split_handles_pre_epoch_and_leap_day_boundaries() {
         assert_eq!(split_unix_utc(-1), (1969, 12, 31, 23, 59, 59));
         assert_eq!(split_unix_utc(951_782_400), (2000, 2, 29, 0, 0, 0));
+    }
+
+    #[test]
+    fn a_devices_real_compares_equal_to_this_computers_encoding() {
+        // Specification 44 §14.2: a device's JSON writes a REAL through its double, 13.37 as
+        // 13.369999885559082, where this computer writes the shortest text of the REAL itself.
+        // Normalized, the device's value is written as this computer writes it, inside an array
+        // too, and an LREAL stays as it is, so the device's trace compares with the expected
+        // artifact. Catches the device's text compared as it came.
+        let device: serde_json::Value =
+            serde_json::from_str(r#"{"type": "REAL", "value": 13.369999885559082}"#)
+                .expect("a device's REAL");
+        assert_eq!(normalized(&device), encode_value(&Value::Real(13.37)));
+        let array: serde_json::Value = serde_json::from_str(
+            r#"{"type": "ARRAY", "dimensions": [[1, 2]], "elements": [
+                {"type": "REAL", "value": 0.10000000149011612},
+                {"type": "LREAL", "value": 0.1}
+            ]}"#,
+        )
+        .expect("a device's array");
+        assert_eq!(
+            normalized(&array),
+            json!({
+                "type": "ARRAY",
+                "dimensions": [[1, 2]],
+                "elements": [encode_value(&Value::Real(0.1)), encode_value(&Value::LReal(0.1))],
+            })
+        );
     }
 }

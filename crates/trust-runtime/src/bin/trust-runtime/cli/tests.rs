@@ -1422,12 +1422,15 @@ mod tests {
                 update_expected,
                 filter,
                 execution_backend,
+                device,
+                target,
             }) => {
                 assert_eq!(suite_root, Some(PathBuf::from("conformance")));
                 assert_eq!(output, Some(PathBuf::from("summary.json")));
                 assert!(update_expected);
                 assert_eq!(filter.as_deref(), Some("timers"));
                 assert_eq!(execution_backend, ConformanceBackend::Vm);
+                assert_eq!((device, target), (None, None));
             }
             other => panic!("expected conformance command, got {other:?}"),
         }
@@ -1444,6 +1447,39 @@ mod tests {
                 ..
             }))
         ));
+        // A device names its target, and a target names its device (specification 44 §14.2): a
+        // parser that took one alone would build the cases for no device, or step a device with
+        // cases built for this computer.
+        let on_device = Cli::parse_from([
+            "trust-runtime",
+            "conformance",
+            "--execution-backend",
+            "native",
+            "--device",
+            "/dev/ttyACM0",
+            "--target",
+            "esp32c6",
+        ]);
+        match on_device.command.expect("command") {
+            Command::Conformance(ConformanceArgs { device, target, .. }) => {
+                assert_eq!(device.as_deref(), Some("/dev/ttyACM0"));
+                assert_eq!(target.as_deref(), Some("esp32c6"));
+            }
+            other => panic!("expected conformance command, got {other:?}"),
+        }
+        for alone in [["--device", "/dev/ttyACM0"], ["--target", "esp32c6"]] {
+            let parsed = Cli::try_parse_from(
+                [
+                    "trust-runtime",
+                    "conformance",
+                    "--execution-backend",
+                    "native",
+                ]
+                .into_iter()
+                .chain(alone),
+            );
+            assert!(parsed.is_err(), "{alone:?} alone must be refused");
+        }
     }
 
     #[test]

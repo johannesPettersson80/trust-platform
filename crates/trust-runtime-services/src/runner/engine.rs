@@ -33,6 +33,7 @@ mod limits;
 mod live_snapshot;
 mod process_io;
 mod services;
+mod step;
 
 use alloc::rc::Rc;
 use alloc::string::ToString;
@@ -63,6 +64,7 @@ use super::cycle::{resource_tasks, ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::HoldHandle;
 use super::retain::{RetainConfig, RetainStore};
 use super::state::Records;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::events::RuntimeEvent;
 use crate::live_values::apply::{self, WriteSink};
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -368,6 +370,15 @@ impl<C: MonotonicClock, I: ProcessIo, M> ResourceCycle for EngineCycle<'_, C, I,
 
     fn reset_task_timing(&mut self, now: Duration) {
         self.state.reset_task_timing(now);
+    }
+
+    fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: Duration,
+        deadline: Option<MonotonicInstant>,
+    ) -> Result<StepOutcome, StepRefusal> {
+        self.run_step(request, restart_at, deadline)
     }
 
     /// The generation of the engine state, which an online change reads too (`handover.rs`).

@@ -19,6 +19,7 @@ use trust_runtime_core::scheduler::ResourceState;
 
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::events::RuntimeEvent;
 use crate::installation::Admitted;
 use crate::live_values::io_requests::IoQueuePort;
@@ -134,6 +135,18 @@ pub trait ResourcePort {
     /// default.
     fn missing_program(&self) -> Option<&str> {
         None
+    }
+
+    /// Runs one stepped scan of the stopped resource's program (`cycle.step`, specification 11
+    /// §6.8.1): the restart the request asks for, its inputs, one cycle of the scheduler at its time
+    /// without the drivers, and its watches. A platform without stepped scans refuses it, the
+    /// default.
+    ///
+    /// # Errors
+    ///
+    /// The [`StepRefusal`] of a step that ran no scan or whose values cannot be read.
+    fn step_cycle(&self, _request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
+        Err(StepRefusal::Unsupported)
     }
 }
 

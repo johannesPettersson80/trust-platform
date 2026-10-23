@@ -1,8 +1,8 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.8 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
-  0.8 make exact what the implementation of milestones M1 and M2 decided within that design,
-  Appendix B),
+- **Status:** 0.9 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+  0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
+  Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -755,7 +755,8 @@ the real of `STRING_TO_REAL` and `STRING_TO_LREAL` from the text the program lib
 trimmed and took the separators out of (§6.8), with the runtime's own reader, so that a text reads
 alike in the bytecode engine and on every kernel; that reader cannot be compiled into a module,
 which must not be able to panic (§8.6). It returns 0 and the value, or the fault's code
-(`TypeMismatch`). The interface is version 2 since it has this function (version 1 had two). A module records a fault in `Cx::fault` (its code, the statement and up to
+(`TypeMismatch`). The interface is version 2 since it has this function (version 1 had two; the
+owner approved version 2 on 23 October 2026). A module records a fault in `Cx::fault` (its code, the statement and up to
 three numbers: the index and the bounds, the value and the bounds) and returns its code; no kernel
 function is called for it. A statement looks at its breakpoint bit only while `armed` is set, so a
 statement costs a store of its id, a decrement of the budget and two branches when no debugger is
@@ -1113,7 +1114,12 @@ The repository's conformance suite (`conformance/`) runs on a computer's kernel 
 for the computer and run cycle by cycle with the restarts, times, inputs and watches of its
 manifest, and its trace must equal the expected artifact the bytecode engine wrote, byte for byte.
 A name in a manifest resolves as the test harness resolves it: a global by its name, a qualified
-path by its full name, and a program variable by its name alone when one program declares it.
+path by its full name, and a program variable by its name alone when one program declares it. On a
+device the suite runs through the control request `cycle.step` (specification 11 §6.8.1):
+`trust-runtime conformance --execution-backend native --device <port> --target <target>` builds
+each case for the device's target, installs it, and steps it cycle by cycle over the device's
+control link, the first step's cold restart loading it; its trace must equal the same expected
+artifact (owner, 23 October 2026).
 
 `trust-dev test --execution-backend native` runs a project's tests compiled for the computer
 (specification 22, the test POUs): one image holds every `TEST_PROGRAM` as an instance of its name
@@ -1207,3 +1213,4 @@ reported as the runtime's `AssertionFailed` with its message.
 | 0.6 | 23 October 2026 | Exact where milestone M2's standard functions decided within the approved design: how the program library carries the runtime's rules over, function by function, for the numerical, bit, selection, comparison, string, counter and bistable functions and for dates and times (§6.8); a date and time range fault is reported as the runtime reports it, no longer as an overflow (Appendix A); the runtime's third departure from the standard, a `STRING` character above U+00FF read as a `CHAR` (§14.2). |
 | 0.7 | 23 October 2026 | Exact where milestone M2's conversions and frames decided within the approved design: a frame starts at each call at its initial values and its types' defaults, computed by the build (§6.7); numbers, characters and BCD to and from text as the runtime converts them (§6.8); the interface gains the kernel function `read_real`, the runtime's own reader of reals, which no module can carry because it can panic, and becomes version 2 (§8.2); a computer's module links the toolchain's memory functions, modules are compiled without RELRO, and the image builder relaxes x86-64 loads from the global offset table of the functions the module defines (§4.5, §4.6); a test's failed assertion is a fault of its own, 17 or 18, worded by the kernel as the runtime words it, and `trust-dev test` runs a project's tests compiled (§14.2, Appendix A). |
 | 0.8 | 23 October 2026 | Exact where milestone M2's corpus decided within the approved design: the stack bound is the deepest static call chain read from the module's call relocations, a cycle through calls bound by an instance's class turning once for each instance, with 4 KiB for the kernel functions and a quarter more (§8.5); a literal takes the type of where it goes with its sign (§6.6); a failed assertion of two texts lays them in the stack area, which the build sizes, for the kernel to word (§7.1, Appendix A); a function block instance given as an input of a method or a function is the caller's, and a result of a function block's type is a reference to the instance, so calls chain (§6.4); a `RETAIN` variable of a function block is laid with its instance and kept as the runtime keeps it (§11); `trust-dev test` runs a `TEST_FUNCTION_BLOCK` through a test program that calls it once (§14.2); a `CASE` on a text or a real is a chain of tests (§6.6); adjacent literals of a text are joined at build, so a text of literals is written from its bytes and no array of pieces holds a pointer a module would need a relocation for (§5.3). |
+| 0.9 | 23 October 2026 | The owner approved the kernel interface version 2 of 0.7 (§8.2) and chose how the corpus runs on a device: the control request `cycle.step` on every runtime (specification 11 §6.8.1), through which `trust-runtime conformance --device --target` installs and steps each case (§14.2). |

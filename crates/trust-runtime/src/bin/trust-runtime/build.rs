@@ -107,7 +107,7 @@ pub fn run_build_command(
 }
 
 /// The target `name` names: a device, a CPU, a Rust target triple or `host` (specification 44 §4.4).
-fn native_target(name: &str) -> anyhow::Result<trust_runtime::native::Target> {
+pub(crate) fn native_target(name: &str) -> anyhow::Result<trust_runtime::native::Target> {
     use trust_runtime::native::Target;
     let target = match name.to_ascii_lowercase().as_str() {
         "host" => Target::this_cpu(),

@@ -968,3 +968,81 @@ fn program_active_reports_both_containers_in_bounded_reads() {
         "{read_bytes} bytes were read: no more than the headers and the records"
     );
 }
+
+#[test]
+fn a_cold_step_after_an_install_loads_the_installed_program_and_steps_it_stopped() {
+    // Specification 11 §6.8.1: a step's cold restart loads a program installed since the program
+    // was loaded, as `restart` loads it (specification 34 STATE-08), and the resource stays Stopped.
+    // The board probe stops; the A4 program is installed; the step at 25 ms then runs the A4
+    // program's task `Periodic` once, its first activation, due one interval after the load: the
+    // counter's `Advance(0 MOD 3 + 1)` returns `history[1]`, 1, and `activations` counts 1. The
+    // next step at 50 ms goes on in the same program: `history[2]`, 2, and 2 activations. A
+    // `restart` after the steps loads nothing more and starts the program. Catches a step that
+    // restarts the probe in place and leaves the installed program unloaded, a load that starts
+    // the program running, a step's reply lost while the loop loads, and a load that a later
+    // restart repeats.
+    let rig = Rig::new(FlashProbe::erased(), CheckpointProbe::erased());
+    let mut runner = rig.runner(None);
+    rig.stop(&mut runner);
+    let installed = rig.install(&mut runner, &transfer_of(RetainMode::None), 40);
+    assert_eq!(installed["result"]["status"], json!("installed"));
+
+    let watch = json!(["activations", "result"]);
+    let stepped = rig.ports.call(
+        &mut runner,
+        &json!({
+            "id": 50,
+            "type": "cycle.step",
+            "params": {"time_ns": 25_000_000, "restart": "cold", "watch": watch},
+        }),
+    );
+    assert_eq!(
+        stepped["result"],
+        json!({
+            "time_ns": 25_000_000,
+            "values": {
+                "activations": {"type": "DINT", "value": 1},
+                "result": {"type": "INT", "value": 1},
+            },
+            "direct": {},
+            "errors": [],
+        }),
+        "{stepped}"
+    );
+    assert_eq!(
+        *rig.log.borrow(),
+        [Load {
+            sequence: 1,
+            mode: RestartMode::Cold,
+            program_bytes: PROGRAM.len(),
+        }],
+        "the step loaded the installed container's program once, cold"
+    );
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+
+    let next = rig.ports.call(
+        &mut runner,
+        &json!({
+            "id": 51,
+            "type": "cycle.step",
+            "params": {"time_ns": 50_000_000, "watch": watch},
+        }),
+    );
+    assert_eq!(
+        next["result"]["values"],
+        json!({
+            "activations": {"type": "DINT", "value": 2},
+            "result": {"type": "INT", "value": 2},
+        }),
+        "{next}"
+    );
+
+    let restarted = rig.ports.call(&mut runner, &restart(52, "cold"));
+    assert_eq!(restarted["result"], json!({"status": "restart queued"}));
+    assert_eq!(
+        rig.log.borrow().len(),
+        1,
+        "the step loaded the newest program, so the restart loads nothing"
+    );
+    assert_eq!(runner.resource_state(), ResourceState::Running);
+}

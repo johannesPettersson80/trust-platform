@@ -116,6 +116,18 @@ impl Runtime {
         }
     }
 
+    /// One stepped scan at the current logical time (`cycle.step`, specification 11 section
+    /// 6.8.1): the shared scheduler without the hosted services, so no driver is read or driven, no
+    /// retained value is saved and no metric, event or debugger sees the scan; the outputs stay in
+    /// the output image. Its fault is returned and cleared, not latched.
+    pub(crate) fn execute_stepped_cycle(&mut self) -> Result<(), RuntimeError> {
+        let result = self.state.execute_cycle(self.current_time());
+        if result.is_err() {
+            self.clear_fault();
+        }
+        result
+    }
+
     /// Publish the state a faulted scan left, before the fault's safe-state action runs: the storage
     /// as the fault left it, with the position of the statement that owns the failing instruction
     /// (specification 11 section 6.13.1). The engine has latched the fault's record when the scan

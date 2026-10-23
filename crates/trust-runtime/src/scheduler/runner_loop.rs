@@ -970,5 +970,12 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
             let snapshot = runtime.active_ads_device_snapshot(&target, local.as_ref());
             let _ = respond_to.send(snapshot);
         }
+        // Only a stopped resource takes an install; the stopped wait notes it.
+        ResourceCommand::ProgramInstalled => {}
+        // Only the stopped wait runs a step; the control plane refuses one before it is queued
+        // unless the program started meanwhile.
+        ResourceCommand::StepCycle { respond_to, .. } => {
+            let _ = respond_to.send(Err(StepRefusal::NotStopped(ResourceState::Running)));
+        }
     }
 }

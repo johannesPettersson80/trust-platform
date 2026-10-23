@@ -358,7 +358,13 @@ END_PROGRAM
                 ResourceCommand::ActiveAdsDevice { respond_to, .. } => {
                     let _ = respond_to.send(None);
                 }
+                ResourceCommand::StepCycle { respond_to, .. } => {
+                    let _ = respond_to.send(Err(
+                        trust_runtime_services::cycle_step::StepRefusal::Unsupported,
+                    ));
+                }
                 ResourceCommand::MeshApply { .. }
+                | ResourceCommand::ProgramInstalled
                 | ResourceCommand::Pause
                 | ResourceCommand::Resume
                 | ResourceCommand::UpdateSchedulerPolicies(_)

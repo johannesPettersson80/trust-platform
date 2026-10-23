@@ -62,11 +62,12 @@ use super::host::{ProgramView, RunnerHost};
 use super::install::{InstallState, Step};
 use super::online_change::ChangeState;
 use super::state::{Records, ResourceCell};
+use super::stepping::StepState;
 use super::RunnerPlatform;
-use crate::dispatch::{invalid_line, prepare_line_within, PreparedLine};
+use crate::dispatch::{invalid_line, prepare_line_within, reply_within, PreparedLine};
 use crate::loading::reload::ReloadOutcome;
 use crate::ports::{AccessPort, StatusPort};
-use crate::protocol::ControlAfterResponse;
+use crate::protocol::{ControlAfterResponse, ControlResponse};
 
 /// What a test does at each pass of a hold with the halted state that the statement hook lent: it
 /// reads the state as a debug request will.
@@ -99,6 +100,8 @@ pub(super) struct Shell<L, W, P, C> {
     pub(super) install: InstallState,
     /// The online change that waits for the program's next boundary.
     pub(super) change: ChangeState,
+    /// The stepped scan whose cold restart loads a newer program, deferred to the loop.
+    pub(super) step: StepState,
     pub(super) clock: C,
     #[cfg(test)]
     pub(super) probe: RefCell<Option<alloc::boxed::Box<HoldProbe>>>,
@@ -137,6 +140,7 @@ where
             debug: ChipDebug::new(),
             install: InstallState::default(),
             change: ChangeState::default(),
+            step: StepState::default(),
             clock,
             #[cfg(test)]
             probe: RefCell::new(None),
@@ -308,8 +312,35 @@ where
             }
             return prepared.after_response;
         }
+        if let Some(request) = self.step.take_deferred() {
+            // The loop loads the program and writes the step's reply after this pass (stepping.rs).
+            self.step.hold(self.request_id(received), request);
+            return prepared.after_response;
+        }
         self.send(&prepared.response);
         prepared.after_response
+    }
+
+    /// Writes `response`, the reply to a request that the loop finished after the request's pass,
+    /// as the dispatcher writes a reply: one frame, or the error that replaces a reply too long for
+    /// it.
+    pub(super) fn deliver(&self, response: ControlResponse, program: &dyn ProgramView) {
+        let Ok(platform) = self.platform.try_borrow() else {
+            self.fault.set(true);
+            return;
+        };
+        let host = RunnerHost {
+            platform: &*platform,
+            program,
+            resource: &self.resource,
+            records: &self.records,
+            debug: &self.debug,
+            install: &self.install,
+            change: &self.change,
+            step: &self.step,
+        };
+        let prepared = reply_within(response, self.max_frame_len, &host);
+        self.send(&prepared.response);
     }
 
     /// Sends `response`, one reply, when it fits a frame.
@@ -404,6 +435,7 @@ where
             debug: &self.debug,
             install: &self.install,
             change: &self.change,
+            step: &self.step,
         };
         Some(prepare_line_within(line, &host, client.as_deref(), max_len))
     }

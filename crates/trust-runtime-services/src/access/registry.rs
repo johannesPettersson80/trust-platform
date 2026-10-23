@@ -198,6 +198,7 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     ),
     operation("eval", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("set", RolePolicy::Fixed(AccessRole::Engineer), true),
+    operation("cycle.step", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("var.force", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("var.unforce", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("io.write", RolePolicy::Fixed(AccessRole::Engineer), false),

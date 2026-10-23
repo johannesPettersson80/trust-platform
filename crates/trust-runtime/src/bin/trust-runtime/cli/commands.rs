@@ -381,6 +381,14 @@ pub struct ConformanceArgs {
     /// which needs the toolchain at `TRUST_TOOLCHAIN`.
     #[arg(long = "execution-backend", value_enum, default_value_t = ConformanceBackend::Vm)]
     pub execution_backend: ConformanceBackend,
+    /// The serial port of a device that runs the runtime cases with the native backend, or
+    /// `tcp://<host>:<port>` of a bridge to that port: each case is compiled for the device's
+    /// `--target`, installed, and stepped cycle by cycle with `cycle.step` (specification 44 §14.2).
+    #[arg(long, requires = "target")]
+    pub device: Option<String>,
+    /// The device's target, as `trust-runtime build --target` names it: `esp32c6`, `stm32u5a9`.
+    #[arg(long, requires = "device")]
+    pub target: Option<String>,
 }
 
 /// What runs the runtime cases of `conformance`.

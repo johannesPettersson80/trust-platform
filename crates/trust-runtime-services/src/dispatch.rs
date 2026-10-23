@@ -18,6 +18,7 @@ use crate::access::{
     is_debug_request, required_role_for_control_request, stamp_credential_channel_param, AccessRole,
 };
 use crate::capabilities;
+use crate::cycle_step;
 use crate::events::{wall_time, RuntimeEvent};
 use crate::live_values::{io_requests, var_requests};
 use crate::loading::program_install;
@@ -81,6 +82,16 @@ pub fn prepare_line_within<H: ControlHost>(
         Some(read) => link_reply::event_read_within(read, &admitted.request, host, client, max_len),
         None => link_reply::within(answer(admitted, host, client), max_len, host),
     }
+}
+
+/// The line of `response`, a reply that its platform finished after the request's pass, within
+/// `max_len` bytes as [`prepare_line_within`] writes a reply.
+pub(crate) fn reply_within<H: ControlHost>(
+    response: ControlResponse,
+    max_len: usize,
+    host: &H,
+) -> PreparedLine {
+    link_reply::within(response, max_len, host)
 }
 
 /// The response to one request line, before it is serialized.
@@ -245,6 +256,7 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "pause" => operations::pause(id, host),
         "resume" => operations::resume(id, host),
         "restart" => operations::restart(id, request.params.clone(), host),
+        "cycle.step" => cycle_step::request(id, request.params.as_ref(), host),
         "shutdown" => operations::shutdown(id, request.params.as_ref()),
         "program.install" => program_install::request(id, request.params.as_ref(), host),
         "transfer.begin" | "transfer.part" | "transfer.status" | "transfer.get"

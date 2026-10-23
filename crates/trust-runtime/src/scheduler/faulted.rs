@@ -17,6 +17,7 @@ use super::supervisor::ScanSupervision;
 use super::{
     apply_resource_command, command_class, recover_mutex_lock, set_last_error, set_resource_state,
     AutomaticRestartLimiter, Clock, ResourceCommand, ResourceRunner, ResourceState, RuntimeError,
+    StepRefusal,
 };
 
 /// Poll period of the faulted wait, the shared one. A command wakes the wait at once. A restart
@@ -156,6 +157,11 @@ pub(super) fn serve_command<C: Clock + Clone>(
     runner: &mut ResourceRunner<C>,
     command: ResourceCommand,
 ) -> bool {
+    if let ResourceCommand::StepCycle { respond_to, .. } = command {
+        // A faulted program takes no step (specification 11 section 6.8.1).
+        let _ = respond_to.send(Err(StepRefusal::NotStopped(ResourceState::Faulted)));
+        return false;
+    }
     match faulted_command_effect(command_class(&command)) {
         // The control plane refuses pause and resume while faulted; they are ignored if they
         // arrive. Variable writes are dropped: fault handling is a clearing boundary (spec 11

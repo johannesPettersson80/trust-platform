@@ -491,6 +491,92 @@ fn a_restart_from_stopped_reads_the_installed_cycle_interval_again() {
     );
 }
 
+/// A `cycle.step` request `id` with `params`.
+fn cycle_step(runtime: &Runtime, id: u64, params: Value) -> Value {
+    runtime.control_request(json!({"id": id, "type": "cycle.step", "params": params}))
+}
+
+#[test]
+fn a_stopped_computer_steps_its_program_and_loads_an_installed_one() {
+    // Specification 11 section 6.8.1: a stopped computer answers `cycle.step` as a chip does. The
+    // first step restarts the example cold at time zero and writes 41 into `%MW0`, where
+    // `VAR_CONFIG` locates `Counter`; the scan at 50 ms runs the task `Cycle` once: `CounterLatched`
+    // takes 41 and `Counter` 42, which `%MW0` then holds (as the conformance case
+    // `cfm_memory_map_var_config_sync_001` expects); the bare name `Counter` is the one program's
+    // variable, `P1.CounterLatched` the qualified one, and `%QW0` holds `CounterLatched`. The next
+    // step goes on from 50 ms with `Counter` 42; a time before it is refused.
+    // A program installed while stopped is loaded by the next cold step, whose time starts at zero
+    // again: the second program's scan at 50 ms climbs `Counter` by two from zero. The resource
+    // stays Stopped throughout. Wrong behaviour: the step scans a running program, starts the
+    // tasks, keeps the old program after the install, or lets the time run backwards.
+    let runtime = ExampleRuntime::new(EXAMPLE).debug_enabled(true).start();
+    runtime.wait_for_snapshot(CLIMB, "five scans", |s| s.scan() >= 5);
+    let refused = cycle_step(&runtime, 1, json!({"time_ns": 0, "restart": "cold"}));
+    assert_eq!(
+        refused["error_code"],
+        json!("resource_not_running"),
+        "{refused}"
+    );
+    stop_the_program(&runtime);
+
+    let watch = json!(["Counter", "P1.CounterLatched"]);
+    let first = cycle_step(
+        &runtime,
+        2,
+        json!({
+            "time_ns": 50_000_000,
+            "restart": "cold",
+            "direct_inputs": {"%MW0": "WORD:41"},
+            "watch": watch,
+            "watch_direct": ["%MW0", "%QW0"],
+        }),
+    );
+    let first = result_of(&first);
+    assert_eq!(first["time_ns"], json!(50_000_000));
+    assert_eq!(
+        first["values"],
+        json!({
+            "Counter": {"type": "INT", "value": 42},
+            "P1.CounterLatched": {"type": "INT", "value": 41},
+        })
+    );
+    assert_eq!(
+        first["direct"]["%MW0"],
+        json!({"type": "WORD", "value": 42}),
+        "{first}"
+    );
+    assert_eq!(first["direct"]["%QW0"]["value"], json!(41), "{first}");
+    assert_eq!(first["errors"], json!([]));
+
+    let back = cycle_step(&runtime, 3, json!({"time_ns": 10_000_000}));
+    assert_eq!(back["error"], json!("time before the last step"));
+    let second = cycle_step(&runtime, 4, json!({"time_ns": 100_000_000, "watch": watch}));
+    assert_eq!(
+        result_of(&second)["values"]["Counter"],
+        json!({"type": "INT", "value": 43})
+    );
+
+    let step_two = step_two_program();
+    let container = encode_sequenced(1, &step_two.program, &step_two.record)
+        .expect("encode the container of the second program");
+    let transfer = upload(&runtime, &container);
+    let installed = runtime.control_request(
+        json!({"id": 20, "type": "program.install", "params": {"transfer": transfer}}),
+    );
+    assert_eq!(result_of(&installed)["status"], json!("installed"));
+    let loaded = cycle_step(
+        &runtime,
+        21,
+        json!({"time_ns": 50_000_000, "restart": "cold", "watch": ["Counter"]}),
+    );
+    assert_eq!(
+        result_of(&loaded)["values"]["Counter"],
+        json!({"type": "INT", "value": 2}),
+        "the installed program climbs by two"
+    );
+    assert_eq!(runtime.status().state, "stopped", "a step starts no task");
+}
+
 /// Uploads `bytes` over the control connection in parts, and returns the finished transfer.
 fn upload(runtime: &Runtime, bytes: &[u8]) -> String {
     let begin = runtime.control_request(json!({

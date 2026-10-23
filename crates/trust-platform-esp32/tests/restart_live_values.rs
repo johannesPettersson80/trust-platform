@@ -35,6 +35,7 @@ use trust_runtime_core::vm::{CycleHooks, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use trust_runtime_services::live_values::var_requests::VariableQueuePort;
 use trust_runtime_services::runner::engine::DeviceMemory;
 use trust_runtime_services::runner::{
@@ -197,6 +198,15 @@ impl ResourceCycle for Shared {
 
     fn reset_task_timing(&mut self, now: Duration) {
         self.0.borrow_mut().reset_task_timing(now);
+    }
+
+    fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: Duration,
+        deadline: Option<MonotonicInstant>,
+    ) -> Result<StepOutcome, StepRefusal> {
+        self.0.borrow_mut().step(request, restart_at, deadline)
     }
 
     fn generation(&self) -> Generation {

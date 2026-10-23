@@ -31,6 +31,7 @@ use trust_runtime_core::vm::{CycleHooks, CyclePhase};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::CompiledCycle;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::runner::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use crate::runner::engine::{CycleSettings, ProcessIo};
 use crate::status::IoDriverStatus;
@@ -549,4 +550,122 @@ fn the_observers_operations_are_not_the_programs() {
         .expect("the scan runs");
     assert_eq!(cycle.last_scan_allocations(), Some(0));
     assert_eq!(observed_operations() - start, 7);
+}
+
+/// A step of the fixture's program at `time` milliseconds, with `restart`, writing `inputs` and
+/// reading `watch` and the output bit `%QX0.1`.
+fn step(
+    time: i64,
+    restart: Option<RestartMode>,
+    inputs: Vec<(&str, Value)>,
+    watch: &[&str],
+) -> StepRequest {
+    StepRequest {
+        time: Duration::from_millis(time),
+        restart,
+        inputs: inputs
+            .into_iter()
+            .map(|(name, value)| (name.into(), value))
+            .collect(),
+        direct_inputs: Vec::new(),
+        watch: watch.iter().map(|name| (*name).into()).collect(),
+        watch_direct: vec![(
+            "%QX0.1".into(),
+            IoAddress::parse("%QX0.1").expect("an output bit"),
+        )],
+    }
+}
+
+#[test]
+fn a_step_restarts_writes_scans_and_reads_without_the_drivers() {
+    // Specification 11 §6.8.1: a cold restart at time 0 gives the count its starting 5; the input
+    // then writes 20; the scan at 10 ms runs the due task once, 21, whose lowest bit sets `OUT` and
+    // `%QX0.1`. `OUT` alone names `MAIN.OUT`, as the one program declares it. The drivers neither
+    // read nor drive anything, and the step latches nothing. Catches an input written before the
+    // restart (the count would be 6), a scan at the restart's time (the task is not due at 0), a
+    // step that drives the outputs, and a bare name that resolves to nothing.
+    let bytes = image(0);
+    let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
+    let outcome = cycle
+        .step(
+            &step(
+                10,
+                Some(RestartMode::Cold),
+                vec![("MAIN.COUNT", Value::USInt(20))],
+                &["MAIN.COUNT", "out"],
+            ),
+            Duration::ZERO,
+            None,
+        )
+        .expect("the step runs");
+    assert_eq!(
+        outcome,
+        StepOutcome {
+            values: vec![
+                ("MAIN.COUNT".into(), Value::USInt(21)),
+                ("out".into(), Value::USInt(1)),
+            ],
+            direct: vec![("%QX0.1".into(), Value::Bool(true))],
+            error: None,
+        }
+    );
+    assert_eq!(
+        driven.borrow().outputs,
+        Vec::<Vec<u8>>::new(),
+        "no driver was driven"
+    );
+    assert_eq!(
+        cycle.generation(),
+        Generation::FIRST.next().expect("a next generation")
+    );
+}
+
+#[test]
+fn a_name_that_names_nothing_refuses_the_step_before_anything_changes() {
+    // Specification 11 §6.8.1: a name that names no variable refuses the whole step before the
+    // restart, so the count the first scan made, 6, stays. Catches names resolved after the
+    // restart.
+    let bytes = image(0);
+    let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+    cycle
+        .run_scan(Duration::from_millis(10), None, &mut Phases::default())
+        .expect("the scan runs");
+    let refused = cycle.step(
+        &step(
+            20,
+            Some(RestartMode::Cold),
+            vec![("NOPE", Value::USInt(1))],
+            &[],
+        ),
+        Duration::from_millis(10),
+        None,
+    );
+    assert_eq!(
+        refused,
+        Err(StepRefusal::name(
+            "NOPE",
+            "names no variable of the compiled program"
+        ))
+    );
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(6)));
+}
+
+#[test]
+fn a_stepped_fault_is_reported_and_not_latched() {
+    // Specification 11 §6.8.1: the fault of a stepped scan is in its outcome, and the next step runs
+    // the next scan, which faults again on its own. Catches a step that latches its fault, after
+    // which the next step would answer the latched fault without scanning.
+    let bytes = image(16);
+    let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
+    for (time, restart) in [(10, Some(RestartMode::Cold)), (20, None)] {
+        let outcome = cycle
+            .step(&step(time, restart, Vec::new(), &[]), Duration::ZERO, None)
+            .expect("the step runs");
+        assert_eq!(
+            outcome.error,
+            Some(RuntimeError::DivisionByZero),
+            "{time} ms"
+        );
+    }
+    assert_eq!(driven.borrow().outputs, Vec::<Vec<u8>>::new());
 }

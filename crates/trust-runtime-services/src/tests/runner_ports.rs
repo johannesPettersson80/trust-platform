@@ -28,6 +28,7 @@ use trust_runtime_core::vm::{
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 pub(crate) use super::runner_platform::TestPlatform;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::events::EVENT_STORE_CAPACITY;
 use crate::runner::engine::{
     device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle, ProcessIo,
@@ -643,6 +644,15 @@ impl ResourceCycle for ScriptedCycle<'_> {
             .calls
             .push(CycleCall::TaskTiming(since_start(now)));
         self.engine.reset_task_timing(now);
+    }
+
+    fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: value::Duration,
+        deadline: Option<MonotonicInstant>,
+    ) -> Result<StepOutcome, StepRefusal> {
+        self.engine.step(request, restart_at, deadline)
     }
 
     fn generation(&self) -> Generation {

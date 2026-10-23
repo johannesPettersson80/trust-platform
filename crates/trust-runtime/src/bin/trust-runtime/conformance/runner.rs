@@ -5,16 +5,16 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
         update_expected,
         filter,
         execution_backend: backend,
+        device,
+        target,
     } = args;
     // The expected artifacts are the bytecode engine's; the native backend is measured against
     // them (specification 44 §14.2).
     if update_expected && backend == ConformanceBackend::Native {
         bail!("expected artifacts are written with the vm backend; drop --update-expected");
     }
-    let runtime_name = match backend {
-        ConformanceBackend::Vm => "trust-runtime",
-        ConformanceBackend::Native => "trust-runtime-native",
-    };
+    let mut device = open_device(backend, device, target.as_deref())?;
+    let (runtime_name, actual_dir) = run_names(backend, device.is_some());
     let suite_root = resolve_suite_root(suite_root)?;
     let mut cases = discover_cases(&suite_root)?;
     if let Some(filter) = filter.as_deref() {
@@ -32,10 +32,6 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
     let reports_root = suite_root.join("reports");
     fs::create_dir_all(&reports_root)
         .with_context(|| format!("create reports directory '{}'", reports_root.display()))?;
-    let actual_dir = match backend {
-        ConformanceBackend::Vm => "actual",
-        ConformanceBackend::Native => "actual-native",
-    };
     let actual_root = reports_root.join(actual_dir);
     fs::create_dir_all(&actual_root)
         .with_context(|| format!("create actual report directory '{}'", actual_root.display()))?;
@@ -73,7 +69,7 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
             reason: None,
         };
 
-        match execute_case(case, backend) {
+        match execute_case(case, backend, device.as_mut()) {
             Ok(artifact) => {
                 summary_result.cycles = artifact.cycles;
                 if update_expected {
@@ -196,5 +192,31 @@ fn summary_contract_for_cases(cases: &[CaseDefinition]) -> SummaryContract {
         SummaryContract::v1()
     } else {
         SummaryContract::v2()
+    }
+}
+
+/// The device that runs the runtime cases, compiled for it and stepped over its control link
+/// (specification 44 §14.2), when the run names one; only the native backend runs on a device.
+fn open_device(
+    backend: ConformanceBackend,
+    port: Option<String>,
+    target: Option<&str>,
+) -> anyhow::Result<Option<DeviceRun>> {
+    let Some(port) = port else {
+        return Ok(None);
+    };
+    if backend != ConformanceBackend::Native {
+        bail!("a device runs compiled programs: use --execution-backend native");
+    }
+    DeviceRun::open(&port, target.unwrap_or_default()).map(Some)
+}
+
+/// The runtime's name in the summary and the folder of the actual artifacts, for what runs the
+/// runtime cases.
+fn run_names(backend: ConformanceBackend, on_device: bool) -> (&'static str, &'static str) {
+    match (backend, on_device) {
+        (ConformanceBackend::Vm, _) => ("trust-runtime", "actual"),
+        (ConformanceBackend::Native, false) => ("trust-runtime-native", "actual-native"),
+        (ConformanceBackend::Native, true) => ("trust-runtime-device", "actual-device"),
     }
 }

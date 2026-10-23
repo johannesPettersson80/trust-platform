@@ -15,15 +15,15 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
-use super::cycle::ResourceCycle;
 use super::debugger::ChipDebug;
 use super::engine::EngineLiveValues;
 use super::install::InstallState;
 use super::online_change::ChangeState;
-use super::program::Program;
 use super::state::{Records, ResourceCell};
+use super::stepping::StepState;
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::events::RuntimeEvent;
 use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -127,16 +127,13 @@ pub(super) trait ProgramView {
 
     /// The health of the program's I/O drivers, in `io.toml` order.
     fn driver_health(&self) -> Vec<IoDriverStatus>;
-}
 
-impl<Y: ResourceCycle> ProgramView for Program<Y> {
-    fn missing_program(&self) -> Option<&str> {
-        self.missing()
-    }
-
-    fn driver_health(&self) -> Vec<IoDriverStatus> {
-        self.io_drivers()
-    }
+    /// Runs one stepped scan of the stopped program (`cycle.step`, specification 11 §6.8.1).
+    ///
+    /// # Errors
+    ///
+    /// The [`StepRefusal`] of a step that ran no scan or whose values cannot be read.
+    fn step(&self, request: &StepRequest) -> Result<StepOutcome, StepRefusal>;
 }
 
 /// The ports the dispatcher reads and acts through while the loop serves a request.
@@ -150,6 +147,8 @@ pub(super) struct RunnerHost<'a, P, C> {
     pub(super) install: &'a InstallState,
     /// The online change that waits for the program's next boundary.
     pub(super) change: &'a ChangeState,
+    /// The step deferred to the loop.
+    pub(super) step: &'a StepState,
 }
 
 impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
@@ -243,6 +242,20 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
         } else {
             Some(reason)
         }
+    }
+
+    /// The loop lends its program between scans; a scan that a debugger holds cannot step. A cold
+    /// restart that finds a program installed since the program was loaded loads it first, as
+    /// `restart` loads it (specification 34 STATE-08), which only the loop can do: the step is
+    /// deferred to the loop.
+    fn step_cycle(&self, request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
+        if request.restart == Some(RestartMode::Cold)
+            && self.install.newer_container().unwrap_or(false)
+        {
+            self.step.defer(request.clone());
+            return Err(StepRefusal::Deferred);
+        }
+        self.program.step(request)
     }
 }
 

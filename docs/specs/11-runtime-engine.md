@@ -2531,7 +2531,20 @@ The runner supports three closed case kinds:
 
 Cases execute in ascending case-ID order. Runtime artifacts contain the
 declared observations for every cycle; connector artifacts contain every
-projected step. `--update-expected` writes canonical pretty JSON to the
+projected step. `--execution-backend native` runs each runtime case compiled for
+this computer (specification 44 §14.2); with `--device <port> --target <target>`,
+the port a serial port or `tcp://<host>:<port>` of a bridge to one on another
+computer, it runs each on the device instead: the case is compiled for the target, as
+`trust-runtime build --target` names it, installed over the device's control
+link, and stepped cycle by cycle with `cycle.step`, the first step restarting it
+cold, which loads it, and each later step taking the restarts that the manifest
+names before its cycle as one, cold when one of them is. A device takes its debug
+surface from the record of the program it has loaded, so the run first installs,
+starts and stops an idle program whose record turns the debug surface on; every
+case's record turns it on too. A `REAL` the device
+writes through its double is compared as this computer writes the `REAL`. The
+summary names the runtime `trust-runtime-device` and the actual artifacts go to
+`reports/actual-device`. `--update-expected` writes canonical pretty JSON to the
 category's expected-artifact path. Verify mode distinguishes a missing or
 unreadable expectation from a readable value mismatch, writes actual mismatch
 artifacts, and emits stable reason codes. Suites containing only the six legacy
@@ -2720,6 +2733,54 @@ step of its control loop. The first request after such a `restart` waits for the
 bench has not measured yet; a client that must not time out reads that reply with the bound T of
 the `program.install` of the same container, which covers the load: the load does the checks of
 that install once, where the install did them twice, and writes nothing.
+
+###### Stepped scans (`cycle.step`)
+
+`cycle.step` runs one scan of the stopped program on request: at a logical time the client gives,
+with the values the client gives written before it, and the values the client names read after it.
+Every runtime answers it alike, a computer and a chip (specification 34 STATE-08: no request of one
+platform alone). It is how the conformance corpus runs on a device (specification 44 §14.2), and a
+test or a simulator may use it too (owner, 23 October 2026).
+
+- It runs only while the resource is Stopped. Any other state refuses it as `program.install` is
+  refused (`resource_not_running`, with the state), and a device without an installed program
+  refuses it with the reason. The step starts no task: the resource is Stopped after it.
+- It needs the role that writes values (`Engineer`) and the debug surface
+  (`runtime.control.debug_enabled`), as `set` does; without the debug surface it is refused as every
+  debug request is.
+- `time_ns` (required): the logical time of the scan, a whole number of nanoseconds. The stepped
+  scans have a logical time of their own, which goes on across their restarts, as the conformance
+  runner's time does: no step's time is before the previous step's (`time before the last step`).
+- `restart` (optional): `"cold"` or `"warm"`, a restart of the program before the scan, at the time
+  of the previous step, without starting its tasks. A cold restart starts the installed program
+  cold: a program installed since the program was loaded (`program.install` while Stopped) is first
+  loaded in its place, as `restart` loads it (specification 34 STATE-08), and the stepped time then
+  starts at zero. A warm restart restarts the program in place from the values it holds, as an
+  automatic restart after a fault restarts it: the retained values keep what the scans left them,
+  and no checkpoint is read. The first step after the resource stopped must restart the program;
+  one without `restart` is refused with `restart required`.
+- `inputs` (optional): an object of a name and a typed value text each (`"BOOL:true"`, `"INT:7"`, as
+  the conformance manifests write them), written before the scan, in the order of the names, into
+  the variable the name names: a global by its name, a qualified path by its full name, and a
+  program variable by its name alone when exactly one program declares it.
+- `direct_inputs` (optional): an object of a process-image address and a typed value text each,
+  written into the process image before the scan, in the order of the addresses.
+- `watch` (optional): the names read after the scan; `watch_direct` (optional): the process-image
+  addresses read after the scan.
+
+The scan is one cycle of the scheduler at `time_ns` (specification 10 §4.3): the tasks due then run
+in priority order, then the programs without a task. The drivers are neither sampled nor driven and
+the outputs are published to the output image only; no retained value is captured or saved, no
+forced value or queued write applies, and no metric, event or task statistic counts the scan. The
+watchdog bounds the scan as it bounds every scan. The result is
+`{"time_ns": t, "values": {...}, "direct": {...}, "errors": [...]}`: each value as a conformance
+artifact writes it (`{"type": "INT", "value": 7}`, a duration in `nanos`, a date in `ticks`), and in
+`errors` the text of the error the scan ended with, none for a scan that completed. A fault of a
+stepped scan is reported and not latched: no safe state is applied, the resource stays Stopped, and
+the next step runs the next scan, as the conformance runner's kernel continues. A name that names no
+variable, or that names one of several programs, refuses the step before its scan, with the name (a
+step that loads a program finds its names in the loaded program); a value that its variable or
+address does not take ends the step before the scan, and the values written before it stay written.
 
 ###### Runtime control request, job, and state-surface contract
 
@@ -5648,7 +5709,7 @@ The explicit operation matrix is:
 |---|---|
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
-| Engineer | step operations, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Engineer | step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:

@@ -13,7 +13,8 @@ fn execute_runtime_case_native(
     validate_series_lengths(case, cycles)?;
     let toolchain = Toolchain::from_env()
         .map_err(|error| anyhow!("the native backend needs its toolchain: {error}"))?;
-    let target = Target::this_cpu().ok_or_else(|| anyhow!("this computer's CPU has no native target"))?;
+    let target =
+        Target::this_cpu().ok_or_else(|| anyhow!("this computer's CPU has no native target"))?;
     let files: Vec<SourceFile> = sources
         .iter()
         .map(|text| SourceFile::new(text.as_str()))
@@ -40,8 +41,7 @@ fn execute_runtime_case_native(
         task_stack: 1 << 24,
         max_statements: 1_000_000,
     };
-    let mut program =
-        native::load(&built.image, &device).map_err(|error| anyhow!("{error}"))?;
+    let mut program = native::load(&built.image, &device).map_err(|error| anyhow!("{error}"))?;
     program
         .cold_start(Duration::ZERO)
         .map_err(|error| anyhow!("the cold start failed: {error}"))?;
@@ -150,74 +150,36 @@ fn execute_runtime_case_native(
     })
 }
 
-/// The symbol a case's name reads or writes in a compiled program, by the harness's rules: a global
-/// by its name, a qualified path such as `Program.variable` by its full name, and a program variable
-/// by its name alone when exactly one program declares it.
-fn native_symbol(image: &Image<'_>, name: &str) -> anyhow::Result<u32> {
-    let canonical = name.to_ascii_uppercase();
-    if let Some((index, symbol)) = image.find_symbol(&canonical)
-        && symbol.flags & SYMBOL_PROGRAM == 0
-    {
-        return Ok(index);
-    }
-    let symbols = image
-        .table::<SymbolRecord>()
-        .map_err(|error| anyhow!("{error}"))?;
-    let mut found = None;
-    for program in symbols
-        .iter()
-        .filter(|symbol| symbol.flags & SYMBOL_PROGRAM != 0 && symbol.parent == NONE)
-    {
-        let program_name = image.string(program.canonical).unwrap_or("");
-        if let Some((index, _)) = image.find_symbol(&format!("{program_name}.{canonical}"))
-            && found.replace(index).is_some()
-        {
-            bail!("'{name}' names a variable of several programs");
-        }
-    }
-    found.ok_or_else(|| anyhow!("'{name}' names no variable of the compiled program"))
+/// The symbol a case's name reads or writes in a compiled program, by the harness's rules
+/// ([`Image::find_variable`](trust_runtime_core::native::image::Image::find_variable)).
+fn native_symbol(
+    image: &trust_runtime_core::native::image::Image<'_>,
+    name: &str,
+) -> anyhow::Result<u32> {
+    image
+        .find_variable(name)
+        .map_err(|error| anyhow!("'{name}' {error}"))
 }
 
-/// The process image `address` lies in, as the kernel's program holds it: the inputs the drivers
-/// fill, the outputs the last scan published, or the marker area.
+/// The value at process-image `address` of the kernel's program.
 fn read_native_image(
     program: &native::NativeProgram<'_, native::HostCode>,
     address: &str,
 ) -> anyhow::Result<Value> {
     let address = IoAddress::parse(address).map_err(|error| anyhow!("{error}"))?;
-    let value = match address.area {
-        IoArea::Input => read_flat_image(&program.inputs, &address),
-        IoArea::Output => read_flat_image(&program.outputs, &address),
-        IoArea::Memory => {
-            let mut markers = vec![0u8; program.area_length(trust_plc_abi::AREA_MARKERS)];
-            program.read(trust_plc_abi::AREA_MARKERS, 0, &mut markers);
-            read_flat_image(&markers, &address)
-        }
-    };
-    value.map_err(|error| anyhow!("{error}"))
+    program
+        .read_address(&address)
+        .map_err(|error| anyhow!("{error}"))
 }
 
-/// Writes `value` at `address` into the process image the kernel's program holds: the input image
-/// the next scan samples, or the marker area.
+/// Writes `value` at process-image `address` of the kernel's program.
 fn write_native_image(
     program: &mut native::NativeProgram<'_, native::HostCode>,
     address: &str,
     value: Value,
 ) -> anyhow::Result<()> {
     let address = IoAddress::parse(address).map_err(|error| anyhow!("{error}"))?;
-    match address.area {
-        IoArea::Input => write_flat_image(&mut program.inputs, &address, value)
-            .map_err(|error| anyhow!("{error}")),
-        IoArea::Output => write_flat_image(&mut program.outputs, &address, value)
-            .map_err(|error| anyhow!("{error}")),
-        IoArea::Memory => {
-            let mut markers = vec![0u8; program.area_length(trust_plc_abi::AREA_MARKERS)];
-            program.read(trust_plc_abi::AREA_MARKERS, 0, &mut markers);
-            write_flat_image(&mut markers, &address, value).map_err(|error| anyhow!("{error}"))?;
-            if !program.write(trust_plc_abi::AREA_MARKERS, 0, &markers) {
-                bail!("the address lies outside the program's marker image");
-            }
-            Ok(())
-        }
-    }
+    program
+        .write_address(&address, value)
+        .map_err(|error| anyhow!("{error}"))
 }

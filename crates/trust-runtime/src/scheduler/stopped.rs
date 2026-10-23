@@ -12,7 +12,7 @@ use trust_runtime_services::resource::commands::CommandClass;
 
 use super::faulted::{next_command, take_pending_restart};
 use super::{
-    apply_resource_command, command_class, set_last_error, set_resource_state,
+    apply_resource_command, command_class, set_last_error, set_resource_state, stepped,
     AutomaticRestartLimiter, Clock, LoopShared, ResourceCommand, ResourceRunner, ResourceState,
 };
 
@@ -35,6 +35,9 @@ pub(super) fn wait_while_stopped<C: Clock + Clone>(
     shared: &LoopShared<'_>,
     automatic_restarts: &mut AutomaticRestartLimiter,
 ) -> StoppedWait {
+    // What the stepped scans since the resource stopped keep (specification 11 section 6.8.1);
+    // every stop starts this wait again, so the steps after a new stop start afresh.
+    let mut steps = stepped::Steps::default();
     loop {
         // An exit request is checked first, so no program starts after it.
         if shared.stop.load(Ordering::SeqCst) {
@@ -43,7 +46,7 @@ pub(super) fn wait_while_stopped<C: Clock + Clone>(
         // A `shutdown` of a stopped program stops nothing more.
         let _ = shared.supervision.take_program_stop();
         if let Some(command) = next_command(runner) {
-            serve_command(runner, command);
+            serve_command(runner, command, &mut steps);
         }
         if let Some(mode) = take_pending_restart(runner) {
             return match runner.restart_or_reload(mode) {
@@ -64,12 +67,31 @@ pub(super) fn wait_while_stopped<C: Clock + Clone>(
     }
 }
 
-/// Serves one command while stopped. A configuration update or a read-only report answers as it
-/// does while the program runs. The other commands have nothing to act on: the control plane
-/// refuses a pause and a resume while stopped, the stop cleared the queued variable writes
-/// (specification 11 section 6.9.2), and an online change is refused while stopped
-/// (specification 11 section 6.7.1), so its sender sees the request dropped.
-fn serve_command<C: Clock + Clone>(runner: &mut ResourceRunner<C>, command: ResourceCommand) {
+/// Serves one command while stopped. A stepped scan runs here, and only here (specification 11
+/// section 6.8.1). A configuration update or a read-only report answers as it does while the
+/// program runs. The other commands have nothing to act on: the control plane refuses a pause and
+/// a resume while stopped, the stop cleared the queued variable writes (specification 11 section
+/// 6.9.2), and an online change is refused while stopped (specification 11 section 6.7.1), so its
+/// sender sees the request dropped.
+fn serve_command<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+    command: ResourceCommand,
+    steps: &mut stepped::Steps,
+) {
+    match command {
+        ResourceCommand::StepCycle {
+            request,
+            respond_to,
+        } => {
+            let _ = respond_to.send(stepped::step(runner, &request, steps));
+            return;
+        }
+        ResourceCommand::ProgramInstalled => {
+            steps.installed = true;
+            return;
+        }
+        _ => {}
+    }
     match command_class(&command) {
         CommandClass::Service => apply_resource_command(&mut runner.runtime, command),
         CommandClass::Pause

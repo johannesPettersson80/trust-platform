@@ -11,6 +11,10 @@
 //! overruns, start and end, the output sample and the cycle's end, in an engine scan's order,
 //! through [`CycleHooks::on_compiled_phase`].
 //!
+//! A stepped scan (`cycle.step`, specification 11 §6.8.1) runs the same scan without the drivers,
+//! the observers and the capture of the retained values, the names found in the image's symbol
+//! table as the test harness finds them.
+//!
 //! A cycle built with [`CompiledCycle::with_retain`] also holds the chip's checkpoint store, as an
 //! engine cycle does (specification 34 §10; specification 44 §11): the retained values are captured
 //! through the image's retain map after the observers saw the output sample, a pending checkpoint
@@ -18,6 +22,7 @@
 //! by name. Without one, a stop saves nothing and a warm restart keeps the retained values the
 //! program holds in its memory.
 
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
@@ -25,7 +30,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_image::{write_flat_image, FlatImages};
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::image::BACKGROUND_PRIORITY;
-use trust_runtime_core::native::program::{ModuleCode, NativeProgram, ScanHooks};
+use trust_runtime_core::native::program::{ModuleCode, NativeProgram, NoHooks, ScanHooks};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::Duration;
@@ -35,6 +40,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use super::engine::{CycleSettings, ProcessIo};
 use super::retain::{RetainConfig, RetainStore};
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
@@ -321,6 +327,88 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
 
     fn reset_task_timing(&mut self, now: Duration) {
         self.program.reset_task_timing(now);
+    }
+
+    /// The names are found in the image's symbol table before anything changes. A restart restarts
+    /// the program at `restart_at`, as the conformance runner's kernel restarts it, and installs the
+    /// next generation. The scan runs without hooks, so no driver, observer or capture of the
+    /// retained values takes part, and the outputs it publishes stay in the output image.
+    fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: Duration,
+        deadline: Option<MonotonicInstant>,
+    ) -> Result<StepOutcome, StepRefusal> {
+        let image = self.program.image();
+        let find = |name: &SmolStr| {
+            image
+                .find_variable(name)
+                .map_err(|error| StepRefusal::name(name, error.to_string()))
+        };
+        let inputs = request
+            .inputs
+            .iter()
+            .map(|(name, value)| Ok((name, find(name)?, value)))
+            .collect::<Result<Vec<_>, StepRefusal>>()?;
+        let watch = request
+            .watch
+            .iter()
+            .map(|name| Ok((name, find(name)?)))
+            .collect::<Result<Vec<_>, StepRefusal>>()?;
+        if let Some(mode) = request.restart {
+            let generation = self
+                .generation
+                .next()
+                .ok_or(StepRefusal::Restart(RuntimeError::Overflow))?;
+            match mode {
+                RestartMode::Cold => self.program.cold_start(restart_at),
+                RestartMode::Warm => self.program.warm_start(restart_at),
+            }
+            .map_err(StepRefusal::Restart)?;
+            self.generation = generation;
+            self.fault = None;
+        }
+        for (name, symbol, value) in inputs {
+            self.program
+                .write_symbol(symbol, value)
+                .map_err(|error| StepRefusal::write(name, &error))?;
+        }
+        for (text, address, value) in &request.direct_inputs {
+            self.program
+                .write_address(address, value.clone())
+                .map_err(|error| StepRefusal::write(text, &error))?;
+        }
+        self.now = request.time;
+        let mut error = self.program.scan(request.time, &mut NoHooks).err();
+        if error.is_none() && deadline.is_some_and(|deadline| self.clock.now() > deadline) {
+            error = Some(RuntimeError::ExecutionTimeout);
+        }
+        self.program.copy_images(&mut self.images);
+        let program = &self.program;
+        let values = watch
+            .into_iter()
+            .map(|(name, symbol)| {
+                program
+                    .read_symbol(symbol)
+                    .map(|value| (name.clone(), value))
+                    .map_err(|error| StepRefusal::read(name, &error))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let direct = request
+            .watch_direct
+            .iter()
+            .map(|(text, address)| {
+                program
+                    .read_address(address)
+                    .map(|value| (text.clone(), value))
+                    .map_err(|error| StepRefusal::read(text, &error))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(StepOutcome {
+            values,
+            direct,
+            error,
+        })
     }
 
     fn generation(&self) -> Generation {

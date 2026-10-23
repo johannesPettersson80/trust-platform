@@ -39,6 +39,15 @@ pub enum ResourceCommand {
         respond_to:
             std::sync::mpsc::Sender<Option<crate::ads::onboarding::ActiveAdsDeviceSnapshot>>,
     },
+    /// `program.install` installed a program while the resource is stopped (specification 34
+    /// section 11.2): the next stepped cold restart loads it.
+    ProgramInstalled,
+    /// One stepped scan of the stopped program (`cycle.step`, specification 11 section 6.8.1),
+    /// which only the stopped wait runs.
+    StepCycle {
+        request: Box<StepRequest>,
+        respond_to: std::sync::mpsc::Sender<Result<StepOutcome, StepRefusal>>,
+    },
 }
 
 /// What a program start leaves to the scan thread: the scheduling settings of the program's own
@@ -78,7 +87,9 @@ fn command_class(command: &ResourceCommand) -> CommandClass {
         | ResourceCommand::Snapshot { .. }
         | ResourceCommand::AdsStatus { .. }
         | ResourceCommand::OpcUaClientStatus { .. }
-        | ResourceCommand::ActiveAdsDevice { .. } => CommandClass::Service,
+        | ResourceCommand::ActiveAdsDevice { .. }
+        | ResourceCommand::ProgramInstalled
+        | ResourceCommand::StepCycle { .. } => CommandClass::Service,
     }
 }
 

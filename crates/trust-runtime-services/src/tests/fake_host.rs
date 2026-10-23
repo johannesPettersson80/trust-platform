@@ -20,6 +20,7 @@ use trust_runtime_core::value::Value;
 
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::events::{RuntimeEvent, EVENT_STORE_CAPACITY};
 use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -125,6 +126,10 @@ pub(crate) struct FakeHost {
     pub(crate) commits: RefCell<Vec<Vec<u8>>>,
     /// The identity a commit gives the program; `None` refuses every commit.
     pub(crate) commit_identity: Option<ProgramIdentity>,
+    /// The steps the platform was asked to run, in order.
+    pub(crate) steps: RefCell<Vec<StepRequest>>,
+    /// What every step answers; `None` for a platform without stepped scans.
+    pub(crate) step_answer: Option<Result<StepOutcome, StepRefusal>>,
 }
 
 impl FakeHost {
@@ -169,6 +174,8 @@ impl FakeHost {
             retained_refusal: None,
             commits: RefCell::new(Vec::new()),
             commit_identity: None,
+            steps: RefCell::new(Vec::new()),
+            step_answer: None,
         }
     }
 
@@ -296,6 +303,13 @@ impl ResourcePort for FakeHost {
 
     fn missing_program(&self) -> Option<&str> {
         self.missing_program
+    }
+
+    fn step_cycle(&self, request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
+        self.steps.borrow_mut().push(request.clone());
+        self.step_answer
+            .clone()
+            .unwrap_or(Err(StepRefusal::Unsupported))
     }
 }
 

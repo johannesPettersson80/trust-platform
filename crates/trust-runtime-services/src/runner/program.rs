@@ -2,6 +2,7 @@
 //! (specification 34, STATE-08).
 
 use alloc::format;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
@@ -15,6 +16,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::HoldHandle;
+use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
@@ -33,11 +35,11 @@ pub(super) enum Program<Y> {
 }
 
 impl<Y> Program<Y> {
-    /// Why no program is installed, when none is.
-    pub(super) fn missing(&self) -> Option<&str> {
+    /// Why no program is installed, as the program holds it: a copy that allocates nothing.
+    pub(super) fn missing_reason(&self) -> Option<SmolStr> {
         match self {
             Self::Installed(_) => None,
-            Self::Missing(reason) => Some(reason.as_str()),
+            Self::Missing(reason) => Some(reason.clone()),
         }
     }
 }
@@ -167,6 +169,18 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         match self {
             Self::Installed(cycle) => cycle.io_drivers(),
             Self::Missing(_) => Vec::new(),
+        }
+    }
+
+    fn step(
+        &mut self,
+        request: &StepRequest,
+        restart_at: Duration,
+        deadline: Option<MonotonicInstant>,
+    ) -> Result<StepOutcome, StepRefusal> {
+        match self {
+            Self::Installed(cycle) => cycle.step(request, restart_at, deadline),
+            Self::Missing(reason) => Err(StepRefusal::NoProgram(reason.to_string())),
         }
     }
 
