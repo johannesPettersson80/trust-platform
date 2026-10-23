@@ -162,6 +162,16 @@ The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.
 
+With `--execution-backend native` the tests run compiled for this computer
+(specification 44 §14.2). With `--device <port> --target <target>` they run
+on that device instead: the same image, compiled for the target, is installed
+once over the device's control link, and each selected test runs by one
+`cycle.step` that restarts the program cold and runs its test program's body
+(specification 11 §6.8.1). The device's limits are its own, its statement
+budget among them. A failed assertion's error, `assertion failed: <message>`,
+is the test's failure with that message, and any other error is the test's
+error, as on this computer.
+
 When a production `CONFIGURATION` exists, discovered test programs are registered
 as additional program instances for the test session. A case filter selects
 invocation and reporting, not which declarations participate in whole-project

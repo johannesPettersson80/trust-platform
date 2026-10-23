@@ -33,6 +33,26 @@ pub use trust_runtime_core::native::image::Target;
 use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure};
 pub use trust_runtime_core::native::program::{Device, NativeProgram, NoHooks, ScanHooks};
 
+/// The target `name` names: a device, a CPU, a Rust target triple or `host`, this computer's CPU
+/// (specification 44 §4.4); `None` for a name that names none.
+#[must_use]
+pub fn target_named(name: &str) -> Option<Target> {
+    match name.to_ascii_lowercase().as_str() {
+        "host" => Target::this_cpu(),
+        "esp32c6" | "esp32-c6" | "riscv32imac" | "riscv32imac-unknown-none-elf" => {
+            Some(Target::Rv32imac)
+        }
+        "stm32u5a9" | "thumbv8m" | "thumbv8m.main-none-eabihf" => Some(Target::ThumbV8mMainHf),
+        "x86_64" | "x86-64" | "x86_64-unknown-linux-gnu" | "x86_64-pc-windows-msvc" => {
+            Some(Target::X86_64)
+        }
+        "aarch64" | "arm64" | "aarch64-unknown-linux-gnu" | "aarch64-apple-darwin" => {
+            Some(Target::Aarch64)
+        }
+        _ => None,
+    }
+}
+
 /// Why a project cannot be compiled.
 #[derive(Debug)]
 pub enum NativeError {

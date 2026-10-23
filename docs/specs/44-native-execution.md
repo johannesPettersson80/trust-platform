@@ -347,7 +347,7 @@ name in capital letters, so a lookup is one binary search), one 32-byte record p
 | 4 | Offset in the area |
 | 4 | Size in bytes (the whole variable, padding excluded) |
 | 4 | Parent symbol index, or `0xFFFF_FFFF` for a global, a program or a POU |
-| 4 | POU id for a POU symbol; for a variable the POU that declares it, `0xFFFF_FFFF` for a global |
+| 4 | POU id for a POU symbol; for a program root the program instance's number, the index of its body's entry (§5.4); for a variable the POU that declares it, `0xFFFF_FFFF` for a global |
 
 Every variable the program declares has a symbol, members of structures and instances included,
 so that Live Values, the HMI, OPC UA, Modbus and the debugger find any `a.b.c` by one lookup of its
@@ -1128,7 +1128,11 @@ bytecode runner runs it (`NativeProgram::run_instance`); a test passes, fails wi
 message of its failed assertion, or ends with its error. The assertions are compiled as the
 runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs through
 a test program the runner adds to the image, which holds one instance of it and calls its body
-once, as the bytecode runner runs a temporary instance of it.
+once, as the bytecode runner runs a temporary instance of it. On a device the tests run through
+`cycle.step` (specification 11 §6.8.1): `trust-dev test --execution-backend native --device <port>
+--target <target>` builds the same image for the device's target, installs it, and runs each test
+by one step that restarts the program cold and runs the test program's body (`run`); the device
+finds the body by the instance's number in its root symbol (§5.7).
 
 A project compiled and the same project in the runtime run in lockstep at the project's cycle
 interval, and every variable the image names a value of is compared after every scan
@@ -1213,4 +1217,4 @@ reported as the runtime's `AssertionFailed` with its message.
 | 0.6 | 23 October 2026 | Exact where milestone M2's standard functions decided within the approved design: how the program library carries the runtime's rules over, function by function, for the numerical, bit, selection, comparison, string, counter and bistable functions and for dates and times (§6.8); a date and time range fault is reported as the runtime reports it, no longer as an overflow (Appendix A); the runtime's third departure from the standard, a `STRING` character above U+00FF read as a `CHAR` (§14.2). |
 | 0.7 | 23 October 2026 | Exact where milestone M2's conversions and frames decided within the approved design: a frame starts at each call at its initial values and its types' defaults, computed by the build (§6.7); numbers, characters and BCD to and from text as the runtime converts them (§6.8); the interface gains the kernel function `read_real`, the runtime's own reader of reals, which no module can carry because it can panic, and becomes version 2 (§8.2); a computer's module links the toolchain's memory functions, modules are compiled without RELRO, and the image builder relaxes x86-64 loads from the global offset table of the functions the module defines (§4.5, §4.6); a test's failed assertion is a fault of its own, 17 or 18, worded by the kernel as the runtime words it, and `trust-dev test` runs a project's tests compiled (§14.2, Appendix A). |
 | 0.8 | 23 October 2026 | Exact where milestone M2's corpus decided within the approved design: the stack bound is the deepest static call chain read from the module's call relocations, a cycle through calls bound by an instance's class turning once for each instance, with 4 KiB for the kernel functions and a quarter more (§8.5); a literal takes the type of where it goes with its sign (§6.6); a failed assertion of two texts lays them in the stack area, which the build sizes, for the kernel to word (§7.1, Appendix A); a function block instance given as an input of a method or a function is the caller's, and a result of a function block's type is a reference to the instance, so calls chain (§6.4); a `RETAIN` variable of a function block is laid with its instance and kept as the runtime keeps it (§11); `trust-dev test` runs a `TEST_FUNCTION_BLOCK` through a test program that calls it once (§14.2); a `CASE` on a text or a real is a chain of tests (§6.6); adjacent literals of a text are joined at build, so a text of literals is written from its bytes and no array of pieces holds a pointer a module would need a relocation for (§5.3). |
-| 0.9 | 23 October 2026 | The owner approved the kernel interface version 2 of 0.7 (§8.2) and chose how the corpus runs on a device: the control request `cycle.step` on every runtime (specification 11 §6.8.1), through which `trust-runtime conformance --device --target` installs and steps each case (§14.2). |
+| 0.9 | 23 October 2026 | The owner approved the kernel interface version 2 of 0.7 (§8.2) and chose how the corpus runs on a device: the control request `cycle.step` on every runtime (specification 11 §6.8.1), through which `trust-runtime conformance --device --target` installs and steps each case, and `trust-dev test --device --target` runs a project's tests, each by a step that runs its test program's body (§14.2); a program root's symbol carries the instance's number, by which a device finds the body (§5.7). |

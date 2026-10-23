@@ -177,7 +177,11 @@ fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool) {
     };
     writer.table(
         &[
-            symbol(main, 0, 8, SYMBOL_PROGRAM, NONE),
+            // The program root carries the instance's number, 0 (specification 44 §5.7).
+            SymbolRecord {
+                pou: 0,
+                ..symbol(main, 0, 8, SYMBOL_PROGRAM, NONE)
+            },
             symbol(count, 0, 1, 0, 0),
             symbol(out, 1, 1, 0, 0),
         ],
@@ -573,6 +577,7 @@ fn step(
             "%QX0.1".into(),
             IoAddress::parse("%QX0.1").expect("an output bit"),
         )],
+        run: None,
     }
 }
 
@@ -668,4 +673,46 @@ fn a_stepped_fault_is_reported_and_not_latched() {
         );
     }
     assert_eq!(driven.borrow().outputs, Vec::<Vec<u8>>::new());
+}
+
+#[test]
+fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
+    // Specification 11 §6.8.1, `run`, and specification 44 §5.7: the body of `MAIN`, found by the
+    // instance number its root symbol carries, runs once per step at time 0, when the task `Fast`
+    // is not due: the count goes 5, 6, 7. The outputs are not published, so `%QX0.1` stays FALSE
+    // although `OUT` is 1 after the second run. Catches a run that publishes the outputs, a
+    // scheduler cycle in its place (the count would stay 5), and a name that is not refused.
+    let bytes = image(0);
+    let (mut cycle, _, _) = cycle(&bytes, Vec::new());
+    let mut request = step(
+        0,
+        Some(RestartMode::Cold),
+        Vec::new(),
+        &["MAIN.COUNT", "OUT"],
+    );
+    request.run = Some("main".into());
+    let first = cycle
+        .step(&request, Duration::ZERO, None)
+        .expect("the step runs");
+    assert_eq!(first.values[0].1, Value::USInt(6));
+    request.restart = None;
+    let second = cycle
+        .step(&request, Duration::ZERO, None)
+        .expect("the step runs");
+    assert_eq!(
+        second,
+        StepOutcome {
+            values: vec![
+                ("MAIN.COUNT".into(), Value::USInt(7)),
+                ("OUT".into(), Value::USInt(1)),
+            ],
+            direct: vec![("%QX0.1".into(), Value::Bool(false))],
+            error: None,
+        }
+    );
+    request.run = Some("NOPE".into());
+    assert_eq!(
+        cycle.step(&request, Duration::ZERO, None),
+        Err(StepRefusal::name("NOPE", "names no program instance"))
+    );
 }

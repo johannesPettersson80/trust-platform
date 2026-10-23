@@ -4,7 +4,8 @@
 //! them; a cold restart loads a program installed since the program was loaded, as `restart` loads
 //! it after a stop, and every other restart is the runtime's restart in place; the scan is the
 //! shared scheduler at the request's time without the hosted services, so a step runs as the
-//! conformance runner's bytecode cycles run. The watchdog bounds the scan as it bounds every scan.
+//! conformance runner's bytecode cycles run, or the body of the program instance the step names,
+//! as the test runner runs a test program. The watchdog bounds the scan as it bounds every scan.
 
 use trust_runtime_services::cycle_step::{restart_time, StepOutcome, StepRefusal, StepRequest};
 
@@ -51,6 +52,18 @@ pub(super) fn step<C: Clock + Clone>(
     {
         resolve_read(runtime, name).map_err(|error| StepRefusal::name(name, reason(&error)))?;
     }
+    let run = request
+        .run
+        .as_ref()
+        .map(|name| {
+            runtime
+                .programs()
+                .values()
+                .find(|program| program.name.eq_ignore_ascii_case(name))
+                .cloned()
+                .ok_or_else(|| StepRefusal::name(name, "names no program instance"))
+        })
+        .transpose()?;
     if let Some(mode) = restart {
         runtime.set_current_time(restart_at);
         runtime.restart(mode).map_err(StepRefusal::Restart)?;
@@ -67,7 +80,11 @@ pub(super) fn step<C: Clock + Clone>(
     runtime.set_current_time(request.time);
     let watchdog = runtime.watchdog_policy();
     let deadlines = arm_cycle_deadlines(runtime, watchdog, std::time::Instant::now());
-    let error = runtime.execute_stepped_cycle().err();
+    let error = match &run {
+        Some(program) => runtime.execute_stepped_program(program),
+        None => runtime.execute_stepped_cycle(),
+    }
+    .err();
     restore_cycle_deadlines(runtime, deadlines);
     steps.last = Some(request.time);
     let values = request

@@ -112,6 +112,13 @@ enum Command {
         /// with the toolchain at `TRUST_TOOLCHAIN`.
         #[arg(long = "execution-backend", value_enum, default_value_t = cli::TestBackend::Bytecode)]
         execution_backend: cli::TestBackend,
+        /// The serial port of a device that runs the tests compiled for its `--target`, or
+        /// `tcp://<host>:<port>` of a bridge to that port (specification 44 §14.2).
+        #[arg(long, requires = "target")]
+        device: Option<String>,
+        /// The device's target, as `trust-runtime build --target` names it: `esp32c6`.
+        #[arg(long, requires = "device")]
+        target: Option<String>,
     },
 }
 
@@ -170,6 +177,8 @@ fn run() -> anyhow::Result<()> {
             output,
             ci,
             execution_backend,
+            device,
+            target,
         } => test::run_test(
             project,
             filter,
@@ -177,7 +186,7 @@ fn run() -> anyhow::Result<()> {
             timeout,
             output,
             ci,
-            execution_backend,
+            test::TestRunner::of(execution_backend, device.zip(target))?,
         ),
     }
 }

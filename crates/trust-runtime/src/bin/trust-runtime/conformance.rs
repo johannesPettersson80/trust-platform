@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context};
-use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use trust_runtime::ads::diagnostics::AdsConnectionStatusState;
@@ -17,6 +16,7 @@ use trust_runtime::connectors::{
     ConnectorHealth, ConnectorState, EthercatProjection, ModbusProjection, MqttSessionProjection,
     OpcUaServerSnapshotState,
 };
+use trust_runtime::device_link::{self, DeviceLink};
 use trust_runtime::harness::{SourceFile, TestHarness};
 use trust_runtime::io::{IoAddress, IoDriverErrorPolicy, IoDriverHealth};
 use trust_runtime::native::{self, Target, Toolchain};

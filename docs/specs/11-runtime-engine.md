@@ -2767,6 +2767,11 @@ test or a simulator may use it too (owner, 23 October 2026).
   written into the process image before the scan, in the order of the addresses.
 - `watch` (optional): the names read after the scan; `watch_direct` (optional): the process-image
   addresses read after the scan.
+- `run` (optional): the name of a program instance whose body runs once in place of the scheduler's
+  cycle, outside the task schedule, as specification 22 runs a test program: the inputs are not
+  sampled and the outputs not published. A name that names no program instance refuses the step
+  before its scan, with the name. Its restart, inputs, watches, error and time are those of any
+  step; this is how a project's tests run on a device (specification 44 §14.2).
 
 The scan is one cycle of the scheduler at `time_ns` (specification 10 §4.3): the tasks due then run
 in priority order, then the programs without a task. The drivers are neither sampled nor driven and

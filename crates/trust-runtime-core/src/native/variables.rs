@@ -66,6 +66,16 @@ impl Image<'_> {
         }
         found.ok_or(NameError::Unknown)
     }
+
+    /// The number of the program instance `name` names, which its root symbol carries (§5.7) and
+    /// its body's entry is found by; `None` for a name that names no program instance. The name
+    /// compares as a canonical name.
+    #[must_use]
+    pub fn find_program_instance(&self, name: &str) -> Option<u32> {
+        let (_, symbol) = self.find_symbol(&name.to_ascii_uppercase())?;
+        (symbol.flags & SYMBOL_PROGRAM != 0 && symbol.parent == NONE && symbol.pou != NONE)
+            .then_some(symbol.pou)
+    }
 }
 
 impl<C: ModuleCode> NativeProgram<'_, C> {

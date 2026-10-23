@@ -617,7 +617,7 @@ END_TEST_PROGRAM
         0,
         TestOutput::Human,
         false,
-        TestBackend::Bytecode,
+        TestRunner::Bytecode,
     );
     let error = result.expect_err("configured test program must execute its failing assertion");
     assert!(
@@ -891,7 +891,7 @@ END_TEST_PROGRAM
         0,
         TestOutput::Human,
         false,
-        TestBackend::Bytecode,
+        TestRunner::Bytecode,
     )
     .unwrap();
     let _ = std::fs::remove_dir_all(project);
@@ -1079,4 +1079,24 @@ END_TEST_FUNCTION_BLOCK
         );
     }
     let _ = std::fs::remove_dir_all(&project);
+}
+
+#[test]
+fn a_device_runs_the_tests_compiled_for_it() {
+    // Specification 44 §14.2 and specification 22: `--device` with `--target` runs the native
+    // tests on the device; the bytecode engine runs on this computer only, so a device with it is
+    // refused. Catches a device run that silently runs the bytecode engine here.
+    let device = || Some(("tcp://127.0.0.1:5555".to_string(), "esp32c6".to_string()));
+    assert_eq!(
+        TestRunner::of(TestBackend::Native, device()).expect("a device runs compiled tests"),
+        TestRunner::Device {
+            port: "tcp://127.0.0.1:5555".into(),
+            target: "esp32c6".into(),
+        }
+    );
+    assert!(TestRunner::of(TestBackend::Bytecode, device()).is_err());
+    assert_eq!(
+        TestRunner::of(TestBackend::Native, None).expect("this computer's kernel"),
+        TestRunner::Native
+    );
 }

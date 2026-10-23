@@ -48,6 +48,17 @@ impl<C: MonotonicClock, I: ProcessIo, M> EngineCycle<'_, C, I, M> {
         for name in &request.watch {
             find(name)?;
         }
+        let run = request
+            .run
+            .as_ref()
+            .map(|name| {
+                programs
+                    .iter()
+                    .find(|program| program.eq_ignore_ascii_case(name))
+                    .cloned()
+                    .ok_or_else(|| StepRefusal::name(name, "names no program instance"))
+            })
+            .transpose()?;
         if let Some(mode) = request.restart {
             self.state.set_current_time(restart_at);
             self.state.restart(mode).map_err(StepRefusal::Restart)?;
@@ -63,7 +74,11 @@ impl<C: MonotonicClock, I: ProcessIo, M> EngineCycle<'_, C, I, M> {
         }
         self.state.set_current_time(request.time);
         self.services.arm(deadline);
-        let error = self.state.execute_cycle(request.time).err();
+        let error = match &run {
+            Some(program) => self.state.execute_program(program),
+            None => self.state.execute_cycle(request.time),
+        }
+        .err();
         self.services.arm(None);
         if error.is_some() {
             // A stepped scan's fault is reported, not latched (specification 11 §6.8.1).

@@ -128,6 +128,20 @@ impl Runtime {
         result
     }
 
+    /// The body of `program` run once at the current logical time in a stepped scan (`cycle.step`
+    /// with `run`, specification 11 section 6.8.1), as the test runner runs a test program; its
+    /// fault is returned and cleared, not latched.
+    pub(crate) fn execute_stepped_program(
+        &mut self,
+        program: &crate::task::ProgramDef,
+    ) -> Result<(), RuntimeError> {
+        let result = self.execute_program(program);
+        if result.is_err() {
+            self.clear_fault();
+        }
+        result
+    }
+
     /// Publish the state a faulted scan left, before the fault's safe-state action runs: the storage
     /// as the fault left it, with the position of the statement that owns the failing instruction
     /// (specification 11 section 6.13.1). The engine has latched the fault's record when the scan

@@ -150,3 +150,47 @@ fn a_step_needs_the_debug_surface() {
     assert_eq!(reply["error"], json!("debug disabled"));
     assert_eq!(reply["error_code"], json!("feature_disabled"));
 }
+
+#[test]
+fn a_step_runs_a_program_instance_outside_the_schedule() {
+    // Specification 11 §6.8.1, `run`: the body of the program instance `Plant` runs once in place
+    // of the scheduler's cycle, at time zero, when its task is not due, as a test program runs:
+    // the inputs are not sampled, so `button` keeps its cold value FALSE although the request wrote
+    // TRUE into the input image, and the outputs are not published, so `%QX0.0` stays FALSE;
+    // `probe_depth` 2 gives `ProbeLeaf() + 1` = 2. Catches a run that samples the inputs (`led`
+    // TRUE), a run that publishes the outputs, and a scheduler cycle in its place (no task is due at
+    // zero, so `depth_result` would keep its initial 0).
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.runner();
+    stop(&fixture, &mut runner);
+    let stepped = fixture.call(
+        &mut runner,
+        &step(
+            2,
+            &json!({
+                "time_ns": 0,
+                "restart": "cold",
+                "run": "Plant",
+                "inputs": {"probe_depth": "INT:2"},
+                "direct_inputs": {"%IX0.0": "BOOL:true"},
+                "watch": ["depth_result", "led"],
+                "watch_direct": ["%QX0.0"],
+            }),
+        ),
+    );
+    assert_eq!(
+        stepped["result"],
+        json!({
+            "time_ns": 0,
+            "values": {
+                "depth_result": {"type": "INT", "value": 2},
+                "led": {"type": "BOOL", "value": false},
+            },
+            "direct": {"%QX0.0": {"type": "BOOL", "value": false}},
+            "errors": [],
+        }),
+        "{stepped}"
+    );
+    let refused = fixture.call(&mut runner, &step(3, &json!({"time_ns": 0, "run": "Nope"})));
+    assert_eq!(refused["error"], json!("'Nope' names no program instance"));
+}

@@ -32,7 +32,8 @@ fn address(text: &str) -> IoAddress {
 fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artifact_encoding() {
     // The parameters reach the platform as the specification names them: the time in
     // nanoseconds, the restart in either case, the inputs and the direct inputs read from their
-    // value texts and in the order of their names, and the watches in the request's order. The
+    // value texts and in the order of their names, the watches in the request's order and the
+    // program instance to run. The
     // reply is `time_ns`, the values and the direct values in the conformance encoding, and the
     // text of the scan's error. Catches inputs written in the request's order instead of the
     // names' order, a restart mode read case-sensitively, a text `1_000` read as anything but
@@ -52,6 +53,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
         "direct_inputs": {"%IX0.0": "BOOL:true"},
         "watch": ["b", "a"],
         "watch_direct": ["%QX0.1"],
+        "run": "Tests",
     });
     let reply = request(7, Some(&params), &host);
     assert_eq!(
@@ -63,6 +65,7 @@ fn a_stopped_resource_steps_with_what_the_request_names_and_replies_in_the_artif
             direct_inputs: vec![("%IX0.0".into(), address("%IX0.0"), Value::Bool(true))],
             watch: vec!["b".into(), "a".into()],
             watch_direct: vec![("%QX0.1".into(), address("%QX0.1"))],
+            run: Some("Tests".into()),
         }]
     );
     assert!(reply.ok, "{:?}", reply.error);
@@ -121,7 +124,7 @@ fn parameters_that_name_no_step_are_refused_before_the_platform_sees_them() {
     // Each refusal names what is wrong with the parameters. Catches a negative, fractional or
     // too large time taken as a time, an unknown restart mode taken as cold, a number taken as a
     // value text, and an unknown member ignored.
-    let cases: [(Option<JsonValue>, &str); 12] = [
+    let cases: [(Option<JsonValue>, &str); 13] = [
         (None, "invalid params: missing params"),
         (Some(json!({})), "invalid params: time_ns is required"),
         (
@@ -164,6 +167,10 @@ fn parameters_that_name_no_step_are_refused_before_the_platform_sees_them() {
             Some(json!({"time_ns": null})),
             "invalid params: parameter fields must not be null",
         ),
+        (
+            Some(json!({"time_ns": 0, "run": ""})),
+            "invalid params: run must name a program instance",
+        ),
     ];
     for (params, expected) in cases {
         let host = stopped(Err(StepRefusal::Unsupported));
@@ -197,6 +204,7 @@ fn the_first_step_since_the_stop_restarts_and_no_step_goes_back_in_time() {
         direct_inputs: vec![],
         watch: vec![],
         watch_direct: vec![],
+        run: None,
     };
     let ten = Some(Duration::from_millis(10));
     assert_eq!(

@@ -39,6 +39,7 @@ const MEMBERS: &[&str] = &[
     "direct_inputs",
     "watch",
     "watch_direct",
+    "run",
 ];
 
 /// One stepped scan as its request asks for it.
@@ -58,6 +59,9 @@ pub struct StepRequest {
     pub watch: Vec<SmolStr>,
     /// The process-image addresses read after the scan, with their texts.
     pub watch_direct: Vec<(SmolStr, IoAddress)>,
+    /// The program instance whose body runs once in place of the scheduler's cycle, as a test
+    /// program runs; none for a cycle of the scheduler.
+    pub run: Option<SmolStr>,
 }
 
 /// What a stepped scan read after it ran.
@@ -272,6 +276,14 @@ fn parse(params: Option<&JsonValue>) -> Result<StepRequest, String> {
         .into_iter()
         .map(|address| Ok((SmolStr::new(address), parse_address(address)?)))
         .collect::<Result<Vec<_>, String>>()?;
+    let run = match params.get("run") {
+        None => None,
+        Some(name) => Some(SmolStr::new(
+            name.as_str()
+                .filter(|name| !name.is_empty())
+                .ok_or("run must name a program instance")?,
+        )),
+    };
     Ok(StepRequest {
         time,
         restart,
@@ -279,6 +291,7 @@ fn parse(params: Option<&JsonValue>) -> Result<StepRequest, String> {
         direct_inputs,
         watch,
         watch_direct,
+        run,
     })
 }
 

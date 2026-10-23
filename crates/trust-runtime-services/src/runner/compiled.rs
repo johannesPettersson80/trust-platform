@@ -332,7 +332,8 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
     /// The names are found in the image's symbol table before anything changes. A restart restarts
     /// the program at `restart_at`, as the conformance runner's kernel restarts it, and installs the
     /// next generation. The scan runs without hooks, so no driver, observer or capture of the
-    /// retained values takes part, and the outputs it publishes stay in the output image.
+    /// retained values takes part, and the outputs it publishes stay in the output image; a step
+    /// that runs a program instance runs its body by the number its root symbol carries.
     fn step(
         &mut self,
         request: &StepRequest,
@@ -355,6 +356,15 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
             .iter()
             .map(|name| Ok((name, find(name)?)))
             .collect::<Result<Vec<_>, StepRefusal>>()?;
+        let run = request
+            .run
+            .as_ref()
+            .map(|name| {
+                image
+                    .find_program_instance(name)
+                    .ok_or_else(|| StepRefusal::name(name, "names no program instance"))
+            })
+            .transpose()?;
         if let Some(mode) = request.restart {
             let generation = self
                 .generation
@@ -379,7 +389,11 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
                 .map_err(|error| StepRefusal::write(text, &error))?;
         }
         self.now = request.time;
-        let mut error = self.program.scan(request.time, &mut NoHooks).err();
+        let mut error = match run {
+            Some(instance) => self.program.run_instance(instance, request.time),
+            None => self.program.scan(request.time, &mut NoHooks),
+        }
+        .err();
         if error.is_none() && deadline.is_some_and(|deadline| self.clock.now() > deadline) {
             error = Some(RuntimeError::ExecutionTimeout);
         }

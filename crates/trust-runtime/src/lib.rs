@@ -74,6 +74,11 @@ pub mod runtime_id;
 pub mod error {
     pub use trust_runtime_core::error::*;
 }
+/// A device's control link from the engineering computer, on which the conformance suite and the
+/// test runner run stepped scans (specification 44 §14.2).
+#[cfg(feature = "full")]
+#[path = "host/device_link.rs"]
+pub mod device_link;
 /// Expression and statement evaluation.
 #[cfg(feature = "full")]
 #[path = "host/eval/mod.rs"]

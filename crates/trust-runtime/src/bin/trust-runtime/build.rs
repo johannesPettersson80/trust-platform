@@ -108,22 +108,8 @@ pub fn run_build_command(
 
 /// The target `name` names: a device, a CPU, a Rust target triple or `host` (specification 44 §4.4).
 pub(crate) fn native_target(name: &str) -> anyhow::Result<trust_runtime::native::Target> {
-    use trust_runtime::native::Target;
-    let target = match name.to_ascii_lowercase().as_str() {
-        "host" => Target::this_cpu(),
-        "esp32c6" | "esp32-c6" | "riscv32imac" | "riscv32imac-unknown-none-elf" => {
-            Some(Target::Rv32imac)
-        }
-        "stm32u5a9" | "thumbv8m" | "thumbv8m.main-none-eabihf" => Some(Target::ThumbV8mMainHf),
-        "x86_64" | "x86-64" | "x86_64-unknown-linux-gnu" | "x86_64-pc-windows-msvc" => {
-            Some(Target::X86_64)
-        }
-        "aarch64" | "arm64" | "aarch64-unknown-linux-gnu" | "aarch64-apple-darwin" => {
-            Some(Target::Aarch64)
-        }
-        _ => None,
-    };
-    target.ok_or_else(|| anyhow::anyhow!("unknown target '{name}'"))
+    trust_runtime::native::target_named(name)
+        .ok_or_else(|| anyhow::anyhow!("unknown target '{name}'"))
 }
 
 /// `trust-runtime build --target`: the project compiled into a native program image in its build

@@ -31,6 +31,8 @@ struct Pending {
     offset: u32,
     size: u32,
     parent: Option<String>,
+    /// The program instance's number for a program root (§5.7), [`NONE`] otherwise.
+    pou: u32,
 }
 
 /// The symbols of every variable and its members, and the retained variables in declaration order.
@@ -93,6 +95,7 @@ impl Symbols<'_, '_> {
             offset: variable.offset,
             size: info.size,
             parent: variable.parent,
+            pou: NONE,
         });
     }
 
@@ -142,14 +145,15 @@ impl Symbols<'_, '_> {
             .iter()
             .map(|instance| (instance.name.clone(), instance.program))
             .collect();
-        for (name, program) in instances {
-            self.instance(&name, program, type_count);
+        for (number, (name, program)) in instances.into_iter().enumerate() {
+            let number = u32::try_from(number).unwrap_or(NONE);
+            self.instance(&name, program, number, type_count);
         }
     }
 
-    /// A program instance: its root symbol in `P`, its variables in `P` and its retained variables
-    /// in `R`.
-    fn instance(&mut self, name: &SmolStr, program: usize, type_count: u32) {
+    /// A program instance: its root symbol in `P`, which carries the instance's number (§5.7), its
+    /// variables in `P` and its retained variables in `R`.
+    fn instance(&mut self, name: &SmolStr, program: usize, number: u32, type_count: u32) {
         let canonical = name.to_ascii_uppercase();
         let p_offset = self
             .model
@@ -178,6 +182,7 @@ impl Symbols<'_, '_> {
             offset: p_offset,
             size,
             parent: None,
+            pou: number,
         });
         for member in members {
             self.add(Variable {
@@ -334,7 +339,7 @@ fn symbols(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_
                 .as_deref()
                 .and_then(|parent| sorted.index(parent))
                 .unwrap_or(NONE),
-            pou: NONE,
+            pou: symbol.pou,
         })
         .collect();
     writer.table(&records, &[]);

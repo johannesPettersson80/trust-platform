@@ -1,3 +1,38 @@
+/// What runs the tests: the bytecode engine, the kernel on this computer, or a device's kernel over
+/// its control link (specification 44 §14.2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TestRunner {
+    /// The bytecode engine.
+    Bytecode,
+    /// The project compiled for this computer and run by the kernel.
+    Native,
+    /// The project compiled for the device's target and run on the device at `port`.
+    Device {
+        /// A serial port, or `tcp://<host>:<port>` of a bridge to one.
+        port: String,
+        /// The device's target, as `trust-runtime build --target` names it.
+        target: String,
+    },
+}
+
+impl TestRunner {
+    /// The runner of `backend`, on the device that `device` names with its target when it names one.
+    ///
+    /// # Errors
+    ///
+    /// A device with the bytecode backend: a device runs compiled tests.
+    pub fn of(backend: TestBackend, device: Option<(String, String)>) -> anyhow::Result<Self> {
+        Ok(match (backend, device) {
+            (TestBackend::Bytecode, None) => Self::Bytecode,
+            (TestBackend::Native, None) => Self::Native,
+            (TestBackend::Native, Some((port, target))) => Self::Device { port, target },
+            (TestBackend::Bytecode, Some(_)) => {
+                anyhow::bail!("a device runs compiled tests: use --execution-backend native")
+            }
+        })
+    }
+}
+
 pub fn run_test(
     project: Option<PathBuf>,
     filter: Option<String>,
@@ -5,7 +40,7 @@ pub fn run_test(
     timeout: u64,
     output: TestOutput,
     ci: bool,
-    backend: TestBackend,
+    runner: TestRunner,
 ) -> anyhow::Result<()> {
     let output = effective_output(output, ci);
     let project_root = match project {
@@ -51,9 +86,9 @@ pub fn run_test(
         return Ok(());
     }
 
-    let mut runtime = match backend {
-        TestBackend::Bytecode => Some(compile_test_runtime(&project_root, &discovered)?),
-        TestBackend::Native => None,
+    let mut runtime = match runner {
+        TestRunner::Bytecode => Some(compile_test_runtime(&project_root, &discovered)?),
+        TestRunner::Native | TestRunner::Device { .. } => None,
     };
     if tests.is_empty() {
         let rendered = render_output(
@@ -85,7 +120,17 @@ pub fn run_test(
             }
             results
         }
-        None => execute_native_tests(&project_root, &discovered, &tests, timeout)?,
+        None => match &runner {
+            TestRunner::Device { port, target } => execute_native_tests_on_device(
+                &project_root,
+                &discovered,
+                &tests,
+                timeout,
+                port,
+                target,
+            )?,
+            _ => execute_native_tests(&project_root, &discovered, &tests, timeout)?,
+        },
     };
     let total_duration_ms = elapsed_ms(total_started.elapsed());
 

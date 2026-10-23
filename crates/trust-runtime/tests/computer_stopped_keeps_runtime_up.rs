@@ -555,6 +555,20 @@ fn a_stopped_computer_steps_its_program_and_loads_an_installed_one() {
         result_of(&second)["values"]["Counter"],
         json!({"type": "INT", "value": 43})
     );
+    // `run` runs the body of `P1` once outside the schedule, as a test program runs: the marker
+    // image is not sampled, so `Counter` goes on from the 43 it holds.
+    let ran = cycle_step(
+        &runtime,
+        5,
+        json!({"time_ns": 200_000_000, "run": "P1", "watch": watch}),
+    );
+    assert_eq!(
+        result_of(&ran)["values"],
+        json!({
+            "Counter": {"type": "INT", "value": 44},
+            "P1.CounterLatched": {"type": "INT", "value": 43},
+        })
+    );
 
     let step_two = step_two_program();
     let container = encode_sequenced(1, &step_two.program, &step_two.record)
