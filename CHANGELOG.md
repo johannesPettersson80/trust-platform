@@ -37,7 +37,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `run` names a program instance whose body runs once in place of the cycle, and
   `trust-dev test --execution-backend native --device <port> --target esp32c6` runs a project's
   tests on a device with it: the project is compiled and installed once, and each test is one step
-  that restarts the program cold and runs its test program (specification 22).
+  that restarts the program cold and runs its test program (specification 22). The test image runs
+  no test program by itself, so a device that restarts or resets with it installed runs no test.
 - Changed: a chip whose resource is Stopped writes an upload into its program store as the parts
   arrive, instead of holding it in its heap, so a program as large as a program slot installs: on
   the ESP32-C6 up to 3,056 KiB, where the heap held about 100 KB. `transfer.begin` erases the first
