@@ -8,6 +8,8 @@
 //! the starting memory (`init`); the toolchain compiles and links the crate (`toolchain`), the
 //! module is checked (`module`) and the image is written (`tables`).
 
+mod classes;
+mod dispatch;
 mod emit;
 mod front;
 mod init;

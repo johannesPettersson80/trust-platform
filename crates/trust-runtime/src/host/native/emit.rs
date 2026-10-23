@@ -6,12 +6,13 @@ use std::fmt::Write as _;
 
 use smol_str::SmolStr;
 
+use super::classes::Owner;
 use super::front::{Front, StatementIds};
 use super::lower::{Frame, Lowerer, Need, PRELUDE};
 use super::model::{AreaLayout, Model};
 use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
-use crate::program_model::{FunctionBlockDef, FunctionDef, MethodDef, Param, VarDef};
+use crate::program_model::{FunctionDef, MethodDef, Param, VarDef};
 use trust_runtime_core::native::image::{EntryKind, Target};
 
 /// An entry point of the module.
@@ -35,7 +36,7 @@ pub(super) struct Generated {
 enum Work<'a> {
     Program(usize),
     FunctionBlock(Ty),
-    Method(&'a FunctionBlockDef, &'a MethodDef, Ty),
+    Method(Owner<'a>, &'a MethodDef, Ty),
     Function(&'a FunctionDef),
 }
 
@@ -107,17 +108,25 @@ pub(super) fn generate<'a>(
     let mut functions = String::new();
     let mut pous = 0usize;
     let mut statement_pous = vec![u16::MAX; ids.order.len()];
-    let mut done_methods: Vec<(SmolStr, SmolStr)> = Vec::new();
-    let mut done_functions: Vec<SmolStr> = Vec::new();
+    let mut queued: Vec<Need> = Vec::new();
+    let mut dispatchers: Vec<Need> = Vec::new();
     let mut done_blocks: Vec<Ty> = Vec::new();
     let mut work: Vec<Work<'a>> = (0..model.program_types.len()).map(Work::Program).collect();
     let mut index = 0;
     loop {
-        // Every function block type the bodies use needs its body.
+        // Every function block type the bodies use needs its body; a class has none.
         let blocks: Vec<Ty> = model
             .types
             .all()
-            .filter(|(_, info)| matches!(info.kind, Kind::Fb { .. }))
+            .filter(|(_, info)| {
+                matches!(
+                    info.kind,
+                    Kind::Fb {
+                        is_class: false,
+                        ..
+                    }
+                )
+            })
             .map(|(ty, _)| ty)
             .filter(|ty| !done_blocks.contains(ty))
             .collect();
@@ -126,19 +135,27 @@ pub(super) fn generate<'a>(
             work.push(Work::FunctionBlock(ty));
         }
         let Some(item) = work.get(index) else {
+            // A dispatcher calls the method of every type that can be there, and those are known
+            // once every body is generated; a method it needs may need more.
+            let mut added = false;
+            for need in super::dispatch::targets(model, &dispatchers)? {
+                added |= queue(model, need, &mut queued, &mut work)?;
+            }
+            if added {
+                continue;
+            }
             break;
         };
         let item = match item {
             Work::Program(program) => Work::Program(*program),
             Work::FunctionBlock(ty) => Work::FunctionBlock(*ty),
-            Work::Method(owner, method, ty) => Work::Method(owner, method, *ty),
+            Work::Method(owner, method, ty) => Work::Method(*owner, method, *ty),
             Work::Function(def) => Work::Function(def),
         };
         index += 1;
         let pou = u16::try_from(pous).unwrap_or(u16::MAX);
-        let (text, statements, needs, name) = body(front, model, ids, &item, hooks)?;
+        let (text, statements, needs) = body(front, model, ids, &item, hooks)?;
         pous += 1;
-        let _ = name;
         for statement in statements {
             if let Some(slot) = statement_pous.get_mut(statement as usize) {
                 *slot = pou;
@@ -147,50 +164,16 @@ pub(super) fn generate<'a>(
         functions.push_str(&text);
         for need in needs {
             match need {
-                Need::Function(name) => {
-                    if done_functions.contains(&name) {
-                        continue;
-                    }
-                    done_functions.push(name.clone());
-                    let Some(def) = model.function(&name) else {
-                        return Err(NativeError::Compile(format!(
-                            "function {name} is not declared"
-                        )));
-                    };
-                    work.push(Work::Function(def));
+                Need::Virtual(..) | Need::Interface(..) | Need::Body(_) => {
+                    need.add_to(&mut dispatchers);
                 }
-                Need::Method(owner, method) => {
-                    if done_methods.contains(&(owner.clone(), method.clone())) {
-                        continue;
-                    }
-                    done_methods.push((owner.clone(), method.clone()));
-                    let Some(def) = model.types.function_block_def(&owner) else {
-                        return Err(NativeError::Compile(format!(
-                            "function block {owner} is not declared"
-                        )));
-                    };
-                    let Some(found) = def
-                        .methods
-                        .iter()
-                        .find(|candidate| candidate.name == method)
-                    else {
-                        return Err(NativeError::Compile(format!(
-                            "method {owner}.{method} is not declared"
-                        )));
-                    };
-                    let Some(ty) = model
-                        .types
-                        .all()
-                        .find(|(_, info)| matches!(&info.kind, Kind::Fb { def: name, .. } if *name == def.name))
-                        .map(|(ty, _)| ty)
-                    else {
-                        return Err(NativeError::Compile(format!("function block {owner} has no layout")));
-                    };
-                    work.push(Work::Method(def, found, ty));
+                other => {
+                    queue(model, other, &mut queued, &mut work)?;
                 }
             }
         }
     }
+    functions.push_str(&super::dispatch::emit(model, &dispatchers)?);
 
     let mut source = String::new();
     source.push_str(
@@ -218,14 +201,84 @@ pub(super) fn generate<'a>(
     })
 }
 
-/// The Rust of one body, its statements, the POUs it calls and its name.
+/// Queues the body of the function or method `need` names, once; returns whether it is new.
+fn queue<'a>(
+    model: &Model<'a>,
+    need: Need,
+    queued: &mut Vec<Need>,
+    work: &mut Vec<Work<'a>>,
+) -> Result<bool, NativeError> {
+    if queued.contains(&need) {
+        return Ok(false);
+    }
+    match &need {
+        Need::Function(name) => {
+            let Some(def) = model.function(name) else {
+                return Err(NativeError::Compile(format!(
+                    "function {name} is not declared"
+                )));
+            };
+            work.push(Work::Function(def));
+        }
+        Need::Method(owner, method) => {
+            let Some(def) = model.types.owner(owner) else {
+                return Err(NativeError::Compile(format!(
+                    "function block {owner} is not declared"
+                )));
+            };
+            let Some(found) = def
+                .methods()
+                .iter()
+                .find(|candidate| candidate.name.eq_ignore_ascii_case(method))
+            else {
+                return Err(NativeError::Compile(format!(
+                    "method {owner}.{method} is not declared"
+                )));
+            };
+            let Some(ty) = model.types.by_rust(&def.rust()) else {
+                return Err(NativeError::Compile(format!(
+                    "function block {owner} has no layout"
+                )));
+            };
+            work.push(Work::Method(def, found, ty));
+        }
+        _ => return Ok(false),
+    }
+    queued.push(need);
+    Ok(true)
+}
+
+/// The file and the statement list of `method` of `owner`: a method's body, or a property's `GET`
+/// or `SET`, which the declarations hold as a method named like the property and one named
+/// `__set_<property>`.
+fn method_body(
+    front: &Front,
+    owner: Owner<'_>,
+    method: &MethodDef,
+) -> Option<(usize, Option<trust_syntax::syntax::SyntaxNode>)> {
+    use trust_syntax::syntax::SyntaxKind as K;
+    let accessor = |kind: K, name: &str| {
+        let (file, node) = find_pou(front, K::Property, name, Some(owner.name()))?;
+        let accessor = node.children().find(|child| child.kind() == kind)?;
+        Some((file, body_of(&accessor)))
+    };
+    if let Some(property) = method.name.strip_prefix("__set_") {
+        return accessor(K::PropertySet, property);
+    }
+    if let Some((file, node)) = find_pou(front, K::Method, &method.name, Some(owner.name())) {
+        return Some((file, body_of(&node)));
+    }
+    accessor(K::PropertyGet, &method.name)
+}
+
+/// The Rust of one body, its statements and the POUs it calls.
 fn body<'a>(
     front: &Front,
     model: &mut Model<'a>,
     ids: &StatementIds,
     item: &Work<'a>,
     hooks: bool,
-) -> Result<(String, Vec<u32>, Vec<Need>, SmolStr), NativeError> {
+) -> Result<(String, Vec<u32>, Vec<Need>), NativeError> {
     use trust_syntax::syntax::SyntaxKind as K;
     match item {
         Work::Program(index) => {
@@ -256,12 +309,7 @@ fn body<'a>(
             lowerer.line("Ok(())");
             let needs = lowerer.needs.clone();
             let (text, statements) = lowerer.finish();
-            Ok((
-                format!("{signature}{text}}}\n\n"),
-                statements,
-                needs,
-                def.name.clone(),
-            ))
+            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
         }
         Work::FunctionBlock(ty) => {
             let info = model.types.info(*ty).clone();
@@ -270,7 +318,7 @@ fn body<'a>(
                     "a function block without its definition".into(),
                 ));
             };
-            let Some(def) = model.types.function_block_def(def) else {
+            let Some(Owner::Fb(def)) = model.types.owner(def) else {
                 return Err(NativeError::Compile(format!(
                     "function block {def} is not declared"
                 )));
@@ -296,20 +344,15 @@ fn body<'a>(
             lowerer.line("Ok(())");
             let needs = lowerer.needs.clone();
             let (text, statements) = lowerer.finish();
-            Ok((
-                format!("{signature}{text}}}\n\n"),
-                statements,
-                needs,
-                def.name.clone(),
-            ))
+            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
         }
         Work::Method(owner, method, ty) => {
             let info = model.types.info(*ty).clone();
-            let Some((file, node)) = find_pou(front, K::Method, &method.name, Some(&owner.name))
-            else {
+            let Some((file, list)) = method_body(front, *owner, method) else {
                 return Err(NativeError::Compile(format!(
                     "method {}.{} has no body",
-                    owner.name, method.name
+                    owner.name(),
+                    method.name
                 )));
             };
             let source = &front.sources[file];
@@ -324,10 +367,11 @@ fn body<'a>(
             if !method.static_locals.is_empty() {
                 return Err(NativeError::unsupported(format!(
                     "VAR_STAT of {}.{}",
-                    owner.name, method.name
+                    owner.name(),
+                    method.name
                 )));
             }
-            if let Some(list) = body_of(&node) {
+            if let Some(list) = list {
                 lowerer.statements(list.children())?;
             }
             let exit = lowerer.exit.clone();
@@ -335,17 +379,11 @@ fn body<'a>(
             let needs = lowerer.needs.clone();
             let (text, statements) = lowerer.finish();
             let signature = format!(
-                "fn m_{}__{}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
-                mangle(&owner.name),
-                mangle(&method.name),
+                "fn {}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
+                method_function(*owner, method),
                 info.rust
             );
-            Ok((
-                format!("{signature}{text}}}\n\n"),
-                statements,
-                needs,
-                SmolStr::new(format!("{}.{}", owner.name, method.name)),
-            ))
+            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
         }
         Work::Function(def) => {
             let Some((file, node)) = find_pou(front, K::Function, &def.name, None) else {
@@ -380,14 +418,14 @@ fn body<'a>(
                 "fn f_{}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n",
                 mangle(&def.name)
             );
-            Ok((
-                format!("{signature}{text}}}\n\n"),
-                statements,
-                needs,
-                def.name.clone(),
-            ))
+            Ok((format!("{signature}{text}}}\n\n"), statements, needs))
         }
     }
+}
+
+/// The Rust name of method `method` of `owner`.
+pub(super) fn method_function(owner: Owner<'_>, method: &MethodDef) -> String {
+    format!("m_{}__{}", mangle(owner.name()), mangle(&method.name))
 }
 
 /// Declares the `VAR_TEMP` of a program or a function block, zero at each call.
@@ -399,15 +437,102 @@ fn declare_locals(lowerer: &mut Lowerer<'_, '_>, temps: &[VarDef]) -> Result<(),
                 temp.name
             )));
         }
-        let ty = lowerer.model.ty(temp.type_id)?;
+        let ty = local_type(lowerer, &temp.name, temp.type_id)?;
         lowerer.declare(&temp.name, ty);
     }
     Ok(())
 }
 
+/// The type of the frame variable `name`: never one that holds an instance with a class id, which
+/// a dynamic call reaches only where it lies in an area (specification 44 §6.4, §7.3).
+fn local_type(
+    lowerer: &mut Lowerer<'_, '_>,
+    name: &SmolStr,
+    type_id: trust_hir::TypeId,
+) -> Result<Ty, NativeError> {
+    let ty = lowerer.model.ty(type_id)?;
+    if lowerer.model.types.holds_class(ty) {
+        return Err(NativeError::unsupported(format!(
+            "the frame variable {name}, an instance of a class with inheritance or interfaces"
+        )));
+    }
+    Ok(ty)
+}
+
+/// The Rust form of a function's or a method's call (specification 44 §6.4): the parameters after
+/// `w` (or `me`), the names a dispatcher passes them on by, and the return type.
+pub(super) struct Signature {
+    pub(super) parameters: String,
+    pub(super) names: Vec<String>,
+    pub(super) returns: String,
+}
+
+/// The type a function or a method returns, none for `VOID` or no return type.
+pub(super) fn return_type(
+    model: &mut Model<'_>,
+    ret: Option<trust_hir::TypeId>,
+) -> Result<Option<Ty>, NativeError> {
+    match ret {
+        Some(ret)
+            if model
+                .types
+                .registry()
+                .get(ret)
+                .is_some_and(|ty| !matches!(ty, trust_hir::Type::Void)) =>
+        {
+            Ok(Some(model.ty(ret)?))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// The signature of a function or a method returning `ret` with `params`: a scalar result is
+/// returned, any other written to `out`; a scalar input is passed by value, any other input, an
+/// in-out and an output by reference.
+pub(super) fn signature(
+    model: &mut Model<'_>,
+    ret: Option<trust_hir::TypeId>,
+    params: &[Param],
+) -> Result<Signature, NativeError> {
+    let mut parameters = String::new();
+    let mut names = Vec::new();
+    let mut returns = "()".to_string();
+    if let Some(ret) = return_type(model, ret)? {
+        let info = model.types.info(ret);
+        if super::lower::is_scalar(&info.kind) {
+            returns = info.scalar().map_or("()", |elem| elem.rust()).to_string();
+        } else {
+            let _ = write!(parameters, ", out: &{}", info.rust);
+            names.push("out".to_string());
+        }
+    }
+    for param in params {
+        if param.name.eq_ignore_ascii_case("EN") || param.name.eq_ignore_ascii_case("ENO") {
+            continue;
+        }
+        let ty = model.ty(param.type_id)?;
+        let info = model.types.info(ty);
+        let argument = super::lower::parameter(&param.name);
+        if param.direction == trust_hir::symbols::ParamDirection::In
+            && super::lower::is_scalar(&info.kind)
+        {
+            let elem = info.scalar().map_or("u8", |elem| elem.rust());
+            let _ = write!(parameters, ", {argument}: {elem}");
+        } else {
+            let _ = write!(parameters, ", {argument}: &{}", info.rust);
+        }
+        names.push(argument);
+    }
+    Ok(Signature {
+        parameters,
+        names,
+        returns,
+    })
+}
+
 /// Declares a function's or a method's frame: its return variable first, its inputs copied from
-/// the call's arguments, its locals; returns the Rust parameters after `w` (or `me`) and the Rust
-/// return type, and sets the body's exit.
+/// the call's arguments, its in-outs and outputs as the caller's variables, its locals; returns
+/// the Rust parameters after `w` (or `me`) and the Rust return type, and sets the body's exit.
 fn frame(
     lowerer: &mut Lowerer<'_, '_>,
     name: &SmolStr,
@@ -415,27 +540,12 @@ fn frame(
     params: &[Param],
     locals: &[VarDef],
 ) -> Result<(String, String), NativeError> {
-    let mut parameters = String::new();
-    let mut returns = "()".to_string();
-    let ret = match ret {
-        Some(ret)
-            if lowerer
-                .model
-                .types
-                .registry()
-                .get(ret)
-                .is_some_and(|ty| !matches!(ty, trust_hir::Type::Void)) =>
-        {
-            Some(lowerer.model.ty(ret)?)
-        }
-        _ => None,
-    };
-    if let Some(ret) = ret {
+    let signature = signature(lowerer.model, ret, params)?;
+    if let Some(ret) = return_type(lowerer.model, ret)? {
         let info = lowerer.info(ret).clone();
         let own = SmolStr::new(name.rsplit('.').next().unwrap_or(name));
         let variable = lowerer.declare(&own, ret);
         if super::lower::is_scalar(&info.kind) {
-            returns = info.scalar().map_or("()", |elem| elem.rust()).to_string();
             let value = lowerer.load(&super::lower::Place {
                 expr: variable,
                 ty: ret,
@@ -443,7 +553,6 @@ fn frame(
             });
             lowerer.exit = format!("return Ok({value});");
         } else {
-            let _ = write!(parameters, ", out: &{}", info.rust);
             lowerer.exit = format!("Assign::assign(out, &{variable});\n        return Ok(());");
         }
     }
@@ -454,22 +563,22 @@ fn frame(
         let ty = lowerer.model.ty(param.type_id)?;
         let info = lowerer.info(ty).clone();
         let argument = super::lower::parameter(&param.name);
-        if param.direction == trust_hir::symbols::ParamDirection::InOut {
-            // The caller's variable itself (IEC §6.6.1.2.2).
-            let _ = write!(parameters, ", {argument}: &{}", info.rust);
+        if param.direction != trust_hir::symbols::ParamDirection::In {
+            // An in-out is the caller's variable itself (IEC §6.6.1.2.2); an output is the
+            // caller's place for it, which the caller copies to the output's variable after the
+            // call.
+            if param.default.is_some() {
+                return Err(NativeError::unsupported(format!(
+                    "the initial value of output {} of {name}",
+                    param.name
+                )));
+            }
             lowerer.declare_reference(&param.name, ty, &argument);
             continue;
-        }
-        if param.direction != trust_hir::symbols::ParamDirection::In {
-            return Err(NativeError::unsupported(format!(
-                "the {:?} parameter {} of {name}",
-                param.direction, param.name
-            )));
         }
         let local = lowerer.declare(&param.name, ty);
         if super::lower::is_scalar(&info.kind) {
             let elem = info.scalar().map_or("u8", |elem| elem.rust());
-            let _ = write!(parameters, ", {argument}: {elem}");
             let stored = if elem == "bool" {
                 format!("u8::from({argument})")
             } else {
@@ -477,7 +586,6 @@ fn frame(
             };
             lowerer.line(&format!("{local}.set({stored});"));
         } else {
-            let _ = write!(parameters, ", {argument}: &{}", info.rust);
             lowerer.line(&format!("Assign::assign(&{local}, {argument});"));
         }
     }
@@ -488,10 +596,10 @@ fn frame(
                 local.name
             )));
         }
-        let ty = lowerer.model.ty(local.type_id)?;
+        let ty = local_type(lowerer, &local.name, local.type_id)?;
         lowerer.declare(&local.name, ty);
     }
-    Ok((parameters, returns))
+    Ok((signature.parameters, signature.returns))
 }
 
 /// Writes a `plain_struct!` of `fields`, its offset assertions and, for a structure that is
@@ -537,16 +645,26 @@ fn types(source: &mut String, model: &Model<'_>) {
     for (_, info) in model.types.all() {
         match &info.kind {
             Kind::Struct { members } | Kind::Fb { members, .. } => {
-                let fields: Vec<(String, String, u32)> = members
-                    .iter()
-                    .map(|member| {
-                        (
-                            member.field(),
-                            model.types.info(member.ty).rust.clone(),
-                            member.offset,
-                        )
-                    })
-                    .collect();
+                // A derived type's fields are its base, first, and its own variables; the base's
+                // variables lie inside the base (specification 44 §6.2).
+                let base = match info.kind {
+                    Kind::Fb {
+                        base: Some(base), ..
+                    } => Some(("__BASE".to_string(), model.types.info(base).rust.clone(), 0)),
+                    _ => None,
+                };
+                let fields: Vec<(String, String, u32)> =
+                    base.into_iter()
+                        .chain(members.iter().filter(|member| member.via.is_empty()).map(
+                            |member| {
+                                (
+                                    member.field(),
+                                    model.types.info(member.ty).rust.clone(),
+                                    member.offset,
+                                )
+                            },
+                        ))
+                        .collect();
                 structure(
                     source,
                     &info.rust,

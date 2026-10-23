@@ -331,3 +331,111 @@ fn a_dereference_refuses_what_names_no_variable_of_its_type() {
     });
     assert_eq!(result, FaultCode::ReferenceLifetime as u32);
 }
+
+plain_struct! {
+    struct Shape {
+        pub class: Cell<u32>,
+        pub side: Cell<i32>,
+    }
+}
+
+plain_struct! {
+    struct Square {
+        pub base: Shape,
+        pub surface: Cell<i32>,
+    }
+}
+
+plain_struct! {
+    struct Instances {
+        pub shape: Shape,
+        pub square: Square,
+    }
+}
+
+/// An instance reference finds the instance's class in its first four bytes and views the instance
+/// as that class's type (§6.4): `square` lies at offset 8 with its base first and holds class 2, so
+/// a reference taken as its base, `Shape` (extent 8), still reaches the whole `Square` and its
+/// `surface` at offset 16. Catches a dispatch that trusts the reference's extent or its static type
+/// instead of the class the instance holds.
+#[test]
+fn an_instance_reference_reaches_the_class_its_instance_holds() {
+    let mut words = area_words::<4>();
+    let mut cx = context();
+    cx.set_area(AREA_INSTANCES, words.as_mut_ptr().cast(), 32);
+    let result = run(&raw mut cx, |cx, areas| {
+        let instances: &Instances = areas.view(cx, AREA_INSTANCES)?;
+        instances.shape.class.set(1);
+        instances.square.base.class.set(2);
+        let as_base = areas.refer(cx, &instances.square.base, RefValue::INSTANCE)?;
+        assert_eq!((as_base.offset, as_base.extent), (8, 8));
+        assert_eq!(areas.class_of(cx, &as_base)?, 2);
+        let square: &Square = areas.instance(cx, &as_base, 2)?;
+        square.surface.set(9);
+        assert_eq!(instances.square.surface.get(), 9);
+        let shape = areas.refer(cx, &instances.shape, RefValue::INSTANCE)?;
+        assert_eq!(areas.class_of(cx, &shape)?, 1);
+        Ok(())
+    });
+    assert_eq!(result, 0);
+}
+
+/// An instance reference is refused for another class than the instance holds (`TypeMismatch`, the
+/// held and the expected class in the record), for a reference to a variable (`TypeMismatch`), for
+/// `NULL` (`NullReference`), and when the class's type would reach past the area
+/// (`ReferenceLifetime`): a `Square` (12 bytes) at offset 24 of a 32-byte area. Catches a dispatch
+/// that reads a foreign instance as the expected class.
+#[test]
+fn an_instance_reference_refuses_another_class() {
+    let mut words = area_words::<4>();
+    let mut outcome = |reference: RefValue, class: u32| {
+        let mut cx = context();
+        cx.set_area(AREA_INSTANCES, words.as_mut_ptr().cast(), 32);
+        let result = run(&raw mut cx, |cx, areas| {
+            let instances: &Instances = areas.view(cx, AREA_INSTANCES)?;
+            instances.square.base.class.set(2);
+            let _: &Square = areas.instance(cx, &reference, class)?;
+            Ok(())
+        });
+        (result, cx.fault.detail)
+    };
+    let square = RefValue {
+        area: AREA_INSTANCES,
+        kind: RefValue::INSTANCE,
+        char_index: 0,
+        offset: 8,
+        extent: 8,
+        generation: 1,
+    };
+    assert_eq!(outcome(square, 2).0, 0);
+    assert_eq!(
+        outcome(square, 3),
+        (FaultCode::TypeMismatch as u32, [2, 3, 0])
+    );
+    assert_eq!(
+        outcome(
+            RefValue {
+                kind: RefValue::VARIABLE,
+                ..square
+            },
+            2
+        )
+        .0,
+        FaultCode::TypeMismatch as u32
+    );
+    assert_eq!(
+        outcome(RefValue::NULL_REF, 2).0,
+        FaultCode::NullReference as u32
+    );
+    assert_eq!(
+        outcome(
+            RefValue {
+                offset: 24,
+                ..square
+            },
+            0
+        )
+        .0,
+        FaultCode::ReferenceLifetime as u32
+    );
+}

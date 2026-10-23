@@ -103,8 +103,10 @@ fn compare(project: &Path, cycle_ms: i64, scans: i64) -> Result<usize, String> {
         let native_errors: Vec<String> = native.err().map(|e| e.to_string()).into_iter().collect();
         let runtime_errors: Vec<String> = result.errors.iter().map(ToString::to_string).collect();
         if native_errors != runtime_errors {
+            let fault = program.last_fault();
             return Err(format!(
-                "scan {scan}: the kernel's errors {native_errors:?}, the runtime's {runtime_errors:?}"
+                "scan {scan}: the kernel's errors {native_errors:?} (statement {}, detail {:?}), the runtime's {runtime_errors:?}",
+                fault.stmt, fault.detail
             ));
         }
         for (index, name) in &symbols {
@@ -134,6 +136,19 @@ fn compare(project: &Path, cycle_ms: i64, scans: i64) -> Result<usize, String> {
 fn the_motion_demonstration_runs_as_the_runtime_runs_it() {
     let project = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../examples/plcopen_motion_single_axis_demo");
+    match compare(&project, 10, 500) {
+        Ok(matched) => println!("{matched} values matched"),
+        Err(divergence) => panic!("{divergence}"),
+    }
+}
+
+/// The PLCopen motion feeder, an object-oriented program: an axis class used through its
+/// interface, commands returned as interfaces and read through their properties, classes that
+/// extend others and a method with an output, runs alike for five seconds of 10 ms scans.
+#[test]
+fn the_object_oriented_feeder_runs_as_the_runtime_runs_it() {
+    let project =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/plcopen_motion_oop_feeder_axis");
     match compare(&project, 10, 500) {
         Ok(matched) => println!("{matched} values matched"),
         Err(divergence) => panic!("{divergence}"),

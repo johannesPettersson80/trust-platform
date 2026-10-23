@@ -285,6 +285,12 @@ impl RuntimeBuilder {
         &self.classes
     }
 
+    /// Inspect interface declarations before installation.
+    #[must_use]
+    pub fn interfaces(&self) -> &IndexMap<SmolStr, InterfaceDef> {
+        &self.interfaces
+    }
+
     pub(crate) fn initializer_catalog(&self) -> &InitializerCatalog {
         &self.initializer_catalog
     }

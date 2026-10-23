@@ -134,7 +134,8 @@ struct Writer<'r, 'm, 'a> {
 }
 
 impl Writer<'_, '_, '_> {
-    /// Writes the variable `name` of instance `id` at `offset`, when the runtime holds it.
+    /// Writes the variable `name` of instance `id` at `offset`, when the runtime holds it: in the
+    /// instance, or in the instance of its base that the runtime keeps as its parent.
     fn member(
         &mut self,
         id: InstanceId,
@@ -143,23 +144,22 @@ impl Writer<'_, '_, '_> {
         bytes: &mut [u8],
         offset: usize,
     ) -> Result<(), NativeError> {
-        let value = self
-            .runtime
-            .storage()
-            .get_instance_var(id, name)
-            .cloned()
-            .or_else(|| {
-                self.runtime
-                    .storage()
-                    .get_instance(id)
-                    .and_then(|instance| {
-                        instance
-                            .variables
-                            .iter()
-                            .find(|(key, _)| key.eq_ignore_ascii_case(name))
-                            .map(|(_, value)| value.clone())
-                    })
+        let storage = self.runtime.storage();
+        let mut current = Some(id);
+        let mut value = None;
+        while let Some(instance) = current.and_then(|id| storage.get_instance(id)) {
+            value = instance.variables.get(name).cloned().or_else(|| {
+                instance
+                    .variables
+                    .iter()
+                    .find(|(key, _)| key.eq_ignore_ascii_case(name))
+                    .map(|(_, value)| value.clone())
             });
+            if value.is_some() {
+                break;
+            }
+            current = instance.parent;
+        }
         match value {
             Some(value) => self.value(&value, ty, bytes, offset),
             // A hidden variable of a standard function block starts at zero.
@@ -251,11 +251,19 @@ impl Writer<'_, '_, '_> {
                 }
                 Ok(())
             }
-            (Kind::Fb { members, .. }, Value::Instance(id)) => {
+            // An interface names no instance until one is assigned.
+            (Kind::Interface, Value::Reference(None)) => Ok(()),
+            (Kind::Fb { members, class, .. }, Value::Instance(id)) => {
+                // The instance's own class id, in the first field of its hierarchy's root, which
+                // lies first (specification 44 §6.4).
+                if *class != 0 {
+                    put(bytes, &class.to_le_bytes())?;
+                }
                 // A `VAR_IN_OUT` holds a reference to its argument from the first call on; it
                 // starts `NULL`, whatever value the runtime keeps for it before a call.
                 let held = members.iter().filter(|member| {
                     member.flags & trust_runtime_core::native::image::SYMBOL_IN_OUT == 0
+                        && member.name != "__CLASS"
                 });
                 for member in held.cloned().collect::<Vec<_>>() {
                     self.member(

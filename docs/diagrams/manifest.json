@@ -10,7 +10,7 @@
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "943b12abd97a3201616be6d17bed24195537f7d7ff86984dcf7e56f824434b8a",
   "docs/diagrams/architecture/runtime-execution.puml": "effada7e4f1142e96e8c68440e565f258df6aa150e8efca0cc42e14b07d66cb2",
   "docs/diagrams/architecture/runtime-interpreter-removal-map.puml": "a988ae27d45fa3c2ff95698f491ff2f692d166c7d1dd566007a307bb18ba1663",
-  "docs/diagrams/architecture/runtime-native-execution.puml": "6b8fe2153ac1c5264b9787ab7d5c9c710310e1ca58af4ab8c32cebaf56d89881",
+  "docs/diagrams/architecture/runtime-native-execution.puml": "3399a3dd5a36dfbb2d65d849af140fdbb969153627117a5f1dbcc27864ea7a12",
   "docs/diagrams/architecture/system-architecture.puml": "157efeb11c2cf1e49ae540b30967adfe7537f7e3c2be4db233d278975ba9d20d",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
   "docs/diagrams/debug/debug-architecture.puml": "6995d060b294dfb9110eed2c99e4d0b25e705abfd805ce9cf5b1559c309e6939",

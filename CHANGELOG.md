@@ -32,6 +32,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   motion single-axis library and its demonstration, OSCAT's `TICKER` and twelve example projects
   now compile, and each runs as the runtime runs it: every variable of every scan compared, 846,000
   values over 30 seconds of the vat pasteurizer.
+- Added: compiled programs take classes, function blocks that extend others, interfaces and
+  properties (IEC 61131-3 §6.6.5 to §6.6.8): a call through an interface, a `VAR_IN_OUT`, a
+  reference or `THIS` reaches the method of the instance's class, `SUPER` the base's, a property is
+  read through its `GET` and written through its `SET`, and a method's `VAR_OUTPUT` reaches the
+  variable given with `=>`. The five PLCopen motion object-oriented examples compile and run as the
+  runtime runs them, about 375,000 values over 500 scans each; the conformance suite passes 20 of
+  its 21 cases on compiled programs. A function block that neither implements an interface nor
+  takes part in inheritance keeps its size.
+- Fixed: a compiled method that returned a structure, a string or an interface received its result
+  place where its instance belonged; methods returning one did not compile.
 - Fixed: a compiled program gave two arrays of one storage one type, so `ARRAY[1..3] OF INT` was
   indexed by the bounds of an `ARRAY[0..2] OF INT` declared before it, and an array of one
   enumeration took the values of another of the same base.

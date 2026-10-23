@@ -8,41 +8,43 @@ use trust_hir::SymbolKind;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::expr::Text;
+use super::object::Receiver;
 use super::{Lowerer, Place};
 use crate::native::types::{mangle, rust_field, Elem, Kind, Ty};
 use crate::native::NativeError;
-use crate::program_model::{FunctionBlockDef, FunctionDef, MethodDef, Param};
+use crate::program_model::{FunctionDef, Param};
 
 /// One argument of a call.
-struct Arg {
+pub(super) struct Arg {
     /// The formal parameter's name, or `None` for a positional argument.
-    name: Option<String>,
+    pub(super) name: Option<String>,
     /// Whether the argument receives an output (`=>`).
-    output: bool,
-    value: SyntaxNode,
+    pub(super) output: bool,
+    pub(super) value: SyntaxNode,
 }
 
 /// What a call calls.
 enum Callee<'a> {
     Function(&'a FunctionDef),
     FunctionBlock(Place),
-    Method {
-        instance: Place,
-        owner: &'a FunctionBlockDef,
-        method: &'a MethodDef,
-    },
+    /// A method, by its name, of an instance or through an interface reference.
+    Method(Receiver, String),
     Standard(String),
 }
 
+/// The outputs of a call: each output's place in the caller and the variable it is copied to after
+/// the call.
+pub(super) type Outputs = Vec<(Place, SyntaxNode)>;
+
 /// What a call's value is wanted as.
-enum Want {
+pub(super) enum Want {
     Nothing,
     Scalar(Ty),
     Aggregate,
 }
 
 /// A call's value.
-enum Called {
+pub(super) enum Called {
     Nothing,
     Scalar(String),
     Place(Place),
@@ -135,11 +137,7 @@ impl<'a> Lowerer<'_, 'a> {
                 self.function_block_call(node, &instance, args)?;
                 Ok(Called::Nothing)
             }
-            Callee::Method {
-                instance,
-                owner,
-                method,
-            } => self.method_call(node, &instance, owner, method, args, want),
+            Callee::Method(receiver, name) => self.member_call(node, receiver, &name, args, want),
             Callee::Standard(name) => self.standard(node, &name, args, want),
         }
     }
@@ -171,10 +169,22 @@ impl<'a> Lowerer<'_, 'a> {
                 {
                     return Ok(Callee::FunctionBlock(place));
                 }
-                if let Some((qualified, SymbolKind::Function { .. })) = self.qualified(target)
-                    && let Some(def) = self.model.function(&qualified)
+                let resolved = self.qualified(target);
+                if let Some((qualified, SymbolKind::Function { .. })) = &resolved
+                    && let Some(def) = self.model.function(qualified)
                 {
                     return Ok(Callee::Function(def));
+                }
+                // A method of the instance itself, called without `THIS` (IEC §6.6.5.4).
+                if let Some((_, SymbolKind::Method { .. })) = &resolved {
+                    let this = self.this_place(target)?;
+                    return Ok(Callee::Method(
+                        Receiver::Instance {
+                            place: this,
+                            exact: false,
+                        },
+                        name,
+                    ));
                 }
                 if let Some(def) = self.model.function(&name) {
                     return Ok(Callee::Function(def));
@@ -195,36 +205,10 @@ impl<'a> Lowerer<'_, 'a> {
                                     self.unsupported(target, "a method without its instance")
                                 );
                             };
-                            let instance = self.place(&base)?;
-                            let Kind::Fb { def, .. } = &self.info(instance.ty).kind else {
-                                return Err(self.unsupported(
-                                    target,
-                                    "a method of a value that is no function block",
-                                ));
-                            };
-                            let def_name = def.clone();
-                            let Some(owner) = self.model.types.function_block_def(&def_name) else {
-                                return Err(self.unsupported(
-                                    target,
-                                    format!("the function block {def_name}"),
-                                ));
-                            };
                             let member =
                                 ident(&target.children().nth(1).unwrap_or_else(|| target.clone()));
-                            let Some(method) = owner
-                                .methods
-                                .iter()
-                                .find(|method| method.name.eq_ignore_ascii_case(&member))
-                            else {
-                                return Err(
-                                    self.unsupported(target, format!("the method {member}"))
-                                );
-                            };
-                            return Ok(Callee::Method {
-                                instance,
-                                owner,
-                                method,
-                            });
+                            let receiver = self.receiver(&base)?;
+                            return Ok(Callee::Method(receiver, member));
                         }
                         _ => {}
                     }
@@ -241,7 +225,7 @@ impl<'a> Lowerer<'_, 'a> {
 
     /// Binds `args` to `params` as trust-hir binds them: positional arguments in the order of the
     /// parameters, formal ones by name (IEC §6.6.1.4).
-    fn bind_arguments<'p>(
+    pub(super) fn bind_arguments<'p>(
         &self,
         node: &SyntaxNode,
         params: &'p [Param],
@@ -276,16 +260,21 @@ impl<'a> Lowerer<'_, 'a> {
         Ok(bound)
     }
 
-    /// The Rust arguments of a function's or a method's inputs.
-    fn inputs(
+    /// The Rust arguments of a function's or a method's parameters, and the outputs to copy to
+    /// their variables after the call: each output's place in the caller and its variable.
+    pub(super) fn inputs(
         &mut self,
         node: &SyntaxNode,
         bound: &[(&Param, Option<Arg>)],
-    ) -> Result<Vec<String>, NativeError> {
+    ) -> Result<(Vec<String>, Outputs), NativeError> {
         let mut values = Vec::with_capacity(bound.len());
+        let mut outputs = Vec::new();
         for (param, arg) in bound {
+            let ty = self.model.ty(param.type_id)?;
+            let info = self.info(ty).clone();
             if param.direction == ParamDirection::InOut {
-                // A `VAR_IN_OUT` is the caller's variable itself (IEC §6.6.1.2.2).
+                // A `VAR_IN_OUT` is the caller's variable itself (IEC §6.6.1.2.2), an instance
+                // of a derived type as its base (§6.6.8.3).
                 let Some(arg) = arg else {
                     return Err(self.unsupported(
                         node,
@@ -293,17 +282,35 @@ impl<'a> Lowerer<'_, 'a> {
                     ));
                 };
                 let place = self.place(&arg.value)?;
-                values.push(place.reference());
+                values.push(self.as_type(&arg.value, &place, ty)?);
                 continue;
             }
-            if param.direction != ParamDirection::In {
-                return Err(self.unsupported(
-                    node,
-                    format!("the {:?} parameter {}", param.direction, param.name),
+            if param.direction == ParamDirection::Out {
+                // The output's place in the caller, copied to its variable after the call.
+                let temp = self.temp();
+                let storage = info.rust.clone();
+                self.line(&format!(
+                    "let {temp}: {storage} = <{storage} as Plain>::ZEROED;"
                 ));
+                values.push(format!("&{temp}"));
+                if let Some(arg) = arg {
+                    if !arg.output {
+                        return Err(self.unsupported(
+                            &arg.value,
+                            format!("the output {} given without =>", param.name),
+                        ));
+                    }
+                    outputs.push((
+                        Place {
+                            expr: temp,
+                            ty,
+                            is_ref: false,
+                        },
+                        arg.value.clone(),
+                    ));
+                }
+                continue;
             }
-            let ty = self.model.ty(param.type_id)?;
-            let info = self.info(ty).clone();
             let value = match (&info.kind, arg) {
                 (Kind::Str(capacity), Some(arg)) => {
                     let parts = self.text(&arg.value)?;
@@ -312,6 +319,16 @@ impl<'a> Lowerer<'_, 'a> {
                 (Kind::Str(capacity), None) => {
                     let temp = self.temp();
                     self.line(&format!("let {temp} = Str::<{capacity}>::new();"));
+                    format!("&{temp}")
+                }
+                (Kind::Interface, Some(arg)) => {
+                    let reference = self.interface_value(&arg.value)?;
+                    let temp = self.bind(&format!("Cell::new({reference})"));
+                    format!("&{temp}")
+                }
+                (Kind::Ref { target }, Some(arg)) => {
+                    let reference = self.reference_to(&arg.value, Some(*target))?;
+                    let temp = self.bind(&format!("Cell::new({reference})"));
                     format!("&{temp}")
                 }
                 (kind, Some(arg)) if super::is_scalar(kind) => self.scalar_to(&arg.value, ty)?,
@@ -340,18 +357,52 @@ impl<'a> Lowerer<'_, 'a> {
             };
             values.push(value);
         }
-        Ok(values)
+        Ok((values, outputs))
     }
 
-    /// The call of a function or a method returning `ret`: its value as `want` needs it.
-    fn emit_call(
+    /// Copies each output's place to its variable, after the call (IEC §6.6.1.4).
+    pub(super) fn copy_outputs(&mut self, outputs: Outputs) -> Result<(), NativeError> {
+        for (place, target) in outputs {
+            let destination = self.place(&target)?;
+            let kind = self.info(place.ty).kind.clone();
+            match kind {
+                kind if super::is_scalar(&kind) => {
+                    let value = self.load(&place);
+                    let value = self.convert(&target, &value, place.ty, destination.ty)?;
+                    self.store_scalar(&destination, &value);
+                }
+                Kind::Str(_) => self.line(&format!(
+                    "lib::assign(({}).view(), ({}).view());",
+                    destination.reference(),
+                    place.reference()
+                )),
+                _ if place.ty == destination.ty => self.line(&format!(
+                    "Assign::assign({}, {});",
+                    destination.reference(),
+                    place.reference()
+                )),
+                _ => {
+                    return Err(self.unsupported(&target, "an output of another type"));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// The call of a function, or of a method on `receiver`, returning `ret`: its value as `want`
+    /// needs it. The Rust arguments are the context and the areas, the receiver, the place of a
+    /// result that is no scalar, then the parameters.
+    pub(super) fn emit_call(
         &mut self,
         node: &SyntaxNode,
         function: &str,
+        receiver: Option<String>,
         mut arguments: Vec<String>,
         ret: Option<trust_hir::TypeId>,
         want: &Want,
     ) -> Result<Called, NativeError> {
+        let mut leading = vec!["cx".to_string(), "w".to_string()];
+        leading.extend(receiver);
         let ret = match ret {
             Some(ret)
                 if self
@@ -366,15 +417,13 @@ impl<'a> Lowerer<'_, 'a> {
             _ => None,
         };
         let Some(ret) = ret else {
-            arguments.insert(0, "w".into());
-            arguments.insert(0, "cx".into());
+            arguments.splice(0..0, leading);
             self.line(&format!("{function}({})?;", arguments.join(", ")));
             return Ok(Called::Nothing);
         };
         let info = self.info(ret).clone();
         if super::is_scalar(&info.kind) {
-            arguments.insert(0, "w".into());
-            arguments.insert(0, "cx".into());
+            arguments.splice(0..0, leading);
             let value = self.bind(&format!("{function}({})?", arguments.join(", ")));
             return match want {
                 Want::Scalar(target) => {
@@ -389,9 +438,8 @@ impl<'a> Lowerer<'_, 'a> {
         self.line(&format!(
             "let {temp}: {storage} = <{storage} as Plain>::ZEROED;"
         ));
-        arguments.insert(0, format!("&{temp}"));
-        arguments.insert(0, "w".into());
-        arguments.insert(0, "cx".into());
+        leading.push(format!("&{temp}"));
+        arguments.splice(0..0, leading);
         self.line(&format!("{function}({})?;", arguments.join(", ")));
         Ok(Called::Place(Place {
             expr: temp,
@@ -408,33 +456,19 @@ impl<'a> Lowerer<'_, 'a> {
         want: Want,
     ) -> Result<Called, NativeError> {
         let bound = self.bind_arguments(node, &def.params, args)?;
-        let arguments = self.inputs(node, &bound)?;
-        let need = super::Need::Function(def.name.clone());
-        if !self.needs.contains(&need) {
-            self.needs.push(need);
-        }
+        let (arguments, outputs) = self.inputs(node, &bound)?;
+        super::Need::Function(def.name.clone()).add_to(&mut self.needs);
         let function = format!("f_{}", mangle(&def.name));
-        self.emit_call(node, &function, arguments, Some(def.return_type), &want)
-    }
-
-    fn method_call(
-        &mut self,
-        node: &SyntaxNode,
-        instance: &Place,
-        owner: &'a FunctionBlockDef,
-        method: &'a MethodDef,
-        args: Vec<Arg>,
-        want: Want,
-    ) -> Result<Called, NativeError> {
-        let bound = self.bind_arguments(node, &method.params, args)?;
-        let mut arguments = self.inputs(node, &bound)?;
-        arguments.insert(0, instance.reference());
-        let need = super::Need::Method(owner.name.clone(), method.name.clone());
-        if !self.needs.contains(&need) {
-            self.needs.push(need);
-        }
-        let function = format!("m_{}__{}", mangle(&owner.name), mangle(&method.name));
-        self.emit_call(node, &function, arguments, method.return_type, &want)
+        let called = self.emit_call(
+            node,
+            &function,
+            None,
+            arguments,
+            Some(def.return_type),
+            &want,
+        )?;
+        self.copy_outputs(outputs)?;
+        Ok(called)
     }
 
     /// `instance(inputs, outputs)`: the given inputs written, the body run, the outputs read
@@ -447,8 +481,18 @@ impl<'a> Lowerer<'_, 'a> {
     ) -> Result<(), NativeError> {
         let info = self.info(instance.ty).clone();
         let (members, body) = match &info.kind {
-            Kind::Fb { def, members } => {
-                (members.clone(), Body::User(format!("fb_{}", mangle(def))))
+            Kind::Fb { def, members, .. } => {
+                let defs = self.model.types.defs;
+                // The body of a derived type's instance, which a `VAR_IN_OUT` or a reference of
+                // the base's type may name, is bound by its class (IEC §6.6.8.3, §6.6.8.4).
+                let body = match defs.owner(def) {
+                    Some(owner) if defs.extended_below(owner) => {
+                        super::Need::Body(instance.ty).add_to(&mut self.needs);
+                        crate::native::dispatch::body_function(self.model, instance.ty)
+                    }
+                    _ => format!("fb_{}", mangle(def)),
+                };
+                (members.clone(), Body::User(body))
             }
             Kind::StdFb(fb) => (
                 self.model.types.std_fb_members(*fb),
@@ -484,12 +528,16 @@ impl<'a> Lowerer<'_, 'a> {
                 is_ref: false,
             };
             if member.flags & SYMBOL_IN_OUT != 0 {
-                // The instance keeps a reference to the variable it was called with (§6.4).
+                // The instance keeps a reference to the variable it was called with (§6.4), an
+                // instance of a derived type as its base (IEC §6.6.8.3).
                 let variable = self.place(&arg.value)?;
+                let Kind::Ref { target } = self.info(member.ty).kind else {
+                    return Err(self.unsupported(&arg.value, "a VAR_IN_OUT without its type"));
+                };
+                let variable = self.as_type(&arg.value, &variable, target)?;
                 self.line(&format!(
-                    "{}.set(w.areas.refer(cx, {}, abi::RefValue::VARIABLE)?);",
-                    place.expr,
-                    variable.reference()
+                    "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
+                    place.expr
                 ));
             } else if arg.output {
                 outputs.push((place, arg.value));

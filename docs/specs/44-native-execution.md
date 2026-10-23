@@ -1,7 +1,7 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.4 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
-  0.4 make exact what the implementation of milestones M1 and M2 decided within that design,
+- **Status:** 0.5 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+  0.5 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
@@ -418,7 +418,8 @@ the kernel interface.
 | `UNION` (specification 02 §3.7) | a struct holding each variant as a member | | as MEM-12 keeps it |
 | `REF_TO T` (§6.4.4.10), interface reference | `Ref` (§7.3) | 16 | |
 | `POINTER TO T` (extension) | `Ref` with kind pointer | 16 | |
-| FB and class instance | `#[repr(C)] struct` of its variables, base first | §7.2 | |
+| FB and class instance | `#[repr(C)] struct` of its variables, base first | §7.2 | the class id first in a hierarchy that needs one (§6.4) |
+| Interface (§6.6.6) | `Ref` of kind instance (§7.3) | 16 | `NULL` until an instance is assigned |
 
 Generic types (IEC §6.4.3) exist only in declarations of standard and library functions; the
 generator monomorphizes every call to its argument types.
@@ -453,11 +454,11 @@ interface's `Plain` trait only for a `#[repr(C)]` structure whose every field is
 | `PROGRAM` (§6.6.4) | an instance struct in the instance area; a body function `fn prog_<name>(cx: &mut Cx, me: &mut <Prog>) -> R`; its task entry calls the body |
 | `FUNCTION` (§6.6.2) | `fn f_<name>(cx: &mut Cx, inputs…, in_outs: &mut …) -> Result<T, Fault>`; `VAR` and `VAR_TEMP` are Rust locals; `EN`/`ENO` as specification 04 §EN/ENO |
 | `FUNCTION_BLOCK` (§6.6.3) | an instance struct (`VAR_INPUT`, `VAR_OUTPUT`, `VAR`, `VAR_IN_OUT` as `Ref`, nested instances inline); a body function taking `&mut` instance; a call writes the inputs, calls the body, reads the outputs (IEC §6.6.3.4) |
-| `METHOD` (§6.6.5.4, §6.6.7.2) | a function taking `&mut` instance; `THIS` is the instance; `SUPER.m()` is a direct call of the base's method |
-| `CLASS` (§6.6.5), inheritance (`EXTENDS`) | the base struct embedded as the first field; `OVERRIDE` (§6.6.5.6) resolved statically where the receiver's class is known |
-| `INTERFACE` (§6.6.6), dynamic binding | the build knows every class (closed world): a call through an interface reference is a `match` on the instance's class id, held in the first field of every class and FB instance, to the method of that class; `?=` (Table 52) is a `match` on the class id as well |
+| `METHOD` (§6.6.5.4, §6.6.7.2) | a function taking `&mut` instance; inputs by value, `VAR_IN_OUT` as the caller's variable, `VAR_OUTPUT` as a place in the caller that the caller copies to the output's variable after the call (IEC §6.6.1.4); `THIS` is the instance; a call without an instance (`m()`) is a call on `THIS`; `SUPER.m()` is a direct call of the base's method on the instance's base part |
+| `CLASS` (§6.6.5), inheritance (`EXTENDS`, also of function blocks, §6.6.7) | the base struct embedded as the first field, so an instance of a derived type is an instance of its base at the same address; a method the type does not declare is its base's. A call is bound statically when no type derived from the receiver's declared type overrides the method (IEC §6.6.8.5 note); otherwise, and for the body of a function block that a derived type extends, the call is a `match` on the instance's class id, the derived types that override as arms and the declared type's method as the default (§6.6.8.3 to §6.6.8.5). `REF` of a derived instance stored in a reference to its base, and a derived instance as the argument of a base's `VAR_IN_OUT`, are the instance's base part |
+| `INTERFACE` (§6.6.6), dynamic binding | the build knows every class (closed world): a call through an interface reference is a `match` on the instance's class id over every laid-out type that implements the interface, directly, through a base or through an interface that extends it, each arm a direct call of the method that type reaches; a type that implements no method of the name (an abstract base) has no arm. The class id lies in the first four bytes of every instance of a hierarchy that implements an interface or has more than one type, one id per type, given in the order the types are laid out; the starting memory holds each instance's id, and an instance of a type outside such hierarchies has none. A variable that holds such an instance cannot be a frame variable (a function's or a method's `VAR`, a `VAR_TEMP`): a dynamic call reaches an instance only where it lies in an area, so the build refuses it (NX-09). An interface's value is `NULL`, or the reference of kind instance to an instance or `THIS`; two interface values are equal when they name the same instance. `?=` (Table 52) is a `match` on the class id as well |
 | `ACTION` (specification 04 §8) | a method of its POU |
-| `PROPERTY` (extension) | its get and set methods |
+| `PROPERTY` (extension) | its `GET` as a method of the property's name and its `SET` as a method `__set_<name>` of one input; a read of the property is a call of the `GET`, an assignment to it a call of the `SET`, bound as a method call, through an interface too |
 | `NAMESPACE`, `USING` (§6.9) | resolved by trust-hir; names are mangled `ns__pou` |
 | A project without a `CONFIGURATION` | each `PROGRAM` as one instance of its own name, without a task, run in every cycle, as the runtime prepares its own build (specification 18 §2.2) |
 | Edge-qualified inputs (`R_EDGE`, `F_EDGE`, Tables 40 and 47) | a hidden previous-value byte in the instance and the edge computed at the call, as specification 03 §3 says |
@@ -480,7 +481,7 @@ named fault (§8.6) by returning `Err(Fault)` up the call chain; no panic occurs
 | Division and modulo by zero (IEC §6.6.2.5.8) | `/`, `MOD` | `DivisionByZero` |
 | Conversion range (IEC §6.6.2.5.2 to §6.6.2.5.7, specification 07) | every `*_TO_*` that can fail, through the library | the library's error |
 | String capacity (IEC §6.4.2.2 note, specification 02 §6) | every string assignment and `VAR_IN_OUT` binding: longer strings are cut to the capacity as specification 02 says | none (cut), `StringCapacityExceeded` for the 65,535 maximum |
-| Null dereference (IEC §6.4.4.10.3) | every `^` | `NullReferenceDereference` |
+| Null dereference (IEC §6.4.4.10.3) | every `^`, every call through an interface | `NullReferenceDereference` |
 | Reference validity | every `^`: the reference's area, offset, extent and generation (§7.3) | `ReferenceLifetime` |
 | Character index of `s[i]` (specification 02 §6) | every character access | `IndexOutOfBounds` |
 | `FOR` step zero (specification 10 §10) | every `FOR` with a non-constant step | `ForStepZero` |
@@ -578,10 +579,11 @@ behaves as `RETAIN` and is retained across a cold restart only when specificatio
 
 MEM-12's rules of specification 34 hold unchanged for every type: declared sizes and natural
 alignment (at most 8), structures padded to a multiple of their alignment, arrays contiguous,
-strings as length and bytes, `STRUCT OVERLAP` and `UNION` as there, instances with their own
-variables first and their base's after them. New here: the generator emits the layout as Rust types
-and asserts it (§6.3), and a `BOOL` in an array or structure takes 1 byte (no packing of bits), as
-MEM-12 says. `SIZEOF` is specification 29's.
+strings as length and bytes, `STRUCT OVERLAP` and `UNION` as there. An instance of a derived type
+lies as its base's instance first, then its own variables (§6.4); the interpreter's flat store keeps
+an instance's own variables first, which no compiled program reads. New here: the generator emits
+the layout as Rust types and asserts it (§6.3), and a `BOOL` in an array or structure takes 1 byte
+(no packing of bits), as MEM-12 says. `SIZEOF` is specification 29's.
 
 ### 7.3 References
 
@@ -597,7 +599,12 @@ reference of a variable that lies in an area; a `VAR_IN_OUT` of a function block
 reference of the argument of its last call and reads and writes the variable through it, and a
 `VAR_IN_OUT` of a function or a method is the caller's variable itself. A `REF` initializer of a
 global or a program's variable is set by the cold-start and the warm-start initialization (§6.7),
-since the starting memory cannot hold where a variable lies. A reference to a frame variable (IEC
+since the starting memory cannot hold where a variable lies. An interface's reference has kind
+instance and the extent of the type it was taken as, which may be a base of the instance's class;
+a call through it reads the class id the instance holds, and views the instance as that class's
+type where its area holds it, so the class id, not the extent, says what lies there. Two references
+are equal when they name the same variable or instance, whatever extent each carries. A reference
+to a frame variable (IEC
 §6.4.4.10.2 forbids references to temporaries; trust-hir refuses them) never exists.
 
 ### 7.4 Starting memory
@@ -1011,6 +1018,15 @@ manifest, and its trace must equal the expected artifact the bytecode engine wro
 A name in a manifest resolves as the test harness resolves it: a global by its name, a qualified
 path by its full name, and a program variable by its name alone when one program declares it.
 
+A project compiled and the same project in the runtime run in lockstep at the project's cycle
+interval, and every variable the image names a value of is compared after every scan
+(`tests/native_compare.rs`). Where the runtime departs from the standard, a compiled program does
+what the standard says and the comparison of such a program is not a pass criterion: inside a
+method reached through `SUPER`, the runtime binds a call through `THIS` to the base's method, as
+its base part is an instance of its own there, where IEC §6.6.8.5 binds it to the instance's class;
+and it ends the scan of a call through a `NULL` interface with a type mismatch, where the call is a
+null dereference (specification 10).
+
 ### 14.3 Against RuSTy
 
 From M2, CI compiles the pasteurizer's control program and the OSCAT corpus with RuSTy and with
@@ -1073,3 +1089,4 @@ the runtime has errors of their own).
 | 0.2 | 22 October 2026 | Exact where milestone M1's implementation decided within the approved design: the generator reads trust-hir's recorded types and resolved symbols (§3); one module per CPU for every computer, its calling convention named (§4.4); the flags as they link (static PIE, `prolog-epilog` remarks, because `-stack-size-section` has no effect on stable rustc, §4.5, §8.5); table sections with a count, `CODE` at 64 bytes (§5.3); an entry per program body (§5.4); the type kinds listed (§5.8); strings rounded to even (§6.2); variables as cells behind shared references so that the generated crate needs no `unsafe` (§6.3); the context with the fault record in it and two kernel functions (§8.2); the fault codes listed (Appendix A). Measured: the reference workload's image for the C6 is 86 KB with 43 KB of code, and its memory figure 4,546 bytes (§10.4). No change of direction. |
 | 0.3 | 22 October 2026 | Exact where running the reference workload on the C6 decided within the approved design: the container keeps `TRSTA002` and holds an image as entry kind 3 at a 64-byte boundary, and the image's record comes from its tables (§10.1); the install check runs the kernel's checks (§10.2); the C6 copies the module into a 128 KiB program code region of RAM instead of running it from the flash cache, measured 0.063 ms average and 0.178 ms worst for the control task over an hour against 0.243 ms and 1.05 ms in place, a module too large for the region running in place (§10.3); the figure's parts in `status` (§10.4); the compiled cycle and the sampling grid, whose drift lost activations on every runtime and is corrected in specification 10 §4.3 (§8.7); retain held in memory until M2 (§11); `status`, `io.read` and refused Live Values writes until M3 (§13.3). |
 | 0.4 | 22 October 2026 | Exact where milestone M2's retain decided within the approved design: the capture writes the codec's bytes from the retain area through the type table, without building values, and leaves out a variable that holds an instance as the interpreter does; the restore applies specification 11 §6.7's migrations against the type table and gives a structure member the checkpoint lacks its starting value; a retained variable the checkpoint lacks keeps its value, as the interpreter's warm restart keeps it; the install check restores the newest checkpoint into the new image (§11); the process images are carried over a restart and the variables at `%M` published after it, as specification 11 §6.7 says (§6.7); the retain capture of the figure is twice the kernel's payload bound (§10.4). |
+| 0.5 | 23 October 2026 | Exact where milestone M2's coverage decided within the approved design: the conformance suite runs on a computer's kernel and a project runs in lockstep with the runtime, variable by variable (§14.2); references, `REF`, `^` and a function block's `VAR_IN_OUT` as a stored reference (§7.3); and the object-oriented constructs (§6.2, §6.4, §6.5, §7.2, §7.3): an instance of a derived type holds its base first; only a hierarchy that implements an interface or has more than one type holds class ids, so a function block of neither pays no bytes; a call is bound statically unless a derived type overrides the method, and then, as through an interface, by a `match` on the class id over the laid-out types; such an instance is never a frame variable; a property is a call of its `GET` or `SET`; a method's outputs are copied to their variables after the call; a call through a `NULL` interface is a null dereference. The runtime's two departures from the standard that the comparison found are listed in §14.2. |

@@ -96,20 +96,8 @@ impl<'s> Areas<'s> {
     /// [`FaultCode::NullReference`] for `NULL`, [`FaultCode::ReferenceLifetime`] for a reference of
     /// another generation or outside its area, and [`FaultCode::TypeMismatch`] for a target that is
     /// no `T`.
-    #[allow(unsafe_code)]
     pub fn deref<T: Plain>(&self, cx: &mut Cx, reference: &RefValue) -> Result<&'s T, Fault> {
-        if reference.kind == RefValue::NULL {
-            return Err(fault(cx, FaultCode::NullReference, 0, 0, 0));
-        }
-        if reference.generation != GENERATION {
-            return Err(fault(
-                cx,
-                FaultCode::ReferenceLifetime,
-                i64::from(reference.generation),
-                i64::from(GENERATION),
-                0,
-            ));
-        }
+        current(cx, reference)?;
         let size = core::mem::size_of::<T>();
         if usize::try_from(reference.extent).ok() != Some(size) {
             return Err(fault(
@@ -120,6 +108,65 @@ impl<'s> Areas<'s> {
                 0,
             ));
         }
+        self.at(cx, reference)
+    }
+
+    /// The class of the instance `reference` names (specification 44 §6.4): the class id the
+    /// instance holds in its first four bytes, which every instance of a class that implements an
+    /// interface or takes part in inheritance holds.
+    ///
+    /// # Errors
+    ///
+    /// [`FaultCode::NullReference`] for `NULL`, [`FaultCode::ReferenceLifetime`] for a reference of
+    /// another generation or outside its area, and [`FaultCode::TypeMismatch`] for a reference that
+    /// names no instance.
+    pub fn class_of(&self, cx: &mut Cx, reference: &RefValue) -> Result<u32, Fault> {
+        current(cx, reference)?;
+        if reference.kind != RefValue::INSTANCE {
+            return Err(fault(
+                cx,
+                FaultCode::TypeMismatch,
+                i64::from(reference.kind),
+                i64::from(RefValue::INSTANCE),
+                0,
+            ));
+        }
+        let class: &core::cell::Cell<u32> = self.at(cx, reference)?;
+        Ok(class.get())
+    }
+
+    /// The instance `reference` names, viewed as `T`, the type of class `class` (specification 44
+    /// §6.4): the instance holds the class id `class`, and its area holds a `T` at the reference's
+    /// offset, aligned for it. A reference to an instance spans the type it was taken as, which may
+    /// be a base of the instance's own class; the class id, not the extent, says what lies there.
+    ///
+    /// # Errors
+    ///
+    /// As [`Areas::class_of`], and [`FaultCode::TypeMismatch`] for an instance of another class.
+    pub fn instance<T: Plain>(
+        &self,
+        cx: &mut Cx,
+        reference: &RefValue,
+        class: u32,
+    ) -> Result<&'s T, Fault> {
+        let held = self.class_of(cx, reference)?;
+        if held != class {
+            return Err(fault(
+                cx,
+                FaultCode::TypeMismatch,
+                i64::from(held),
+                i64::from(class),
+                0,
+            ));
+        }
+        self.at(cx, reference)
+    }
+
+    /// The `T` at the area and offset of `reference`, which [`current`] has checked: inside the
+    /// area and aligned for `T`.
+    #[allow(unsafe_code)]
+    fn at<T: Plain>(&self, cx: &mut Cx, reference: &RefValue) -> Result<&'s T, Fault> {
+        let size = core::mem::size_of::<T>();
         let area = usize::from(reference.area)
             .checked_sub(1)
             .and_then(|index| self.areas.get(index));
@@ -135,7 +182,7 @@ impl<'s> Areas<'s> {
                 FaultCode::ReferenceLifetime,
                 i64::from(reference.area),
                 i64::from(reference.offset),
-                i64::from(reference.extent),
+                i64::try_from(size).unwrap_or(i64::MAX),
             ));
         };
         if target.align_offset(core::mem::align_of::<T>()) != 0 {
@@ -153,6 +200,24 @@ impl<'s> Areas<'s> {
         // through cells, as for `view`.
         Ok(unsafe { &*target.cast::<T>() })
     }
+}
+
+/// Checks that `reference` names something of this program's generation: it is not `NULL`, and it
+/// was taken in [`GENERATION`] (specification 44 §7.3).
+fn current(cx: &mut Cx, reference: &RefValue) -> Result<(), Fault> {
+    if reference.kind == RefValue::NULL {
+        return Err(fault(cx, FaultCode::NullReference, 0, 0, 0));
+    }
+    if reference.generation != GENERATION {
+        return Err(fault(
+            cx,
+            FaultCode::ReferenceLifetime,
+            i64::from(reference.generation),
+            i64::from(GENERATION),
+            0,
+        ));
+    }
+    Ok(())
 }
 
 /// Runs the body of an entry point: checks the kernel's interface version, hands the body the

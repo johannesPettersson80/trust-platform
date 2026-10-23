@@ -150,7 +150,14 @@ impl<'a> Model<'a> {
         registry: trust_hir::types::TypeRegistry,
     ) -> Result<Self, NativeError> {
         let builder = &lowered.builder;
-        let mut types = Types::new(registry, builder.function_blocks());
+        let mut types = Types::new(
+            registry,
+            super::classes::Defs::new(
+                builder.function_blocks(),
+                builder.classes(),
+                builder.interfaces(),
+            ),
+        );
         let Some(configuration) = lowered.configuration.as_ref() else {
             return Err(NativeError::Compile(
                 "the project has no CONFIGURATION with a RESOURCE to compile".into(),

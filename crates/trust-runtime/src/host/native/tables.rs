@@ -511,11 +511,18 @@ fn type_record(
             member_detail(pool, details, base, members),
             count(members.len()),
         ),
-        Kind::Fb { members, .. } => (
-            type_kind::FUNCTION_BLOCK,
+        Kind::Fb {
+            members, is_class, ..
+        } => (
+            if *is_class {
+                type_kind::CLASS
+            } else {
+                type_kind::FUNCTION_BLOCK
+            },
             member_detail(pool, details, base, members),
             count(members.len()),
         ),
+        Kind::Interface => (type_kind::INTERFACE, 0, 0),
         Kind::StdFb(fb) => {
             let members = model.types.std_fb_members(*fb);
             (

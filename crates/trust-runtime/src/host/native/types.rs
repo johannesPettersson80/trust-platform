@@ -8,7 +8,6 @@
 
 use std::collections::HashMap;
 
-use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_hir::symbols::ParamDirection;
 use trust_hir::types::TypeRegistry;
@@ -17,8 +16,8 @@ use trust_runtime_core::native::image::{
     type_kind, SYMBOL_CONSTANT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_IN_OUT, SYMBOL_OUTPUT,
 };
 
+pub(super) use super::classes::{Defs, Owner};
 use super::NativeError;
-use crate::program_model::FunctionBlockDef;
 
 /// An elementary type (IEC §6.4.2, Table 10).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -228,12 +227,15 @@ pub(super) struct Member {
     pub(super) offset: u32,
     /// The image's `SYMBOL_` flags.
     pub(super) flags: u8,
+    /// The path to the base that declares it, `__BASE.` once per level, for a variable a function
+    /// block or a class inherits (specification 44 §6.4); empty for its own.
+    pub(super) via: SmolStr,
 }
 
 impl Member {
-    /// The member's name in the generated Rust: the name in capitals.
+    /// The member's name in the generated Rust: the path to its base and the name in capitals.
     pub(super) fn field(&self) -> String {
-        rust_field(&self.name)
+        format!("{}{}", self.via, rust_field(&self.name))
     }
 }
 
@@ -248,6 +250,11 @@ pub(super) enum StdFb {
 }
 
 impl StdFb {
+    /// Whether `name` is a standard function block the program library has.
+    pub(super) fn is_standard(name: &str) -> bool {
+        Self::named(name).is_some()
+    }
+
     fn named(name: &str) -> Option<Self> {
         Some(match name.to_ascii_uppercase().as_str() {
             "TON" | "TON_LTIME" => Self::Ton,
@@ -381,11 +388,18 @@ pub(super) enum Kind {
     Struct {
         members: Vec<Member>,
     },
-    /// A user function block: its definition's name and its members.
+    /// A user function block or class: its definition's name, its variables (its base's first, by
+    /// the path to them), its base's type, its class id (0 for a type that needs none) and whether it
+    /// is a class, which has no body (specification 44 §6.4).
     Fb {
         def: SmolStr,
         members: Vec<Member>,
+        base: Option<Ty>,
+        class: u32,
+        is_class: bool,
     },
+    /// An interface (IEC §6.6.6): a reference to an instance of a class that implements it.
+    Interface,
     StdFb(StdFb),
     /// A reference to a variable of the target type: `REF_TO`, and the `VAR_IN_OUT` of a function
     /// block, which holds a reference to its argument (IEC §6.4.4.10; specification 44 §6.4, §7.3).
@@ -456,6 +470,7 @@ pub(super) fn lay_out(
             ty,
             offset,
             flags,
+            via: SmolStr::default(),
         });
         offset += info.size;
         align = align.max(info.align);
@@ -466,23 +481,23 @@ pub(super) fn lay_out(
 /// The program's types, each once, by the registry's types and by structure.
 pub(super) struct Types<'a> {
     registry: TypeRegistry,
-    function_blocks: &'a IndexMap<SmolStr, FunctionBlockDef>,
+    pub(super) defs: Defs<'a>,
     entries: Vec<TypeInfo>,
     by_registry: HashMap<TypeId, Ty>,
     by_rust: HashMap<String, Ty>,
+    /// The types with a class id, by id less one.
+    pub(super) class_ids: Vec<Ty>,
 }
 
 impl<'a> Types<'a> {
-    pub(super) fn new(
-        registry: TypeRegistry,
-        function_blocks: &'a IndexMap<SmolStr, FunctionBlockDef>,
-    ) -> Self {
+    pub(super) fn new(registry: TypeRegistry, defs: Defs<'a>) -> Self {
         Self {
             registry,
-            function_blocks,
+            defs,
             entries: Vec::new(),
             by_registry: HashMap::new(),
             by_rust: HashMap::new(),
+            class_ids: Vec::new(),
         }
     }
 
@@ -512,17 +527,24 @@ impl<'a> Types<'a> {
         self.of(id)
     }
 
+    /// The type whose Rust type is `rust`, when it is laid out.
+    pub(super) fn by_rust(&self, rust: &str) -> Option<Ty> {
+        self.by_rust.get(rust).copied()
+    }
+
     /// The type that holds `info`, added once per Rust type; an enumeration or a subrange once
     /// per its own name or bounds, since its storage is its base's.
-    fn intern(&mut self, info: TypeInfo) -> Ty {
+    pub(super) fn intern(&mut self, info: TypeInfo) -> Ty {
         let key = match &info.kind {
             // Elementary types of one Rust type are different types: LINT, TIME and DATE are all
             // i64.
             Kind::Elem(elem) => format!("elem {}", elem.name()),
             Kind::Enum { .. } => format!("enum {}", info.name),
             Kind::Subrange { .. } => format!("subrange {}", info.name),
-            // Every reference is a `RefValue`; its target makes it a type of its own.
+            // Every reference is a `RefValue`; its target makes it a type of its own, as an
+            // interface's name does.
             Kind::Ref { target } => format!("ref {}", target.0),
+            Kind::Interface => format!("interface {}", info.name),
             // Arrays of one storage are different types when their elements or their bounds differ:
             // `ARRAY[0..31]` and `ARRAY[1..32] OF INT` index differently, and arrays of two
             // enumerations of one base hold different values.
@@ -601,6 +623,7 @@ impl<'a> Types<'a> {
                 ty: self.elem(elem),
                 offset: u32::try_from(offset).unwrap_or(u32::MAX),
                 flags,
+                via: SmolStr::default(),
             })
             .collect()
     }
@@ -711,27 +734,16 @@ impl<'a> Types<'a> {
                     rust: format!("S_{}", mangle(name)),
                 }))
             }
-            Type::FunctionBlock { name } => self.function_block(name),
+            Type::FunctionBlock { name } | Type::Class { name } => self.function_block(name),
             Type::Reference { target } => {
                 let target = self.of(*target)?;
                 Ok(self.reference(target))
             }
             Type::Pointer { .. } => Err(NativeError::unsupported("POINTER TO".into())),
             Type::Union { name, .. } => Err(NativeError::unsupported(format!("UNION {name}"))),
-            Type::Class { name } => Err(NativeError::unsupported(format!("CLASS {name}"))),
-            Type::Interface { name } => Err(NativeError::unsupported(format!("INTERFACE {name}"))),
+            Type::Interface { name } => self.interface(name),
             other => Err(NativeError::unsupported(format!("the type {other:?}"))),
         }
-    }
-
-    /// The definition of user function block `name`, compared without case.
-    pub(super) fn function_block_def(&self, name: &str) -> Option<&'a FunctionBlockDef> {
-        self.function_blocks
-            .iter()
-            .find(|(key, def)| {
-                key.eq_ignore_ascii_case(name) || def.name.eq_ignore_ascii_case(name)
-            })
-            .map(|(_, def)| def)
     }
 
     fn function_block(&mut self, name: &SmolStr) -> Result<Ty, NativeError> {
@@ -739,14 +751,22 @@ impl<'a> Types<'a> {
         if let Some(fb) = StdFb::named(name) {
             return Ok(self.std_fb(fb));
         }
-        let Some(def) = self.function_block_def(name) else {
+        let Some(owner) = self.owner(name) else {
             return Err(NativeError::unsupported(format!("function block {name}")));
         };
-        if def.base.is_some() {
-            return Err(NativeError::unsupported(format!("EXTENDS in {name}")));
-        }
-        let mut fields = Vec::new();
-        for param in &def.params {
+        self.class_like(owner)
+    }
+
+    /// The variables of `owner` as the members of its instances, after its base (or its class id)
+    /// as `first`: the inputs, outputs and in-outs, then the variables.
+    pub(super) fn own_members(
+        &mut self,
+        owner: Owner<'a>,
+        first: Option<(SmolStr, Ty, u8)>,
+    ) -> Result<Vec<(SmolStr, Ty, u8)>, NativeError> {
+        let name = owner.name();
+        let mut fields: Vec<(SmolStr, Ty, u8)> = first.into_iter().collect();
+        for param in owner.params() {
             let ty = self.of(param.type_id)?;
             let (ty, flags) = match param.direction {
                 ParamDirection::In => (ty, SYMBOL_INPUT),
@@ -756,7 +776,7 @@ impl<'a> Types<'a> {
             };
             fields.push((param.name.clone(), ty, flags));
         }
-        for var in &def.vars {
+        for var in owner.vars() {
             if var.external {
                 continue;
             }
@@ -776,25 +796,14 @@ impl<'a> Types<'a> {
             }
             fields.push((var.name.clone(), ty, flags));
         }
-        if !def.interfaces.is_empty() {
-            return Err(NativeError::unsupported(format!("IMPLEMENTS in {name}")));
-        }
-        let (members, size, align) = lay_out(fields, self);
-        Ok(self.intern(TypeInfo {
-            kind: Kind::Fb {
-                def: def.name.clone(),
-                members,
-            },
-            size,
-            align,
-            name: def.name.clone(),
-            rust: format!("F_{}", mangle(&def.name)),
-        }))
+        Ok(fields)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use indexmap::IndexMap;
+
     use super::*;
 
     /// The layout rules of specification 44 §7.2: each member at its natural alignment, the whole
@@ -803,8 +812,8 @@ mod tests {
     #[test]
     fn members_lie_at_their_natural_alignment() {
         let registry = TypeRegistry::new();
-        let defs = IndexMap::new();
-        let mut types = Types::new(registry, &defs);
+        let (blocks, classes, interfaces) = (IndexMap::new(), IndexMap::new(), IndexMap::new());
+        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces));
         let name = types.string(16);
         let level = types.elem(Elem::Real);
         let hold = types.elem(Elem::Time);
@@ -825,8 +834,8 @@ mod tests {
     #[test]
     fn strings_take_their_length_and_capacity() {
         let registry = TypeRegistry::new();
-        let defs = IndexMap::new();
-        let mut types = Types::new(registry, &defs);
+        let (blocks, classes, interfaces) = (IndexMap::new(), IndexMap::new(), IndexMap::new());
+        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces));
         let five = types.string(5);
         assert_eq!(types.info(five).size, 8);
         assert_eq!(
@@ -841,8 +850,8 @@ mod tests {
     #[test]
     fn standard_function_blocks_take_the_library_layout() {
         let registry = TypeRegistry::new();
-        let defs = IndexMap::new();
-        let mut types = Types::new(registry, &defs);
+        let (blocks, classes, interfaces) = (IndexMap::new(), IndexMap::new(), IndexMap::new());
+        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces));
         let ton = types.std_fb(StdFb::Ton);
         assert_eq!(types.info(ton).size, 48);
         let members = types.std_fb_members(StdFb::Ton);

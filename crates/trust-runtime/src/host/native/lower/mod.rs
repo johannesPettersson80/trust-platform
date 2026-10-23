@@ -9,6 +9,7 @@
 
 mod call;
 mod expr;
+mod object;
 
 pub(super) use call::{ident as ident_of, parameter};
 
@@ -100,6 +101,22 @@ pub(super) enum Need {
     Function(SmolStr),
     /// A method, by its owner's and its own name.
     Method(SmolStr, SmolStr),
+    /// A method, by its name, of an instance of the type or of a type derived from it: a call bound
+    /// by the instance's class (IEC §6.6.8; specification 44 §6.4).
+    Virtual(Ty, SmolStr),
+    /// A method, by its name, through a reference of the interface, by the interface's name.
+    Interface(SmolStr, SmolStr),
+    /// The body of an instance of the type or of a type derived from it.
+    Body(Ty),
+}
+
+impl Need {
+    /// Adds `self` to `needs` once.
+    pub(super) fn add_to(self, needs: &mut Vec<Need>) {
+        if !needs.contains(&self) {
+            needs.push(self);
+        }
+    }
 }
 
 impl<'m, 'a> Lowerer<'m, 'a> {
@@ -272,6 +289,9 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         {
             return Err(self.unsupported(node, "the assignment attempt ?="));
         }
+        if self.property_write(&target, &value)? {
+            return Ok(());
+        }
         let place = self.place(&target)?;
         self.store(&place, &value)
     }
@@ -283,8 +303,13 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         match &info.kind {
             Kind::Str(_) => self.store_text(place, value),
             Kind::WStr(_) => Err(self.unsupported(value, "WSTRING values")),
-            Kind::Ref { .. } => {
-                let reference = self.reference(value)?;
+            Kind::Ref { target } => {
+                let reference = self.reference_to(value, Some(*target))?;
+                self.line(&format!("{}.set({reference});", place.expr));
+                Ok(())
+            }
+            Kind::Interface => {
+                let reference = self.interface_value(value)?;
                 self.line(&format!("{}.set({reference});", place.expr));
                 Ok(())
             }
@@ -604,18 +629,30 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         Ok(())
     }
 
-    /// The place `node` names: a variable, a member, an element.
+    /// The place `node` names: a variable, a member, an element, `THIS`; a property's value read
+    /// into a temporary.
     pub(super) fn place(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
+        if let Some(place) = self.object_place(node) {
+            return place;
+        }
         match node.kind() {
             SyntaxKind::ParenExpr => match node.children().next() {
                 Some(inner) => self.place(&inner),
                 None => Err(self.unsupported(node, "an empty parenthesis")),
             },
             SyntaxKind::NameRef => {
+                if let Some(place) = self.property_read(node)? {
+                    return Ok(place);
+                }
                 let name = call::ident(node);
                 self.name_place(node, &name)
             }
-            SyntaxKind::FieldExpr => self.field_place(node),
+            SyntaxKind::FieldExpr => {
+                if let Some(place) = self.property_read(node)? {
+                    return Ok(place);
+                }
+                self.field_place(node)
+            }
             SyntaxKind::IndexExpr => self.index_place(node),
             SyntaxKind::DerefExpr => self.deref_place(node),
             other => Err(self.unsupported(node, format!("a {other:?} as a place"))),
@@ -819,6 +856,17 @@ impl<T: Assign, const N: usize> Assign for [T; N] {
             target.assign(value);
         }
     }
+}
+
+/// Whether two references or interface values name the same variable or instance, whatever type
+/// each was taken as (an instance of a derived type as its base spans less).
+#[inline]
+fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
+    a.kind == b.kind
+        && a.area == b.area
+        && a.char_index == b.char_index
+        && a.offset == b.offset
+        && a.generation == b.generation
 }
 ";
 

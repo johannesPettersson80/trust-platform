@@ -122,14 +122,25 @@ impl Lowerer<'_, '_> {
     /// The reference value of `node` (IEC §6.4.4.10): `NULL`, `REF(variable)`, or a variable or a
     /// dereference that holds a reference.
     pub(super) fn reference(&mut self, node: &SyntaxNode) -> Result<String, NativeError> {
+        self.reference_to(node, None)
+    }
+
+    /// The reference value of `node` for a reference to `target`: `REF` of an instance of a type
+    /// derived from `target` takes the instance's part of type `target`, which lies first in it
+    /// (IEC §6.6.8.4).
+    pub(super) fn reference_to(
+        &mut self,
+        node: &SyntaxNode,
+        target: Option<Ty>,
+    ) -> Result<String, NativeError> {
         match node.kind() {
             SyntaxKind::ParenExpr => match node.children().next() {
-                Some(inner) => self.reference(&inner),
+                Some(inner) => self.reference_to(&inner, target),
                 None => Err(self.unsupported(node, "an empty parenthesis")),
             },
             SyntaxKind::Literal if is_null(node) => Ok("abi::RefValue::NULL_REF".into()),
             SyntaxKind::CallExpr if is_ref_call(node) => {
-                let Some(target) = node
+                let Some(variable) = node
                     .children()
                     .find(|child| child.kind() == SyntaxKind::ArgList)
                     .and_then(|list| list.children().find(|arg| arg.kind() == SyntaxKind::Arg))
@@ -137,10 +148,16 @@ impl Lowerer<'_, '_> {
                 else {
                     return Err(self.unsupported(node, "REF without its variable"));
                 };
-                let place = self.place(&target)?;
+                let place = match self.object_place(&variable) {
+                    Some(place) => place?,
+                    None => self.place(&variable)?,
+                };
+                let variable = match target {
+                    Some(target) => self.as_type(node, &place, target)?,
+                    None => place.reference(),
+                };
                 Ok(self.bind(&format!(
-                    "w.areas.refer(cx, {}, abi::RefValue::VARIABLE)?",
-                    place.reference()
+                    "w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?"
                 )))
             }
             SyntaxKind::NameRef
@@ -148,7 +165,7 @@ impl Lowerer<'_, '_> {
             | SyntaxKind::IndexExpr
             | SyntaxKind::DerefExpr => {
                 let place = self.place(node)?;
-                if !matches!(self.info(place.ty).kind, Kind::Ref { .. }) {
+                if !matches!(self.info(place.ty).kind, Kind::Ref { .. } | Kind::Interface) {
                     return Err(self.unsupported(node, "a value that is no reference"));
                 }
                 Ok(format!("{}.get()", place.expr))
@@ -157,13 +174,19 @@ impl Lowerer<'_, '_> {
         }
     }
 
-    /// Whether `node` is a reference: `NULL` or a value of a reference type.
+    /// Whether `node` is a reference: `NULL` or a value of a reference or an interface type.
     fn is_reference(&mut self, node: &SyntaxNode) -> bool {
         if is_null(node) {
             return true;
         }
         self.type_of(node)
-            .is_ok_and(|ty| matches!(self.info(ty).kind, Kind::Ref { .. }))
+            .is_ok_and(|ty| matches!(self.info(ty).kind, Kind::Ref { .. } | Kind::Interface))
+    }
+
+    /// Whether `node` is a value of an interface type.
+    fn is_interface(&mut self, node: &SyntaxNode) -> bool {
+        self.type_of(node)
+            .is_ok_and(|ty| matches!(self.info(ty).kind, Kind::Interface))
     }
 
     /// The value of an enumeration's value named by `node`, when trust-hir resolved it to one.
@@ -330,12 +353,20 @@ impl Lowerer<'_, '_> {
         };
         use SyntaxKind as K;
         match op {
+            K::Eq | K::Neq if self.is_interface(&left) || self.is_interface(&right) => {
+                // Two interfaces are equal when they name the same instance, or are both `NULL`.
+                let a = self.interface_value(&left)?;
+                let b = self.interface_value(&right)?;
+                let sign = if op == K::Eq { "" } else { "!" };
+                Ok(format!("({sign}same_target({a}, {b}))"))
+            }
             K::Eq | K::Neq if self.is_reference(&left) || self.is_reference(&right) => {
-                // Two references are equal when they name the same variable, or are both `NULL`.
+                // Two references are equal when they name the same variable, or are both `NULL`,
+                // whatever type each was taken as.
                 let a = self.reference(&left)?;
                 let b = self.reference(&right)?;
-                let sign = if op == K::Eq { "==" } else { "!=" };
-                Ok(format!("({a} {sign} {b})"))
+                let sign = if op == K::Eq { "" } else { "!" };
+                Ok(format!("({sign}same_target({a}, {b}))"))
             }
             K::Eq | K::Neq | K::Lt | K::LtEq | K::Gt | K::GtEq => {
                 let a = self.type_of(&left)?;
@@ -692,7 +723,7 @@ impl Lowerer<'_, '_> {
 }
 
 /// Whether `node` is the literal `NULL`.
-fn is_null(node: &SyntaxNode) -> bool {
+pub(super) fn is_null(node: &SyntaxNode) -> bool {
     node.kind() == SyntaxKind::Literal
         && node
             .children_with_tokens()
