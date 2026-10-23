@@ -133,7 +133,7 @@ pub fn generate_source(sources: &[SourceFile], options: &Options) -> Result<Stri
     let front = front::Front::analyze(sources, &[])?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
-    let mut model = model::Model::new(&front.lowered, registry)?;
+    let mut model = model::Model::new(&front.lowered, registry, &[])?;
     let generated = emit::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     Ok(generated.source)
 }
@@ -168,7 +168,7 @@ pub fn build_with_tests(
     let front = front::Front::analyze(sources, tests)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
-    let mut model = model::Model::new(&front.lowered, registry)?;
+    let mut model = model::Model::new(&front.lowered, registry, tests)?;
     let generated = emit::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     let memory = init::starting_memory(sources, tests, &mut model)?;
     let symbols: Vec<String> = generated

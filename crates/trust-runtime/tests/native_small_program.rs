@@ -5,7 +5,9 @@
 //! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use trust_runtime::harness::SourceFile;
-use trust_runtime::native::{build, load, Device, NoHooks, Options, Target, Toolchain};
+use trust_runtime::native::{
+    build, build_with_tests, load, Device, NoHooks, Options, Target, Toolchain,
+};
 use trust_runtime::value::{Duration, Value};
 
 /// A counter in a 10 ms task: no constant table, no text, nothing a module keeps read-only.
@@ -71,6 +73,75 @@ fn a_program_without_read_only_data_builds_for_the_c6_and_runs_here() {
         }
         assert_eq!(program.value("MAIN.COUNT"), Some(Value::UDInt(3)));
     }
+}
+
+/// A project without a CONFIGURATION, so its program runs in the background, and a test program;
+/// each counts how often its body ran.
+const WITH_TEST: &str = "
+PROGRAM Plant
+VAR
+    Scans : UDINT;
+END_VAR
+Scans := Scans + 1;
+END_PROGRAM
+
+TEST_PROGRAM CountsItsRuns
+VAR
+    Runs : UDINT;
+END_VAR
+Runs := Runs + 1;
+END_TEST_PROGRAM
+";
+
+#[test]
+fn a_test_image_runs_its_test_programs_only_when_invoked() {
+    // Specification 22: a test program runs only when its test is invoked, and on a device the image
+    // runs no test program by itself, so a start of the device, at a reset for example, runs only the
+    // project's own programs (specification 44 §5.6). Two scans run the background program `Plant`
+    // twice and the test program never; then one invocation runs the test program's body once.
+    // Catches a test program listed in the background task, which the C6 ran at every boot: test
+    // images whose assertions failed then faulted at once, and a faulted chip takes no install
+    // (bench, 23 October 2026).
+    let toolchain = Toolchain::from_env()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let work = std::env::temp_dir().join(format!("trust-native-tests-{}", std::process::id()));
+    let built = build_with_tests(
+        &[SourceFile::new(WITH_TEST)],
+        &["CountsItsRuns".into()],
+        &Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .unwrap_or_else(|error| panic!("the project with its test builds: {error}"));
+    let _ = std::fs::remove_dir_all(&work);
+    let device = Device {
+        target,
+        program_memory: 1 << 20,
+        task_stack: 1 << 20,
+        max_statements: 1_000,
+    };
+    let mut program = load(&built.image, &device).expect("the image loads");
+    program.cold_start(Duration::ZERO).expect("the cold start");
+    for time in [0, 10] {
+        program
+            .scan(Duration::from_millis(time), &mut NoHooks)
+            .expect("the scan runs");
+    }
+    assert_eq!(program.value("PLANT.SCANS"), Some(Value::UDInt(2)));
+    assert_eq!(program.value("COUNTSITSRUNS.RUNS"), Some(Value::UDInt(0)));
+    let test = program
+        .image()
+        .find_program_instance("CountsItsRuns")
+        .expect("the test program is an instance");
+    program
+        .run_instance(test, Duration::from_millis(20))
+        .expect("the test program runs");
+    assert_eq!(program.value("COUNTSITSRUNS.RUNS"), Some(Value::UDInt(1)));
+    assert_eq!(program.value("PLANT.SCANS"), Some(Value::UDInt(2)));
 }
 
 /// A function whose frame holds a 1,000-element `DINT` array, 4,000 bytes, which the program's body

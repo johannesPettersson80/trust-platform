@@ -154,6 +154,7 @@ impl<'a> Model<'a> {
     pub(super) fn new(
         lowered: &'a LoweredApplication,
         registry: trust_hir::types::TypeRegistry,
+        tests: &[SmolStr],
     ) -> Result<Self, NativeError> {
         let builder = &lowered.builder;
         let mut types = Types::new(
@@ -171,7 +172,7 @@ impl<'a> Model<'a> {
         };
         let globals = globals(lowered, configuration, &mut types)?;
         let (program_types, instances) = instances(lowered, configuration, &mut types)?;
-        let tasks = tasks(configuration);
+        let tasks = tasks(configuration, tests);
         let bindings = bindings(configuration, &instances, &program_types)?;
         let images = images(&bindings)?;
         let area_g = AreaLayout::new(
@@ -406,8 +407,10 @@ fn instances<'a>(
 }
 
 /// The tasks with their program instances, and the programs without a task as the task of the
-/// lowest priority (specification 10 §4).
-fn tasks(configuration: &ConfigModel) -> Vec<Task> {
+/// lowest priority (specification 10 §4). The test programs `tests` are instances that no task runs,
+/// the background task included: only a test's own invocation runs one (specification 22), so a
+/// device that starts a test image runs none of them by itself.
+fn tasks(configuration: &ConfigModel, tests: &[SmolStr]) -> Vec<Task> {
     let mut tasks = Vec::new();
     for task in &configuration.tasks {
         let interval = u64::try_from(task.interval.as_nanos()).unwrap_or(0);
@@ -435,7 +438,12 @@ fn tasks(configuration: &ConfigModel) -> Vec<Task> {
         .programs
         .iter()
         .enumerate()
-        .filter(|(_, config)| config.task.is_none())
+        .filter(|(_, config)| {
+            config.task.is_none()
+                && !tests
+                    .iter()
+                    .any(|test| test.eq_ignore_ascii_case(&config.name))
+        })
         .map(|(index, _)| index)
         .collect();
     if !background.is_empty() {

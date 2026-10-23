@@ -167,8 +167,11 @@ With `--execution-backend native` the tests run compiled for this computer
 on that device instead: the same image, compiled for the target, is installed
 once over the device's control link, and each selected test runs by one
 `cycle.step` that restarts the program cold and runs its test program's body
-(specification 11 §6.8.1). The device's limits are its own, its statement
-budget among them. A failed assertion's error, `assertion failed: <message>`,
+(specification 11 §6.8.1). The image runs no test program by itself: its test
+programs are instances that no task runs, the background programs' included
+(specification 44 §5.6), so a start of the device, at a reset for example, runs
+only the project's own programs, and a test runs only when it is invoked. The
+device's limits are its own, its statement budget among them. A failed assertion's error, `assertion failed: <message>`,
 is the test's failure with that message, and any other error is the test's
 error, as on this computer.
 

@@ -325,7 +325,9 @@ The task table carries specification 18's resource metadata in fixed records: on
 per task: name (string offset, 4), interval in nanoseconds (8), priority (4), the `SINGLE`
 variable's symbol index or `0xFFFF_FFFF` (4), program count (4), offset of its program list (4,
 into a list of entry indexes), flags (4), reserved (8). Programs without a task (background
-programs, specification 10 §4) form the record with priority `0xFFFF_FFFF`. `IOBIND` carries one
+programs, specification 10 §4) form the record with priority `0xFFFF_FFFF`. The test programs of a
+test image (specification 22) are program instances with their entries, which no record lists: a
+test's invocation (`cycle.step`'s `run`) runs one, and no start of the image does. `IOBIND` carries one
 record per `VAR_CONFIG` binding and each `AT %…` declaration: symbol index (4), direct address
 as specification 10 §9.2 parses it (area 1, size 1, byte offset 4, bit 1, reserved 1), flags (4).
 The kernel builds its process image and task state from these records as it does today from
