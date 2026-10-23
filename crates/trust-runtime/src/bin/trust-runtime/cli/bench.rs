@@ -18,6 +18,11 @@ pub enum BenchAction {
         /// Enable the experimental tier-1 specialized executor during the run.
         #[arg(long = "tier1", default_value_t = false)]
         tier1: bool,
+        /// What runs the project: `vm`, the bytecode engine, or `native`, the project compiled for
+        /// this computer and run by the kernel (specification 44 §14.3), which needs the toolchain
+        /// at `TRUST_TOOLCHAIN`.
+        #[arg(long = "execution-backend", value_enum, default_value_t = ProgramBackend::Vm)]
+        execution_backend: ProgramBackend,
         /// Output format (`table`, `json`).
         #[arg(long, value_enum, default_value_t = BenchOutputFormat::Table)]
         output: BenchOutputFormat,

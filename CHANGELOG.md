@@ -34,6 +34,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   last one. `trust-runtime conformance --execution-backend native --device <port> --target esp32c6`
   runs the conformance suite on a device with it: each case is compiled for the device, installed
   and stepped cycle by cycle, and its trace is compared with the same expected artifacts.
+- Added: `trust-runtime bench project --execution-backend native` runs a project compiled for this
+  computer on the kernel, cycle after cycle in logical time, and reports each task's time per
+  activation and the image's code and memory figure (specification 44 §14.3).
 - Added: compiled programs take references (`REF_TO`, `REF()`, `^`, `NULL`) and `VAR_IN_OUT` in
   function blocks, functions and methods, and the Siemens profile's `#local` names. The PLCopen
   motion single-axis library and its demonstration, OSCAT's `TICKER` and twelve example projects

@@ -92,6 +92,8 @@ fn run_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<BenchRepo
         budget_overruns,
         watched_globals: capture_watched_globals(&runtime, &workload.watch),
         vm_profile,
+        tasks: None,
+        native_image: None,
     }))
 }
 

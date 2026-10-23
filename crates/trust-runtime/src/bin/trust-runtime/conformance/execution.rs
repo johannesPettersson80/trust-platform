@@ -1,15 +1,15 @@
 fn execute_case(
     case: &CaseDefinition,
-    backend: ConformanceBackend,
+    backend: ProgramBackend,
     device: Option<&mut DeviceRun>,
 ) -> anyhow::Result<CaseArtifact> {
     match case.manifest.kind {
         CaseKind::Runtime => {
             let sources = load_case_sources(case)?;
             match (backend, device) {
-                (ConformanceBackend::Vm, _) => execute_runtime_case(case, &sources),
-                (ConformanceBackend::Native, None) => execute_runtime_case_native(case, &sources),
-                (ConformanceBackend::Native, Some(device)) => {
+                (ProgramBackend::Vm, _) => execute_runtime_case(case, &sources),
+                (ProgramBackend::Native, None) => execute_runtime_case_native(case, &sources),
+                (ProgramBackend::Native, Some(device)) => {
                     execute_runtime_case_device(case, &sources, device)
                 }
             }

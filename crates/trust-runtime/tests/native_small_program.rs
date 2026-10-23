@@ -137,3 +137,82 @@ fn the_stack_bound_holds_the_frame_of_a_called_function() {
         "stack bound {stack} bytes"
     );
 }
+
+/// The `runtime.toml` of a project whose resource runs a cycle every 10 ms, with the sections every
+/// project must have at their defaults.
+const RUNTIME_TOML: &str = "[bundle]
+version = 1
+
+[resource]
+name = \"Probe\"
+cycle_interval_ms = 10
+
+[runtime.control]
+endpoint = \"unix:///tmp/trust-native-bench.sock\"
+mode = \"production\"
+debug_enabled = false
+
+[runtime.log]
+level = \"info\"
+
+[runtime.retain]
+mode = \"none\"
+save_interval_ms = 1000
+
+[runtime.watchdog]
+enabled = false
+timeout_ms = 1000
+action = \"halt\"
+
+[runtime.fault]
+policy = \"halt\"
+";
+
+#[test]
+fn bench_project_runs_the_project_compiled_on_the_kernel() {
+    // Specification 44 §14.3: `bench project --execution-backend native` runs the project compiled
+    // for this computer, each cycle one scan of the kernel at the next 10 ms of logical time. One
+    // warmup and four measured cycles at 10 to 50 ms each run the task `Fast`, due first 10 ms after
+    // the start (specification 10 §4.3), so `Main.Count` is 5, and the task's four measured
+    // activations are timed. The report names the native backend and the image it built. Catches a
+    // bench that runs the bytecode engine under the native name, a cycle that does not advance the
+    // logical time (the task would run once), and warmups timed as measured cycles.
+    let project = std::env::temp_dir().join(format!("trust-native-bench-{}", std::process::id()));
+    std::fs::create_dir_all(project.join("src")).expect("create the project");
+    std::fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("write runtime.toml");
+    std::fs::write(project.join("src/main.st"), COUNTER).expect("write the program");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_trust-runtime"))
+        .args(["bench", "project", "--project"])
+        .arg(&project)
+        .args([
+            "--samples",
+            "4",
+            "--warmup-cycles",
+            "1",
+            "--watch",
+            "Main.Count",
+            "--execution-backend",
+            "native",
+            "--output",
+            "json",
+        ])
+        .output()
+        .expect("run trust-runtime bench");
+    let _ = std::fs::remove_dir_all(&project);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("the bench writes JSON");
+    let report = &report["report"];
+    assert_eq!(report["execution_backend"], "native");
+    assert_eq!(report["watched_globals"]["Main.Count"], 5);
+    assert_eq!(report["tasks"][0]["name"], "Fast");
+    assert_eq!(report["tasks"][0]["activations"], 4);
+    assert!(
+        report["native_image"]["code"].as_u64().unwrap_or(0) > 0,
+        "the report names the image's code: {report}"
+    );
+}

@@ -73,6 +73,30 @@ struct ProjectBenchReport {
     watched_globals: BTreeMap<String, serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     vm_profile: Option<VmProfileReport>,
+    /// The time of each task's activations, which the native backend measures.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tasks: Option<Vec<TaskLatencyReport>>,
+    /// The program image the native backend built.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    native_image: Option<NativeImageReport>,
+}
+
+/// The activations of one task within the measured cycles.
+#[derive(Debug, Clone, Serialize)]
+struct TaskLatencyReport {
+    name: String,
+    activations: usize,
+    latency: LatencySummary,
+}
+
+/// The size of a program image and its memory figure (specification 44 §10.4), in bytes.
+#[derive(Debug, Clone, Serialize)]
+struct NativeImageReport {
+    bytes: usize,
+    code: u64,
+    rodata: u64,
+    init: u64,
+    memory_figure: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]

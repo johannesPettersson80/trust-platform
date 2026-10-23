@@ -1429,7 +1429,7 @@ mod tests {
                 assert_eq!(output, Some(PathBuf::from("summary.json")));
                 assert!(update_expected);
                 assert_eq!(filter.as_deref(), Some("timers"));
-                assert_eq!(execution_backend, ConformanceBackend::Vm);
+                assert_eq!(execution_backend, ProgramBackend::Vm);
                 assert_eq!((device, target), (None, None));
             }
             other => panic!("expected conformance command, got {other:?}"),
@@ -1443,7 +1443,7 @@ mod tests {
         assert!(matches!(
             native.command,
             Some(Command::Conformance(ConformanceArgs {
-                execution_backend: ConformanceBackend::Native,
+                execution_backend: ProgramBackend::Native,
                 ..
             }))
         ));
@@ -1509,8 +1509,10 @@ mod tests {
                     warmup_cycles,
                     watch,
                     tier1,
+                    execution_backend,
                     output,
                 } => {
+                    assert_eq!(execution_backend, ProgramBackend::Vm, "the default backend");
                     assert_eq!(
                         project,
                         PathBuf::from("examples/plcopen_motion_single_axis_demo")
@@ -1551,6 +1553,31 @@ mod tests {
                 other => panic!("expected bench project action, got {other:?}"),
             },
             other => panic!("expected bench command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_bench_project_command_on_the_kernel() {
+        // Specification 44 §14.3: `bench project` runs the project compiled for this computer when
+        // asked for the native backend. Catches a flag the parser drops, which would measure the
+        // bytecode engine under the native backend's name.
+        let cli = Cli::parse_from([
+            "trust-runtime",
+            "bench",
+            "project",
+            "--project",
+            "examples/vat_pasteurizer",
+            "--execution-backend",
+            "native",
+        ]);
+        match cli.command.expect("command") {
+            Command::Bench {
+                action:
+                    BenchAction::Project {
+                        execution_backend, ..
+                    },
+            } => assert_eq!(execution_backend, ProgramBackend::Native),
+            other => panic!("expected bench project action, got {other:?}"),
         }
     }
 

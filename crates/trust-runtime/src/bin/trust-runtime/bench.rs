@@ -23,7 +23,7 @@ use trust_runtime::runtime_cloud::routing::{
 };
 use trust_runtime::security::AccessRole;
 
-use crate::cli::{BenchAction, BenchOutputFormat};
+use crate::cli::{BenchAction, BenchOutputFormat, ProgramBackend};
 
 include!("bench/models.rs");
 include!("bench/stats.rs");
@@ -32,6 +32,7 @@ include!("bench/mesh_zenoh.rs");
 include!("bench/dispatch.rs");
 include!("bench/init.rs");
 include!("bench/project.rs");
+include!("bench/native.rs");
 include!("bench/output.rs");
 include!("bench/command.rs");
 

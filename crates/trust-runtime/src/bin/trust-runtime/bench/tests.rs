@@ -250,6 +250,7 @@ fn project_bench_json_output_contains_budget_and_watched_globals() {
         warmup_cycles: 1,
         watch: vec!["g_cycles".into(), "g_missing".into()],
         tier1: false,
+        execution_backend: ProgramBackend::Vm,
         output: BenchOutputFormat::Json,
     })
     .expect("run project benchmark");
@@ -334,6 +335,7 @@ fn project_bench_table_output_contains_tier1_executor_stats_when_enabled() {
         warmup_cycles: 1,
         watch: vec!["g_cycles".into()],
         tier1: true,
+        execution_backend: ProgramBackend::Vm,
         output: BenchOutputFormat::Table,
     })
     .expect("run project benchmark");
@@ -357,6 +359,7 @@ fn project_bench_json_output_omits_tier1_executor_stats_by_default() {
         warmup_cycles: 1,
         watch: vec!["g_cycles".into()],
         tier1: false,
+        execution_backend: ProgramBackend::Vm,
         output: BenchOutputFormat::Json,
     })
     .expect("run project benchmark");
@@ -380,6 +383,7 @@ fn project_bench_retains_preparation_failure_reasons_without_run_compilation() {
         warmup_cycles: 1,
         watch: vec!["g_size".into()],
         tier1: true,
+        execution_backend: ProgramBackend::Vm,
         output: BenchOutputFormat::Json,
     })
     .expect("run project benchmark");

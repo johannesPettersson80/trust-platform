@@ -24,7 +24,7 @@ use trust_runtime::opcua::OpcUaClientConnectionState;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
 
-use crate::cli::{ConformanceArgs, ConformanceBackend};
+use crate::cli::{ConformanceArgs, ProgramBackend};
 
 include!("conformance/models.rs");
 include!("conformance/runner.rs");

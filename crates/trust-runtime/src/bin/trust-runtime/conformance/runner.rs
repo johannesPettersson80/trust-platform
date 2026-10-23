@@ -10,7 +10,7 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
     } = args;
     // The expected artifacts are the bytecode engine's; the native backend is measured against
     // them (specification 44 §14.2).
-    if update_expected && backend == ConformanceBackend::Native {
+    if update_expected && backend == ProgramBackend::Native {
         bail!("expected artifacts are written with the vm backend; drop --update-expected");
     }
     let mut device = open_device(backend, device, target.as_deref())?;
@@ -202,14 +202,14 @@ fn summary_contract_for_cases(cases: &[CaseDefinition]) -> SummaryContract {
 /// The device that runs the runtime cases, compiled for it and stepped over its control link
 /// (specification 44 §14.2), when the run names one; only the native backend runs on a device.
 fn open_device(
-    backend: ConformanceBackend,
+    backend: ProgramBackend,
     port: Option<String>,
     target: Option<&str>,
 ) -> anyhow::Result<Option<DeviceRun>> {
     let Some(port) = port else {
         return Ok(None);
     };
-    if backend != ConformanceBackend::Native {
+    if backend != ProgramBackend::Native {
         bail!("a device runs compiled programs: use --execution-backend native");
     }
     DeviceRun::open(&port, target.unwrap_or_default()).map(Some)
@@ -217,10 +217,10 @@ fn open_device(
 
 /// The runtime's name in the summary and the folder of the actual artifacts, for what runs the
 /// runtime cases.
-fn run_names(backend: ConformanceBackend, on_device: bool) -> (&'static str, &'static str) {
+fn run_names(backend: ProgramBackend, on_device: bool) -> (&'static str, &'static str) {
     match (backend, on_device) {
-        (ConformanceBackend::Vm, _) => ("trust-runtime", "actual"),
-        (ConformanceBackend::Native, false) => ("trust-runtime-native", "actual-native"),
-        (ConformanceBackend::Native, true) => ("trust-runtime-device", "actual-device"),
+        (ProgramBackend::Vm, _) => ("trust-runtime", "actual"),
+        (ProgramBackend::Native, false) => ("trust-runtime-native", "actual-native"),
+        (ProgramBackend::Native, true) => ("trust-runtime-device", "actual-device"),
     }
 }

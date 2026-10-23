@@ -31,6 +31,17 @@ fn render_table(report: &BenchReport) -> String {
                 data.throughput_cycles_per_sec, data.measured_duration_ms
             );
             let _ = writeln!(out, "budget_overruns={}", data.budget_overruns);
+            for task in data.tasks.iter().flatten() {
+                let _ = writeln!(out, "task {} activations={}", task.name, task.activations);
+                render_latency_block(&mut out, "  task latency", &task.latency);
+            }
+            if let Some(image) = &data.native_image {
+                let _ = writeln!(
+                    out,
+                    "image bytes={} code={} rodata={} init={} memory_figure={}",
+                    image.bytes, image.code, image.rodata, image.init, image.memory_figure
+                );
+            }
             if !data.watched_globals.is_empty() {
                 let _ = writeln!(out, "watched globals:");
                 for (name, value) in &data.watched_globals {

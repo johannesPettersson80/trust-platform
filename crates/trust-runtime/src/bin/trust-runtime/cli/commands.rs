@@ -379,8 +379,8 @@ pub struct ConformanceArgs {
     /// What runs the runtime cases: `vm`, the bytecode engine, or `native`, each case compiled
     /// into a program image for this computer and run by the kernel (specification 44 §14.2),
     /// which needs the toolchain at `TRUST_TOOLCHAIN`.
-    #[arg(long = "execution-backend", value_enum, default_value_t = ConformanceBackend::Vm)]
-    pub execution_backend: ConformanceBackend,
+    #[arg(long = "execution-backend", value_enum, default_value_t = ProgramBackend::Vm)]
+    pub execution_backend: ProgramBackend,
     /// The serial port of a device that runs the runtime cases with the native backend, or
     /// `tcp://<host>:<port>` of a bridge to that port: each case is compiled for the device's
     /// `--target`, installed, and stepped cycle by cycle with `cycle.step` (specification 44 §14.2).
@@ -391,12 +391,12 @@ pub struct ConformanceArgs {
     pub target: Option<String>,
 }
 
-/// What runs the runtime cases of `conformance`.
+/// What runs a project's programs in `conformance` and `bench project`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum ConformanceBackend {
+pub enum ProgramBackend {
     /// The bytecode engine.
     Vm,
-    /// The case compiled into a program image and run by the kernel (specification 44).
+    /// The programs compiled into a program image and run by the kernel (specification 44).
     Native,
 }
 
