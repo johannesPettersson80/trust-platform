@@ -55,14 +55,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   counts the passes through loops, and cannot be debugged (specification 44 §13.2). On an x86-64
   computer the pasteurizer's control task takes 150 ns per activation as a release image instead of
   221 to 231 ns, and its code is 21,184 bytes instead of 47,504.
-- Changed: a control request costs less, most on a chip: a request line is read straight into the
-  request, without first building a JSON value of the whole line; the cycle percentiles that
-  `status` reports are read by selection from a copy on the stack instead of from a sorted copy on
-  the heap; and a chip answers `program.active` from the identities it has read until an install
-  writes its program store, instead of reading the store at every request. Replies and refusals are
-  unchanged. A chip still serves requests between cycles, so a client that polls it delays the
-  activations of a 1 ms task until milestone M5 serves requests in a context the tasks preempt
-  (specification 34 STATE-08).
+- Changed: a control request costs less on a chip: a request line is read straight into the request,
+  without first building a JSON value of the whole line (on the ESP32-C6 about 0.08 ms less per
+  request), and a chip answers `program.active` from the identities it has read until an install
+  writes its program store, instead of reading the store at every request (1.7 ms instead of 4.6
+  ms). The cycle percentiles that `status` reports are read by selection from a copy on the stack,
+  with no allocation per request; on the ESP32-C6 they still take 0.5 to 0.8 ms of a `status`.
+  Replies and refusals are unchanged. A chip still serves requests between cycles: on the ESP32-C6 a
+  request takes about 0.9 ms, `status` 4.7 ms and `events.tail` 7.4 ms, so a client that polls it
+  delays the activations of a 1 ms task until milestone M5 serves requests in a context the tasks
+  preempt (specification 34 STATE-08).
 - Changed: `shutdown` stops a faulted resource as it stops a running one, on a chip and on a
   computer: the outputs take the safe state again, the retained values are saved, and the resource
   is Stopped, keeping its fault in `status` until the next start. A program that faults at every

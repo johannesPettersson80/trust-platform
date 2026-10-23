@@ -2812,14 +2812,14 @@ into the envelope's members, without building a JSON value of the whole line,
 and reads a line that this first reading does not take as above, so that every
 line gets the same result; the first reading takes an object with each of the
 envelope's members at most once and reads every other member as a JSON value
-that it drops (the ESP32-C6 took 0.35 ms to build the value of the shortest
-request, 23 October 2026). A request type absent
-from the registered operation set returns the stable error
+that it drops (on the ESP32-C6 the first reading takes 0.24 to 0.33 ms of a
+request where building the value took 0.31 to 0.39 ms, 23 October 2026). A
+request type absent from the registered operation set returns the stable error
 `unsupported request`; every registered type routes to its owning handler.
 Missing or malformed required parameters return a parameter error rather than
 `unsupported request`. A routing behavior lock proves only that the registered
-handler boundary was reached; it is not evidence that every operation
-succeeded or returned its complete semantic payload.
+handler boundary was reached; it is not evidence that every operation succeeded
+or returned its complete semantic payload.
 
 Asynchronous operations return a nonempty job ID. Job status is `running`,
 `complete`, or `failed`; an unknown ID returns a stable machine-readable
@@ -3094,15 +3094,16 @@ real sample, not an absent value.
 
 Cycle percentile reporting uses a rolling window of the most recent 512 cycle
 durations. The 513th sample evicts only the oldest sample. Snapshots read the
-percentiles from a copy of the retained values, held on the stack and reordered
-by selection, without a sort of the whole copy (a metrics snapshot that sorted
-its copy took 0.9 ms on the ESP32-C6, 23 October 2026), and do not mutate
-collection order or future rollover. With the `n` values in ascending order,
-p50, p95, and p99 are the values at index `round((n - 1) * q)` for quantile `q`,
-rounded half away from zero; quantiles below zero clamp to zero and above one
-clamp to one. An empty window reports zero percentiles, zero maximum, and zero
-samples. Every non-empty snapshot reports the exact retained sample count, p50
-<= p95 <= p99 <= maximum, and finite values.
+percentiles from a copy of the retained values held on the stack, reordered by
+selection rather than a sort of the whole copy, with no allocation, and do not
+mutate collection order or future rollover; on the ESP32-C6 this part of a
+snapshot takes 0.5 to 0.8 ms, as the sort did (23 October 2026). With the `n`
+values in ascending order, p50, p95, and p99 are the values at index `round((n -
+1) * q)` for quantile `q`, rounded half away from zero; quantiles below zero
+clamp to zero and above one clamp to one. An empty window reports zero
+percentiles, zero maximum, and zero samples. Every non-empty snapshot reports
+the exact retained sample count, p50 <= p95 <= p99 <= maximum, and finite
+values.
 
 Task identities are exact and independent. A recorded task duration creates or
 updates only that task. A positive missed-activation count increments both the

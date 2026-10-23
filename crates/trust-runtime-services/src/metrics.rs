@@ -138,9 +138,8 @@ impl CycleLatencyWindow {
         }
     }
 
-    /// The percentiles of the window, read from a copy on the stack by selection: no heap, and no
-    /// sort of the whole copy (a metrics snapshot that sorted its copy took 0.9 ms on the ESP32-C6,
-    /// 23 October 2026).
+    /// The percentiles of the window, read from a copy on the stack by selection, with no heap
+    /// allocation and no sort of the whole copy.
     fn snapshot(&self) -> CyclePercentilesSnapshot {
         let recorded = &self.values[..self.len];
         let Some(max) = recorded.iter().copied().max() else {
