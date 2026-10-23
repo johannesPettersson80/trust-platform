@@ -15,6 +15,7 @@ mod object;
 mod strings;
 
 pub(super) use call::{ident as ident_of, parameter};
+pub(super) use expr::byte_string;
 
 use smol_str::SmolStr;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
@@ -198,7 +199,8 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         self.model.types.of_hir(&symbols, hir)
     }
 
-    /// Declares a local of the frame, initialized to its type's zero value.
+    /// Declares a local of the frame at its type's zero value; `frame_init` gives it its starting
+    /// value.
     pub(super) fn declare(&mut self, name: &SmolStr, ty: Ty) -> String {
         let rust = rust_field(name);
         let storage = self.info(ty).rust.clone();

@@ -122,6 +122,9 @@ impl AreaLayout {
 /// Where everything lies.
 pub(super) struct Model<'a> {
     pub(super) types: Types<'a>,
+    /// The runtime's construction of the program: its storage, types and initializers, from which
+    /// the build computes starting values (specification 44 §6.7).
+    pub(super) builder: &'a crate::RuntimeBuilder,
     /// The project's functions.
     pub(super) functions: &'a indexmap::IndexMap<SmolStr, crate::program_model::FunctionDef>,
     pub(super) globals: Vec<Global>,
@@ -206,6 +209,7 @@ impl<'a> Model<'a> {
         );
         Ok(Self {
             types,
+            builder,
             functions: builder.functions(),
             globals,
             program_types,

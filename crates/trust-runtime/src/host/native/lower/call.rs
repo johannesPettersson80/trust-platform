@@ -10,7 +10,7 @@ use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 use super::expr::Text;
 use super::object::Receiver;
 use super::{Lowerer, Place};
-use crate::native::types::{mangle, rust_field, Elem, Kind, Ty};
+use crate::native::types::{mangle, rust_field, Kind, Ty};
 use crate::native::NativeError;
 use crate::program_model::{FunctionDef, Param};
 
@@ -316,11 +316,6 @@ impl<'a> Lowerer<'_, 'a> {
                     let parts = self.text(&arg.value)?;
                     self.text_temp(&parts, *capacity)
                 }
-                (Kind::Str(capacity), None) => {
-                    let temp = self.temp();
-                    self.line(&format!("let {temp} = Str::<{capacity}>::new();"));
-                    format!("&{temp}")
-                }
                 (Kind::Interface, Some(arg)) => {
                     let reference = self.interface_value(&arg.value)?;
                     let temp = self.bind(&format!("Cell::new({reference})"));
@@ -333,25 +328,34 @@ impl<'a> Lowerer<'_, 'a> {
                 }
                 (kind, Some(arg)) if super::is_scalar(kind) => self.scalar_to(&arg.value, ty)?,
                 (_, Some(arg)) => self.aggregate(&arg.value, ty)?.reference(),
-                (kind, None) if super::is_scalar(kind) => {
-                    if param.default.is_some() {
-                        return Err(
-                            self.unsupported(node, format!("the default of {}", param.name))
-                        );
-                    }
-                    let elem = info.scalar().unwrap_or(Elem::DInt);
-                    if elem == Elem::Bool {
-                        "false".to_string()
-                    } else {
-                        format!("0 as {}", elem.rust())
-                    }
-                }
+                // An input the call leaves out takes its default (IEC §6.6.1.2.2).
+                (kind, None) if super::is_scalar(kind) => super::super::frame_init::omitted_scalar(
+                    self.model,
+                    ty,
+                    param.type_id,
+                    param.default.as_ref(),
+                    &param.name,
+                )?,
                 (_, None) => {
                     let temp = self.temp();
                     let storage = info.rust.clone();
                     self.line(&format!(
                         "let {temp}: {storage} = <{storage} as Plain>::ZEROED;"
                     ));
+                    let bytes = super::super::frame_init::starting_bytes(
+                        self.model,
+                        ty,
+                        param.type_id,
+                        param.default.as_ref(),
+                        &param.name,
+                    )?;
+                    let mut lines = Vec::new();
+                    super::super::frame_init::statements(
+                        self.model, &temp, ty, &bytes, 0, &mut lines,
+                    )?;
+                    for line in lines {
+                        self.line(&line);
+                    }
                     format!("&{temp}")
                 }
             };

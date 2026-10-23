@@ -37,7 +37,7 @@ impl Text {
 }
 
 /// `bytes` as a Rust byte string literal.
-pub(super) fn byte_string(bytes: &[u8]) -> String {
+pub(in crate::native) fn byte_string(bytes: &[u8]) -> String {
     let mut out = String::from("b\"");
     for byte in bytes {
         match byte {

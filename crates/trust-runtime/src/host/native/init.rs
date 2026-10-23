@@ -13,9 +13,8 @@ use super::model::{AreaLayout, Model};
 use super::types::{Elem, Kind, Ty};
 use super::NativeError;
 use crate::harness::{CompileSession, SourceFile};
-use crate::memory::InstanceId;
+use crate::memory::{InstanceId, VariableStorage};
 use crate::value::Value;
-use crate::Runtime;
 
 /// The starting bytes of the marker, globals, retain and instance areas.
 pub(super) struct StartingMemory {
@@ -39,7 +38,7 @@ pub(super) fn starting_memory(
         .build_runtime()
         .map_err(|error| NativeError::Compile(error.to_string()))?;
     let mut writer = Writer {
-        runtime: &runtime,
+        storage: runtime.storage(),
         model,
         top: false,
     };
@@ -59,7 +58,7 @@ pub(super) fn starting_memory(
             (&writer.model.area_g, &mut globals)
         };
         let offset = field_offset(layout, &name)?;
-        let Some(value) = writer.runtime.storage().get_global(&name).cloned() else {
+        let Some(value) = writer.storage.get_global(&name).cloned() else {
             continue;
         };
         writer.top = true;
@@ -72,7 +71,7 @@ pub(super) fn starting_memory(
         .map(|instance| (instance.name.clone(), instance.program))
         .collect();
     for (name, program) in instance_fields {
-        let Some(Value::Instance(id)) = writer.runtime.storage().get_global(&name).cloned() else {
+        let Some(Value::Instance(id)) = writer.storage.get_global(&name).cloned() else {
             return Err(NativeError::Compile(format!(
                 "program instance {name} was not constructed"
             )));
@@ -124,9 +123,31 @@ fn field_offset(layout: &AreaLayout, name: &str) -> Result<u32, NativeError> {
         .ok_or_else(|| NativeError::Compile(format!("{name} has no place in its area")))
 }
 
+/// The bytes of `value`, of type `ty`, at the program's layout: a frame variable's starting
+/// value (specification 44 §6.7); a function block instance's variables are read from `storage`.
+///
+/// # Errors
+///
+/// [`NativeError`] when the value does not fit its type.
+pub(super) fn value_bytes(
+    storage: &VariableStorage,
+    model: &mut Model<'_>,
+    value: &Value,
+    ty: Ty,
+) -> Result<Vec<u8>, NativeError> {
+    let mut bytes = vec![0u8; model.types.info(ty).size as usize];
+    let mut writer = Writer {
+        storage,
+        model,
+        top: false,
+    };
+    writer.value(value, ty, &mut bytes, 0)?;
+    Ok(bytes)
+}
+
 /// Writes values at their places.
 struct Writer<'r, 'm, 'a> {
-    runtime: &'r Runtime,
+    storage: &'r VariableStorage,
     model: &'m mut Model<'a>,
     /// Whether the next value written is a global or a program's variable itself, not a part of
     /// one.
@@ -144,7 +165,7 @@ impl Writer<'_, '_, '_> {
         bytes: &mut [u8],
         offset: usize,
     ) -> Result<(), NativeError> {
-        let storage = self.runtime.storage();
+        let storage = self.storage;
         let mut current = Some(id);
         let mut value = None;
         while let Some(instance) = current.and_then(|id| storage.get_instance(id)) {

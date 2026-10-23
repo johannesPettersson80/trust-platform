@@ -52,6 +52,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   and their literals, each giving the runtime's results and faults on every input the comparison
   tried. A date and time range fault of a compiled program is reported as the runtime reports it,
   not as an overflow.
+- Fixed: a compiled function's result, outputs and locals and a function block's `VAR_TEMP`
+  started each call at zero, not at their declared initial value or their type's default (an
+  enumeration's first value, a subrange's lower bound, a structure's members' initial values), and
+  an input a call left out took zero instead of its default; initial values of a function's locals
+  and outputs did not compile.
 - Fixed: `ABS(-0.0)` of a compiled program kept the minus sign of zero; it is `0.0`, as in the
   runtime.
 - Fixed: a compiled program bound a standard function's formal arguments by position, so

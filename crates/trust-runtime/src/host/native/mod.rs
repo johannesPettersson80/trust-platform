@@ -11,6 +11,7 @@
 mod classes;
 mod dispatch;
 mod emit;
+mod frame_init;
 mod front;
 mod init;
 mod lower;

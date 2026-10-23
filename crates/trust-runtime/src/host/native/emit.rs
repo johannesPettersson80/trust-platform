@@ -8,7 +8,7 @@ use smol_str::SmolStr;
 
 use super::classes::Owner;
 use super::front::{Front, StatementIds};
-use super::lower::{Frame, Lowerer, Need, PRELUDE};
+use super::lower::{Frame, Lowerer, Need, Place, PRELUDE};
 use super::model::{AreaLayout, Model};
 use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
@@ -428,17 +428,24 @@ pub(super) fn method_function(owner: Owner<'_>, method: &MethodDef) -> String {
     format!("m_{}__{}", mangle(owner.name()), mangle(&method.name))
 }
 
-/// Declares the `VAR_TEMP` of a program or a function block, zero at each call.
+/// Declares the `VAR_TEMP` of a program or a function block, each at its starting value at each
+/// call (IEC §6.5.2.1).
 fn declare_locals(lowerer: &mut Lowerer<'_, '_>, temps: &[VarDef]) -> Result<(), NativeError> {
     for temp in temps {
-        if temp.initializer.is_some() {
-            return Err(NativeError::unsupported(format!(
-                "the initial value of VAR_TEMP {}",
-                temp.name
-            )));
-        }
         let ty = local_type(lowerer, &temp.name, temp.type_id)?;
-        lowerer.declare(&temp.name, ty);
+        let variable = lowerer.declare(&temp.name, ty);
+        let place = Place {
+            expr: variable,
+            ty,
+            is_ref: false,
+        };
+        super::frame_init::start(
+            lowerer,
+            &place,
+            temp.type_id,
+            temp.initializer.as_ref(),
+            &temp.name,
+        )?;
     }
     Ok(())
 }
@@ -530,9 +537,10 @@ pub(super) fn signature(
     })
 }
 
-/// Declares a function's or a method's frame: its return variable first, its inputs copied from
-/// the call's arguments, its in-outs and outputs as the caller's variables, its locals; returns
-/// the Rust parameters after `w` (or `me`) and the Rust return type, and sets the body's exit.
+/// Declares a function's or a method's frame: its return variable first, its inputs copied from the call's arguments, its in-outs and outputs as the caller's
+/// variables, its locals; the result, the outputs and the locals start at their starting values
+/// (IEC §6.5.1, §6.5.2.1). Returns the Rust parameters after `w` (or `me`) and the Rust return
+/// type, and sets the body's exit.
 fn frame(
     lowerer: &mut Lowerer<'_, '_>,
     name: &SmolStr,
@@ -541,16 +549,18 @@ fn frame(
     locals: &[VarDef],
 ) -> Result<(String, String), NativeError> {
     let signature = signature(lowerer.model, ret, params)?;
-    if let Some(ret) = return_type(lowerer.model, ret)? {
+    if let (Some(ret_id), Some(ret)) = (ret, return_type(lowerer.model, ret)?) {
         let info = lowerer.info(ret).clone();
         let own = SmolStr::new(name.rsplit('.').next().unwrap_or(name));
         let variable = lowerer.declare(&own, ret);
+        let place = Place {
+            expr: variable.clone(),
+            ty: ret,
+            is_ref: false,
+        };
+        super::frame_init::start(lowerer, &place, ret_id, None, &own)?;
         if super::lower::is_scalar(&info.kind) {
-            let value = lowerer.load(&super::lower::Place {
-                expr: variable,
-                ty: ret,
-                is_ref: false,
-            });
+            let value = lowerer.load(&place);
             lowerer.exit = format!("return Ok({value});");
         } else {
             lowerer.exit = format!("Assign::assign(out, &{variable});\n        return Ok(());");
@@ -566,14 +576,29 @@ fn frame(
         if param.direction != trust_hir::symbols::ParamDirection::In {
             // An in-out is the caller's variable itself (IEC §6.6.1.2.2); an output is the
             // caller's place for it, which the caller copies to the output's variable after the
-            // call.
-            if param.default.is_some() {
+            // call, and which starts at the output's starting value.
+            let output = param.direction == trust_hir::symbols::ParamDirection::Out;
+            if param.default.is_some() && !output {
                 return Err(NativeError::unsupported(format!(
-                    "the initial value of output {} of {name}",
+                    "the initial value of in-out {} of {name}",
                     param.name
                 )));
             }
             lowerer.declare_reference(&param.name, ty, &argument);
+            if output {
+                let place = Place {
+                    expr: argument,
+                    ty,
+                    is_ref: true,
+                };
+                super::frame_init::start(
+                    lowerer,
+                    &place,
+                    param.type_id,
+                    param.default.as_ref(),
+                    &param.name,
+                )?;
+            }
             continue;
         }
         let local = lowerer.declare(&param.name, ty);
@@ -590,14 +615,24 @@ fn frame(
         }
     }
     for local in locals {
-        if local.initializer.is_some() {
-            return Err(NativeError::unsupported(format!(
-                "the initial value of local {} of {name}",
-                local.name
-            )));
+        // A `VAR_EXTERNAL` names the global itself (IEC §6.5.2.2), which the frame does not hold.
+        if local.external {
+            continue;
         }
         let ty = local_type(lowerer, &local.name, local.type_id)?;
-        lowerer.declare(&local.name, ty);
+        let variable = lowerer.declare(&local.name, ty);
+        let place = Place {
+            expr: variable,
+            ty,
+            is_ref: false,
+        };
+        super::frame_init::start(
+            lowerer,
+            &place,
+            local.type_id,
+            local.initializer.as_ref(),
+            &local.name,
+        )?;
     }
     Ok((signature.parameters, signature.returns))
 }

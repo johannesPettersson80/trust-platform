@@ -531,6 +531,15 @@ defaults), so that a compiled program starts where an interpreted one started, a
 at the place the program's layout gives it. Until the cold-init entry carries the initializers that
 depend on a call (milestone M2), every initializer is evaluated there.
 
+A frame starts at each call (IEC §6.5.1, §6.5.2.1, Table 13 3d): a function's or a method's result,
+outputs and locals and a program's or a function block's `VAR_TEMP` take their declared initial
+value, else their type's default (an enumeration's first value, a subrange's lower bound, a
+structure's members' initial values), as the runtime gives them, and an input a call leaves out
+takes its default. A frame variable is declared zero; the build computes its starting value at the
+program's layout with the runtime's own initialization, and the call sets the parts of it that are
+not zero, equal array elements in a row by one loop. A starting value that holds an instance of a
+user function block, or an initial value that names a variable, is refused at build (NX-09).
+
 ### 6.8 Standard functions and function blocks (IEC §6.6.2.5, §6.6.3.5)
 
 Every standard function of specification 07 and every standard function block of specification 08
