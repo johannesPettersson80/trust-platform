@@ -34,7 +34,7 @@ mod usb_link;
 mod wait;
 pub use clock::Monotonic;
 #[cfg(feature = "native")]
-pub use code_region::{C6Code, ProgramCode};
+pub use code_region::{program_region, C6Code, Line, ProgramCode};
 pub use console::Console;
 pub use emergency::emergency_halt;
 pub use reset::{ResetControl, Watchdog};

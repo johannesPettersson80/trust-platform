@@ -3216,7 +3216,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 66,
+        "line": 77,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Callers give the allocator one to three regions, once, before any allocation; each non-empty region is valid, aligned and owned by nothing else for the program's lifetime (documented Safety contract).",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_third_region_serves_only_what_the_first_two_cannot, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3224,7 +3224,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 78,
+        "line": 89,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwards the caller's init contract unchanged to one inner LlffHeap per region; each composition arena is exclusively owned by the allocator.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3232,7 +3232,15 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 189,
+        "line": 107,
+        "owner": "native execution (specification 44)",
+        "invariant": "init_program_region is unsafe to call: once, before any allocation, with a region valid for reads, writes and execution that nothing else uses; the region only computes block addresses, which allocations return and frees take back by address.",
+        "test_evidence": "trust-platform-memory memory::tests and program_region::tests (24 October 2026): module copies at the top, uploads at the bottom, repeated changes of the pasteurizer image alternate.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/memory.rs",
+        "line": 241,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "MeasuredHeap delegates to one critical-section protected LlffHeap per composition region; instrumentation uses relaxed atomics and never allocates or panics.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3240,7 +3248,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 190,
+        "line": 242,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "GlobalAlloc layout contract is inherited; alloc counts one allocator operation and forwards the unchanged layout to the private allocate helper, which tries the regions in order and records failure/live/peak counts.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3248,7 +3256,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 122,
+        "line": 158,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Forwarded allocation uses the caller-supplied valid Layout; a null pointer from one region makes the next region try, and a null pointer from every region is retained as allocation-failure evidence.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3256,7 +3264,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 196,
+        "line": 248,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "GlobalAlloc caller owns the pointer/layout allocation pair; dealloc counts one allocator operation and forwards the pair unchanged to the private free helper, exposing no alias.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3264,7 +3272,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 148,
+        "line": 199,
         "owner": "runtime portability S1b-4b2 (two heap regions)",
         "invariant": "Underlying deallocation receives the exact pointer and Layout supplied by the allocator caller, routed to the region whose recorded bounds contain the pointer.",
         "test_evidence": "cargo test -p trust-platform-memory (allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds and M2E board runs remain unrun hardware evidence.",
@@ -3272,7 +3280,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 288,
+        "line": 340,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Interrupts are masked by the critical section; writes paint only aligned addresses of the composition's stack window below the sampled stack pointer minus a 256-byte guard.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3280,7 +3288,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 312,
+        "line": 364,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Aligned volatile reads stay inside the composition's stack window; the reported watermark is measured evidence, not a worst-case proof.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3288,7 +3296,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 348,
+        "line": 400,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the Cortex-M MSP register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3296,7 +3304,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 365,
+        "line": 417,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Copies the RISC-V stack pointer register only (nomem, nostack, preserves_flags); no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3304,7 +3312,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 118,
+        "line": 151,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Private helper with the contract of GlobalAlloc::alloc (a valid layout of non-zero size); tries each region in order, forwards the unchanged layout and records the allocation call, a failure, the live bytes and the phase peak.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3312,7 +3320,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 144,
+        "line": 191,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Private helper with the contract of GlobalAlloc::dealloc (a pair this allocator produced); routes the unchanged pair to the region whose recorded bounds hold the pointer.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3320,7 +3328,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 193,
+        "line": 245,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Forwards GlobalAlloc::alloc's valid non-zero layout unchanged to the allocate helper, which has the same contract.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3328,7 +3336,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 199,
+        "line": 251,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Forwards GlobalAlloc::dealloc's pair unchanged to the free helper, which has the same contract.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3336,7 +3344,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 204,
+        "line": 256,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "One counted operation that takes GlobalAlloc::realloc's default steps: allocate the new layout, copy the smaller size, free the old pair; none of them is counted again.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3344,7 +3352,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 208,
+        "line": 260,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "GlobalAlloc::realloc's caller guarantees a non-zero new_size that, rounded up to the old alignment, does not overflow isize, so the unchecked layout is valid.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3352,7 +3360,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 210,
+        "line": 262,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "The new layout is valid and of non-zero size, the allocate helper's contract.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3360,7 +3368,7 @@
       },
       {
         "path": "crates/trust-platform-memory/src/memory.rs",
-        "line": 214,
+        "line": 266,
         "owner": "runtime portability C1-19f (the allocation count)",
         "invariant": "Both blocks are live, distinct allocations valid for the smaller of the two sizes, and the old pointer/layout pair came from this allocator, so the copy and the free are sound.",
         "test_evidence": "cargo test -p trust-platform-memory (every_allocator_operation_counts_once_and_a_reallocation_keeps_its_bytes, allocations_spill_into_the_second_region, a_full_heap_refuses_and_counts_the_failure); chip builds; the C6 board run of the allocation count.",
@@ -3496,7 +3504,7 @@
       },
       {
         "path": "firmware/trust-esp32c6/src/memory.rs",
-        "line": 72,
+        "line": 73,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Called exactly once before any allocation on a single core; the private HEAP_MEMORY static of the main heap (32,832 bytes, or 163,904 in the firmware that runs compiled programs), the 64 KiB reclaimed static and the 16,320-byte LP SRAM static (LOW_POWER) are exclusively owned by the allocator, and the slices cover exactly those statics.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the three-region allocator is proven by cargo test -p trust-platform-memory (a_third_region_serves_only_what_the_first_two_cannot); the HP CPU's atomic instructions on LP SRAM were probed on the C6 bench (21 October 2026).",
@@ -3920,31 +3928,47 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "line": 57,
+        "line": 36,
+        "owner": "native execution (specification 44)",
+        "invariant": "program_region is unsafe to call: the firmware calls it once, before the heap allocates, and hands the one slice of the .trust_code static to its heap's program region, which owns it from then on.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 (24 October 2026, N4 bench): the program region of the heap holds the installed module's copy and the change's image, whose module runs where it lies.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "line": 39,
+        "owner": "native execution (specification 44)",
+        "invariant": "REGION is the .trust_code section's one static of PROGRAM_CODE_BYTES bytes; the slice covers exactly it and is handed to the heap once.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 (24 October 2026, N4 bench): the program region of the heap holds the installed module's copy and the change's image, whose module runs where it lies.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "line": 61,
+        "owner": "native execution (specification 44)",
+        "invariant": "fence.i orders instruction fetches after the earlier stores (RISC-V Zifencei); it touches no memory and no register.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 (24 October 2026, N4 bench): the program region of the heap holds the installed module's copy and the change's image, whose module runs where it lies.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
+        "line": 112,
         "owner": "native execution (specification 44)",
         "invariant": "The module lies in the slot the image window maps from flash, which the C6 executes in place; the program store never writes the running program's slot and the window is remapped only after that program is dropped (specification 34 \u00a75.1, MEM-14).",
-        "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 (24 October 2026, N4 bench): the program region of the heap holds the installed module's copy and the change's image, whose module runs where it lies.",
         "review_date": "2026-10-24"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "line": 111,
+        "line": 179,
         "owner": "native execution (specification 44)",
-        "invariant": "write_region writes at most PROGRAM_CODE_BYTES bytes into the program code region before a program's first scan or at a boundary, where no scan runs, so no code in the region runs or is read while it is written; the module lies in flash or in the heap, apart from the region; fence.i makes the CPU fetch the written bytes (RISC-V Zifencei).",
-        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
-        "review_date": "2026-10-24"
-      },
-      {
-        "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "line": 145,
-        "owner": "native execution (specification 44)",
-        "invariant": "The region holds the module this program copied in, executable (outside esp-hal's no-execute ranges, trust_code.x) and unchanged while it runs: an online change replaces it only at a boundary, after which this program is dropped without running again, or copies it back before it runs again (specification 44 \u00a712.3); offset is checked inside the module.",
-        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
+        "invariant": "The module lies in the program region, which the CPU executes, in a block the code owns (a copy, or an online change's image), unchanged since fence.i for as long as the program lives; offset is checked inside the module.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 (24 October 2026, N4 bench): the program region of the heap holds the installed module's copy and the change's image, whose module runs where it lies.",
         "review_date": "2026-10-24"
       },
       {
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
-        "line": 269,
+        "line": 265,
         "owner": "native execution (specification 44)",
         "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
@@ -4372,6 +4396,15 @@
         "review_date": "2026-05-02"
       },
       {
+        "path_prefix": "crates/trust-platform-memory/src/program_region.rs",
+        "primitive": "Mutex",
+        "owner": "native execution (specification 44)",
+        "shared_state": "the program region's block list",
+        "invariant": "A critical_section::Mutex guards the block list; every allocation and free of the region runs inside one critical section, as the other regions' LlffHeap does, on the single core.",
+        "test_evidence": "trust-platform-memory program_region::tests and memory::tests (24 October 2026).",
+        "review_date": "2026-10-24"
+      },
+      {
         "path_prefix": "crates/trust-platform-memory/src/memory.rs",
         "primitive": "Atomic",
         "owner": "runtime portability M2E board/firmware",
@@ -4595,24 +4628,6 @@
         "invariant": "One AtomicU32 keeps the window's first entry, found once from the MMU before the window is written and stored with a relaxed store; only the C6's main context maps program images, so it publishes nothing else and orders nothing.",
         "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
         "review_date": "2026-10-22"
-      },
-      {
-        "path_prefix": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "owner": "native execution (specification 44)",
-        "shared_state": "whether a program's module holds the program code region",
-        "invariant": "One AtomicBool is swapped true by ProgramCode::place before the module is copied into the region and stored false when the C6Code that holds it is dropped; only the C6's main context loads programs, and the copy is ordered by the Acquire swap and the Release store, so a second program never writes the region while one runs from it.",
-        "test_evidence": "The pasteurizer's module copied into the region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x), and restarted in place by the probes' installs.",
-        "review_date": "2026-10-22",
-        "primitive": "Atomic"
-      },
-      {
-        "path_prefix": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "owner": "native execution (specification 44)",
-        "shared_state": "whether a program's module holds the program code region",
-        "invariant": "One AtomicBool is swapped true by ProgramCode::place before the module is copied into the region and stored false when the C6Code that holds it is dropped; only the C6's main context loads programs, and the copy is ordered by the Acquire swap and the Release store, so a second program never writes the region while one runs from it.",
-        "test_evidence": "The pasteurizer's module copied into the region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x), and restarted in place by the probes' installs.",
-        "review_date": "2026-10-22",
-        "primitive": "Ordering::"
       }
     ],
     "tool_gates": [

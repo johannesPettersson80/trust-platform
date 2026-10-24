@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.15 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.16 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -8,7 +8,9 @@
   0.12 chosen by the owner on 23 October 2026; 0.13 from the runtime defects lane the owner set on
   23 October 2026; 0.14 makes exact the debugger of milestone M3 within the approved design; 0.15
   works the copy plan of an online change out on the device and keeps a changed image in memory, as
-  specification 34's online change requires),
+  specification 34's online change requires; 0.16 gives the C6 a program region in its heap so that
+  a debug image changes online and a change can follow a change, which the bench found it could
+  not),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -1003,19 +1005,26 @@ correct.
 The C6 executes its external flash through a 32 KiB cache that the firmware shares, which cannot
 hold a scan's code next to the firmware's: run in place through the image window, the reference
 workload's control task took 0.243 ms on average and 1.05 ms at worst; copied into RAM, 0.063 ms and
-0.178 ms over an hour at 1x (22 October 2026, ESP32-C6-DevKitC-1). The C6 therefore copies the module into its program
-code region: 128 KiB of RAM (`PROGRAM_CODE_BYTES`), the linker section `.trust_code` between the
-firmware's static data and its main stack, where neither of esp-hal's no-execute ranges reaches,
-followed by `fence.i`. One program holds the region at a time; the loop drops the program that ran
-before it loads the next, and an online change copies the new module over the running one at its
-boundary (§12.3). A module larger than the region runs where it lies in the mapped slot, slower, and
-is not refused; an online change, whose image lies in the heap, which the C6 does not execute,
-refuses it (§12.3). The region is RAM the interpreter's firmware gave to its RAM code; the
-reference workload's module takes 43,725 bytes of it. The firmware keeps its own RAM code list
-(`ld/rwtext_hook_native.x`: the kernel's scan path and the loop around it, 26 KB instead of the
-interpreter's 105 KB), and its main heap takes 128 KiB more, because an install's upload is held in
-one heap block (specification 34 PORT-05): an image of about 150 KB installs over the link, where
-the interpreter's heap of three regions held at most 64 KB in one block.
+0.178 ms over an hour at 1x (22 October 2026, ESP32-C6-DevKitC-1). The C6 therefore runs a module
+from its program region: 192 KiB of RAM (`PROGRAM_CODE_BYTES`), the linker section `.trust_code`
+between the firmware's static data and its main stack, where neither of esp-hal's no-execute ranges
+reaches. The firmware gives the region to its heap as the heap's program region, which holds the
+blocks of programs and nothing else: a block asked with the module alignment (64 bytes), a module
+copied in, at the top of the region, and a block of 32 KiB or more, an upload, at the bottom, each on
+a 64-byte boundary; the other blocks come from the heap's data regions. The installed program's
+module is copied into a block there, followed by `fence.i`; a module the region has no room for runs
+where it lies in the mapped slot, slower, and is not refused. An online change's image, which the
+transfer uploads into a block at the bottom, runs its module where it lies, beside the running
+program's (§12.3). The 192 KiB hold the reference workload's installed module (43,810 bytes with
+debug hooks) and its changed image (90,200 bytes), and after the change two changed images at once,
+as the next change needs; the region's placement keeps the two alternating between the bottom and
+above the image that runs (C6 bench, 24 October 2026: with the 128 KiB region of 0.14 and uploads in
+the data heap, the largest block a running C6 had for an upload was about 74 KB, so the debug image
+could not be changed online and no change could follow a change). The region and the heap's data
+regions share the RAM the interpreter's firmware gave to its RAM code: the firmware keeps its own
+RAM code list (`ld/rwtext_hook_native.x`: the kernel's scan path and the loop around it, about 44 KB
+instead of the interpreter's 105 KB), its main heap takes 64 KiB more, and an install while the
+resource is stopped is written into the program store as it arrives (specification 34 §5.1).
 
 ### 10.4 The memory figure
 
@@ -1159,30 +1168,32 @@ program in its place. At the boundary the device:
 
 1. admits the new image where its upload lies (§10.2, steps 2 to 6);
 2. checks its memory (specification 34 UPDATE-06): the new program's memory figure, less its stack
-   bound, which the two programs share, against the memory the running program and the upload leave
-   free, with the texts of specification 34 §11.3; on the C6 a module larger than the program code
-   region (§10.3) is refused with `the module of <n> bytes does not fit the program code region of
-   <m> bytes`, because the C6 executes no heap memory;
+   bound, which the two programs share, against the memory the running program leaves free, with the
+   texts of specification 34 §11.3; on the C6 a module that is neither in the program region nor
+   copied into it is refused with `insufficient memory: the program memory of <m> bytes has no room
+   for the change's module of <n> bytes beside the running program's`, because the C6 executes no
+   other memory;
 3. builds the new program: its areas with `INIT`, its bindings checked against the running
    program's lines and its safe state, as specification 34 §11.3 checks a candidate;
 4. places the new module where the CPU runs it, runs the new program's cold-init entry (§6.7) and
    carries the running program's values into its areas (§12.2). A computer maps the new module
-   beside the running one. The C6 copies it into the program code region over the running module,
-   which no scan runs at a boundary, and when the cold-init entry faults, it copies the running
-   module back from its image and the running program goes on as it was (UPDATE-01);
+   beside the running one. The C6 runs it where it lies in the image, which the transfer uploaded
+   into the program region (§10.3), beside the running module, or copies it into a block there when
+   the upload lay in the heap's data regions; a refusal drops the new program and the running
+   program goes on as it was (UPDATE-01);
 5. continues the running program's task schedule in the new program's tasks of the same names
    (decision OC-2), swaps the programs, hands the new one the lines and the checkpoint store
    (specification 34 §11.3), and retires the running program with its areas; an image that an
-   earlier change brought into the heap is freed with it.
+   earlier change brought into the program region is freed with it.
 
 The scan that follows runs the new program with the running program's values (specification 34
 0.46, 0.49). The installation generation of specification 34 UPDATE-04 advances, so that Live
 Values' instance identities and the debugger's handles of the running program are stale; the
 references inside the program are repointed by §12.2 and keep generation 1 (§7.3).
 
-On the ESP32-C6 the heap must hold the changed program's image for as long as it runs, so a second
-change in a row needs room for both images at once. The bench measures it against the pasteurizer's
-image (the one list's N4).
+On the ESP32-C6 the program region holds the changed program's image for as long as it runs, so a
+change of a changed program needs room for both images at once; the region's 192 KiB hold two of the
+reference workload's debug images (§10.3).
 
 ## 13. Debugging and monitoring
 
@@ -1436,3 +1447,4 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.13 | 23 October 2026 | The variables of instances retained as IEC 61131-3 §6.5.6.2 says (the runtime defects lane, D1). §5.10: the retain map holds one 16-byte record per retained variable, in the order of specification 11 §6.7, with its checkpoint key, its area, its offset in the area and its type; a retained variable of a function block or class instance lies with its instance, so a record names its area. §5.2 and §10.2: image format version 2. §6.7: a warm restart keeps every variable the retain map names and starts every other one, an instance or a reference in the retain area too. §11: the capture writes each variable from its area; the restore works out each entry's bytes from the variable's present bytes and checks them before any area changes, and finds a member declared without `RETAIN` by its key's path to leave it alone. §6.4 and Appendix A: a call beyond the call levels reads `call depth exceeded`, the bytecode engine's text too (specification 12 §7.4.1). |
 | 0.14 | 24 October 2026 | The debugger of compiled programs (the one list's N3), within the approved design, which named POU symbols and frame variable symbols (§5.7) and a frame base the hook records in `Cx` (§13.3): §5.7 makes both exact for a debug image, with POU symbols named `@<POU>` so that no variable lookup finds one; §8.2: `Cx` gains `frame`, the chain of `Frame` records a debug image links on each POU entry, and the interface becomes version 4; §13.2: breakpoints by the statement table, the stop's call depth from the frame chain, the hold inside `api.stop`, and the reads of a held scan through the symbol table. |
 | 0.15 | 24 October 2026 | Online change (the one list's N4), within specification 34 §11.3, which §12.1 keeps in full. §12.2: the device works the copy plan out from the two images it holds, whose symbol and type tables name every variable, instead of the build working it out against the image the tools last deployed and sending it with the image as a `TRSTA003` entry of kind 4: a plan worked out on the device cannot be worked out against another program than the one that runs, no tool keeps a copy of what a device runs, and `bytecode.reload` carries the image as it carries STBC. The rules are specification 11 §6.7.1's, made exact for the areas: process images by address, variables by name, members by name, `__CLASS` always the new program's, a library block's own state only into the same block, references repointed or `NULL`, the interpreter's events. §12.3: the new image stays where its upload lies, because an online change writes no flash and a device writes none while a program runs (specification 34 §5.1, Q10); 0.1 said it was installed into the other slot before the request, which specification 34 §11.2 (an install needs a Stopped resource) does not allow. The C6 copies the new module over the running one at the boundary and copies the running one back when the new program's cold-init entry faults; a module larger than the program code region cannot be changed online on the C6. §7.3: references keep generation 1, because the change repoints them; the installation generation is the services'. §10.3: the code region at a change. §13.3: an integer Live Values writes is an untyped literal, as specification 11 says for every runtime (the C6 bench found `set` of 2 into an `INT` refused). |
+| 0.16 | 24 October 2026 | The C6's program region (the one list's N4). The bench of 0.15 found that a running C6's largest heap block for an upload was about 74 KB: the reference workload's release image (67,848 bytes) changed online, its debug image (90,200 bytes) could not upload, and no change could follow a change, which needs two images at once. §10.3: the 128 KiB program code region becomes a 192 KiB program region of the heap, for programs' blocks only (a module copy at the top, an upload at the bottom, 64-byte boundaries), with 64 KiB taken from the main heap; an online change's module runs where its image lies, beside the running module, so the C6 no longer copies a change's module over the running one or back. §12.3: steps 2 and 4 and the C6 note. |

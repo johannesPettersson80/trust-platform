@@ -125,8 +125,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   pointed at the same variable or made `NULL`, with the `online_change_value` events; the tasks go
   on with their schedule and the outputs keep their levels. The device works out what to carry from
   the two images it holds, so no tool keeps a copy of what a device runs. On the ESP32-C6 the new
-  image stays in the heap while it runs, since an online change writes no flash, and its code
-  replaces the running program's in the RAM the C6 executes at the boundary.
+  image is uploaded into the program region, 192 KiB of the RAM the C6 executes that its heap keeps
+  for programs, and runs there, since an online change writes no flash: an image with debug hooks
+  changes online, and a change can follow a change (the reference pasteurizer, 90,200 bytes,
+  changed three times in a row on the bench).
 - Fixed: Live Values `set`, `var.force`, `io.write` and `io.force` of an integer on a compiled
   program: the integer takes the declared type of its variable, or of the variable bound at its
   address, as it does on an interpreted program; it was refused as a type mismatch unless the

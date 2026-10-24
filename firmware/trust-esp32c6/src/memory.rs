@@ -9,12 +9,13 @@ use trust_platform_memory::memory::{MeasuredHeap, StackWindow, TargetMemory};
 /// 16,320 bytes the LP SRAM region takes over (the owner, 21 October 2026, "Use LP SRAM"), so the
 /// three regions hold the 112 KiB that the main heap and the reclaimed RAM held.
 const HEAP_BYTES: usize = 32 * 1024 + 64;
-/// Bytes the main heap of the firmware that runs compiled programs adds to [`HEAP_BYTES`]: 128 KiB of
-/// the RAM that the interpreter's RAM code took (specification 44 §10.3), so that an install's upload
-/// of a program image, which the transfer session holds in one block, can be about 150 KB
-/// (specification 34 PORT-05); the reference workload's container is 86,547 bytes.
+/// Bytes the main heap of the firmware that runs compiled programs adds to [`HEAP_BYTES`]: 64 KiB of
+/// the RAM that the interpreter's RAM code took (specification 44 §10.3). A program's image, an
+/// install's or an online change's upload, goes to the heap's program region (`PROGRAM_CODE_BYTES`),
+/// which took the rest of that RAM; an install while the resource is stopped is written into the
+/// program store as it arrives (specification 34 §5.1).
 #[cfg(feature = "native")]
-const NATIVE_EXTRA_HEAP_BYTES: usize = 128 * 1024;
+const NATIVE_EXTRA_HEAP_BYTES: usize = 64 * 1024;
 /// Bytes of the main heap this firmware has.
 #[cfg(not(feature = "native"))]
 const MAIN_HEAP_BYTES: usize = HEAP_BYTES;
@@ -83,6 +84,10 @@ pub fn initialize() {
             LOW_POWER_BYTES,
         );
         HEAP.init(main, Some(reclaimed), Some(low_power));
+        // The program region, which the CPU executes, holds the programs' code (specification 44
+        // §10.3, §12.3).
+        #[cfg(feature = "native")]
+        HEAP.init_program_region(trust_platform_esp32::program_region());
     }
     TargetMemory::new(&HEAP, STACK_WINDOW).paint_inactive_stack();
 }

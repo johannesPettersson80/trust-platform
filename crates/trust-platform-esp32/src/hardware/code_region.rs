@@ -1,23 +1,23 @@
-//! The program code region (specification 44 §10.3): RAM that the C6 executes, into which the loader
-//! copies the module of the program that runs.
+//! The program region (specification 44 §10.3, §12.3): RAM that the C6 executes, which holds the
+//! code of the programs that run.
 //!
 //! From the image window the module runs through the C6's 32 KiB flash cache, which it shares with
 //! the firmware: the pasteurizer's control task took 0.243 ms on average and 1.05 ms at worst from
-//! flash, and 0.063 ms and 0.178 ms over an hour from RAM (22 October 2026). The region is the linker's
-//! `.trust_code` section (`firmware/trust-esp32c6/trust_code.x`), between the static data and the
-//! stack, where neither of esp-hal's no-execute ranges reaches, so the CPU executes what is copied
-//! into it. One program holds the region at a time: the loop drops the program that ran before it
-//! loads the next one (specification 34 STATE-08), and an online change copies the new program's
-//! module over the running one at the boundary, where no scan runs, and copies the running one back
-//! when the change does not complete (specification 44 §12.3). A module larger than the region runs
-//! where it lies in the slot; an online change, whose image lies in the heap, which the C6 does not
-//! execute, refuses it.
+//! flash, and 0.063 ms and 0.178 ms over an hour from RAM (22 October 2026). The region is the
+//! linker's `.trust_code` section (`firmware/trust-esp32c6/trust_code.x`), between the static data
+//! and the stack, where neither of esp-hal's no-execute ranges reaches, so the CPU executes what
+//! lies in it. The firmware gives it to its heap as the heap's program region
+//! (`MeasuredHeap::init_program_region`): the installed program's module is copied into a block
+//! there, which the heap places at the top, and an online change's image, which the transfer
+//! uploads into a block the heap places at the bottom, runs its module where it lies, beside the
+//! running program's. A module the region has no room for runs where it lies in the slot; an online
+//! change's, whose image lies in the heap, which the C6 does not execute, is refused.
 
 mod region;
 
 use alloc::format;
 use alloc::string::String;
-use core::sync::atomic::{AtomicU32, Ordering};
+use alloc::vec::Vec;
 
 use trust_plc_abi::kernel::{Entry, InPlace};
 use trust_runtime_core::native::program::ModuleCode;
@@ -26,25 +26,80 @@ use crate::compiled_loader::{ChangedImage, ModuleMemory};
 use crate::profile::PROGRAM_CODE_BYTES;
 use region::REGION;
 
-/// The number of the program whose module holds the region; 0 when none does.
-static HOLDER: AtomicU32 = AtomicU32::new(0);
+/// The program region's bytes, which the firmware gives to its heap.
+///
+/// # Safety
+///
+/// Call once, before the heap allocates: the firmware hands the slice to its heap's program region,
+/// and nothing else reads or writes it but through the heap's blocks.
+#[must_use]
+pub unsafe fn program_region() -> &'static mut [u8] {
+    // SAFETY: `REGION` is the `.trust_code` section's one static of `PROGRAM_CODE_BYTES` bytes, and
+    // the caller hands this one slice of it to the heap, which owns it from then on.
+    unsafe {
+        core::slice::from_raw_parts_mut(
+            core::ptr::addr_of_mut!(REGION).cast::<u8>(),
+            PROGRAM_CODE_BYTES,
+        )
+    }
+}
 
-/// The number the next program that takes the region gets.
-static NEXT_HOLDER: AtomicU32 = AtomicU32::new(1);
+/// Whether the `len` bytes at `address` lie in the program region, which the CPU executes.
+fn executable(address: usize, len: usize) -> bool {
+    let start = core::ptr::addr_of!(REGION) as usize;
+    address >= start
+        && address
+            .checked_add(len)
+            .is_some_and(|end| end <= start + PROGRAM_CODE_BYTES)
+}
 
-/// The C6's module memory: the program code region, and the slot for a module that does not fit it.
+/// Makes the CPU fetch the bytes written into the program region and not what it may have read
+/// before.
+fn fetch_written() {
+    // SAFETY: `fence.i` orders instruction fetches after the earlier stores (RISC-V Zifencei); it
+    // touches no memory and no register.
+    unsafe { core::arch::asm!("fence.i") };
+}
+
+/// One 64-byte line of a module copy. A block of lines is asked with the module's alignment, which
+/// the heap places at the top of its program region.
+#[derive(Clone, Copy)]
+#[repr(C, align(64))]
+pub struct Line([u8; 64]);
+
+/// The copy of `module` in a block of the program region, or `None` when the region has no room
+/// for it.
+fn copy_into_region(module: &[u8]) -> Option<Vec<Line>> {
+    let lines = module.len().div_ceil(64);
+    let mut copy: Vec<Line> = Vec::new();
+    copy.try_reserve_exact(lines).ok()?;
+    // A heap with no room in its program region gives a block of a data region, which the C6 does
+    // not execute.
+    if !executable(copy.as_ptr() as usize, lines * 64) {
+        return None;
+    }
+    for chunk in module.chunks(64) {
+        let mut line = Line([0; 64]);
+        line.0[..chunk.len()].copy_from_slice(chunk);
+        copy.push(line);
+    }
+    fetch_written();
+    Some(copy)
+}
+
+/// The C6's module memory: the program region, and the slot for a module that does not fit it.
 pub struct ProgramCode;
 
 impl ModuleMemory for ProgramCode {
     type Code = C6Code;
 
-    /// Copies `module` into the program code region when it fits and the region is free, and
+    /// Copies `module` into a block of the program region when the region has room for it, and
     /// otherwise runs it where it lies in the mapped slot.
     fn place(&mut self, module: &'static [u8]) -> C6Code {
-        if module.len() <= PROGRAM_CODE_BYTES && HOLDER.load(Ordering::Acquire) == 0 {
+        if let Some(copy) = copy_into_region(module) {
             return C6Code::Ram {
+                copy,
                 len: module.len(),
-                holder: take_region(module),
                 image: None,
             };
         }
@@ -57,75 +112,52 @@ impl ModuleMemory for ProgramCode {
         C6Code::Flash(unsafe { InPlace::new(module) })
     }
 
-    /// Copies the module of an online change into the program code region over the running
-    /// program's module (specification 44 §12.3, step 4); the code owns the heap `image` the module
-    /// lies in.
+    /// Runs the module of an online change where it lies in its image, when the transfer uploaded
+    /// the image into the program region, and otherwise copies it into a block there; the running
+    /// program's module stays where it is (specification 44 §12.3, step 4).
     fn place_change(
         &mut self,
         module: &'static [u8],
         image: ChangedImage,
     ) -> Result<C6Code, String> {
-        if module.len() > PROGRAM_CODE_BYTES {
-            return Err(format!(
-                "the module of {} bytes does not fit the program code region of \
-                 {PROGRAM_CODE_BYTES} bytes",
-                module.len()
-            ));
+        if executable(module.as_ptr() as usize, module.len()) {
+            fetch_written();
+            return Ok(C6Code::Image { module, image });
         }
+        let copy = copy_into_region(module).ok_or_else(|| {
+            format!(
+                "insufficient memory: the program memory of {PROGRAM_CODE_BYTES} bytes has no room \
+                 for the change's module of {} bytes beside the running program's",
+                module.len()
+            )
+        })?;
         Ok(C6Code::Ram {
+            copy,
             len: module.len(),
-            holder: take_region(module),
             image: Some(image),
         })
-    }
-
-    /// Copies the module of `running` back into the region, which it holds again, after a change
-    /// that did not complete; a running program that runs from its slot had no module there.
-    fn restore(&mut self, running: &C6Code, module: &'static [u8]) {
-        if let C6Code::Ram { holder, .. } = running {
-            write_region(module);
-            HOLDER.store(*holder, Ordering::Release);
-        }
-    }
-}
-
-/// Copies `module` into the region for a program that takes it, and returns the number it holds
-/// the region under.
-fn take_region(module: &[u8]) -> u32 {
-    write_region(module);
-    let holder = NEXT_HOLDER.fetch_add(1, Ordering::Relaxed);
-    HOLDER.store(holder, Ordering::Release);
-    holder
-}
-
-/// Writes `module`, at most the region's bytes, at the start of the region, and makes the CPU fetch
-/// the written bytes.
-fn write_region(module: &[u8]) {
-    let base = core::ptr::addr_of_mut!(REGION).cast::<u8>();
-    let len = module.len().min(PROGRAM_CODE_BYTES);
-    // SAFETY: the region holds `PROGRAM_CODE_BYTES` bytes and at most that many are written. The
-    // loop writes it before a program's first scan, or at a boundary, where no scan runs, so no code
-    // in the region runs or is read while it is written; `module` lies in flash or in the heap,
-    // apart from the region. The instruction fence makes the CPU fetch the written bytes and not
-    // what it may have read before.
-    unsafe {
-        core::ptr::copy_nonoverlapping(module.as_ptr(), base, len);
-        core::arch::asm!("fence.i");
     }
 }
 
 /// Where the module of the program that runs lies.
 pub enum C6Code {
-    /// The first `len` bytes of the program code region, which this program holds under the number
-    /// `holder` until it is dropped or an online change takes the region over.
+    /// A copy of the module in a block of the program region, which the program owns, with the
+    /// image of an online change whose module the transfer could not upload into the region.
     Ram {
+        /// The copy.
+        copy: Vec<Line>,
         /// The module's bytes.
         len: usize,
-        /// The number the program holds the region under.
-        holder: u32,
-        /// The heap image an online change brought, which the program reads for as long as it
-        /// runs (specification 44 §12.3); `None` for an image in its slot.
+        /// The image an online change brought, which the program reads for as long as it runs.
         image: Option<ChangedImage>,
+    },
+    /// The module of an online change's image, where it lies in the program region (specification
+    /// 44 §12.3).
+    Image {
+        /// The module, which lies in `image`.
+        module: &'static [u8],
+        /// The image, which the program owns and reads for as long as it runs.
+        image: ChangedImage,
     },
     /// Where the image lies in the mapped slot.
     Flash(InPlace),
@@ -133,27 +165,17 @@ pub enum C6Code {
 
 impl ModuleCode for C6Code {
     fn entry(&self, offset: u32) -> Option<Entry> {
-        match self {
-            Self::Ram { len, .. } => {
-                let offset = usize::try_from(offset).ok().filter(|offset| offset < len)?;
-                let base = core::ptr::addr_of!(REGION).cast::<u8>();
-                // SAFETY: the region holds the module this program copied into it, executable and
-                // unchanged while the program runs: an online change replaces it only at a
-                // boundary, after which this program is dropped without running again, or is copied
-                // back before it runs again; `offset` is the offset of one of the module's entry
-                // points, inside the module.
-                Some(unsafe { Entry::from_address(base.wrapping_add(offset)) })
-            }
-            Self::Flash(code) => code.entry(offset),
-        }
-    }
-}
-
-impl Drop for C6Code {
-    fn drop(&mut self) {
-        if let Self::Ram { holder, .. } = self {
-            // A program whose region an online change took over leaves it to the new program.
-            let _ = HOLDER.compare_exchange(*holder, 0, Ordering::AcqRel, Ordering::Relaxed);
-        }
+        let (base, len): (*const u8, usize) = match self {
+            Self::Ram { copy, len, .. } => (copy.as_ptr().cast(), *len),
+            Self::Image { module, .. } => (module.as_ptr(), module.len()),
+            Self::Flash(code) => return code.entry(offset),
+        };
+        let offset = usize::try_from(offset)
+            .ok()
+            .filter(|offset| *offset < len)?;
+        // SAFETY: the module lies at `base` in the program region, which the CPU executes, in a
+        // block this code owns (the copy, or the image), unchanged since `fetch_written`, for as
+        // long as the program lives; `offset` is the offset of one of its entry points, inside it.
+        Some(unsafe { Entry::from_address(base.wrapping_add(offset)) })
     }
 }

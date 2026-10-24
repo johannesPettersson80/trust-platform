@@ -135,14 +135,16 @@ pub const MAIN_STACK: DeviceStack = DeviceStack {
     level_bytes: 6_144,
 };
 
-/// The bytes of the C6's program code region (specification 44 §10.3): RAM the C6 executes, into
-/// which the loader copies a compiled program's module. 128 KiB holds the pasteurizer's 43,725-byte
-/// module with room for programs three times its size; a larger module runs where it lies in its
-/// slot. The region is the linker's `.trust_code` section; in the firmware that runs compiled
-/// programs it, the main heap's added 128 KiB and the main stack's region share the RAM that the
-/// interpreter's RAM code took, and the stack's region keeps more than the 82 KiB that its window and
-/// margin need (`stack_guard.x`, the build report's `stack.region_bytes`).
-pub const PROGRAM_CODE_BYTES: usize = 128 * 1024;
+/// The bytes of the C6's program region (specification 44 §10.3, §12.3): RAM the C6 executes, which
+/// the heap holds the programs' code in, an installed program's module copied in and the image of an
+/// online change, whose module runs where it lies. 192 KiB holds the pasteurizer's installed module
+/// (43,810 bytes with debug hooks) and its changed image (90,200 bytes), and later two changed images
+/// at once, as a change of a changed program needs; a module the region has no room for runs where
+/// it lies in its slot. The region is the linker's `.trust_code` section; in the firmware that runs
+/// compiled programs it, the main heap's added 64 KiB and the main stack's region share the RAM that
+/// the interpreter's RAM code took, and the stack's region keeps more than the 82 KiB that its window
+/// and margin need (`stack_guard.x`, the build report's `stack.region_bytes`).
+pub const PROGRAM_CODE_BYTES: usize = 192 * 1024;
 
 /// What the C6 offers compiled programs (specification 44 §10.2 and NX-10): the RV32IMAC module
 /// target; as the task stack, the main stack's window less its headroom and the deepest path's

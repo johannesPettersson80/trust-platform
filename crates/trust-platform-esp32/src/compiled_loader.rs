@@ -17,12 +17,12 @@
 //! The lines are claimed last, so an image that is refused leaves the outputs as the stop of the
 //! program before it left them.
 //!
-//! An online change (§12.3) writes no flash: the new image stays where its upload lies, in the heap,
-//! for as long as the changed program runs ([`ChangedImage`]). The change is checked first, its
-//! image, its memory beside the running program and the upload, its bindings against the running
-//! program's lines; then its module is copied over the running one in the program code region, its
-//! cold-init entry runs and it takes the running program's values (§12.2). A failure after the copy
-//! copies the running module back, so the running program goes on as it was.
+//! An online change (§12.3) writes no flash: the new image stays where its upload lies, in the
+//! heap's program region, for as long as the changed program runs ([`ChangedImage`]). The change is
+//! checked first, its image, its memory beside the running program, its bindings against the
+//! running program's lines; then its module runs where it lies, beside the running program's, which
+//! stays where it is, its cold-init entry runs and it takes the running program's values (§12.2). A
+//! refusal drops the candidate and leaves the running program as it was.
 
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
@@ -84,21 +84,17 @@ pub trait ModuleMemory {
     fn place(&mut self, module: &'static [u8]) -> Self::Code;
 
     /// Puts the module of an online change, which lies in the heap `image`, where the CPU runs it,
-    /// in place of the running program's module, at a boundary (specification 44 §12.3, step 4).
-    /// The code owns `image`, so the image lives as long as the program.
+    /// beside the running program's module, which stays where it is (specification 44 §12.3, step
+    /// 4). The code owns `image`, so the image lives as long as the program.
     ///
     /// # Errors
     ///
-    /// The refusal of a module the device cannot run from where a change puts it.
+    /// The refusal of a module the device has no room to run.
     fn place_change(
         &mut self,
         module: &'static [u8],
         image: ChangedImage,
     ) -> Result<Self::Code, String>;
-
-    /// Puts `module`, the module of the running program whose code is `running`, back where the CPU
-    /// runs it, after a change that placed its module but did not complete.
-    fn restore(&mut self, running: &Self::Code, module: &'static [u8]);
 }
 
 /// The loader of compiled programs: the hardware it claims from, where it puts their modules, the
@@ -291,28 +287,17 @@ where
         // The candidate claims no line: the commit hands it the running program's.
         let io = self.hardware.claim_lines(&Configuration::default())?;
         let (_, module) = admitted.module();
-        // From here the running program's module may be overwritten; every refusal puts it back.
         let code = self.modules.place_change(module, image)?;
-        let built = build_candidate(admitted, code, io, running, &device, budget);
-        let running_module = running.program().image().module().1;
-        match built {
-            Ok((cycle, events)) => {
-                platform.feed();
-                // A client that names an instance by its identity after the change names the
-                // generation that the change installed.
-                live.set_generation(cycle.generation());
-                Ok(Candidate {
-                    cycle,
-                    live,
-                    events,
-                })
-            }
-            Err(refusal) => {
-                self.modules
-                    .restore(running.program().code(), running_module);
-                Err(refusal)
-            }
-        }
+        let (cycle, events) = build_candidate(admitted, code, io, running, &device, budget)?;
+        platform.feed();
+        // A client that names an instance by its identity after the change names the generation that
+        // the change installed.
+        live.set_generation(cycle.generation());
+        Ok(Candidate {
+            cycle,
+            live,
+            events,
+        })
     }
 
     /// The lines and the checkpoint store change places with the candidate's empty ones: no pin is
@@ -348,7 +333,7 @@ type Changed<C, I, K> = (
 ///
 /// # Errors
 ///
-/// The refusal of the change; the caller puts the running program's module back.
+/// The refusal of the change, which drops the candidate.
 fn build_candidate<C, I, K>(
     admitted: Image<'static>,
     code: K,

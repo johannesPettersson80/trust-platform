@@ -10,7 +10,8 @@ use crate::profile::PROGRAM_CODE_BYTES;
 #[repr(C, align(64))]
 pub(super) struct Region([MaybeUninit<u8>; PROGRAM_CODE_BYTES]);
 
-/// The program code region. Only `ProgramCode::place` writes it, while no program holds it.
+/// The program region. The firmware gives it to its heap (`code_region::program_region`), whose
+/// blocks there hold the programs' code.
 // SAFETY: `.trust_code` is a NOLOAD section of RAM that only this static occupies
 // (`trust_code.x`), so its placement aliases no other object.
 #[unsafe(link_section = ".trust_code")]

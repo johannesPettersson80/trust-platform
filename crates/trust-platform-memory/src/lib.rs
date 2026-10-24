@@ -37,5 +37,6 @@ pub mod board {
 }
 
 pub mod memory;
+pub mod program_region;
 pub mod reset;
 pub mod stack;

@@ -3930,7 +3930,9 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   (`t2q` called the ROM's `memset` about three times a cycle and its `memcmp` about four times,
   firmware p2r). Interrupts
   use the same stack on RISC-V, so the window includes them. The allocator serves three heap regions on the C6, tried in
-  this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. A program's prepared module and its execution services
+  this order: the main heap, the boot loader's reclaimed RAM and the LP SRAM. The firmware that runs compiled programs adds a
+  fourth, the program region of specification 44 §10.3 (192 KiB the CPU executes, for programs' code and the images an online
+  change uploads), which holds programs' blocks only and is not among the bytes for a program's data. A program's prepared module and its execution services
   are allocated on the heap when the program starts, and the program's cycle owns them: they are
   freed when the cycle is dropped, after the engine state, the I/O lines and the handle on the
   checkpoint flash (two registered unsafe sites, in `ProgramMemory` in `crates/trust-platform-esp32`).

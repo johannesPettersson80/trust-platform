@@ -8,8 +8,15 @@ use core::{
 };
 use embedded_alloc::LlffHeap;
 
+use crate::program_region::{ProgramRegion, BLOCK_ALIGN};
+
 /// The most regions a [`MeasuredHeap`] serves.
 const REGIONS: usize = 3;
+
+/// The bytes from which a block is a program's, an upload or an image, which goes to the program
+/// region first when the heap has one (specification 44 §12.3). No other block of a runtime is as
+/// large.
+pub const PROGRAM_BLOCK_BYTES: usize = 32 * 1024;
 
 /// Allocator wrapper that serves one to three regions, tried in the order a composition hands them
 /// in, and counts live bytes, phase peak, allocation calls, failures and every allocator operation
@@ -20,6 +27,9 @@ pub struct MeasuredHeap {
     inner: [LlffHeap; REGIONS],
     /// Start and size of each region as handed in, for deallocation routing and capacity.
     bounds: [AtomicUsize; REGIONS * 2],
+    /// The region of programs' blocks, which the CPU executes, when the composition gives one
+    /// ([`MeasuredHeap::init_program_region`]).
+    program: ProgramRegion,
     /// Sum of the region sizes, in bytes.
     capacity: AtomicUsize,
     /// Allocator bytes in use over every region.
@@ -46,6 +56,7 @@ impl MeasuredHeap {
         Self {
             inner: [const { LlffHeap::empty() }; REGIONS],
             bounds: [const { AtomicUsize::new(0) }; REGIONS * 2],
+            program: ProgramRegion::empty(),
             capacity: AtomicUsize::new(0),
             used: AtomicUsize::new(0),
             peak: AtomicUsize::new(0),
@@ -83,6 +94,26 @@ impl MeasuredHeap {
         }
     }
 
+    /// Give the allocator a program region (specification 44 §10.3, §12.3): memory the CPU
+    /// executes, which takes a block asked with [`BLOCK_ALIGN`], a module copied in, as
+    /// high as it fits, and a block of [`PROGRAM_BLOCK_BYTES`] or more, an upload, as low as it
+    /// fits, before the other regions; no smaller block goes there. Its bytes are not among
+    /// [`MeasuredHeap::capacity`] and [`MeasuredHeap::remaining`], which are the bytes for a
+    /// program's data.
+    ///
+    /// # Safety
+    /// Call at most once, before any allocation. The region must be non-empty, valid for reads,
+    /// writes and execution, and used by nothing else for the program's lifetime.
+    pub unsafe fn init_program_region(&self, region: &'static mut [u8]) {
+        self.program
+            .init(region.as_mut_ptr() as usize, region.len());
+    }
+
+    /// The program region, when the composition gave one.
+    pub fn program_region(&self) -> Option<&ProgramRegion> {
+        self.program.is_set().then_some(&self.program)
+    }
+
     /// Total bytes of the regions handed in at [`MeasuredHeap::init`].
     pub fn capacity(&self) -> usize {
         self.capacity.load(Ordering::Relaxed)
@@ -93,9 +124,11 @@ impl MeasuredHeap {
         self.used.load(Ordering::Relaxed)
     }
 
-    /// Bytes of the regions not in use now, over all of them.
+    /// Bytes of the regions not in use now, over all of them; the program region's are not among
+    /// them.
     pub fn remaining(&self) -> usize {
-        self.capacity().saturating_sub(self.used())
+        let data: usize = self.inner.iter().map(LlffHeap::used).sum();
+        self.capacity().saturating_sub(data)
     }
 
     /// Every allocator operation since the allocator began, each allocation, reallocation and
@@ -116,13 +149,13 @@ impl MeasuredHeap {
     /// # Safety
     /// `layout` has a non-zero size, as [`GlobalAlloc::alloc`] requires.
     unsafe fn allocate(&self, layout: Layout) -> *mut u8 {
-        let mut pointer = core::ptr::null_mut();
+        let mut pointer = self.allocate_for_program(layout);
         for heap in &self.inner {
-            // SAFETY: the caller supplies a valid allocation layout of non-zero size.
-            pointer = unsafe { heap.alloc(layout) };
             if !pointer.is_null() {
                 break;
             }
+            // SAFETY: the caller supplies a valid allocation layout of non-zero size.
+            pointer = unsafe { heap.alloc(layout) };
         }
         self.allocations.fetch_add(1, Ordering::Relaxed);
         if pointer.is_null() {
@@ -136,12 +169,30 @@ impl MeasuredHeap {
         pointer
     }
 
+    /// A block of the program region for `layout`, or null when `layout` is no program's block or
+    /// the region has no gap for it: a block asked with [`BLOCK_ALIGN`] as high as it fits, a block
+    /// of [`PROGRAM_BLOCK_BYTES`] or more as low as it fits. A larger alignment than the region's
+    /// blocks have goes elsewhere.
+    fn allocate_for_program(&self, layout: Layout) -> *mut u8 {
+        let high = layout.align() == BLOCK_ALIGN;
+        if layout.align() > BLOCK_ALIGN || (!high && layout.size() < PROGRAM_BLOCK_BYTES) {
+            return core::ptr::null_mut();
+        }
+        self.program
+            .allocate(layout.size(), high)
+            .map_or(core::ptr::null_mut(), |address| address as *mut u8)
+    }
+
     /// Free `pointer` into the region that holds it and record the live bytes.
     ///
     /// # Safety
     /// `pointer` and `layout` are a pair this allocator returned, as [`GlobalAlloc::dealloc`]
     /// requires.
     unsafe fn free(&self, pointer: *mut u8, layout: Layout) {
+        if self.program.free(pointer as usize) {
+            self.used.store(self.used_of_regions(), Ordering::Relaxed);
+            return;
+        }
         let index = self.region_of(pointer as usize);
         // SAFETY: the caller returns a pointer/layout pair the same allocator produced, so `index`
         // is the region that owns it.
@@ -165,9 +216,10 @@ impl MeasuredHeap {
         )
     }
 
-    /// Allocator bytes in use, summed fresh over every region.
+    /// Allocator bytes in use, summed fresh over every region, the program region's blocks among
+    /// them.
     fn used_of_regions(&self) -> usize {
-        self.inner.iter().map(LlffHeap::used).sum()
+        self.inner.iter().map(LlffHeap::used).sum::<usize>() + self.program.used()
     }
 
     /// The region holding `pointer`, or region 0 when no bound matches.
@@ -371,3 +423,6 @@ fn stack_pointer() -> usize {
     };
     sp
 }
+
+#[cfg(test)]
+mod tests;

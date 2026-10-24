@@ -46,4 +46,4 @@ pub use hardware::{
     ResetControl, UsbLink, Wait, Watchdog,
 };
 #[cfg(all(target_arch = "riscv32", target_os = "none", feature = "native"))]
-pub use hardware::{C6Code, ProgramCode};
+pub use hardware::{program_region, C6Code, Line, ProgramCode};
