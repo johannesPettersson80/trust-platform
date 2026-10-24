@@ -65,8 +65,8 @@ fn report(tasks: &[TaskRecord], lateness: Wall, cycles: u64) -> String {
 #[test]
 #[ignore = "an hour of real time; run on request"]
 fn the_pasteurizer_runs_in_real_time() {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let project = std::env::var_os("TRUST_REALTIME_PROJECT").map_or_else(
         || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/vat_pasteurizer"),
         PathBuf::from,

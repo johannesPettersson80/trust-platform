@@ -48,8 +48,8 @@ fn the_sources_hash_takes_each_label_and_text_in_label_order() {
 /// Catches a header left at zeros, which no kernel admits, and a library hash of another release.
 #[test]
 fn a_built_image_names_its_sources_and_this_releases_program_library() {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let sources = [SourceFile::with_path("src/counter.st", COUNTER)];
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!("trust-native-header-{}", std::process::id()));

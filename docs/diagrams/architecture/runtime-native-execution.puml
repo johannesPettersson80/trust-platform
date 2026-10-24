@@ -15,6 +15,8 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
     component "host/native/lower + emit + dispatch\none Rust crate per program; calls bound\nby class id; no unsafe in generated code" as generator
     component "host/native/recursion\ncall graph of the generated crate;\na call into its own cycle takes one\nfrom Cx.depth (§6.4)" as recursion
     component "pinned rustc + rust-lld\n(toolchain bundle, §4.6)\nstatic PIE, no relocations" as toolchain
+    component "host/native/bundle (§4.6)\nToolchain::find: TRUST_TOOLCHAIN or the bundle\nin truST's data folder, installed on the first\nbuild (release download or file), checked\nagainst SHA256SUMS and its manifest" as bundle
+    bundle --> toolchain : find / find_or_install
     component "trust-plc-lib\narithmetic, conversion, mathematics,\nbits, text, dates and times,\ntimers, counters, edges, bistables" as library
     component "trust-plc-abi\nCx, areas, faults, references,\nclass ids; module side" as abiModule
     component "trust-plc-mem\nmemcpy, memset, memcmp\nfor computer modules" as memModule

@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.20 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.21 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -14,7 +14,9 @@
   services and protocol clients reach them through the symbol table, §8.8; 0.19 builds the debug
   expressions that the owner's decision of 18 October 2026 has the tool compile, §13.2; 0.20
   completes the checks at install, §10.2, and has the tools sign with the user's own key unless the
-  project names one, so that no private key lies in a project folder, §5.11),
+  project names one, so that no private key lies in a project folder, §5.11; 0.21 makes the toolchain
+  bundle exact and has the tools install it into truST's data folder, which the extension and
+  `trust-runtime` share, §4.6),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -245,16 +247,77 @@ rustc and rust-lld of the pinned version, `rust-std` for the targets of §4.4, t
 and interface crates (§6.9, §8.2) of the kernel version with the crates they link (`libm`, `ryu`,
 and `trust-plc-mem` for the computers' targets, §4.5), for each target a `LIBRARY` file naming its
 program library, `trust-plc-lib <version>` (§5.2), and a manifest with every hash. The bundle
-is installed into the extension's private folder (the user's own Rust installation, if any, is
-never used or touched), verified against its manifest before use, and needs no administrator
-rights. The download is about 250 MB once; the installed bundle about 600 MB. For sites without
-internet, the same bundle is a file that the extension's "Install toolchain from file" command
-installs. The bundle's version is the kernel's: a kernel update that changes the interface version
-(§8.2) comes with a new bundle, and the tools say "rebuild needed" for every project (§10.2).
+is installed into truST's own data folder (the user's own Rust installation, if any, is never used
+or touched), verified against its manifest before use, and needs no administrator rights. The
+download is about 220 MB once, the installed bundle about 630 MB (linux-x64: 216 MB and 632 MB on
+24 October 2026, where 0.1 estimated 250 MB and 600 MB). For sites without internet, the
+same bundle is a file that the extension's "Install toolchain from file" command installs. The
+bundle's version is the kernel's: a kernel update that changes the interface version (§8.2) comes
+with a new bundle, and the tools say "rebuild needed" for every project (§10.2).
 
 The bundle is built from the official Rust release of the pinned version. The pinned version is
 recorded in `rust-toolchain.toml` of the repository and in each image's header; CI builds the
 bundle and the kernel from the same version.
+
+**The bundle.** A bundle is a gzip-compressed tar archive, `trust-toolchain-<platform>.tar.gz`,
+for each platform the release builds the tools for: `linux-x64`, `linux-arm64`, `darwin-x64`,
+`darwin-arm64` and `win32-x64`. Its files lie at the archive's root:
+
+- `bin/rustc` and `bin/rust-lld` (`rustc.exe` and `rust-lld.exe` on Windows) of the pinned release,
+  with the libraries the compiler loads: `lib/*.so*` on Linux, `lib/*.dylib` on macOS, `bin/*.dll`
+  on Windows;
+- for each module target of §4.4, `riscv32imac-unknown-none-elf`, `thumbv8m.main-none-eabihf`,
+  `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`, the parts of `rust-std` that a
+  freestanding module links, `core` and `compiler_builtins`, in `lib/rustlib/<target>/lib/`, where
+  the compiler finds them beside itself;
+- for each module target, the interface and program library crates and the crates they link, with
+  `LIBRARY`, in `lib/<target>/`;
+- `manifest.json`: `format` (1), `trust` (the truST version, the kernel's), `platform`, `rustc`
+  (the pinned version), `program_library` (`trust-plc-lib <version>`), `targets`, and `files`,
+  every other file of the bundle with its `path` (with `/`), `bytes`, `sha256` (lowercase
+  hexadecimal) and `executable`.
+
+`trust-runtime toolchain bundle <folder> <archive>` writes a bundle from a development toolchain
+folder (`scripts/native/build_toolchain_libraries.sh`): it copies the files above from the
+compiler's own folder and from the folder's `lib/`, writes the manifest and packs the archive. The
+compiler is the folder's `bin/rustc`, a link to rustup's pinned rustc, or else `rustc` on the path,
+the same release: a Windows folder has no `bin/`, since `rustc.exe` runs only beside its own
+libraries, so a Windows computer that builds from source installs the bundle it writes. The release builds each platform's bundle on that
+platform with the release's own `trust-runtime`, publishes it among the release's assets and lists
+it in the release's `SHA256SUMS`.
+
+**Where the tools find it.** `TRUST_TOOLCHAIN`, when set, names the toolchain folder, a development
+checkout's, and nothing is downloaded. Otherwise the tools use the bundle of their own release in
+truST's data folder of the user (`$XDG_DATA_HOME/trust`, else `~/.local/share/trust`, on Linux;
+`~/Library/Application Support/trust` on macOS; `%LOCALAPPDATA%\trust` on Windows), in
+`toolchains/<truST version>/`. The extension and `trust-runtime` share the folder, so that one
+download serves both; 0.1's "the extension's private folder" would have downloaded it twice.
+
+**Installing.** `trust-runtime toolchain install` downloads `trust-toolchain-<platform>.tar.gz`
+and `SHA256SUMS` of the release `v<truST version>` from
+`https://github.com/johannesPettersson80/trust-platform/releases/download/`, checks the archive's
+SHA-256 against its line in `SHA256SUMS`, unpacks it into a new folder beside its destination,
+checks every file against the manifest (its size and SHA-256; no file missing, none extra, no
+path outside the folder) and the manifest against this release and platform, and only then moves
+the folder into place, so that a stopped or failed install leaves no toolchain the tools would
+use. `--from <file>` installs a bundle file in the same way, without the download and without
+`SHA256SUMS`. Two installs at once take turns on a lock file in `toolchains/`; an install that finds
+the bundle in place says so and does nothing. `--json` writes one JSON object per line for the
+extension: `{"event": "download", "bytes": <n>, "total": <n or null>}`, `{"event": "verify"}`,
+`{"event": "installed", "folder": <path>}` or `{"event": "failed", "error": <text>}`.
+`trust-runtime toolchain status` names the toolchain the tools use, where it is and its version,
+or that none is installed (`--json`: `{"installed": <bool>, "folder": <path or null>, "source":
+"TRUST_TOOLCHAIN" or "installed" or null, "trust": <version or null>}`).
+
+**When.** `trust-runtime build`, and every command that builds as it does (`play`, `run` of a
+project without a program, `fleet start`), installs the bundle when it finds none, saying so on
+the standard error; a build for this computer whose install fails builds `program.stbc` with the
+reason, until the bytecode build is deleted (§15), and a build for a device fails with it. The
+extension, before a debug launch, asks `trust-runtime toolchain status` and, when no toolchain is
+installed, runs `trust-runtime toolchain install --json` with its progress shown; when the
+install fails, the launch runs as it would without the toolchain (NX-16) and the extension offers
+"Install toolchain from file". The commands "truST: Install Toolchain" and "truST: Install
+Toolchain from File" install it at any time.
 
 ## 5. The program image
 
@@ -1588,3 +1651,4 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.19 | 24 October 2026 | The debug expressions of compiled programs (S3c). §13.2: watch expressions, `debug.evaluate`, breakpoint conditions, hit conditions and logpoints in the portable form of specification 11 §6.13.2, version 1, which the tool compiles from the project's declarations and the runtime evaluates through the symbol and type tables; an enumeration literal by its names, its number from the program; `breakpoints.set` carries each line's options and `debug.stops` the logpoint messages; `eval` reads one name. §8.9 NX-16: the form exists, so the simulator moves to the compiled program. |
 | 0.17 | 24 October 2026 | Computers (the one list's N8). §8.8: NX-14, trust-runtime on Linux, Windows and macOS runs a compiled program with the chips' `CompiledCycle` and the computer's ports (the `io.toml` drivers, its clock, the bytecode engine's retain file, its debugger, holding on the scan thread), keeping its scan thread, scheduler, control plane, servers and program store; each scan publishes a copy of the areas with the image for the other threads. NX-15, the program a computer runs: `program.tpi` with `deployment-record.bin` in the project, written by `trust-runtime build` without `--target`, loaded by `run` and `play`, installed by `program.install`; until §15, `program.stbc` still runs, and a computer without the toolchain builds it and says so; the services that reach variables by name refuse a compiled program until they read the symbol table. |
 | 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |
+| 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |

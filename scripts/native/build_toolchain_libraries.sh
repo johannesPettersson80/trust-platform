@@ -2,25 +2,35 @@
 # Builds a development toolchain folder for compiled programs (specification 44 §4.6): the pinned
 # rustc and rust-lld of the current rustup toolchain, and the interface and program library crates
 # built for each target with the module flags of §4.5. The build finds the folder at
-# TRUST_TOOLCHAIN. A release ships the same folder as the toolchain bundle.
+# TRUST_TOOLCHAIN. `trust-runtime toolchain bundle <folder> <archive>` turns the folder into the
+# toolchain bundle a release ships (§4.6).
 #
 # Usage: scripts/native/build_toolchain_libraries.sh <folder> [<triple>...]
-#   The triples default to x86_64-unknown-linux-gnu and riscv32imac-unknown-none-elf.
+#   The triples default to every module target of specification 44 §4.4, as a bundle holds them.
 set -euo pipefail
 out=${1:?usage: build_toolchain_libraries.sh <folder> [<triple>...]}
 shift
 if [ $# -gt 0 ]; then
   triples=("$@")
 else
-  triples=(x86_64-unknown-linux-gnu riscv32imac-unknown-none-elf)
+  triples=(riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu)
 fi
 root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$root"
 sysroot=$(rustc --print sysroot)
 host=$(rustc -vV | sed -n 's/^host: //p')
-mkdir -p "$out/bin" "$out/lib"
-ln -sfn "$sysroot/bin/rustc" "$out/bin/rustc"
-ln -sfn "$sysroot/lib/rustlib/$host/bin/rust-lld" "$out/bin/rust-lld"
+mkdir -p "$out/lib"
+# The compiler, linked where the build looks for it. Not on Windows: rustc.exe runs only beside its
+# own libraries, so a Windows computer takes the bundle `trust-runtime toolchain bundle` writes from
+# this folder and `trust-runtime toolchain install --from` installs (§4.6).
+case $host in
+  *-windows-*) ;;
+  *)
+    mkdir -p "$out/bin"
+    ln -sfn "$sysroot/bin/rustc" "$out/bin/rustc"
+    ln -sfn "$sysroot/lib/rustlib/$host/bin/rust-lld" "$out/bin/rust-lld"
+    ;;
+esac
 for triple in "${triples[@]}"; do
   build="$out/build"
   # The module flags of specification 44 §4.5 that the libraries share with the module:

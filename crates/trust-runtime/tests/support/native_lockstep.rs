@@ -57,7 +57,7 @@ pub fn compare_sources(
     cycle_ms: i64,
     scans: i64,
 ) -> Result<usize, String> {
-    let toolchain = Toolchain::from_env()
+    let toolchain = Toolchain::find()
         .map_err(|error| format!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
     let host = Target::this_cpu().ok_or("this computer's CPU has no native target")?;
     let work = std::env::temp_dir().join(format!(

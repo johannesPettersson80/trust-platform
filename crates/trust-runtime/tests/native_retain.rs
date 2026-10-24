@@ -107,8 +107,8 @@ fn runtime_payload(runtime: &mut TestHarness) -> Vec<u8> {
 /// The probe compiled for this computer, in a work folder of its own named `name`, and the device
 /// it runs on.
 fn compiled(name: &str) -> (Build, Device) {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!("trust-native-{name}-{}", std::process::id()));
     let built = build(
@@ -339,8 +339,8 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
     // left out, an unqualified member retained without a `RETAIN` holder, a `NON_RETAIN` one
     // retained, a holder's qualifier passed into a nested instance, a base's variables lost, and
     // either engine writing another key, order or encoding than the other.
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!("trust-native-instances-{}", std::process::id()));
     let built = build(
@@ -540,8 +540,8 @@ END_CONFIGURATION
 /// into the instance (`Pump.Scratch` retained) and an unqualified variable left out.
 #[test]
 fn a_retained_program_instance_retains_its_variables_but_not_into_its_instances() {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!(
         "trust-native-retained-program-{}",

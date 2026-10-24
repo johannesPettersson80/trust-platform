@@ -11,7 +11,7 @@ fn execute_runtime_case_native(
         bail!("runtime case '{}' must declare cycles > 0", case.id);
     }
     validate_series_lengths(case, cycles)?;
-    let toolchain = Toolchain::from_env()
+    let toolchain = Toolchain::find()
         .map_err(|error| anyhow!("the native backend needs its toolchain: {error}"))?;
     let target =
         Target::this_cpu().ok_or_else(|| anyhow!("this computer's CPU has no native target"))?;

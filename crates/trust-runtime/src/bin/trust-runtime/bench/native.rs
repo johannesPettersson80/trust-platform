@@ -12,7 +12,7 @@ fn run_native_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<Be
     let cycle_budget_ns = u64::try_from(cycle_budget.as_nanos()).unwrap_or(u64::MAX);
     let sources = collect_project_source_files(&workload.project, None)
         .with_context(|| format!("collect sources for {}", workload.project.display()))?;
-    let toolchain = Toolchain::from_env()
+    let toolchain = Toolchain::find()
         .map_err(|error| anyhow::anyhow!("the native backend needs its toolchain: {error}"))?;
     let target = Target::this_cpu()
         .ok_or_else(|| anyhow::anyhow!("this computer's CPU has no native target"))?;

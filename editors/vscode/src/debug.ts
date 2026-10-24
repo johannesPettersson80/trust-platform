@@ -3,6 +3,7 @@ import * as net from "net";
 import * as path from "path";
 import * as vscode from "vscode";
 
+import { ensureToolchain } from "./toolchain";
 import { getBinaryPath } from "./binary";
 import { getTrustConfiguration } from "./configuration";
 import { localSimControl } from "./simControl";
@@ -452,7 +453,10 @@ class StructuredTextDebugAdapterFactory
 class StructuredTextDebugConfigurationProvider
   implements vscode.DebugConfigurationProvider
 {
-  constructor(private readonly allowTestControlEndpointOverride: boolean) {}
+  constructor(
+    private readonly allowTestControlEndpointOverride: boolean,
+    private readonly ensureToolchain: () => Promise<boolean>
+  ) {}
 
   provideDebugConfigurations(
     _folder: vscode.WorkspaceFolder | undefined,
@@ -521,6 +525,11 @@ class StructuredTextDebugConfigurationProvider
           }
           config.program = configUri.fsPath;
         }
+      }
+      // The launch builds the program compiled (specification 44 NX-16): the toolchain is
+      // installed first when none is (§4.6), unless the launch asks for the bytecode engine.
+      if (config.executionBackend !== "vm") {
+        await this.ensureToolchain();
       }
     }
 
@@ -664,7 +673,8 @@ export function registerDebugAdapter(
   debugChannel().appendLine("Structured Text debug adapter factory registered.");
 
   const provider = new StructuredTextDebugConfigurationProvider(
-    context.extensionMode === vscode.ExtensionMode.Test
+    context.extensionMode === vscode.ExtensionMode.Test,
+    () => ensureToolchain(context)
   );
   context.subscriptions.push(
     vscode.debug.registerDebugConfigurationProvider(DEBUG_TYPE, provider)

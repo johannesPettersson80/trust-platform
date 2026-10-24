@@ -113,7 +113,7 @@ fn execute_native_tests(
     use trust_runtime::native::{load, this_computer, Device, Target, Toolchain};
     use trust_runtime::value::Duration;
 
-    let toolchain = Toolchain::from_env()
+    let toolchain = Toolchain::find()
         .map_err(|error| anyhow::anyhow!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
     let host = Target::this_cpu().context("this computer's CPU has no native target")?;
     let built = build_test_image(project_root, discovered, host, &toolchain)?;
@@ -160,7 +160,7 @@ fn execute_native_tests_on_device(
 
     let target =
         target_named(target).ok_or_else(|| anyhow::anyhow!("unknown target '{target}'"))?;
-    let toolchain = Toolchain::from_env()
+    let toolchain = Toolchain::find()
         .map_err(|error| anyhow::anyhow!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
     let mut built = build_test_image(project_root, discovered, target, &toolchain)?;
     // The device admits what a key it trusts signed: the project's (specification 44 §5.11).

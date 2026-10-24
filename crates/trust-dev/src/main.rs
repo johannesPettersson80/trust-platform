@@ -181,7 +181,7 @@ fn run() -> anyhow::Result<()> {
             device,
             target,
         } => {
-            let toolchain = trust_runtime::native::Toolchain::from_env();
+            let toolchain = trust_runtime::native::Toolchain::find();
             let runner =
                 test::TestRunner::of(execution_backend, device.zip(target), toolchain.is_ok())?;
             if let (None, Err(error)) = (execution_backend, &toolchain)

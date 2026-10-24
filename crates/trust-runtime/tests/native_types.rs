@@ -51,8 +51,8 @@ fn variant(ty: &str, name: &str, value: i64) -> Value {
 /// among `Shape`'s values and refused (22 October 2026, the PLCopen motion library).
 #[test]
 fn arrays_of_one_storage_keep_their_bounds_and_elements() {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!("trust-native-types-{}", std::process::id()));
     let built = build(
@@ -124,8 +124,8 @@ END_PROGRAM
 /// range" for the `DWORD`) and a typed `LWORD` held as an `LINT`, as before 23 October 2026.
 #[test]
 fn a_bit_string_takes_an_integer_literal_of_its_width() {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!("trust-native-words-{}", std::process::id()));
     let built = build(

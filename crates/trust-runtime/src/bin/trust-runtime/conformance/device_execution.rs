@@ -12,7 +12,7 @@ impl DeviceRun {
     /// scans ([`DeviceLink::prepare_steps`]).
     fn open(port: &str, target: &str) -> anyhow::Result<Self> {
         let target = crate::build::native_target(target)?;
-        let toolchain = Toolchain::from_env()
+        let toolchain = Toolchain::find()
             .map_err(|error| anyhow!("the native backend needs its toolchain: {error}"))?;
         let mut link = DeviceLink::open(port)?;
         let work = std::env::temp_dir().join(format!(

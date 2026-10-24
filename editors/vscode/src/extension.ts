@@ -19,6 +19,7 @@ import { augmentDiagnostic } from "./diagnostics";
 import { focusPendingMain, registerNewProjectCommand } from "./newProject";
 import { registerExamples } from "./examples";
 import { registerCheckProgram } from "./checkProgram";
+import { registerToolchainCommands } from "./toolchain";
 import { registerLibraryCodeActions } from "./libraryCodeActions";
 import { registerLibraries } from "./libraries";
 import { initSelectedRuntimeStore } from "./selectedRuntime";
@@ -237,6 +238,7 @@ export async function activate(context: vscode.ExtensionContext) {
   registerNewProjectCommand(context);
   registerExamples(context);
   registerCheckProgram(context);
+  registerToolchainCommands(context);
   registerLibraries(context, { getClient: () => client });
   // If a project was just scaffolded (which reloaded the window), focus its Main.st now.
   void focusPendingMain(context);

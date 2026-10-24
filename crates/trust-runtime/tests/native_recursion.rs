@@ -16,8 +16,8 @@ const TASK_STACK: u64 = 1 << 20;
 /// `source` compiled for this computer, and the device it runs on.
 fn compiled(source: &str) -> (Build, Device) {
     static BUILDS: AtomicUsize = AtomicUsize::new(0);
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!(
         "trust-native-recursion-{}-{}",

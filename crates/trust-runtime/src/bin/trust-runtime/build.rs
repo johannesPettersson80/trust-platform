@@ -112,7 +112,8 @@ pub fn run_build_command(
     if execution_backend.is_some() {
         return run_build(bundle, sources, ci);
     }
-    match trust_runtime::native::Toolchain::from_env() {
+    // The toolchain, installed on the first build that needs it (specification 44 §4.6).
+    match crate::toolchain::build_toolchain() {
         Ok(_) => match run_native_build(
             bundle.clone(),
             sources.clone(),
@@ -156,14 +157,20 @@ pub(crate) fn native_target(name: &str) -> anyhow::Result<trust_runtime::native:
 }
 
 /// Builds the project's program for this computer as `trust-runtime build` does without options
-/// (specification 44 NX-15): its program image with the toolchain, else `program.stbc`.
+/// (specification 44 NX-15): its program image with the toolchain, installed on the first build that
+/// needs it (§4.6), else `program.stbc`.
 pub(crate) fn build_project_program(bundle_root: &Path) -> anyhow::Result<()> {
-    if trust_runtime::native::Toolchain::from_env().is_ok() {
-        match write_native_image(bundle_root, None, native_target("host")?, false, true) {
-            Err(error) if not_compiled_yet(&error) => {}
+    let reason = match crate::toolchain::build_toolchain() {
+        Ok(_) => match write_native_image(bundle_root, None, native_target("host")?, false, true) {
+            Err(error) if not_compiled_yet(&error) => error.to_string(),
             built => return built.map(|_| ()),
-        }
-    }
+        },
+        Err(error) => error.to_string(),
+    };
+    eprintln!(
+        "note: {reason}: building program.stbc for the bytecode engine instead of this computer's \
+         program image"
+    );
     build_program_stbc(bundle_root, None)?;
     Ok(())
 }
@@ -241,14 +248,12 @@ fn write_native_image(
     emit_source: bool,
     for_this_computer: bool,
 ) -> anyhow::Result<NativeBuilt> {
-    use trust_runtime::native::{
-        build, debug_hooks, project_key, sign, triple, Options, Toolchain,
-    };
+    use trust_runtime::native::{build, debug_hooks, project_key, sign, triple, Options};
     let files =
         trust_runtime::bundle_builder::collect_project_sources_labelled(bundle_root, sources)?;
     // The project's `[build] debug` chooses a debug or a release image (specification 44 §13.2).
     let debug = debug_hooks(bundle_root)?;
-    let toolchain = Toolchain::from_env()?;
+    let toolchain = crate::toolchain::build_toolchain()?;
     let build_folder = bundle_root.join("build");
     let work = build_folder.join("native").join(triple(target));
     let mut built = build(

@@ -34,8 +34,8 @@ fn a_program_without_read_only_data_builds_for_the_c6_and_runs_here() {
     // module's code does not start at address 0" for the C6 (22 October 2026, the fault probe); the
     // reference workload has read-only data and did not show it. Catches the tables placed before
     // the code again, for either target.
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let sources = [SourceFile::new(COUNTER)];
     let host = Target::this_cpu().expect("a computer target");
     for target in [Target::Rv32imac, host] {
@@ -108,8 +108,8 @@ fn a_release_image_counts_only_loop_passes_and_still_ends_an_endless_loop() {
     // a release image that loses the loop's count (its scan would never end), one that still
     // carries the statement hooks (499), a debug image without them (1,000), and a header that
     // does not tell the two apart.
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
     for (hooks, release, turns) in [(false, true, 1_000), (true, false, 499)] {
         let work = std::env::temp_dir().join(format!(
@@ -195,8 +195,8 @@ fn a_constant_index_inside_the_bounds_is_not_checked() {
     // one `lib::at` of the generated source. After one scan `First` is 10, `Last` 40, `Table[2]`
     // 25 and `Computed` 30 + 25 = 55. Catches a constant index checked when the scan runs, and a
     // constant index that misses the lower bound (`First` would read 20, or the build fail).
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!("trust-native-indexes-{}", std::process::id()));
     let built = build(
@@ -267,8 +267,8 @@ fn a_test_image_runs_its_test_programs_only_when_invoked() {
     // Catches a test program listed in the background task, which the C6 ran at every boot: test
     // images whose assertions failed then faulted at once, and a faulted chip takes no install
     // (bench, 23 October 2026).
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!("trust-native-tests-{}", std::process::id()));
     let built = build_with_tests(
@@ -354,8 +354,8 @@ END_CONFIGURATION
 /// such program with "the module has no entry point trust_entry_warm").
 #[test]
 fn the_stack_bound_holds_the_frame_of_a_called_function() {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let work = std::env::temp_dir().join(format!("trust-native-deep-{}", std::process::id()));
     let built = build(
         &[SourceFile::new(DEEP)],
@@ -492,8 +492,8 @@ fn bench_project_measures_a_release_image_when_the_project_asks_for_one() {
 /// `source` built for this computer, a debug image with `hooks` and a release image without
 /// (specification 44 §13.2), and the device it runs on.
 fn built_here(source: &str, label: &str, hooks: bool) -> (Build, Device) {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let target = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!(
         "trust-native-{label}-{hooks}-{}",

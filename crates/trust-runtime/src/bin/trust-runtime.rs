@@ -54,6 +54,8 @@ mod setup;
 mod style;
 #[path = "trust-runtime/test.rs"]
 mod test;
+#[path = "trust-runtime/toolchain.rs"]
+mod toolchain;
 #[path = "trust-runtime/wizard.rs"]
 mod wizard;
 
@@ -312,6 +314,7 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Completions { shell }) => completions::run_completions(shell),
         Some(Command::Bench { action }) => bench::run_bench(action),
         Some(Command::Conformance(args)) => conformance::run_conformance(args),
+        Some(Command::Toolchain { action }) => toolchain::run_toolchain(action),
     }
 }
 
@@ -348,6 +351,7 @@ fn suggest_subcommand(input: &str) -> Option<&'static str> {
         "completions",
         "bench",
         "conformance",
+        "toolchain",
     ];
     let mut best = None;
     let mut best_score = usize::MAX;

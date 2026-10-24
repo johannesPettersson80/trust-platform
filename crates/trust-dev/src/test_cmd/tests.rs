@@ -1102,8 +1102,8 @@ fn the_test_image_is_the_kind_of_image_the_project_builds() {
     let sources_root = resolve_sources_root(&project, None).expect("sources");
     let sources = load_sources(&sources_root).expect("load");
     let discovered = discover_tests(&sources);
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let release = || {
         let built = build_test_image(&project, &discovered, host, &toolchain)

@@ -155,7 +155,7 @@ fn refused(output: &Output, reason: &str) {
 /// ignores its trusted keys, and a signature that covers less than the image.
 #[test]
 fn a_computer_runs_only_images_signed_by_a_key_it_trusts() {
-    trust_runtime::native::Toolchain::from_env()
+    trust_runtime::native::Toolchain::find()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let fixture = Fixture::new();
 

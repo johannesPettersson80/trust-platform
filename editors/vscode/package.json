@@ -2295,6 +2295,16 @@
         "icon": "$(check-all)"
       },
       {
+        "command": "trust-lsp.toolchain.install",
+        "title": "Install Toolchain",
+        "category": "truST"
+      },
+      {
+        "command": "trust-lsp.toolchain.installFromFile",
+        "title": "Install Toolchain from File",
+        "category": "truST"
+      },
+      {
         "command": "trust-lsp.openSettings",
         "title": "Open truST Settings",
         "category": "truST",

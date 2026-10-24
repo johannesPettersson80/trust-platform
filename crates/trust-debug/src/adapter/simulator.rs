@@ -73,7 +73,7 @@ pub(super) fn build_image(
     root: &Path,
     sources: &[(String, String)],
 ) -> Result<Result<Vec<u8>, EngineReason>, String> {
-    let toolchain = match Toolchain::from_env() {
+    let toolchain = match Toolchain::find() {
         Ok(toolchain) => toolchain,
         Err(error) => return Ok(Err(EngineReason::NoToolchain(error.to_string()))),
     };

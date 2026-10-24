@@ -42,8 +42,9 @@ pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Resul
         PlayProjectPlan::Use(path) => (path, false),
         PlayProjectPlan::Create(path) => (wizard::create_bundle_auto(path)?, true),
     };
-    // A new project is built for this computer when the toolchain is there (specification 44 §8.8).
-    if created && trust_runtime::native::Toolchain::from_env().is_ok() {
+    // A new project is built for this computer with the toolchain, installed on the first build that
+    // needs it (specification 44 §8.8, §4.6).
+    if created && crate::toolchain::build_toolchain().is_ok() {
         crate::build::run_native_build(
             Some(project_path.clone()),
             None,

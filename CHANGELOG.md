@@ -148,6 +148,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   starts and changes online only images one of those keys signed, and refuses an image changed
   after signing; without the list it checks no signature and runs unsigned images too, as before.
   `status` reports `signature`: `none` or `trusted`.
+- Added: truST installs the compiler for compiled programs itself (specification 44 §4.6). The
+  first build that needs it downloads this release's toolchain bundle (about 220 MB, once) into
+  truST's data folder (`~/.local/share/trust/toolchains/` on Linux), checks it against the
+  release's `SHA256SUMS` and its own manifest, and uses it from then on.
+  `trust-runtime toolchain status` names the toolchain the tools use, and
+  `trust-runtime toolchain install [--from <file>]` installs it, also without internet from a
+  bundle file. VS Code installs it before a debug launch with its progress shown, and has the
+  commands "truST: Install Toolchain" and "truST: Install Toolchain from File". `TRUST_TOOLCHAIN`
+  still names a development toolchain, and nothing is downloaded then. Each release publishes the
+  bundle of every platform it builds the tools for.
 - Added: a runtime refuses a program image built with another release's toolchain, naming both
   program libraries, and an image with an I/O binding outside its process image, each with its
   reason (specification 44 §10.2); an image names the hash of its sources. The toolchain's library

@@ -68,6 +68,9 @@ rand = { version = "0.10.3", optional = true }
 ureq = { version = "3.4.2", optional = true }
 sha2 = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
+# The toolchain bundle, a gzip-compressed tar archive (specification 44 §4.6).
+flate2 = { version = "1.1.10", optional = true }
+tar = { version = "0.4.44", default-features = false, optional = true }
 # Signing program images with the project's Ed25519 key, kept in PKCS#8 PEM (specification 44 §5.11).
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["pkcs8", "pem", "zeroize"], optional = true }
 signal-hook = { version = "0.4.5", optional = true }
@@ -222,6 +225,8 @@ full = [
     "dep:sha2",
     "dep:hex",
     "dep:ed25519-dalek",
+    "dep:flate2",
+    "dep:tar",
     "dep:signal-hook",
     "dep:rustls",
     "dep:tiverse-mmap",

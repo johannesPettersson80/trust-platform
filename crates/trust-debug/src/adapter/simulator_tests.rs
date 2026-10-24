@@ -77,7 +77,7 @@ fn succeeded(outcome: &DispatchOutcome) -> &Value {
 /// enumeration, and a reload refused for a compiled launch.
 #[test]
 fn a_launch_runs_the_program_compiled_and_debugs_it_through_the_control_protocol() {
-    trust_runtime::native::Toolchain::from_env()
+    trust_runtime::native::Toolchain::find()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let project = Project::new();
     let mut adapter = DebugAdapter::new(crate::DebugSession::new(

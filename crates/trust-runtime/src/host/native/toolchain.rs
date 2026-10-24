@@ -2,9 +2,10 @@
 //!
 //! A toolchain is a folder: the compiler's sysroot with `rustc` and `rust-lld` and the standard
 //! library of every target of §4.4, and the program library and interface crates built for each
-//! target with the module flags (`lib/<target>/`). The tools find it at `TRUST_TOOLCHAIN`, and a
-//! development checkout uses rustup's pinned compiler with the libraries
-//! `scripts/native/build_toolchain_libraries.sh` builds.
+//! target with the module flags (`lib/<target>/`). The tools find it at `TRUST_TOOLCHAIN`, which a
+//! development checkout points at rustup's pinned compiler with the libraries
+//! `scripts/native/build_toolchain_libraries.sh` builds, or else as this release's bundle in
+//! truST's data folder (§4.6), which `trust-runtime` installs on the first build that needs it.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -64,20 +65,67 @@ pub struct Toolchain {
     pub version: String,
 }
 
+/// Where the tools found their toolchain (specification 44 §4.6).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ToolchainSource {
+    /// The folder `TRUST_TOOLCHAIN` names.
+    Environment,
+    /// This release's bundle in truST's data folder.
+    Installed,
+}
+
 impl Toolchain {
-    /// The toolchain at `TRUST_TOOLCHAIN`: `rustc` and `rust-lld` under its `bin` folder and the
-    /// libraries under its `lib` folder.
+    /// The toolchain the tools use (specification 44 §4.6): the folder `TRUST_TOOLCHAIN` names when
+    /// it is set, else this release's bundle in truST's data folder; nothing is downloaded.
     ///
     /// # Errors
     ///
-    /// [`NativeError::Toolchain`] when the variable is unset or the folder lacks a part.
-    pub fn from_env() -> Result<Self, NativeError> {
-        let Some(root) = std::env::var_os("TRUST_TOOLCHAIN").map(PathBuf::from) else {
-            return Err(NativeError::Toolchain(
-                "TRUST_TOOLCHAIN does not name a toolchain folder".into(),
-            ));
-        };
-        Self::at(&root)
+    /// [`NativeError::Toolchain`] when `TRUST_TOOLCHAIN` names a folder that lacks a part, or no
+    /// bundle is installed.
+    pub fn find() -> Result<Self, NativeError> {
+        Self::locate().map(|(toolchain, _)| toolchain)
+    }
+
+    /// [`Self::find`], with where the toolchain was found.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::find`].
+    pub fn locate() -> Result<(Self, ToolchainSource), NativeError> {
+        if let Some(root) = std::env::var_os("TRUST_TOOLCHAIN").map(PathBuf::from) {
+            return Self::at(&root).map(|toolchain| (toolchain, ToolchainSource::Environment));
+        }
+        let folder = super::bundle::installed_folder()
+            .filter(|folder| folder.join(super::bundle::MANIFEST_FILE).is_file())
+            .ok_or_else(|| {
+                NativeError::Toolchain(format!(
+                    "the truST toolchain {} is not installed: `trust-runtime toolchain install` \
+                     downloads it (about 220 MB, once)",
+                    super::bundle::TRUST_VERSION
+                ))
+            })?;
+        Self::at(&folder).map(|toolchain| (toolchain, ToolchainSource::Installed))
+    }
+
+    /// [`Self::find`], installing this release's bundle when none is found and `TRUST_TOOLCHAIN` is
+    /// unset, as `trust-runtime` does on the first build that needs it (specification 44 §4.6);
+    /// `report` hears the install's progress.
+    ///
+    /// # Errors
+    ///
+    /// [`NativeError::Toolchain`] when `TRUST_TOOLCHAIN` names a folder that lacks a part, or the
+    /// install fails.
+    pub fn find_or_install(
+        report: &mut dyn FnMut(super::bundle::Progress),
+    ) -> Result<Self, NativeError> {
+        match Self::find() {
+            Ok(toolchain) => Ok(toolchain),
+            Err(_) if std::env::var_os("TRUST_TOOLCHAIN").is_none() => {
+                let folder = super::bundle::download_and_install(report)?;
+                Self::at(&folder)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     /// The toolchain in folder `root`.
@@ -86,8 +134,9 @@ impl Toolchain {
     ///
     /// [`NativeError::Toolchain`] when the folder lacks a part.
     pub fn at(root: &Path) -> Result<Self, NativeError> {
-        let rustc = root.join("bin").join("rustc");
-        let linker = root.join("bin").join("rust-lld");
+        let suffix = std::env::consts::EXE_SUFFIX;
+        let rustc = root.join("bin").join(format!("rustc{suffix}"));
+        let linker = root.join("bin").join(format!("rust-lld{suffix}"));
         for part in [&rustc, &linker] {
             if !part.is_file() {
                 return Err(NativeError::Toolchain(format!(

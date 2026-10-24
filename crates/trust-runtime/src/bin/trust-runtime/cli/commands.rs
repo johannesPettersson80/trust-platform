@@ -364,6 +364,14 @@ pub enum Command {
         after_help = "Examples:\n  trust-runtime conformance\n  trust-runtime conformance --suite-root ./conformance --output ./conformance/reports/local.json\n  trust-runtime conformance --update-expected"
     )]
     Conformance(ConformanceArgs),
+    /// The compiler toolchain that builds compiled programs (specification 44 §4.6).
+    #[command(
+        after_help = "Examples:\n  trust-runtime toolchain status\n  trust-runtime toolchain install\n  trust-runtime toolchain install --from ./trust-toolchain-linux-x64.tar.gz"
+    )]
+    Toolchain {
+        #[command(subcommand)]
+        action: ToolchainAction,
+    },
 }
 
 /// The options of `conformance`.

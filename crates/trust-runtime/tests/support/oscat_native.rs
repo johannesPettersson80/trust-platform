@@ -17,8 +17,8 @@ pub fn image(name: &str) -> &'static [u8] {
         .join("tests/fixtures/oscat")
         .join(name);
     let sources = collect_project_source_files(&project, None).expect("the fixture's sources");
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
     let work = std::env::temp_dir().join(format!(
         "trust-oscat-{name}-{}-{:?}",

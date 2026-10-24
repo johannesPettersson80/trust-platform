@@ -95,8 +95,8 @@ END_CONFIGURATION
 
 /// The image of `source` for this computer.
 fn image(source: &str, name: &str) -> Vec<u8> {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let work = std::env::temp_dir().join(format!("trust-host-{name}-{}", std::process::id()));
     let built = build(
         &[SourceFile::new(source)],
@@ -307,8 +307,8 @@ fn request(
 /// publishes no compiled state.
 #[test]
 fn the_computer_debugger_holds_a_compiled_scan_at_a_breakpoint() {
-    let toolchain = Toolchain::from_env()
-        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let work = std::env::temp_dir().join(format!("trust-host-debug-{}", std::process::id()));
     let image = build(
         &[SourceFile::with_path("src/main.st", RUNNING)],
