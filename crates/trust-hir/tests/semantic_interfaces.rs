@@ -18,7 +18,7 @@ CLASS Motor IMPLEMENTS IDevice
     END_METHOD
 END_CLASS
 "#,
-        DiagnosticCode::InvalidOperation,
+        DiagnosticCode::InterfaceConformance,
     );
 }
 
@@ -248,7 +248,7 @@ CLASS Calc IMPLEMENTS ICalc
     END_METHOD
 END_CLASS
 "#,
-        DiagnosticCode::InvalidOperation,
+        DiagnosticCode::InterfaceConformance,
     );
 }
 
@@ -266,7 +266,7 @@ CLASS Motor IMPLEMENTS IDevice
     END_METHOD
 END_CLASS
 "#,
-        DiagnosticCode::InvalidOperation,
+        DiagnosticCode::InterfaceConformance,
     );
 }
 
@@ -289,6 +289,6 @@ CLASS Impl IMPLEMENTS IProp
     END_PROPERTY
 END_CLASS
 "#,
-        DiagnosticCode::InvalidOperation,
+        DiagnosticCode::InterfaceConformance,
     );
 }

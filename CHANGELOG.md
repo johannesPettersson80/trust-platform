@@ -8,11 +8,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
-- Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
-  Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
-  returned afterwards (specification 35, B3.4).
 
-## [0.27.0] - 2026-10-31
+### Fixed
+- Interface and abstract-method conformance diagnostics move from `E202` to
+  the new dedicated code `E208` ("must implement method/property",
+  signature and visibility mismatches, missing abstract implementations).
+  Type-used-as-value, access-specifier and initializer-constraint
+  diagnostics keep `E202`, so per-code severity overrides no longer mask
+  interface completeness regressions.
 
 ### Changed
 

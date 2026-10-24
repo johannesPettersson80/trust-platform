@@ -223,6 +223,7 @@ Initial explainer coverage:
 | E103/E204/E205/E206/E207 | IEC 61131-3 Ed.3 §6.6.1 | `docs/specs/04-pou-declarations.md` |
 | E106 | IEC 61131-3 Ed.3 §6.1.2 | `docs/specs/01-lexical-elements.md` |
 | E201/E202/E203 | IEC 61131-3 Ed.3 §7.3.2 | `docs/specs/05-expressions.md` |
+| E208 | IEC 61131-3 Ed.3 §6.6.7; Table 52 | `docs/specs/04-pou-declarations.md` |
 | E301/E302 | IEC 61131-3 Ed.3 §7.3.1 | `docs/specs/09-semantic-rules.md` |
 | E303 | IEC 61131-3 Ed.3 §6.4.4.5.1 | `docs/specs/09-semantic-rules.md` |
 | E304 | IEC 61131-3 Ed.3 §6.4.2; §6.4.4.3–6.4.4.5 | `docs/specs/02-data-types.md` |
@@ -1165,6 +1166,7 @@ struct Diagnostic {
 | E201 | Type | Type mismatch |
 | E202 | Type | Invalid operation |
 | E203 | Type | Incompatible assignment |
+| E208 | Type | Interface conformance |
 | W001 | Warning | Unused variable |
 | W002 | Warning | Unreachable code |
 | W003 | Warning | Implicit conversion |
