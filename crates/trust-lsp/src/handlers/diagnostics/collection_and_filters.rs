@@ -581,6 +581,10 @@ fn diagnostic_explainer(code: &str, message: &str) -> Option<DiagnosticExplainer
             iec_ref: "IEC 61131-3 Ed.3 §7.3.2",
             spec_path: "docs/specs/05-expressions.md",
         }),
+        "E208" => Some(DiagnosticExplainer {
+            iec_ref: "IEC 61131-3 Ed.3 §6.6.7; Table 52",
+            spec_path: "docs/specs/04-pou-declarations.md",
+        }),
         "E301" | "E302" => Some(DiagnosticExplainer {
             iec_ref: "IEC 61131-3 Ed.3 §7.3.1",
             spec_path: "docs/specs/09-semantic-rules.md",

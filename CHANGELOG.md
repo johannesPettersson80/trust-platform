@@ -8,15 +8,21 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
-- The help under a hardware terminal that no PLC signal fits, in Devices & Connections, suggests an address the runtime
-  binds the terminal's type to: `%ID0` for a `TIME`, `%IW0` for a `WCHAR` and the byte address `%IB0` for a `STRING`.
-  Before, it suggested a long-word address such as `%IL0`, which the runtime refuses for these types, and it did the
-  same for a `DATE` or a structure, which now get the advice without an example (HMI component catalogue §8.1).
-- Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
-  Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
-  returned afterwards (specification 35, B3.4).
+### Fixed
+- Interface and abstract-method conformance diagnostics move from `E202` to
+  the new dedicated code `E208` ("must implement method/property",
+  signature and visibility mismatches, missing abstract implementations).
+  Type-used-as-value, access-specifier and initializer-constraint
+  diagnostics keep `E202`, so per-code severity overrides no longer mask
+  interface completeness regressions.
 
-## [0.27.0] - 2026-10-31
+### Fixed
+- Interface and abstract-method conformance diagnostics move from `E202` to
+  the new dedicated code `E208` ("must implement method/property",
+  signature and visibility mismatches, missing abstract implementations).
+  Type-used-as-value, access-specifier and initializer-constraint
+  diagnostics keep `E202`, so per-code severity overrides no longer mask
+  interface completeness regressions.
 
 ### Changed
 

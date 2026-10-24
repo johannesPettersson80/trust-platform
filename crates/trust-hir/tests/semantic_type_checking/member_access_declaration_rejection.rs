@@ -7,6 +7,12 @@ fn assert_invalid(source: &str) {
     check_has_error(source, DiagnosticCode::InvalidOperation);
 }
 
+// Interface-implementation completeness and visibility report under the
+// dedicated conformance code, not E202.
+fn assert_interface_conformance(source: &str) {
+    check_has_error(source, DiagnosticCode::InterfaceConformance);
+}
+
 #[test]
 fn member_access_interface_method_rejects_explicit_public() {
     assert_invalid(
@@ -453,7 +459,7 @@ END_NAMESPACE
 
 #[test]
 fn member_access_interface_method_rejects_protected_implementation() {
-    assert_invalid(
+    assert_interface_conformance(
         r#"
 INTERFACE IReadable
 METHOD Read : INT
@@ -470,7 +476,7 @@ END_CLASS
 
 #[test]
 fn member_access_interface_method_rejects_private_implementation() {
-    assert_invalid(
+    assert_interface_conformance(
         r#"
 INTERFACE IReadable
 METHOD Read : INT
@@ -487,7 +493,7 @@ END_CLASS
 
 #[test]
 fn member_access_interface_property_rejects_protected_implementation() {
-    assert_invalid(
+    assert_interface_conformance(
         r#"
 INTERFACE IReadable
 PROPERTY Value : INT
@@ -505,7 +511,7 @@ END_CLASS
 
 #[test]
 fn member_access_interface_property_rejects_private_implementation() {
-    assert_invalid(
+    assert_interface_conformance(
         r#"
 INTERFACE IReadable
 PROPERTY Value : INT
