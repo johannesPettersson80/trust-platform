@@ -67,6 +67,7 @@ impl Cx {
             breakpoints: core::ptr::null(),
             api,
             kernel: core::ptr::null_mut(),
+            frame: core::ptr::null(),
             fault: FaultRecord::default(),
         }
     }
@@ -91,9 +92,9 @@ impl Cx {
     }
 }
 
-// SAFETY: a context's pointers name memory that the kernel's cycle owns together with the context:
-// the areas, the breakpoint bits and the function table. The cycle moves them as one, and a module
-// reads them only during a call the cycle makes on its own thread.
+// SAFETY: a context's pointers name memory the kernel's cycle owns with the context (the areas, the
+// breakpoint bits, the function table) or a call's own frames, null between calls. The cycle moves
+// them as one, and a module reads them only during a call the cycle makes on its own thread.
 #[allow(unsafe_code)]
 unsafe impl Send for Cx {}
 
@@ -265,3 +266,10 @@ impl Executable {
         Some(unsafe { Entry::from_address(self.map.as_ptr().add(offset)) })
     }
 }
+
+mod stops;
+
+pub use stops::{
+    area_address, call_with_sink, frames, read_area, stop_to_sink, with_debugger, write_area,
+    FrameView, Frames, StopSink, MAX_FRAMES,
+};

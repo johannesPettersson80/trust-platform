@@ -100,9 +100,39 @@ pub(super) trait HoldPass {
     /// state of the loop that was in use.
     fn hold(&self, at: &StatementStart<'_>, view: &HeldView<'_>) -> Result<(), RuntimeError>;
 
+    /// Holds a compiled program's scan before the statement `at` until the debugger releases it,
+    /// with the held scan's memory and frames for the debug reads (specification 44 §13.2).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::hold`].
+    #[cfg(feature = "native")]
+    fn hold_compiled(
+        &self,
+        at: &StatementStart<'_>,
+        view: &CompiledHeld<'_>,
+    ) -> Result<(), RuntimeError>;
+
+    /// What the statements of a compiled program stop for from here (specification 44 §13.2).
+    #[cfg(feature = "native")]
+    fn stop_points(&self) -> super::debugger::StopPoints;
+
     /// Whether no cell of the loop is borrowed.
     #[cfg(test)]
     fn cells_free(&self) -> bool;
+}
+
+/// A compiled program's held scan, lent to the hold for the length of one stop: the program's
+/// memory with the frames of its call stack, the sources of its statement table, and the health
+/// of the process I/O the cycle published before the program ran (specification 44 §13.2).
+#[cfg(feature = "native")]
+pub(super) struct CompiledHeld<'a> {
+    /// The held scan's memory.
+    pub(super) memory: &'a dyn trust_runtime_core::native::memory::ProgramMemory,
+    /// The program's statement table and file labels.
+    pub(super) sources: Option<&'a LineSources>,
+    /// The health of the process I/O.
+    pub(super) drivers: &'a Cell<Vec<IoDriverStatus>>,
 }
 
 /// The resource loop as the device services hold it, to hold a scan at a statement start. The loop
@@ -145,6 +175,22 @@ impl HoldHandle {
         view: &HeldView<'_>,
     ) -> Result<(), RuntimeError> {
         self.0.hold(at, view)
+    }
+
+    /// Holds a compiled program's scan; see [`HoldPass::hold_compiled`].
+    #[cfg(feature = "native")]
+    pub(super) fn hold_compiled(
+        &self,
+        at: &StatementStart<'_>,
+        view: &CompiledHeld<'_>,
+    ) -> Result<(), RuntimeError> {
+        self.0.hold_compiled(at, view)
+    }
+
+    /// What a compiled program's statements stop for; see [`HoldPass::stop_points`].
+    #[cfg(feature = "native")]
+    pub(super) fn stop_points(&self) -> super::debugger::StopPoints {
+        self.0.stop_points()
     }
 
     /// Whether no cell of the loop is borrowed, for the tests that prove no borrow outlives an
@@ -190,6 +236,44 @@ impl ProgramView for HeldProgram<'_> {
     }
 }
 
+/// A compiled program as its held scan shows it (specification 44 §13.2).
+#[cfg(feature = "native")]
+struct HeldCompiled<'a> {
+    view: &'a CompiledHeld<'a>,
+}
+
+#[cfg(feature = "native")]
+impl ProgramView for HeldCompiled<'_> {
+    /// A program that is held has run its scan, so it is installed.
+    fn missing_program(&self) -> Option<&str> {
+        None
+    }
+
+    fn driver_health(&self) -> Vec<IoDriverStatus> {
+        let drivers = self.view.drivers.take();
+        let health = drivers.clone();
+        self.view.drivers.set(drivers);
+        health
+    }
+
+    /// A held scan is a running program's, which no step runs (specification 11 §6.8.1).
+    fn step(&self, _request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
+        Err(StepRefusal::NotStopped(ResourceState::Running))
+    }
+
+    fn debug_state(&self) -> Option<DebugView<'_>> {
+        None
+    }
+
+    fn compiled_state(&self) -> Option<super::cycle::CompiledView<'_>> {
+        Some(super::cycle::CompiledView {
+            memory: self.view.memory,
+            sources: self.view.sources,
+            release: false,
+        })
+    }
+}
+
 impl<L, W, P, C> HoldPass for Shell<L, W, P, C>
 where
     L: ControlLink,
@@ -217,6 +301,47 @@ where
     }
 
     fn hold(&self, at: &StatementStart<'_>, view: &HeldView<'_>) -> Result<(), RuntimeError> {
+        self.hold_with(at, &HeldProgram { view }, &mut || {
+            #[cfg(test)]
+            self.run_probe(view);
+        })
+    }
+
+    #[cfg(feature = "native")]
+    fn hold_compiled(
+        &self,
+        at: &StatementStart<'_>,
+        view: &CompiledHeld<'_>,
+    ) -> Result<(), RuntimeError> {
+        self.hold_with(at, &HeldCompiled { view }, &mut || {})
+    }
+
+    #[cfg(feature = "native")]
+    fn stop_points(&self) -> super::debugger::StopPoints {
+        self.debug.stop_points()
+    }
+
+    #[cfg(test)]
+    fn cells_free(&self) -> bool {
+        Shell::cells_free(self)
+    }
+}
+
+impl<L, W, P, C> Shell<L, W, P, C>
+where
+    L: ControlLink,
+    W: RunnerWait,
+    P: RunnerPlatform,
+    C: MonotonicClock,
+{
+    /// Holds the scan before the statement `at` until the debugger releases it, serving the link
+    /// with `program` as the installed program and calling `probe` at the start of each pass.
+    fn hold_with(
+        &self,
+        at: &StatementStart<'_>,
+        program: &dyn ProgramView,
+        probe: &mut dyn FnMut(),
+    ) -> Result<(), RuntimeError> {
         #[cfg(test)]
         assert!(
             self.cells_free(),
@@ -224,12 +349,11 @@ where
         );
         loop {
             let token = self.wake_token();
-            #[cfg(test)]
-            self.run_probe(view);
+            probe();
             // A scan that the debugger holds reaches no boundary, so the change that waits for one is
             // withdrawn here after five seconds, and the requests behind its reply are served again.
             self.expire_change();
-            let more_frames = self.serve_held(view);
+            let more_frames = self.serve_held(program);
             self.idle();
             self.feed();
             if self.take_fault() {
@@ -262,29 +386,15 @@ where
         }
     }
 
-    #[cfg(test)]
-    fn cells_free(&self) -> bool {
-        Shell::cells_free(self)
-    }
-}
-
-impl<L, W, P, C> Shell<L, W, P, C>
-where
-    L: ControlLink,
-    W: RunnerWait,
-    P: RunnerPlatform,
-    C: MonotonicClock,
-{
     /// Serves up to [`FRAMES_PER_PASS`] requests of a hold, in the order the link received them,
     /// and returns true when it stops with the link not yet dry. A hold has no boundary that a
     /// request could delay, so it starts every request it finds.
-    fn serve_held(&self, view: &HeldView<'_>) -> bool {
-        let program = HeldProgram { view };
+    fn serve_held(&self, program: &dyn ProgramView) -> bool {
         for _ in 0..FRAMES_PER_PASS {
             let Some(received) = self.next_frame() else {
                 return false;
             };
-            let after_response = self.serve(received, &program);
+            let after_response = self.serve(received, program);
             self.note_reply(after_response);
         }
         true

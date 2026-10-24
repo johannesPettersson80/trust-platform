@@ -198,7 +198,12 @@ impl<C: MonotonicClock> DeviceServices<C> {
         let Some(hold) = self.hold_port() else {
             return Ok(());
         };
-        let at = StatementStart { depth, span, frame };
+        let at = StatementStart {
+            depth,
+            span,
+            frame: frame.activation(),
+            call: core::marker::PhantomData,
+        };
         if hold.at_statement(&at)? == Boundary::Run {
             return Ok(());
         }

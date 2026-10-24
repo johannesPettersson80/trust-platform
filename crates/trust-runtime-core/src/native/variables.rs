@@ -7,6 +7,7 @@ use alloc::vec;
 use core::fmt;
 
 use super::image::{Image, SymbolRecord, NONE, SYMBOL_PROGRAM};
+use super::memory::{member_place, retained_place, symbol_place, write_place, ProgramMemory};
 use super::program::{ModuleCode, NativeProgram};
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
@@ -170,17 +171,39 @@ pub trait CompiledVariables {
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError>;
 }
 
-impl<C: ModuleCode> CompiledVariables for NativeProgram<'_, C> {
+impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
+    fn image(&self) -> Image<'_> {
+        *NativeProgram::image(self)
+    }
+
+    fn read_area(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {
+        self.read(id, offset, out)
+    }
+
+    fn write_area(&mut self, id: u8, offset: usize, data: &[u8]) -> bool {
+        self.write(id, offset, data)
+    }
+
+    fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
+        self.write_address(address, value)
+    }
+}
+
+/// Every program memory takes Live Values' writes the same way: between scans, and while a
+/// debugger holds a scan (specification 44 §13.2, §13.3).
+impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
     fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
-        let index = self
-            .image()
+        let image = self.image();
+        let index = image
             .find_variable(name)
             .map_err(|_| RuntimeError::UndefinedVariable(name.into()))?;
-        self.write_symbol(index, value)
+        let (place, type_index) = symbol_place(&image, index)?;
+        write_place(self, place, type_index, value)
     }
 
     fn write_retained(&mut self, label: &str, value: &Value) -> Result<(), RuntimeError> {
-        NativeProgram::write_retained(self, label, value)
+        let (place, type_index) = retained_place(&self.image(), label)?;
+        write_place(self, place, type_index, value)
     }
 
     fn write_member(
@@ -189,22 +212,12 @@ impl<C: ModuleCode> CompiledVariables for NativeProgram<'_, C> {
         member: &str,
         value: &Value,
     ) -> Result<(), RuntimeError> {
-        let image = *self.image();
-        let path = image
-            .table::<SymbolRecord>()
-            .ok()
-            .and_then(|symbols| symbols.get(instance))
-            .and_then(|symbol| image.string(symbol.canonical))
-            .map(|owner| format!("{owner}.{}", member.to_ascii_uppercase()))
-            .ok_or_else(|| RuntimeError::UndefinedVariable(format!("{instance}").into()))?;
-        let (index, _) = image
-            .find_symbol(&path)
-            .ok_or_else(|| RuntimeError::UndefinedField(member.into()))?;
-        self.write_symbol(index, value)
+        let (place, type_index) = member_place(&self.image(), instance, member)?;
+        write_place(self, place, type_index, value)
     }
 
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
-        self.write_address(address, value)
+        ProgramMemory::write_image(self, address, value)
     }
 }
 
@@ -223,4 +236,8 @@ pub enum CompiledAccessPoint {
     /// After the scan, before the outputs reach the drivers and the snapshot: the forces of the
     /// output image.
     BeforeOutputs,
+    /// A debugger's hold of the scan ends, before the held statement runs: the variable writes
+    /// queued during the hold and the variable forces, as at a cycle start (specification 44
+    /// §13.2).
+    HoldEnd,
 }

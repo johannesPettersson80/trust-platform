@@ -198,6 +198,15 @@ pub fn variables(
         VariableHandle::IoInputs => io_rows(io, |io| io.inputs.as_slice(), page)?,
         VariableHandle::IoOutputs => io_rows(io, |io| io.outputs.as_slice(), page)?,
         VariableHandle::IoMemory => io_rows(io, |io| io.memory.as_slice(), page)?,
+        // A compiled program's handles are listed through its memory (`compiled`).
+        VariableHandle::CompiledLocals(_)
+        | VariableHandle::CompiledGlobals
+        | VariableHandle::CompiledRetain
+        | VariableHandle::CompiledInstances
+        | VariableHandle::CompiledInstance { .. }
+        | VariableHandle::CompiledInstanceArray { .. } => {
+            return Err(String::from("the handle names no variable of this program"));
+        }
     })
 }
 
@@ -278,7 +287,7 @@ fn entry(
 }
 
 /// The entry of one area in the I/O root.
-fn io_area(name: &str, items: usize, variables_reference: u32) -> DebugVariable {
+pub(super) fn io_area(name: &str, items: usize, variables_reference: u32) -> DebugVariable {
     DebugVariable {
         name: name.to_string(),
         value: format!("{items} items"),
@@ -291,7 +300,7 @@ fn io_area(name: &str, items: usize, variables_reference: u32) -> DebugVariable 
 }
 
 /// The rows of one I/O area that `page` lists.
-fn io_rows(
+pub(super) fn io_rows(
     io: Option<&IoSnapshot>,
     area: impl FnOnce(&IoSnapshot) -> &[IoSnapshotEntry],
     page: Page,

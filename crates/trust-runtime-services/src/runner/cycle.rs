@@ -37,6 +37,21 @@ pub struct DebugView<'a> {
     pub sources: Option<&'a LineSources>,
 }
 
+/// What a debug read sees of an installed compiled program (specification 44 §13.2): its memory,
+/// held with the frames of its call stack while the debugger holds the scan, and the sources of
+/// its statement table.
+#[cfg(feature = "native")]
+#[derive(Clone, Copy)]
+pub struct CompiledView<'a> {
+    /// The program's memory.
+    pub memory: &'a dyn trust_runtime_core::native::memory::ProgramMemory,
+    /// The program's statement table and file labels; none for a release image.
+    pub sources: Option<&'a LineSources>,
+    /// Whether the program is a release image, built without statement hooks, which the debugger
+    /// refuses (specification 44 §13.2).
+    pub release: bool,
+}
+
 /// Where a warm restart finds the retained values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RetainSource {
@@ -247,6 +262,13 @@ pub trait ResourceCycle {
     /// attached to; the debug operations are then unsupported. While a debugger holds the scan the
     /// hold lends the halted state instead. The default has no debugger.
     fn debug_view(&self) -> Option<DebugView<'_>> {
+        None
+    }
+
+    /// The compiled program as a debug read sees it between scans, or none for a cycle that runs
+    /// no compiled program or has no debugger. The default has none.
+    #[cfg(feature = "native")]
+    fn compiled_view(&self) -> Option<CompiledView<'_>> {
         None
     }
 }

@@ -45,6 +45,11 @@ pub const HANDLES_FULL: &str = "the variable handle table is full: request the s
 /// The stable code of [`HANDLES_FULL`].
 pub const HANDLES_FULL_CODE: &str = "variable_handles_full";
 
+/// The refusal of every debug operation on a compiled release image, which has no statement hooks
+/// (specification 44 §13.2).
+pub const NO_DEBUG_HOOKS: &str =
+    "the program was built without debug hooks ([build] debug = false)";
+
 /// The error text for a frame the stop does not have.
 #[must_use]
 pub fn unknown_frame(frame_id: u32) -> String {

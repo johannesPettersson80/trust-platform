@@ -62,6 +62,9 @@ pub fn pause<H: ResourcePort>(id: u64, host: &H) -> ControlResponse {
         return resource_not_running(id, resource);
     }
     if host.debug_control_mode() {
+        if let Some(reason) = host.undebuggable() {
+            return ControlResponse::error(id, reason.into());
+        }
         if host.debugger_unavailable() {
             return no_line_table(id);
         }

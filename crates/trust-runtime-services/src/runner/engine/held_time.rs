@@ -11,14 +11,14 @@ use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 /// deadline check, which asks for them at every sample, adds and compares integers (specification
 /// 34 PERF-05).
 #[derive(Debug)]
-pub(super) struct HeldTime {
+pub(in crate::runner) struct HeldTime {
     completed: Cell<TimeSpan>,
     started: Cell<Option<MonotonicInstant>>,
 }
 
 impl HeldTime {
     /// No holds yet.
-    pub(super) const fn new() -> Self {
+    pub(in crate::runner) const fn new() -> Self {
         Self {
             completed: Cell::new(TimeSpan::ZERO),
             started: Cell::new(None),
@@ -26,7 +26,7 @@ impl HeldTime {
     }
 
     /// A hold starts at `now`. A hold already in progress keeps its start.
-    pub(super) fn start(&self, now: MonotonicInstant) {
+    pub(in crate::runner) fn start(&self, now: MonotonicInstant) {
         if self.started.get().is_none() {
             self.started.set(Some(now));
         }
@@ -34,7 +34,7 @@ impl HeldTime {
 
     /// The hold in progress ends at `now`, and its length joins the completed holds. An end with no
     /// hold in progress adds nothing.
-    pub(super) fn end(&self, now: MonotonicInstant) {
+    pub(in crate::runner) fn end(&self, now: MonotonicInstant) {
         if let Some(started) = self.started.take() {
             let held = now.saturating_since(started);
             self.completed
@@ -45,7 +45,7 @@ impl HeldTime {
     /// The completed holds and the hold in progress up to the reading `now` gives, which counts as
     /// held. `now` is asked only for a hold in progress, so that a scan the debugger does not hold
     /// reads no clock for it (checklist P1-6).
-    pub(super) fn held_at(&self, now: impl FnOnce() -> MonotonicInstant) -> TimeSpan {
+    pub(in crate::runner) fn held_at(&self, now: impl FnOnce() -> MonotonicInstant) -> TimeSpan {
         let in_progress = self
             .started
             .get()

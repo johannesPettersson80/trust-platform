@@ -1,12 +1,12 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.13 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.14 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
   recursion bounded by a call depth and the interface version 3 of 0.11 and the cheaper checks of
   0.12 chosen by the owner on 23 October 2026; 0.13 from the runtime defects lane the owner set on
-  23 October 2026),
+  23 October 2026; 0.14 makes exact the debugger of milestone M3 within the approved design),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -363,6 +363,17 @@ canonical name, and browse by parent. The private state of a library block, whic
 declares (a timer's start time, the memory of `R_TRIG`, IEC §6.6.3.5.3), is in the type table's
 member list, for its layout, and has no symbol, as the runtime does not name it either. Frame variables (`VAR` of functions and methods, `VAR_TEMP`)
 have symbols with area 7 (stack) and the offset in their frame, for the debugger only.
+
+A debug image (§13.2) has one POU symbol for each POU whose code it holds: a program type's body,
+a function block's body, a method and a function. Its canonical name is `@` followed by the POU's
+canonical name (`@COUNTER.ADVANCE`), which no variable's name can be, so that a variable's lookup
+never finds a POU; its display name is the POU's declared name, its area 0, its type the type its
+instance has (the program's or the function block's type; `0xFFFF_FFFF` for a function), and its
+POU id the one the statement table's records carry (§5.9). The frame variables of a function or a
+method, its result, its inputs and its locals, follow as symbols named `@` and the POU's canonical
+name and their own (`@SUMTO.N`), whose parent is the POU symbol, whose POU id is the POU's, and
+whose offsets are those of the POU's frame, which the generated function lays out as a
+`#[repr(C)]` structure in a debug image. A release image has neither, as no debugger reads it.
 
 ### 5.8 Type table
 
@@ -781,7 +792,16 @@ pub struct Cx {
     pub breakpoints: *const u8,  // one bit per statement id, §13.2
     pub api: *const KernelApi,
     pub kernel: *mut c_void,     // the kernel's own pointer, which only its functions read
+    pub frame: *const Frame,     // the innermost call frame of a debug image, §13.2; null otherwise
     pub fault: FaultRecord,      // the fault that ended the call, written by the module
+}
+#[repr(C)]
+pub struct Frame {
+    pub caller: *const Frame,    // the calling POU's frame; null for a body the kernel called
+    pub pou: u32,                // the POU's id, §5.7, §5.9
+    pub call_stmt: u32,          // the caller's statement that made the call
+    pub locals: *const u8,       // the frame variables, at their symbols' offsets; null for a body
+    pub instance: *const u8,     // the instance the POU runs on; null for a function
 }
 #[repr(C)] pub struct Area { pub base: *mut u8, pub len: u32 }
 #[repr(C)]
@@ -799,7 +819,8 @@ real of `STRING_TO_REAL` and `STRING_TO_LREAL` from the text the program library
 took the separators out of (§6.8), with the runtime's own reader, so that a text reads alike in the
 bytecode engine and on every kernel; that reader cannot be compiled into a module, which must not be
 able to panic (§8.6). It returns 0 and the value, or the fault's code (`TypeMismatch`). The
-interface is version 3 since `Cx` carries the call depth of §6.4 (the owner, 23 October 2026);
+interface is version 4 since `Cx` carries the call frames of a debug image (§13.2, 24 October
+2026); version 3 added the call depth of §6.4 (the owner, 23 October 2026);
 version 2 added `read_real` (version 1 had two functions; the owner approved version 2 on 23 October
 2026). A module records a fault in `Cx::fault` (its code, the statement and up to three numbers: the
 index and the bounds, the value and the bounds) and returns its code; no kernel function is called
@@ -1143,6 +1164,36 @@ about half of a scan's time and more than half of its code: the pasteurizer's co
 to 231 ns per activation with them and 150 ns without, and its code is 47,504 bytes with them and
 21,184 without (x86-64, 23 October 2026, §14.3).
 
+**The debugger of compiled programs** (milestone M3). It is specification 13's debugger, whose
+decisions (when a pause, a step or a breakpoint stops, when a hold ends) are the shared ones the
+interpreter's device loop takes (`RunControl`), and whose control requests (`breakpoints.set`,
+`pause`, `resume`, `step_in`, `step_over`, `step_out`, `debug.state`, `debug.stops`, `debug.stack`,
+`debug.scopes`, `debug.variables`) a chip and a computer answer alike through the shared dispatcher
+(specification 11 §6.13):
+
+- In a debug image every POU links a `Frame` (§8.2) into `cx.frame` on entry and gives the
+  caller's back on return, a fault's return too; a release image links none. A function's or a
+  method's frame variables lie in one `#[repr(C)]` structure on the task stack, at the offsets
+  their symbols name (§5.7), which the frame's `locals` points at.
+- `breakpoints.set` names a file by its label and lines; a breakpoint takes the statements of that
+  file whose first line is the line, by the statement table (§5.9), as specification 13's resolver
+  takes them from `LINE_TABLE`. The kernel sets the bit of every statement a breakpoint takes, every
+  bit for a pause or a step, and `armed` while any is set.
+- `api.stop` gives the stop to the debugger with the statement's span and its call depth, the
+  length of the frame chain, which a step compares with the depth it started at (into: any
+  statement; over: no deeper; out: shallower). A stop that holds the scan runs the hold of
+  specification 34 STATE-07 inside `api.stop`: the link is served, the platform's idle work runs,
+  the watchdog is fed, and a `resume`, a step or a stop request ends it. The queued Live Values
+  writes and forces (§13.3) are applied when the hold ends, before the statement runs, as at a cycle
+  start.
+- While the scan is held, `debug.stack` lists the frames innermost first, each named by its POU
+  symbol and placed at the statement it stands at (the held statement for the innermost, the call
+  for each caller); a frame's `Locals` are the variables of the instance it runs on, by its type's
+  members, then its frame variables. `Globals`, `Retain`, `I/O` and `Instances` are read through the
+  symbol table, an instance by the index of its symbol, which is its identity (Live Values'
+  `instance:<id>`); an element of an array of instances is reached through its array. Between scans
+  the reads answer from the program's memory as the last scan left it, with no call stack.
+
 ### 13.3 Variables, Live Values, HMI and services
 
 Every read or write of a variable by name, from the debugger, Live Values, the HMI, OPC UA, Modbus,
@@ -1319,3 +1370,4 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.11 | 23 October 2026 | Recursion bounded by a call depth (the owner, 23 October 2026, "i agree with what you suggest"). §6.4 said that IEC 61131-3 has no recursion and that trust-hir refuses it; IEC 61131-3 leaves recursion to the implementer (§6.6.1.1), trust-hir refuses only a type that holds itself, and the bytecode engine runs recursion within its call levels, so a native image of a recursive program built with a stack bound that counted a cycle once. §6.4: a call that a body makes to a POU of its own cycle of the call graph takes one from `cx.depth` and gives it back when it returns, through the library's `recurse`; none left ends the scan with `CallDepth`, reported as the bytecode engine's call beyond its call levels (Appendix A); `recurse` and every body that makes such a call are never inlined, so the link keeps a call relocation for every call of a cycle, which a function's call of itself need not keep. §8.2: `Cx` gains `depth`, and the interface becomes version 3. §8.5: a cycle counts once in the stack bound, all its frames together, instead of once for each instance with a class id; `MEMFIG` carries the bytes of one call level, and the kernel gives each activation the depth its task stack holds beyond the bound; a computer's kernel claims no more task stack than its thread has. |
 | 0.12 | 23 October 2026 | The checks of M4 made cheaper, none dropped (the owner, 23 October 2026, on why truST's pasteurizer control task took 150 ns per activation against RuSTy's 140 ns: the checks RuSTy does not make). §6.5: the check of a real result, which the library made and the table did not list, is listed, and a chain of real `+ - *` whose operands can neither fault nor write is checked at its last operation, which faults in the same cases and the same statement. §6.6: a release image holds a `FOR` loop's control variable in a local when nothing in the body but the loop can write it, and writes it at the start of each pass. The constant index inside the bounds, unchecked since 0.1, is now unchecked in the generated code too. |
 | 0.13 | 23 October 2026 | The variables of instances retained as IEC 61131-3 §6.5.6.2 says (the runtime defects lane, D1). §5.10: the retain map holds one 16-byte record per retained variable, in the order of specification 11 §6.7, with its checkpoint key, its area, its offset in the area and its type; a retained variable of a function block or class instance lies with its instance, so a record names its area. §5.2 and §10.2: image format version 2. §6.7: a warm restart keeps every variable the retain map names and starts every other one, an instance or a reference in the retain area too. §11: the capture writes each variable from its area; the restore works out each entry's bytes from the variable's present bytes and checks them before any area changes, and finds a member declared without `RETAIN` by its key's path to leave it alone. §6.4 and Appendix A: a call beyond the call levels reads `call depth exceeded`, the bytecode engine's text too (specification 12 §7.4.1). |
+| 0.14 | 24 October 2026 | The debugger of compiled programs (the one list's N3), within the approved design, which named POU symbols and frame variable symbols (§5.7) and a frame base the hook records in `Cx` (§13.3): §5.7 makes both exact for a debug image, with POU symbols named `@<POU>` so that no variable lookup finds one; §8.2: `Cx` gains `frame`, the chain of `Frame` records a debug image links on each POU entry, and the interface becomes version 4; §13.2: breakpoints by the statement table, the stop's call depth from the frame chain, the hold inside `api.stop`, and the reads of a held scan through the symbol table. |

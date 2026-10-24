@@ -10,9 +10,11 @@
 mod functions;
 pub mod image;
 pub mod live;
+pub mod memory;
 pub mod program;
 mod record;
 pub mod retain;
+pub mod stop;
 mod values;
 pub mod variables;
 

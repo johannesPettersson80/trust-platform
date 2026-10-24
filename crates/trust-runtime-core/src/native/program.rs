@@ -9,19 +9,21 @@
 
 use alloc::vec;
 use alloc::vec::Vec;
+use core::cell::Cell;
 use core::fmt;
 
 use smol_str::SmolStr;
-use trust_plc_abi::kernel::{Entry, InPlace};
+use trust_plc_abi::kernel::{call_with_sink, Entry, InPlace};
 use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
 
 use super::image::{
-    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure,
-    RetainRecord, SectionId, SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY,
-    NONE, SYMBOL_PROGRAM,
+    AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure, SectionId,
+    StmtRecord, SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
 };
+use super::memory::{read_place, retained_place, symbol_place, write_place};
 use super::retain;
-use super::values::{damaged, read_value, AreaBytes, Types, Writer};
+use super::stop::{arm_bits, HeldScan, Stop};
+use super::values::{AreaBytes, Types};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
 use crate::io_image::FlatImages;
@@ -269,6 +271,16 @@ pub trait ScanHooks {
     fn task_started(&mut self, _task: usize) {}
     /// Task `task` ended.
     fn task_finished(&mut self, _task: usize) {}
+    /// A statement whose breakpoint bit is set stops, in a debug image (specification 44 §13.2):
+    /// the debugger decides here and may hold the scan before the statement runs. The default
+    /// runs on.
+    ///
+    /// # Errors
+    ///
+    /// The error that ends the scan, which the scan reports in place of a fault.
+    fn on_stop(&mut self, _stop: &mut Stop<'_>) -> Result<(), RuntimeError> {
+        Ok(())
+    }
 }
 
 /// Scan hooks that report nothing.
@@ -291,6 +303,11 @@ pub struct NativeProgram<'i, C> {
     budget: u32,
     /// The recursive calls an activation may make (specification 44 §6.4, §8.5).
     depth: u32,
+    /// One bit per statement id: the statements that stop while `armed` (specification 44
+    /// §13.2), as cells, which the module reads and a stop rewrites.
+    breakpoints: Vec<Cell<u8>>,
+    /// Whether any statement stops.
+    armed: bool,
     /// The input image the drivers fill (`%I`).
     pub inputs: Vec<u8>,
     /// The output image the drivers drive (`%Q`).
@@ -388,6 +405,8 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let inputs = vec![0; lengths[0]];
         let outputs = vec![0; lengths[1]];
         let depth = call_depth(device, &image.memory_figure());
+        let statements = image.table::<StmtRecord>().map_err(table_error)?.len();
+        let breakpoints = (0..statements.div_ceil(8)).map(|_| Cell::new(0)).collect();
         let mut program = Self {
             image,
             code,
@@ -401,6 +420,8 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             cx: Cx::new(api),
             budget: device.max_statements,
             depth,
+            breakpoints,
+            armed: false,
             inputs,
             outputs,
         };
@@ -495,7 +516,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.start_memory(|id| !process_image(id))?;
         self.reset_task_timing(now);
         if let Some(entry) = self.cold {
-            self.call(entry, u32::MAX, now)?;
+            self.call(entry, u32::MAX, now, None)?;
         }
         self.publish_markers();
         Ok(())
@@ -518,7 +539,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.keep(&kept)?;
         self.reset_task_timing(now);
         if let Some(entry) = self.warm {
-            self.call(entry, u32::MAX, now)?;
+            self.call(entry, u32::MAX, now, None)?;
         }
         self.publish_markers();
         Ok(())
@@ -731,7 +752,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             for position in 0..self.tasks[entry.index].programs.len() {
                 let program = self.tasks[entry.index].programs[position];
                 let task = u32::try_from(entry.index).unwrap_or(u32::MAX);
-                if let Err(error) = self.call(program, task, now) {
+                if let Err(error) = self.call(program, task, now, Some(&mut *hooks)) {
                     result = Err(error);
                     break 'tasks;
                 }
@@ -746,15 +767,22 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             }
             for position in 0..self.tasks[index].programs.len() {
                 let program = self.tasks[index].programs[position];
-                self.call(program, u32::MAX, now)?;
+                self.call(program, u32::MAX, now, Some(&mut *hooks))?;
             }
         }
         self.publish();
         Ok(())
     }
 
-    /// Calls entry `entry` for task `task` at logical time `now`.
-    fn call(&mut self, entry: usize, task: u32, now: Duration) -> Result<(), RuntimeError> {
+    /// Calls entry `entry` for task `task` at logical time `now`; a statement that stops goes to
+    /// `hooks` (specification 44 §13.2).
+    fn call(
+        &mut self,
+        entry: usize,
+        task: u32,
+        now: Duration,
+        hooks: Option<&mut dyn ScanHooks>,
+    ) -> Result<(), RuntimeError> {
         let Some(function) = self.entries.get(entry).copied() else {
             return Err(RuntimeError::InvalidExecutionState);
         };
@@ -769,7 +797,27 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         self.cx.budget = self.budget;
         self.cx.depth = self.depth;
         self.cx.fault = FaultRecord::default();
-        let code = function.call(&mut self.cx);
+        self.cx.breakpoints = self.breakpoints.as_ptr().cast::<u8>();
+        self.cx.breakpoint_bytes = u32::try_from(self.breakpoints.len()).unwrap_or(0);
+        self.cx.armed = u32::from(self.armed);
+        let (code, held) = match hooks {
+            Some(hooks) if self.armed => {
+                let mut sink = HeldScan {
+                    hooks,
+                    image: self.image,
+                    bits: &self.breakpoints,
+                    error: None,
+                };
+                let code = call_with_sink(function, &mut self.cx, &mut sink);
+                (code, sink.error)
+            }
+            _ => (function.call(&mut self.cx), None),
+        };
+        // A stop may have armed or disarmed the statements for the rest of the scan.
+        self.armed = self.cx.armed != 0;
+        if let Some(error) = held {
+            return Err(error);
+        }
         if code == 0 {
             Ok(())
         } else if code == FaultCode::AssertionFailed as u32
@@ -805,7 +853,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 })
             })
             .ok_or_else(|| RuntimeError::UndefinedProgram(alloc::format!("{instance}").into()))?;
-        self.call(entry, u32::MAX, now)
+        self.call(entry, u32::MAX, now, None)
     }
 
     /// The value of the variable whose canonical name is `canonical`, read through the symbol and
@@ -814,25 +862,6 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     pub fn value(&self, canonical: &str) -> Option<crate::value::Value> {
         let (index, _) = self.image.find_symbol(canonical)?;
         self.read_symbol(index).ok()
-    }
-
-    /// The record of symbol `index` and the index of its area in the program's memory; a program
-    /// instance holds no value of its own.
-    fn variable(&self, index: u32) -> Result<(SymbolRecord, usize), RuntimeError> {
-        let symbol = self
-            .image
-            .table::<SymbolRecord>()
-            .ok()
-            .and_then(|symbols| symbols.get(index))
-            .ok_or_else(|| damaged("symbol table"))?;
-        if symbol.flags & SYMBOL_PROGRAM != 0 {
-            return Err(RuntimeError::TypeMismatch);
-        }
-        // A frame variable's symbol names the stack area, where no variable lies between calls.
-        let area = slot(symbol.area)
-            .filter(|area| *area != STACK)
-            .ok_or(RuntimeError::TypeMismatch)?;
-        Ok((symbol, area))
     }
 
     /// The value of the variable of symbol `index`, read through the type table as the interpreter
@@ -845,14 +874,8 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// frame variable) or bytes that are no value of the type, [`RuntimeError::InvalidBundle`] for a
     /// symbol or a type the image's tables do not hold.
     pub fn read_symbol(&self, index: u32) -> Result<crate::value::Value, RuntimeError> {
-        let (symbol, area) = self.variable(index)?;
-        let types = Types::of(&self.image)?;
-        read_value(
-            &types,
-            &self.areas[area],
-            symbol.offset as usize,
-            symbol.type_index,
-        )
+        let (place, type_index) = symbol_place(&self.image, index)?;
+        read_place(self, place, type_index)
     }
 
     /// Writes `value` into the variable of symbol `index` with the conversions of the type table: a
@@ -869,8 +892,8 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         index: u32,
         value: &crate::value::Value,
     ) -> Result<(), RuntimeError> {
-        let (symbol, area) = self.variable(index)?;
-        self.write_place(area, symbol.offset, symbol.type_index, value)
+        let (place, type_index) = symbol_place(&self.image, index)?;
+        write_place(self, place, type_index, value)
     }
 
     /// Writes `value` into the retained variable whose retain-map key is `label`, compared without
@@ -886,52 +909,22 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         label: &str,
         value: &crate::value::Value,
     ) -> Result<(), RuntimeError> {
-        let records = self
-            .image
-            .table::<RetainRecord>()
-            .map_err(|_| damaged("retain map"))?;
-        let record = records
-            .iter()
-            .find(|record| {
-                self.image
-                    .string(record.key)
-                    .is_some_and(|key| key.eq_ignore_ascii_case(label))
-            })
-            .ok_or_else(|| RuntimeError::UndefinedVariable(SmolStr::new(label)))?;
-        let area = u8::try_from(record.area)
-            .ok()
-            .and_then(slot)
-            .filter(|area| *area != STACK)
-            .ok_or_else(|| damaged("retain map"))?;
-        self.write_place(area, record.offset, record.type_index, value)
+        let (place, type_index) = retained_place(&self.image, label)?;
+        write_place(self, place, type_index, value)
     }
 
-    /// Writes `value` into the variable of type `type_index` at `offset` of the area of index
-    /// `area`, with the conversions of [`Self::write_symbol`]; the variable keeps its value when
-    /// the write is refused.
-    fn write_place(
-        &mut self,
-        area: usize,
-        offset: u32,
-        type_index: u32,
-        value: &crate::value::Value,
-    ) -> Result<(), RuntimeError> {
-        let types = Types::of(&self.image)?;
-        let size = types.get(type_index)?.size as usize;
-        let offset = offset as usize;
-        let mut current = vec![0u8; size];
-        if !self.areas[area].read(offset, &mut current) {
-            return Err(damaged("symbol table"));
-        }
-        let mut staged = current.clone();
-        Writer {
-            types: &types,
-            staged: &mut staged,
-            starting: &current,
-        }
-        .write(type_index, 0, value, 0)?;
-        self.areas[area].write(offset, &staged);
-        Ok(())
+    /// Arms the statements a scan of a debug image stops at: every one when `every` is set,
+    /// otherwise those `wanted` takes; none stops when nothing is armed (specification 44 §13.2).
+    pub fn arm(&mut self, every: bool, wanted: &dyn Fn(u32) -> bool) {
+        self.armed = arm_bits(&self.breakpoints, every, wanted);
+    }
+
+    /// The number of the image's statements, the ids a breakpoint names.
+    #[must_use]
+    pub fn statement_count(&self) -> u32 {
+        self.image
+            .table::<StmtRecord>()
+            .map_or(0, |statements| statements.len())
     }
 
     /// The record of the last fault a module raised.

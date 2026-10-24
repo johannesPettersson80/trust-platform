@@ -94,6 +94,8 @@ use trust_runtime_core::vm::RetainApplyEvent;
 
 #[cfg(feature = "native")]
 pub use compiled::CompiledCycle;
+#[cfg(feature = "native")]
+pub use cycle::CompiledView;
 pub use cycle::{resource_tasks, DebugView, ResourceCycle, RetainSource, TaskDescriptor};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;

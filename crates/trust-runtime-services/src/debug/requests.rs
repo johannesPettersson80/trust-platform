@@ -176,6 +176,21 @@ pub trait Debugger {
 
     /// Runs `operation` on the variable handles of the current stop.
     fn with_handles(&self, operation: &mut dyn FnMut(&mut DebugVariableHandles));
+
+    /// A compiled program's memory, while the debugger holds its scan and between scans
+    /// (specification 44 §13.2); `None` for the interpreter's program, which
+    /// [`Self::read_state`] answers for. A compiled program's stack, scopes and variables are read
+    /// through it.
+    #[cfg(feature = "native")]
+    fn program_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
+        None
+    }
+
+    /// Why the program cannot be debugged at all, when it cannot: a compiled release image, which
+    /// has no statement hooks (specification 44 §13.2). `None` for a debuggable program.
+    fn undebuggable(&self) -> Option<&'static str> {
+        None
+    }
 }
 
 /// Whether `kind` is a debug operation that [`answer`] serves.
@@ -214,6 +229,9 @@ pub fn answer(request: &ControlRequest, debugger: &dyn Debugger) -> ControlRespo
     if matches!(kind, "eval" | "debug.evaluate") {
         return replies::expressions_unavailable(id);
     }
+    if let Some(reason) = debugger.undebuggable() {
+        return failed(id, reason);
+    }
     let Some(sources) = debugger.sources() else {
         return replies::no_line_table(id);
     };
@@ -221,9 +239,27 @@ pub fn answer(request: &ControlRequest, debugger: &dyn Debugger) -> ControlRespo
     match kind {
         "debug.state" => state(id, debugger, sources),
         "debug.stops" => stops(id, debugger, sources),
-        "debug.stack" => stack(id, debugger, sources),
-        "debug.scopes" => scopes(id, params, debugger, sources),
-        "debug.variables" => variables(id, params, debugger),
+        "debug.stack" => {
+            #[cfg(feature = "native")]
+            if let Some(memory) = debugger.program_memory() {
+                return super::compiled::stack(id, memory, debugger, sources);
+            }
+            stack(id, debugger, sources)
+        }
+        "debug.scopes" => {
+            #[cfg(feature = "native")]
+            if let Some(memory) = debugger.program_memory() {
+                return super::compiled::scopes(id, params, memory, debugger, sources);
+            }
+            scopes(id, params, debugger, sources)
+        }
+        "debug.variables" => {
+            #[cfg(feature = "native")]
+            if let Some(memory) = debugger.program_memory() {
+                return super::compiled::variables(id, params, memory, debugger);
+            }
+            variables(id, params, debugger)
+        }
         "debug.breakpoint_locations" => breakpoint_locations(id, params, sources),
         "breakpoints.set" => breakpoints_set(id, params, debugger, sources),
         "breakpoints.clear" => breakpoints_clear(id, params, debugger, sources),
@@ -241,7 +277,7 @@ pub fn answer(request: &ControlRequest, debugger: &dyn Debugger) -> ControlRespo
 }
 
 /// The parameters of a request, or the error text of missing or malformed ones.
-fn parse<T: DeserializeOwned>(params: Option<&serde_json::Value>) -> Result<T, String> {
+pub(super) fn parse<T: DeserializeOwned>(params: Option<&serde_json::Value>) -> Result<T, String> {
     match params {
         Some(value) => serde_json::from_value(value.clone())
             .map_err(|err| alloc::format!("invalid params: {err}")),
@@ -250,13 +286,13 @@ fn parse<T: DeserializeOwned>(params: Option<&serde_json::Value>) -> Result<T, S
 }
 
 /// The failed response with the error text `error`.
-fn failed(id: u64, error: impl Into<String>) -> ControlResponse {
+pub(super) fn failed(id: u64, error: impl Into<String>) -> ControlResponse {
     ControlResponse::error(id, error.into())
 }
 
 /// The position of a statement as a frame or a scope reply carries it, zero-based, with the file
 /// named by its label.
-fn located(sources: &LineSources, statement: StatementSpan) -> Option<Located> {
+pub(super) fn located(sources: &LineSources, statement: StatementSpan) -> Option<Located> {
     let label = sources.label(statement.file_index)?;
     Some(Located {
         source: DebugSource {

@@ -26,6 +26,10 @@ use crate::live_values::io_requests::IoSnapshotRead;
 
 impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
     fn sources(&self) -> Option<&LineSources> {
+        #[cfg(feature = "native")]
+        if let Some(view) = self.program.compiled_state() {
+            return view.sources;
+        }
         self.program.debug_state()?.sources
     }
 
@@ -94,6 +98,27 @@ impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
 
     fn with_handles(&self, operation: &mut dyn FnMut(&mut DebugVariableHandles)) {
         self.debug.with_handles(operation);
+    }
+
+    /// A compiled release image has no statement hooks (specification 44 §13.2).
+    fn undebuggable(&self) -> Option<&'static str> {
+        #[cfg(feature = "native")]
+        if self
+            .program
+            .compiled_state()
+            .is_some_and(|view| view.release)
+        {
+            return Some(crate::debug::replies::NO_DEBUG_HOOKS);
+        }
+        None
+    }
+
+    /// A compiled program's memory once a scan has ended, as the interpreter's state is read
+    /// (specification 11 §6.13.1; specification 44 §13.2).
+    #[cfg(feature = "native")]
+    fn program_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
+        let view = self.program.compiled_state()?;
+        (self.debug.published() || self.debug.is_held()).then_some(view.memory)
     }
 }
 

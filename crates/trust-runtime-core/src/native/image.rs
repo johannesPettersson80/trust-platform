@@ -815,7 +815,9 @@ impl<'a> Image<'a> {
                     "display name outside STRINGS",
                 ));
             }
-            if symbol.type_index >= types {
+            // A function's POU symbol runs on no instance and has no type (§5.7).
+            let typeless_pou = symbol.area == 0 && symbol.type_index == NONE;
+            if symbol.type_index >= types && !typeless_pou {
                 return Err(record(SectionId::Symbols, index, "type outside TYPES"));
             }
             if symbol.parent != NONE && symbol.parent >= symbols.len() {

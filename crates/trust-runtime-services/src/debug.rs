@@ -20,6 +20,8 @@
 //! breakpoints and names files from the program's `LINE_TABLE`.
 
 pub mod breakpoint;
+#[cfg(feature = "native")]
+mod compiled;
 pub mod paging;
 pub mod projection;
 pub mod reads;

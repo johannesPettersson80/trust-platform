@@ -142,6 +142,14 @@ pub(super) trait ProgramView {
     /// the last scan that ended, and while a debugger holds the scan its halted state. None when no
     /// debugger is attached to the program.
     fn debug_state(&self) -> Option<DebugView<'_>>;
+
+    /// What a debug read sees of a compiled program (specification 44 §13.2): its memory between
+    /// scans, and its held scan's memory and frames while the debugger holds it. None for the
+    /// interpreter's program and without a debugger.
+    #[cfg(feature = "native")]
+    fn compiled_state(&self) -> Option<super::cycle::CompiledView<'_>> {
+        None
+    }
 }
 
 /// The ports the dispatcher reads and acts through while the loop serves a request.
@@ -229,6 +237,18 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
         self.program
             .debug_state()
             .is_some_and(|view| view.sources.is_none())
+    }
+
+    fn undebuggable(&self) -> Option<&'static str> {
+        #[cfg(feature = "native")]
+        if self
+            .program
+            .compiled_state()
+            .is_some_and(|view| view.release)
+        {
+            return Some(crate::debug::replies::NO_DEBUG_HOOKS);
+        }
+        None
     }
 
     fn debugger_pause(&self) {

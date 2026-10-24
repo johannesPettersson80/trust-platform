@@ -197,4 +197,12 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
             Self::Missing(_) => None,
         }
     }
+
+    #[cfg(feature = "native")]
+    fn compiled_view(&self) -> Option<super::cycle::CompiledView<'_>> {
+        match self {
+            Self::Installed(cycle) => cycle.compiled_view(),
+            Self::Missing(_) => None,
+        }
+    }
 }

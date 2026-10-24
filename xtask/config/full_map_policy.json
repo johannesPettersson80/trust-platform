@@ -1867,6 +1867,15 @@
       },
       {
         "crate_name": "trust-runtime-services",
+        "module_name": "debug",
+        "path": "crates/trust-runtime-services/src/debug",
+        "owner": "runtime portability debugging (specification 11 §6.13, specification 44 §13.2)",
+        "rationale": "The shared debug operations of every runtime: the breakpoint record and its hit rule, the run control, the statement identity, the line sources, the request parsing, the reply shapes, the variable projection and its pages, and the reads of the interpreter's held state and of a compiled program's memory. Each is a real child module with its own tests beside it; the aggregate's size comes from those tests and from two read paths (the interpreter's and the compiled program's), not from one large implementation file or a mixed owner.",
+        "review_date": "2026-10-24",
+        "split_plan": "Keep requests.rs, replies.rs, reads.rs, compiled.rs, projection.rs, paging.rs, sources.rs, run.rs, breakpoint.rs and statement.rs on their own responsibilities. The interpreter's read path (reads.rs and its VariableStorage projection in projection.rs) goes with the bytecode engine at the one list's N11, which brings the module under the threshold; split any file approaching 1000 lines, a test file included, by the rules it pins."
+      },
+      {
+        "crate_name": "trust-runtime-services",
         "module_name": "runner",
         "path": "crates/trust-runtime-services/src/runner",
         "owner": "runtime portability (device runner)",
@@ -3823,7 +3832,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 98,
+        "line": 99,
         "owner": "native execution (specification 44)",
         "invariant": "A context's raw pointers name memory its owning cycle owns with it (areas, breakpoint bits, function table); the cycle moves them as one and a module reads them only during a call on the cycle's thread.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3831,7 +3840,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 170,
+        "line": 171,
         "owner": "native execution (specification 44)",
         "invariant": "A module calls read_real with its own copy of the text, len bytes at text that it holds for the call (module::read_real), and null is refused before; the kernel only reads them during the call.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3839,7 +3848,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 174,
+        "line": 175,
         "owner": "native execution (specification 44)",
         "invariant": "out is the module's own aligned f64, which it holds for the call (module::read_real); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3847,7 +3856,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 212,
+        "line": 213,
         "owner": "native execution (specification 44)",
         "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 §10.2) promises it.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3855,7 +3864,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 227,
+        "line": 228,
         "owner": "native execution (specification 44)",
         "invariant": "The module is executable and unchanged as the caller of InPlace::new promised, and offset is checked inside the module.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3863,11 +3872,51 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 265,
+        "line": 266,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel/stops.rs",
+        "line": 53,
+        "owner": "native execution (specification 44)",
+        "invariant": "stop_to_sink is called only by a module, with the context the kernel gave its entry point, valid for the call and untouched by the module until the stop returns.",
+        "test_evidence": "cargo test -p trust-plc-abi; trust-runtime tests/native_debugger.rs (a debug image stops at its breakpoint with its call stack and frame variables read and written) and trust-runtime-services runner::compiled tests (holds of the stand-in debug body).",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel/stops.rs",
+        "line": 62,
+        "owner": "native execution (specification 44)",
+        "invariant": "call_with_sink puts a pointer to its own &mut dyn StopSink behind cx.kernel for the length of the entry's call, which every stop is inside, and nothing else reads it; the pointer is cleared when the call returns.",
+        "test_evidence": "cargo test -p trust-plc-abi; trust-runtime tests/native_debugger.rs (a debug image stops at its breakpoint with its call stack and frame variables read and written) and trust-runtime-services runner::compiled tests (holds of the stand-in debug body).",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel/stops.rs",
+        "line": 124,
+        "owner": "native execution (specification 44)",
+        "invariant": "A frame's locals point at the frame structure of a POU whose call waits in the stop, of the size its POU symbol records; its fields are cells, so the kernel's reads and writes during the stop alias no unique reference.",
+        "test_evidence": "cargo test -p trust-plc-abi; trust-runtime tests/native_debugger.rs (a debug image stops at its breakpoint with its call stack and frame variables read and written) and trust-runtime-services runner::compiled tests (holds of the stand-in debug body).",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel/stops.rs",
+        "line": 158,
+        "owner": "native execution (specification 44)",
+        "invariant": "Every frame of the chain was linked by a POU whose call has not returned, as each POU unlinks its frame before it returns, so each one is live while the module waits in the stop; the walk stops after MAX_FRAMES.",
+        "test_evidence": "cargo test -p trust-plc-abi; trust-runtime tests/native_debugger.rs (a debug image stops at its breakpoint with its call stack and frame variables read and written) and trust-runtime-services runner::compiled tests (holds of the stand-in debug body).",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel/stops.rs",
+        "line": 199,
+        "owner": "native execution (specification 44)",
+        "invariant": "The kernel gave the area len bytes at base, never null, for the call the context is lent to; the module views them as cells, and during a stop nothing else reads or writes them.",
+        "test_evidence": "cargo test -p trust-plc-abi; trust-runtime tests/native_debugger.rs (a debug image stops at its breakpoint with its call stack and frame variables read and written) and trust-runtime-services runner::compiled tests (holds of the stand-in debug body).",
+        "review_date": "2026-10-24"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",

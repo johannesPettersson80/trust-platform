@@ -28,7 +28,7 @@
 //! trust-runtime reports it.
 
 mod handover;
-mod held_time;
+pub(super) mod held_time;
 mod limits;
 mod live_snapshot;
 mod process_io;
@@ -947,7 +947,7 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
             if !queues.is_idle() {
                 let generation = live.inner.generation.get();
                 match point {
-                    CompiledAccessPoint::CycleStart => {
+                    CompiledAccessPoint::CycleStart | CompiledAccessPoint::HoldEnd => {
                         apply::compiled_cycle_start(&mut queues, generation, variables, now, self)?;
                     }
                     CompiledAccessPoint::AfterInputs => apply::compiled_images(

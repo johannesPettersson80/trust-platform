@@ -10,7 +10,7 @@ use smol_str::SmolStr;
 use super::classes::Owner;
 use super::entries::{entries, reference_initializers, Entry};
 use super::front::{Front, StatementIds};
-use super::lower::{Frame, Lowerer, Need, Place, PRELUDE};
+use super::lower::{Frame, FrameVar, Lowerer, Need, Place, PRELUDE};
 use super::model::{AreaLayout, Model};
 use super::recursion::{CallGraph, Recursion};
 use super::types::{mangle, rust_field, Kind, Ty};
@@ -24,6 +24,34 @@ pub(super) struct Generated {
     pub(super) entries: Vec<Entry>,
     /// The POU of each statement, by statement id; `u16::MAX` for a statement of no compiled POU.
     pub(super) statement_pous: Vec<u16>,
+    /// The POUs of a debug image with their frames, by POU id, which its POU symbols and frame
+    /// variable symbols name (specification 44 §5.7); empty for a release image.
+    pub(super) pous: Vec<PouFrame>,
+}
+
+/// One POU of a debug image: its name, the type its instance has, and its frame's variables at
+/// their offsets (specification 44 §5.7, §13.2).
+pub(super) struct PouFrame {
+    /// The POU's id.
+    pub(super) id: u16,
+    /// The POU's declared name, `Owner.Method` for a method.
+    pub(super) name: String,
+    /// The type of the instance the POU runs on: a program's or a function block's; `None` for a
+    /// function.
+    pub(super) instance: Option<PouInstance>,
+    /// The frame variables with their offsets in the frame.
+    pub(super) vars: Vec<(FrameVar, u32)>,
+    /// The frame's size in bytes.
+    pub(super) size: u32,
+}
+
+/// The type of the instance a POU runs on.
+#[derive(Clone, Copy)]
+pub(super) enum PouInstance {
+    /// The program type of this index.
+    Program(usize),
+    /// A function block or class type.
+    Block(Ty),
 }
 
 /// What a body is, for the generator's work list.
@@ -107,6 +135,8 @@ pub(super) fn generate<'a>(
     let mut statement_pous = vec![u16::MAX; ids.order.len()];
     let mut queued: Vec<Need> = Vec::new();
     let mut dispatchers: Vec<Need> = Vec::new();
+    let mut pou_frames: Vec<PouFrame> = Vec::new();
+    let mut frame_types = String::new();
     let mut done_blocks: Vec<Ty> = Vec::new();
     let mut work: Vec<Work<'a>> = (0..model.program_types.len()).map(Work::Program).collect();
     let mut index = 0;
@@ -151,8 +181,12 @@ pub(super) fn generate<'a>(
         };
         index += 1;
         let pou = u16::try_from(pous).unwrap_or(u16::MAX);
-        let (text, statements, needs, name, called) =
-            body(front, model, ids, &item, hooks, recursion)?;
+        let (text, statements, needs, name, called, frame) =
+            body(front, model, ids, &item, hooks, recursion, pou)?;
+        if let Some((pou_frame, layout)) = frame {
+            frame_types.push_str(&layout);
+            pou_frames.push(pou_frame);
+        }
         graph.body(&name, called);
         pous += 1;
         for statement in statements {
@@ -190,6 +224,7 @@ pub(super) fn generate<'a>(
     source.push('\n');
     types(&mut source, model);
     programs(&mut source, model);
+    source.push_str(&frame_types);
     let images = model.images;
     areas(&mut source, model, images);
     source.push_str(&functions);
@@ -203,6 +238,7 @@ pub(super) fn generate<'a>(
             source,
             entries,
             statement_pous,
+            pous: pou_frames,
         },
         graph,
     ))
@@ -278,8 +314,9 @@ fn method_body(
     accessor(K::PropertyGet, &method.name)
 }
 
-/// The Rust of one body, its statements, the POUs it calls, its function's name and the generated
-/// functions it calls; its calls that `recursion` names take one from the call depth.
+/// The Rust of one body, its statements, the POUs it calls, its function's name, the generated
+/// functions it calls and, in a debug image, its frame; its calls that `recursion` names take one
+/// from the call depth. `pou` is the POU's id.
 fn body<'a>(
     front: &Front,
     model: &mut Model<'a>,
@@ -287,6 +324,7 @@ fn body<'a>(
     item: &Work<'a>,
     hooks: bool,
     recursion: &Recursion,
+    pou: u16,
 ) -> Result<GeneratedBody, NativeError> {
     use trust_syntax::syntax::SyntaxKind as K;
     match item {
@@ -311,13 +349,19 @@ fn body<'a>(
             };
             let source = &front.sources[file];
             let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Program(*index), hooks);
+            lowerer.pou = pou;
             lowerer.recursive = recursion.callees_of(&name);
             declare_locals(&mut lowerer, &def.temps)?;
             if let Some(list) = body_of(&node) {
                 lowerer.statements(list.children())?;
             }
             lowerer.line("Ok(())");
-            Ok(finished(lowerer, &signature, name))
+            let of = PouOf {
+                name: def.name.to_string(),
+                instance: Some(PouInstance::Program(*index)),
+                returns: "()".into(),
+            };
+            Ok(finished(lowerer, &signature, name, of))
         }
         Work::FunctionBlock(ty) => {
             let info = model.types.info(*ty).clone();
@@ -346,13 +390,19 @@ fn body<'a>(
             let name = format!("fb_{}", mangle(&def.name));
             let mut lowerer =
                 Lowerer::new(model, source, file, ids, Frame::FunctionBlock(*ty), hooks);
+            lowerer.pou = pou;
             lowerer.recursive = recursion.callees_of(&name);
             declare_locals(&mut lowerer, &def.temps)?;
             if let Some(list) = body_of(&node) {
                 lowerer.statements(list.children())?;
             }
             lowerer.line("Ok(())");
-            Ok(finished(lowerer, &signature, name))
+            let of = PouOf {
+                name: def.name.to_string(),
+                instance: Some(PouInstance::Block(*ty)),
+                returns: "()".into(),
+            };
+            Ok(finished(lowerer, &signature, name, of))
         }
         Work::Method(owner, method, ty) => {
             let info = model.types.info(*ty).clone();
@@ -366,6 +416,7 @@ fn body<'a>(
             let source = &front.sources[file];
             let name = method_function(*owner, method);
             let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Method(*ty), hooks);
+            lowerer.pou = pou;
             lowerer.recursive = recursion.callees_of(&name);
             let (parameters, returns) = frame(
                 &mut lowerer,
@@ -390,7 +441,12 @@ fn body<'a>(
                 "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
                 info.rust
             );
-            Ok(finished(lowerer, &signature, name))
+            let of = PouOf {
+                name: format!("{}.{}", owner.name(), method.name),
+                instance: Some(PouInstance::Block(*ty)),
+                returns,
+            };
+            Ok(finished(lowerer, &signature, name, of))
         }
         Work::Function(def) => {
             let Some((file, node)) = find_pou(front, K::Function, &def.name, None) else {
@@ -402,6 +458,7 @@ fn body<'a>(
             let source = &front.sources[file];
             let name = format!("f_{}", mangle(&def.name));
             let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Function, hooks);
+            lowerer.pou = pou;
             lowerer.recursive = recursion.callees_of(&name);
             let (parameters, returns) = frame(
                 &mut lowerer,
@@ -423,19 +480,44 @@ fn body<'a>(
             lowerer.line(&exit);
             let signature =
                 format!("fn {name}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n");
-            Ok(finished(lowerer, &signature, name))
+            let of = PouOf {
+                name: def.name.to_string(),
+                instance: None,
+                returns,
+            };
+            Ok(finished(lowerer, &signature, name, of))
         }
     }
 }
 
 /// One body as [`body`] generates it: its Rust, its statements, the POUs it needs, its function's
-/// name and the generated functions it calls.
-type GeneratedBody = (String, Vec<u32>, Vec<Need>, String, BTreeSet<String>);
+/// name, the generated functions it calls and, in a debug image, its POU's frame with the
+/// definition of its frame structure.
+type GeneratedBody = (
+    String,
+    Vec<u32>,
+    Vec<Need>,
+    String,
+    BTreeSet<String>,
+    Option<(PouFrame, String)>,
+);
+
+/// What the frame of a body names: the POU's declared name, the instance it runs on and its
+/// function's result type.
+struct PouOf {
+    name: String,
+    instance: Option<PouInstance>,
+    returns: String,
+}
 
 /// The body `lowerer` wrote, under `signature`, as the function `name`. A body that makes a
 /// recursive call is never inlined, so that no cycle collapses into a call of a function to itself,
 /// which the link keeps no relocation for (specification 44 §6.4, §8.5).
-fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String) -> GeneratedBody {
+///
+/// In a debug image the body links its `Frame` into `cx.frame` for the length of the call, a fault's
+/// return too, and its frame variables lie in one structure at the offsets their symbols name
+/// (specification 44 §5.7, §13.2).
+fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String, of: PouOf) -> GeneratedBody {
     let needs = lowerer.needs.clone();
     let called = lowerer.called.clone();
     let attribute = if lowerer.recursive.is_empty() {
@@ -443,13 +525,74 @@ fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String) -> Generate
     } else {
         "#[inline(never)]\n"
     };
-    let (text, statements) = lowerer.finish();
+    let pou = lowerer.pou;
+    let parts: Option<Vec<(SmolStr, String, u32, u32)>> = lowerer.frame_vars.as_ref().map(|vars| {
+        vars.iter()
+            .map(|var| {
+                let info = lowerer.model.types.info(var.ty);
+                (var.name.clone(), info.rust.clone(), info.size, info.align)
+            })
+            .collect()
+    });
+    let (text, statements, frame_vars) = lowerer.finish();
+    let (text, frame) = match (frame_vars, parts) {
+        (Some(vars), Some(parts)) => {
+            let layout = AreaLayout::new(parts);
+            let structure_name = format!("Fr{pou}");
+            let mut definition = String::new();
+            let locals = if vars.is_empty() {
+                "core::ptr::null()".to_string()
+            } else {
+                let fields: Vec<(String, String, u32)> = vars
+                    .iter()
+                    .zip(&layout.fields)
+                    .map(|(var, field)| (var.field.clone(), field.rust.clone(), field.offset))
+                    .collect();
+                structure(
+                    &mut definition,
+                    &structure_name,
+                    &fields,
+                    layout.size,
+                    false,
+                );
+                "(&fr as *const _ as *const u8)".to_string()
+            };
+            let instance = if of.instance.is_some() {
+                "(me as *const _ as *const u8)"
+            } else {
+                "core::ptr::null()"
+            };
+            let declaration = if vars.is_empty() {
+                String::new()
+            } else {
+                format!("    let fr: {structure_name} = <{structure_name} as Plain>::ZEROED;\n")
+            };
+            let returns = &of.returns;
+            let text = format!(
+                "{declaration}    let link = abi::Frame {{ caller: cx.frame, pou: {pou}, call_stmt: cx.stmt, locals: {locals}, instance: {instance} }};\n    cx.frame = &link;\n    let result = (|| -> R<{returns}> {{\n{text}    }})();\n    cx.frame = link.caller;\n    result\n"
+            );
+            let offsets = vars
+                .into_iter()
+                .zip(layout.fields.iter().map(|field| field.offset))
+                .collect();
+            let frame = PouFrame {
+                id: pou,
+                name: of.name,
+                instance: of.instance,
+                vars: offsets,
+                size: layout.size,
+            };
+            (text, Some((frame, definition)))
+        }
+        _ => (text, None),
+    };
     (
         format!("{attribute}{signature}{text}}}\n\n"),
         statements,
         needs,
         name,
         called,
+        frame,
     )
 }
 

@@ -285,6 +285,19 @@ package "trust-runtime-services\nrunner/ (a device's hold)" as chipHold #PaleGre
     chipRunner --> chipShell : serve, idle, feed, wait
     chipShell --> sharedDispatch : prepare_line_within():\nstatus, health, pause, resume,\nshutdown while held
     sharedDispatch --> debugRequests : debug operations on a chip\n(specification 11 §6.13.3)
+
+    ' A compiled program (specification 44 §13.2): the module calls the kernel's stop at an armed
+    ' statement; the cycle asks the same debugger and holds with the held scan's memory.
+    component "trust-plc-abi kernel/stops.rs\nstop_to_sink(): the stop goes to the\nsink behind Cx.kernel; the Frame chain,\nthe areas and frames as cells" as kernelStops
+    component "trust-runtime-core native/stop.rs\nStop: statement, depth, frames;\nHeldScan hands it to ScanHooks::on_stop" as kernelStop
+    component "runner/compiled.rs + compiled/debug.rs\narm the statements before each scan\n(breakpoint starts or every one),\non_stop: at_statement, hold_compiled,\nLive Values at HoldEnd, re-arm" as compiledDebug
+    component "debug/compiled.rs\ndebug.stack, debug.scopes, debug.variables\nthrough the symbol table (ProgramMemory)" as compiledReads
+
+    kernelStops --> kernelStop : stop(cx, stmt)
+    kernelStop --> compiledDebug : on_stop(Stop)
+    compiledDebug --> chipDebug : at_statement(), stop_points()
+    compiledDebug --> holdPass : hold_compiled() until the\ndebugger releases the scan
+    debugRequests --> compiledReads : a compiled program's\nstack, scopes, variables
 }
 
 note right of holdPass

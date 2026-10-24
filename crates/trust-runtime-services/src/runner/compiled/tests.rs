@@ -14,8 +14,8 @@ use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 
 use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
-use trust_plc_abi::module::{fault, run};
-use trust_plc_abi::{Cx, FaultCode, AREA_INSTANCES};
+use trust_plc_abi::module::{fault, run, stmt};
+use trust_plc_abi::{Cx, FaultCode, Frame, KernelApi, AREA_INSTANCES};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::FlatImages;
@@ -25,8 +25,10 @@ use trust_runtime_core::native::image::{
     IoBindRecord, MemoryFigure, RetainRecord, SectionId, StmtRecord, StringPool, SymbolRecord,
     Target, TaskRecord, TypeRecord, AREA_HAS_INIT, NONE, SYMBOL_PROGRAM,
 };
+use trust_runtime_core::native::memory::{read_place, symbol_place};
 use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
+use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::{Duration, Value};
@@ -36,7 +38,9 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 use super::CompiledCycle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::runner::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
+use crate::runner::debugger::{Boundary, StatementStart, StopPoints};
 use crate::runner::engine::{CycleSettings, ProcessIo};
+use crate::runner::hold::{CompiledHeld, HeldView, HoldHandle, HoldPass};
 use crate::status::IoDriverStatus;
 
 const MS: i64 = 1_000_000;
@@ -71,7 +75,32 @@ entry!(dividing_by_zero, |cx, _| Err(fault(
 
 entry!(nothing, |_, _| Ok(()));
 
-/// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing.
+// The counting body of a debug image: it links its frame, as a POU of a debug image does
+// (specification 44 §8.2, §13.2), and calls the statement hook before each of its two statements,
+// ids 0 and 1.
+entry!(stopping, |cx, areas| {
+    let view: &[Cell<u8>; 8] = areas.view(cx, AREA_INSTANCES)?;
+    let link = Frame {
+        caller: cx.frame,
+        pou: 0,
+        call_stmt: cx.stmt,
+        locals: core::ptr::null(),
+        instance: view.as_ptr().cast::<u8>(),
+    };
+    cx.frame = &raw const link;
+    let result = (|| {
+        stmt(cx, 0)?;
+        view[0].set(view[0].get().wrapping_add(1));
+        stmt(cx, 1)?;
+        view[1].set(view[0].get() & 1);
+        Ok(())
+    })();
+    cx.frame = link.caller;
+    result
+});
+
+/// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 counts as
+/// a debug image does.
 struct StandIn;
 
 impl ModuleCode for StandIn {
@@ -80,6 +109,7 @@ impl ModuleCode for StandIn {
             0 => Some(Entry::from_fn(counting)),
             16 => Some(Entry::from_fn(dividing_by_zero)),
             32 => Some(Entry::from_fn(nothing)),
+            48 => Some(Entry::from_fn(stopping)),
             _ => None,
         }
     }
@@ -87,6 +117,13 @@ impl ModuleCode for StandIn {
 
 /// The image of `MAIN` whose body is at code offset `body`.
 fn image(body: u32) -> Vec<u8> {
+    image_of(body, false)
+}
+
+/// The image of `MAIN` whose body is at code offset `body`; a `debug` image has the statement table
+/// of the debug body's two statements, on lines 1 and 2 of `main.st`, and the POU symbol `@MAIN`
+/// (specification 44 §5.7, §5.9).
+fn image_of(body: u32, debug: bool) -> Vec<u8> {
     let mut strings = StringPool::new();
     let fast = strings.add("Fast");
     let mut writer = ImageWriter::new(
@@ -144,21 +181,24 @@ fn image(body: u32) -> Vec<u8> {
         }],
         &0u32.to_le_bytes(),
     );
-    name_tables(&mut writer, &mut strings);
+    name_tables(&mut writer, &mut strings, debug);
     writer.section(SectionId::Strings, strings.into_bytes());
     writer.finish().expect("the image builds")
 }
 
 /// The image's binding of `MAIN.OUT` to `%QX0.1`, its symbols, its one type, its file and its
 /// memory figure: areas 72, stack 64 and bookkeeping 24 bytes, 160 in all.
-fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool) {
+fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool, debug: bool) {
+    let pou = strings.add("@MAIN");
     let main = strings.add("MAIN");
     let count = strings.add("MAIN.COUNT");
     let out = strings.add("MAIN.OUT");
     let label = strings.add("main.st");
+    // A debug image's POU symbol `@MAIN` sorts first and moves the others one on.
+    let first = u32::from(debug);
     writer.table(
         &[IoBindRecord {
-            symbol: 2,
+            symbol: first + 2,
             area: 2,
             size: 0,
             byte: 0,
@@ -178,18 +218,25 @@ fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool) {
         parent,
         pou: NONE,
     };
-    writer.table(
-        &[
-            // The program root carries the instance's number, 0 (specification 44 §5.7).
-            SymbolRecord {
-                pou: 0,
-                ..symbol(main, 0, 8, SYMBOL_PROGRAM, NONE)
-            },
-            symbol(count, 0, 1, 0, 0),
-            symbol(out, 1, 1, 0, 0),
-        ],
-        &[],
-    );
+    let mut symbols = Vec::new();
+    if debug {
+        symbols.push(SymbolRecord {
+            area: 0,
+            size: 0,
+            pou: 0,
+            ..symbol(pou, 0, 0, 0, NONE)
+        });
+    }
+    symbols.extend([
+        // The program root carries the instance's number, 0 (specification 44 §5.7).
+        SymbolRecord {
+            pou: 0,
+            ..symbol(main, 0, 8, SYMBOL_PROGRAM, NONE)
+        },
+        symbol(count, 0, 1, 0, first),
+        symbol(out, 1, 1, 0, first),
+    ]);
+    writer.table(&symbols, &[]);
     writer.table(
         &[TypeRecord {
             kind: type_kind::USINT,
@@ -201,7 +248,19 @@ fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool) {
         }],
         &[],
     );
-    writer.table::<StmtRecord>(&[], &[]);
+    let statement = |line| StmtRecord {
+        file: 0,
+        pou: 0,
+        start_line: line,
+        start_column: 1,
+        end_line: line,
+        end_column: 20,
+    };
+    if debug {
+        writer.table(&[statement(1), statement(2)], &[]);
+    } else {
+        writer.table::<StmtRecord>(&[], &[]);
+    }
     writer.table::<RetainRecord>(&[], &[]);
     writer.table(
         &[FileRecord {
@@ -297,6 +356,15 @@ fn cycle(
     bytes: &[u8],
     safe_outputs: Vec<(IoAddress, Value)>,
 ) -> (Cycle<'_>, Rc<RefCell<Driven>>, Rc<Cell<u64>>) {
+    cycle_with(bytes, safe_outputs, &WITHOUT_DEBUGGER)
+}
+
+/// The cycle of the image `bytes`, started, its program calling the kernel functions `api`.
+fn cycle_with<'b>(
+    bytes: &'b [u8],
+    safe_outputs: Vec<(IoAddress, Value)>,
+    api: &'static KernelApi,
+) -> (Cycle<'b>, Rc<RefCell<Driven>>, Rc<Cell<u64>>) {
     let device = Device {
         target: Target::this_cpu().unwrap_or(Target::X86_64),
         program_memory: 1_000,
@@ -304,8 +372,8 @@ fn cycle(
         max_statements: 1_000,
     };
     let admitted = admit(bytes, &device).expect("the image is admitted");
-    let program = NativeProgram::new(admitted, StandIn, &device, &WITHOUT_DEBUGGER)
-        .expect("the program is built");
+    let program =
+        NativeProgram::new(admitted, StandIn, &device, api).expect("the program is built");
     let driven = Rc::new(RefCell::new(Driven::default()));
     let time = Rc::new(Cell::new(0));
     let cycle = CompiledCycle::start(
@@ -792,4 +860,190 @@ fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
         cycle.step(&request, Duration::ZERO, None),
         Err(StepRefusal::name("NOPE", "names no program instance"))
     );
+}
+
+/// A hold that holds at every stop it is asked about, reads `MAIN.COUNT` through the held memory,
+/// and arms the statements `points` names; with debugging off it arms nothing.
+struct FakeHold {
+    enabled: bool,
+    points: StopPoints,
+    stops: RefCell<Vec<(u32, (u32, u32))>>,
+    read: RefCell<Vec<Value>>,
+}
+
+impl FakeHold {
+    fn new(enabled: bool, points: StopPoints) -> Rc<Self> {
+        Rc::new(Self {
+            enabled,
+            points,
+            stops: RefCell::new(Vec::new()),
+            read: RefCell::new(Vec::new()),
+        })
+    }
+}
+
+impl HoldPass for FakeHold {
+    fn scan_begins(&self) -> bool {
+        self.enabled
+    }
+
+    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
+        self.stops.borrow_mut().push((at.depth, at.span.start));
+        Ok(Boundary::Hold)
+    }
+
+    fn hold(&self, _at: &StatementStart<'_>, _view: &HeldView<'_>) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+
+    fn hold_compiled(
+        &self,
+        _at: &StatementStart<'_>,
+        view: &CompiledHeld<'_>,
+    ) -> Result<(), RuntimeError> {
+        let image = view.memory.image();
+        let (index, _) = image
+            .find_symbol("MAIN.COUNT")
+            .expect("MAIN.COUNT has a symbol");
+        let (place, type_index) = symbol_place(&image, index)?;
+        self.read
+            .borrow_mut()
+            .push(read_place(view.memory, place, type_index)?);
+        Ok(())
+    }
+
+    fn stop_points(&self) -> StopPoints {
+        self.points.clone()
+    }
+
+    fn cells_free(&self) -> bool {
+        true
+    }
+}
+
+/// An observer that writes `MAIN.COUNT` := 40 when a hold ends, as Live Values queued during the
+/// hold reach the program then, and counts the holds that ended.
+#[derive(Default)]
+struct WriteAtHoldEnd(u32);
+
+impl CycleHooks for WriteAtHoldEnd {
+    fn on_compiled_access(
+        &mut self,
+        point: CompiledAccessPoint,
+        _now: Duration,
+        variables: &mut dyn CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        if point == CompiledAccessPoint::HoldEnd {
+            self.0 += 1;
+            variables.write_named("MAIN.COUNT", &Value::USInt(40))?;
+        }
+        Ok(())
+    }
+}
+
+/// The started cycle of the debug body with `hold` attached, its program calling the kernel's
+/// functions, whose stop goes to the cycle.
+fn held_cycle<'b>(bytes: &'b [u8], hold: &Rc<FakeHold>) -> (Cycle<'b>, Rc<RefCell<Driven>>) {
+    let (mut cycle, driven, _) = cycle_with(bytes, Vec::new(), &KERNEL_FUNCTIONS);
+    let handle: Rc<dyn HoldPass> = Rc::clone(hold) as Rc<dyn HoldPass>;
+    cycle.attach_hold(HoldHandle(handle));
+    (cycle, driven)
+}
+
+#[test]
+fn a_compiled_scan_holds_at_its_breakpoint_with_the_held_memory() {
+    // Specification 44 §13.2, worked by hand: the breakpoint on line 2 of `main.st` arms statement
+    // 1 alone. The task is not due at 0 ms; at 10 ms the body counts 5 to 6 at statement 0 and stops
+    // at statement 1, at call depth 1 (its own frame): the hold reads `MAIN.COUNT` = 6 through the
+    // held memory. When the hold ends the observer writes `MAIN.COUNT` := 40, which statement 1
+    // then sees: `MAIN.OUT` = 40 & 1 = 0, so `%QX0.1` stays clear, and the count is 40. Catches a
+    // stop at an unarmed statement, a depth without the frame, a hold that reads another state
+    // than the held one, and Live Values that reach the program after the statement ran.
+    let bytes = image_of(48, true);
+    let hold = FakeHold::new(
+        true,
+        StopPoints {
+            every: false,
+            starts: vec![(0, (2, 1))],
+        },
+    );
+    let (mut cycle, driven) = held_cycle(&bytes, &hold);
+    let mut observer = WriteAtHoldEnd::default();
+    for time in [0, 10] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut observer)
+            .expect("the scan runs");
+    }
+    assert_eq!(*hold.stops.borrow(), [(1, (2, 1))]);
+    assert_eq!(*hold.read.borrow(), [Value::USInt(6)]);
+    assert_eq!(observer.0, 1);
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(40)));
+    assert_eq!(driven.borrow().outputs, [vec![0], vec![0]]);
+}
+
+#[test]
+fn a_pause_or_a_step_stops_at_every_statement() {
+    // Specification 44 §13.2: while a pause waits or a step runs, every statement stops. At 10 ms
+    // statement 0 stops with the count 5 and statement 1 with 6, both at depth 1 on lines 1 and 2.
+    // Catches a pause that arms only the breakpoints' statements.
+    let bytes = image_of(48, true);
+    let hold = FakeHold::new(
+        true,
+        StopPoints {
+            every: true,
+            starts: Vec::new(),
+        },
+    );
+    let (mut cycle, _) = held_cycle(&bytes, &hold);
+    let mut phases = Phases::default();
+    for time in [0, 10] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut phases)
+            .expect("the scan runs");
+    }
+    assert_eq!(*hold.stops.borrow(), [(1, (1, 1)), (1, (2, 1))]);
+    assert_eq!(*hold.read.borrow(), [Value::USInt(5), Value::USInt(6)]);
+}
+
+#[test]
+fn a_scan_the_platform_does_not_debug_never_stops() {
+    // Specification 11 §6.9: with debugging off no statement stops, whatever the debugger holds
+    // armed, and the body counts 5 to 6. Catches stops while debugging is disabled.
+    let bytes = image_of(48, true);
+    let hold = FakeHold::new(
+        false,
+        StopPoints {
+            every: true,
+            starts: Vec::new(),
+        },
+    );
+    let (mut cycle, _) = held_cycle(&bytes, &hold);
+    let mut phases = Phases::default();
+    for time in [0, 10] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut phases)
+            .expect("the scan runs");
+    }
+    assert!(hold.stops.borrow().is_empty());
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(6)));
+}
+
+#[test]
+fn the_sources_of_a_debug_image_place_a_breakpoint_by_its_statement_table() {
+    // Specification 44 §13.1: a breakpoint on line 2 of `main.st` resolves to the statement that
+    // starts there, as the interpreter's resolver resolves it on `LINE_TABLE`; the program's view
+    // carries the sources once the loop attached its hold. Catches a view without sources and a
+    // table built in another order.
+    let bytes = image_of(48, true);
+    let hold = FakeHold::new(true, StopPoints::default());
+    let (cycle, _) = held_cycle(&bytes, &hold);
+    let view = cycle.compiled_view().expect("the cycle has a debugger");
+    assert!(!view.release);
+    let sources = view.sources.expect("a debug image has sources");
+    assert_eq!(sources.label(0), Some("main.st"));
+    let resolved = sources
+        .resolve_breakpoint(0, 2, 1)
+        .expect("line 2 has a statement");
+    assert_eq!((resolved.line, resolved.column), (2, 1));
+    assert_eq!(resolved.code_offset, 1);
 }

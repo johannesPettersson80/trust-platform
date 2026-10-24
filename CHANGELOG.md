@@ -105,6 +105,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   its width (IEC 61131-3 §6.3.2, Table 5): `DWORD := 4294967295` and
   `LWORD := 16#FFFF_FFFF_FFFF_FFFF` compile, `BYTE := 256` is refused. Before, a bit string took
   the `DINT` range and a typed `LWORD` literal above `LINT` was refused.
+- Added: the debugger of compiled programs (specification 44 §13.2). A debug image names its POUs
+  and their frame variables in its symbol table and links each call's frame into the kernel's
+  context, so a breakpoint set by line (`breakpoints.set`, resolved through the image's statement
+  table as `LINE_TABLE` resolves it), a pause and `step_in`, `step_over` and `step_out` hold the
+  scan at the statement, and `debug.stack`, `debug.scopes` and `debug.variables` show the call
+  stack and the variables of the held scan: each frame's instance and frame variables, the
+  globals, the retained variables and the instances, through the shared request service on a chip
+  and a computer alike. Live Values queued while the scan is held reach it when the hold ends. A
+  release image refuses the debugger with `the program was built without debug hooks ([build]
+  debug = false)`. The kernel interface is version 4, so a chip's firmware and its programs are
+  updated together.
 - Added: Live Values reach compiled programs as they reach interpreted ones: `set` and `var.force`
   of a variable by its name, its retain key or its instance, applied at the cycle start and a force
   held every scan until `var.unforce`; `io.write` and `io.force` of the input and marker images

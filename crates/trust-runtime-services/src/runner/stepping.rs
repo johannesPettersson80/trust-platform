@@ -89,7 +89,17 @@ impl<'p, Y, C> LentProgram<'p, Y, C> {
     }
 }
 
-impl<Y: ResourceCycle, C: MonotonicClock> LentProgram<'_, Y, C> {
+impl<'p, Y: ResourceCycle, C: MonotonicClock> LentProgram<'p, Y, C> {
+    /// The program, lent shared to a debug read for the rest of the request.
+    fn lend_shared(&self) -> Option<&'p Program<Y>> {
+        if let Some(program) = self.shared.get() {
+            return Some(*program);
+        }
+        let program = self.program.try_borrow_mut().ok()?.take()?;
+        let _ = self.shared.set(program);
+        self.shared.get().copied()
+    }
+
     /// `read` of the program, whether a debug read borrows it or not; none while a step runs it.
     fn read<R>(&self, read: impl FnOnce(&Program<Y>) -> R) -> Option<R> {
         if let Some(program) = self.shared.get() {
@@ -154,11 +164,12 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
     /// The program's state for the debug read the request makes: the program is borrowed for the
     /// rest of the request.
     fn debug_state(&self) -> Option<DebugView<'_>> {
-        if self.shared.get().is_none() {
-            let program = self.program.try_borrow_mut().ok()?.take()?;
-            let _ = self.shared.set(program);
-        }
-        self.shared.get()?.debug_view()
+        self.lend_shared()?.debug_view()
+    }
+
+    #[cfg(feature = "native")]
+    fn compiled_state(&self) -> Option<super::cycle::CompiledView<'_>> {
+        self.lend_shared()?.compiled_view()
     }
 }
 

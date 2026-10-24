@@ -101,7 +101,7 @@ pub(super) struct AreaLayout {
 }
 
 impl AreaLayout {
-    fn new(parts: Vec<(SmolStr, String, u32, u32)>) -> Self {
+    pub(super) fn new(parts: Vec<(SmolStr, String, u32, u32)>) -> Self {
         let mut offset = 0u32;
         let mut align = 1u32;
         let mut fields = Vec::with_capacity(parts.len());

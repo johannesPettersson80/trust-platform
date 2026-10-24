@@ -18,8 +18,6 @@ use crate::harness::{lower_application_and_frontend, LoweredApplication, SourceF
 pub(super) struct Source {
     /// The file's label: its path, or `file_<n>` without one.
     pub(super) label: String,
-    /// The text.
-    pub(super) text: String,
     /// The syntax tree.
     pub(super) root: SyntaxNode,
     /// What type checking learned of the file's expressions.
@@ -29,20 +27,19 @@ pub(super) struct Source {
 }
 
 impl Source {
-    /// The 1-based line and column of byte `offset`.
+    /// The 1-based line and byte column of byte `offset`, as `LINE_TABLE` counts them
+    /// (specification 12 §6.13), so that one resolver answers alike for both (specification 44
+    /// §13.1).
     pub(super) fn position(&self, offset: u32) -> (u32, u32) {
         let line = match self.line_starts.binary_search(&offset) {
             Ok(line) => line,
             Err(next) => next.saturating_sub(1),
         };
         let start = self.line_starts.get(line).copied().unwrap_or(0);
-        let column = self
-            .text
-            .get(start as usize..offset as usize)
-            .map_or(0, |prefix| prefix.chars().count());
+        let column = offset.saturating_sub(start);
         (
             u32::try_from(line + 1).unwrap_or(u32::MAX),
-            u32::try_from(column + 1).unwrap_or(u32::MAX),
+            column.saturating_add(1),
         )
     }
 
@@ -147,7 +144,6 @@ impl Front {
                     .path
                     .clone()
                     .unwrap_or_else(|| format!("file_{index}")),
-                text: source.text.clone(),
                 root: root.clone(),
                 analysis: database.analyze(*file_id),
                 line_starts,

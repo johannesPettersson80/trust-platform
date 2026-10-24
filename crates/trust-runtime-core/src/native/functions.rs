@@ -2,7 +2,7 @@
 //! real a text spells with the runtime's own reader, so that `STRING_TO_REAL` gives what it gives
 //! in the bytecode engine, on every device.
 
-use trust_plc_abi::kernel::{read_real, without_debugger, RealReader};
+use trust_plc_abi::kernel::{read_real, with_debugger, RealReader};
 use trust_plc_abi::{FaultCode, KernelApi};
 
 /// The runtime's reader of reals (specification 07 §2.8).
@@ -17,6 +17,7 @@ impl RealReader for RuntimeReals {
     }
 }
 
-/// The functions of a kernel without a debugger (specification 44 §8.2, §13): a stop continues at
-/// once, no write is queued, and a text reads as the runtime reads it.
-pub static KERNEL_FUNCTIONS: KernelApi = without_debugger(read_real::<RuntimeReals>);
+/// The functions of the kernel (specification 44 §8.2, §13): a stop goes to the debugger of the
+/// call, when the program's cycle gave it one, no write is queued, and a text reads as the
+/// runtime reads it.
+pub static KERNEL_FUNCTIONS: KernelApi = with_debugger(read_real::<RuntimeReals>);

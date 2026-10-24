@@ -28,7 +28,6 @@ use core::convert::Infallible;
 use trust_runtime_core::debug::StatementSpan;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::FrameId;
-use trust_runtime_core::vm::StatementFrame;
 
 use crate::debug::projection::{DebugVariableHandles, CHIP_HANDLE_BOUND};
 use crate::debug::{
@@ -52,8 +51,23 @@ pub(super) struct StatementStart<'a> {
     pub(super) depth: u32,
     /// The statement's file and its half-open source span.
     pub(super) span: StatementSpan,
-    /// The frame that runs the statement, with the frames suspended below it.
-    pub(super) frame: StatementFrame<'a>,
+    /// The identity of the frame that runs the statement: the interpreter's activation, or a
+    /// compiled program's frame by its call depth; `None` for a statement of no frame.
+    pub(super) frame: Option<FrameId>,
+    /// Ties the start to the hook call it was made in.
+    pub(super) call: core::marker::PhantomData<&'a ()>,
+}
+
+/// What the statements of a compiled program's scan stop for (specification 44 §13.2): every
+/// statement while a pause waits or a step runs, otherwise the starts of the breakpoints, each by
+/// its file and its position.
+#[cfg(feature = "native")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct StopPoints {
+    /// Every statement stops.
+    pub(super) every: bool,
+    /// The file and the start of each breakpoint's statement.
+    pub(super) starts: Vec<(u32, Position)>,
 }
 
 /// What the hook does at a statement start.
@@ -237,6 +251,30 @@ impl ChipDebug {
     pub(super) fn is_held(&self) -> bool {
         self.with(|state| state.run.control().is_held())
             .unwrap_or(false)
+    }
+
+    /// What the statements of a compiled program's next stretch of scan stop for (specification 44
+    /// §13.2): nothing once a stop request ended the holds.
+    #[cfg(feature = "native")]
+    pub(super) fn stop_points(&self) -> StopPoints {
+        self.with(|state| {
+            let held = {
+                let control = state.run.control();
+                if control.stop_requested() {
+                    return StopPoints::default();
+                }
+                control.is_held()
+            };
+            StopPoints {
+                every: held || !state.run.steps.is_empty(),
+                starts: state
+                    .breakpoints
+                    .iter()
+                    .map(|breakpoint| (breakpoint.id.file_id, breakpoint.id.span.start))
+                    .collect(),
+            }
+        })
+        .unwrap_or_default()
     }
 
     /// Whether a step is accepted now: only while the debugger holds the scan (specification 11
@@ -515,7 +553,7 @@ fn record_stop(
 /// location at each statement boundary (specification 13, "Runtime Debug-Control Execution"). The
 /// list keeps its capacity, so a statement allocates nothing once the stack has been that deep.
 fn bind_frame_location(locations: &mut Vec<FrameStop>, at: &StatementStart<'_>) {
-    let Some(frame) = at.frame.activation() else {
+    let Some(frame) = at.frame else {
         return;
     };
     while locations.last().is_some_and(|stop| stop.depth >= at.depth) {

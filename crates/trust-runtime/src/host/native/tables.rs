@@ -3,7 +3,7 @@
 
 use smol_str::SmolStr;
 
-use super::emit::Generated;
+use super::emit::{Generated, PouFrame, PouInstance};
 use super::front::{first_token_start, last_token_end, Front, StatementIds};
 use super::init::StartingMemory;
 use super::model::Model;
@@ -51,6 +51,8 @@ struct Variable {
     offset: u32,
     flags: u8,
     parent: Option<String>,
+    /// The POU that declares a frame variable (§5.7), [`NONE`] for any other variable.
+    pou: u32,
 }
 
 impl Symbols<'_, '_> {
@@ -84,6 +86,7 @@ impl Symbols<'_, '_> {
                 offset: variable.offset + member.offset,
                 flags: (variable.flags & SYMBOL_RETAINED) | member.flags,
                 parent: Some(variable.canonical.clone()),
+                pou: variable.pou,
             });
         }
         self.pending.push(Pending {
@@ -95,7 +98,7 @@ impl Symbols<'_, '_> {
             offset: variable.offset,
             size: info.size,
             parent: variable.parent,
-            pou: NONE,
+            pou: variable.pou,
         });
     }
 
@@ -135,6 +138,7 @@ impl Symbols<'_, '_> {
                 offset,
                 flags,
                 parent: None,
+                pou: NONE,
             });
         }
         let type_count = u32::try_from(self.model.types.all().count()).unwrap_or(u32::MAX);
@@ -192,6 +196,7 @@ impl Symbols<'_, '_> {
                 offset: p_offset + member.offset,
                 flags: member.flags,
                 parent: Some(canonical.clone()),
+                pou: NONE,
             });
         }
         for member in retained {
@@ -203,7 +208,50 @@ impl Symbols<'_, '_> {
                 offset: r_offset + member.offset,
                 flags: member.flags | SYMBOL_RETAINED,
                 parent: Some(canonical.clone()),
+                pou: NONE,
             });
+        }
+    }
+}
+
+impl Symbols<'_, '_> {
+    /// A debug image's POU symbols, each named `@` and the POU's canonical name, and the variables
+    /// of each POU's frame, at their offsets in the frame (§5.7, §13.2).
+    fn pous(&mut self, pous: &[PouFrame]) {
+        let type_count = u32::try_from(self.model.types.all().count()).unwrap_or(u32::MAX);
+        for pou in pous {
+            let canonical = format!("@{}", pou.name.to_ascii_uppercase());
+            let type_index = match pou.instance {
+                Some(PouInstance::Program(index)) => {
+                    type_count.saturating_add(u32::try_from(index).unwrap_or(u32::MAX))
+                }
+                Some(PouInstance::Block(ty)) => ty.0,
+                None => NONE,
+            };
+            let id = u32::from(pou.id);
+            self.pending.push(Pending {
+                canonical: canonical.clone(),
+                display: pou.name.clone(),
+                type_index,
+                area: 0,
+                flags: 0,
+                offset: 0,
+                size: pou.size,
+                parent: None,
+                pou: id,
+            });
+            for (var, offset) in &pou.vars {
+                self.add(Variable {
+                    canonical: format!("{canonical}.{}", var.name.to_ascii_uppercase()),
+                    display: format!("{}.{}", pou.name, var.name),
+                    ty: var.ty,
+                    area: abi::AREA_STACK,
+                    offset: *offset,
+                    flags: 0,
+                    parent: Some(canonical.clone()),
+                    pou: id,
+                });
+            }
         }
     }
 }
@@ -307,12 +355,18 @@ fn areas(
 
 /// The symbol table, sorted by canonical name, and the retain map in the order of specification 11
 /// §6.7 (specification 44 §5.10).
-fn symbols(writer: &mut ImageWriter, pool: &mut StringPool, model: &mut Model<'_>) -> Sorted {
+fn symbols(
+    writer: &mut ImageWriter,
+    pool: &mut StringPool,
+    model: &mut Model<'_>,
+    pous: &[PouFrame],
+) -> Sorted {
     let mut symbols = Symbols {
         model,
         pending: Vec::new(),
     };
     symbols.collect();
+    symbols.pous(pous);
     let Symbols { mut pending, .. } = symbols;
     pending.sort_by(|a, b| a.canonical.cmp(&b.canonical));
     pending.dedup_by(|a, b| a.canonical == b.canonical);
@@ -616,7 +670,7 @@ pub(super) fn write(
     let mut pool = StringPool::new();
     entries(writer, inputs)?;
     let (area_records, init_bytes) = areas(writer, model, inputs.memory);
-    let sorted = symbols(writer, &mut pool, model);
+    let sorted = symbols(writer, &mut pool, model, &inputs.generated.pous);
     bindings(writer, model, &sorted)?;
     tasks(writer, &mut pool, model, inputs, &sorted);
     types(writer, &mut pool, model);

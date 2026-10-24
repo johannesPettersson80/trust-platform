@@ -31,6 +31,7 @@ use trust_runtime_core::io_image::{write_flat_image, FlatImages};
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::image::BACKGROUND_PRIORITY;
 use trust_runtime_core::native::program::{ModuleCode, NativeProgram, NoHooks, ScanHooks};
+use trust_runtime_core::native::stop::Stop;
 use trust_runtime_core::native::variables::CompiledAccessPoint;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
@@ -38,8 +39,9 @@ use trust_runtime_core::value::Duration;
 use trust_runtime_core::vm::{CycleHooks, CyclePhase, MemoryFigure, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
-use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
+use super::cycle::{CompiledView, ResourceCycle, RetainSource, TaskDescriptor};
 use super::engine::{CycleSettings, ProcessIo};
+use super::hold::HoldHandle;
 use super::retain::{RetainConfig, RetainStore};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::metrics::ProgramMemory;
@@ -72,6 +74,9 @@ pub struct CompiledCycle<'i, C, I, K> {
     retain: Option<RetainStore>,
     /// The logical time of the last scan, which a stop's checkpoint carries.
     now: Duration,
+    /// The debugger: the loop's hold, the statement table's sources and the armed statements
+    /// (specification 44 §13.2).
+    debug: debug::CompiledDebug,
 }
 
 impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I, K> {
@@ -88,6 +93,7 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
         clock: C,
     ) -> Result<Self, RuntimeError> {
         program.cold_start(Duration::ZERO)?;
+        let debug = debug::CompiledDebug::new(program.image());
         let mut tasks = Vec::new();
         let task_index = program
             .tasks()
@@ -117,6 +123,7 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
             last_allocations: None,
             retain: None,
             now: Duration::ZERO,
+            debug,
         })
     }
 
@@ -148,6 +155,31 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
     pub fn program(&self) -> &NativeProgram<'i, K> {
         &self.program
     }
+
+    /// Arms the program's statements for the scan that begins, as the debugger gives them while
+    /// the platform enables debugging, and publishes the I/O health a hold reports
+    /// (specification 44 §13.2). A scan that no debugger can hold arms nothing.
+    fn arm(&mut self) {
+        let debugging = self
+            .debug
+            .hold
+            .as_ref()
+            .is_some_and(HoldHandle::scan_begins);
+        if debugging {
+            self.debug.drivers.set(self.io.driver_health());
+        }
+        let points = self.debug.stop_points(debugging);
+        if self.debug.rearms(&points) {
+            let wanted = debug::CompiledDebug::wanted(self.program.image(), &points);
+            self.program.arm(points.every, &|id| {
+                usize::try_from(id)
+                    .ok()
+                    .and_then(|id| wanted.get(id))
+                    .copied()
+                    .unwrap_or(false)
+            });
+        }
+    }
 }
 
 impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledCycle<'_, C, I, K> {
@@ -167,10 +199,10 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         self.settings.fault_policy
     }
 
-    /// No debugger holds a compiled program's scan until its breakpoints come (specification 44
-    /// §13.2, milestone M3).
+    /// The debugger's holds, which are no active time (specification 11 §6.6; specification 44
+    /// §13.2).
     fn held_time(&self) -> TimeSpan {
-        TimeSpan::ZERO
+        self.debug.holds.held_at(|| self.clock.now())
     }
 
     fn allocator_operations(&self) -> Option<u32> {
@@ -213,6 +245,8 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
             return Err(fault.clone());
         }
         self.now = now;
+        self.arm();
+        let held_before = self.debug.holds.held_at(|| self.clock.now());
         observer.on_compiled_phase(CyclePhase::CycleStart, now, &self.images)?;
         observer.on_compiled_access(CompiledAccessPoint::CycleStart, now, &mut self.program)?;
         observer.on_compiled_phase(CyclePhase::BeforeInputSample, now, &self.images)?;
@@ -226,6 +260,8 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
             error: None,
             operations: self.operations,
             observer_operations: 0,
+            debug: &self.debug,
+            clock: &self.clock,
         };
         let before = self.operations.map(|operations| operations());
         let result = self.program.scan(now, &mut phases);
@@ -241,8 +277,14 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         }
         result?;
         // The scan's deadline is checked before anything is published, as the engine checks it
-        // before it publishes its outputs (specification 34 TIME-04).
-        if deadline.is_some_and(|deadline| self.clock.now() > deadline) {
+        // before it publishes its outputs (specification 34 TIME-04); the debugger's holds in the
+        // scan are no active time and move it (specification 11 §6.6).
+        let held = self
+            .debug
+            .holds
+            .held_at(|| self.clock.now())
+            .saturating_sub(held_before);
+        if deadline.is_some_and(|deadline| self.clock.now() > deadline.saturating_add(held)) {
             return Err(RuntimeError::ExecutionTimeout);
         }
         observer.on_compiled_access(CompiledAccessPoint::BeforeOutputs, now, &mut self.program)?;
@@ -436,6 +478,22 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
     fn io_drivers(&self) -> Vec<IoDriverStatus> {
         self.io.driver_health()
     }
+
+    /// The loop's hold, which the stops of a debug image's scans go to (specification 44 §13.2).
+    fn attach_hold(&mut self, hold: HoldHandle) {
+        self.debug.hold = Some(hold);
+    }
+
+    /// The program's memory between scans, with the sources of its statement table, once the loop
+    /// attached its debugger.
+    fn compiled_view(&self) -> Option<CompiledView<'_>> {
+        self.debug.hold.as_ref()?;
+        Some(CompiledView {
+            memory: &self.program,
+            sources: self.debug.sources.as_ref(),
+            release: self.debug.release,
+        })
+    }
 }
 
 /// The task phases of one scan, forwarded to the loop's observer with the image's task numbered as
@@ -450,6 +508,8 @@ struct TaskPhases<'h, 'o> {
     error: Option<RuntimeError>,
     operations: Option<fn() -> u32>,
     observer_operations: u32,
+    debug: &'h debug::CompiledDebug,
+    clock: &'h dyn MonotonicClock,
 }
 
 impl TaskPhases<'_, '_> {
@@ -487,8 +547,22 @@ impl ScanHooks for TaskPhases<'_, '_> {
     fn task_finished(&mut self, task: usize) {
         self.forward(task, CyclePhase::TaskEnd);
     }
+
+    /// A statement whose bit is set stops (specification 44 §13.2): the debugger decides there,
+    /// and holds the scan while the loop serves the link. The Live Values queued during a hold
+    /// reach the program when it ends, before the statement runs, as at a cycle start; the
+    /// statements are then armed as the debugger gives them for the rest of the scan.
+    fn on_stop(&mut self, stop: &mut Stop<'_>) -> Result<(), RuntimeError> {
+        if self.debug.at_stop(stop, self.clock)? {
+            self.observer
+                .on_compiled_access(CompiledAccessPoint::HoldEnd, self.now, stop)?;
+        }
+        self.debug.arm_stop(stop);
+        Ok(())
+    }
 }
 
+mod debug;
 #[cfg(test)]
 mod retain_tests;
 #[cfg(test)]

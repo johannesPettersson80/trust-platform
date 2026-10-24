@@ -294,13 +294,13 @@ fn a_stop_can_end_the_scan() {
     assert!(!reached.get());
 }
 
-/// A kernel of another interface version is refused before the body runs: a module of version 3
-/// (specification 44 §8.2) does not run in a kernel of version 2, whose context has no call depth,
-/// and the fault names both versions.
+/// A kernel of another interface version is refused before the body runs: a module of version 4
+/// (specification 44 §8.2) does not run in a kernel of version 3, whose context has no call
+/// frames, and the fault names both versions.
 #[test]
 fn another_interface_version_is_refused() {
     let mut cx = context();
-    cx.version = 2;
+    cx.version = 3;
     let ran = Cell::new(false);
     let result = run(&raw mut cx, |_, _| {
         ran.set(true);
@@ -308,7 +308,7 @@ fn another_interface_version_is_refused() {
     });
     assert_eq!(result, FaultCode::ModuleInternal as u32);
     assert!(!ran.get());
-    assert_eq!(cx.fault.detail[..2], [2, 3]);
+    assert_eq!(cx.fault.detail[..2], [3, 4]);
 }
 
 /// The other areas are untouched: an area id outside 1 to 7 is refused.

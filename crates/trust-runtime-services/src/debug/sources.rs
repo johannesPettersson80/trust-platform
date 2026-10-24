@@ -71,6 +71,45 @@ impl LineSources {
         Ok(Some(Self { table, labels }))
     }
 
+    /// The sources of a compiled program's image (specification 44 §5.9, §13.1): its statement
+    /// table, each statement's id standing for its code offset, and the labels of its files, so
+    /// that a breakpoint resolves as it resolves on the interpreter's `LINE_TABLE`. The ids are in
+    /// source order, so a statement comes before the statements nested in it, as `LINE_TABLE`
+    /// orders them.
+    #[cfg(feature = "native")]
+    #[must_use]
+    pub fn from_image(image: &trust_runtime_core::native::image::Image<'_>) -> Self {
+        use trust_runtime_core::bytecode::{LineFile, LineStatement};
+        use trust_runtime_core::native::image::{FileRecord, StmtRecord};
+        let mut labels = Vec::new();
+        let mut files = Vec::new();
+        if let Ok(records) = image.table::<FileRecord>() {
+            for (index, file) in (0u32..).zip(records.iter()) {
+                labels.push(SmolStr::new(image.string(file.label).unwrap_or("")));
+                files.push(LineFile { path_idx: index });
+            }
+        }
+        let mut statements = Vec::new();
+        if let Ok(records) = image.table::<StmtRecord>() {
+            for (id, statement) in (0u32..).zip(records.iter()) {
+                statements.push(LineStatement {
+                    pou_id: u32::from(statement.pou),
+                    start_code_offset: id,
+                    end_code_offset: id.saturating_add(1),
+                    file_index: u32::from(statement.file),
+                    start_line: statement.start_line,
+                    start_column: u32::from(statement.start_column),
+                    end_line: statement.end_line,
+                    end_column: u32::from(statement.end_column),
+                });
+            }
+        }
+        Self {
+            table: LineTable { files, statements },
+            labels,
+        }
+    }
+
     /// The label of file `file_index`: its source path relative to the project root with `/`
     /// separators, or the fallback label `file_<file_id>` (specification 12 §6.13 and §7.5.1.4).
     #[must_use]

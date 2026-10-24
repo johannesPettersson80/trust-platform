@@ -33,7 +33,7 @@ pub use strings::{Str, StrView, WStr, WStrView};
 
 /// The version of this interface. A module carries the version it was built against in its image's
 /// header, and a kernel runs only a module of its own version (specification 44 §8.2, §10.2).
-pub const INTERFACE_VERSION: u32 = 3;
+pub const INTERFACE_VERSION: u32 = 4;
 
 /// The id of the input area, `%I` (specification 44 §7.1).
 pub const AREA_INPUTS: u8 = 1;
@@ -141,8 +141,29 @@ pub struct Cx {
     pub api: *const KernelApi,
     /// The kernel's own pointer, which only its functions read.
     pub kernel: *mut core::ffi::c_void,
+    /// The innermost call frame of a debug image, which each POU links on entry and unlinks on
+    /// return; null in a release image and outside any POU (specification 44 §13.2).
+    pub frame: *const Frame,
     /// The fault that ended the call, which the module writes before it returns the fault's code.
     pub fault: FaultRecord,
+}
+
+/// One call of a POU in a debug image, linked into [`Cx::frame`] for the length of the call
+/// (specification 44 §8.2, §13.2): the kernel's `stop` reads the chain for the call depth of a
+/// step, the call stack and where each frame's variables lie.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Frame {
+    /// The frame of the POU that made the call; null for a body the kernel called.
+    pub caller: *const Frame,
+    /// The POU's id, which its POU symbol and its statements carry (specification 44 §5.7, §5.9).
+    pub pou: u32,
+    /// The caller's statement that made the call.
+    pub call_stmt: u32,
+    /// The POU's frame variables, at the offsets of their symbols; null for a POU without any.
+    pub locals: *const u8,
+    /// The instance the POU runs on; null for a function.
+    pub instance: *const u8,
 }
 
 #[cfg(test)]

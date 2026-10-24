@@ -110,6 +110,20 @@ pub(super) struct Lowerer<'m, 'a> {
     /// The control variables of the enclosing `FOR` loops that a release image holds in Rust
     /// locals: each one's place and the local's name (specification 44 §6.6).
     held: Vec<(String, String)>,
+    /// The POU's id, which its statements and its frame carry (specification 44 §5.7, §5.9).
+    pub(super) pou: u16,
+    /// A debug image's frame variables, which lie in one structure `fr` at the offsets their
+    /// symbols name (specification 44 §5.7, §13.2); `None` in a release image, whose frame
+    /// variables are Rust locals.
+    pub(super) frame_vars: Option<Vec<FrameVar>>,
+}
+
+/// A variable of a debug image's frame structure: its declared name, its field and its type.
+#[derive(Clone, Debug)]
+pub(super) struct FrameVar {
+    pub(super) name: SmolStr,
+    pub(super) field: String,
+    pub(super) ty: Ty,
 }
 
 /// A POU a body calls.
@@ -165,12 +179,14 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             called: BTreeSet::new(),
             recursive: BTreeSet::new(),
             held: Vec::new(),
+            pou: u16::MAX,
+            frame_vars: hooks.then(Vec::new),
         }
     }
 
-    /// The Rust written so far.
-    pub(super) fn finish(self) -> (String, Vec<u32>) {
-        (self.out, self.statements)
+    /// The Rust written so far, the body's statements and a debug image's frame variables.
+    pub(super) fn finish(self) -> (String, Vec<u32>, Option<Vec<FrameVar>>) {
+        (self.out, self.statements, self.frame_vars)
     }
 
     /// Writes one line at the current indentation.
@@ -219,11 +235,23 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     /// Declares a local of the frame at its type's zero value; `frame_init` gives it its starting
     /// value.
     pub(super) fn declare(&mut self, name: &SmolStr, ty: Ty) -> String {
-        let rust = rust_field(name);
-        let storage = self.info(ty).rust.clone();
-        self.line(&format!(
-            "let {rust}: {storage} = <{storage} as Plain>::ZEROED;"
-        ));
+        let field = rust_field(name);
+        let rust = if let Some(vars) = self.frame_vars.as_mut() {
+            // A debug image lays its frame variables out in one structure, which the kernel reads
+            // at a stop (specification 44 §13.2).
+            vars.push(FrameVar {
+                name: name.clone(),
+                field: field.clone(),
+                ty,
+            });
+            format!("fr.{field}")
+        } else {
+            let storage = self.info(ty).rust.clone();
+            self.line(&format!(
+                "let {field}: {storage} = <{storage} as Plain>::ZEROED;"
+            ));
+            field
+        };
         self.locals.push(Local {
             name: name.clone(),
             rust: rust.clone(),

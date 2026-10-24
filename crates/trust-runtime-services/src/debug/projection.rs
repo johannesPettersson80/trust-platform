@@ -110,6 +110,30 @@ pub enum VariableHandle {
     IoOutputs,
     /// The memory area.
     IoMemory,
+    /// The locals of frame `frame` of a compiled program's held call stack, innermost first: the
+    /// variables of the instance it runs on, then its frame variables (specification 44 §13.2).
+    CompiledLocals(usize),
+    /// A compiled program's globals.
+    CompiledGlobals,
+    /// A compiled program's retained variables, under their retain-map keys.
+    CompiledRetain,
+    /// A compiled program's instances: its program instances and the instances its symbol table
+    /// names, each by its symbol's index.
+    CompiledInstances,
+    /// The members of the compiled program's instance of type `type_index` at `place`.
+    CompiledInstance {
+        /// Where the instance lies.
+        place: trust_runtime_core::native::memory::Place,
+        /// The instance's type.
+        type_index: u32,
+    },
+    /// The elements of the compiled program's array of instances of type `type_index` at `place`.
+    CompiledInstanceArray {
+        /// Where the array lies.
+        place: trust_runtime_core::native::memory::Place,
+        /// The array's type.
+        type_index: u32,
+    },
 }
 
 /// The most live variable handles a runtime without source text (a chip) holds at once

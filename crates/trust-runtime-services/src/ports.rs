@@ -120,6 +120,12 @@ pub trait ResourcePort {
         false
     }
 
+    /// Why the program cannot be debugged at all, when it cannot: a compiled release image has no
+    /// statement hooks, so no pause holds it (specification 44 §13.2).
+    fn undebuggable(&self) -> Option<&'static str> {
+        None
+    }
+
     /// Asks the debugger to hold the scan at its next statement.
     fn debugger_pause(&self);
 
