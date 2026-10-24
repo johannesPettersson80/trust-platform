@@ -461,6 +461,8 @@ struct Held {
     last_stop: Option<StopRecord>,
     /// The breakpoints each `breakpoints.set` replaced a file's with, by the file.
     replaced: RefCell<Vec<Replaced>>,
+    /// Whether a scan has published the program's memory: not before the first scan ends.
+    published: bool,
 }
 
 /// The breakpoints one `breakpoints.set` replaced a file's with: the file, and each breakpoint's
@@ -493,6 +495,7 @@ impl Held {
             io: IoSnapshotRead::Missing,
             last_stop: None,
             replaced: RefCell::new(Vec::new()),
+            published: true,
         }
     }
 
@@ -592,7 +595,11 @@ impl Debugger for Held {
     }
 
     fn program_memory(&self) -> Option<&dyn ProgramMemory> {
-        Some(&self.memory)
+        self.published.then_some(&self.memory as &dyn ProgramMemory)
+    }
+
+    fn evaluates_expressions(&self) -> bool {
+        true
     }
 }
 

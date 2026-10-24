@@ -80,6 +80,7 @@ package "trust-debug crate" as stdebug #LightGreen {
         component "BreakpointManager" as bpManager
         component "PausedStateView" as pausedView
         component "ControlServerBridge" as controlBridge <<control_bridge.rs>>
+        component "Simulator\n(compiled launch, spec 44 NX-16)" as simulator <<simulator.rs>>
     }
 
     ' Background Threads
@@ -123,6 +124,9 @@ package "trust-debug crate" as stdebug #LightGreen {
     dispatch --> pausedView
     dispatch --> sessionMode
     dispatch --> controlBridge : launch creates IPC
+    dispatch --> simulator : launch where the toolchain\nbuilds the program
+    simulator --> controlBridge : start_compiled: trust-runtime's\nscheduler and control server
+    simulator --> remoteSession : debugs the program\nas an attach does
     sessionMode --> remoteSession : attach
     remoteSession --> remoteStop : stop polling
 

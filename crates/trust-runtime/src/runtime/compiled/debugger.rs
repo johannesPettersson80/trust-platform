@@ -334,4 +334,8 @@ impl Debugger for DebugView<'_> {
             .release
             .then_some(trust_runtime_services::debug::replies::NO_DEBUG_HOOKS)
     }
+
+    fn evaluates_expressions(&self) -> bool {
+        true
+    }
 }

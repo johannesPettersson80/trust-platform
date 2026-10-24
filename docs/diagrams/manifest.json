@@ -13,7 +13,7 @@
   "docs/diagrams/architecture/runtime-native-execution.puml": "a35afe45899580e989787ed05d9a843a379b4828901a6dfd80bb8c86df2a5b0a",
   "docs/diagrams/architecture/system-architecture.puml": "157efeb11c2cf1e49ae540b30967adfe7537f7e3c2be4db233d278975ba9d20d",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
-  "docs/diagrams/debug/debug-architecture.puml": "d7a9a166d917e6cfce8059cf64e987f29e2420e8bae2311fb75567b43a6e5adf",
+  "docs/diagrams/debug/debug-architecture.puml": "d7a40c5f54b0f2949c865e03d3c54d78f2fcb99856fc2baae50665ef615265a6",
   "docs/diagrams/debug/debug-breakpoint-after-launch-actual-observed.puml": "26f721f18337bb329bff7587d829284e5cac207bdff52dc7dcc899b38ddb4173",
   "docs/diagrams/debug/debug-breakpoint-after-launch-intended.puml": "3ad28b011555187f43da1b5bb4a95f4a2d267e55d77daf1f9411008745d9b527",
   "docs/diagrams/debug/debug-state-machine.puml": "ef205c54e5cab922882cc640d0fda0687a11151cbdb8c17c4906ad0eea3a6ad6",

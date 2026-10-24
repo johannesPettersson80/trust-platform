@@ -17,8 +17,9 @@ use crate::protocol::{
 
 use super::super::control_bridge::{default_control_endpoint, DebugControlServer};
 use super::super::launch::{
-    launch_control_auth_token, launch_control_endpoint, launch_program_path, launch_runtime_root,
-    launch_stop_on_entry, source_options_from_attach, source_options_from_launch,
+    launch_control_auth_token, launch_control_endpoint, launch_execution_backend,
+    launch_program_path, launch_runtime_root, launch_stop_on_entry, source_options_from_attach,
+    source_options_from_launch,
 };
 use super::super::remote::attach_from_args;
 use super::super::util::is_configuration_request;
@@ -162,6 +163,11 @@ impl DebugAdapter {
         if self.runner.is_some() {
             self.stop_runner();
         }
+        if self.simulator.is_some() {
+            self.stop_remote_polling();
+            self.remote_session = None;
+            self.stop_simulator();
+        }
         let program = launch_program_path(&args);
         let stop_on_entry = launch_stop_on_entry(&args);
         let source_update = source_options_from_launch(&args);
@@ -176,6 +182,17 @@ impl DebugAdapter {
 
         if let Some(program) = program {
             self.session.set_program_path(program.clone());
+            // The program runs compiled for this computer where the toolchain builds it, unless the
+            // launch asks for the bytecode engine (specification 44 NX-16).
+            if launch_execution_backend(&args).as_deref() != Some("vm") {
+                match self.launch_compiled(&request, &args, &program, stop_on_entry, events) {
+                    Ok(outcome) => return outcome,
+                    Err((reason, returned)) => {
+                        events = returned;
+                        events.push(self.console_message(reason.message()));
+                    }
+                }
+            }
             match self.session.reload_program(Some(&program)) {
                 Ok(updated) => {
                     let mut events = events;
@@ -188,6 +205,7 @@ impl DebugAdapter {
                         .map(|breakpoint| self.breakpoint_event("changed", breakpoint))
                         .collect::<Vec<_>>();
                     events.append(&mut breakpoint_events);
+                    events.extend(self.apply_pending_breakpoints_locally());
                     self.emit_io_state_event_from_runtime(&mut events);
                     let mut actions = LaunchActions::default();
                     if stop_on_entry {
@@ -217,6 +235,7 @@ impl DebugAdapter {
                     };
                 }
                 Err(err) => {
+                    self.attach_breakpoints.clear();
                     events.push(self.debug_output_message(format!(
                         "[trust-debug] reload_program error: {}",
                         err
@@ -230,6 +249,7 @@ impl DebugAdapter {
             }
         }
 
+        events.extend(self.apply_pending_breakpoints_locally());
         let mut actions = LaunchActions::default();
         if stop_on_entry {
             actions.pause_after_launch = true;

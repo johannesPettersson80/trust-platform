@@ -123,6 +123,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   in the held frame without parsing ST text, on a computer and a chip alike, and a logpoint's
   message appears in the debug console. An enumeration literal such as `Mode#Run` takes its number
   from the program the runtime runs.
+- Added: VS Code's simulator runs the program compiled for this computer where the truST toolchain
+  is installed (specification 44 NX-16): a launch builds the project as `trust-runtime build` does,
+  without touching the project's `program.tpi` or `program.stbc`, runs it in the debug adapter on
+  trust-runtime's own scheduler with the `io.toml` drivers and a control server at the launch's
+  endpoint, and debugs it as an attached runtime: breakpoints with their conditions, hit counts and
+  logpoints, stepping, the call stack, watches, Live Values and the I/O panel. `stopOnEntry` holds
+  the first statement, and "Reload" builds the project again and changes the running program
+  online. Without the toolchain, or with a construct the native build does not compile yet, the
+  simulator runs the bytecode engine and says why in the debug console; `"executionBackend": "vm"`
+  in the launch configuration asks for it.
 - Fixed: VS Code's debugger, attached to a running runtime, answered every watch and `evaluate`
   with an error, because it read the runtime's answer in the debug adapter protocol's spelling;
   and it set a breakpoint with a condition, a hit count or a log message as a plain breakpoint,

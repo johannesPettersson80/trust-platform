@@ -701,6 +701,33 @@ impl CompiledRuntime {
         self.cycle.process_io_mut().add_driver(name, driver);
     }
 
+    /// Takes `io`, a project's `io.toml`, as trust-runtime starts a compiled program
+    /// (specification 44 §8.8): its safe outputs, and each enabled driver after the others, an MQTT
+    /// driver with its tag mappings bound to the program's variables first (§13.3).
+    ///
+    /// # Errors
+    ///
+    /// The error of a tag mapping or a driver that does not build.
+    pub fn add_io_config(&mut self, io: &crate::config::IoConfig) -> Result<(), RuntimeError> {
+        self.set_io_safe_state(io.safe_state.clone());
+        let registry = crate::io::IoDriverRegistry::default_registry();
+        for driver in io.drivers.iter().filter(|driver| driver.enabled) {
+            let mut params = driver.params.clone();
+            if driver.name.eq_ignore_ascii_case("mqtt")
+                || driver.name.eq_ignore_ascii_case("mqtt-tcp")
+            {
+                let (lowered, links) =
+                    crate::io::resolve_compiled_mqtt_tag_mappings(self, &driver.params)?;
+                self.link_mqtt_tags(&links)?;
+                params = lowered;
+            }
+            if let Some(spec) = registry.build(driver.name.as_str(), &params)? {
+                self.add_io_driver(spec.name, spec.driver);
+            }
+        }
+        Ok(())
+    }
+
     /// Stops using every driver.
     pub fn clear_io_drivers(&mut self) {
         self.cycle.process_io_mut().clear_drivers();

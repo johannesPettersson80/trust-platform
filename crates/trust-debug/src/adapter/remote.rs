@@ -315,6 +315,15 @@ impl RemoteSession {
         evaluate_body(payload)
     }
 
+    /// `bytecode.reload` with the program `image`: the runtime changes its running program online
+    /// (specification 44 §12).
+    pub fn reload_program(&mut self, image: &[u8]) -> RemoteResult<()> {
+        use base64::Engine as _;
+        let params = json!({ "bytes": base64::engine::general_purpose::STANDARD.encode(image) });
+        let _ = self.request("bytecode.reload", Some(params))?;
+        Ok(())
+    }
+
     pub fn pause(&mut self) -> RemoteResult<()> {
         let _ = self.request("pause", None)?;
         Ok(())

@@ -208,6 +208,12 @@ pub trait Debugger {
     fn undebuggable(&self) -> Option<&'static str> {
         None
     }
+
+    /// Whether the debugger evaluates compiled debug expressions: a compiled program's does, from
+    /// its start, whether or not a scan has published its memory yet (specification 11 §6.13.2).
+    fn evaluates_expressions(&self) -> bool {
+        false
+    }
 }
 
 /// Whether `kind` is a debug operation that [`answer`] serves.
@@ -248,11 +254,15 @@ pub fn answer(request: &ControlRequest, debugger: &dyn Debugger) -> ControlRespo
         return failed(id, reason);
     }
     if matches!(kind, "eval" | "debug.evaluate") {
+        if !debugger.evaluates_expressions() {
+            return replies::expressions_unavailable(id);
+        }
         #[cfg(feature = "native")]
         if let Some(memory) = debugger.program_memory() {
             return super::compiled::evaluate(id, kind, request.params.as_ref(), memory);
         }
-        return replies::expressions_unavailable(id);
+        // A compiled program publishes no state before its first scan ends (§6.13.1).
+        return failed(id, replies::NO_SNAPSHOT);
     }
     let Some(sources) = debugger.sources() else {
         return replies::no_line_table(id);
@@ -520,19 +530,6 @@ fn carries_expression(params: &serde_json::Value) -> bool {
         .any(|member| params.get(member).is_some_and(|value| !value.is_null()))
 }
 
-/// Whether `debugger` evaluates compiled expressions: a compiled program's does.
-fn evaluates_expressions(debugger: &dyn Debugger) -> bool {
-    #[cfg(feature = "native")]
-    {
-        debugger.program_memory().is_some()
-    }
-    #[cfg(not(feature = "native"))]
-    {
-        let _ = debugger;
-        false
-    }
-}
-
 /// Each line's options of `params`, decoded, or the refusal of the whole request (specification 11
 /// §6.13.2).
 fn line_options(
@@ -572,7 +569,7 @@ fn breakpoints_set(
     debugger: &dyn Debugger,
     sources: &LineSources,
 ) -> ControlResponse {
-    let evaluates = evaluates_expressions(debugger);
+    let evaluates = debugger.evaluates_expressions();
     if params.is_some_and(carries_expression) {
         // A condition or a message belongs to one line, in `options`.
         if evaluates {

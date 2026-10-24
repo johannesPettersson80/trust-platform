@@ -17,6 +17,10 @@ pub trait DebugRuntime: Send {
     fn update_source_options(&mut self, update: SourceOptionsUpdate);
     fn set_program_path(&mut self, path: String);
     fn reload_program(&mut self, path: Option<&str>) -> Result<Vec<Breakpoint>, CompileError>;
+    /// The sources of the program at `path` by the source options, registered as the session's
+    /// sources without building a runtime from them: the sources of a launch whose program runs
+    /// compiled (specification 44 NX-16).
+    fn launch_sources(&mut self, path: &str) -> Result<Vec<(String, String)>, CompileError>;
     fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> SetBreakpointsResponseBody;
     fn take_breakpoint_report(&mut self) -> Option<String>;
     fn debug_control(&self) -> DebugControl;

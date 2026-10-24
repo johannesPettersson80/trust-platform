@@ -78,26 +78,8 @@ fn apply_bundle_compiled_services(
     }
     program.set_watchdog_policy(bundle.runtime.watchdog);
     program.set_fault_policy(bundle.runtime.fault_policy);
-    program.set_io_safe_state(bundle.io.safe_state.clone());
     program.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
-
-    let registry = IoDriverRegistry::default_registry();
-    for driver in bundle.io.drivers.iter().filter(|driver| driver.enabled) {
-        let mut params = driver.params.clone();
-        if driver.name.eq_ignore_ascii_case("mqtt") || driver.name.eq_ignore_ascii_case("mqtt-tcp")
-        {
-            let (lowered, links) =
-                trust_runtime::io::resolve_compiled_mqtt_tag_mappings(program, &driver.params)?;
-            program.link_mqtt_tags(&links)?;
-            params = lowered;
-        }
-        if let Some(spec) = registry
-            .build(driver.name.as_str(), &params)
-            .map_err(anyhow::Error::from)?
-        {
-            program.add_io_driver(spec.name, spec.driver);
-        }
-    }
+    program.add_io_config(&bundle.io)?;
 
     match bundle.runtime.retain_mode {
         trust_runtime::watchdog::RetainMode::File => {

@@ -295,3 +295,31 @@ fn breakpoints_set_refuses_options_outside_the_protocol_whole() {
     );
     assert_eq!(held.replaced.borrow().len(), 0);
 }
+
+#[test]
+fn before_its_first_scan_a_compiled_program_takes_conditions_and_reads_nothing_yet() {
+    // Specification 11 §6.13.1 and §6.13.2: a compiled program evaluates compiled expressions
+    // from its start, so a breakpoint's condition set before the first scan ends is taken;
+    // `debug.evaluate` answers `no snapshot available` until a scan has published the program's
+    // memory. Catches a condition refused as by a runtime that evaluates no expressions (which the
+    // VS Code simulator met: its breakpoints arrive before the first scan), and a refusal that
+    // names the missing compiled form instead of the missing state.
+    let mut held = Held::new(Vec::new());
+    held.published = false;
+    let condition = binary(BinaryOp::Gt, name("Limit"), int(5));
+    let set = ask(
+        &held,
+        "breakpoints.set",
+        json!({
+            "source": "/work/plant/main.st",
+            "lines": [13],
+            "options": [{"condition": wire(&condition)}],
+        }),
+    );
+    let _ = result(set);
+    assert_eq!(held.replaced.borrow().len(), 1);
+    assert_eq!(
+        error(&evaluate(&held, &name("Limit"), None)),
+        "no snapshot available"
+    );
+}

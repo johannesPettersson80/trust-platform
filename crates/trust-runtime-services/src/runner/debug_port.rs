@@ -131,6 +131,18 @@ impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
         let view = self.program.compiled_state()?;
         (self.debug.published() || self.debug.is_held()).then_some(view.memory)
     }
+
+    /// A compiled program's debugger evaluates compiled expressions (specification 11 §6.13.2).
+    fn evaluates_expressions(&self) -> bool {
+        #[cfg(feature = "native")]
+        {
+            self.program.compiled_state().is_some()
+        }
+        #[cfg(not(feature = "native"))]
+        {
+            false
+        }
+    }
 }
 
 /// The frames of the call stack of `frame`, outermost first, each with its locals named from the

@@ -315,6 +315,12 @@ impl DebugRuntime for DebugSession {
         DebugSession::reload_program(self, path)
     }
 
+    fn launch_sources(&mut self, path: &str) -> Result<Vec<(String, String)>, CompileError> {
+        let sources = collect_sources(path, &self.source_options)?;
+        self.replace_sources(&sources);
+        Ok(sources)
+    }
+
     fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> SetBreakpointsResponseBody {
         DebugSession::set_breakpoints(self, args)
     }

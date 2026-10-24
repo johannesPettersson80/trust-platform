@@ -16,6 +16,7 @@ mod launch;
 mod paused;
 mod protocol_io;
 mod remote;
+mod simulator;
 mod stop;
 mod stop_remote;
 mod util;
@@ -27,6 +28,9 @@ mod compiled_evaluate_tests;
 mod mqtt_install_enum_value_type_tests;
 #[cfg(test)]
 mod remote_value_type_tests;
+// The simulator's control server listens on a Unix socket in this test.
+#[cfg(all(test, unix))]
+mod simulator_tests;
 #[cfg(test)]
 mod tests;
 
@@ -251,6 +255,9 @@ pub struct DebugAdapter {
     expression_types: Option<ExpressionTypes>,
     runner: Option<DebugRunner>,
     control_server: Option<DebugControlServer>,
+    /// The launch's program compiled for this computer, which the adapter debugs through
+    /// `remote_session` (specification 44 NX-16).
+    simulator: Option<simulator::Simulator>,
     last_io_state: Arc<Mutex<Option<IoStateEventBody>>>,
     forced_io_addresses: Arc<Mutex<HashSet<String>>>,
     initialized: bool,

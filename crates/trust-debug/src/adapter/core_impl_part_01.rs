@@ -14,6 +14,7 @@ impl DebugAdapter {
             expression_types: None,
             runner: None,
             control_server: None,
+            simulator: None,
             last_io_state: Arc::new(Mutex::new(None)),
             forced_io_addresses: Arc::new(Mutex::new(HashSet::new())),
             initialized: false,
@@ -27,22 +28,18 @@ impl DebugAdapter {
         }
     }
 
-
     pub fn session(&self) -> &dyn DebugRuntime {
         self.session.as_ref()
     }
-
 
     pub fn session_mut(&mut self) -> &mut dyn DebugRuntime {
         self.session.as_mut()
     }
 
-
     #[must_use]
     pub fn into_session(self) -> Box<dyn DebugRuntime> {
         self.session
     }
-
 
     #[must_use]
     pub fn set_breakpoints(&mut self, args: SetBreakpointsArguments) -> SetBreakpointsResponseBody {
@@ -53,5 +50,4 @@ impl DebugAdapter {
         let response = self.session.set_breakpoints(&adjusted);
         self.to_client_breakpoints(response)
     }
-
 }

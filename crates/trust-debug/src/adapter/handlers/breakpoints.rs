@@ -17,6 +17,9 @@ use super::super::{AttachBreakpoints, DebugAdapter, DispatchOutcome};
 /// The message of a breakpoint set while an attach is pending (specification 13).
 const PENDING_ATTACH: &str = "pending until the attach completes";
 
+/// The message of a breakpoint set while a launch is pending (specification 13).
+const PENDING_LAUNCH: &str = "pending until the launch completes";
+
 /// The message of a breakpoint the runtime did not resolve: no statement starts at or after its
 /// line (specification 13).
 pub(in crate::adapter) const NO_STATEMENT: &str = "no statement at or after this line";
@@ -37,12 +40,14 @@ impl DebugAdapter {
             };
         };
 
-        if self.remote_session.is_none() && self.launch_state.has_pending_attach() {
+        // A launch or an attach that waits for the configuration keeps the breakpoints until its
+        // program runs, the launch's on whichever runtime it starts (specification 44 NX-16).
+        if self.remote_session.is_none() && self.launch_state.has_pending_launch() {
             let body = self.record_attach_breakpoints(args);
             return DispatchOutcome {
                 responses: vec![self.ok_response(&request, Some(body))],
                 events: vec![self.debug_output_message(
-                    "[trust-debug] setBreakpoints: kept until the attach connects",
+                    "[trust-debug] setBreakpoints: kept until the session starts",
                 )],
                 ..DispatchOutcome::default()
             };
@@ -98,13 +103,18 @@ impl DebugAdapter {
                 id
             })
             .collect();
+        let pending = if self.launch_state.has_pending_attach() {
+            PENDING_ATTACH
+        } else {
+            PENDING_LAUNCH
+        };
         let breakpoints = requested
             .iter()
             .zip(&ids)
             .map(|(breakpoint, id)| Breakpoint {
                 id: Some(*id),
                 verified: false,
-                message: Some(PENDING_ATTACH.to_string()),
+                message: Some(pending.to_string()),
                 source: Some(args.source.clone()),
                 line: Some(breakpoint.line),
                 column: breakpoint.column,
@@ -119,6 +129,24 @@ impl DebugAdapter {
                 .push(AttachBreakpoints { args, ids });
         }
         SetBreakpointsResponseBody { breakpoints }
+    }
+
+    /// Sets the breakpoints kept while a launch was pending on the program the bytecode engine's
+    /// simulator loaded, each source's in the order asked, and returns a `breakpoint` event for
+    /// each with the id its pending answer gave it (specification 13, session lifecycle).
+    pub(in crate::adapter) fn apply_pending_breakpoints_locally(&mut self) -> Vec<Value> {
+        let mut events = Vec::new();
+        for AttachBreakpoints { args, ids } in core::mem::take(&mut self.attach_breakpoints) {
+            let answered = self.set_breakpoints(args).breakpoints;
+            for (breakpoint, id) in answered.into_iter().zip(ids) {
+                let breakpoint = Breakpoint {
+                    id: Some(id),
+                    ..breakpoint
+                };
+                events.push(self.breakpoint_event("changed", breakpoint));
+            }
+        }
+        events
     }
 
     /// Sends the breakpoints kept while the attach was pending to the runtime the attach connected

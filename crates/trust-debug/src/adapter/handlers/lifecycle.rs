@@ -30,6 +30,7 @@ impl DebugAdapter {
             if let Ok(mut guard) = self.remote_breakpoints.lock() {
                 guard.clear();
             }
+            self.stop_simulator();
         } else {
             self.session.debug_control().continue_run();
             self.session.debug_control().clear_watch_expressions();
@@ -68,6 +69,7 @@ impl DebugAdapter {
             if let Ok(mut guard) = self.remote_breakpoints.lock() {
                 guard.clear();
             }
+            self.stop_simulator();
         } else {
             self.session.debug_control().continue_run();
             self.session.debug_control().clear_watch_expressions();
@@ -91,6 +93,22 @@ impl DebugAdapter {
         }
     }
     pub(in crate::adapter) fn handle_reload(&mut self, request: Request<Value>) -> DispatchOutcome {
+        // A compiled launch changes its program online (specification 44 NX-16).
+        if self.simulator.is_some() {
+            let args = request
+                .arguments
+                .clone()
+                .and_then(|value| serde_json::from_value::<ReloadArguments>(value).ok())
+                .unwrap_or_default();
+            let response = match self.reload_compiled(args) {
+                Ok(()) => self.ok_response::<Value>(&request, None),
+                Err(error) => self.error_response(&request, &error),
+            };
+            return DispatchOutcome {
+                responses: vec![response],
+                ..DispatchOutcome::default()
+            };
+        }
         if self.remote_session.is_some() {
             return DispatchOutcome {
                 responses: vec![

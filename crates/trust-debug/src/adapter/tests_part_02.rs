@@ -648,6 +648,11 @@ params = { address = "127.0.0.1:1502", unit_id = 1, input_start = 0, output_star
     ));
     initialize_adapter_for_launch(&mut adapter, 9);
     let mut additional = BTreeMap::new();
+    // The bytecode engine's simulator (specification 44 NX-16), which this test exercises.
+    additional.insert(
+        "executionBackend".to_string(),
+        serde_json::Value::String("vm".to_string()),
+    );
     additional.insert(
         "program".to_string(),
         serde_json::Value::String(config_path.display().to_string()),
@@ -847,6 +852,11 @@ fn launch_fails_when_control_server_endpoint_is_already_in_use() {
     let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().unwrap()));
     initialize_adapter_for_launch(&mut adapter, 19);
     let mut additional = BTreeMap::new();
+    // The bytecode engine's simulator (specification 44 NX-16), which this test exercises.
+    additional.insert(
+        "executionBackend".to_string(),
+        serde_json::Value::String("vm".to_string()),
+    );
     additional.insert(
         "program".to_string(),
         serde_json::Value::String(project_root.join("main.st").display().to_string()),
@@ -1106,6 +1116,11 @@ fn launch_debug_control_session(
 ) {
     initialize_adapter_for_launch(adapter, 9);
     let mut additional = BTreeMap::new();
+    // The bytecode engine's simulator (specification 44 NX-16), which this test exercises.
+    additional.insert(
+        "executionBackend".to_string(),
+        serde_json::Value::String("vm".to_string()),
+    );
     additional.insert(
         "program".to_string(),
         serde_json::Value::String(project_root.join("main.st").display().to_string()),
