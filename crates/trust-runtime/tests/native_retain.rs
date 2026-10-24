@@ -127,6 +127,7 @@ fn compiled(name: &str) -> (Build, Device) {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     (built, device)
 }
@@ -358,6 +359,7 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
@@ -561,6 +563,7 @@ fn a_retained_program_instance_retains_its_variables_but_not_into_its_instances(
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");

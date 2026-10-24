@@ -69,6 +69,7 @@ fn program(hooks: bool, name: &str) -> NativeProgram<'static, HostCode> {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let image: &'static [u8] = Box::leak(built.image.into_boxed_slice());
     let mut program = load(image, &device).expect("the image loads");

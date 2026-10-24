@@ -71,6 +71,7 @@ fn arrays_of_one_storage_keep_their_bounds_and_elements() {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
@@ -143,6 +144,7 @@ fn a_bit_string_takes_an_integer_literal_of_its_width() {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");

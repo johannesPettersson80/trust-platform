@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.19 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.20 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -12,7 +12,9 @@
   a debug image changes online and a change can follow a change, which the bench found it could
   not; 0.17 has computers run compiled programs with the chips' cycle, §8.8; 0.18 has a computer's
   services and protocol clients reach them through the symbol table, §8.8; 0.19 builds the debug
-  expressions that the owner's decision of 18 October 2026 has the tool compile, §13.2),
+  expressions that the owner's decision of 18 October 2026 has the tool compile, §13.2; 0.20
+  completes the checks at install, §10.2, and has the tools sign with the user's own key unless the
+  project names one, so that no private key lies in a project folder, §5.11),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -144,8 +146,8 @@ The build's steps and their outputs:
 4. **Compilation.** The pinned rustc compiles the crate together with the program library
    (§6.9) for the target, with the fixed flags of §4.5, into a position-independent module.
 5. **Image.** The image builder extracts the module's code and read-only data, computes the
-   starting memory (§7.4), writes the tables, computes the memory figure (§10.4) and signs the
-   image (§5.11).
+   starting memory (§7.4), writes the tables, computes the memory figure (§10.4) and reserves the
+   image's signature (§5.11), which the tools that deploy the image fill in.
 6. **Record.** The deployment record of specification 34 §5.1.1 is written as today, naming the
    image's hash instead of the bytecode's.
 
@@ -241,7 +243,8 @@ the global offset table only when nothing reads it after and its relocations are
 the first build that needs it, one bundle per computer platform from truST's release server:
 rustc and rust-lld of the pinned version, `rust-std` for the targets of §4.4, the program library
 and interface crates (§6.9, §8.2) of the kernel version with the crates they link (`libm`, `ryu`,
-and `trust-plc-mem` for the computers' targets, §4.5), and a manifest with every hash. The bundle
+and `trust-plc-mem` for the computers' targets, §4.5), for each target a `LIBRARY` file naming its
+program library, `trust-plc-lib <version>` (§5.2), and a manifest with every hash. The bundle
 is installed into the extension's private folder (the user's own Rust installation, if any, is
 never used or touched), verified against its manifest before use, and needs no administrator
 rights. The download is about 250 MB once; the installed bundle about 600 MB. For sites without
@@ -274,9 +277,9 @@ pool at an offset, every offset is relative to the start of the image.
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
-| 32 | 32 | SHA-256 of the project sources and settings as the deployment record computes it |
+| 32 | 32 | SHA-256 of the project's sources: each source's label (§5.3), a zero byte, its text and a zero byte, in the order of the labels, so that the same sources give the same hash on every computer; the settings are identified by the deployment record (§10.1) |
 | 64 | 32 | Rust compiler version string, NUL-padded (for example `1.95.0`) |
-| 96 | 16 | Program library version and flags hash (first 16 bytes of its SHA-256) |
+| 96 | 16 | Program library hash: the first 16 bytes of the SHA-256 of `<library> <triple>`, the program library the module linked as the toolchain's `LIBRARY` file names it (`trust-plc-lib <version>`, §4.6) and the target triple of §4.4 |
 | 112 | 4 | Section count |
 | 116 | 4 | Offset of the section table |
 | 120 | 4 | Flags: bit 0 set when the image has no statement hooks, a release image (§13.2); the other bits zero |
@@ -416,14 +419,37 @@ into the kernel and one written by the kernel restores into the runtime.
 
 ### 5.11 Signature
 
-`SIGN` holds: algorithm (4: 1 Ed25519), the signer's public key (32), the signature (64) over
-bytes 0 to the start of `SIGN`. The build signs with the project's key (`trust-lsp.toml`
-`[signing] key = <path>`; the tools create one on first use and never print it). A device holds a
-list of trusted public keys (`device.toml`, or set over the control link by Admin); it refuses an
-image signed by another key or not signed. A device whose list is empty accepts unsigned images and
-reports `signature: none` in `status`, so that development needs no setup. Signing is for
-authenticity and integrity; it hides nothing, and the symbol table and the optional sources keep the
-program readable on the device.
+`SIGN` holds: algorithm (4: 0 unsigned, 1 Ed25519), the signer's public key (32), the signature
+(64) over bytes 0 to the start of `SIGN`. The native build always writes `SIGN`, unsigned (algorithm
+0 and zeros), so that signing fills it in place without moving a byte; the CRC of §5.2 covers the
+header and the section table, not `SIGN`. The tools that deploy sign what they build
+(`trust-runtime build`, `trust-dev test --device`, and the programs a tool installs on a device to
+step or test it); the simulator (§8.9) and `trust-dev test` on this computer run their images
+unsigned. They sign with the project's key (`trust-lsp.toml` `[signing] key = <path>`, relative to
+the project folder, which must exist), or else with the user's own key, `signing-key.pem` in truST's
+configuration folder (`$XDG_CONFIG_HOME/trust`, else `~/.config/trust`, on Linux;
+`~/Library/Application Support/trust` on macOS; `%APPDATA%\trust` on Windows), which the first
+signing creates, readable by its owner alone. A private key never lies in the project folder, which
+is shared, unless the project names it there (24 October 2026). A key file is an Ed25519 key in
+PKCS#8 PEM, as `openssl genpkey -algorithm ed25519` writes it; no tool prints it, and
+`trust-runtime build` reports the signer's public key.
+
+A device holds a list of trusted public keys, each 64 hexadecimal digits: a chip in its
+`device.toml` (specification 34 TARGET-02) or set over the control link by Admin; a computer in
+`[signing] trusted_keys` of the `device.toml` in truST's configuration folder of the user that runs
+trust-runtime, read once when it first admits an image. At step 4 of §10.2 every device refuses an
+image whose `SIGN` has another length or names another algorithm (`the program's signature section
+is malformed`). A device whose list names keys refuses an image that is unsigned or signed by a key
+not in it (`the program is not signed by a key this device trusts`), judging the key before it
+verifies anything, and one whose signature does not verify over its bytes (`the program's signature
+does not verify: it was changed after signing`); it reports `signature: trusted` in `status`, as
+does a computer whose `device.toml` cannot be read, which admits no image and names the file's
+error. A device whose list is empty checks no signature: with no key to trust, a signature proves
+nothing that the record's hash (§10.2 step 1) does not, and on the ESP32-C6 the check of a 90 KB
+image takes 0.85 s (bench, 24 October 2026), which an online change would take from the running
+scan. It admits signed and unsigned images alike and reports `signature: none`, so that development
+needs no setup. An online change is admitted as an install is, against the same list. Signing is for authenticity and integrity; it hides nothing, and the symbol table and the
+optional sources keep the program readable on the device.
 
 ## 6. Code generation
 
@@ -1065,13 +1091,21 @@ Before an image runs, on every device, in this order, and the first failure name
 1. The container (specification 34 §5.1) and the record (§5.1.1).
 2. The image header: magic, CRC, length inside the slot, format version 2, target id equal to the
    device's, kernel interface version equal to the kernel's (`kernel interface <n> required, this
-   runtime has <m>: rebuild the project`), program library hash known to this kernel.
+   runtime has <m>: rebuild the project`), program library hash known to this kernel: the hash of
+   the program library of the kernel's own release for the device's CPU, so that a program is
+   rebuilt with the bundle of the release that runs it (`the program was built with another
+   program library (<image's hash>), this runtime has trust-plc-lib <version> (<its hash>):
+   rebuild the project with this release's toolchain`).
 3. The section table: each required section present, no overlap, all inside the image, 8-byte
    alignment, `SIGN` last.
 4. The signature (§5.11) against the device's trusted keys.
 5. Every offset in every table inside its section or area; every entry offset inside `CODE`; every
    symbol's offset + size inside its area; every task's programs existing; every I/O binding inside
-   the configured process image; every retain record inside `R`.
+   its process image, its byte and width inside the input, output or marker area the area table
+   sizes (`I/O binding <n> lies outside its process image`); every retain record inside `R`. The
+   process image is the device's to bound: the image's deployment record requests the bytes of its
+   three process images as its `max_process_image_bytes`, which step 1 compares with the device's
+   maximum.
 6. The memory figure (§10.4) against the device's program memory, and the stack bound (§8.5)
    against the task stack.
 7. For an install while a program is held: the retained-value check of specification 34 §11.2
@@ -1081,9 +1115,9 @@ Before an image runs, on every device, in this order, and the first failure name
 The checks read the image where it lies and allocate nothing beyond a few records; on the C6 they
 take the mapped slot. An image that passes is "admitted"; nothing of it is copied to RAM except
 `INIT` into the areas at start and, on a device that runs its module from RAM, the module (§10.3).
-The program store's check of an install runs steps 2, 3, 5 and 6 in place of the dry-run
-preparation of STBC, against the device's descriptor (`DeviceDescriptor::native`); step 7 comes with
-the retain map (milestone M2).
+The program store's check of an install runs steps 2 to 6 in place of the dry-run preparation of
+STBC, against the device's descriptor (`DeviceDescriptor::native`) and its trusted keys; step 7 comes
+with the retain map (milestone M2).
 
 ### 10.3 Mapping the code
 
@@ -1553,3 +1587,4 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.18 | 24 October 2026 | A computer's services and clients on a compiled program (N5's computer part). §8.8 NX-14: the HMI, the ADS and OPC UA servers and the historian read the scan's published copy through the symbol table and publish what they publish of an interpreted program; the ADS and OPC UA clients bind each point to the global of its name, checked against its type or present value, and exchange it at the scan's boundaries; the OpenOT telemetry reads its producers by their full names after the scan, before the output commit deadline is checked; an MQTT tag binds a program instance's variable by name, past the program's process image when the program does not bind it, and an online change that resizes the image under such tags is refused. NX-15: no service refuses a compiled program any more; the computer runs what the last build wrote (an STBC build removes an earlier image, `fleet start` builds as `build` does); `[resource] max_statements_per_scan` (NX-10) is read from `runtime.toml`. §14.2: `trust-dev test` runs the tests compiled by default where the toolchain is installed. §8.9 NX-16: the simulator runs the compiled program as a computer's runtime in the adapter's process and debugs it through the control protocol. NX-09: a directly addressed global is compiled; NX-15: a construct not compiled yet builds `program.stbc` on a computer, with a note. |
 | 0.19 | 24 October 2026 | The debug expressions of compiled programs (S3c). §13.2: watch expressions, `debug.evaluate`, breakpoint conditions, hit conditions and logpoints in the portable form of specification 11 §6.13.2, version 1, which the tool compiles from the project's declarations and the runtime evaluates through the symbol and type tables; an enumeration literal by its names, its number from the program; `breakpoints.set` carries each line's options and `debug.stops` the logpoint messages; `eval` reads one name. §8.9 NX-16: the form exists, so the simulator moves to the compiled program. |
 | 0.17 | 24 October 2026 | Computers (the one list's N8). §8.8: NX-14, trust-runtime on Linux, Windows and macOS runs a compiled program with the chips' `CompiledCycle` and the computer's ports (the `io.toml` drivers, its clock, the bytecode engine's retain file, its debugger, holding on the scan thread), keeping its scan thread, scheduler, control plane, servers and program store; each scan publishes a copy of the areas with the image for the other threads. NX-15, the program a computer runs: `program.tpi` with `deployment-record.bin` in the project, written by `trust-runtime build` without `--target`, loaded by `run` and `play`, installed by `program.install`; until §15, `program.stbc` still runs, and a computer without the toolchain builds it and says so; the services that reach variables by name refuse a compiled program until they read the symbol table. |
+| 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |

@@ -249,6 +249,7 @@ fn power_on<'i>(
         program_memory: 1_000,
         task_stack: 4_096,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let program = NativeProgram::new(
         admit(bytes, &device).expect("the image is admitted"),

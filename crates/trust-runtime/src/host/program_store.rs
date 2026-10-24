@@ -452,7 +452,8 @@ fn admit(dir: &Path, program: &[u8]) -> Result<RecordWrite, StoreError> {
     if program_file(program) == bundles::IMAGE_FILE {
         // A program image is admitted on this computer as the runtime admits it at its start
         // (specification 44 §10.2, §8.8).
-        let device = crate::native::this_computer()
+        let device = crate::native::runtime_device()
+            .map_err(|error| refused(error.to_string()))?
             .ok_or_else(|| refused("this computer's CPU runs no program image"))?;
         trust_runtime_core::native::program::admit(program, &device)
             .map_err(|refusal| refused(format!("the program image is refused: {refusal}")))?;

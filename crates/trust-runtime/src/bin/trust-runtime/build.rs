@@ -226,6 +226,10 @@ pub fn run_native_build(
         "Memory figure: {} bytes (areas {}, stack {}, bookkeeping {}, retain capture {})",
         figure.total, figure.areas, figure.stack, figure.bookkeeping, figure.retain_capture
     );
+    // The public key a device must trust to run the image (specification 44 §5.11).
+    if let Some(signer) = built.report["signer"].as_str() {
+        println!("Signed by the key {signer}");
+    }
     Ok(())
 }
 
@@ -237,7 +241,9 @@ fn write_native_image(
     emit_source: bool,
     for_this_computer: bool,
 ) -> anyhow::Result<NativeBuilt> {
-    use trust_runtime::native::{build, debug_hooks, triple, Options, Toolchain};
+    use trust_runtime::native::{
+        build, debug_hooks, project_key, sign, triple, Options, Toolchain,
+    };
     let files =
         trust_runtime::bundle_builder::collect_project_sources_labelled(bundle_root, sources)?;
     // The project's `[build] debug` chooses a debug or a release image (specification 44 §13.2).
@@ -245,7 +251,7 @@ fn write_native_image(
     let toolchain = Toolchain::from_env()?;
     let build_folder = bundle_root.join("build");
     let work = build_folder.join("native").join(triple(target));
-    let built = build(
+    let mut built = build(
         &files,
         &Options {
             target,
@@ -254,6 +260,11 @@ fn write_native_image(
         &toolchain,
         &work,
     )?;
+    // A deployed image is signed with the project's key, or the user's own (specification 44
+    // §5.11), before its record names its bytes.
+    let key = project_key(bundle_root)?;
+    sign(&mut built.image, &key)?;
+    let signer = hex::encode(key.verifying_key().as_bytes());
     let (image, record) = if for_this_computer {
         (
             bundle_root.join(trust_runtime::native::PROGRAM_IMAGE_FILE),
@@ -284,6 +295,7 @@ fn write_native_image(
         "debug": debug,
         "image": image.display().to_string(),
         "image_bytes": built.image.len(),
+        "signer": signer,
         "record": record.display().to_string(),
         "memory_figure": {
             "areas": figure.areas,

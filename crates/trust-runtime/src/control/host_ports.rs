@@ -208,6 +208,15 @@ impl StatusPort for ControlState {
         ProgramControl::KeepsControl
     }
 
+    /// `trusted` while the computer's `device.toml` names keys to trust, or cannot be read, when the
+    /// runtime admits no image at all (specification 44 §5.11).
+    fn signature(&self) -> &'static str {
+        match crate::native::computer_trusted_keys() {
+            Ok([]) => "none",
+            _ => "trusted",
+        }
+    }
+
     fn status_settings(&self) -> Option<StatusSettings> {
         let settings = self.settings.lock().ok()?;
         Some(StatusSettings {

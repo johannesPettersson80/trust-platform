@@ -335,6 +335,14 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
 - [ ] S4 Program loading: deployment and online change over the control connection (DEPLOY-02,
   §11.3), safe against interruption (DEPLOY-03).
 - [ ] S5 Access rights: tokens and roles, TLS and signed deployment, as in trust-runtime.
+  Signed deployment (24 Oct, spec 44 §5.11, native list N6): the kernel's admission checks
+  signatures on every device that keeps a list of trusted keys; the chip still needs its list in
+  `device.toml`, set by Admin over the control link, read into `Device::trusted_keys` (empty until
+  then: the chip checks no signature and reports `signature: none`), and `status` reporting
+  `trusted` with a list. Cost to solve first: the C6 checks an Ed25519 signature over a 90 KB image
+  in about 0.85 s (fw24, opt-level z; fixed part about 50 ms, the SHA-512 about 9 µs a byte), which
+  an online change would take from the running scan: hash the image as its parts arrive, or check
+  in the M5 request context, or both.
 - [ ] S6 Discovery and mesh: a runtime on the network, a board included, is found and can be used at
   once (ARCH-12).
 - [ ] S7 Communication services: the `io.toml` drivers (Modbus TCP, MQTT and the others) and

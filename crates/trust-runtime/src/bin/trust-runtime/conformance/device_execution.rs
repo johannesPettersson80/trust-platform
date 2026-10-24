@@ -191,7 +191,11 @@ fn device_container(
         &work.join("native"),
     )
     .map_err(|error| anyhow!("the case does not compile for the device: {error}"))
-    .and_then(|built| {
+    .and_then(|mut built| {
+        // Signed with the user's own key, as every image a tool installs (specification 44 §5.11).
+        native::user_key()
+            .and_then(|key| native::sign(&mut built.image, &key))
+            .map_err(|error| anyhow!("{error}"))?;
         device_link::stepping_container(&built.image, &work).map_err(|error| anyhow!("{error}"))
     });
     let _ = fs::remove_dir_all(&work);

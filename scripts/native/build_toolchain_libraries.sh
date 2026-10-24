@@ -46,5 +46,9 @@ for triple in "${triples[@]}"; do
     newest=$(ls -t "$build/$triple/release/deps/"lib"$crate"-*.rlib | head -1)
     cp "$newest" "$libraries/"
   done
+  # The program library the module links, which the image's header names by a hash and the
+  # kernel of the same release admits (specification 44 §5.2, §10.2).
+  version=$(cargo pkgid -p trust-plc-lib | sed 's/.*[#@]//')
+  echo "trust-plc-lib $version" > "$libraries/LIBRARY"
   echo "$triple: $(ls "$libraries" | tr '\n' ' ')"
 done

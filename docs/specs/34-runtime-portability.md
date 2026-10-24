@@ -2507,7 +2507,9 @@ identifies the Ethernet PHY over its management interface, and `device.toml` nam
 detection is not possible. Pins are named in `io.toml`, as on Linux. It is written over the control
 connection, the first time over USB, from `trust-runtime` and from the hardware canvas, with the
 access rights of the control connection. Runtimes on Linux, macOS
-and Windows do not use it.
+and Windows use it only for the keys whose signatures they trust (specification 44 §5.11), in
+truST's configuration folder of the user that runs them; the operating system holds their other
+settings.
 
 **TARGET-03 — Chip descriptions.** truST describes each supported chip in `chips/<chip>.toml`:
 processor and instruction set, flash and RAM sizes and layout, clock limits, its interfaces, and the

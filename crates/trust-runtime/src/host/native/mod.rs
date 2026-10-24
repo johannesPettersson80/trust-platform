@@ -22,6 +22,7 @@ mod recursion;
 mod retain_map;
 mod run;
 mod settings;
+mod signing;
 mod stack;
 mod std_blocks;
 mod tables;
@@ -32,10 +33,14 @@ use std::path::Path;
 
 use crate::harness::SourceFile;
 pub use run::{load, load_kept, HostCode};
-pub use settings::debug_hooks;
+pub use settings::{debug_hooks, signing_key_setting};
+pub use signing::{
+    computer_trusted_keys, config_folder, create_key, project_key, read_key, sign, trusted_keys_in,
+    user_key,
+};
 pub use toolchain::{stack_frames, triple, Toolchain};
 pub use trust_runtime_core::native::image::Target;
-use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure};
+use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure, SectionId};
 pub use trust_runtime_core::native::program::{Device, NativeProgram, NoHooks, ScanHooks};
 
 /// The file of a project's program image for the computer that runs it, where the project kept
@@ -44,13 +49,28 @@ pub const PROGRAM_IMAGE_FILE: &str = "program.tpi";
 
 /// The device this computer is to a compiled program (specification 44 §8.8, NX-15): its CPU, no
 /// maximum for program memory, and the task stack and statement budget of
-/// [`DeviceDescriptor::hosted`](trust_runtime_core::deployment::DeviceDescriptor::hosted); `None` on
-/// a CPU that runs no program image.
+/// [`DeviceDescriptor::hosted`](trust_runtime_core::deployment::DeviceDescriptor::hosted), trusting
+/// every signer, as the tools run the images they build; `None` on a CPU that runs no program
+/// image.
 #[must_use]
 pub fn this_computer() -> Option<Device> {
     trust_runtime_core::deployment::DeviceDescriptor::hosted()
         .native
         .map(|native| native.device(None))
+}
+
+/// [`this_computer`] as trust-runtime admits the program it is given (specification 44 §5.11): with
+/// the keys of the computer's `device.toml`.
+///
+/// # Errors
+///
+/// [`NativeError::Signing`] when the computer's trusted keys cannot be read.
+pub fn runtime_device() -> Result<Option<Device>, NativeError> {
+    let trusted_keys = computer_trusted_keys()?;
+    Ok(this_computer().map(|device| Device {
+        trusted_keys,
+        ..device
+    }))
 }
 
 /// The target `name` names: a device, a CPU, a Rust target triple or `host`, this computer's CPU
@@ -95,6 +115,9 @@ pub enum NativeError {
     /// The project's settings file cannot be read, or its build setting is not one the build takes
     /// (specification 44 §13.2).
     Settings(String),
+    /// A signing key cannot be read or made, or the computer's trusted keys cannot be read
+    /// (specification 44 §5.11).
+    Signing(String),
 }
 
 impl std::fmt::Display for NativeError {
@@ -109,6 +132,7 @@ impl std::fmt::Display for NativeError {
             Self::Module(message) => write!(f, "the compiled module: {message}"),
             Self::Image(message) => write!(f, "the program image: {message}"),
             Self::Settings(message) => write!(f, "the project's settings: {message}"),
+            Self::Signing(message) => write!(f, "the signature: {message}"),
         }
     }
 }
@@ -177,6 +201,27 @@ pub fn build(
     build_with_tests(sources, &[], options, toolchain, work)
 }
 
+/// The header's hash of `sources` (specification 44 §5.2): the SHA-256 of each source's label, a
+/// zero byte, its text and a zero byte, in the order of the labels, so that the same sources give
+/// the same hash on every computer.
+#[must_use]
+pub fn sources_hash(sources: &[SourceFile]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut labelled: Vec<(&str, &str)> = sources
+        .iter()
+        .map(|source| (source.path.as_deref().unwrap_or(""), source.text.as_str()))
+        .collect();
+    labelled.sort_unstable();
+    let mut hasher = Sha256::new();
+    for (label, text) in labelled {
+        hasher.update(label.as_bytes());
+        hasher.update([0]);
+        hasher.update(text.as_bytes());
+        hasher.update([0]);
+    }
+    hasher.finalize().into()
+}
+
 /// Builds the program image of `sources` as [`build`] does, with each of the test programs `tests`
 /// as an instance of its name that no task runs, for `trust-dev test` (specification 13).
 ///
@@ -209,12 +254,23 @@ pub fn build_with_tests(
         u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap_or(u16::MAX),
     );
     writer.rustc.clone_from(&toolchain.version);
+    // The program library the module links and the sources it was built from (§5.2).
+    writer.library = trust_runtime_core::native::library::library_hash(
+        &toolchain.program_library(options.target)?,
+        options.target,
+    );
+    writer.source_hash = sources_hash(sources);
     // An image without statement hooks is a release image, and its header says so (§13.2).
     writer.release = !options.hooks;
     writer.build_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
     writer.module(module.code.clone());
+    // `SIGN` reserved unsigned, so that a tool that deploys the image signs it in place (§5.11).
+    writer.section(
+        SectionId::Sign,
+        vec![0; trust_runtime_core::native::signature::SIGN_BYTES],
+    );
     let figure = tables::write(
         &mut writer,
         &mut model,

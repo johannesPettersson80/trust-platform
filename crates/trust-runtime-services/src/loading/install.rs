@@ -461,8 +461,8 @@ pub fn check_bytes(
 }
 
 /// The kernel's own checks of the compiled program image `image`, as a boot runs them, against the
-/// memory `device` has for programs (specification 44 §10.2, steps 2, 3, 5 and 6). Admission has
-/// already refused an image on a device that does not run images.
+/// memory `device` has for programs (specification 44 §10.2, steps 2 to 6). Admission has already
+/// refused an image on a device that does not run images.
 #[cfg(feature = "native")]
 fn check_image(image: &[u8], device: &DeviceDescriptor) -> Result<(), InstallError> {
     let Some(target) = device.native else {

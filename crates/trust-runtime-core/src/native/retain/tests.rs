@@ -323,6 +323,7 @@ fn device() -> Device {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1000,
+        trusted_keys: &[],
     }
 }
 

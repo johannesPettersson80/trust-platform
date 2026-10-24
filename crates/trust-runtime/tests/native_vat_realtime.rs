@@ -94,6 +94,7 @@ fn the_pasteurizer_runs_in_real_time() {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     let mut tasks: Vec<TaskRecord> = program

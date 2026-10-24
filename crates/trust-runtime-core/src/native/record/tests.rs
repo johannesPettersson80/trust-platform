@@ -44,8 +44,10 @@ fn the_record_names_the_image() {
 }
 
 /// The process image and the tasks are the image's: one output byte, one binding, the task of 10 ms
-/// at priority 1 started by its interval. A record with the hosted defaults would make a chip claim
-/// the wrong lines or schedule the wrong tasks.
+/// at priority 1 started by its interval; the record requests that one byte of process image and
+/// no preparation limit (specification 44 §10.2, steps 1 and 5). A record with the hosted defaults
+/// would make a chip claim the wrong lines or schedule the wrong tasks, and one that requested no
+/// process image would pass a device's maximum whatever the program binds.
 #[test]
 fn the_record_carries_the_process_image_and_the_tasks() {
     let record = DeploymentRecord::for_image(&test_image(), [0; 32]).expect("the image describes");
@@ -77,8 +79,11 @@ fn the_record_carries_the_process_image_and_the_tasks() {
     );
     assert_eq!(record.contracts.capabilities, Capabilities::NONE);
     assert!(record.imports.is_empty());
-    // An image is not prepared: it requests no preparation limit, so every device's maxima admit it.
-    assert!(record.limits.values().iter().all(|(_, value)| *value == 0));
+    // An image is not prepared: it requests no preparation limit, only its process image.
+    for (limit, value) in record.limits.values() {
+        let expected = u64::from(limit == crate::deployment::LimitKind::ProcessImageBytes);
+        assert_eq!(value, expected, "{limit:?}");
+    }
     // The record encodes and decodes as every record does.
     let encoded = record.encode().expect("the record encodes");
     assert_eq!(DeploymentRecord::decode(&encoded), Ok(record));

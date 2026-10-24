@@ -40,6 +40,7 @@ fn compiled(source: &str) -> (Build, Device) {
         program_memory: 1 << 20,
         task_stack: TASK_STACK,
         max_statements: 1_000_000,
+        trusted_keys: &[],
     };
     (built, device)
 }

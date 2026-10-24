@@ -55,6 +55,19 @@ impl DeploymentRecord {
                 event: task.single != NONE,
             })
             .collect();
+        let process_image = ProcessImageSummary {
+            input_bytes: area(abi::AREA_INPUTS)?,
+            output_bytes: area(abi::AREA_OUTPUTS)?,
+            marker_bytes: area(abi::AREA_MARKERS)?,
+            bindings: parsed.table::<IoBindRecord>().map_err(invalid)?.len(),
+        };
+        // The record requests the process image the program binds, which a device bounds by its
+        // `max_process_image_bytes` (specification 44 §10.2, steps 1 and 5); the other limits are
+        // the bytecode engine's preparation.
+        let mut limits = RequestedLimits::from_values([0; 11]);
+        limits.max_process_image_bytes = u64::from(process_image.input_bytes)
+            + u64::from(process_image.output_bytes)
+            + u64::from(process_image.marker_bytes);
         Ok(Self {
             application: ApplicationIdentity {
                 program_sha256: sha256(image),
@@ -71,13 +84,8 @@ impl DeploymentRecord {
                 timing_evidence: TimingEvidence::UNQUALIFIED,
                 capabilities: Capabilities::NONE,
             },
-            limits: RequestedLimits::from_values([0; 11]),
-            process_image: ProcessImageSummary {
-                input_bytes: area(abi::AREA_INPUTS)?,
-                output_bytes: area(abi::AREA_OUTPUTS)?,
-                marker_bytes: area(abi::AREA_MARKERS)?,
-                bindings: parsed.table::<IoBindRecord>().map_err(invalid)?.len(),
-            },
+            limits,
+            process_image,
             tasks,
             imports: Vec::new(),
             configuration: Configuration::default(),

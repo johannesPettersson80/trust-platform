@@ -19,7 +19,8 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
     component "trust-plc-abi\nCx, areas, faults, references,\nclass ids; module side" as abiModule
     component "trust-plc-mem\nmemcpy, memset, memcmp\nfor computer modules" as memModule
     component "trust-lsp.toml [build] debug\n(host/native/settings.rs; true when absent):\na debug image with statement hooks\nor a release image without them (§13.2)" as buildSetting
-    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure with the call level,\nheader flag release" as image
+    artifact "program.<triple>.tpi (TRSTI001)\nCODE, RODATA, INIT, tables,\nmemory figure with the call level,\nheader flag release, sources hash,\nprogram library hash, SIGN last" as image
+    component "host/native/signing (§5.11)\nthe project's [signing] key or the user's\nsigning-key.pem (truST configuration folder);\nfills SIGN in place, before the record" as signing
     artifact "deployment-record.<triple>.bin\nversion 44.1, tasks, process image,\nruntime.toml + io.toml" as record
     component "trust-dev test --execution-backend native\nTEST_PROGRAMs as instances without a task;\neach test: cold start, run_instance once" as testRunner
     hir --> model
@@ -33,6 +34,7 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
     abiModule --> toolchain
     memModule --> toolchain
     toolchain --> image
+    signing --> image : sign (trust-runtime build,\ntrust-dev test --device)
     image --> record : DeploymentRecord::for_image
     testRunner --> model : build_with_tests
     testRunner ..> image : runs on this computer's kernel
@@ -41,7 +43,7 @@ package "Engineering computer: trust-runtime build --target" as buildPkg #LightY
 package "Container and program store (specification 34 §5.1)" as storePkg #LightGreen {
     artifact "TRSTA002 container\nentry kind 3 = image at a 64-byte boundary,\nkind 2 = record" as container
     component "installation::admit_sequenced\nkind and record version agree;\ndescriptor names 44.1" as admission
-    component "loading::install::check\nkernel checks of §10.2 in place\nof the STBC dry run" as installCheck
+    component "loading::install::check\nkernel checks of §10.2 (native::admission:\nlibrary, signature against the trusted keys,\ntables, bindings, memory) in place of the\nSTBC dry run" as installCheck
     image --> container : xtask pack-project / encode_image
     record --> container
     container --> admission
@@ -73,13 +75,15 @@ package "ESP32-C6 firmware --features native" as chipPkg #LightCyan {
 
 package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Lavender {
     artifact "program.tpi + deployment-record.bin\n(trust-runtime build, program.install)" as hostImage
+    artifact "device.toml [signing] trusted_keys\n(truST configuration folder;\nnative::runtime_device)" as hostTrust
     component "ResourceRunner, scan thread\n(HostProgram: engine or compiled),\ncycle grid, watchdog, faults, commands" as hostRunner
     component "CompiledRuntime\nHostIo (io.toml drivers), RetainManager\n(retain file), metrics, events, snapshot" as hostRuntime
     component "CompiledDebugger\nChipDebug under a lock; the scan thread\nholds, control threads answer" as hostDebugger
     component "control server threads\ndebug::requests::answer, io.read,\nLive Values queues (DebugControl)" as hostControl
     component "HMI, ADS and OPC UA servers, historian\nread the published CompiledState\nthrough the symbol table" as hostServices
     component "ADS and OPC UA clients, MQTT tags,\nOpenOT telemetry: variables by name;\nsamples after the inputs, outputs and\nproducers after the scan" as hostClients
-    hostImage --> hostRuntime : CompiledRuntime::load\n(AdmittedImage kept, module mmapped)
+    hostImage --> hostRuntime : CompiledRuntime::load_deployed\n(AdmittedImage kept, module mmapped)
+    hostTrust ..> hostRuntime : admits at load and\nat each online change
     hostRunner --> hostRuntime : execute_cycle / restart /\nonline change / step
     hostRuntime --> cycle : the same CompiledCycle,\nhost ports
     hostRuntime --> hostDebugger : hold port, published state

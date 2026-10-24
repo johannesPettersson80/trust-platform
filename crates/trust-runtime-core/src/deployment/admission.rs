@@ -65,6 +65,7 @@ impl NativeTarget {
             program_memory: program_memory_bytes.unwrap_or(u64::MAX),
             task_stack: self.task_stack_bytes,
             max_statements: self.max_statements,
+            trusted_keys: &[],
         }
     }
 }

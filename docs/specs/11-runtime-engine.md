@@ -2906,6 +2906,11 @@ The status and configuration surfaces project one effective runtime state:
   system reports its chip name and USB serial number, for example
   `esp32c6-20:6E:F1:17:04:C0`: it needs no stored file, stays the same across
   resets and differs between two chips of one model.
+- Status reports in `signature` how the runtime admits program images by their
+  signature (specification 44 §5.11): `none` while its list of trusted keys is
+  empty, so that it checks no signature and admits signed and unsigned images
+  alike, and `trusted` while it admits only images a key of its list signed. A computer
+  whose `device.toml` cannot be read admits no image and reports `trusted`.
 - Aggregate health is false when any I/O driver is faulted and retains the
   faulted driver's stable error detail; runtime readiness alone cannot hide
   that fault.

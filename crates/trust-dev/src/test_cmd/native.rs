@@ -162,7 +162,12 @@ fn execute_native_tests_on_device(
         target_named(target).ok_or_else(|| anyhow::anyhow!("unknown target '{target}'"))?;
     let toolchain = Toolchain::from_env()
         .map_err(|error| anyhow::anyhow!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
-    let built = build_test_image(project_root, discovered, target, &toolchain)?;
+    let mut built = build_test_image(project_root, discovered, target, &toolchain)?;
+    // The device admits what a key it trusts signed: the project's (specification 44 §5.11).
+    trust_runtime::native::sign(
+        &mut built.image,
+        &trust_runtime::native::project_key(project_root)?,
+    )?;
     let work = std::env::temp_dir().join(format!("trust-dev-device-{}", std::process::id()));
     let mut link = DeviceLink::open(port)?;
     let prepared = link

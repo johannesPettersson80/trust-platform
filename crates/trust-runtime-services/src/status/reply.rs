@@ -120,6 +120,7 @@ pub(super) struct Status<'a> {
     pub(super) realtime: serde_json::Value,
     pub(super) resource: &'a str,
     pub(super) runtime_id: &'a str,
+    pub(super) signature: &'static str,
     pub(super) simulation_enabled: bool,
     pub(super) simulation_mode: &'a str,
     pub(super) simulation_time_scale: u32,

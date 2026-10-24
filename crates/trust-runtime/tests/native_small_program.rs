@@ -63,6 +63,7 @@ fn a_program_without_read_only_data_builds_for_the_c6_and_runs_here() {
             program_memory: 1 << 20,
             task_stack: 1 << 20,
             max_statements: 1_000,
+            trusted_keys: &[],
         };
         let mut program = load(&built.image, &device).expect("the image loads");
         program.cold_start(Duration::ZERO).expect("the cold start");
@@ -128,6 +129,7 @@ fn a_release_image_counts_only_loop_passes_and_still_ends_an_endless_loop() {
             program_memory: 1 << 20,
             task_stack: 1 << 20,
             max_statements: 1_000,
+            trusted_keys: &[],
         };
         let mut program = load(&built.image, &device).expect("the image loads");
         assert_eq!(
@@ -219,6 +221,7 @@ fn a_constant_index_inside_the_bounds_is_not_checked() {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
@@ -285,6 +288,7 @@ fn a_test_image_runs_its_test_programs_only_when_invoked() {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
@@ -508,6 +512,7 @@ fn built_here(source: &str, label: &str, hooks: bool) -> (Build, Device) {
         program_memory: 1 << 20,
         task_stack: 1 << 20,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     (built, device)
 }

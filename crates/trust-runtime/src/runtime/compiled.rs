@@ -88,14 +88,22 @@ pub struct CompiledRuntime {
     /// The statements and loop passes one task activation runs at most (specification 44 NX-10),
     /// for this program and every program an online change installs.
     statement_budget: u32,
+    /// The keys an image of this runtime must be signed by, for this program and every program an
+    /// online change installs (specification 44 §5.11); none trusts every signer.
+    trusted_keys: &'static [[u8; 32]],
 }
 
-/// This computer's device for a program whose task activations run at most `budget` statements.
-fn computer(budget: u32) -> Result<crate::native::Device, RuntimeError> {
+/// This computer's device for a program whose task activations run at most `budget` statements
+/// and whose images are signed by one of `trusted_keys`, or by any key with none.
+fn computer(
+    budget: u32,
+    trusted_keys: &'static [[u8; 32]],
+) -> Result<crate::native::Device, RuntimeError> {
     let mut device = crate::native::this_computer().ok_or_else(|| {
         RuntimeError::InvalidBundle("this computer's CPU runs no program image".into())
     })?;
     device.max_statements = budget;
+    device.trusted_keys = trusted_keys;
     Ok(device)
 }
 
@@ -138,7 +146,34 @@ impl CompiledRuntime {
         resource_name: impl Into<SmolStr>,
         budget: u32,
     ) -> Result<Self, RuntimeError> {
-        let device = computer(budget)?;
+        Self::load_trusting(bytes, resource_name, budget, &[])
+    }
+
+    /// [`Self::load_with_statement_budget`] as trust-runtime loads the program it is given: the
+    /// image and every image an online change installs must be signed by a key of the computer's
+    /// `device.toml`, when it names any (specification 44 §5.11).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::load`], and [`RuntimeError::InvalidConfig`] when the computer's trusted keys
+    /// cannot be read.
+    pub fn load_deployed(
+        bytes: Vec<u8>,
+        resource_name: impl Into<SmolStr>,
+        budget: u32,
+    ) -> Result<Self, RuntimeError> {
+        let trusted_keys = crate::native::computer_trusted_keys()
+            .map_err(|error| RuntimeError::InvalidConfig(error.to_string().into()))?;
+        Self::load_trusting(bytes, resource_name, budget, trusted_keys)
+    }
+
+    fn load_trusting(
+        bytes: Vec<u8>,
+        resource_name: impl Into<SmolStr>,
+        budget: u32,
+        trusted_keys: &'static [[u8; 32]],
+    ) -> Result<Self, RuntimeError> {
+        let device = computer(budget, trusted_keys)?;
         let program = crate::native::load_kept(bytes, &device)
             .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
         let (bindings, binding_names) = io_bindings(&program.image())
@@ -181,6 +216,7 @@ impl CompiledRuntime {
             output_commit_deadline: None,
             output_commit_pause_baseline: PhysicalDuration::ZERO,
             statement_budget: budget,
+            trusted_keys,
         };
         runtime.publish_program_memory();
         Ok(runtime)
@@ -389,7 +425,7 @@ impl CompiledRuntime {
     /// [`RuntimeError::InvalidBundle`] for an image the computer refuses, and the error of a change
     /// that cannot start.
     pub fn apply_online_change_bytes(&mut self, bytes: &[u8]) -> Result<(), RuntimeError> {
-        let device = computer(self.statement_budget)?;
+        let device = computer(self.statement_budget, self.trusted_keys)?;
         let program = crate::native::load_kept(bytes.to_vec(), &device)
             .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
         let (bindings, binding_names) = io_bindings(&program.image())

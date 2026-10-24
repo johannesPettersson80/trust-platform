@@ -378,6 +378,7 @@ pub(super) fn cycle_with<'b>(
         program_memory: 1_000,
         task_stack: 4_096,
         max_statements: 1_000,
+        trusted_keys: &[],
     };
     let admitted = admit(bytes, &device).expect("the image is admitted");
     let program =

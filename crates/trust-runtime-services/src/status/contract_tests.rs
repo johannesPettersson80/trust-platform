@@ -100,6 +100,9 @@ fn status_reports_identity_modes_settings_and_platform_blocks() {
     assert_eq!(value["simulation_enabled"], json!(false));
     assert_eq!(value["simulation_time_scale"], json!(1));
     assert_eq!(value["simulation_warning"], json!(""));
+    // Specification 44 §5.11: a device without a list of trusted keys admits every image whose
+    // signature, if any, verifies, and says so.
+    assert_eq!(value["signature"], json!("none"));
     assert_eq!(value["hmi_read_only"], json!(true));
     assert_eq!(value["openot_persistence"], json!({"state": "disabled"}));
     assert_eq!(

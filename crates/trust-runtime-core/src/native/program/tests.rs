@@ -13,7 +13,7 @@ use trust_plc_abi::{Cx, Fault, FaultCode, AREA_INSTANCES};
 use super::*;
 use crate::native::image::{
     type_kind, CodeImage, FileRecord, ImageWriter, MemoryFigure, RetainRecord, SectionId,
-    StmtRecord, StringPool, TypeRecord, AREA_HAS_INIT, SYMBOL_PROGRAM,
+    StmtRecord, StringPool, Target, TypeRecord, AREA_HAS_INIT, SYMBOL_PROGRAM,
 };
 
 const MS: i64 = 1_000_000;
@@ -83,18 +83,22 @@ impl ModuleCode for StandIn {
     }
 }
 
-/// An image of `MAIN` in a 10 ms task, its byte 1 bound to `%QX0.1`, whose body is at
-/// `body`, with memory figure `total` and stack bound `stack`.
-pub(crate) fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8> {
-    let out = IoBindRecord {
+/// The binding of `MAIN.OUT` to `%QX0.1`.
+pub(crate) fn output_bit() -> IoBindRecord {
+    IoBindRecord {
         symbol: 2,
         area: 2,
         size: 0,
         byte: 0,
         bit: 1,
         flags: 0,
-    };
-    image_with(body, total, stack, target, out, 0, 0)
+    }
+}
+
+/// An image of `MAIN` in a 10 ms task, its byte 1 bound to `%QX0.1`, whose body is at
+/// `body`, with memory figure `total` and stack bound `stack`.
+pub(crate) fn image(body: u32, total: u64, stack: u64, target: Target) -> Vec<u8> {
+    image_with(body, total, stack, target, output_bit(), 0, 0)
 }
 
 /// The image of [`image`] with its one binding `binding` and a marker image of `markers` bytes.
@@ -107,6 +111,21 @@ fn image_with(
     markers: u64,
     call_level: u64,
 ) -> Vec<u8> {
+    writer_with(body, total, stack, target, binding, markers, call_level)
+        .finish()
+        .unwrap()
+}
+
+/// The writer of [`image_with`] with every section written, before it finishes the image.
+pub(crate) fn writer_with(
+    body: u32,
+    total: u64,
+    stack: u64,
+    target: Target,
+    binding: IoBindRecord,
+    markers: u64,
+    call_level: u64,
+) -> ImageWriter {
     let mut strings = StringPool::new();
     let main = strings.add("MAIN");
     let count_name = strings.add("MAIN.COUNT");
@@ -218,7 +237,7 @@ fn image_with(
         .to_vec(),
     );
     writer.section(SectionId::Strings, strings.into_bytes());
-    writer.finish().unwrap()
+    writer
 }
 
 fn device() -> Device {
@@ -227,6 +246,7 @@ fn device() -> Device {
         program_memory: 1000,
         task_stack: 4096,
         max_statements: 1000,
+        trusted_keys: &[],
     }
 }
 
@@ -269,6 +289,81 @@ fn a_device_refuses_what_it_cannot_run() {
         Some(Refusal::Interface { image: 1 })
     );
     assert!(admit(&image(0, 100, 50, device.target), &device).is_ok());
+}
+
+/// Specification 44 §10.2, step 2: an image that links another program library is refused with
+/// both hashes, and the message says to rebuild with this release's toolchain; an image that the
+/// tests write links this kernel's. Catches a header whose library is never compared.
+#[test]
+fn a_device_refuses_an_image_of_another_program_library() {
+    let device = device();
+    let mut other = image(0, 100, 50, device.target);
+    other[96..112].fill(0xAB);
+    let end = HEADER + 16 * u32::from_le_bytes(other[112..116].try_into().unwrap()) as usize;
+    let crc = crate::crc32::checksum(&other[12..end]);
+    other[8..12].copy_from_slice(&crc.to_le_bytes());
+    let kernel = crate::native::library::library_hash(
+        crate::native::library::PROGRAM_LIBRARY,
+        device.target,
+    );
+    let refusal = admit(&other, &device).err();
+    assert_eq!(
+        refusal,
+        Some(Refusal::Library {
+            image: [0xAB; 16],
+            kernel
+        })
+    );
+    let message = alloc::format!("{}", refusal.expect("a refusal"));
+    assert!(
+        message.starts_with(
+            "the program was built with another program library (abababababababababababababababab)"
+        ),
+        "{message}"
+    );
+    assert!(
+        message.ends_with("rebuild the project with this release's toolchain"),
+        "{message}"
+    );
+}
+
+/// Specification 44 §10.2, step 5: an I/O binding must lie inside its process image. The output
+/// image of the fixture is 1 byte: `%QX0.1` and `%QB0` lie inside it, `%QX1.0` (byte 1) and
+/// `%QW0` (bytes 0 and 1) do not, and are refused by the binding's index. Catches a binding checked
+/// only for its area's number, and a word's width taken as one byte.
+#[test]
+fn a_device_refuses_a_binding_outside_its_process_image() {
+    let device = device();
+    let binding = |size, byte, bit| IoBindRecord {
+        symbol: 2,
+        area: 2,
+        size,
+        byte,
+        bit,
+        flags: 0,
+    };
+    for (size, byte, bit, inside) in [
+        (0, 0, 1, true),
+        (1, 0, 0, true),
+        (0, 1, 0, false),
+        (2, 0, 0, false),
+    ] {
+        let bytes = image_with(0, 100, 50, device.target, binding(size, byte, bit), 0, 0);
+        let admitted = admit(&bytes, &device);
+        if inside {
+            assert!(
+                admitted.is_ok(),
+                "{size} {byte} {bit}: {:?}",
+                admitted.err()
+            );
+        } else {
+            assert_eq!(
+                admitted.err(),
+                Some(Refusal::Binding(0)),
+                "{size} {byte} {bit}"
+            );
+        }
+    }
 }
 
 const HEADER: usize = crate::native::image::HEADER_BYTES;

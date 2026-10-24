@@ -213,6 +213,14 @@ pub trait StatusPort {
     /// Whether the runtime's program control survives `shutdown` (spec 34 STATE-08).
     fn program_control(&self) -> ProgramControl;
 
+    /// How the runtime admits program images by their signature (specification 44 §5.11):
+    /// `none` while its list of trusted keys is empty, so that it checks no signature, and
+    /// `trusted` while it admits only images a key of its list signed. The default is a device
+    /// without a list, as a chip is until it keeps one.
+    fn signature(&self) -> &'static str {
+        "none"
+    }
+
     /// The runtime settings that `status` reports.
     fn status_settings(&self) -> Option<StatusSettings>;
 

@@ -101,7 +101,8 @@ fn align_up(value: usize, alignment: usize) -> usize {
 }
 
 impl ImageWriter {
-    /// A writer of an image for `target` built against kernel interface `interface_version`.
+    /// A writer of an image for `target` built against kernel interface `interface_version`, which
+    /// links this release's program library until [`Self::library`] says otherwise (§5.2).
     #[must_use]
     pub fn new(target: Target, interface_version: u16) -> Self {
         Self {
@@ -110,7 +111,10 @@ impl ImageWriter {
             build_time: 0,
             source_hash: [0; 32],
             rustc: String::new(),
-            library: [0; 16],
+            library: crate::native::library::library_hash(
+                crate::native::library::PROGRAM_LIBRARY,
+                target,
+            ),
             release: false,
             module: CodeImage::default(),
             sections: BTreeMap::new(),

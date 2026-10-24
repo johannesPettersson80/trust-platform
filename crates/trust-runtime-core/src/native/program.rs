@@ -12,15 +12,14 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::Cell;
-use core::fmt;
 
 use smol_str::SmolStr;
 use trust_plc_abi::kernel::{call_with_sink, Entry, InPlace};
-use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
+use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi};
 
 use super::image::{
     AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure, SectionId,
-    Shape, StmtRecord, SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
+    Shape, StmtRecord, SymbolRecord, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
 };
 use super::memory::{read_place, retained_place, symbol_place, write_place};
 use super::retain;
@@ -50,123 +49,7 @@ impl ModuleCode for InPlace {
     }
 }
 
-/// What a device offers a program (specification 44 §10.2, steps 2 and 6).
-#[derive(Clone, Copy, Debug)]
-pub struct Device {
-    /// The device's CPU.
-    pub target: Target,
-    /// The bytes the device has for programs.
-    pub program_memory: u64,
-    /// The bytes of the task stack.
-    pub task_stack: u64,
-    /// The statements one activation may execute (specification 44 §8.4).
-    pub max_statements: u32,
-}
-
-/// Why a device refuses an image; the first failed check names its reason (specification 44
-/// §10.2).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Refusal {
-    /// The image is damaged or inconsistent.
-    Image(ImageError),
-    /// The image is for another CPU.
-    Target {
-        /// The image's target number.
-        image: u32,
-        /// The device's.
-        device: Target,
-    },
-    /// The image was built against another kernel interface.
-    Interface {
-        /// The image's version.
-        image: u16,
-    },
-    /// The program needs more memory than the device has.
-    Memory {
-        /// The program's memory figure.
-        needs: u64,
-        /// The device's memory for programs.
-        has: u64,
-    },
-    /// The program's stack bound exceeds the task stack.
-    Stack {
-        /// The bound.
-        needs: u64,
-        /// The task stack.
-        has: u64,
-    },
-    /// An entry point the platform cannot reach.
-    Entry(u32),
-}
-
-impl fmt::Display for Refusal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Image(error) => error.fmt(f),
-            Self::Target { image, device } => write!(
-                f,
-                "the image is for target {image}, this device is {device:?}: rebuild the project for it"
-            ),
-            Self::Interface { image } => write!(
-                f,
-                "kernel interface {image} required, this runtime has {INTERFACE_VERSION}: rebuild the project"
-            ),
-            Self::Memory { needs, has } => write!(
-                f,
-                "insufficient memory: the program needs {needs} bytes, the device has {has}"
-            ),
-            Self::Stack { needs, has } => write!(
-                f,
-                "insufficient stack: the program needs {needs} bytes, the task stack has {has}"
-            ),
-            Self::Entry(offset) => write!(f, "the entry point at code offset {offset} cannot be reached"),
-        }
-    }
-}
-
-impl From<Refusal> for RuntimeError {
-    fn from(refusal: Refusal) -> Self {
-        RuntimeError::InvalidBundle(SmolStr::new(alloc::format!("{refusal}")))
-    }
-}
-
-/// Admits the image in `bytes` on `device`: its header, its section table, its tables, its memory
-/// figure and its stack bound (specification 44 §10.2, steps 2, 3, 5 and 6). The image is read where
-/// it lies and nothing is allocated.
-///
-/// # Errors
-///
-/// The first [`Refusal`].
-pub fn admit<'i>(bytes: &'i [u8], device: &Device) -> Result<Image<'i>, Refusal> {
-    let image = Image::parse(bytes).map_err(Refusal::Image)?;
-    let header = *image.header();
-    if Target::from_raw(header.target) != Some(device.target) {
-        return Err(Refusal::Target {
-            image: header.target,
-            device: device.target,
-        });
-    }
-    if u32::from(header.interface_version) != INTERFACE_VERSION {
-        return Err(Refusal::Interface {
-            image: header.interface_version,
-        });
-    }
-    image.check_tables().map_err(Refusal::Image)?;
-    let figure = image.memory_figure();
-    if figure.total > device.program_memory {
-        return Err(Refusal::Memory {
-            needs: figure.total,
-            has: device.program_memory,
-        });
-    }
-    if figure.stack > device.task_stack {
-        return Err(Refusal::Stack {
-            needs: figure.stack,
-            has: device.task_stack,
-        });
-    }
-    Ok(image)
-}
+pub use super::admission::{admit, Device, Refusal};
 
 /// One area's memory: 8-byte words, so that the module's views are aligned.
 struct Memory {

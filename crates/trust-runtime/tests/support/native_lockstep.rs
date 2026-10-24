@@ -82,6 +82,7 @@ pub fn compare_sources(
         // (specification 44 §8.5).
         task_stack: 1 << 20,
         max_statements: 1_000_000,
+        trusted_keys: &[],
     };
     let mut program = load(&built.image, &device).map_err(|error| error.to_string())?;
     program

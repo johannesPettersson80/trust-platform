@@ -139,6 +139,20 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   which stopped every time. Now the answer is read as the runtime sends it, a runtime on the
   bytecode engine gets no breakpoint whose options it cannot honor (the editor shows it unverified
   with the reason), and every breakpoint is answered in the order the editor asked.
+- Added: program images are signed, and a runtime can run only the images of keys it trusts
+  (specification 44 §5.11). `trust-runtime build` signs the image it writes with the key the
+  project's `trust-lsp.toml` names in `[signing] key`, or else with your own key,
+  `signing-key.pem` in truST's configuration folder (`~/.config/trust` on Linux), which the first
+  build creates, readable by you alone and never printed; the build's report names the signer's
+  public key. A runtime whose `device.toml` in that folder lists `[signing] trusted_keys` installs,
+  starts and changes online only images one of those keys signed, and refuses an image changed
+  after signing; without the list it checks no signature and runs unsigned images too, as before.
+  `status` reports `signature`: `none` or `trusted`.
+- Added: a runtime refuses a program image built with another release's toolchain, naming both
+  program libraries, and an image with an I/O binding outside its process image, each with its
+  reason (specification 44 §10.2); an image names the hash of its sources. The toolchain's library
+  folders name their release in a `LIBRARY` file: a toolchain folder of an earlier build needs
+  `scripts/native/build_toolchain_libraries.sh` again.
 - Added: trust-runtime on Linux, Windows and macOS runs compiled programs (specification 44 §8.8):
   `trust-runtime build` writes the project's program image for this computer, `program.tpi`, with
   its deployment record, when the Rust toolchain of truST is installed (`TRUST_TOOLCHAIN`; without

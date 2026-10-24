@@ -16,12 +16,7 @@ use trust_runtime_core::native::image::Target;
 /// per CPU, which every operating system's kernel of that CPU runs.
 #[must_use]
 pub fn triple(target: Target) -> &'static str {
-    match target {
-        Target::Rv32imac => "riscv32imac-unknown-none-elf",
-        Target::ThumbV8mMainHf => "thumbv8m.main-none-eabihf",
-        Target::X86_64 => "x86_64-unknown-linux-gnu",
-        Target::Aarch64 => "aarch64-unknown-linux-gnu",
-    }
+    trust_runtime_core::native::library::triple(target)
 }
 
 /// The CPU and features of a module for `target`, fixed so that every device computes the same
@@ -116,6 +111,24 @@ impl Toolchain {
             libraries: root.join("lib"),
             version,
         })
+    }
+
+    /// The program library the toolchain holds for `target`, `trust-plc-lib <version>`, as its
+    /// `LIBRARY` file names it (specification 44 §4.6, §5.2).
+    ///
+    /// # Errors
+    ///
+    /// [`NativeError::Toolchain`] when the toolchain names no program library for `target`.
+    pub fn program_library(&self, target: Target) -> Result<String, NativeError> {
+        let path = self.libraries.join(triple(target)).join("LIBRARY");
+        let text = std::fs::read_to_string(&path).map_err(|error| {
+            NativeError::Toolchain(format!(
+                "{} names no program library ({error}): build its libraries again with \
+                 scripts/native/build_toolchain_libraries.sh",
+                path.display()
+            ))
+        })?;
+        Ok(text.trim().to_string())
     }
 
     /// The program library's and the interface's compiled crates for `target`.

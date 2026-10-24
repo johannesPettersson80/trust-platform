@@ -369,7 +369,7 @@ impl DeviceLink {
         toolchain: &crate::native::Toolchain,
         work: &Path,
     ) -> Result<(), DeviceLinkError> {
-        let built = crate::native::build(
+        let mut built = crate::native::build(
             &[crate::harness::SourceFile::new(IDLE_PROGRAM)],
             &crate::native::Options {
                 target,
@@ -379,6 +379,10 @@ impl DeviceLink {
             &work.join("native"),
         )
         .map_err(|error| DeviceLinkError::Build(format!("the idle program: {error}")))?;
+        // A device admits what a key it trusts signed: the user's own (specification 44 §5.11).
+        crate::native::user_key()
+            .and_then(|key| crate::native::sign(&mut built.image, &key))
+            .map_err(|error| DeviceLinkError::Build(format!("the idle program: {error}")))?;
         let container = stepping_container(&built.image, work)?;
         self.install(&container)?;
         self.call("restart", Some(json!({"mode": "cold"})), REPLY_WAIT)?;

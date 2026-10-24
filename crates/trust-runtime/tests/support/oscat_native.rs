@@ -46,6 +46,7 @@ pub fn program(image: &'static [u8]) -> NativeProgram<'static, HostCode> {
         program_memory: 1 << 24,
         task_stack: 1 << 20,
         max_statements: 10_000_000,
+        trusted_keys: &[],
     };
     let mut program = load(image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");

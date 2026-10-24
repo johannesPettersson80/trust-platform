@@ -1,7 +1,8 @@
-//! The project's build setting that chooses the image it compiles into (specification 44 §13.2):
-//! `[build] debug` in the project's settings file, `trust-lsp.toml` (specification 14).
+//! The project's build settings in its settings file, `trust-lsp.toml` (specification 14): `[build]
+//! debug`, which chooses the image it compiles into (specification 44 §13.2), and `[signing] key`,
+//! the key a deployed image is signed with (§5.11).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -13,11 +14,34 @@ use crate::bundle_builder::PROJECT_SETTINGS_FILES;
 struct SettingsFile {
     #[serde(default)]
     build: BuildSection,
+    #[serde(default)]
+    signing: SigningSection,
 }
 
 #[derive(Default, Deserialize)]
 struct BuildSection {
     debug: Option<bool>,
+}
+
+#[derive(Default, Deserialize)]
+struct SigningSection {
+    key: Option<PathBuf>,
+}
+
+/// The settings file of the project in folder `root`, or the defaults without one.
+fn settings_file(root: &Path) -> Result<SettingsFile, NativeError> {
+    let Some(path) = PROJECT_SETTINGS_FILES
+        .iter()
+        .map(|name| root.join(name))
+        .find(|path| path.is_file())
+    else {
+        return Ok(SettingsFile::default());
+    };
+    let settings = |error: &dyn std::fmt::Display| {
+        NativeError::Settings(format!("{}: {error}", path.display()))
+    };
+    let text = std::fs::read_to_string(&path).map_err(|error| settings(&error))?;
+    toml::from_str(&text).map_err(|error| settings(&error))
 }
 
 /// Whether the project in folder `root` is compiled with statement hooks, a debug image: its
@@ -29,19 +53,24 @@ struct BuildSection {
 /// [`NativeError::Settings`] when the settings file cannot be read, is not TOML, or has a `debug`
 /// that is not a Boolean.
 pub fn debug_hooks(root: &Path) -> Result<bool, NativeError> {
-    let Some(path) = PROJECT_SETTINGS_FILES
-        .iter()
-        .map(|name| root.join(name))
-        .find(|path| path.is_file())
-    else {
-        return Ok(true);
-    };
-    let settings = |error: &dyn std::fmt::Display| {
-        NativeError::Settings(format!("{}: {error}", path.display()))
-    };
-    let text = std::fs::read_to_string(&path).map_err(|error| settings(&error))?;
-    let file: SettingsFile = toml::from_str(&text).map_err(|error| settings(&error))?;
-    Ok(file.build.debug.unwrap_or(true))
+    Ok(settings_file(root)?.build.debug.unwrap_or(true))
+}
+
+/// The key file `[signing] key` names for the project in folder `root`, relative to it; `None`
+/// when the project names none, and its images are signed with the user's own key (specification
+/// 44 §5.11).
+///
+/// # Errors
+///
+/// [`NativeError::Settings`] when the settings file cannot be read or is not TOML.
+pub fn signing_key_setting(root: &Path) -> Result<Option<PathBuf>, NativeError> {
+    Ok(settings_file(root)?.signing.key.map(|key| {
+        if key.is_relative() {
+            root.join(key)
+        } else {
+            key
+        }
+    }))
 }
 
 #[cfg(test)]

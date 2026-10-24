@@ -114,7 +114,7 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
         // The program image is admitted as the computer admits it at its start (specification 44
         // §10.2, §8.8).
         Some(image) => {
-            let device = trust_runtime::native::this_computer()
+            let device = trust_runtime::native::runtime_device()?
                 .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
             trust_runtime_core::native::program::admit(image, &device)
                 .map_err(|refusal| anyhow::anyhow!("the program image is refused: {refusal}"))?;
