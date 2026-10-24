@@ -467,16 +467,15 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     }
 
     /// Copies the process images, `%I`, `%Q` and `%M`, into `images` as the last scan left them,
-    /// keeping the capacity `images` has.
+    /// keeping the capacity `images` has. The output image is the one the drivers drive, with Live
+    /// Values' writes and forces and the safe state over the program's outputs, as an engine's
+    /// snapshot shows it (specification 44 §13.3).
     pub fn copy_images(&self, images: &mut FlatImages) {
-        for (area, image) in [
-            (0, &mut images.inputs),
-            (1, &mut images.outputs),
-            (2, &mut images.memory),
-        ] {
+        for (area, image) in [(0, &mut images.inputs), (2, &mut images.memory)] {
             image.resize(self.areas[area].len, 0);
             self.areas[area].read(0, image);
         }
+        images.outputs.clone_from(&self.outputs);
     }
 
     /// Copies the starting memory into the areas `starts` selects by their id (specification 44

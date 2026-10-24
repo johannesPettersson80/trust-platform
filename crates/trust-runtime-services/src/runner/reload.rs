@@ -259,6 +259,21 @@ where
                 program.event_capacity
             ));
         }
+        // A program whose record enables debugging keeps as many stops for `debug.stops` as its
+        // event store keeps events, as a loop started with it does (`Runner::new`); a loop built
+        // before any program had none (specification 11 §6.13.3).
+        let stops = if self
+            .shell
+            .with_platform(|platform| platform.debug_enabled())
+            .unwrap_or(false)
+        {
+            program.event_capacity
+        } else {
+            0
+        };
+        if !self.shell.debug.resize_stops(stops) {
+            return Err(format!("no room for a buffer of {stops} stops"));
+        }
         Ok(Built {
             loaded: program,
             live,

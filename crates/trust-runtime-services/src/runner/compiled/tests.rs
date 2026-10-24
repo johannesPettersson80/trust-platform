@@ -101,7 +101,7 @@ entry!(stopping, |cx, areas| {
 
 /// The stand-in module: code offset 0 counts, 16 divides by zero, 32 does nothing, 48 counts as
 /// a debug image does.
-struct StandIn;
+pub(super) struct StandIn;
 
 impl ModuleCode for StandIn {
     fn entry(&self, offset: u32) -> Option<Entry> {
@@ -123,13 +123,20 @@ fn image(body: u32) -> Vec<u8> {
 /// The image of `MAIN` whose body is at code offset `body`; a `debug` image has the statement table
 /// of the debug body's two statements, on lines 1 and 2 of `main.st`, and the POU symbol `@MAIN`
 /// (specification 44 §5.7, §5.9).
-fn image_of(body: u32, debug: bool) -> Vec<u8> {
+pub(super) fn image_of(body: u32, debug: bool) -> Vec<u8> {
+    image_with(body, debug, false)
+}
+
+/// The image of [`image_of`], as a release image when `release` is set: one built without statement
+/// hooks (specification 44 §13.2).
+pub(super) fn image_with(body: u32, debug: bool, release: bool) -> Vec<u8> {
     let mut strings = StringPool::new();
     let fast = strings.add("Fast");
     let mut writer = ImageWriter::new(
         Target::this_cpu().unwrap_or(Target::X86_64),
         u16::try_from(trust_plc_abi::INTERFACE_VERSION).unwrap(),
     );
+    writer.release = release;
     writer.module(CodeImage {
         code: vec![0; 64],
         rodata: Vec::new(),
@@ -286,13 +293,13 @@ fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool, debug: bool) 
 
 /// What the stand-in drivers saw: each output image they drove and each safe output image.
 #[derive(Default)]
-struct Driven {
+pub(super) struct Driven {
     outputs: Vec<Vec<u8>>,
     safe: Vec<Vec<u8>>,
 }
 
 /// Drivers with no input, which record what they drive.
-struct Drivers(Rc<RefCell<Driven>>);
+pub(super) struct Drivers(Rc<RefCell<Driven>>);
 
 impl ProcessIo for Drivers {
     fn read_inputs(&mut self, _image: &mut [u8]) -> Result<(), RuntimeError> {
@@ -316,7 +323,7 @@ impl ProcessIo for Drivers {
 
 /// A clock that reads what the test sets, in microseconds.
 #[derive(Clone)]
-struct Clock(Rc<Cell<u64>>);
+pub(super) struct Clock(Rc<Cell<u64>>);
 
 impl MonotonicClock for Clock {
     fn now(&self) -> MonotonicInstant {
@@ -349,7 +356,7 @@ fn settings(safe_outputs: Vec<(IoAddress, Value)>) -> CycleSettings {
     }
 }
 
-type Cycle<'i> = CompiledCycle<'i, Clock, Drivers, StandIn>;
+pub(super) type Cycle<'i> = CompiledCycle<'i, Clock, Drivers, StandIn>;
 
 /// The cycle of the image `bytes`, started, with its drivers' record and its clock.
 fn cycle(
@@ -360,7 +367,7 @@ fn cycle(
 }
 
 /// The cycle of the image `bytes`, started, its program calling the kernel functions `api`.
-fn cycle_with<'b>(
+pub(super) fn cycle_with<'b>(
     bytes: &'b [u8],
     safe_outputs: Vec<(IoAddress, Value)>,
     api: &'static KernelApi,
@@ -445,19 +452,23 @@ fn the_observer_sees_the_phases_of_an_engine_scan_in_order() {
 }
 
 /// An observer that records each boundary of a scan, its phases and its Live Values access points,
-/// and writes through the access points as Live Values do: `MAIN.COUNT` := 40 at the cycle start of
-/// the scan at 10 ms, and `%QX0.1` := TRUE before the outputs of the scan at 20 ms.
+/// and the output image of each scan's snapshot (`io.read`), and writes through the access points as
+/// Live Values do: `MAIN.COUNT` := 40 at the cycle start of the scan at 10 ms, and `%QX0.1` := TRUE
+/// before the outputs of the scan at 20 ms.
 #[derive(Default)]
-struct LiveWrites(Vec<String>);
+struct LiveWrites(Vec<String>, Vec<Vec<u8>>);
 
 impl CycleHooks for LiveWrites {
     fn on_compiled_phase(
         &mut self,
         phase: CyclePhase,
         _now: Duration,
-        _images: &FlatImages,
+        images: &FlatImages,
     ) -> Result<(), RuntimeError> {
         self.0.push(format!("{phase:?}"));
+        if phase == CyclePhase::BeforeOutputSample {
+            self.1.push(images.outputs.clone());
+        }
         Ok(())
     }
 
@@ -488,8 +499,11 @@ fn live_values_reach_a_compiled_scan_at_the_cycle_start_after_the_inputs_and_bef
     // reach the drivers. `MAIN.COUNT` := 40 at the cycle start of the scan at 10 ms makes the
     // count 41, odd, so `%QX0.1` is set (0b10) where the count of 6 would leave it clear; at 20 ms
     // the count of 42 clears it, and the write of TRUE before the outputs reaches the drivers
-    // (0b10). Catches a write the scan does not see, an output write the scan overwrites, and an
-    // access point at another boundary.
+    // (0b10). The snapshot that `io.read` reads shows the output image the drivers drive, the
+    // written bit too (0b10 at 20 ms), as an engine's snapshot shows a forced output (C6 bench,
+    // 24 October 2026: a forced `%QX0.1` read back FALSE). Catches a write the scan does not see,
+    // an output write the scan overwrites, an access point at another boundary, and a snapshot
+    // taken from the program's output area rather than the driven image.
     let bytes = image(0);
     let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
     let mut live = LiveWrites::default();
@@ -499,6 +513,7 @@ fn live_values_reach_a_compiled_scan_at_the_cycle_start_after_the_inputs_and_bef
             .expect("the scan runs");
     }
     assert_eq!(driven.borrow().outputs, [vec![0], vec![0b10], vec![0b10]]);
+    assert_eq!(live.1, [vec![0], vec![0b10], vec![0b10]]);
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(42)));
     let last = &live.0[live.0.len() - 10..];
     assert_eq!(

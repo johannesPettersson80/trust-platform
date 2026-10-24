@@ -400,3 +400,27 @@ fn resolve_sources_root_rejects_legacy_sources_directory() {
 
     fs::remove_dir_all(root).ok();
 }
+
+#[test]
+fn native_build_labels_each_source_relative_to_the_project_root() {
+    // Specification 12 §7.5.1.4 (kept by specification 44 §5.3) and specification 13: a file's
+    // label is its path relative to the project root with `/` separators, and a client names the
+    // file by a path that ends with it. On the C6 bench of 24 October 2026 the native image carried
+    // the build computer's absolute path, so `breakpoints.set` with `src/main.st` was refused as an
+    // unknown source path. Worked by hand: `<root>/src/main.st` -> `src/main.st` and
+    // `<root>/src/motors/pump.st` -> `src/motors/pump.st`. Catches an absolute label and a label
+    // with the platform's separator.
+    let root = temp_dir("trust-native-labels");
+    write_root_source(&root);
+    write_file(
+        &root.join("src/motors/pump.st"),
+        "FUNCTION DepDouble : INT\nVAR_INPUT x : INT; END_VAR\nDepDouble := x * 2;\nEND_FUNCTION\n",
+    );
+    let sources = collect_project_sources_labelled(&root, None).expect("sources");
+    let labels: Vec<&str> = sources
+        .iter()
+        .map(|source| source.path.as_deref().unwrap_or(""))
+        .collect();
+    assert_eq!(labels, ["src/main.st", "src/motors/pump.st"]);
+    let _ = fs::remove_dir_all(&root);
+}

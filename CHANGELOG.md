@@ -115,7 +115,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   and a computer alike. Live Values queued while the scan is held reach it when the hold ends. A
   release image refuses the debugger with `the program was built without debug hooks ([build]
   debug = false)`. The kernel interface is version 4, so a chip's firmware and its programs are
-  updated together.
+  updated together. On the ESP32-C6 a breakpoint in a function holds the scan with the call stack
+  of the function, its function block and the program, steps and resumes, over USB.
+- Fixed: VS Code's debugger, attached to a running runtime, keeps the breakpoints the editor
+  already had: they arrive while the attach waits for the configuration, and the adapter now sends
+  them once it connects and reports each one verified, or why not. Before, they never reached the
+  runtime, so an attached session stopped only at breakpoints set after it started.
+- Fixed: debugging on a chip: a chip that starts without a program and then loads one keeps the
+  stops that `debug.stops` reports, so the debugger sees its program stop (it saw none); the
+  control link answers the debug operations of a compiled program (`unsupported request` before);
+  `io.read` shows a forced output with its forced value; and a compiled image names its source
+  files by their path in the project (`src/main.st`), so a debugger on another computer finds them.
 - Added: Live Values reach compiled programs as they reach interpreted ones: `set` and `var.force`
   of a variable by its name, its retain key or its instance, applied at the cycle start and a force
   held every scan until `var.unforce`; `io.write` and `io.force` of the input and marker images

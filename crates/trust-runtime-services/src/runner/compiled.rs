@@ -93,6 +93,12 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
         clock: C,
     ) -> Result<Self, RuntimeError> {
         program.cold_start(Duration::ZERO)?;
+        Ok(Self::built(program, io, settings, clock))
+    }
+
+    /// The cycle of `program` as its memory is, in the first generation: its tasks, its snapshot
+    /// and its debugger.
+    fn built(program: NativeProgram<'i, K>, io: I, settings: CycleSettings, clock: C) -> Self {
         let debug = debug::CompiledDebug::new(program.image());
         let mut tasks = Vec::new();
         let task_index = program
@@ -109,7 +115,7 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
             .collect();
         let mut images = FlatImages::default();
         program.copy_images(&mut images);
-        Ok(Self {
+        Self {
             program,
             io,
             settings,
@@ -124,7 +130,7 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
             retain: None,
             now: Duration::ZERO,
             debug,
-        })
+        }
     }
 
     /// This cycle with the checkpoint store of `retain` (specification 34 §10; specification 44
@@ -563,6 +569,8 @@ impl ScanHooks for TaskPhases<'_, '_> {
 }
 
 mod debug;
+#[cfg(test)]
+mod loop_tests;
 #[cfg(test)]
 mod retain_tests;
 #[cfg(test)]

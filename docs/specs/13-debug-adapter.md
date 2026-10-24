@@ -640,6 +640,19 @@ The lifecycle obeys these rules:
   executed or rejected. A second start request, whether it is the same or the
   other start kind, fails immediately and cannot replace or mutate the first
   pending request.
+- Breakpoint setup while an attach is pending is kept for the attachment
+  (24 October 2026: VS Code sends its breakpoints after `initialized` and
+  before `configurationDone`, so an attach that dropped them never stopped at
+  a breakpoint the editor already had). The adapter records each source's
+  latest breakpoints and answers them unverified, each with an id of its own
+  and the message `pending until the attach completes`. Once the attach
+  connects, it sends each recorded source's breakpoints to the runtime
+  (`breakpoints.set`, the lines in ascending order) and reports each
+  breakpoint's result with a `breakpoint` event (reason `changed`) carrying
+  that id: verified at the resolved line and column, or unverified with `no
+  statement at or after this line` for a line the runtime does not resolve,
+  which lies after the file's last statement. A failed attach drops the
+  record. Breakpoints set after the attach connects go to the runtime at once.
 - Configuration requests, including breakpoint setup, may occur while a start
   is pending and cannot execute or discard that start. `configurationDone`
   first returns its own successful response, then executes the exact pending

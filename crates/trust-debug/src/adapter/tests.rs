@@ -60,6 +60,8 @@ fn install_io_fixture(mut builder: trust_runtime::RuntimeBuilder) -> Runtime {
     builder.build().unwrap()
 }
 
+#[path = "attach_breakpoints_tests.rs"]
+mod attach_breakpoints_tests;
 #[path = "hosted_observation_frames_scratch_values_tests.rs"]
 mod hosted_observation_frames_scratch_values_tests;
 #[path = "hosted_observation_frames_stop_location_tests.rs"]

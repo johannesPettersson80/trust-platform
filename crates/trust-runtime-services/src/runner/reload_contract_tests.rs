@@ -716,9 +716,12 @@ fn a_reload_of_a_damaged_container_faults_with_the_reason_the_boot_gives() {
 fn a_chip_without_a_program_starts_an_installed_one_by_restart() {
     // Specification 34 STATE-08: a chip that booted without a program refuses `restart` with the
     // reason until the store holds a container newer than the one the boot refused (here none), and
-    // starts the installed program by `restart` once it does. Wrong behaviour caught: a restart
-    // accepted with nothing installed; a restart still refused after an install, which would leave the
-    // program for a reset.
+    // starts the installed program by `restart` once it does; the program's debug surface keeps as
+    // many stops for `debug.stops` as its event store keeps events (specification 11 §6.13.3), as a
+    // loop started with the program does. Wrong behaviour caught: a restart accepted with nothing
+    // installed; a restart still refused after an install, which would leave the program for a reset;
+    // a loop built before any program whose `debug.stops` stays empty (C6 bench, 24 October 2026:
+    // the debug adapter never saw a stop).
     let rig = Rig::new(FlashProbe::erased(), CheckpointProbe::erased());
     let mut runner = rig.stopped_runner(ERASED, None);
 
@@ -738,6 +741,11 @@ fn a_chip_without_a_program_starts_an_installed_one_by_restart() {
     assert_eq!(runner.resource_state(), ResourceState::Running);
     assert_eq!(rig.log.borrow().len(), 1);
     assert_eq!(rig.log.borrow()[0].sequence, 1);
+    assert_eq!(
+        runner.shell.debug.stop_capacity(),
+        runner.shell.records.event_capacity()
+    );
+    assert!(runner.shell.debug.stop_capacity() > 0);
 }
 
 #[test]

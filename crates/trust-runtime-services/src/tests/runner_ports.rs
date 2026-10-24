@@ -116,7 +116,7 @@ pub(crate) struct TestWait {
 }
 
 impl TestWait {
-    fn new(clock: TestClock) -> Self {
+    pub(crate) fn new(clock: TestClock) -> Self {
         Self {
             state: Rc::new(RefCell::new(WaitState::default())),
             clock,
@@ -249,7 +249,7 @@ pub(crate) struct TestLink {
 }
 
 impl TestLink {
-    fn new(max_frame_len: usize, clock: TestClock) -> Self {
+    pub(crate) fn new(max_frame_len: usize, clock: TestClock) -> Self {
         Self {
             state: Rc::new(RefCell::new(LinkState::default())),
             max_frame_len,

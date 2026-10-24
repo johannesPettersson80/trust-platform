@@ -79,6 +79,33 @@ pub fn collect_project_source_files(
     Ok(sources)
 }
 
+/// The project's source files as [`collect_project_source_files`] finds them, each labelled by its
+/// path relative to the project root with `/` separators (specification 12 §7.5.1.4, which
+/// specification 44 §5.3 keeps), so that a client on any computer names a file by a path that ends
+/// with its label. A file outside the project root, such as a dependency's, keeps its full path.
+pub fn collect_project_sources_labelled(
+    bundle_root: &Path,
+    sources_root: Option<&Path>,
+) -> anyhow::Result<Vec<SourceFile>> {
+    let root = bundle_root
+        .canonicalize()
+        .with_context(|| format!("resolve project root {}", bundle_root.display()))?;
+    let mut sources = collect_project_source_files(bundle_root, sources_root)?;
+    for source in &mut sources {
+        if let Some(path) = source.path.as_deref()
+            && let Ok(relative) = Path::new(path).strip_prefix(&root)
+        {
+            let label = relative
+                .components()
+                .map(|part| part.as_os_str().to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/");
+            source.path = Some(label);
+        }
+    }
+    Ok(sources)
+}
+
 /// Inspect project sources/dependencies without building bytecode.
 pub fn inspect_project_layout(
     bundle_root: &Path,

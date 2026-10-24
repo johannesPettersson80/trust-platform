@@ -504,12 +504,13 @@ impl<P: RunnerPlatform, C: MonotonicClock> ExtensionDispatch for RunnerHost<'_, 
     }
 
     /// The loop's own debugger answers the debug operations when a debugger is attached to the
-    /// program; a program without one leaves them to the platform, which has none.
+    /// program, the interpreter's or a compiled program's (specification 44 §13.2); a program
+    /// without one leaves them to the platform, which has none.
     fn debugger(&self) -> Option<&dyn Debugger> {
-        self.program
-            .debug_state()
-            .is_some()
-            .then_some(self as &dyn Debugger)
+        let attached = self.program.debug_state().is_some();
+        #[cfg(feature = "native")]
+        let attached = attached || self.program.compiled_state().is_some();
+        attached.then_some(self as &dyn Debugger)
     }
 
     fn audit_details(&self, request: &ControlRequest) -> Option<serde_json::Value> {

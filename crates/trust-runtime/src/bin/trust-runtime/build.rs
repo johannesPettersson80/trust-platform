@@ -127,7 +127,7 @@ pub fn run_native_build(
         None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
     };
     let target = native_target(target)?;
-    let files = trust_runtime::bundle_builder::collect_project_source_files(
+    let files = trust_runtime::bundle_builder::collect_project_sources_labelled(
         &bundle_root,
         sources.as_deref(),
     )?;

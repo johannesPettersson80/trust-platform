@@ -434,9 +434,12 @@ impl DebugAdapter {
         match attach_from_args(&args) {
             Ok((remote_session, state)) => {
                 self.remote_session = Some(remote_session);
-                self.start_remote_polling();
                 events
                     .push(self.debug_output_message("[trust-debug] attach: connected".to_string()));
+                // The breakpoints the client set while the attach was pending reach the runtime
+                // before its stops are polled (specification 13, session lifecycle).
+                events.extend(self.apply_attach_breakpoints());
+                self.start_remote_polling();
                 if let Some(state) = state
                     && state.paused
                     && let Some(stop) = state.last_stop
@@ -450,12 +453,15 @@ impl DebugAdapter {
                     stop_gate: None,
                 }
             }
-            Err(err) => DispatchOutcome {
-                responses: vec![self.error_response(&request, &err.to_string())],
-                events,
-                should_exit: false,
-                stop_gate: None,
-            },
+            Err(err) => {
+                self.attach_breakpoints.clear();
+                DispatchOutcome {
+                    responses: vec![self.error_response(&request, &err.to_string())],
+                    events,
+                    should_exit: false,
+                    stop_gate: None,
+                }
+            }
         }
     }
 }

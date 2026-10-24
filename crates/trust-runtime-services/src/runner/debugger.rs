@@ -201,6 +201,32 @@ impl ChipDebug {
     }
 
     /// Runs `operation` on the state, or records that the state was in use and runs nothing.
+    /// Keeps up to `capacity` stops for `debug.stops` from now on, reserved at once, as
+    /// [`Self::new`] reserves them (specification 11 §6.13.3), and drops the stops kept so far.
+    /// Returns `false`, the buffer as it was, when the heap has no room for them or the state is in
+    /// use.
+    pub(super) fn resize_stops(&self, capacity: usize) -> bool {
+        self.with(|state| {
+            if capacity == state.stop_capacity {
+                return true;
+            }
+            let mut stops = VecDeque::new();
+            if stops.try_reserve_exact(capacity).is_err() {
+                return false;
+            }
+            state.stops = stops;
+            state.stop_capacity = capacity;
+            true
+        })
+        .unwrap_or(false)
+    }
+
+    /// The stops `debug.stops` keeps at most.
+    #[cfg(test)]
+    pub(super) fn stop_capacity(&self) -> usize {
+        self.with(|state| state.stop_capacity).unwrap_or(0)
+    }
+
     fn with<R>(&self, operation: impl FnOnce(&mut DebugState) -> R) -> Option<R> {
         if let Ok(mut state) = self.state.try_borrow_mut() {
             Some(operation(&mut state))

@@ -41,7 +41,9 @@ use trust_runtime::eval::expr::Expr;
 use trust_runtime::memory::{FrameId, InstanceId};
 use trust_runtime::value::{ArrayValue, StructValue, ValueRef};
 
-use crate::protocol::{AttachArguments, IoStateEventBody, LaunchArguments, Request};
+use crate::protocol::{
+    AttachArguments, IoStateEventBody, LaunchArguments, Request, SetBreakpointsArguments,
+};
 use crate::runtime::DebugRuntime;
 
 use self::control_bridge::DebugControlServer;
@@ -92,6 +94,14 @@ enum PendingStart {
     Attach(PendingAttach),
 }
 
+/// The breakpoints a client set for one source while an attach was pending, with the ids their
+/// pending answer gave them, in the request's order (specification 13, session lifecycle).
+#[derive(Debug)]
+struct AttachBreakpoints {
+    args: SetBreakpointsArguments,
+    ids: Vec<u32>,
+}
+
 #[derive(Debug)]
 enum LaunchState {
     AwaitingConfig { pending: Option<PendingStart> },
@@ -112,6 +122,15 @@ impl LaunchState {
 
     fn has_pending_launch(&self) -> bool {
         matches!(self, Self::AwaitingConfig { pending: Some(_) })
+    }
+
+    fn has_pending_attach(&self) -> bool {
+        matches!(
+            self,
+            Self::AwaitingConfig {
+                pending: Some(PendingStart::Attach(_))
+            }
+        )
     }
 
     fn pending_actions(&self) -> LaunchActions {
@@ -230,6 +249,10 @@ pub struct DebugAdapter {
     forced_io_addresses: Arc<Mutex<HashSet<String>>>,
     initialized: bool,
     launch_state: LaunchState,
+    /// The breakpoints set while an attach was pending, which the attach sends once it connects.
+    attach_breakpoints: Vec<AttachBreakpoints>,
+    /// The id of the next breakpoint the adapter answers before the runtime knows it.
+    next_breakpoint_id: u32,
     pause_expected: Arc<AtomicBool>,
     stop_gate: StopGate,
     dap_writer: Option<Arc<Mutex<BufWriter<std::io::Stdout>>>>,

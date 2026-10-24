@@ -17,6 +17,8 @@ impl DebugAdapter {
             forced_io_addresses: Arc::new(Mutex::new(HashSet::new())),
             initialized: false,
             launch_state: LaunchState::default(),
+            attach_breakpoints: Vec::new(),
+            next_breakpoint_id: 1,
             pause_expected: Arc::new(AtomicBool::new(false)),
             stop_gate: StopGate::new(),
             dap_writer: None,

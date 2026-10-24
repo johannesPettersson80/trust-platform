@@ -8,11 +8,18 @@ use serde_json::Value;
 use trust_runtime::debug::location_to_line_col;
 
 use crate::protocol::{
-    BreakpointLocation, BreakpointLocationsArguments, BreakpointLocationsResponseBody, Request,
-    SetBreakpointsArguments,
+    Breakpoint, BreakpointLocation, BreakpointLocationsArguments, BreakpointLocationsResponseBody,
+    Request, SetBreakpointsArguments, SetBreakpointsResponseBody, SourceBreakpoint,
 };
 
-use super::super::{DebugAdapter, DispatchOutcome};
+use super::super::{AttachBreakpoints, DebugAdapter, DispatchOutcome};
+
+/// The message of a breakpoint set while an attach is pending (specification 13).
+const PENDING_ATTACH: &str = "pending until the attach completes";
+
+/// The message of a breakpoint the runtime did not resolve: no statement starts at or after its
+/// line (specification 13).
+const NO_STATEMENT: &str = "no statement at or after this line";
 
 impl DebugAdapter {
     pub(in crate::adapter) fn handle_set_breakpoints(
@@ -29,6 +36,17 @@ impl DebugAdapter {
                 ..DispatchOutcome::default()
             };
         };
+
+        if self.remote_session.is_none() && self.launch_state.has_pending_attach() {
+            let body = self.record_attach_breakpoints(args);
+            return DispatchOutcome {
+                responses: vec![self.ok_response(&request, Some(body))],
+                events: vec![self.debug_output_message(
+                    "[trust-debug] setBreakpoints: kept until the attach connects",
+                )],
+                ..DispatchOutcome::default()
+            };
+        }
 
         let source_path = args.source.path.as_deref().unwrap_or("<none>");
         let requested = args
@@ -62,6 +80,88 @@ impl DebugAdapter {
             events,
             ..DispatchOutcome::default()
         }
+    }
+
+    /// Keeps the breakpoints of one source that a client set while an attach is pending, in place
+    /// of the source's earlier ones, and answers them unverified, each with an id of the adapter
+    /// (specification 13, session lifecycle).
+    fn record_attach_breakpoints(
+        &mut self,
+        args: SetBreakpointsArguments,
+    ) -> SetBreakpointsResponseBody {
+        let requested = requested_breakpoints(&args);
+        let ids: Vec<u32> = requested
+            .iter()
+            .map(|_| {
+                let id = self.next_breakpoint_id;
+                self.next_breakpoint_id = self.next_breakpoint_id.wrapping_add(1);
+                id
+            })
+            .collect();
+        let breakpoints = requested
+            .iter()
+            .zip(&ids)
+            .map(|(breakpoint, id)| Breakpoint {
+                id: Some(*id),
+                verified: false,
+                message: Some(PENDING_ATTACH.to_string()),
+                source: Some(args.source.clone()),
+                line: Some(breakpoint.line),
+                column: breakpoint.column,
+                end_line: None,
+                end_column: None,
+            })
+            .collect();
+        self.attach_breakpoints
+            .retain(|kept| kept.args.source.path != args.source.path);
+        if !ids.is_empty() {
+            self.attach_breakpoints
+                .push(AttachBreakpoints { args, ids });
+        }
+        SetBreakpointsResponseBody { breakpoints }
+    }
+
+    /// Sends the breakpoints kept while the attach was pending to the runtime the attach connected
+    /// to, each source's lines in ascending order, and returns a `breakpoint` event for each with
+    /// the id its pending answer gave it (specification 13, session lifecycle).
+    pub(in crate::adapter) fn apply_attach_breakpoints(&mut self) -> Vec<Value> {
+        let mut events = Vec::new();
+        for AttachBreakpoints { mut args, ids } in core::mem::take(&mut self.attach_breakpoints) {
+            let mut ordered: Vec<(SourceBreakpoint, u32)> =
+                requested_breakpoints(&args).into_iter().zip(ids).collect();
+            ordered.sort_by_key(|(breakpoint, _)| breakpoint.line);
+            args.breakpoints = Some(
+                ordered
+                    .iter()
+                    .map(|(breakpoint, _)| breakpoint.clone())
+                    .collect(),
+            );
+            args.lines = None;
+            let source = args.source.clone();
+            // The runtime answers the lines it resolves in the order asked; a line it does not
+            // resolve lies after the file's last statement, so those are the last ones.
+            let mut resolved = self.set_breakpoints(args).breakpoints.into_iter();
+            for (requested, id) in ordered {
+                let breakpoint = match resolved.next() {
+                    Some(breakpoint) => Breakpoint {
+                        id: Some(id),
+                        ..breakpoint
+                    },
+                    None => Breakpoint {
+                        id: Some(id),
+                        verified: false,
+                        message: Some(NO_STATEMENT.to_string()),
+                        source: Some(source.clone()),
+                        line: Some(requested.line),
+                        column: requested.column,
+                        end_line: None,
+                        end_column: None,
+                    },
+                };
+                events.push(self.breakpoint_event("changed", breakpoint));
+            }
+        }
+        events
     }
 
     pub(in crate::adapter) fn handle_set_exception_breakpoints(
@@ -266,4 +366,22 @@ impl DebugAdapter {
             ..DispatchOutcome::default()
         }
     }
+}
+
+/// The breakpoints `args` asks for: its `breakpoints`, or its deprecated `lines`.
+fn requested_breakpoints(args: &SetBreakpointsArguments) -> Vec<SourceBreakpoint> {
+    if let Some(breakpoints) = &args.breakpoints {
+        return breakpoints.clone();
+    }
+    args.lines
+        .iter()
+        .flatten()
+        .map(|line| SourceBreakpoint {
+            line: *line,
+            column: None,
+            condition: None,
+            hit_condition: None,
+            log_message: None,
+        })
+        .collect()
 }
