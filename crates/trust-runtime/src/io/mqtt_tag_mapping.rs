@@ -2,12 +2,15 @@ use serde::Deserialize;
 use smol_str::SmolStr;
 use toml::Value as TomlValue;
 use trust_hir::{Type, TypeId};
+use trust_runtime_core::io_image::IoValueCodec;
+use trust_runtime_core::native::image::type_kind;
+use trust_runtime_core::native::memory::TypeShape;
 
 use crate::boundary::resolve_io_tag;
 use crate::error::RuntimeError;
 use crate::memory::IoArea;
 use crate::value::ValueRef;
-use crate::Runtime;
+use crate::{CompiledRuntime, Runtime};
 
 use super::{IoAddress, IoSize, IoTarget, MqttIoDriver};
 
@@ -52,19 +55,21 @@ struct MqttScalarLayout {
 #[derive(Debug, Clone)]
 struct PlannedMapping {
     mapping: MqttTagMappingToml,
-    tag_name: SmolStr,
-    reference: ValueRef,
     layout: MqttScalarLayout,
     address: IoAddress,
 }
 
-/// Whether the MQTT driver parameters `params` map tags to program variables.
-///
-/// # Errors
-///
-/// [`RuntimeError::InvalidConfig`] for parameters that are no table or whose mappings do not read.
-pub fn has_mqtt_tag_mappings(params: &TomlValue) -> Result<bool, RuntimeError> {
-    Ok(!parse_mappings(params)?.is_empty())
+/// An MQTT tag bound to a compiled program's variable at a process-image address that the program
+/// does not bind (specification 44 §13.3): the computer copies it between the image and the
+/// variable at the boundaries of the scan, as the bytecode engine's binding does.
+#[derive(Debug, Clone)]
+pub struct MqttTagLink {
+    /// The variable's declared full name.
+    pub name: SmolStr,
+    /// The address, past the program's own process image.
+    pub address: IoAddress,
+    /// The variable's representation in the image.
+    pub codec: IoValueCodec,
 }
 
 /// Resolve MQTT tag mappings into typed point maps and shared process-image bindings.
@@ -80,6 +85,7 @@ pub fn resolve_mqtt_tag_mappings(
     let mut next_input = runtime.io().inputs().len();
     let mut next_output = runtime.io().outputs().len();
     let mut planned = Vec::with_capacity(mappings.len());
+    let mut bindings = Vec::with_capacity(mappings.len());
     for (index, mapping) in mappings.into_iter().enumerate() {
         let resolved = resolve_io_tag(runtime, mapping.tag.as_str()).map_err(|error| {
             RuntimeError::InvalidConfig(format!("io.params.mappings[{index}].tag: {error}").into())
@@ -103,43 +109,140 @@ pub fn resolve_mqtt_tag_mappings(
                 IoArea::Output => &mut next_output,
                 IoArea::Memory => unreachable!("MQTT tag directions never target memory"),
             };
-            let byte = u32::try_from(*next).map_err(|_| {
-                RuntimeError::InvalidConfig("MQTT tag mapping process-image offset overflow".into())
-            })?;
-            let address = IoAddress {
-                area,
-                size: layout.io_size,
-                byte,
-                bit: 0,
-                path: vec![byte],
-                wildcard: false,
-            };
-            *next = next.checked_add(layout.width).ok_or_else(|| {
-                RuntimeError::InvalidConfig("MQTT tag mapping process-image size overflow".into())
-            })?;
-            address
+            next_address(next, area, &layout)?
         };
+        bindings.push((resolved.reference, address.clone(), resolved.name));
         planned.push(PlannedMapping {
             mapping,
-            tag_name: resolved.name,
-            reference: resolved.reference,
             layout,
             address,
         });
     }
 
+    let lowered = lowered_params(params, &planned)?;
+    let memory_len = runtime.io().memory().len();
+    runtime.configure_io_bindings(&bindings, [next_input, next_output, memory_len])?;
+    Ok(lowered)
+}
+
+/// [`resolve_mqtt_tag_mappings`] for a compiled program (specification 44 §13.3): each tag names a
+/// program instance's variable, `Instance.Variable`, found through the program's symbol table. A
+/// variable the program binds at a process-image address of the mapping's direction keeps that
+/// address; any other takes the next address past the program's own process image, and its
+/// [`MqttTagLink`] copies it at the scan's boundaries.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidConfig`] as [`resolve_mqtt_tag_mappings`] refuses a mapping.
+pub fn resolve_compiled_mqtt_tag_mappings(
+    program: &CompiledRuntime,
+    params: &TomlValue,
+) -> Result<(TomlValue, Vec<MqttTagLink>), RuntimeError> {
+    let mappings = parse_mappings(params)?;
+    if mappings.is_empty() {
+        return Ok((params.clone(), Vec::new()));
+    }
+
+    let mut next_input = program.process_image_bytes(IoArea::Input);
+    let mut next_output = program.process_image_bytes(IoArea::Output);
+    let mut planned = Vec::with_capacity(mappings.len());
+    let mut links = Vec::new();
+    for (index, mapping) in mappings.into_iter().enumerate() {
+        let variable = program
+            .program_variable(mapping.tag.as_str())
+            .ok_or_else(|| {
+                RuntimeError::InvalidConfig(
+                    format!(
+                        "io.params.mappings[{index}].tag: '{}' names no variable of a program instance",
+                        mapping.tag
+                    )
+                    .into(),
+                )
+            })?;
+        let layout = compiled_scalar_layout(&variable.shape).ok_or_else(|| {
+            RuntimeError::InvalidConfig(
+                format!(
+                    "io.params.mappings[{index}].tag '{}' is not a supported MQTT scalar",
+                    mapping.tag
+                )
+                .into(),
+            )
+        })?;
+        let area = mapping.direction.area();
+        let bound = program
+            .bound_addresses(variable.symbol)
+            .into_iter()
+            .filter(|address| address.area == area)
+            .collect::<Vec<_>>();
+        if bound.len() > 1 {
+            return Err(RuntimeError::InvalidConfig(
+                "MQTT tag mapping target has multiple compatible process-image bindings".into(),
+            ));
+        }
+        let address = match bound.into_iter().next() {
+            Some(address) if address.size != layout.io_size => {
+                return Err(RuntimeError::InvalidConfig(
+                    "MQTT tag mapping target has an incompatible process-image width".into(),
+                ));
+            }
+            Some(address) => address,
+            None => {
+                let next = match area {
+                    IoArea::Input => &mut next_input,
+                    IoArea::Output => &mut next_output,
+                    IoArea::Memory => unreachable!("MQTT tag directions never target memory"),
+                };
+                let address = next_address(next, area, &layout)?;
+                links.push(MqttTagLink {
+                    name: variable.name.clone(),
+                    address: address.clone(),
+                    codec: program.io_codec(variable.symbol),
+                });
+                address
+            }
+        };
+        planned.push(PlannedMapping {
+            mapping,
+            layout,
+            address,
+        });
+    }
+    Ok((lowered_params(params, &planned)?, links))
+}
+
+/// The address at `next` in `area` for a value of `layout`, and `next` moved past it.
+fn next_address(
+    next: &mut usize,
+    area: IoArea,
+    layout: &MqttScalarLayout,
+) -> Result<IoAddress, RuntimeError> {
+    let byte = u32::try_from(*next).map_err(|_| {
+        RuntimeError::InvalidConfig("MQTT tag mapping process-image offset overflow".into())
+    })?;
+    *next = next.checked_add(layout.width).ok_or_else(|| {
+        RuntimeError::InvalidConfig("MQTT tag mapping process-image size overflow".into())
+    })?;
+    Ok(IoAddress {
+        area,
+        size: layout.io_size,
+        byte,
+        bit: 0,
+        path: vec![byte],
+        wildcard: false,
+    })
+}
+
+/// `params` with each planned mapping lowered into a point of the driver, checked as the driver
+/// checks its parameters.
+fn lowered_params(
+    params: &TomlValue,
+    planned: &[PlannedMapping],
+) -> Result<TomlValue, RuntimeError> {
     let mut lowered = params.clone();
-    for plan in &planned {
+    for plan in planned {
         append_point(&mut lowered, plan)?;
     }
     MqttIoDriver::validate_params(&lowered)?;
-
-    let memory_len = runtime.io().memory().len();
-    let bindings = planned
-        .into_iter()
-        .map(|plan| (plan.reference, plan.address, plan.tag_name))
-        .collect::<Vec<_>>();
-    runtime.configure_io_bindings(&bindings, [next_input, next_output, memory_len])?;
     Ok(lowered)
 }
 
@@ -225,6 +328,32 @@ fn append_point(params: &mut TomlValue, plan: &PlannedMapping) -> Result<(), Run
     );
     points.push(TomlValue::Table(point));
     Ok(())
+}
+
+/// The layout of a compiled program's variable of `shape`, as [`mqtt_scalar_layout`] gives an
+/// interpreted program's: an elementary type's own, a subrange's base type's, and an enumeration's
+/// by its size, as the type table names no base type (2 bytes as `INT`, the default base).
+fn compiled_scalar_layout(shape: &TypeShape) -> Option<MqttScalarLayout> {
+    let kind = match shape {
+        TypeShape::Elementary(kind) | TypeShape::Subrange(kind) => *kind,
+        TypeShape::Enumeration { size: 2, .. } => type_kind::INT,
+        TypeShape::Enumeration { size: 4, .. } => type_kind::DINT,
+        _ => return None,
+    };
+    let (data_type, io_size, width) = match kind {
+        type_kind::BOOL => ("bool", IoSize::Bit, 1),
+        type_kind::UINT | type_kind::WORD => ("u16", IoSize::Word, 2),
+        type_kind::INT => ("i16", IoSize::Word, 2),
+        type_kind::UDINT | type_kind::DWORD => ("u32", IoSize::DWord, 4),
+        type_kind::DINT => ("i32", IoSize::DWord, 4),
+        type_kind::REAL => ("f32", IoSize::DWord, 4),
+        _ => return None,
+    };
+    Some(MqttScalarLayout {
+        data_type,
+        io_size,
+        width,
+    })
 }
 
 fn mqtt_scalar_layout(runtime: &Runtime, type_id: TypeId) -> Option<MqttScalarLayout> {

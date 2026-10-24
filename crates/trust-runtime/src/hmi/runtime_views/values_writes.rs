@@ -18,7 +18,7 @@ pub fn build_values(
         }
         let (value, quality) = if let Some(snapshot) = snapshot {
             match resolve_point_value(&point.binding, snapshot) {
-                Some(value) => (value_to_json(value), "good"),
+                Some(value) => (value_to_json(&value), "good"),
                 None => (serde_json::Value::Null, "bad"),
             }
         } else {
@@ -73,6 +73,15 @@ pub fn resolve_write_value_template(
     point: &HmiWritePoint,
     snapshot: &DebugSnapshot,
 ) -> Option<Value> {
+    // A compiled program's current value is read through its symbol table (specification 44 §13.3).
+    if let Some(state) = snapshot.compiled.as_deref() {
+        return match &point.binding {
+            HmiWriteBinding::ProgramVar { program, variable } => {
+                state.value(&format!("{program}.{variable}"))
+            }
+            HmiWriteBinding::Global { name } => state.value(name),
+        };
+    }
     match &point.binding {
         HmiWriteBinding::ProgramVar { program, variable } => {
             let Value::Instance(instance_id) = snapshot.storage.get_global(program.as_str())?

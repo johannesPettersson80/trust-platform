@@ -301,6 +301,7 @@ fn hmi_init_value_with_context<C: ServerContext>(context: &C, args: Vec<Value>) 
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
         storage_abi: metadata.storage_abi(),
+        compiled: None,
     };
     let source_refs = sources
         .iter()
@@ -376,6 +377,7 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
         storage_abi: metadata.storage_abi(),
+        compiled: None,
     };
     let source_refs = sources
         .iter()

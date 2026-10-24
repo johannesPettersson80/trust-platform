@@ -14,8 +14,11 @@ fn load_runtime(
         };
         // A project built for this computer runs its program image (specification 44 §8.8, NX-15).
         if let Some(image) = bundle.image.clone() {
-            let program =
-                trust_runtime::CompiledRuntime::load(image, bundle.runtime.resource_name.clone())?;
+            let program = trust_runtime::CompiledRuntime::load_with_statement_budget(
+                image,
+                bundle.runtime.resource_name.clone(),
+                bundle.runtime.max_statements_per_scan,
+            )?;
             return Ok(LoadedRuntime {
                 bundle: Some(bundle),
                 runtime: program.into(),

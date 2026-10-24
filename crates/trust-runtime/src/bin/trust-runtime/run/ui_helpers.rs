@@ -65,7 +65,7 @@ fn print_trust_banner(
 
 fn auto_scaffold_hmi_update(
     bundle: &RuntimeBundle,
-    runtime: &Runtime,
+    program: &trust_runtime::scheduler::HostProgram,
     sources: &SourceRegistry,
 ) -> Option<trust_runtime::hmi::HmiScaffoldSummary> {
     let source_refs = sources
@@ -79,11 +79,26 @@ fn auto_scaffold_hmi_update(
     if source_refs.is_empty() {
         return None;
     }
-    let metadata = runtime.metadata_snapshot();
-    let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: runtime.prepared().storage_abi(),
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
+    // A compiled program's points come from its symbol table (specification 44 §13.3).
+    let (metadata, snapshot) = match program {
+        trust_runtime::scheduler::HostProgram::Engine(runtime) => (
+            runtime.metadata_snapshot(),
+            trust_runtime::debug::DebugSnapshot {
+                storage_abi: runtime.prepared().storage_abi(),
+                storage: runtime.storage().clone(),
+                now: runtime.current_time(),
+                compiled: None,
+            },
+        ),
+        trust_runtime::scheduler::HostProgram::Compiled(program) => (
+            trust_runtime::RuntimeMetadata::default(),
+            trust_runtime::debug::DebugSnapshot {
+                storage_abi: trust_runtime::value::StorageAbi::default(),
+                storage: trust_runtime::memory::VariableStorage::new(),
+                now: program.current_time(),
+                compiled: Some(Arc::new(program.snapshot().ok()?)),
+            },
+        ),
     };
     match trust_runtime::hmi::scaffold_hmi_dir_with_sources_mode(
         bundle.root.as_path(),

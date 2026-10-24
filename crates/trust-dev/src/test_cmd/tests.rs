@@ -1126,16 +1126,45 @@ fn a_device_runs_the_tests_compiled_for_it() {
     // tests on the device; the bytecode engine runs on this computer only, so a device with it is
     // refused. Catches a device run that silently runs the bytecode engine here.
     let device = || Some(("tcp://127.0.0.1:5555".to_string(), "esp32c6".to_string()));
+    let on_device = TestRunner::Device {
+        port: "tcp://127.0.0.1:5555".into(),
+        target: "esp32c6".into(),
+    };
     assert_eq!(
-        TestRunner::of(TestBackend::Native, device()).expect("a device runs compiled tests"),
-        TestRunner::Device {
-            port: "tcp://127.0.0.1:5555".into(),
-            target: "esp32c6".into(),
-        }
+        TestRunner::of(Some(TestBackend::Native), device(), false)
+            .expect("a device runs compiled tests"),
+        on_device
     );
-    assert!(TestRunner::of(TestBackend::Bytecode, device()).is_err());
     assert_eq!(
-        TestRunner::of(TestBackend::Native, None).expect("this computer's kernel"),
-        TestRunner::Native
+        TestRunner::of(None, device(), false).expect("a device runs compiled tests"),
+        on_device
+    );
+    assert!(TestRunner::of(Some(TestBackend::Bytecode), device(), true).is_err());
+    assert_eq!(
+        TestRunner::of(Some(TestBackend::Native), None, false).expect("this computer's kernel"),
+        TestRunner::Native { fallback: false }
+    );
+}
+
+#[test]
+fn the_tests_run_compiled_where_the_toolchain_is_installed() {
+    // Specification 44 §14.2 and NX-15: without `--execution-backend`, `trust-dev test` runs the
+    // tests compiled for this computer when the toolchain is installed, as `trust-runtime build`
+    // builds, the bytecode engine standing in for a construct not compiled yet, and on the
+    // bytecode engine when the toolchain is not installed; an explicit backend is kept either way,
+    // without a stand-in. Catches a default that keeps the bytecode engine where the toolchain is
+    // installed, one that asks for a toolchain that is missing, and an explicit native backend
+    // that silently runs the bytecode engine.
+    assert_eq!(
+        TestRunner::of(None, None, true).expect("the compiled tests"),
+        TestRunner::Native { fallback: true }
+    );
+    assert_eq!(
+        TestRunner::of(None, None, false).expect("the bytecode engine"),
+        TestRunner::Bytecode
+    );
+    assert_eq!(
+        TestRunner::of(Some(TestBackend::Bytecode), None, true).expect("the bytecode engine"),
+        TestRunner::Bytecode
     );
 }

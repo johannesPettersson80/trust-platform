@@ -1,9 +1,10 @@
 //! What a computer records of a compiled program's scan, at the phases the compiled cycle reports
 //! (specification 44 §8.7, §8.8), as the bytecode engine's hosted cycle records them
 //! (`installed_cycle.rs`): the cycle's and each task's events, the task, program and overrun
-//! metrics, the debugger's thread, the Live Values at their access points (specification 44 §13.3)
-//! and the I/O snapshot after the output sample.
+//! metrics, the debugger's thread, the Live Values, the MQTT tags and the ADS and OPC UA clients at
+//! their access points (specification 44 §13.3) and the I/O snapshot after the output sample.
 
+use std::sync::Mutex;
 use std::time::Instant;
 
 use smol_str::SmolStr;
@@ -14,7 +15,10 @@ use trust_runtime_core::vm::{CycleHooks, CyclePhase};
 use trust_runtime_services::live_values::io_snapshot::value_type_name;
 use trust_runtime_services::runner::TaskDescriptor;
 
+use super::super::ads_subsystem::AdsSubsystem;
 use super::super::metrics_subsystem::MetricsSubsystem;
+use super::super::opcua_client_subsystem::OpcUaClientSubsystem;
+use super::tags::{apply_input_tags, capture_output_tags, ExtraImages, TagLink};
 use crate::debug::{DebugControl, RuntimeEvent};
 use crate::error::RuntimeError;
 use crate::io::{IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
@@ -24,6 +28,13 @@ use crate::value::Duration;
 pub(super) struct HostedCompiledScan<'a> {
     pub(super) metrics: &'a MetricsSubsystem,
     pub(super) debug: Option<DebugControl>,
+    /// The ADS and OPC UA clients, whose samples reach the program after its inputs and whose
+    /// outputs leave it after its scan.
+    pub(super) ads: &'a mut AdsSubsystem,
+    pub(super) opcua: &'a mut OpcUaClientSubsystem,
+    /// The MQTT tags and the extra image bytes they lie in.
+    pub(super) tags: &'a [TagLink],
+    pub(super) extra: &'a Mutex<ExtraImages>,
     pub(super) tasks: &'a [TaskDescriptor],
     /// The process-image bindings and their declared names, for the I/O snapshot.
     pub(super) bindings: &'a [PreparedIoBinding],
@@ -205,16 +216,31 @@ impl CycleHooks for HostedCompiledScan<'_> {
         Ok(())
     }
 
-    /// The Live Values reach the program through its symbol table (specification 44 §13.3).
+    /// The Live Values reach the program through its symbol table (specification 44 §13.3), and
+    /// after them, as on the bytecode engine, the MQTT tags' and the clients' samples after the
+    /// inputs and their outputs after the scan, the clients at the logical time in milliseconds.
     fn on_compiled_access(
         &mut self,
         point: CompiledAccessPoint,
         now: Duration,
         variables: &mut dyn CompiledVariables,
     ) -> Result<(), RuntimeError> {
-        match &self.debug {
-            Some(debug) => debug.apply_compiled_live_values(point, self.generation, variables, now),
-            None => Ok(()),
+        if let Some(debug) = &self.debug {
+            debug.apply_compiled_live_values(point, self.generation, variables, now)?;
+        }
+        let now_ms = u64::try_from(now.as_millis()).unwrap_or(0);
+        match point {
+            CompiledAccessPoint::AfterInputs => {
+                apply_input_tags(self.tags, self.extra, variables)?;
+                self.ads.apply_inputs_compiled(variables, now_ms)?;
+                self.opcua.apply_inputs_compiled(variables, now_ms)
+            }
+            CompiledAccessPoint::BeforeOutputs => {
+                capture_output_tags(self.tags, self.extra, variables)?;
+                self.ads.capture_outputs_compiled(variables, now_ms)?;
+                self.opcua.capture_outputs_compiled(variables, now_ms)
+            }
+            CompiledAccessPoint::CycleStart | CompiledAccessPoint::HoldEnd => Ok(()),
         }
     }
 }
@@ -242,9 +268,16 @@ mod tests {
             },
         }];
         let names = [Some(SmolStr::new("Vat.RegState"))];
+        let mut ads = AdsSubsystem::new();
+        let mut opcua = OpcUaClientSubsystem::new();
+        let extra = Mutex::new(ExtraImages::default());
         let scan = HostedCompiledScan {
             metrics: &metrics,
             debug: None,
+            ads: &mut ads,
+            opcua: &mut opcua,
+            tags: &[],
+            extra: &extra,
             tasks: &[],
             bindings: &bindings,
             binding_names: &names,

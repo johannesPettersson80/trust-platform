@@ -576,7 +576,7 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
             ads_descriptor_matches_type_id(&descriptor, type_id, &registry),
             "{case} fixture descriptor/type must be product-valid"
         );
-        let (mut storage, mut bridge, _worker) = typed_output_fixture(initial, descriptor, type_id);
+        let (mut storage, mut bridge, _worker) = typed_output_fixture(initial, descriptor);
         let output_ref = storage.ref_for_global("out").unwrap();
         bridge
             .capture_outputs(&mut storage, 1)

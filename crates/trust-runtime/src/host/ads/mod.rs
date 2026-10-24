@@ -31,8 +31,8 @@ pub use backend_ads_rs::{AdsRsTimeouts, AdsRsTransport};
 #[cfg(feature = "ads-wire")]
 pub use backend_host::{HostAdsBackendKind, HostAdsClient};
 pub use client::{
-    resolve_declared_bindings, AdsBinding, AdsBridgeError, AdsConnectionBridge, AdsConnectionState,
-    AdsConnectionWorker, AdsLiveValue, AdsWorkerThread,
+    resolve_compiled_bindings, resolve_declared_bindings, AdsBinding, AdsBridgeError,
+    AdsConnectionBridge, AdsConnectionState, AdsConnectionWorker, AdsLiveValue, AdsWorkerThread,
 };
 pub use contracts::{
     parse_ads_toml, validate_ads_config_local_identity, AdsClientConfig, AdsConnectionConfig,

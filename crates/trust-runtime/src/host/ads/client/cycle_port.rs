@@ -1,5 +1,8 @@
-//! ADS cache application through the authoritative checked cycle owner.
+//! ADS cache application through the authoritative checked cycle owner: the bytecode engine's
+//! cycle access, or a compiled program's variables at the boundaries of its scan (specification 44
+//! §13.3).
 use super::*;
+use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::vm::CycleAccess;
 
 impl AdsConnectionBridge {
@@ -10,9 +13,16 @@ impl AdsConnectionBridge {
         access: &mut CycleAccess<'_, '_>,
         now_ms: u64,
     ) -> Result<(), AdsBridgeError> {
-        self.apply_inputs_with(now_ms, |reference, value| {
-            access.write_reference(reference.as_view(), value)
-        })
+        self.apply_inputs_with(now_ms, access)
+    }
+
+    /// [`Self::apply_inputs_with_cycle`] for a compiled program, after its drivers read the inputs.
+    pub fn apply_inputs_compiled(
+        &mut self,
+        variables: &mut dyn CompiledVariables,
+        now_ms: u64,
+    ) -> Result<(), AdsBridgeError> {
+        self.apply_inputs_with(now_ms, variables)
     }
 
     /// Capture PLC values after force application, preserving unchanged-value
@@ -22,6 +32,23 @@ impl AdsConnectionBridge {
         access: &mut CycleAccess<'_, '_>,
         now_ms: u64,
     ) -> Result<(), AdsBridgeError> {
+        self.capture_outputs_through(access, now_ms)
+    }
+
+    /// [`Self::capture_outputs_with_cycle`] for a compiled program, after its scan.
+    pub fn capture_outputs_compiled(
+        &mut self,
+        variables: &mut dyn CompiledVariables,
+        now_ms: u64,
+    ) -> Result<(), AdsBridgeError> {
+        self.capture_outputs_through(variables, now_ms)
+    }
+
+    fn capture_outputs_through(
+        &mut self,
+        port: &mut (impl GlobalPort + ?Sized),
+        now_ms: u64,
+    ) -> Result<(), AdsBridgeError> {
         let snapshot = self.shared.snapshot();
         for binding in self
             .bindings
@@ -29,11 +56,9 @@ impl AdsConnectionBridge {
             .filter(|binding| point_writes(binding.point.access))
         {
             if let Some(quality) = snapshot.qualities.get(binding.point.point_name.as_str()) {
-                self.write_quality_with(binding, quality, now_ms, &mut |reference, value| {
-                    access.write_reference(reference.as_view(), value)
-                })?;
+                self.write_quality_with(binding, quality, now_ms, port)?;
             }
-            let value = match access.read_reference(&binding.reference) {
+            let value = match port.read(&binding.target) {
                 Ok(value) => value,
                 Err(error) => {
                     self.shared.set_quality(
@@ -143,10 +168,22 @@ mod tests {
                 notification_mode: crate::ads::AdsNotificationMode::OnChange,
                 allow_retain_read: false,
             },
-            reference,
-            quality_reference: None,
-            type_id: if boolean { TypeId::BOOL } else { TypeId::INT },
+            target: BoundGlobal::Engine(reference),
+            quality_target: None,
             retain: false,
+        }
+    }
+
+    /// A boundary whose every access fails with its error.
+    struct Refusing(RuntimeError);
+
+    impl GlobalPort for Refusing {
+        fn read(&mut self, _target: &BoundGlobal) -> Result<Value, RuntimeError> {
+            Err(self.0.clone())
+        }
+
+        fn write(&mut self, _target: &BoundGlobal, _value: Value) -> Result<(), RuntimeError> {
+            Err(self.0.clone())
         }
     }
 
@@ -169,7 +206,7 @@ mod tests {
             limit: 10,
         };
         let error = bridge
-            .apply_inputs_with(10, |_, _| Err(cause.clone()))
+            .apply_inputs_with(10, &mut Refusing(cause.clone()))
             .unwrap_err();
         assert_eq!(error.execution_cause(), Some(&cause));
         assert_eq!(

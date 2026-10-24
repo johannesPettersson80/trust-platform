@@ -3,6 +3,10 @@ pub struct RuntimeConfig {
     pub bundle_version: u32,
     pub resource_name: SmolStr,
     pub cycle_interval: Duration,
+    /// `resource.max_statements_per_scan`: the statements and loop passes one task activation of a
+    /// compiled program runs at most (specification 44 NX-10); 1,000,000 when the project sets
+    /// none.
+    pub max_statements_per_scan: u32,
     pub execution_backend: ExecutionBackend,
     pub execution_backend_source: ExecutionBackendSource,
     pub control_endpoint: SmolStr,

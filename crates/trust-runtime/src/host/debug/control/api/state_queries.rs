@@ -98,9 +98,19 @@ impl DebugControl {
 
     /// Get the published debug state, if any: the halted state while a debugger holds the scan, and
     /// otherwise the state of the last scan that ended (specification 11 section 6.13.1). That state
-    /// is copied after the state lock is released, so a read does not hold up a scan.
+    /// is copied after the state lock is released, so a read does not hold up a scan. A compiled
+    /// program's state is its debugger's, which a service reads through the symbol table
+    /// (specification 44 §8.8).
     #[must_use]
     pub fn snapshot(&self) -> Option<DebugSnapshot> {
+        if let Some(debugger) = self.compiled() {
+            return debugger.state().map(|state| DebugSnapshot {
+                storage_abi: crate::value::StorageAbi::default(),
+                storage: crate::memory::VariableStorage::new(),
+                now: state.now(),
+                compiled: Some(std::sync::Arc::new(state)),
+            });
+        }
         let (lock, _) = &*self.state;
         let ended = {
             let state = lock.lock().expect("debug state poisoned");

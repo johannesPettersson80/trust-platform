@@ -1,6 +1,7 @@
 //! A compiled program on a computer (specification 44 §8.8, NX-14 and NX-15): trust-runtime runs it
 //! with the chips' compiled cycle, keeps its retained values in the retain file the bytecode engine
-//! writes, changes it online, steps it, and runs it on the resource's scan thread.
+//! writes, changes it online, steps it, runs it on the resource's scan thread, and its services read
+//! it through the symbol table (§13.3).
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
@@ -53,6 +54,35 @@ END_VAR
 count := count + 1;
 kept := kept + 3;
 lamp := (count MOD 2) = 1;
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Cpu ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// A program whose variables the services list: a global, and a program instance's variables of an
+/// elementary type, a string, an enumeration, an array, a timer and a real.
+const LISTED: &str = "
+TYPE Mode : (Idle, Run, Fault); END_TYPE
+
+VAR_GLOBAL
+    Speed : INT := 5;
+END_VAR
+
+PROGRAM Main
+VAR
+    count : DINT;
+    label : STRING[20] := 'vat';
+    mode : Mode := Mode#Run;
+    history : ARRAY[1..3] OF INT := [1, 2, 3];
+    timer : TON;
+    ratio : REAL := 1.5;
+END_VAR
+count := count + 1;
 END_PROGRAM
 
 CONFIGURATION Plant
@@ -194,8 +224,10 @@ fn a_computer_steps_a_compiled_program() {
 
 /// Specification 44 §8.8 (NX-14): the resource's scan thread runs a compiled program as it runs an
 /// interpreted one, and a resource command reads its variables between scans. Over at least 100 ms
-/// at a 10 ms cycle the program runs at least 5 scans. Catches a scan thread that does not run a
-/// compiled program, or a command the compiled program does not answer.
+/// at a 10 ms cycle the program runs at least 5 scans, and the resource's snapshot, which the HMI,
+/// OPC UA and ADS servers read, carries the compiled state (§13.3) with `count` at least 5. Catches a
+/// scan thread that does not run a compiled program, a command the compiled program does not
+/// answer, or a snapshot without its state.
 #[test]
 fn the_scan_thread_runs_a_compiled_program() {
     let mut runtime =
@@ -216,8 +248,24 @@ fn the_scan_thread_runs_a_compiled_program() {
     let values = replies
         .recv_timeout(WallDuration::from_secs(5))
         .expect("the scan thread answers");
+    let (reply, replies) = std::sync::mpsc::channel();
+    handle
+        .control()
+        .send_command(ResourceCommand::Snapshot { respond_to: reply })
+        .expect("the command is queued");
+    let snapshot = replies
+        .recv_timeout(WallDuration::from_secs(5))
+        .expect("the scan thread answers");
     handle.stop();
     handle.join().expect("the scan thread ends");
+    let read = snapshot
+        .compiled
+        .as_deref()
+        .and_then(|state| state.value("P.count"));
+    assert!(
+        matches!(read, Some(Value::DInt(read)) if read >= 5),
+        "the resource snapshot carries the compiled state: {read:?}"
+    );
     let count = match values.get("P.count") {
         Some(Value::DInt(count)) => *count,
         other => panic!("count: {other:?}"),
@@ -253,9 +301,10 @@ fn request(
 /// kept + 2;` (zero-based line 10), holds the scan thread before that statement in the scan at 10
 /// ms, when the 10 ms task is first due (specification 10 §4.3); while held, `debug.state` is paused
 /// and `debug.stack`'s innermost frame stands at line 10; after `resume` the scan ends with `count` 1
-/// and `kept` 2. Catches a computer whose compiled scans take no breakpoint,
-/// a hold that does not wait, a stack read that does not see the held scan, and a resume that does
-/// not release it.
+/// and `kept` 2, which the debugger's published state, the one the historian samples, also holds.
+/// Catches a computer whose compiled scans take no breakpoint, a hold that does not wait, a stack
+/// read that does not see the held scan, a resume that does not release it, and a debugger that
+/// publishes no compiled state.
 #[test]
 fn the_computer_debugger_holds_a_compiled_scan_at_a_breakpoint() {
     let toolchain = Toolchain::from_env()
@@ -316,4 +365,492 @@ fn the_computer_debugger_holds_a_compiled_scan_at_a_breakpoint() {
     result.expect("the held scan completes");
     assert_eq!(value(&runtime, "P.count"), Some(Value::DInt(1)));
     assert_eq!(value(&runtime, "P.kept"), Some(Value::DInt(2)));
+    let published = debug
+        .snapshot()
+        .expect("the debugger publishes the scan's state");
+    let state = published.compiled.expect("a compiled program's state");
+    assert_eq!(state.value("P.kept"), Some(Value::DInt(2)));
+}
+
+/// Specification 44 §13.3 on a computer (§8.8): the services read a compiled program through its
+/// symbol table. After a cold start and the scan at 10 ms, which runs the 10 ms task once
+/// (specification 10 §4.3), `count` is 1 and the other variables hold their declared starting
+/// values. The program instance `P` lists its six variables in their declared order, each named
+/// `P.<name>` as the debugger names it, with its IEC type (`STRING[20]`, the enumeration `Mode`,
+/// `ARRAY[1..3] OF INT` by IEC 61131-3 Table 11, the timer `TON` as an instance), and then the
+/// global `Speed`; `Mode` lists `Idle`, `Run` and `Fault`. The HMI gives the points an interpreted
+/// program gives, ordered by id as without a customization: one per variable of `P`, the timer's a
+/// tree whose value is its identity, and one for `Speed`; `resource/Cpu/program/P/field/count`
+/// reads 1, `.../field/mode` reads `Run` and `resource/Cpu/global/Speed` reads 5, all of good
+/// quality. Catches a listing that loses a program's variables or the globals, names or types them
+/// otherwise, and an HMI that reads no compiled value.
+#[test]
+fn the_services_read_a_compiled_program_through_its_symbol_table() {
+    let mut runtime =
+        CompiledRuntime::load(image(LISTED, "listed"), "Cpu").expect("the image loads");
+    runtime.restart(RestartMode::Cold).expect("the cold start");
+    runtime.reset_task_timing(Duration::ZERO);
+    runtime.set_current_time(millis(10));
+    runtime.execute_cycle().expect("the scan at 10 ms");
+    let state = runtime.snapshot().expect("the program keeps its image");
+
+    let variables = state.variables();
+    let listed: Vec<(&str, Option<&str>, &str, bool)> = variables
+        .iter()
+        .map(|variable| {
+            (
+                variable.name.as_str(),
+                variable.program.as_deref(),
+                variable.type_name.as_str(),
+                variable.instance,
+            )
+        })
+        .collect();
+    assert_eq!(
+        listed,
+        vec![
+            ("P.count", Some("P"), "DINT", false),
+            ("P.label", Some("P"), "STRING[20]", false),
+            ("P.mode", Some("P"), "Mode", false),
+            ("P.history", Some("P"), "ARRAY[1..3] OF INT", false),
+            ("P.timer", Some("P"), "TON", true),
+            ("P.ratio", Some("P"), "REAL", false),
+            ("Speed", None, "INT", false),
+        ]
+    );
+    let mode = variables
+        .iter()
+        .find(|variable| variable.name == "P.mode")
+        .expect("the enumeration variable");
+    assert_eq!(
+        state.enum_values(mode.symbol),
+        vec![
+            SmolStr::new("Idle"),
+            SmolStr::new("Run"),
+            SmolStr::new("Fault")
+        ]
+    );
+
+    let snapshot = trust_runtime::debug::DebugSnapshot {
+        storage_abi: trust_runtime::value::StorageAbi::default(),
+        storage: trust_runtime::memory::VariableStorage::new(),
+        now: state.now(),
+        compiled: Some(std::sync::Arc::new(state)),
+    };
+    let metadata = trust_runtime::RuntimeMetadata::default();
+    let schema = trust_runtime::hmi::build_schema("Cpu", &metadata, Some(&snapshot), true, None);
+    let ids: Vec<&str> = schema
+        .widgets
+        .iter()
+        .map(|widget| widget.id.as_str())
+        .collect();
+    // Without a customization the schema orders its widgets by id.
+    assert_eq!(
+        ids,
+        vec![
+            "resource/Cpu/global/Speed",
+            "resource/Cpu/program/P/field/count",
+            "resource/Cpu/program/P/field/history",
+            "resource/Cpu/program/P/field/label",
+            "resource/Cpu/program/P/field/mode",
+            "resource/Cpu/program/P/field/ratio",
+            "resource/Cpu/program/P/field/timer",
+        ]
+    );
+    let timer = schema
+        .widgets
+        .iter()
+        .find(|widget| widget.id == "resource/Cpu/program/P/field/timer")
+        .expect("the timer's point");
+    assert_eq!(
+        (timer.widget.as_str(), timer.data_type.as_str()),
+        ("tree", "TON")
+    );
+    let values = trust_runtime::hmi::build_values("Cpu", &metadata, Some(&snapshot), true, None);
+    let read = |id: &str| {
+        let record = values.values.get(id).expect("the point's value");
+        (record.v.clone(), record.q)
+    };
+    assert_eq!(
+        read("resource/Cpu/program/P/field/count"),
+        (serde_json::json!(1), "good")
+    );
+    assert_eq!(
+        read("resource/Cpu/program/P/field/mode").0["variant"],
+        serde_json::json!("Run")
+    );
+    assert_eq!(
+        read("resource/Cpu/global/Speed"),
+        (serde_json::json!(5), "good")
+    );
+}
+
+/// A program whose globals an OPC UA client connection binds: `Doubled` is twice `Speed`.
+const CLIENT: &str = "
+VAR_GLOBAL
+    Speed : INT;
+    Doubled : INT;
+END_VAR
+
+PROGRAM Main
+Doubled := Speed * 2;
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Cpu ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// An OPC UA server that answers the subscription with `Speed` 42 and `Doubled` 0, and records
+/// every value written to it.
+struct SampleServer {
+    written: std::sync::Arc<std::sync::Mutex<Vec<(SmolStr, Value)>>>,
+}
+
+impl trust_runtime::opcua::OpcUaClientTransport for SampleServer {
+    fn connect(
+        &mut self,
+        connection: &trust_runtime::opcua::OpcUaClientConnectionConfig,
+        _sink: trust_runtime::opcua::OpcUaClientEventSink,
+    ) -> Result<
+        trust_runtime::opcua::OpcUaClientSessionInfo,
+        trust_runtime::opcua::OpcUaClientBridgeError,
+    > {
+        Ok(trust_runtime::opcua::OpcUaClientSessionInfo {
+            requested_timeout_ms: connection.timeout_ms,
+            revised_timeout_ms: Some(connection.timeout_ms),
+            recovery_detail: None,
+        })
+    }
+
+    fn subscribe_read_points(
+        &mut self,
+        points: &[trust_runtime::opcua::OpcUaClientPointConfig],
+        sink: trust_runtime::opcua::OpcUaClientEventSink,
+    ) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        for point in points {
+            let value = if point.var == "Speed" { 42 } else { 0 };
+            let taken = sink.publish_sample(trust_runtime::opcua::OpcUaClientSample {
+                var: point.var.clone(),
+                node_id: point.node_id.clone(),
+                data_type: point.data_type,
+                access: point.access,
+                value: Some(Value::Int(value)),
+                state: trust_runtime::opcua::OpcUaClientConnectionState::Connected,
+                // Unstamped, the sample is as new as the session that takes it.
+                last_seen_ms: None,
+                detail: "subscribed".into(),
+            });
+            assert!(taken, "the client takes the sample of {}", point.var);
+        }
+        Ok(())
+    }
+
+    fn write_values(
+        &mut self,
+        values: &[(trust_runtime::opcua::OpcUaClientPointConfig, Value)],
+    ) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        let mut written = self.written.lock().expect("the record");
+        written.extend(
+            values
+                .iter()
+                .map(|(point, value)| (point.var.clone(), value.clone())),
+        );
+        Ok(())
+    }
+
+    fn disconnect(&mut self) -> Result<(), trust_runtime::opcua::OpcUaClientBridgeError> {
+        Ok(())
+    }
+}
+
+/// Specification 44 §13.3 with specification 11's OPC UA client: a computer's OPC UA client binds
+/// a compiled program's globals by name. The server's sample `Speed` 42 reaches the global after
+/// the inputs of a scan, the program makes `Doubled` 84, twice 42, and after the scan the client
+/// writes `Doubled` 84 to the server. A point naming no global is refused when the connection
+/// starts. Catches a compiled program the client cannot bind, a sample that never reaches the
+/// program, an output that never leaves it, and a point that binds nothing.
+#[test]
+fn an_opcua_client_binds_a_compiled_programs_globals() {
+    use trust_runtime::opcua::{
+        OpcUaClientAuthConfig, OpcUaClientConnectionConfig, OpcUaClientPointAccess,
+        OpcUaClientPointConfig, OpcUaDataType, OpcUaMessageSecurityMode, OpcUaSecurityPolicy,
+        OpcUaSecurityProfile,
+    };
+    let point = |var: &str, access| OpcUaClientPointConfig {
+        var: SmolStr::new(var),
+        node_id: format!("ns=2;s={var}"),
+        data_type: OpcUaDataType::Int16,
+        access,
+    };
+    let connection = |points| OpcUaClientConnectionConfig {
+        name: SmolStr::new("line"),
+        endpoint_url: "opc.tcp://127.0.0.1:4840/line".to_string(),
+        security: OpcUaSecurityProfile {
+            policy: OpcUaSecurityPolicy::None,
+            mode: OpcUaMessageSecurityMode::None,
+            allow_anonymous: true,
+        },
+        auth: OpcUaClientAuthConfig::Anonymous,
+        trust_server_certificate: true,
+        poll_interval_ms: 5,
+        timeout_ms: 100,
+        points,
+    };
+    let mut runtime =
+        CompiledRuntime::load(image(CLIENT, "client"), "Cpu").expect("the image loads");
+    runtime.restart(RestartMode::Cold).expect("the cold start");
+    runtime.reset_task_timing(Duration::ZERO);
+    let written = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let refused = runtime.start_opcua_client_connection(
+        &connection(vec![point("Missing", OpcUaClientPointAccess::Read)]),
+        SampleServer {
+            written: std::sync::Arc::clone(&written),
+        },
+        WallDuration::from_millis(5),
+    );
+    assert!(refused.is_err(), "a point naming no global is refused");
+    runtime
+        .start_opcua_client_connection(
+            &connection(vec![
+                point("Speed", OpcUaClientPointAccess::Read),
+                point("Doubled", OpcUaClientPointAccess::ReadWrite),
+            ]),
+            SampleServer {
+                written: std::sync::Arc::clone(&written),
+            },
+            WallDuration::from_millis(5),
+        )
+        .expect("the connection starts");
+
+    let deadline = Instant::now() + WallDuration::from_secs(10);
+    let mut scan = 0;
+    loop {
+        scan += 1;
+        runtime.set_current_time(millis(10 * scan));
+        runtime.execute_cycle().expect("a scan");
+        let sent = written
+            .lock()
+            .expect("the record")
+            .contains(&(SmolStr::new("Doubled"), Value::Int(84)));
+        if sent {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "no write of Doubled 84 within 10 s: Speed {:?}, Doubled {:?}",
+            runtime.read_global("Speed"),
+            runtime.read_global("Doubled")
+        );
+        std::thread::sleep(WallDuration::from_millis(5));
+    }
+    assert_eq!(runtime.read_global("Speed"), Ok(Value::Int(42)));
+}
+
+/// A program whose variables MQTT tags bind: `doubled` is twice `level`, and `lamp` is on above 10.
+const TAGGED: &str = "
+PROGRAM Main
+VAR
+    level : INT;
+    doubled : INT;
+    lamp : BOOL;
+END_VAR
+doubled := level * 2;
+lamp := level > 10;
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Cpu ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// A driver that reads `level` 21 at the first input byte and records the output image it drives.
+struct TagDriver {
+    driven: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+}
+
+impl trust_runtime::io::IoDriver for TagDriver {
+    fn read_inputs(&mut self, inputs: &mut [u8]) -> Result<(), trust_runtime::error::RuntimeError> {
+        inputs[..2].copy_from_slice(&21_i16.to_le_bytes());
+        Ok(())
+    }
+
+    fn write_outputs(&mut self, outputs: &[u8]) -> Result<(), trust_runtime::error::RuntimeError> {
+        *self.driven.lock().expect("the record") = outputs.to_vec();
+        Ok(())
+    }
+}
+
+/// Specification 44 §13.3 with specification 32's MQTT tag mappings: a compiled program's tags bind
+/// its program instance's variables by name. The program binds no process image, so the read tag
+/// `P.level` takes the input word at byte 0, and the write tags `P.doubled` and `P.lamp` the output
+/// word at byte 0 and the bit 0 of byte 2, past the program's empty images; the driver points carry
+/// those offsets and types (`i16`, `bool`). A scan at 10 ms takes `level` 21 from the driver's
+/// input bytes, makes `doubled` 42 and `lamp` TRUE (21 > 10), and the driver drives the bytes 42, 0
+/// and 1. A tag naming no program variable is refused. Catches a compiled program whose tags are
+/// refused or bound elsewhere, an input that never reaches its variable, and an output that never
+/// reaches the driver.
+#[test]
+fn mqtt_tags_bind_a_compiled_programs_variables() {
+    let mut runtime =
+        CompiledRuntime::load(image(TAGGED, "tagged"), "Cpu").expect("the image loads");
+    runtime.restart(RestartMode::Cold).expect("the cold start");
+    runtime.reset_task_timing(Duration::ZERO);
+    let params: toml::Value = toml::from_str(
+        r#"
+broker = "tcp://127.0.0.1:1883"
+on_error = "warn"
+mappings = [
+  { tag = "P.level", topic = "plant/level", direction = "read" },
+  { tag = "P.doubled", topic = "plant/doubled", direction = "write" },
+  { tag = "P.lamp", topic = "plant/lamp", direction = "write" }
+]
+"#,
+    )
+    .expect("the parameters");
+    let refused: toml::Value = toml::from_str(
+        r#"
+broker = "tcp://127.0.0.1:1883"
+mappings = [{ tag = "P.missing", topic = "plant/missing", direction = "read" }]
+"#,
+    )
+    .expect("the parameters");
+    assert!(
+        trust_runtime::io::resolve_compiled_mqtt_tag_mappings(&runtime, &refused).is_err(),
+        "a tag naming no program variable is refused"
+    );
+
+    let (lowered, links) = trust_runtime::io::resolve_compiled_mqtt_tag_mappings(&runtime, &params)
+        .expect("the tags resolve");
+    let points = |key: &str| lowered.get(key).cloned().expect("the lowered points");
+    let expected: toml::Value = toml::from_str(
+        r#"
+input_points = [{ topic = "plant/level", image_offset = 0, data_type = "i16" }]
+output_points = [
+  { topic = "plant/doubled", image_offset = 0, data_type = "i16" },
+  { topic = "plant/lamp", image_offset = 2, image_bit = 0, data_type = "bool" }
+]
+"#,
+    )
+    .expect("the expected points");
+    assert_eq!(points("input_points"), expected["input_points"]);
+    assert_eq!(points("output_points"), expected["output_points"]);
+    let linked: Vec<&str> = links.iter().map(|link| link.name.as_str()).collect();
+    assert_eq!(linked, vec!["P.level", "P.doubled", "P.lamp"]);
+
+    runtime.link_mqtt_tags(&links).expect("the tags link");
+    let driven = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    runtime.add_io_driver(
+        "tags",
+        Box::new(TagDriver {
+            driven: std::sync::Arc::clone(&driven),
+        }),
+    );
+    runtime.set_current_time(millis(10));
+    runtime.execute_cycle().expect("the scan at 10 ms");
+
+    assert_eq!(value(&runtime, "P.level"), Some(Value::Int(21)));
+    assert_eq!(value(&runtime, "P.doubled"), Some(Value::Int(42)));
+    assert_eq!(value(&runtime, "P.lamp"), Some(Value::Bool(true)));
+    assert_eq!(*driven.lock().expect("the record"), vec![42, 0, 1]);
+}
+
+/// A program whose scan never ends by itself.
+const ENDLESS: &str = "
+PROGRAM Main
+VAR
+    count : DINT;
+END_VAR
+WHILE TRUE DO
+    count := count + 1;
+END_WHILE;
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Cpu ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// Specification 44 NX-10 on a computer: the project's `[resource] max_statements_per_scan` is the
+/// budget of each task activation. In the scan at 10 ms the debug image counts the WHILE statement,
+/// then each pass and its assignment: with a budget of 1,000, 499 passes leave one, the 500th pass
+/// takes it, and its assignment ends the scan with `InfiniteLoop`, the work limit of 1,000, before
+/// it stores, so `count` is 499; with 2,000 `count` is 999 and the limit 2,000. Catches a computer
+/// that ignores the setting and runs its default of 1,000,000.
+#[test]
+fn the_statement_budget_bounds_a_compiled_scan() {
+    for (budget, count) in [(1_000_u32, 499), (2_000, 999)] {
+        let mut runtime = CompiledRuntime::load_with_statement_budget(
+            image(ENDLESS, &format!("endless-{budget}")),
+            "Cpu",
+            budget,
+        )
+        .expect("the image loads");
+        runtime.restart(RestartMode::Cold).expect("the cold start");
+        runtime.reset_task_timing(Duration::ZERO);
+        runtime.set_current_time(millis(10));
+        let error = runtime
+            .execute_cycle()
+            .expect_err("the budget ends the scan");
+        assert!(
+            matches!(
+                error,
+                trust_runtime::error::RuntimeError::ExecutionLimit { limit, .. }
+                    if limit == budget as usize
+            ),
+            "budget {budget}: {error:?}"
+        );
+        assert_eq!(value(&runtime, "P.count"), Some(Value::DInt(count)));
+    }
+}
+
+/// A program that copies a directly addressed input global to a directly addressed output global.
+const ADDRESSED: &str = "
+VAR_GLOBAL
+    InSignal AT %IX0.0 : BOOL;
+    OutLamp AT %QX0.1 : BOOL;
+END_VAR
+
+PROGRAM Main
+OutLamp := InSignal;
+END_PROGRAM
+
+CONFIGURATION Plant
+RESOURCE Cpu ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
+
+/// Specification 44 NX-09 with IEC 61131-3 §6.5.5 (direct representation): a global declared `AT`
+/// a process-image address is compiled like a program's variable `AT` one, its binding through its
+/// symbol. With `%IX0.0` written TRUE, the scan at 10 ms takes it into `InSignal` at the input
+/// sample, copies it to `OutLamp`, and drives `%QX0.1` TRUE at the output sample. Catches a build
+/// that refuses a directly addressed global, an input that never reaches it, and an output it never
+/// drives.
+#[test]
+fn a_directly_addressed_global_is_bound_to_its_address() {
+    let mut runtime =
+        CompiledRuntime::load(image(ADDRESSED, "addressed"), "Cpu").expect("the image loads");
+    runtime.restart(RestartMode::Cold).expect("the cold start");
+    runtime.reset_task_timing(Duration::ZERO);
+    let input = IoAddress::parse("%IX0.0").expect("an address");
+    let output = IoAddress::parse("%QX0.1").expect("an address");
+    runtime
+        .write_io(&input, Value::Bool(true))
+        .expect("the input bit");
+    runtime.set_current_time(millis(10));
+    runtime.execute_cycle().expect("the scan at 10 ms");
+    assert_eq!(runtime.read_global("InSignal"), Ok(Value::Bool(true)));
+    assert_eq!(runtime.read_io(&output), Ok(Value::Bool(true)));
 }

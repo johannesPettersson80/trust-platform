@@ -102,6 +102,7 @@ fn control_state(
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     };
     if let Some(service) = historian.as_ref() {
         service

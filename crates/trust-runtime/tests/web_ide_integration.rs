@@ -76,6 +76,7 @@ fn control_state(source: &str, mode: ControlMode, auth_token: Option<&str>) -> A
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     };
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());

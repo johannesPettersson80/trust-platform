@@ -3,7 +3,9 @@
 //! call stack. Live Values, the debugger and a stepped scan reach a variable through the symbol
 //! table, the retain map or a frame, and read and write it through the type table.
 
+use alloc::boxed::Box;
 use alloc::format;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -353,14 +355,141 @@ pub fn layout(image: &Image<'_>, type_index: u32) -> Result<Layout, RuntimeError
     }
 }
 
-/// The declared name of type `type_index`, empty for an anonymous type.
+/// The IEC name of type `type_index`: its declared name, and for an anonymous array its
+/// declaration, `ARRAY[1..3, 0..1] OF INT` (IEC 61131-3 Table 11); empty for another anonymous
+/// type.
 #[must_use]
 pub fn type_name(image: &Image<'_>, type_index: u32) -> SmolStr {
     Types::of(image)
-        .ok()
-        .and_then(|types| {
-            let ty = types.get(type_index).ok()?;
-            types.string(ty.name).ok().map(SmolStr::new)
+        .map(|types| named(&types, type_index, 0))
+        .unwrap_or_default()
+}
+
+/// The name of type `type_index` at the array nesting `depth`, which a damaged table cannot make
+/// endless.
+fn named(types: &Types<'_>, type_index: u32, depth: u8) -> SmolStr {
+    use super::image::type_kind as kind;
+    let Ok(ty) = types.get(type_index) else {
+        return SmolStr::default();
+    };
+    let name = types.string(ty.name).unwrap_or("");
+    if !name.is_empty() || ty.kind != kind::ARRAY || depth >= 8 {
+        return SmolStr::new(name);
+    }
+    let Ok((element, dimensions)) = types.array(&ty) else {
+        return SmolStr::default();
+    };
+    let bounds = dimensions
+        .map(|(lower, upper)| format!("{lower}..{upper}"))
+        .collect::<Vec<String>>()
+        .join(", ");
+    SmolStr::new(format!(
+        "ARRAY[{bounds}] OF {}",
+        named(types, element, depth + 1)
+    ))
+}
+
+/// What a type of the type table is, as a tool compares it with its own description of a variable,
+/// a protocol client's point (specification 44 §5.8, §13.3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TypeShape {
+    /// An elementary type, by its `type_kind` (`type_kind::INT`, ...).
+    Elementary(u32),
+    /// `STRING[n]`, or `WSTRING[n]` when `wide`.
+    Text {
+        /// Whether the text is a `WSTRING`.
+        wide: bool,
+        /// The capacity `n` in characters.
+        capacity: u32,
+    },
+    /// An enumeration, by its declared name. The type table holds the bytes of its integer base,
+    /// not the base's name.
+    Enumeration {
+        /// The declared name.
+        name: SmolStr,
+        /// The bytes of a value.
+        size: u32,
+    },
+    /// A subrange of an elementary integer type, by that type's `type_kind`.
+    Subrange(u32),
+    /// An array of `element`, with each dimension's bounds.
+    Array {
+        /// The shape of an element.
+        element: Box<TypeShape>,
+        /// Each dimension's lower and upper bound.
+        dimensions: Vec<(i64, i64)>,
+    },
+    /// Any other type: a structure, a union, an instance, a reference or an interface.
+    Other,
+}
+
+/// The shape of type `type_index`; an alias has its base type's.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidBundle`] for a type the type table does not hold or whose detail does not
+/// read.
+pub fn type_shape(image: &Image<'_>, type_index: u32) -> Result<TypeShape, RuntimeError> {
+    shape_of(&Types::of(image)?, type_index, 0)
+}
+
+/// The shape of type `type_index` at the nesting `depth`, which a damaged table cannot make endless.
+fn shape_of(types: &Types<'_>, type_index: u32, depth: u8) -> Result<TypeShape, RuntimeError> {
+    use super::image::type_kind as kind;
+    if depth >= 8 {
+        return Err(damaged("type table"));
+    }
+    let ty = types.get(type_index)?;
+    Ok(match ty.kind {
+        kind::STRING | kind::WSTRING => TypeShape::Text {
+            wide: ty.kind == kind::WSTRING,
+            capacity: ty.count,
+        },
+        kind::ENUM => TypeShape::Enumeration {
+            name: SmolStr::new(types.string(ty.name)?),
+            size: ty.size,
+        },
+        kind::SUBRANGE => TypeShape::Subrange(types.subrange(&ty)?.0),
+        kind::ARRAY => {
+            let (element, dimensions) = types.array(&ty)?;
+            TypeShape::Array {
+                element: Box::new(shape_of(types, element, depth + 1)?),
+                dimensions: dimensions.collect(),
+            }
+        }
+        kind::ALIAS => {
+            let base = types
+                .detail(&ty, 4)?
+                .first_chunk::<4>()
+                .map(|word| u32::from_le_bytes(*word))
+                .ok_or_else(|| damaged("type table"))?;
+            shape_of(types, base, depth + 1)?
+        }
+        elementary if elementary < kind::ENUM => TypeShape::Elementary(elementary),
+        _ => TypeShape::Other,
+    })
+}
+
+/// The names of the values of the enumeration `type_index`, in their declared order; empty for a
+/// type that is no enumeration.
+#[must_use]
+pub fn enum_values(image: &Image<'_>, type_index: u32) -> Vec<SmolStr> {
+    use super::image::type_kind as kind;
+    let Ok(types) = Types::of(image) else {
+        return Vec::new();
+    };
+    let Ok(ty) = types.get(type_index) else {
+        return Vec::new();
+    };
+    if ty.kind != kind::ENUM {
+        return Vec::new();
+    }
+    types
+        .variants(&ty)
+        .map(|values| {
+            values
+                .filter_map(|(name, _)| types.string(name).ok().map(SmolStr::new))
+                .collect()
         })
         .unwrap_or_default()
 }

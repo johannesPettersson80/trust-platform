@@ -69,6 +69,7 @@ pub(super) fn control_state_named_with_audit(
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     };
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());

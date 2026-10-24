@@ -841,8 +841,9 @@ decided at the warm start, by name (specification 11 §6.7).
 **Device descriptor (COMPAT-02).** Admission reads from the device's descriptor the STBC versions
 it runs, its scheduling/I/O profiles, numeric contracts, timing-evidence class and capabilities,
 its maximum for each preparation limit, the event store's default capacity and maximum, the
-size of its application slot, and the memory it has for programs. A computer runs STBC 2.0 and 3.0,
-`cooperative-resource-v1` and numeric contract 1, has unqualified timing evidence and the wall clock,
+size of its application slot, and the memory it has for programs. A computer runs STBC 2.0 and 3.0
+and, on an x86-64 or AArch64 CPU, compiled program images, version 44.1 (specification 44 §4.4,
+§8.8), `cooperative-resource-v1` and numeric contract 1, has unqualified timing evidence and the wall clock,
 allows at most a 64 MiB artifact and 1,024 call levels, keeps the newest 1,000 events by default and
 admits at most 1,000,000, and has no maximum for the other limits, no application slot and no
 maximum of memory for programs (HOST-02). A chip's

@@ -39,6 +39,7 @@ fn scaffold_from_sources(root: &Path, style: &str, sources: &[(&str, &str)]) -> 
         storage_abi: Default::default(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
+        compiled: None,
     };
     let loaded = sources
         .iter()
@@ -74,6 +75,7 @@ fn scaffold_from_sources_with_mode(
         storage_abi: Default::default(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
+        compiled: None,
     };
     let loaded = sources
         .iter()

@@ -77,11 +77,15 @@ package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Laven
     component "CompiledRuntime\nHostIo (io.toml drivers), RetainManager\n(retain file), metrics, events, snapshot" as hostRuntime
     component "CompiledDebugger\nChipDebug under a lock; the scan thread\nholds, control threads answer" as hostDebugger
     component "control server threads\ndebug::requests::answer, io.read,\nLive Values queues (DebugControl)" as hostControl
+    component "HMI, ADS and OPC UA servers, historian\nread the published CompiledState\nthrough the symbol table" as hostServices
+    component "ADS and OPC UA clients, MQTT tags,\nOpenOT telemetry: variables by name;\nsamples after the inputs, outputs and\nproducers after the scan" as hostClients
     hostImage --> hostRuntime : CompiledRuntime::load\n(AdmittedImage kept, module mmapped)
     hostRunner --> hostRuntime : execute_cycle / restart /\nonline change / step
     hostRuntime --> cycle : the same CompiledCycle,\nhost ports
     hostRuntime --> hostDebugger : hold port, published state
     hostControl --> hostDebugger : debug operations
+    hostRuntime --> hostServices : DebugSnapshot.compiled
+    hostRuntime --> hostClients : on_compiled_access
 }
 
 note bottom of chipPkg

@@ -12,6 +12,12 @@ pub(super) fn collect_scaffold_points(
     snapshot: Option<&DebugSnapshot>,
     source_index: &SourceSymbolIndex,
 ) -> Vec<ScaffoldPoint> {
+    // A compiled program's points come from its symbol table (specification 44 §13.3).
+    if let Some(state) = snapshot.and_then(|snapshot| snapshot.compiled.as_deref()) {
+        let mut points = compiled_scaffold_points(state, source_index);
+        sort_scaffold_points(&mut points);
+        return points;
+    }
     let mut points = Vec::new();
 
     for (program_name, program) in metadata.programs() {
@@ -161,12 +167,173 @@ pub(super) fn collect_scaffold_points(
         }
     }
 
+    sort_scaffold_points(&mut points);
+    points
+}
+
+fn sort_scaffold_points(points: &mut [ScaffoldPoint]) {
     points.sort_by(|left, right| {
         left.program
             .cmp(&right.program)
             .then_with(|| left.path.cmp(&right.path))
     });
+}
+
+/// The scaffold points of the compiled program whose state is `state`, chosen as an interpreted
+/// program's are: each program instance's interface variables, which the sources name, or all its
+/// variables read-only when the sources name none of them; and the globals the sources declare.
+fn compiled_scaffold_points(
+    state: &CompiledState,
+    source_index: &SourceSymbolIndex,
+) -> Vec<ScaffoldPoint> {
+    let variables = state.variables();
+    let mut points = Vec::new();
+    for program_name in state.programs() {
+        let program_key = program_name.to_ascii_uppercase();
+        let program_has_entries = source_index.programs_with_entries.contains(&program_key);
+        let program_vars = variables
+            .iter()
+            .filter(|variable| {
+                !variable.constant && variable.program.as_ref() == Some(&program_name)
+            })
+            .collect::<Vec<_>>();
+        let mut program_points = Vec::new();
+        for variable in &program_vars {
+            let key = normalize_symbol_key(program_name.as_str(), variable.member.as_str());
+            let qualifier = source_index
+                .program_vars
+                .get(key.as_str())
+                .copied()
+                .unwrap_or(if program_has_entries {
+                    SourceVarKind::Unknown
+                } else {
+                    SourceVarKind::Output
+                });
+            if program_has_entries && !qualifier.is_external() {
+                continue;
+            }
+            program_points.push(compiled_scaffold_point(
+                state,
+                variable,
+                program_name.as_str(),
+                qualifier.is_writable(),
+                qualifier,
+                !program_has_entries,
+            ));
+        }
+        if program_has_entries && program_points.is_empty() {
+            for variable in &program_vars {
+                let mut point = compiled_scaffold_point(
+                    state,
+                    variable,
+                    program_name.as_str(),
+                    false,
+                    SourceVarKind::Output,
+                    true,
+                );
+                point.qualifier = SourceVarKind::Unknown;
+                program_points.push(point);
+            }
+        }
+        points.extend(program_points);
+    }
+
+    let has_global_filter = !source_index.globals.is_empty();
+    for variable in &variables {
+        if variable.program.is_some() || variable.instance {
+            continue;
+        }
+        if has_global_filter
+            && !source_index
+                .globals
+                .contains(&variable.name.to_ascii_uppercase())
+        {
+            continue;
+        }
+        let mut point = compiled_scaffold_point(
+            state,
+            variable,
+            "global",
+            false,
+            SourceVarKind::Global,
+            !has_global_filter,
+        );
+        point.path = format!("global.{}", variable.name);
+        let (unit, min, max) = infer_unit_and_range(
+            point.path.as_str(),
+            point.data_type.as_str(),
+            point.type_bucket,
+        );
+        (point.unit, point.min, point.max) = (unit, min, max);
+        point.enum_values = Vec::new();
+        points.push(point);
+    }
     points
+}
+
+/// The scaffold point of the compiled program's `variable`, of `program`, its widget, type
+/// bucket, unit and range following its type and its value as an interpreted program's follow
+/// the type.
+fn compiled_scaffold_point(
+    state: &CompiledState,
+    variable: &CompiledVariable,
+    program: &str,
+    writable: bool,
+    qualifier: SourceVarKind,
+    inferred_interface: bool,
+) -> ScaffoldPoint {
+    let value = state.value_of(variable.symbol);
+    let data_type = if variable.type_name.is_empty() {
+        "UNKNOWN".to_string()
+    } else {
+        variable.type_name.to_string()
+    };
+    let (widget, type_bucket) = if variable.instance {
+        ("tree", ScaffoldTypeBucket::Composite)
+    } else {
+        match &value {
+            Some(Value::Real(_) | Value::LReal(_))
+                if !writable
+                    && matches!(qualifier, SourceVarKind::Output | SourceVarKind::Global) =>
+            {
+                ("gauge", ScaffoldTypeBucket::Numeric)
+            }
+            Some(value) => (
+                widget_for_value(value, writable),
+                scaffold_type_bucket_for_value(value, data_type.as_str()),
+            ),
+            None => (
+                "value",
+                if is_numeric_data_type(data_type.as_str()) {
+                    ScaffoldTypeBucket::Numeric
+                } else {
+                    ScaffoldTypeBucket::Other
+                },
+            ),
+        }
+    };
+    let path = format!("{program}.{}", variable.member);
+    let (unit, min, max) = infer_unit_and_range(path.as_str(), data_type.as_str(), type_bucket);
+    ScaffoldPoint {
+        program: program.to_string(),
+        raw_name: variable.member.to_string(),
+        path,
+        label: infer_label(variable.member.as_str()),
+        data_type,
+        widget: widget.to_string(),
+        writable,
+        qualifier,
+        inferred_interface,
+        type_bucket,
+        unit,
+        min,
+        max,
+        enum_values: state
+            .enum_values(variable.symbol)
+            .into_iter()
+            .map(|name| name.to_string())
+            .collect(),
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

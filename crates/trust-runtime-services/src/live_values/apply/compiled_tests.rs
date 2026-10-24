@@ -27,6 +27,16 @@ struct Program {
 }
 
 impl CompiledVariables for Program {
+    /// The value last written to `name`; Live Values never reads.
+    fn read_named(&self, name: &str) -> Result<Value, RuntimeError> {
+        self.written
+            .iter()
+            .rev()
+            .find(|(written, _)| written == name)
+            .map(|(_, value)| value.clone())
+            .ok_or_else(|| RuntimeError::UndefinedVariable(name.into()))
+    }
+
     fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
         if !matches!(name, "MAIN.SPEED" | "MAIN.COUNT") {
             return Err(RuntimeError::UndefinedVariable(name.into()));

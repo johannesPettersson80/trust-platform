@@ -250,5 +250,6 @@ fn empty_debug_snapshot() -> DebugSnapshot {
         storage_abi: Default::default(),
         storage: trust_runtime::memory::VariableStorage::new(),
         now: trust_runtime::value::Duration::ZERO,
+        compiled: None,
     }
 }

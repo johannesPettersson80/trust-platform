@@ -97,12 +97,9 @@ pub fn run_runtime(
         .transpose()?
         .flatten();
 
-    // The scaffold reads the bytecode engine's program model; a compiled program's pages come from
-    // its symbol table (specification 44 §13.3).
     let startup_hmi_scaffold = bundle
         .as_ref()
-        .zip(runtime.engine())
-        .and_then(|(bundle, engine)| auto_scaffold_hmi_update(bundle, engine, &sources));
+        .and_then(|bundle| auto_scaffold_hmi_update(bundle, &runtime, &sources));
 
     let logger = RuntimeLogger::new(match &bundle {
         Some(bundle) => LogLevel::parse(bundle.runtime.log_level.as_str()),

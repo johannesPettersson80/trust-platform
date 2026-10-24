@@ -24,6 +24,7 @@ END_PROGRAM
         storage_abi: Default::default(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
+        compiled: None,
     };
     let refs = [HmiSourceRef {
         path: Path::new("sources/main.st"),

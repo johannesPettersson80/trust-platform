@@ -17,6 +17,7 @@ fn snapshot_with_two_frames() -> (DebugSnapshot, FrameId, FrameId) {
             storage_abi: Default::default(),
             storage,
             now: Duration::from_millis(7),
+            compiled: None,
         },
         first,
         second,
@@ -261,6 +262,7 @@ fn snapshot_write_is_isolated_from_the_source_storage_clone() {
         storage_abi: Default::default(),
         storage: original,
         now: Duration::ZERO,
+        compiled: None,
     };
     assert_eq!(
         original

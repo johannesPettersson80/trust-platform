@@ -157,7 +157,7 @@ impl LifecycleFixture {
             .ok_or_else(|| "line1_value global reference is missing".to_string())?;
         let binding = OpcUaClientBinding {
             point: point.clone(),
-            reference,
+            target: crate::runtime::BoundGlobal::Engine(reference),
         };
         let transport = LifecycleTransport {
             recover_succeeds: scenario == "SUBSCRIPTION_TRANSFER_RECOVERY",

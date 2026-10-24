@@ -4,6 +4,7 @@
 
 mod ads_subsystem;
 mod authoring;
+mod bound_global;
 mod builder;
 mod bytecode;
 #[cfg(feature = "full")]
@@ -46,8 +47,14 @@ mod vm;
 mod watchdog_subsystem;
 
 pub(crate) use authoring::BytecodeAuthoringView;
+#[cfg(test)]
+pub(crate) use bound_global::test_support::NamedGlobals;
+pub use bound_global::BoundGlobal;
+pub(crate) use bound_global::GlobalPort;
 pub use builder::RuntimeBuilder;
-pub use compiled::{CompiledDebugger, CompiledRuntime, CompiledState};
+pub use compiled::{
+    CompiledDebugger, CompiledRuntime, CompiledState, CompiledVariable, NamedVariable,
+};
 #[cfg(test)]
 pub(crate) use core::Runtime as LegacyRuntimeFixture;
 pub use installed::Runtime;

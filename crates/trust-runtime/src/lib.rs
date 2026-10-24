@@ -212,8 +212,8 @@ mod runtime;
 pub(crate) use runtime::types::GlobalInitValue;
 #[cfg(feature = "full")]
 pub use runtime::{
-    CompiledRuntime, CompiledState, RestartMode, RetainPolicy, RetainSnapshot, Runtime,
-    RuntimeBuilder, RuntimeMetadata,
+    BoundGlobal, CompiledRuntime, CompiledState, CompiledVariable, NamedVariable, RestartMode,
+    RetainPolicy, RetainSnapshot, Runtime, RuntimeBuilder, RuntimeMetadata,
 };
 
 #[cfg(not(feature = "full"))]

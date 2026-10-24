@@ -14,13 +14,15 @@ use trust_ads_server::{
 
 use crate::debug::DebugSnapshot;
 use crate::error::RuntimeError;
+use crate::runtime::CompiledVariable;
 use crate::value::Value;
 
 use super::contracts::AdsServerRuntimeConfig;
 
 /// Builds an ADS symbol snapshot from the current runtime globals.
 ///
-/// Empty `runtime.ads_server.expose` means "expose nothing".
+/// Empty `runtime.ads_server.expose` means "expose nothing". A compiled program's symbols come
+/// from its symbol table, as [`build_compiled_symbol_snapshot`] builds them.
 ///
 /// # Errors
 ///
@@ -30,6 +32,64 @@ pub fn build_runtime_symbol_snapshot(
     config: &AdsServerRuntimeConfig,
     snapshot: &DebugSnapshot,
 ) -> Result<SymbolSnapshot, RuntimeError> {
+    // A compiled program's variables are read through its symbol table (specification 44 §8.8,
+    // §13.3); its snapshot holds no storage.
+    if let Some(state) = snapshot.compiled.as_deref() {
+        return build_compiled_symbol_snapshot(config, &state.variables(), |variable| {
+            state.value_of(variable.symbol)
+        });
+    }
+    let max_string_bytes = config.max_string_bytes;
+    build_symbol_snapshot(
+        config,
+        snapshot.storage.globals().iter().map(|(name, value)| {
+            let descriptor = move || descriptor_for_value(value, max_string_bytes);
+            (name.as_str(), descriptor)
+        }),
+    )
+}
+
+/// Builds an ADS symbol snapshot from the variables of a compiled program (specification 44
+/// §13.3), as [`build_runtime_symbol_snapshot`] builds one from an interpreted program's globals:
+/// each global is published by its declared name with the descriptor its value gives; a program
+/// instance's variables, which an interpreted program does not publish either, and an instance of
+/// a function block or a class, which holds no value, are left out. `value_of` gives a variable's
+/// value; it is asked only of an exposed variable.
+///
+/// # Errors
+///
+/// Returns a runtime configuration error as [`build_runtime_symbol_snapshot`] does.
+pub fn build_compiled_symbol_snapshot(
+    config: &AdsServerRuntimeConfig,
+    variables: &[CompiledVariable],
+    value_of: impl Fn(&CompiledVariable) -> Option<Value>,
+) -> Result<SymbolSnapshot, RuntimeError> {
+    let value_of = &value_of;
+    let max_string_bytes = config.max_string_bytes;
+    build_symbol_snapshot(
+        config,
+        variables
+            .iter()
+            .filter(|variable| variable.program.is_none() && !variable.instance)
+            .map(|variable| {
+                let descriptor = move || {
+                    value_of(variable)
+                        .and_then(|value| descriptor_for_value(&value, max_string_bytes))
+                };
+                (variable.name.as_str(), descriptor)
+            }),
+    )
+}
+
+/// The ADS symbol table of `variables`, each a runtime name with the function that gives its
+/// descriptor, which is called only for an exposed name.
+fn build_symbol_snapshot<'a, D>(
+    config: &AdsServerRuntimeConfig,
+    variables: impl IntoIterator<Item = (&'a str, D)>,
+) -> Result<SymbolSnapshot, RuntimeError>
+where
+    D: FnOnce() -> Option<AdsDataTypeDescriptor>,
+{
     let expose = compile_patterns(&config.expose, "runtime.ads_server.expose")?;
     let writable = compile_patterns(&config.writable, "runtime.ads_server.writable")?;
     let mut specs = Vec::new();
@@ -43,16 +103,16 @@ pub fn build_runtime_symbol_snapshot(
         .map_err(symbol_error);
     }
 
-    for (name, value) in snapshot.storage.globals() {
-        let canonical = server_symbol_name(config, name.as_str());
-        if !matches_any(&expose, canonical.as_str(), name.as_str()) {
+    for (name, descriptor) in variables {
+        let canonical = server_symbol_name(config, name);
+        if !matches_any(&expose, canonical.as_str(), name) {
             continue;
         }
-        let Some(descriptor) = descriptor_for_value(value, config.max_string_bytes) else {
+        let Some(descriptor) = descriptor() else {
             continue;
         };
         let mut spec = ServerSymbolSpec::readable(canonical.clone(), descriptor);
-        if config.writes_enabled && matches_any(&writable, canonical.as_str(), name.as_str()) {
+        if config.writes_enabled && matches_any(&writable, canonical.as_str(), name) {
             spec = spec.with_flag(SymbolFlag::Write);
         }
         specs.push(spec);

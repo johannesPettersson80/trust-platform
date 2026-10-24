@@ -839,9 +839,11 @@ fn opcua_bindings(
         .iter()
         .map(|point| OpcUaClientBinding {
             point: point.clone(),
-            reference: storage
-                .ref_for_global(point.var.as_str())
-                .expect("global ref"),
+            target: crate::runtime::BoundGlobal::Engine(
+                storage
+                    .ref_for_global(point.var.as_str())
+                    .expect("global ref"),
+            ),
         })
         .collect()
 }

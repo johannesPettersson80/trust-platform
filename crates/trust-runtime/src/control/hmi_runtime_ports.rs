@@ -116,6 +116,16 @@ pub(super) fn queue_hmi_runtime_write_port(
     })?;
 
     match &point.binding {
+        // A compiled program's variable is written by its name, which its symbol table resolves at
+        // the scan boundary (specification 44 §13.3).
+        crate::hmi::HmiWriteBinding::ProgramVar { program, variable }
+            if snapshot.compiled.is_some() =>
+        {
+            state
+                .debug
+                .try_enqueue_global_write(format!("{program}.{variable}"), value)
+                .map_err(|error| HmiWriteError::plain(error.to_string()))?;
+        }
         crate::hmi::HmiWriteBinding::ProgramVar { program, variable } => {
             let Value::Instance(instance_id) = snapshot
                 .storage

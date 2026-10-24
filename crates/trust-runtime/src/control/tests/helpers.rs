@@ -122,6 +122,7 @@ fn hmi_test_state_with_status_reports(
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     };
     debug.refresh_snapshot_from_storage_with_abi(
         &snapshot.storage,

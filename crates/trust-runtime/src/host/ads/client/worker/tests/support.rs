@@ -5,9 +5,9 @@ use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointAccess, PointQuality, SymbolDescriptor, SymbolFlag,
     UpdateMode,
 };
-use trust_hir::TypeId;
 
 use crate::memory::{MemoryLocation, VariableStorage};
+use crate::runtime::BoundGlobal;
 use crate::value::{Value, ValueRef};
 
 use super::super::super::AdsConnectionBridge;
@@ -308,14 +308,13 @@ pub(super) fn point(
 pub(super) fn binding(point: AdsPointConfig) -> AdsBinding {
     AdsBinding {
         point,
-        reference: ValueRef {
+        target: BoundGlobal::Engine(ValueRef {
             location: MemoryLocation::Global,
             offset: 0,
             generation: crate::memory::Generation::FIRST,
             path: Vec::new(),
-        },
-        quality_reference: None,
-        type_id: TypeId::REAL,
+        }),
+        quality_target: None,
         retain: false,
     }
 }
@@ -368,13 +367,12 @@ pub(super) fn output_fixture(
     AdsConnectionBridge,
     AdsConnectionWorker<ScriptedAdsTransport>,
 ) {
-    typed_output_fixture(initial, real_descriptor(), TypeId::REAL)
+    typed_output_fixture(initial, real_descriptor())
 }
 
 pub(super) fn typed_output_fixture(
     initial: Value,
     descriptor: AdsDataTypeDescriptor,
-    type_id: TypeId,
 ) -> (
     VariableStorage,
     AdsConnectionBridge,
@@ -389,9 +387,8 @@ pub(super) fn typed_output_fixture(
         PointAccess::Write,
         UpdateMode::Poll,
     ));
-    output.reference = reference;
+    output.target = BoundGlobal::Engine(reference);
     output.point.data_type = descriptor;
-    output.type_id = type_id;
     let transport = ScriptedAdsTransport::for_bindings(std::slice::from_ref(&output));
     let (bridge, worker) =
         AdsConnectionBridge::with_transport(transport, vec![output]).expect("output bridge");

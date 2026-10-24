@@ -63,10 +63,9 @@ fn apply_bundle_runtime_services(
 }
 
 /// [`apply_bundle_runtime_services`] for a compiled program (specification 44 §8.8): the watchdog
-/// and fault policies, the safe outputs, the `io.toml` drivers and the retain file. The services
-/// that reach the program's variables by name, the ADS and OPC UA clients, the MQTT tag mappings and
-/// the OpenOT telemetry, are refused for a compiled program until they read its symbol table
-/// (specification 44 §13.3).
+/// and fault policies, the safe outputs, the `io.toml` drivers with their MQTT tag mappings, the
+/// retain file, the ADS and OPC UA clients and the OpenOT telemetry, each reaching the program's
+/// variables by name through its symbol table (§13.3).
 fn apply_bundle_compiled_services(
     program: &mut trust_runtime::CompiledRuntime,
     bundle: &RuntimeBundle,
@@ -77,35 +76,23 @@ fn apply_bundle_compiled_services(
             bundle.runtime.bundle_version
         );
     }
-    let unsupported = |setting: &str| {
-        anyhow::anyhow!(
-            "{setting}: a compiled program's variables are not yet reached by this service"
-        )
-    };
-    if bundle.runtime.ads.enabled {
-        return Err(unsupported("runtime.ads.enabled"));
-    }
-    if bundle.runtime.opcua_client.enabled {
-        return Err(unsupported("runtime.opcua_client.enabled"));
-    }
-    if bundle.runtime.openot.enabled {
-        return Err(unsupported("runtime.openot.enabled"));
-    }
-
     program.set_watchdog_policy(bundle.runtime.watchdog);
     program.set_fault_policy(bundle.runtime.fault_policy);
     program.set_io_safe_state(bundle.io.safe_state.clone());
+    program.configure_openot_telemetry(&bundle.runtime.openot, Some(&bundle.root))?;
 
     let registry = IoDriverRegistry::default_registry();
     for driver in bundle.io.drivers.iter().filter(|driver| driver.enabled) {
-        if (driver.name.eq_ignore_ascii_case("mqtt")
-            || driver.name.eq_ignore_ascii_case("mqtt-tcp"))
-            && trust_runtime::io::has_mqtt_tag_mappings(&driver.params)?
+        let mut params = driver.params.clone();
+        if driver.name.eq_ignore_ascii_case("mqtt") || driver.name.eq_ignore_ascii_case("mqtt-tcp")
         {
-            return Err(unsupported("io.params.mappings of the mqtt driver"));
+            let (lowered, links) =
+                trust_runtime::io::resolve_compiled_mqtt_tag_mappings(program, &driver.params)?;
+            program.link_mqtt_tags(&links)?;
+            params = lowered;
         }
         if let Some(spec) = registry
-            .build(driver.name.as_str(), &driver.params)
+            .build(driver.name.as_str(), &params)
             .map_err(anyhow::Error::from)?
         {
             program.add_io_driver(spec.name, spec.driver);
@@ -128,8 +115,86 @@ fn apply_bundle_compiled_services(
             program.set_retain_store(None, None)?;
         }
     }
+
+    start_ads_runtime(program, bundle)?;
+    start_opcua_client_runtime(program, bundle)?;
     Ok(())
 }
+
+/// A program that the ADS and OPC UA clients bind their points to: one on the bytecode engine, or a
+/// compiled one, whose globals they reach through its symbol table (specification 44 §13.3).
+trait ClientHost {
+    fn set_ads_deployed_config_hash(&mut self, hash: Option<String>);
+
+    fn start_ads_connection<T: trust_runtime::ads::AdsTransport + Send + 'static>(
+        &mut self,
+        connection: &trust_runtime::ads::AdsConnectionConfig,
+        transport: T,
+        worker_tick_interval: std::time::Duration,
+    ) -> Result<(), trust_runtime::error::RuntimeError>;
+
+    fn reset_opcua_client_connections(&mut self) -> Result<(), trust_runtime::error::RuntimeError>;
+
+    fn set_opcua_client_deployed_config_hash(&mut self, hash: Option<String>);
+
+    fn start_opcua_client_connection<
+        T: trust_runtime::opcua::OpcUaClientTransport + Send + 'static,
+    >(
+        &mut self,
+        connection: &trust_runtime::opcua::OpcUaClientConnectionConfig,
+        transport: T,
+        worker_tick_interval: std::time::Duration,
+    ) -> Result<(), trust_runtime::error::RuntimeError>;
+}
+
+/// Each program kind's own methods answer [`ClientHost`].
+macro_rules! client_host {
+    ($program:ty) => {
+        impl ClientHost for $program {
+            fn set_ads_deployed_config_hash(&mut self, hash: Option<String>) {
+                <$program>::set_ads_deployed_config_hash(self, hash);
+            }
+
+            fn start_ads_connection<T: trust_runtime::ads::AdsTransport + Send + 'static>(
+                &mut self,
+                connection: &trust_runtime::ads::AdsConnectionConfig,
+                transport: T,
+                worker_tick_interval: std::time::Duration,
+            ) -> Result<(), trust_runtime::error::RuntimeError> {
+                <$program>::start_ads_connection(self, connection, transport, worker_tick_interval)
+            }
+
+            fn reset_opcua_client_connections(
+                &mut self,
+            ) -> Result<(), trust_runtime::error::RuntimeError> {
+                <$program>::reset_opcua_client_connections(self)
+            }
+
+            fn set_opcua_client_deployed_config_hash(&mut self, hash: Option<String>) {
+                <$program>::set_opcua_client_deployed_config_hash(self, hash);
+            }
+
+            fn start_opcua_client_connection<
+                T: trust_runtime::opcua::OpcUaClientTransport + Send + 'static,
+            >(
+                &mut self,
+                connection: &trust_runtime::opcua::OpcUaClientConnectionConfig,
+                transport: T,
+                worker_tick_interval: std::time::Duration,
+            ) -> Result<(), trust_runtime::error::RuntimeError> {
+                <$program>::start_opcua_client_connection(
+                    self,
+                    connection,
+                    transport,
+                    worker_tick_interval,
+                )
+            }
+        }
+    };
+}
+
+client_host!(Runtime);
+client_host!(trust_runtime::CompiledRuntime);
 
 fn start_openot_persistence_service(
     bundle: &RuntimeBundle,
@@ -139,7 +204,7 @@ fn start_openot_persistence_service(
 }
 
 #[cfg(feature = "ads-wire")]
-fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn start_ads_runtime(runtime: &mut impl ClientHost, bundle: &RuntimeBundle) -> anyhow::Result<()> {
     start_ads_runtime_with_factory(runtime, bundle, |connection| {
         Ok(trust_runtime::ads::HostAdsClient::new(
             connection.route.clone(),
@@ -148,7 +213,7 @@ fn start_ads_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::R
 }
 
 #[cfg(not(feature = "ads-wire"))]
-fn start_ads_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn start_ads_runtime(_runtime: &mut impl ClientHost, bundle: &RuntimeBundle) -> anyhow::Result<()> {
     if bundle.runtime.ads.enabled {
         anyhow::bail!(
             "runtime.ads.enabled=true requires trust-runtime built with feature 'ads-wire'"
@@ -158,7 +223,10 @@ fn start_ads_runtime(_runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::
 }
 
 #[cfg(feature = "opcua-wire")]
-fn start_opcua_client_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> anyhow::Result<()> {
+fn start_opcua_client_runtime(
+    runtime: &mut impl ClientHost,
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<()> {
     start_opcua_client_runtime_with_factory(runtime, bundle, |_connection| {
         Ok(trust_runtime::opcua::OpcUaWireClientTransport::new())
     })
@@ -166,7 +234,7 @@ fn start_opcua_client_runtime(runtime: &mut Runtime, bundle: &RuntimeBundle) -> 
 
 #[cfg(feature = "opcua-wire")]
 fn start_opcua_client_runtime_with_factory<T, F>(
-    runtime: &mut Runtime,
+    runtime: &mut impl ClientHost,
     bundle: &RuntimeBundle,
     mut transport_factory: F,
 ) -> anyhow::Result<()>
@@ -196,7 +264,7 @@ where
 
 #[cfg(not(feature = "opcua-wire"))]
 fn start_opcua_client_runtime(
-    _runtime: &mut Runtime,
+    _runtime: &mut impl ClientHost,
     bundle: &RuntimeBundle,
 ) -> anyhow::Result<()> {
     if bundle.runtime.opcua_client.enabled {
@@ -209,7 +277,7 @@ fn start_opcua_client_runtime(
 
 #[cfg(any(test, feature = "ads-wire"))]
 fn start_ads_runtime_with_factory<T, F>(
-    runtime: &mut Runtime,
+    runtime: &mut impl ClientHost,
     bundle: &RuntimeBundle,
     mut transport_factory: F,
 ) -> anyhow::Result<()>

@@ -26,6 +26,7 @@ use super::{
     AdsServerRuntimeWritePort, AdsServerSourcePin, AdsServerSymbolSource, AdsServerValuePublisher,
 };
 
+mod compiled_program;
 mod policy_write_audit;
 mod publication_lifecycle;
 
@@ -58,6 +59,7 @@ fn snapshot(
         storage_abi: Default::default(),
         storage,
         now: Duration::from_millis(10),
+        compiled: None,
     }
 }
 

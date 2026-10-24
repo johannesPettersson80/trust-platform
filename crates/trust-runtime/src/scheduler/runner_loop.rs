@@ -926,6 +926,7 @@ fn apply_resource_command(runtime: &mut HostProgram, command: ResourceCommand) {
                     storage_abi: runtime.prepared().storage_abi(),
                     storage: runtime.storage().clone(),
                     now: runtime.current_time(),
+                    compiled: None,
                 },
                 // A compiled program's variables are read from its state through its symbol table
                 // (specification 44 §8.8, §13.3), which holds no storage of the bytecode engine.
@@ -933,6 +934,7 @@ fn apply_resource_command(runtime: &mut HostProgram, command: ResourceCommand) {
                     storage_abi: crate::value::StorageAbi::default(),
                     storage: crate::memory::VariableStorage::new(),
                     now: program.current_time(),
+                    compiled: program.snapshot().ok().map(std::sync::Arc::new),
                 },
             };
             let _ = respond_to.send(snapshot);

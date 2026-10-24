@@ -1775,3 +1775,4 @@ fn runtime_config_load_defaults_execution_backend_source_when_omitted() {
 }
 
 mod hang_action_tests;
+mod statement_budget_tests;

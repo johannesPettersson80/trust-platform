@@ -129,6 +129,13 @@ impl CompiledDebugger {
         guard.memory = Some(published);
     }
 
+    /// The state the reads answer from: the held scan's while one is held, and otherwise the last
+    /// scan's; none before a scan ended, and while debugging is disabled.
+    #[must_use]
+    pub fn state(&self) -> Option<CompiledState> {
+        self.lock().memory.clone()
+    }
+
     /// The program restarted: the debugger is no longer held, and its stops start again.
     pub(crate) fn restarted(&self) {
         self.lock().debug.restarted();

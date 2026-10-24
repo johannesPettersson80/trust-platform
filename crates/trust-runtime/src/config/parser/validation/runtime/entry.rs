@@ -9,6 +9,11 @@ impl RuntimeToml {
             1,
             "resource.cycle_interval_ms",
         )?;
+        let max_statements_per_scan = self
+            .resource
+            .max_statements_per_scan
+            .and_then(|budget| u32::try_from(budget).ok())
+            .unwrap_or(trust_runtime_core::deployment::HOSTED_MAX_STATEMENTS);
         let tasks = parse_tasks(self.resource.tasks)?;
 
         let RuntimeSection {
@@ -92,6 +97,7 @@ impl RuntimeToml {
             bundle_version,
             resource_name,
             cycle_interval,
+            max_statements_per_scan,
             execution_backend,
             execution_backend_source,
             control_endpoint: SmolStr::new(control.endpoint),

@@ -96,7 +96,8 @@ pub fn run_build(
 
 /// `trust-runtime build` (specification 44 §8.8, NX-15): this computer's program image, a device's
 /// with `--target`, or `program.stbc` with `--execution-backend vm`. Until the bytecode engine is
-/// deleted (§15), a computer without the toolchain builds `program.stbc` and says so.
+/// deleted (§15), a computer without the toolchain, or a project with a construct the generator does
+/// not compile yet (NX-09), builds `program.stbc` and says so.
 pub fn run_build_command(
     bundle: Option<PathBuf>,
     sources: Option<PathBuf>,
@@ -112,7 +113,23 @@ pub fn run_build_command(
         return run_build(bundle, sources, ci);
     }
     match trust_runtime::native::Toolchain::from_env() {
-        Ok(_) => run_native_build(bundle, sources, "host", emit_source, ci, true),
+        Ok(_) => match run_native_build(
+            bundle.clone(),
+            sources.clone(),
+            "host",
+            emit_source,
+            ci,
+            true,
+        ) {
+            Err(error) if not_compiled_yet(&error) => {
+                eprintln!(
+                    "note: {error}: building program.stbc for the bytecode engine instead of this \
+                     computer's program image"
+                );
+                run_build(bundle, sources, ci)
+            }
+            built => built,
+        },
         Err(error) => {
             eprintln!(
                 "note: {error}: building program.stbc for the bytecode engine instead of this \
@@ -123,10 +140,42 @@ pub fn run_build_command(
     }
 }
 
+/// Whether `error` is a construct the generator does not compile yet (specification 44 NX-09),
+/// which the bytecode engine still runs until it is deleted (§15).
+fn not_compiled_yet(error: &anyhow::Error) -> bool {
+    matches!(
+        error.downcast_ref::<trust_runtime::native::NativeError>(),
+        Some(trust_runtime::native::NativeError::Unsupported { .. })
+    )
+}
+
 /// The target `name` names: a device, a CPU, a Rust target triple or `host` (specification 44 §4.4).
 pub(crate) fn native_target(name: &str) -> anyhow::Result<trust_runtime::native::Target> {
     trust_runtime::native::target_named(name)
         .ok_or_else(|| anyhow::anyhow!("unknown target '{name}'"))
+}
+
+/// Builds the project's program for this computer as `trust-runtime build` does without options
+/// (specification 44 NX-15): its program image with the toolchain, else `program.stbc`.
+pub(crate) fn build_project_program(bundle_root: &Path) -> anyhow::Result<()> {
+    if trust_runtime::native::Toolchain::from_env().is_ok() {
+        match write_native_image(bundle_root, None, native_target("host")?, false, true) {
+            Err(error) if not_compiled_yet(&error) => {}
+            built => return built.map(|_| ()),
+        }
+    }
+    build_program_stbc(bundle_root, None)?;
+    Ok(())
+}
+
+/// What a native build wrote.
+struct NativeBuilt {
+    image: PathBuf,
+    debug: bool,
+    bytes: usize,
+    figure: trust_runtime_core::native::image::MemoryFigure,
+    /// The report, also written as `build.json`.
+    report: JsonValue,
 }
 
 /// `trust-runtime build --target`: the project compiled into a native program image in its build
@@ -141,18 +190,58 @@ pub fn run_native_build(
     ci: bool,
     for_this_computer: bool,
 ) -> anyhow::Result<()> {
-    use trust_runtime::native::{build, debug_hooks, triple, Options, Toolchain};
     let bundle_root = match bundle {
         Some(path) => path,
         None => detect_bundle_path(None).unwrap_or(std::env::current_dir()?),
     };
-    let target = native_target(target)?;
-    let files = trust_runtime::bundle_builder::collect_project_sources_labelled(
+    let built = write_native_image(
         &bundle_root,
         sources.as_deref(),
+        native_target(target)?,
+        emit_source,
+        for_this_computer,
     )?;
+    if ci {
+        println!("{}", serde_json::to_string_pretty(&built.report)?);
+        return Ok(());
+    }
+    let figure = built.figure;
+    println!(
+        "{}",
+        style::success(format!("Wrote {}", built.image.display()))
+    );
+    println!(
+        "{} {} bytes: code {}, read-only data {}, starting memory {}",
+        if built.debug {
+            "Debug image"
+        } else {
+            "Release image (no debug hooks)"
+        },
+        built.bytes,
+        figure.code,
+        figure.rodata,
+        figure.init
+    );
+    println!(
+        "Memory figure: {} bytes (areas {}, stack {}, bookkeeping {}, retain capture {})",
+        figure.total, figure.areas, figure.stack, figure.bookkeeping, figure.retain_capture
+    );
+    Ok(())
+}
+
+/// The native build of [`run_native_build`], without its output.
+fn write_native_image(
+    bundle_root: &Path,
+    sources: Option<&Path>,
+    target: trust_runtime::native::Target,
+    emit_source: bool,
+    for_this_computer: bool,
+) -> anyhow::Result<NativeBuilt> {
+    use trust_runtime::native::{build, debug_hooks, triple, Options, Toolchain};
+    let files =
+        trust_runtime::bundle_builder::collect_project_sources_labelled(bundle_root, sources)?;
     // The project's `[build] debug` chooses a debug or a release image (specification 44 §13.2).
-    let debug = debug_hooks(&bundle_root)?;
+    let debug = debug_hooks(bundle_root)?;
     let toolchain = Toolchain::from_env()?;
     let build_folder = bundle_root.join("build");
     let work = build_folder.join("native").join(triple(target));
@@ -181,7 +270,7 @@ pub fn run_native_build(
     // The record a device admits the image with (specification 44 §10.1).
     std::fs::write(
         &record,
-        trust_runtime::deployment::image_record(&bundle_root, &built.image)?,
+        trust_runtime::deployment::image_record(bundle_root, &built.image)?,
     )?;
     if !emit_source {
         let _ = std::fs::remove_file(work.join("module.rs"));
@@ -214,26 +303,11 @@ pub fn run_native_build(
         build_folder.join("build.json"),
         serde_json::to_string_pretty(&report)? + "\n",
     )?;
-    if ci {
-        println!("{}", serde_json::to_string_pretty(&report)?);
-        return Ok(());
-    }
-    println!("{}", style::success(format!("Wrote {}", image.display())));
-    println!(
-        "{} {} bytes: code {}, read-only data {}, starting memory {}",
-        if debug {
-            "Debug image"
-        } else {
-            "Release image (no debug hooks)"
-        },
-        built.image.len(),
-        figure.code,
-        figure.rodata,
-        figure.init
-    );
-    println!(
-        "Memory figure: {} bytes (areas {}, stack {}, bookkeeping {}, retain capture {})",
-        figure.total, figure.areas, figure.stack, figure.bookkeeping, figure.retain_capture
-    );
-    Ok(())
+    Ok(NativeBuilt {
+        image,
+        debug,
+        bytes: built.image.len(),
+        figure,
+        report,
+    })
 }

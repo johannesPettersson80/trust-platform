@@ -1,4 +1,6 @@
-/// Compile bundle sources into `program.stbc`.
+/// Compile bundle sources into `program.stbc`, which becomes the project's program: a program image
+/// of an earlier build, which a computer would run in its place, is removed (specification 44
+/// NX-15).
 pub fn build_program_stbc(
     bundle_root: &Path,
     sources_root: Option<&Path>,
@@ -7,6 +9,14 @@ pub fn build_program_stbc(
     fs::create_dir_all(bundle_root)?;
     let program_path = bundle_root.join("program.stbc");
     fs::write(&program_path, &compiled.bytes)?;
+    let image_path = bundle_root.join(crate::native::PROGRAM_IMAGE_FILE);
+    match fs::remove_file(&image_path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => {
+            return Err(error).with_context(|| format!("remove {}", image_path.display()));
+        }
+    }
     // The program's deployment record goes next to it (spec 34 §5.1.1).
     let deployment_record = crate::deployment::write_record(bundle_root, &compiled.bytes)
         .with_context(|| {

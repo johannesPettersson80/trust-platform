@@ -71,6 +71,7 @@ fn snapshot_provider() -> Arc<dyn Fn() -> Option<trust_runtime::debug::DebugSnap
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     };
     Arc::new(move || Some(snapshot.clone()))
 }
@@ -84,6 +85,7 @@ fn fixture_snapshot() -> trust_runtime::debug::DebugSnapshot {
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     }
 }
 

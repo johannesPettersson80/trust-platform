@@ -3188,7 +3188,7 @@ Its result is the same shape on every runtime, a computer or a device without an
 
 | Result field | Type | Value |
 |---|---|---|
-| `bytecode_versions` | array of strings | The STBC versions the device prepares, each `<major>.<minor>` |
+| `bytecode_versions` | array of strings | The program formats the device prepares, each `<major>.<minor>`: its STBC versions, and 44.1 where it runs compiled program images (specification 44 §10.2) |
 | `scheduling_profiles` | array of strings | The scheduling/I/O profiles the device runs (specification 34 §4.4) |
 | `numeric_contracts` | array of strings | The numeric contracts the device implements (specification 34 §12.1) |
 | `timing_evidence` | string | `unqualified`, `measured-qualified` or `analytically supported` (specification 34 §4.4) |

@@ -9,7 +9,6 @@ use std::time::Duration;
 
 use anyhow::Context;
 use serde::Serialize;
-use trust_runtime::bundle_builder::build_program_stbc;
 use trust_runtime::config::fleet_manifest::{
     interrupted_stop_probe, lifecycle_paths, load_manifest, managed_status,
     read_control_auth_token, request_control_with_params, runtime_project_path,
@@ -41,7 +40,8 @@ pub(super) fn start_runtime(
         });
     }
 
-    build_program_stbc(&project_path, None)
+    // The runtime runs what `trust-runtime build` builds (specification 44 NX-15).
+    crate::build::build_project_program(&project_path)
         .with_context(|| format!("failed to build {}", project_path.display()))?;
 
     let paths = lifecycle_paths(fleet_root, runtime.name.as_str());

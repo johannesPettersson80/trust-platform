@@ -136,6 +136,7 @@ impl DebugSnapshot {
             storage_abi: prepared.storage_abi(),
             storage: active.storage_copy(storage)?,
             now,
+            compiled: None,
         };
         snapshot.storage.clear_frames();
         for invocation in active.call_stack() {

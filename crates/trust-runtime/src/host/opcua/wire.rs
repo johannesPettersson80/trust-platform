@@ -272,8 +272,59 @@ fn collect_exposed_nodes(
     patterns: &[Pattern],
     max_nodes: usize,
 ) -> Vec<ExposedNodeCandidate> {
+    // A compiled program's variables are read from its state through its symbol table
+    // (specification 44 §8.8, §13.3).
+    if let Some(state) = snapshot.compiled.as_deref() {
+        return compiled_exposed_nodes(
+            &state.variables(),
+            |symbol| state.value_of(symbol),
+            patterns,
+            max_nodes,
+        );
+    }
+    candidate_nodes(
+        snapshot.storage.globals(),
+        map_iec_value,
+        patterns,
+        max_nodes,
+    )
+}
+
+/// The nodes of a compiled program's `variables`: its globals by their declared names, as an
+/// interpreted program publishes its globals; a program instance's variables, which an interpreted
+/// program does not publish either, and an instance of a function block or a class, which holds no
+/// value, are left out. `value_of` reads a variable's value from its symbol, only for a variable the
+/// patterns expose.
+#[cfg(feature = "opcua-wire")]
+fn compiled_exposed_nodes(
+    variables: &[crate::CompiledVariable],
+    value_of: impl Fn(u32) -> Option<Value>,
+    patterns: &[Pattern],
+    max_nodes: usize,
+) -> Vec<ExposedNodeCandidate> {
+    candidate_nodes(
+        variables
+            .iter()
+            .filter(|variable| variable.program.is_none() && !variable.instance)
+            .map(|variable| (&variable.name, variable.symbol)),
+        |symbol| value_of(symbol).as_ref().and_then(map_iec_value),
+        patterns,
+        max_nodes,
+    )
+}
+
+/// The nodes of the `variables` whose names the patterns match, in their order and at most
+/// `max_nodes`, each with the scalar that `read` projects its variable's value to; a variable whose
+/// value has no projection is left out.
+#[cfg(feature = "opcua-wire")]
+fn candidate_nodes<'a, V>(
+    variables: impl IntoIterator<Item = (&'a SmolStr, V)>,
+    read: impl Fn(V) -> Option<OpcUaValue>,
+    patterns: &[Pattern],
+    max_nodes: usize,
+) -> Vec<ExposedNodeCandidate> {
     let mut nodes = Vec::new();
-    for (name, value) in snapshot.storage.globals() {
+    for (name, variable) in variables {
         if !patterns.is_empty()
             && !patterns
                 .iter()
@@ -281,7 +332,7 @@ fn collect_exposed_nodes(
         {
             continue;
         }
-        let Some(mapped) = map_iec_value(value) else {
+        let Some(mapped) = read(variable) else {
             continue;
         };
         nodes.push(ExposedNodeCandidate {
@@ -573,5 +624,103 @@ mod startup_tests {
             startup_failure_message("127.0.0.1", 4840, "the server exited"),
             "OPC UA server stopped during startup: the server exited"
         );
+    }
+}
+
+#[cfg(all(test, feature = "opcua-wire"))]
+mod compiled_exposure_tests {
+    use std::cell::RefCell;
+
+    use smol_str::SmolStr;
+
+    use super::{compile_exposure_patterns, compiled_exposed_nodes, OpcUaDataType, OpcUaVariant};
+    use crate::value::Value;
+    use crate::CompiledVariable;
+
+    /// A variable of the stand-in compiled program: a variable of the program instance its
+    /// qualified `name` names, else a global.
+    fn variable(symbol: u32, name: &str, type_name: &str) -> CompiledVariable {
+        let (program, member) = match name.split_once('.') {
+            Some((program, member)) => (Some(SmolStr::new(program)), member),
+            None => (None, name),
+        };
+        CompiledVariable {
+            symbol,
+            name: SmolStr::new(name),
+            program,
+            member: SmolStr::new(member),
+            type_name: SmolStr::new(type_name),
+            retained: false,
+            constant: false,
+            instance: false,
+        }
+    }
+
+    /// `PROGRAM Vat` with `RegState : INT := 1;` and `Timer : TON;`, and the globals
+    /// `Speed : INT := 5;` and `Level : INT := 7;`, in the order of `CompiledState::variables`: the
+    /// program instance's own variables, then the globals.
+    fn vat() -> [CompiledVariable; 4] {
+        [
+            variable(0, "Vat.RegState", "INT"),
+            CompiledVariable {
+                instance: true,
+                ..variable(1, "Vat.Timer", "TON")
+            },
+            variable(2, "Speed", "INT"),
+            variable(3, "Level", "INT"),
+        ]
+    }
+
+    /// The values of the stand-in state by symbol. It answers for the instance too, so that only
+    /// its flag leaves it out.
+    fn value_of(symbol: u32) -> Option<Value> {
+        match symbol {
+            0 => Some(Value::Int(1)),
+            1 => Some(Value::Bool(true)),
+            2 => Some(Value::Int(5)),
+            3 => Some(Value::Int(7)),
+            _ => None,
+        }
+    }
+
+    /// The globals are published by their declared names, as an interpreted program publishes its
+    /// globals, each `INT` as the signed 16-bit integer of specification 11's projection. Catches a
+    /// compiled program that publishes its program variables, which an interpreted one does not,
+    /// an instance published as a node, and a value outside the projection.
+    #[test]
+    fn a_compiled_program_publishes_its_globals_as_an_interpreted_program_does() {
+        let nodes = compiled_exposed_nodes(&vat(), value_of, &[], 100);
+        let published: Vec<_> = nodes
+            .iter()
+            .map(|node| (node.name.as_str(), node.data_type, node.value.clone()))
+            .collect();
+        assert_eq!(
+            published,
+            vec![
+                ("Speed", OpcUaDataType::Int16, OpcUaVariant::Int16(5)),
+                ("Level", OpcUaDataType::Int16, OpcUaVariant::Int16(7)),
+            ]
+        );
+    }
+
+    /// `runtime.opcua.expose = ["Sp*"]` publishes only `Speed`, and the state is read only for it
+    /// (specification 44 §8.8: no copy decodes every variable). Catches patterns that a compiled
+    /// program ignores, and a read of every variable.
+    #[test]
+    fn a_compiled_program_publishes_and_reads_only_the_variables_the_patterns_expose() {
+        let patterns = compile_exposure_patterns(&[SmolStr::new("Sp*")]).expect("pattern");
+        let read_symbols = RefCell::new(Vec::new());
+        let nodes = compiled_exposed_nodes(
+            &vat(),
+            |symbol| {
+                read_symbols.borrow_mut().push(symbol);
+                value_of(symbol)
+            },
+            &patterns,
+            100,
+        );
+        let published: Vec<_> = nodes.iter().map(|node| node.name.as_str()).collect();
+        assert_eq!(published, vec!["Speed"]);
+        assert_eq!(read_symbols.into_inner(), vec![2]);
     }
 }

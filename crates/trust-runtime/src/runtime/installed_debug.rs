@@ -32,6 +32,7 @@ impl Runtime {
             storage_abi: self.prepared().storage_abi(),
             storage: self.storage().clone(),
             now: self.current_time(),
+            compiled: None,
         })
     }
 

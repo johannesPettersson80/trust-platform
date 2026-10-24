@@ -164,7 +164,11 @@ instance.
 
 With `--execution-backend native` the tests run compiled for this computer
 (specification 44 §14.2), as a debug or a release image as the project's
-`[build] debug` chooses (specification 44 §13.2). With `--device <port> --target <target>` they run
+`[build] debug` chooses (specification 44 §13.2). Without `--execution-backend`
+they run compiled when the toolchain of specification 44 §4.6 is installed, as
+`trust-runtime build` builds, and on the bytecode engine otherwise or when the
+project has a construct the native build does not compile yet, which the
+command notes; `--execution-backend bytecode` keeps the bytecode engine. With `--device <port> --target <target>` they run
 on that device instead: the same image, compiled for the target, is installed
 once over the device's control link, and each selected test runs by one
 `cycle.step` that restarts the program cold and runs its test program's body

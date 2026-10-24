@@ -9,7 +9,7 @@ use core::fmt;
 use super::image::{Image, SymbolRecord, NONE, SYMBOL_PROGRAM};
 use super::literal;
 use super::memory::{
-    member_place, retained_place, symbol_place, write_place, Place, ProgramMemory,
+    member_place, read_place, retained_place, symbol_place, write_place, Place, ProgramMemory,
 };
 use super::program::{ModuleCode, NativeProgram};
 use crate::error::RuntimeError;
@@ -135,8 +135,17 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
 /// contract): a global or a qualified variable by its name, a retained variable by its retain-map
 /// key, a variable of an instance by the instance's symbol, which is the instance's identity, and
 /// the variable's name, and the process images by address. Each write converts the value as
-/// [`NativeProgram::write_symbol`] does and leaves the variable as it was when it is refused.
+/// [`NativeProgram::write_symbol`] does and leaves the variable as it was when it is refused. The
+/// protocol clients of a computer read a variable by its name too, at the same boundaries.
 pub trait CompiledVariables {
+    /// The value of the global or the qualified variable `name`.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for a name that reaches no single variable, and the
+    /// error of a variable that holds no value, an instance.
+    fn read_named(&self, name: &str) -> Result<Value, RuntimeError>;
+
     /// Writes `value` to the global or the qualified variable `name`.
     ///
     /// # Errors
@@ -198,6 +207,15 @@ impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
 /// variable or of the variable bound at its address (specification 11, "An admitted integer is an
 /// untyped literal"; specification 44 §13.3).
 impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
+    fn read_named(&self, name: &str) -> Result<Value, RuntimeError> {
+        let image = self.image();
+        let index = image
+            .find_variable(name)
+            .map_err(|_| RuntimeError::UndefinedVariable(name.into()))?;
+        let (place, type_index) = symbol_place(&image, index)?;
+        read_place(self, place, type_index)
+    }
+
     fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
         let image = self.image();
         let index = image

@@ -80,6 +80,7 @@ fn pause_records_one_global_pending_stop_and_invalidates_snapshot() {
             storage_abi: Default::default(),
             storage: crate::memory::VariableStorage::new(),
             now: crate::value::Duration::from_millis(7),
+            compiled: None,
         });
         state.steps.insert(
             1,
@@ -181,6 +182,7 @@ fn continue_clears_pending_control_state_and_snapshot() {
             storage_abi: Default::default(),
             storage: crate::memory::VariableStorage::new(),
             now: crate::value::Duration::from_millis(1),
+            compiled: None,
         });
         state.steps.insert(
             7,

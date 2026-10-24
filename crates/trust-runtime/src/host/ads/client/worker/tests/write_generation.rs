@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use super::*;
+use crate::runtime::BoundGlobal;
 
 #[test]
 fn write_response_cardinality_and_failure_quality_fail_closed() {
@@ -90,9 +91,11 @@ fn write_response_cardinality_and_failure_quality_fail_closed() {
         )),
     ];
     for binding in &mut bindings {
-        binding.reference = storage
-            .ref_for_global(binding.point.point_name.as_str())
-            .expect("multi-output reference");
+        binding.target = BoundGlobal::Engine(
+            storage
+                .ref_for_global(binding.point.point_name.as_str())
+                .expect("multi-output reference"),
+        );
     }
     let transport = ScriptedAdsTransport::for_bindings(&bindings);
     let (mut bridge, mut worker) =

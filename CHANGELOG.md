@@ -126,8 +126,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   policies, Live Values, online change with an image, `cycle.step`, `program.install` of an image
   into the project or its program store, and the debugger with breakpoints, stepping and the call
   stack, answered by the same code as on a chip. `status` reports `execution_backend: "native"`.
-  The ADS and OPC UA clients, the MQTT tag mappings and the OpenOT telemetry refuse to start with a
-  compiled program until they read its symbol table.
+  The HMI, the ADS and OPC UA servers and the historian show a compiled program's variables as they
+  show an interpreted program's, the ADS and OPC UA clients bind their points to its globals, the
+  MQTT tag mappings bind its program variables, and the OpenOT telemetry reads its producers.
+  `runtime.toml` `[resource] max_statements_per_scan` sets the statements one task activation may
+  run (default 1,000,000). A build of `program.stbc` removes an earlier `program.tpi`, and
+  `trust-runtime fleet start` builds as `trust-runtime build` does, so a computer runs the program
+  the last build wrote. `trust-dev test` runs a project's tests compiled where the toolchain is
+  installed; `--execution-backend bytecode` keeps the bytecode engine. A global declared `AT` a
+  process-image address now compiles. A project with a construct the native build does not compile
+  yet is built as `program.stbc` with a note naming the construct, by `trust-runtime build`,
+  `fleet start` and `trust-dev test`, so it runs as before. `capabilities` on an x86-64 or AArch64 computer lists the image format
+  `44.1` beside STBC 2.0 and 3.0.
 - Added: online change of a compiled program (specification 44 §12). `bytecode.reload` with a
   program image changes the running program at its next boundary and keeps its values as an
   interpreted program's change keeps them: the process images by address, every variable by its

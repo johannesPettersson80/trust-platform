@@ -101,6 +101,10 @@ pub struct DebugSnapshot {
     pub storage: VariableStorage,
     /// Current runtime time.
     pub now: Duration,
+    /// The state of a compiled program, which a service reads through its symbol table in place
+    /// of `storage`, then empty (specification 44 §8.8, §13.3); none for a program on the bytecode
+    /// engine.
+    pub compiled: Option<std::sync::Arc<crate::CompiledState>>,
 }
 
 impl DebugSnapshot {

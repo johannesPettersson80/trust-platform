@@ -1,6 +1,7 @@
 //! The process I/O of a compiled program on a computer (specification 44 §8.8): the drivers of
 //! `io.toml` read the input image and drive the output image of the compiled cycle, in their order,
-//! as they do for the bytecode engine (`io_subsystem.rs`).
+//! as they do for the bytecode engine (`io_subsystem.rs`), with the bytes past the program's own
+//! image that the MQTT tags bind (§13.3) after it.
 
 use std::sync::{Arc, Mutex};
 
@@ -8,6 +9,7 @@ use smol_str::SmolStr;
 use trust_runtime_services::runner::engine::ProcessIo;
 
 use super::super::io_subsystem::{publish_health, write_safe_outputs, IoDriverEntry};
+use super::tags::{lock, SharedExtraImages};
 use crate::error::RuntimeError;
 use crate::io::{IoDriver, IoDriverStatus};
 
@@ -17,6 +19,10 @@ use crate::io::{IoDriver, IoDriverStatus};
 pub(crate) struct HostIo {
     drivers: Vec<IoDriverEntry>,
     health_sink: Option<Arc<Mutex<Vec<IoDriverStatus>>>>,
+    /// The bytes past the program's own image that the MQTT tags bind.
+    extra: SharedExtraImages,
+    /// The program's image with the extra bytes after it, as the drivers see the image.
+    joined: Vec<u8>,
 }
 
 impl HostIo {
@@ -42,30 +48,75 @@ impl HostIo {
     pub(crate) fn update_health(&self) {
         publish_health(&self.drivers, self.health_sink.as_ref());
     }
+
+    /// The bytes past the program's own image, which the boundaries of the scan share.
+    pub(crate) fn extra_images(&self) -> SharedExtraImages {
+        Arc::clone(&self.extra)
+    }
+
+    /// `image` with the extra `bytes` after it, in the buffer the drivers see.
+    fn join(&mut self, image: &[u8], bytes: &[u8]) {
+        self.joined.clear();
+        self.joined.extend_from_slice(image);
+        self.joined.extend_from_slice(bytes);
+    }
 }
 
 impl ProcessIo for HostIo {
-    /// Each driver reads its inputs into the image in turn; the first failure ends the read.
+    /// Each driver reads its inputs into the image, and the extra input bytes after it, in turn;
+    /// the first failure ends the read.
     fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
-        for entry in &mut self.drivers {
-            entry.driver.read_inputs(image)?;
+        let extra = Arc::clone(&self.extra);
+        let mut extra = lock(&extra);
+        if extra.inputs.is_empty() {
+            return self
+                .drivers
+                .iter_mut()
+                .try_for_each(|entry| entry.driver.read_inputs(image));
         }
-        Ok(())
-    }
-
-    /// Each driver drives its outputs from the image in turn; the first failure ends the write.
-    fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
+        self.join(image, &extra.inputs);
         let result = self
             .drivers
             .iter_mut()
-            .try_for_each(|entry| entry.driver.write_outputs(image));
+            .try_for_each(|entry| entry.driver.read_inputs(&mut self.joined));
+        let (own, past) = self.joined.split_at(image.len());
+        image.copy_from_slice(own);
+        extra.inputs.copy_from_slice(past);
+        result
+    }
+
+    /// Each driver drives its outputs from the image, and the extra output bytes after it, in
+    /// turn; the first failure ends the write.
+    fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
+        let extra = Arc::clone(&self.extra);
+        let extra = lock(&extra);
+        let result = if extra.outputs.is_empty() {
+            self.drivers
+                .iter_mut()
+                .try_for_each(|entry| entry.driver.write_outputs(image))
+        } else {
+            self.join(image, &extra.outputs);
+            self.drivers
+                .iter_mut()
+                .try_for_each(|entry| entry.driver.write_outputs(&self.joined))
+        };
+        drop(extra);
         self.update_health();
         result
     }
 
-    /// Every driver is attempted, and the first failure is reported.
+    /// Every driver is attempted with the safe image and the extra output bytes after it, and the
+    /// first failure is reported.
     fn write_safe_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
-        let result = write_safe_outputs(&mut self.drivers, image);
+        let extra = Arc::clone(&self.extra);
+        let extra = lock(&extra);
+        let result = if extra.outputs.is_empty() {
+            write_safe_outputs(&mut self.drivers, image)
+        } else {
+            self.join(image, &extra.outputs);
+            write_safe_outputs(&mut self.drivers, &self.joined)
+        };
+        drop(extra);
         self.update_health();
         result
     }

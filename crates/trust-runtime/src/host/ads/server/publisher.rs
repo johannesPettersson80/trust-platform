@@ -1,5 +1,6 @@
 //! ADS server value publication from runtime snapshots.
 
+use std::borrow::Borrow;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -7,6 +8,7 @@ use trust_ads_core::{ads_bytes_from_value, PointQuality, SymbolDescriptor};
 use trust_ads_server::{AdsErrorCode, AdsServerError, Clock, ValueIo};
 
 use crate::debug::DebugSnapshot;
+use crate::value::Value;
 
 use super::contracts::AdsServerRuntimeConfig;
 use super::symbols::global_name_for_server_symbol;
@@ -65,41 +67,59 @@ impl ValueIo for AdsServerValuePublisher {
             AdsServerError::device(AdsErrorCode::NotReady, "runtime snapshot unavailable")
         })?;
         let snapshot = &timed_snapshot.snapshot;
-        let global_name = global_name_for_server_symbol(&self.config, symbol.name.as_str())
-            .ok_or_else(|| {
-                AdsServerError::device(
-                    AdsErrorCode::NotFound,
-                    format!("ADS symbol '{}' is not a runtime global", symbol.name),
-                )
-            })?;
-        let value = snapshot.storage.get_global(global_name).ok_or_else(|| {
-            AdsServerError::device(
-                AdsErrorCode::NotFound,
-                format!("runtime global '{global_name}' is unavailable"),
-            )
-        })?;
-        let bytes = ads_bytes_from_value(&symbol.data_type, value).map_err(|err| {
-            AdsServerError::device(
-                AdsErrorCode::InvalidData,
-                format!("failed to encode ADS symbol '{}': {err}", symbol.name),
-            )
-        })?;
-        if bytes.len() != symbol.byte_size as usize {
-            return Err(AdsServerError::device(
-                AdsErrorCode::InvalidSize,
-                format!(
-                    "encoded ADS symbol '{}' has {} bytes, descriptor expects {}",
-                    symbol.name,
-                    bytes.len(),
-                    symbol.byte_size
-                ),
-            ));
-        }
+        // A compiled program's variable is read through its symbol table (specification 44 §8.8,
+        // §13.3); its snapshot holds no storage.
+        let bytes = match snapshot.compiled.as_deref() {
+            Some(state) => read_symbol_bytes(&self.config, symbol, |name| state.value(name)),
+            None => read_symbol_bytes(&self.config, symbol, |name| {
+                snapshot.storage.get_global(name)
+            }),
+        }?;
         Ok((
             bytes,
             self.quality_for_snapshot(timed_snapshot.captured_wall_ms),
         ))
     }
+}
+
+/// Reads the runtime global that the ADS symbol `symbol` names as its ADS bytes, with `value_of`
+/// giving a global's value by its name, an interpreted program's or a compiled program's.
+pub(super) fn read_symbol_bytes<V: Borrow<Value>>(
+    config: &AdsServerRuntimeConfig,
+    symbol: &SymbolDescriptor,
+    value_of: impl FnOnce(&str) -> Option<V>,
+) -> Result<Vec<u8>, AdsServerError> {
+    let global_name =
+        global_name_for_server_symbol(config, symbol.name.as_str()).ok_or_else(|| {
+            AdsServerError::device(
+                AdsErrorCode::NotFound,
+                format!("ADS symbol '{}' is not a runtime global", symbol.name),
+            )
+        })?;
+    let value = value_of(global_name).ok_or_else(|| {
+        AdsServerError::device(
+            AdsErrorCode::NotFound,
+            format!("runtime global '{global_name}' is unavailable"),
+        )
+    })?;
+    let bytes = ads_bytes_from_value(&symbol.data_type, value.borrow()).map_err(|err| {
+        AdsServerError::device(
+            AdsErrorCode::InvalidData,
+            format!("failed to encode ADS symbol '{}': {err}", symbol.name),
+        )
+    })?;
+    if bytes.len() != symbol.byte_size as usize {
+        return Err(AdsServerError::device(
+            AdsErrorCode::InvalidSize,
+            format!(
+                "encoded ADS symbol '{}' has {} bytes, descriptor expects {}",
+                symbol.name,
+                bytes.len(),
+                symbol.byte_size
+            ),
+        ));
+    }
+    Ok(bytes)
 }
 
 impl Clock for AdsServerValuePublisher {

@@ -41,6 +41,7 @@ fn snapshot(values: impl IntoIterator<Item = (&'static str, Value)>) -> DebugSna
         storage_abi: Default::default(),
         storage,
         now: Duration::from_millis(10),
+        compiled: None,
     }
 }
 

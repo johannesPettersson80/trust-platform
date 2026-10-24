@@ -196,6 +196,7 @@ impl DebugControl {
             storage_abi,
             storage: copy,
             now,
+            compiled: None,
         };
         let (lock, _) = &*self.state;
         let mut state = lock.lock().expect("debug state poisoned");
@@ -475,6 +476,7 @@ fn update_snapshot(state: &mut DebugState, ctx: &mut DebugRuntimeContext<'_>) {
         storage_abi: ctx.storage_abi,
         storage: ctx.storage.clone(),
         now: ctx.now,
+        compiled: None,
     });
 }
 

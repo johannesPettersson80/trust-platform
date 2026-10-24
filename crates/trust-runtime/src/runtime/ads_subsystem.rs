@@ -173,6 +173,37 @@ impl AdsSubsystem {
         Ok(())
     }
 
+    /// [`Self::apply_inputs_with_cycle`] for a compiled program, after its drivers read the
+    /// inputs (specification 44 §13.3).
+    pub(super) fn apply_inputs_compiled(
+        &mut self,
+        variables: &mut dyn trust_runtime_core::native::variables::CompiledVariables,
+        now_ms: u64,
+    ) -> Result<(), RuntimeError> {
+        for connection in &mut self.connections {
+            connection
+                .bridge
+                .apply_inputs_compiled(variables, now_ms)
+                .map_err(|err| ads_runtime_error(&connection.name, err))?;
+        }
+        Ok(())
+    }
+
+    /// [`Self::capture_outputs_with_cycle`] for a compiled program, after its scan.
+    pub(super) fn capture_outputs_compiled(
+        &mut self,
+        variables: &mut dyn trust_runtime_core::native::variables::CompiledVariables,
+        now_ms: u64,
+    ) -> Result<(), RuntimeError> {
+        for connection in &mut self.connections {
+            connection
+                .bridge
+                .capture_outputs_compiled(variables, now_ms)
+                .map_err(|err| ads_runtime_error(&connection.name, err))?;
+        }
+        Ok(())
+    }
+
     pub(super) fn live_values(&self, storage: &VariableStorage) -> Vec<AdsLiveValue> {
         self.connections
             .iter()
@@ -578,9 +609,8 @@ mod tests {
                 notification_mode: crate::ads::AdsNotificationMode::OnChange,
                 allow_retain_read: false,
             },
-            reference,
-            quality_reference: None,
-            type_id: trust_hir::TypeId::INT,
+            target: crate::runtime::BoundGlobal::Engine(reference),
+            quality_target: None,
             retain: false,
         };
         // Two writable connections pin first-match behavior, not duplicate sends.
@@ -670,25 +700,22 @@ mod tests {
     fn management_queue_uses_canonical_admitted_width_for_wire_encoding() {
         use crate::value::Value;
         use trust_ads_core::{AdsDataTypeDescriptor, IecDataType, PointAccess, UpdateMode};
-        for (declaration, wire, ty, expected, bytes) in [
+        for (declaration, wire, expected, bytes) in [
             (
                 "DINT",
                 IecDataType::Dint,
-                trust_hir::TypeId::DINT,
                 Value::DInt(7),
                 7i32.to_le_bytes().to_vec(),
             ),
             (
                 "REAL",
                 IecDataType::Real,
-                trust_hir::TypeId::REAL,
                 Value::Real(7.0),
                 7f32.to_le_bytes().to_vec(),
             ),
             (
                 "Alias",
                 IecDataType::Dint,
-                trust_hir::TypeId::DINT,
                 Value::DInt(7),
                 7i32.to_le_bytes().to_vec(),
             ),
@@ -708,9 +735,10 @@ mod tests {
                     notification_mode: crate::ads::AdsNotificationMode::OnChange,
                     allow_retain_read: false,
                 },
-                reference: runtime.storage().ref_for_global("point").unwrap(),
-                quality_reference: None,
-                type_id: ty,
+                target: crate::runtime::BoundGlobal::Engine(
+                    runtime.storage().ref_for_global("point").unwrap(),
+                ),
+                quality_target: None,
                 retain: false,
             };
             runtime

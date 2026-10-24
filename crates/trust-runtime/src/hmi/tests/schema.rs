@@ -404,6 +404,7 @@ END_PROGRAM
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     };
 
     let by_id = resolve_write_point(

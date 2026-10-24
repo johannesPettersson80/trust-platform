@@ -144,6 +144,37 @@ impl OpcUaClientSubsystem {
         Ok(())
     }
 
+    /// [`Self::apply_inputs_with_cycle`] for a compiled program, after its drivers read the
+    /// inputs (specification 44 §13.3).
+    pub(super) fn apply_inputs_compiled(
+        &mut self,
+        variables: &mut dyn trust_runtime_core::native::variables::CompiledVariables,
+        now_ms: u64,
+    ) -> Result<(), RuntimeError> {
+        for connection in &mut self.connections {
+            connection
+                .bridge
+                .apply_inputs_compiled(variables, now_ms)
+                .map_err(|err| opcua_runtime_error(&connection.config.name, err))?;
+        }
+        Ok(())
+    }
+
+    /// [`Self::capture_outputs_with_cycle`] for a compiled program, after its scan.
+    pub(super) fn capture_outputs_compiled(
+        &mut self,
+        variables: &mut dyn trust_runtime_core::native::variables::CompiledVariables,
+        now_ms: u64,
+    ) -> Result<(), RuntimeError> {
+        for connection in &mut self.connections {
+            connection
+                .bridge
+                .capture_outputs_compiled(variables, now_ms)
+                .map_err(|err| opcua_runtime_error(&connection.config.name, err))?;
+        }
+        Ok(())
+    }
+
     pub(super) fn status_report(&self) -> OpcUaClientStatusReport {
         OpcUaClientStatusReport {
             enabled: !self.connections.is_empty(),

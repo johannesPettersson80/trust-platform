@@ -21,6 +21,7 @@ fn bundle_with_backend(
             bundle_version: 1,
             resource_name: smol_str::SmolStr::new("RESOURCE"),
             cycle_interval: trust_runtime::value::Duration::from_millis(10),
+            max_statements_per_scan: 1_000_000,
             execution_backend: backend,
             execution_backend_source:
                 trust_runtime::execution_backend::ExecutionBackendSource::Config,

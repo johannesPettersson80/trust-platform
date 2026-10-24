@@ -14,6 +14,17 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "resource.cycle_interval_ms must be >= 1".into(),
         ));
     }
+    if let Some(budget) = cfg.resource.max_statements_per_scan
+        && (budget == 0 || u32::try_from(budget).is_err())
+    {
+        return Err(RuntimeError::InvalidConfig(
+            format!(
+                "resource.max_statements_per_scan must be between 1 and {}",
+                u32::MAX
+            )
+            .into(),
+        ));
+    }
     if cfg.runtime.control.endpoint.trim().is_empty() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.control.endpoint must not be empty".into(),

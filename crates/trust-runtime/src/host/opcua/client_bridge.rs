@@ -1,7 +1,8 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpcUaClientBinding {
     pub point: OpcUaClientPointConfig,
-    pub reference: crate::value::ValueRef,
+    /// The global the point reads into or writes from.
+    pub target: crate::runtime::BoundGlobal,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,18 +109,13 @@ impl OpcUaClientBridge {
         storage: &mut crate::memory::VariableStorage,
         now_ms: u64,
     ) -> Result<(), OpcUaClientBridgeError> {
-        self.apply_inputs_with(now_ms, |reference, value| {
-            storage
-                .write_by_ref_ref(reference, value)
-                .then_some(())
-                .ok_or(RuntimeError::TypeMismatch)
-        })
+        self.apply_inputs_with(now_ms, storage)
     }
 
     fn apply_inputs_with(
         &mut self,
         now_ms: u64,
-        mut write: impl FnMut(&crate::value::ValueRef, Value) -> Result<(), RuntimeError>,
+        port: &mut (impl crate::runtime::GlobalPort + ?Sized),
     ) -> Result<(), OpcUaClientBridgeError> {
         let snapshot = self.shared.snapshot();
         for binding in self
@@ -157,7 +153,7 @@ impl OpcUaClientBridge {
                 );
                 continue;
             };
-            if let Err(error) = write(&binding.reference, value.clone()) {
+            if let Err(error) = port.write(&binding.target, value.clone()) {
                 self.shared.set_point_status(
                     &binding.point,
                     OpcUaClientConnectionState::Faulted,
@@ -191,7 +187,12 @@ impl OpcUaClientBridge {
             .iter()
             .filter(|binding| binding.point.access.can_write())
         {
-            let Some(value) = storage.read_by_ref(binding.reference.clone()).cloned() else {
+            let Some(value) = binding
+                .target
+                .reference()
+                .ok()
+                .and_then(|reference| storage.read_by_ref(reference.clone()).cloned())
+            else {
                 self.shared.set_point_status(
                     &binding.point,
                     OpcUaClientConnectionState::Faulted,
@@ -251,7 +252,44 @@ pub fn resolve_opcua_client_bindings(
         validate_opcua_client_initial_value(runtime, connection, point, storage_name)?;
         bindings.push(OpcUaClientBinding {
             point: point.clone(),
-            reference,
+            target: crate::runtime::BoundGlobal::Engine(reference),
+        });
+    }
+    Ok(bindings)
+}
+
+/// [`resolve_opcua_client_bindings`] for a compiled program (specification 44 §13.3): each point
+/// binds the global of its name, found through the program's symbol table, whose value as the last
+/// scan left it must fit the point as an interpreted program's does.
+///
+/// # Errors
+///
+/// As [`resolve_opcua_client_bindings`].
+pub fn resolve_compiled_opcua_client_bindings(
+    program: &crate::CompiledRuntime,
+    connection: &OpcUaClientConnectionConfig,
+) -> Result<Vec<OpcUaClientBinding>, RuntimeError> {
+    let mut bindings = Vec::with_capacity(connection.points.len());
+    for point in &connection.points {
+        let missing = || {
+            RuntimeError::InvalidConfig(
+                format!(
+                    "OPC UA client connection '{}': global '{}' does not exist",
+                    connection.name, point.var
+                )
+                .into(),
+            )
+        };
+        let global = program
+            .global(opcua_client_global_storage_name(point.var.as_str()))
+            .ok_or_else(missing)?;
+        let value = program
+            .read_global(global.name.as_str())
+            .map_err(|_| missing())?;
+        validate_opcua_client_value(connection, point, &value)?;
+        bindings.push(OpcUaClientBinding {
+            point: point.clone(),
+            target: crate::runtime::BoundGlobal::Compiled(global.name),
         });
     }
     Ok(bindings)
@@ -293,6 +331,16 @@ fn validate_opcua_client_initial_value(
             .into(),
         )
     })?;
+    validate_opcua_client_value(connection, point, value)
+}
+
+/// Whether the global's current `value` fits the point: its OPC UA type is the point's, and the
+/// point is readable.
+fn validate_opcua_client_value(
+    connection: &OpcUaClientConnectionConfig,
+    point: &OpcUaClientPointConfig,
+    value: &Value,
+) -> Result<(), RuntimeError> {
     let Some(mapped) = map_iec_value(value) else {
         return Err(RuntimeError::InvalidConfig(
             format!(

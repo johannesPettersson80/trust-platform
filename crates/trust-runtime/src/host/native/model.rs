@@ -27,6 +27,8 @@ pub(super) struct Global {
     pub(super) ty: Ty,
     pub(super) retained: bool,
     pub(super) constant: bool,
+    /// The process-image address the global is declared `AT`, when it is directly addressed.
+    pub(super) address: Option<IoAddress>,
 }
 
 /// A program type: its two structures, the variables and the retained variables.
@@ -79,7 +81,7 @@ pub(super) struct Task {
 
 /// A variable bound to a process image address (`AT %…` or `VAR_CONFIG`).
 pub(super) struct Binding {
-    /// The variable's path, the program instance first.
+    /// The variable's path: a global's name, or the program instance first.
     pub(super) path: Vec<SmolStr>,
     pub(super) address: IoAddress,
 }
@@ -179,7 +181,7 @@ impl<'a> Model<'a> {
         let globals = globals(lowered, configuration, &mut types)?;
         let (program_types, instances) = instances(lowered, configuration, &mut types)?;
         let tasks = tasks(configuration, tests);
-        let bindings = bindings(configuration, &instances, &program_types)?;
+        let bindings = bindings(configuration, &globals, &instances, &program_types)?;
         let images = images(&bindings)?;
         let area_g = AreaLayout::new(
             globals
@@ -341,17 +343,24 @@ fn globals(
         {
             continue;
         }
-        if global.address.is_some() {
-            return Err(NativeError::unsupported(format!(
-                "the directly addressed global {}",
-                global.name
-            )));
-        }
+        let address = global
+            .address
+            .as_deref()
+            .map(|text| {
+                IoAddress::parse(text).map_err(|error| {
+                    NativeError::Compile(format!(
+                        "the address {text} of global {}: {error}",
+                        global.name
+                    ))
+                })
+            })
+            .transpose()?;
         globals.push(Global {
             name: global.name.clone(),
             ty: types.of(global.type_id)?,
             retained: retained(global.retain),
             constant: global.constant,
+            address,
         });
     }
     Ok(globals)
@@ -452,13 +461,23 @@ fn tasks(configuration: &ConfigModel, tests: &[SmolStr]) -> Vec<Task> {
     tasks
 }
 
-/// The variables bound to the process image: `VAR_CONFIG` and `AT` in the programs.
+/// The variables bound to the process image: the directly addressed globals, `VAR_CONFIG` and `AT`
+/// in the programs.
 fn bindings(
     configuration: &ConfigModel,
+    globals: &[Global],
     instances: &[ProgramInstance],
     program_types: &[ProgramType<'_>],
 ) -> Result<Vec<Binding>, NativeError> {
-    let mut bindings = Vec::new();
+    let mut bindings: Vec<Binding> = globals
+        .iter()
+        .filter_map(|global| {
+            Some(Binding {
+                path: vec![global.name.clone()],
+                address: global.address.clone()?,
+            })
+        })
+        .collect();
     for init in &configuration.config_inits {
         let Some(address) = init.address.clone() else {
             continue;

@@ -225,6 +225,7 @@ fn collect_hmi_toml_semantic_diagnostics(
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
         storage_abi: metadata.storage_abi(),
+        compiled: None,
     };
     let source_refs = loaded_sources
         .iter()

@@ -50,6 +50,7 @@ struct BundleSection {
 struct ResourceSection {
     name: String,
     cycle_interval_ms: u64,
+    max_statements_per_scan: Option<u64>,
     tasks: Option<Vec<TaskSection>>,
 }
 

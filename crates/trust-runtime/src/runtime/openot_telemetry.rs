@@ -12,6 +12,7 @@ mod imp {
     use open_ot_shm::{FenceMode, SharedRecordPublisher};
     use smol_str::SmolStr;
     use std::path::Path;
+    use trust_runtime_core::native::variables::CompiledVariables;
 
     const ST_SCAN_RECORD_CAPACITY: usize = 1024;
     const ST_SCAN_RECORD_DESCRIPTOR_COUNT: usize = 17;
@@ -97,7 +98,24 @@ mod imp {
         ) -> Result<(), RuntimeError> {
             match self.source {
                 OpenOtTelemetrySource::Heartbeat => self.publish_heartbeat(cycle_counter),
-                OpenOtTelemetrySource::StFb => self.publish_st_fb(storage),
+                OpenOtTelemetrySource::StFb => {
+                    self.publish_st_fb(&|path| read_st_fb_outputs(storage, path))
+                }
+            }
+        }
+
+        /// [`Self::publish`] for a compiled program, whose producers' outputs are read by their
+        /// full names through its symbol table (specification 44 §13.3).
+        pub(crate) fn publish_compiled(
+            &mut self,
+            cycle_counter: u64,
+            program: &dyn CompiledVariables,
+        ) -> Result<(), RuntimeError> {
+            match self.source {
+                OpenOtTelemetrySource::Heartbeat => self.publish_heartbeat(cycle_counter),
+                OpenOtTelemetrySource::StFb => {
+                    self.publish_st_fb(&|path| read_compiled_st_fb_outputs(program, path))
+                }
             }
         }
 
@@ -123,7 +141,11 @@ mod imp {
                 .map_err(|err| telemetry_error("publish heartbeat", err))
         }
 
-        fn publish_st_fb(&mut self, storage: &VariableStorage) -> Result<(), RuntimeError> {
+        /// Publishes the new records of each producer, whose outputs `read` reads by its path.
+        fn publish_st_fb(
+            &mut self,
+            read: &dyn Fn(&str) -> Result<StFbProducerSnapshot, RuntimeError>,
+        ) -> Result<(), RuntimeError> {
             let Some(_) = self.publisher.as_ref() else {
                 return Ok(());
             };
@@ -139,8 +161,9 @@ mod imp {
                 .capacity();
             let mut prepared = Vec::<PreparedStFbRecords>::new();
             for (index, producer) in self.st_fb_producers.iter_mut().enumerate() {
+                let snapshot = read(producer.path.as_str())?;
                 if let Some(records) =
-                    prepare_st_fb_records(index, producer, storage, publisher_capacity)?
+                    prepare_st_fb_records(index, producer, &snapshot, publisher_capacity)?
                 {
                     prepared.push(records);
                 }
@@ -235,11 +258,10 @@ mod imp {
     fn prepare_st_fb_records(
         producer_index: usize,
         state: &mut StFbProducerState,
-        storage: &VariableStorage,
+        snapshot: &StFbProducerSnapshot,
         publisher_capacity: usize,
     ) -> Result<Option<PreparedStFbRecords>, RuntimeError> {
         let path = state.path.as_str();
-        let snapshot = read_st_fb_outputs(storage, path)?;
         let delta = snapshot
             .published_record_count
             .checked_sub(state.previous_published_record_count)
@@ -295,7 +317,7 @@ mod imp {
             )));
         }
 
-        let records = validate_scan_record_descriptors(path, &snapshot, publisher_capacity)?
+        let records = validate_scan_record_descriptors(path, snapshot, publisher_capacity)?
             .into_iter()
             .map(<[u8]>::to_vec)
             .collect();
@@ -359,10 +381,8 @@ mod imp {
         last_command_error: usize,
     }
 
-    fn read_st_fb_outputs(
-        storage: &VariableStorage,
-        path: &str,
-    ) -> Result<StFbProducerSnapshot, RuntimeError> {
+    /// The program and the producer instance of the qualified producer `path`.
+    fn producer_parts(path: &str) -> Result<(&str, &str), RuntimeError> {
         let (program, producer) = path.split_once('.').ok_or_else(|| {
             telemetry_message(format!(
                 "producer_instance '{path}' must be a qualified path like 'Main.Producer'"
@@ -373,6 +393,26 @@ mod imp {
                 "producer_instance '{path}' must be a qualified path like 'Main.Producer'"
             )));
         }
+        Ok((program, producer))
+    }
+
+    /// The outputs of a compiled program's producer at `path`, each output read by its full name
+    /// (`Main.Producer.ScanRecordCount`) through the program's symbol table.
+    fn read_compiled_st_fb_outputs(
+        program: &dyn CompiledVariables,
+        path: &str,
+    ) -> Result<StFbProducerSnapshot, RuntimeError> {
+        producer_parts(path)?;
+        producer_snapshot(path, &|field| {
+            program.read_named(format!("{path}.{field}").as_str()).ok()
+        })
+    }
+
+    fn read_st_fb_outputs(
+        storage: &VariableStorage,
+        path: &str,
+    ) -> Result<StFbProducerSnapshot, RuntimeError> {
+        let (program, producer) = producer_parts(path)?;
 
         let program_id = match storage.get_global(program) {
             Some(Value::Instance(id)) => *id,
@@ -404,67 +444,55 @@ mod imp {
             }
         };
 
+        producer_snapshot(path, &|field| {
+            storage
+                .get_instance_var_recursive(producer_id, field)
+                .cloned()
+        })
+    }
+
+    /// The outputs of the producer at `path`, each read by `field`.
+    fn producer_snapshot(
+        path: &str,
+        field: &dyn Fn(&str) -> Option<Value>,
+    ) -> Result<StFbProducerSnapshot, RuntimeError> {
         Ok(StFbProducerSnapshot {
-            published_record_count: read_ulint_field(
-                storage,
-                producer_id,
-                path,
-                "PublishedRecordCount",
-            )?,
+            published_record_count: read_ulint_field(field, path, "PublishedRecordCount")?,
             scan_records: read_byte_array_field::<ST_SCAN_RECORD_CAPACITY>(
-                storage,
-                producer_id,
+                field,
                 path,
                 "ScanRecords",
                 (0, 1023),
                 "ARRAY[0..1023] OF BYTE",
             )?,
             scan_record_offsets: read_uint_array_field::<ST_SCAN_RECORD_DESCRIPTOR_COUNT>(
-                storage,
-                producer_id,
+                field,
                 path,
                 "ScanRecordOffsets",
                 (0, 16),
                 "ARRAY[0..16] OF UINT",
             )?,
             scan_record_lengths: read_uint_array_field::<ST_SCAN_RECORD_DESCRIPTOR_COUNT>(
-                storage,
-                producer_id,
+                field,
                 path,
                 "ScanRecordLengths",
                 (0, 16),
                 "ARRAY[0..16] OF UINT",
             )?,
-            scan_record_count: read_uint_field(storage, producer_id, path, "ScanRecordCount")?,
-            dropped_lifecycle_count: read_ulint_field(
-                storage,
-                producer_id,
-                path,
-                "DroppedLifecycleCount",
-            )?,
-            last_lifecycle_error: read_uint_field(
-                storage,
-                producer_id,
-                path,
-                "LastLifecycleError",
-            )?,
-            dropped_command_count: read_ulint_field(
-                storage,
-                producer_id,
-                path,
-                "DroppedCommandCount",
-            )?,
-            last_command_error: read_uint_field(storage, producer_id, path, "LastCommandError")?,
+            scan_record_count: read_uint_field(field, path, "ScanRecordCount")?,
+            dropped_lifecycle_count: read_ulint_field(field, path, "DroppedLifecycleCount")?,
+            last_lifecycle_error: read_uint_field(field, path, "LastLifecycleError")?,
+            dropped_command_count: read_ulint_field(field, path, "DroppedCommandCount")?,
+            last_command_error: read_uint_field(field, path, "LastCommandError")?,
         })
     }
 
     fn read_ulint_field(
-        storage: &VariableStorage,
-        producer_id: crate::memory::InstanceId,
+        read: &dyn Fn(&str) -> Option<Value>,
         path: &str,
         field: &str,
     ) -> Result<u64, RuntimeError> {
-        match storage.get_instance_var_recursive(producer_id, field) {
+        match read(field).as_ref() {
             Some(Value::ULInt(value)) => Ok(*value),
             Some(other) => Err(telemetry_message(format!(
                 "producer '{path}' field '{field}' expected ULINT, got {}",
@@ -477,12 +505,11 @@ mod imp {
     }
 
     fn read_uint_field(
-        storage: &VariableStorage,
-        producer_id: crate::memory::InstanceId,
+        read: &dyn Fn(&str) -> Option<Value>,
         path: &str,
         field: &str,
     ) -> Result<usize, RuntimeError> {
-        match storage.get_instance_var_recursive(producer_id, field) {
+        match read(field).as_ref() {
             Some(Value::UInt(value)) => Ok(usize::from(*value)),
             Some(other) => Err(telemetry_message(format!(
                 "producer '{path}' field '{field}' expected UINT, got {}",
@@ -495,22 +522,19 @@ mod imp {
     }
 
     fn read_byte_array_field<const N: usize>(
-        storage: &VariableStorage,
-        producer_id: crate::memory::InstanceId,
+        read: &dyn Fn(&str) -> Option<Value>,
         path: &str,
         field: &str,
         dimensions: (i64, i64),
         expected_type: &str,
     ) -> Result<[u8; N], RuntimeError> {
-        let value = storage
-            .get_instance_var_recursive(producer_id, field)
-            .ok_or_else(|| {
-                telemetry_message(format!("producer '{path}' field '{field}' was not found"))
-            })?;
-        let Value::Array(array) = value else {
+        let value = read(field).ok_or_else(|| {
+            telemetry_message(format!("producer '{path}' field '{field}' was not found"))
+        })?;
+        let Value::Array(array) = &value else {
             return Err(telemetry_message(format!(
                 "producer '{path}' field '{field}' expected {expected_type}, got {}",
-                value_type_name(value)
+                value_type_name(&value)
             )));
         };
         if array.dimensions() != [dimensions] || array.elements().len() != N {
@@ -535,22 +559,19 @@ mod imp {
     }
 
     fn read_uint_array_field<const N: usize>(
-        storage: &VariableStorage,
-        producer_id: crate::memory::InstanceId,
+        read: &dyn Fn(&str) -> Option<Value>,
         path: &str,
         field: &str,
         dimensions: (i64, i64),
         expected_type: &str,
     ) -> Result<[usize; N], RuntimeError> {
-        let value = storage
-            .get_instance_var_recursive(producer_id, field)
-            .ok_or_else(|| {
-                telemetry_message(format!("producer '{path}' field '{field}' was not found"))
-            })?;
-        let Value::Array(array) = value else {
+        let value = read(field).ok_or_else(|| {
+            telemetry_message(format!("producer '{path}' field '{field}' was not found"))
+        })?;
+        let Value::Array(array) = &value else {
             return Err(telemetry_message(format!(
                 "producer '{path}' field '{field}' expected {expected_type}, got {}",
-                value_type_name(value)
+                value_type_name(&value)
             )));
         };
         if array.dimensions() != [dimensions] || array.elements().len() != N {
@@ -665,6 +686,70 @@ mod imp {
             Value::Null => "NULL",
         }
     }
+
+    /// Specification 44 §13.3 with the OpenOT telemetry: a compiled program's producer
+    /// `Main.Producer` is read output by output by its full name. With 3 records published, the
+    /// records' bytes, offsets and lengths, the counts and the errors are read as an interpreted
+    /// program's are; a producer the program does not hold is refused naming its first output.
+    /// Catches outputs read under another name, and a missing producer read as zeros.
+    #[cfg(test)]
+    mod compiled_tests {
+        use std::collections::BTreeMap;
+
+        use super::*;
+        use crate::runtime::NamedGlobals;
+        use crate::value::ArrayValue;
+
+        #[test]
+        fn a_compiled_programs_producer_is_read_by_its_full_names() {
+            let records = Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                (0..1024_u32)
+                    .map(|index| Value::Byte(u8::try_from(index % 256).unwrap_or(0)))
+                    .collect(),
+                vec![(0, 1023)],
+            )));
+            let uints = |first: u16| {
+                Value::Array(Box::new(ArrayValue::from_canonical_parts(
+                    (0..17_u16)
+                        .map(|index| Value::UInt(first + index))
+                        .collect(),
+                    vec![(0, 16)],
+                )))
+            };
+            let globals = NamedGlobals(BTreeMap::from([
+                ("Main.Producer.PublishedRecordCount", Value::ULInt(3)),
+                ("Main.Producer.ScanRecords", records),
+                ("Main.Producer.ScanRecordOffsets", uints(0)),
+                ("Main.Producer.ScanRecordLengths", uints(10)),
+                ("Main.Producer.ScanRecordCount", Value::UInt(3)),
+                ("Main.Producer.DroppedLifecycleCount", Value::ULInt(0)),
+                ("Main.Producer.LastLifecycleError", Value::UInt(0)),
+                ("Main.Producer.DroppedCommandCount", Value::ULInt(1)),
+                ("Main.Producer.LastCommandError", Value::UInt(7)),
+            ]));
+
+            let snapshot = read_compiled_st_fb_outputs(&globals, "Main.Producer")
+                .expect("the producer's outputs");
+            assert_eq!(snapshot.published_record_count, 3);
+            assert_eq!(snapshot.scan_records[255], 255);
+            assert_eq!(snapshot.scan_record_offsets[16], 16);
+            assert_eq!(snapshot.scan_record_lengths[0], 10);
+            assert_eq!(snapshot.scan_record_count, 3);
+            assert_eq!(
+                (snapshot.dropped_command_count, snapshot.last_command_error),
+                (1, 7)
+            );
+
+            let missing = read_compiled_st_fb_outputs(&globals, "Main.Other")
+                .expect_err("a producer the program does not hold");
+            assert!(
+                missing
+                    .to_string()
+                    .contains("field 'PublishedRecordCount' was not found"),
+                "{missing}"
+            );
+        }
+    }
 }
 
 #[cfg(not(unix))]
@@ -700,6 +785,14 @@ mod imp {
             &mut self,
             _cycle_counter: u64,
             _storage: &crate::memory::VariableStorage,
+        ) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        pub(crate) fn publish_compiled(
+            &mut self,
+            _cycle_counter: u64,
+            _program: &dyn trust_runtime_core::native::variables::CompiledVariables,
         ) -> Result<(), RuntimeError> {
             Ok(())
         }

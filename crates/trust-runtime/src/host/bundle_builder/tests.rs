@@ -424,3 +424,24 @@ fn native_build_labels_each_source_relative_to_the_project_root() {
     assert_eq!(labels, ["src/main.st", "src/motors/pump.st"]);
     let _ = fs::remove_dir_all(&root);
 }
+
+/// Specification 44 NX-15: the project's program is what its last build wrote. A project that holds
+/// a program image from an earlier build, which a computer runs in place of `program.stbc`, loses it
+/// when its STBC is built, so the computer runs the program just built. Catches a stale image that
+/// runs instead of the new STBC.
+#[test]
+fn build_removes_an_earlier_program_image() {
+    let root = temp_dir("trust-runtime-build-replaces-image");
+    write_file(
+        &root.join("src/main.st"),
+        "PROGRAM Main\nVAR\n    y : INT;\nEND_VAR\ny := 1;\nEND_PROGRAM\n",
+    );
+    let image = root.join(crate::native::PROGRAM_IMAGE_FILE);
+    fs::write(&image, b"TRSTI001 an earlier build").expect("write the earlier image");
+
+    build_program_stbc(&root, None).expect("build should pass");
+    assert!(root.join("program.stbc").is_file());
+    assert!(!image.exists(), "the earlier program image must be gone");
+
+    fs::remove_dir_all(root).ok();
+}

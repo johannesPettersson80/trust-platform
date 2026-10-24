@@ -205,6 +205,7 @@ fn build_config_mode_control_state(
         storage_abi: Default::default(),
         storage: harness.runtime().storage().clone(),
         now: harness.runtime().current_time(),
+        compiled: None,
     };
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());

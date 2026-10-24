@@ -6,7 +6,6 @@ use smol_str::SmolStr;
 use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointAccess, SymbolDescriptor, SymbolFlag, UpdateMode,
 };
-use trust_hir::TypeId;
 use trust_runtime::ads::{
     AdsBinding, AdsConnectionBridge, AdsConnectionWorker, AdsNotificationMode, AdsPointAddress,
     AdsPointConfig, MockAdsTransport,
@@ -20,7 +19,7 @@ use trust_runtime::opcua::{
 };
 use trust_runtime::retain::FileRetainStore;
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::{BoundGlobal, Runtime};
 
 const WARMUP_CYCLES: usize = 100;
 const DEBUG_SAMPLES: usize = 1_000;
@@ -372,9 +371,8 @@ fn build_ads_bindings(runtime: &Runtime, point_count: usize) -> Vec<AdsBinding> 
                     notification_mode: AdsNotificationMode::OnChange,
                     allow_retain_read: true,
                 },
-                reference,
-                quality_reference: None,
-                type_id: TypeId::REAL,
+                target: BoundGlobal::Engine(reference),
+                quality_target: None,
                 retain: false,
             }
         })
@@ -399,7 +397,7 @@ fn build_opcua_bridge(point_count: usize) -> OpcUaClientBridge {
                     data_type: OpcUaDataType::Float,
                     access: OpcUaClientPointAccess::ReadWrite,
                 },
-                reference,
+                target: BoundGlobal::Engine(reference),
             }
         })
         .collect::<Vec<_>>();
@@ -439,7 +437,7 @@ fn build_opcua_worker_fixture(
                 .expect("global ref");
             OpcUaClientBinding {
                 point: point.clone(),
-                reference,
+                target: BoundGlobal::Engine(reference),
             }
         })
         .collect::<Vec<_>>();

@@ -14,7 +14,7 @@ use trust_hir::types::Type;
 use crate::debug::dap::value_type_name;
 use crate::debug::DebugSnapshot;
 use crate::error::RuntimeError;
-use crate::runtime::RuntimeMetadata;
+use crate::runtime::{CompiledState, CompiledVariable, RuntimeMetadata};
 use crate::value::Value;
 
 mod descriptor;

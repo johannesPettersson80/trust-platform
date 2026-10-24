@@ -137,7 +137,14 @@ fn capabilities_is_read_only_for_a_viewer() {
         response.error
     );
     let result = response.result.expect("capabilities result");
-    assert_eq!(result["bytecode_versions"], json!(["2.0", "3.0"]));
+    // A computer's descriptor: STBC 2.0 and 3.0, and compiled program images (44.1) on an x86-64
+    // or AArch64 CPU (specification 34 COMPAT-02; specification 44 §4.4, §8.8).
+    let versions = if cfg!(any(target_arch = "x86_64", target_arch = "aarch64")) {
+        json!(["2.0", "3.0", "44.1"])
+    } else {
+        json!(["2.0", "3.0"])
+    };
+    assert_eq!(result["bytecode_versions"], versions);
     assert_eq!(result["last_reset"], json!(null));
     assert!(
         result.get("access").is_none(),

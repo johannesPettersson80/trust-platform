@@ -5,10 +5,13 @@
 //! restarts, its faults and the policies that follow them, its deadlines and safe outputs, its
 //! online changes and stepped scans, and the state the other threads read.
 
+mod clients;
 mod debugger;
+mod named;
 mod observer;
 mod process_io;
 mod state;
+mod tags;
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration as PhysicalDuration, Instant};
@@ -25,11 +28,13 @@ use trust_runtime_services::runner::{CompiledCycle, ResourceCycle, RetainSource,
 use super::ads_subsystem::AdsSubsystem;
 use super::metrics_subsystem::MetricsSubsystem;
 use super::opcua_client_subsystem::OpcUaClientSubsystem;
+use super::openot_telemetry::OpenOtTelemetrySubsystem;
 use super::watchdog_subsystem::WatchdogSubsystem;
 use crate::debug::{DebugControl, RuntimeEvent};
 use crate::error::RuntimeError;
 use crate::execution_backend::ExecutionBackend;
 use crate::io::{IoAddress, IoDriver, IoDriverStatus, IoSafeState};
+use crate::memory::IoArea;
 use crate::metrics::{HostMonotonicClock, RuntimeMetrics};
 use crate::native::HostCode;
 use crate::retain::{RetainManager, RetainStore};
@@ -39,8 +44,9 @@ use crate::RestartMode;
 
 pub use debugger::CompiledDebugger;
 use debugger::HostHold;
+pub use named::NamedVariable;
 pub(crate) use process_io::HostIo;
-pub use state::CompiledState;
+pub use state::{CompiledState, CompiledVariable};
 
 /// The cycle of a compiled program on a computer.
 pub(crate) type HostCycle =
@@ -62,9 +68,15 @@ pub struct CompiledRuntime {
     metrics: MetricsSubsystem,
     watchdog: WatchdogSubsystem,
     fault_policy: FaultPolicy,
-    /// The ADS and OPC UA clients of the configuration, whose status the control requests report.
+    /// The ADS and OPC UA clients of the configuration, whose points bind the program's globals.
     ads: AdsSubsystem,
     opcua_client: OpcUaClientSubsystem,
+    /// The OpenOT telemetry, which publishes after each scan.
+    openot_telemetry: OpenOtTelemetrySubsystem,
+    /// The MQTT tags past the program's own process image, and the bytes they lie in, which the
+    /// process I/O shares.
+    tags: Vec<tags::TagLink>,
+    extra: tags::SharedExtraImages,
     debug: Option<DebugControl>,
     /// The debugger of the program, once a debug control is set (specification 44 §13.2, §8.8).
     debugger: Option<CompiledDebugger>,
@@ -73,6 +85,18 @@ pub struct CompiledRuntime {
     execution_deadline: Option<Instant>,
     output_commit_deadline: Option<Instant>,
     output_commit_pause_baseline: PhysicalDuration,
+    /// The statements and loop passes one task activation runs at most (specification 44 NX-10),
+    /// for this program and every program an online change installs.
+    statement_budget: u32,
+}
+
+/// This computer's device for a program whose task activations run at most `budget` statements.
+fn computer(budget: u32) -> Result<crate::native::Device, RuntimeError> {
+    let mut device = crate::native::this_computer().ok_or_else(|| {
+        RuntimeError::InvalidBundle("this computer's CPU runs no program image".into())
+    })?;
+    device.max_statements = budget;
+    Ok(device)
 }
 
 impl std::fmt::Debug for CompiledRuntime {
@@ -89,15 +113,32 @@ impl std::fmt::Debug for CompiledRuntime {
 impl CompiledRuntime {
     /// The compiled program of the image `bytes` on this computer, admitted against the
     /// computer's device (specification 44 §10.2, NX-15) and not started: the scan thread restarts
-    /// it, cold, or warm from its retain file, once its adapters are set.
+    /// it, cold, or warm from its retain file, once its adapters are set. Each task activation runs
+    /// at most 1,000,000 statements and loop passes, the default of NX-10.
     ///
     /// # Errors
     ///
     /// [`RuntimeError::InvalidBundle`] for an image the computer refuses, with the refusal's text.
     pub fn load(bytes: Vec<u8>, resource_name: impl Into<SmolStr>) -> Result<Self, RuntimeError> {
-        let device = crate::native::this_computer().ok_or_else(|| {
-            RuntimeError::InvalidBundle("this computer's CPU runs no program image".into())
-        })?;
+        Self::load_with_statement_budget(
+            bytes,
+            resource_name,
+            trust_runtime_core::deployment::HOSTED_MAX_STATEMENTS,
+        )
+    }
+
+    /// [`Self::load`] with the statement budget `budget` of each task activation, the project's
+    /// `[resource] max_statements_per_scan` (specification 44 NX-10).
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::load`].
+    pub fn load_with_statement_budget(
+        bytes: Vec<u8>,
+        resource_name: impl Into<SmolStr>,
+        budget: u32,
+    ) -> Result<Self, RuntimeError> {
+        let device = computer(budget)?;
         let program = crate::native::load_kept(bytes, &device)
             .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
         let (bindings, binding_names) = io_bindings(&program.image())
@@ -112,7 +153,9 @@ impl CompiledRuntime {
             fault_policy: FaultPolicy::Halt,
             safe_outputs: Vec::new(),
         };
-        let cycle = HostCycle::unstarted(program, HostIo::default(), settings, clock);
+        let io = HostIo::default();
+        let extra = io.extra_images();
+        let cycle = HostCycle::unstarted(program, io, settings, clock);
         let tasks = cycle.tasks();
         let runtime = Self {
             cycle,
@@ -127,6 +170,9 @@ impl CompiledRuntime {
             fault_policy: FaultPolicy::Halt,
             ads: AdsSubsystem::new(),
             opcua_client: OpcUaClientSubsystem::new(),
+            openot_telemetry: OpenOtTelemetrySubsystem::default(),
+            tags: Vec::new(),
+            extra,
             debug: None,
             debugger: None,
             current_time: Duration::ZERO,
@@ -134,6 +180,7 @@ impl CompiledRuntime {
             execution_deadline: None,
             output_commit_deadline: None,
             output_commit_pause_baseline: PhysicalDuration::ZERO,
+            statement_budget: budget,
         };
         runtime.publish_program_memory();
         Ok(runtime)
@@ -181,8 +228,9 @@ impl CompiledRuntime {
     }
 
     /// Runs one scan at the program's logical time: the compiled cycle with the computer's
-    /// observer, then the drivers' health, the cycle's end event and its metrics. A failed scan
-    /// latches its fault and applies the fault policy's output action (specification 11 §6.6).
+    /// observer, then the OpenOT telemetry and the output commit deadline, the drivers' health, the
+    /// cycle's end event and its metrics. A failed scan latches its fault and applies the fault
+    /// policy's output action (specification 11 §6.6).
     ///
     /// # Errors
     ///
@@ -201,6 +249,10 @@ impl CompiledRuntime {
         let mut observer = observer::HostedCompiledScan {
             metrics: &self.metrics,
             debug: self.debug.clone(),
+            ads: &mut self.ads,
+            opcua: &mut self.opcua_client,
+            tags: &self.tags,
+            extra: &self.extra,
             tasks: &self.tasks,
             bindings: &self.bindings,
             binding_names: &self.binding_names,
@@ -209,7 +261,24 @@ impl CompiledRuntime {
             task_timer: None,
             program_timer: None,
         };
-        let result = self.cycle.run_scan(now, deadline, &mut observer);
+        let mut result = self.cycle.run_scan(now, deadline, &mut observer);
+        // The telemetry publishes after the outputs reached the drivers, as on the bytecode
+        // engine: a late failure latches a fault, but does not undo the outputs.
+        if result.is_ok() {
+            result = self
+                .openot_telemetry
+                .publish_compiled(self.cycle_counter, self.cycle.program())
+                .and_then(|()| {
+                    if self
+                        .effective_output_commit_deadline()
+                        .is_some_and(|deadline| Instant::now() >= deadline)
+                    {
+                        Err(RuntimeError::WatchdogTimeout)
+                    } else {
+                        Ok(())
+                    }
+                });
+        }
         self.cycle.process_io_mut().update_health();
         match result {
             Ok(()) => {
@@ -293,6 +362,7 @@ impl CompiledRuntime {
     ) -> Result<(), RuntimeError> {
         let events = self.cycle.restart(mode, source)?;
         self.cycle_counter = 0;
+        self.openot_telemetry.reset_scan_state();
         if let Some(debugger) = &self.debugger {
             debugger.restarted();
         }
@@ -319,9 +389,7 @@ impl CompiledRuntime {
     /// [`RuntimeError::InvalidBundle`] for an image the computer refuses, and the error of a change
     /// that cannot start.
     pub fn apply_online_change_bytes(&mut self, bytes: &[u8]) -> Result<(), RuntimeError> {
-        let device = crate::native::this_computer().ok_or_else(|| {
-            RuntimeError::InvalidBundle("this computer's CPU runs no program image".into())
-        })?;
+        let device = computer(self.statement_budget)?;
         let program = crate::native::load_kept(bytes.to_vec(), &device)
             .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
         let (bindings, binding_names) = io_bindings(&program.image())
@@ -329,6 +397,18 @@ impl CompiledRuntime {
         let image = program
             .kept_image()
             .ok_or(RuntimeError::InvalidExecutionState)?;
+        // The MQTT tags lie past the process image at the offsets their drivers were given.
+        if !self.tags.is_empty()
+            && [IoArea::Input, IoArea::Output].into_iter().any(|area| {
+                tags::image_bytes(&image.image(), area) != self.process_image_bytes(area)
+            })
+        {
+            return Err(RuntimeError::InvalidConfig(
+                "the changed program's process image has another size, and MQTT tags lie past it: \
+                 restart the runtime with the changed program"
+                    .into(),
+            ));
+        }
         let mut candidate = HostCycle::candidate(program, HostIo::default(), &self.cycle);
         if let Some(debugger) = &self.debugger {
             candidate.attach_compiled_hold(debugger.hold());

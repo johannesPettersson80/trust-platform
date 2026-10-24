@@ -6,6 +6,11 @@ fn collect_points(
 ) -> Vec<HmiPoint> {
     let resource = stable_component(resource_name);
     let writable = !read_only;
+    // A compiled program's points come from its symbol table (specification 44 §13.3), with the
+    // ids, paths and bindings an interpreted program's have.
+    if let Some(state) = snapshot.and_then(|snapshot| snapshot.compiled.as_deref()) {
+        return compiled_points(&resource, state, writable);
+    }
     let mut points = Vec::new();
 
     for (program_name, program) in metadata.programs() {
@@ -105,7 +110,97 @@ fn collect_points(
     points
 }
 
-fn resolve_point_value<'a>(binding: &HmiBinding, snapshot: &'a DebugSnapshot) -> Option<&'a Value> {
+/// The points of the compiled program whose state is `state`, as an interpreted program's: each
+/// program instance's own variables, its instances of a function block or a class too, and each
+/// global but an instance; each widget follows its value.
+fn compiled_points(resource: &str, state: &CompiledState, writable: bool) -> Vec<HmiPoint> {
+    state
+        .variables()
+        .into_iter()
+        .filter(|variable| variable.program.is_some() || !variable.instance)
+        .map(|variable| {
+            let widget = state
+                .value_of(variable.symbol)
+                .map_or("value", |value| widget_for_value(&value, writable));
+            let data_type = if variable.type_name.is_empty() {
+                "UNKNOWN".to_string()
+            } else {
+                variable.type_name.to_string()
+            };
+            let (id, path, source, binding) = match &variable.program {
+                Some(program) => (
+                    format!(
+                        "resource/{resource}/program/{}/field/{}",
+                        stable_component(program.as_str()),
+                        stable_component(variable.member.as_str())
+                    ),
+                    format!("{program}.{}", variable.member),
+                    format!("program:{program}"),
+                    HmiBinding::ProgramVar {
+                        program: program.clone(),
+                        variable: variable.member.clone(),
+                    },
+                ),
+                None => (
+                    format!(
+                        "resource/{resource}/global/{}",
+                        stable_component(variable.name.as_str())
+                    ),
+                    format!("global.{}", variable.name),
+                    "global".to_string(),
+                    HmiBinding::Global {
+                        name: variable.name.clone(),
+                    },
+                ),
+            };
+            HmiPoint {
+                id,
+                path,
+                label: variable.member.to_string(),
+                data_type,
+                access: if writable { "read_write" } else { "read" },
+                writable,
+                widget: widget.to_string(),
+                source,
+                page: DEFAULT_PAGE_ID.to_string(),
+                group: DEFAULT_GROUP_NAME.to_string(),
+                order: 0,
+                zones: Vec::new(),
+                on_color: None,
+                off_color: None,
+                section_title: None,
+                widget_span: None,
+                alarm_deadband: None,
+                alarm_label: None,
+                inferred_interface: false,
+                detail_page: None,
+                unit: None,
+                min: None,
+                max: None,
+                binding,
+            }
+        })
+        .collect()
+}
+
+/// The value a point's binding reads: of a compiled program through its symbol table, of an
+/// interpreted program from its storage.
+fn resolve_point_value(binding: &HmiBinding, snapshot: &DebugSnapshot) -> Option<Value> {
+    if let Some(state) = snapshot.compiled.as_deref() {
+        return match binding {
+            HmiBinding::ProgramVar { program, variable } => {
+                state.value(&format!("{program}.{variable}"))
+            }
+            HmiBinding::Global { name } => state.value(name),
+        };
+    }
+    resolve_stored_value(binding, snapshot).cloned()
+}
+
+fn resolve_stored_value<'a>(
+    binding: &HmiBinding,
+    snapshot: &'a DebugSnapshot,
+) -> Option<&'a Value> {
     match binding {
         HmiBinding::ProgramVar { program, variable } => {
             let Value::Instance(instance_id) = snapshot.storage.get_global(program.as_str())?

@@ -1,15 +1,17 @@
 #[test]
 fn capabilities_answers_the_hosted_descriptor() {
     // Specification 34 §5.1.1 (HOST-02) and specification 11, the runtime device capabilities
-    // contract: a computer runs STBC 2.0 and 3.0, cooperative-resource-v1 and numeric contract 1,
+    // contract: a computer runs STBC 2.0 and 3.0 and, on an x86-64 or AArch64 CPU, compiled program
+    // images, 44.1 (specification 44 §4.4, §8.8), cooperative-resource-v1 and numeric contract 1,
     // has unqualified timing evidence and the wall clock, allows at most a 64 MiB artifact
     // (67,108,864 bytes) and 1,024 call levels, has no maximum for the other limits (`null`, since
     // a JSON number that large is rounded), keeps 1,000 events by default and admits at most
     // 1,000,000, has no application slot and no maximum of memory for programs (specification 34
     // MEM-12), and starts as a new process, so its last reset is null. The wrong behaviours it
     // catches: a computer that answers a chip's descriptor (200 events, a slot, a memory for
-    // programs); a wrong maximum or a missing wall-clock capability; an unbounded limit written as a
-    // number; and a last reset reported on a computer.
+    // programs); a computer of those CPUs that does not offer program images; a wrong maximum or a
+    // missing wall-clock capability; an unbounded limit written as a number; and a last reset
+    // reported on a computer.
     let state = hmi_test_state(
         r#"
 PROGRAM Main
@@ -22,10 +24,15 @@ END_PROGRAM
         "capabilities should answer: {:?}",
         response.error
     );
+    let versions = if cfg!(any(target_arch = "x86_64", target_arch = "aarch64")) {
+        json!(["2.0", "3.0", "44.1"])
+    } else {
+        json!(["2.0", "3.0"])
+    };
     assert_eq!(
         response.result,
         Some(json!({
-            "bytecode_versions": ["2.0", "3.0"],
+            "bytecode_versions": versions,
             "scheduling_profiles": ["cooperative-resource-v1"],
             "numeric_contracts": ["1"],
             "timing_evidence": "unqualified",

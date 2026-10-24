@@ -57,6 +57,7 @@ fn run_hmi_scaffold(
         storage_abi: runtime.prepared().storage_abi(),
         storage: runtime.storage().clone(),
         now: runtime.current_time(),
+        compiled: None,
     };
 
     let source_refs = sources

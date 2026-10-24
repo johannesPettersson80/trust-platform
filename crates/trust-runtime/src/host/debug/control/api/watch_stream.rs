@@ -178,6 +178,7 @@ impl DebugControl {
             storage_abi,
             storage: storage.clone(),
             now,
+            compiled: None,
         });
     }
 }
