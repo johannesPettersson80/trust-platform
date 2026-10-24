@@ -6,6 +6,7 @@
 //! (specification 34, ARCH-11). Line and column numbers in a reply are zero-based, as the control
 //! protocol has always carried them.
 
+use alloc::format;
 use alloc::string::String;
 
 use serde_json::json;
@@ -74,6 +75,20 @@ pub fn expressions_unavailable(id: u64) -> ControlResponse {
     ControlResponse::error_with_code(
         id,
         String::from(EXPRESSIONS_UNAVAILABLE),
+        EXPRESSIONS_UNAVAILABLE_CODE,
+    )
+}
+
+/// The refusal of a compiled expression of a version this runtime does not implement
+/// (specification 11 §6.13.2): it decodes nothing.
+#[must_use]
+pub fn expr_version_unsupported(id: u64, version: u32) -> ControlResponse {
+    ControlResponse::error_with_code(
+        id,
+        format!(
+            "expression version {version} is not implemented: this runtime evaluates version {}",
+            super::expression::EXPR_VERSION
+        ),
         EXPRESSIONS_UNAVAILABLE_CODE,
     )
 }
@@ -150,14 +165,45 @@ pub fn state(id: u64, paused: bool, last_stop: Option<&serde_json::Value>) -> Co
     ControlResponse::ok(id, json!({ "paused": paused, "last_stop": last_stop }))
 }
 
-/// `debug.stops`: the stops since the last read, oldest first.
+/// `debug.stops`: the stops and the logpoint messages since the last read, each oldest first; the
+/// reply carries `logs` only when there are messages, so a reply without them is the one every
+/// runtime gives.
 #[must_use]
 #[allow(
     clippy::missing_panics_doc,
     reason = "the serde_json::json! conversions of these values cannot fail"
 )]
-pub fn stops(id: u64, stops: &[serde_json::Value]) -> ControlResponse {
-    ControlResponse::ok(id, json!({ "stops": stops }))
+pub fn stops(id: u64, stops: &[serde_json::Value], logs: &[serde_json::Value]) -> ControlResponse {
+    if logs.is_empty() {
+        return ControlResponse::ok(id, json!({ "stops": stops }));
+    }
+    ControlResponse::ok(id, json!({ "stops": stops, "logs": logs }))
+}
+
+/// One logpoint message as `debug.stops` carries it: its text, and the file (its id and, when the
+/// program names it, its path), the zero-based line and column of the logpoint's statement and the
+/// thread that ran it (specification 11 §6.13.2).
+#[must_use]
+#[allow(
+    clippy::missing_panics_doc,
+    reason = "the serde_json::json! conversions of these values cannot fail"
+)]
+pub fn log(
+    text: &str,
+    file_id: u32,
+    path: Option<&str>,
+    line: u32,
+    column: u32,
+    thread: Option<u32>,
+) -> serde_json::Value {
+    json!({
+        "text": text,
+        "file_id": file_id,
+        "path": path,
+        "line": line,
+        "column": column,
+        "thread": thread,
+    })
 }
 
 /// `debug.stack`: the frames, innermost first.

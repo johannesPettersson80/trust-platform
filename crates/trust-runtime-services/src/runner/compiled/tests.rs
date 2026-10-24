@@ -37,6 +37,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::CompiledCycle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::expression::Names;
 use crate::runner::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use crate::runner::debugger::{Boundary, StatementStart, StopPoints};
 use crate::runner::engine::{CycleSettings, ProcessIo};
@@ -877,12 +878,14 @@ fn a_step_runs_a_program_instance_by_the_number_its_root_symbol_carries() {
     );
 }
 
-/// A hold that holds at every stop it is asked about, reads `MAIN.COUNT` through the held memory,
-/// and arms the statements `points` names; with debugging off it arms nothing.
+/// A hold that holds at every stop it is asked about, reads `count` through the names the
+/// statement decision gets and `MAIN.COUNT` through the held memory, and arms the statements
+/// `points` names; with debugging off it arms nothing.
 struct FakeHold {
     enabled: bool,
     points: StopPoints,
     stops: RefCell<Vec<(u32, (u32, u32))>>,
+    named: RefCell<Vec<Option<Value>>>,
     read: RefCell<Vec<Value>>,
 }
 
@@ -892,6 +895,7 @@ impl FakeHold {
             enabled,
             points,
             stops: RefCell::new(Vec::new()),
+            named: RefCell::new(Vec::new()),
             read: RefCell::new(Vec::new()),
         })
     }
@@ -902,8 +906,15 @@ impl HoldPass for FakeHold {
         self.enabled
     }
 
-    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
+    fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError> {
         self.stops.borrow_mut().push((at.depth, at.span.start));
+        self.named
+            .borrow_mut()
+            .push(names.and_then(|names| names.read("count")));
         Ok(Boundary::Hold)
     }
 
@@ -969,11 +980,13 @@ fn held_cycle<'b>(bytes: &'b [u8], hold: &Rc<FakeHold>) -> (Cycle<'b>, Rc<RefCel
 fn a_compiled_scan_holds_at_its_breakpoint_with_the_held_memory() {
     // Specification 44 §13.2, worked by hand: the breakpoint on line 2 of `main.st` arms statement
     // 1 alone. The task is not due at 0 ms; at 10 ms the body counts 5 to 6 at statement 0 and stops
-    // at statement 1, at call depth 1 (its own frame): the hold reads `MAIN.COUNT` = 6 through the
-    // held memory. When the hold ends the observer writes `MAIN.COUNT` := 40, which statement 1
-    // then sees: `MAIN.OUT` = 40 & 1 = 0, so `%QX0.1` stays clear, and the count is 40. Catches a
-    // stop at an unarmed statement, a depth without the frame, a hold that reads another state
-    // than the held one, and Live Values that reach the program after the statement ran.
+    // at statement 1, at call depth 1 (its own frame): the statement decision reads `count` = 6
+    // through the names of the held frame, which a breakpoint's condition reads (specification 11
+    // §6.13.2), and the hold reads `MAIN.COUNT` = 6 through the held memory. When the hold ends the
+    // observer writes `MAIN.COUNT` := 40, which statement 1 then sees: `MAIN.OUT` = 40 & 1 = 0, so
+    // `%QX0.1` stays clear, and the count is 40. Catches a stop at an unarmed statement, a depth
+    // without the frame, a decision or a hold that reads another state than the held one, and Live
+    // Values that reach the program after the statement ran.
     let bytes = image_of(48, true);
     let hold = FakeHold::new(
         true,
@@ -990,6 +1003,7 @@ fn a_compiled_scan_holds_at_its_breakpoint_with_the_held_memory() {
             .expect("the scan runs");
     }
     assert_eq!(*hold.stops.borrow(), [(1, (2, 1))]);
+    assert_eq!(*hold.named.borrow(), [Some(Value::USInt(6))]);
     assert_eq!(*hold.read.borrow(), [Value::USInt(6)]);
     assert_eq!(observer.0, 1);
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(40)));

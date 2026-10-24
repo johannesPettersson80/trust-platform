@@ -7,7 +7,7 @@
 //! - scopes: scope enumeration
 //! - run_control: continue/pause/step
 
-mod breakpoints;
+pub(in crate::adapter) mod breakpoints;
 mod initialize;
 mod lifecycle;
 mod run_control;

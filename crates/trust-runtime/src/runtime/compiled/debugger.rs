@@ -12,10 +12,12 @@ use trust_runtime_core::debug::StatementSpan;
 use trust_runtime_core::memory::FrameId;
 use trust_runtime_core::native::memory::ProgramMemory;
 use trust_runtime_core::native::program::AdmittedImage;
+use trust_runtime_services::debug::expression::Names;
+use trust_runtime_services::debug::logpoint::LogRecord;
 use trust_runtime_services::debug::projection::DebugVariableHandles;
 use trust_runtime_services::debug::reads::ReadState;
 use trust_runtime_services::debug::{
-    answer, BreakpointView, Debugger, LineSources, Span, StepKind, StopRecord,
+    answer, BreakpointOptions, BreakpointView, Debugger, LineSources, Span, StepKind, StopRecord,
 };
 use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
 use trust_runtime_services::protocol::{ControlRequest, ControlResponse};
@@ -211,8 +213,12 @@ impl CompiledHold for HostHold {
         self.lock().debug.stop_points()
     }
 
-    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
-        self.lock().debug.at_statement(at)
+    fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError> {
+        self.lock().debug.at_statement(at, names)
     }
 
     /// Copies the held scan's memory and call stack for the reads, and waits until the debugger
@@ -288,6 +294,10 @@ impl Debugger for DebugView<'_> {
         self.state.debug.drain_stops()
     }
 
+    fn drain_logs(&self) -> Vec<LogRecord> {
+        self.state.debug.drain_logs()
+    }
+
     fn frame_span(&self, frame: FrameId) -> Option<StatementSpan> {
         self.state.debug.frame_span(frame)
     }
@@ -296,8 +306,12 @@ impl Debugger for DebugView<'_> {
         self.state.debug.breakpoints()
     }
 
-    fn replace_breakpoints(&self, file_id: u32, spans: Vec<Span<(u32, u32)>>) -> u64 {
-        self.state.debug.replace_breakpoints(file_id, spans)
+    fn replace_breakpoints(
+        &self,
+        file_id: u32,
+        breakpoints: Vec<(Span<(u32, u32)>, BreakpointOptions)>,
+    ) -> u64 {
+        self.state.debug.replace_breakpoints(file_id, breakpoints)
     }
 
     fn clear_breakpoints(&self) {

@@ -728,5 +728,10 @@ fn inconsistent() -> String {
     RuntimeError::InvalidExecutionState.to_string()
 }
 
+mod names;
+
+pub(super) use names::evaluate;
+pub(crate) use names::FrameNames;
+
 #[cfg(test)]
 mod tests;

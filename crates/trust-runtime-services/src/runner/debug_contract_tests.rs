@@ -569,8 +569,9 @@ fn a_runner_without_a_debugger_leaves_the_debug_operations_to_the_platform() {
 #[test]
 fn eval_answers_the_stable_refusal_until_compiled_expressions_exist() {
     // Specification 11 §6.13.2 ("Before a runtime implements a version"): `eval`, `debug.evaluate`
-    // and a `breakpoints.set` that carries a `condition` or a `log_message` are refused with the
-    // stable code `expr_version_unsupported`; a refused set is refused whole, so it stores nothing
+    // and a `breakpoints.set` that carries a `condition` or a `log_message`, at the top or in a
+    // line's `options`, are refused by the bytecode engine, which evaluates no compiled form, with
+    // the stable code `expr_version_unsupported`; a refused set is refused whole, so it stores nothing
     // and advances no generation, and a `null` member is no condition. Wrong behaviour caught: a
     // condition that is dropped silently (the breakpoint would stop unconditionally), a refusal
     // that still stores the breakpoint, and an `eval` that answers a name read.
@@ -590,6 +591,12 @@ fn eval_answers_the_stable_refusal_until_compiled_expressions_exist() {
             4,
             "breakpoints.set",
             json!({"source": CLIENT_PATH, "lines": [22], "log_message": "depth {probe_depth}"}),
+        ),
+        (
+            7,
+            "breakpoints.set",
+            json!({"source": CLIENT_PATH, "lines": [22],
+                   "options": [{"condition": {"expr_version": 1, "expr": "AQMBAA=="}}]}),
         ),
     ] {
         let refused = fixture.call_at(

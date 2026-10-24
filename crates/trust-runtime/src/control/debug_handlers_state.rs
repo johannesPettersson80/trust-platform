@@ -14,7 +14,8 @@ pub(super) fn handle_debug_stops(id: u64, state: &ControlState) -> ControlRespon
         .into_iter()
         .filter_map(|stop| debug_stop_to_json(stop, state))
         .collect::<Vec<_>>();
-    replies::stops(id, &stops)
+    // The bytecode engine takes no logpoint over the control protocol (specification 11 §6.13.2).
+    replies::stops(id, &stops, &[])
 }
 
 pub(super) fn handle_debug_stack(id: u64, state: &ControlState) -> ControlResponse {

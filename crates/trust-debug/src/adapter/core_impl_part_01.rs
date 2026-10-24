@@ -11,6 +11,7 @@ impl DebugAdapter {
             variable_handles: HashMap::new(),
             next_variable_ref: 1,
             watch_cache: HashMap::new(),
+            expression_types: None,
             runner: None,
             control_server: None,
             last_io_state: Arc::new(Mutex::new(None)),

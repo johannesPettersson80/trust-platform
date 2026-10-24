@@ -18,10 +18,13 @@ use trust_runtime_core::vm::{PreparedModule, StatementFrame};
 
 use super::host::RunnerHost;
 use super::RunnerPlatform;
+use crate::debug::logpoint::LogRecord;
 use crate::debug::projection::DebugVariableHandles;
 use crate::debug::reads::{NamedFrame, ReadState};
 use crate::debug::replies::NO_SNAPSHOT;
-use crate::debug::{BreakpointView, Debugger, LineSources, Span, StepKind, StopRecord};
+use crate::debug::{
+    BreakpointOptions, BreakpointView, Debugger, LineSources, Span, StepKind, StopRecord,
+};
 use crate::live_values::io_requests::IoSnapshotRead;
 
 impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
@@ -80,6 +83,10 @@ impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
         self.debug.drain_stops()
     }
 
+    fn drain_logs(&self) -> Vec<LogRecord> {
+        self.debug.drain_logs()
+    }
+
     fn frame_span(&self, frame: FrameId) -> Option<StatementSpan> {
         self.debug.frame_span(frame)
     }
@@ -88,8 +95,12 @@ impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
         self.debug.breakpoints()
     }
 
-    fn replace_breakpoints(&self, file_id: u32, spans: Vec<Span<(u32, u32)>>) -> u64 {
-        self.debug.replace_breakpoints(file_id, spans)
+    fn replace_breakpoints(
+        &self,
+        file_id: u32,
+        breakpoints: Vec<(Span<(u32, u32)>, BreakpointOptions)>,
+    ) -> u64 {
+        self.debug.replace_breakpoints(file_id, breakpoints)
     }
 
     fn clear_breakpoints(&self) {

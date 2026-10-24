@@ -87,6 +87,11 @@ impl<'i> Types<'i> {
         self.records.get(index).ok_or_else(|| damaged("type table"))
     }
 
+    /// The number of types in the table.
+    pub(crate) fn len(&self) -> u32 {
+        self.records.len()
+    }
+
     pub(crate) fn string(&self, offset: u32) -> Result<&'i str, RuntimeError> {
         self.image
             .string(offset)

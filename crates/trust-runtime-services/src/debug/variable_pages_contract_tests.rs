@@ -98,7 +98,11 @@ impl Debugger for StorageDebugger {
         Vec::new()
     }
 
-    fn replace_breakpoints(&self, _file_id: u32, _spans: Vec<Span<(u32, u32)>>) -> u64 {
+    fn replace_breakpoints(
+        &self,
+        _file_id: u32,
+        _breakpoints: Vec<(Span<(u32, u32)>, crate::debug::BreakpointOptions)>,
+    ) -> u64 {
         0
     }
 

@@ -2,9 +2,11 @@
 
 use std::sync::{Arc, Mutex};
 
+use trust_hir::types::TypeRegistry;
 use trust_runtime::control::SourceFile as ControlSourceFile;
 use trust_runtime::debug::DebugControl;
 use trust_runtime::harness::CompileError;
+use trust_runtime::value::DateTimeProfile;
 use trust_runtime::{Runtime, RuntimeMetadata};
 
 use crate::protocol::{Breakpoint, SetBreakpointsArguments, SetBreakpointsResponseBody, Source};
@@ -24,4 +26,8 @@ pub trait DebugRuntime: Send {
     fn source_for_file_id(&self, file_id: u32) -> Option<Source>;
     fn source_text_for_file_id(&self, file_id: u32) -> Option<&str>;
     fn control_sources(&self) -> Vec<ControlSourceFile>;
+    /// The types and the date and time profile of the project the source options name, from its
+    /// declarations, with which the debug expressions of a runtime that runs a compiled program
+    /// are compiled (specification 11 §6.13.2).
+    fn project_expression_types(&self) -> Result<(TypeRegistry, DateTimeProfile), CompileError>;
 }

@@ -47,6 +47,7 @@ use super::host::ProgramView;
 use super::shell::Shell;
 use super::{RunnerPlatform, FRAMES_PER_PASS, REPLY_SERVICE_INTERVAL};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
+use crate::debug::expression::Names;
 use crate::debug::LineSources;
 use crate::status::IoDriverStatus;
 
@@ -85,12 +86,17 @@ pub(super) trait HoldPass {
     fn scan_begins(&self) -> bool;
 
     /// The decision at the statement start `at` (specification 13, "Runtime Debug-Control
-    /// Execution").
+    /// Execution"), a condition and a logpoint evaluated with `names`, the names of the frame that
+    /// runs the statement.
     ///
     /// # Errors
     ///
     /// The [`RuntimeError`] that fails the scan when the loop's state was in use.
-    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError>;
+    fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError>;
 
     /// Holds the scan before the statement `at` until the debugger releases it.
     ///
@@ -162,7 +168,11 @@ pub trait CompiledHold {
     /// # Errors
     ///
     /// The [`RuntimeError`] that fails the scan when the debugger's state cannot be read.
-    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError>;
+    fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError>;
 
     /// Holds the scan before the statement `at` until the debugger releases it, with the held
     /// scan's memory and frames for the debug reads.
@@ -191,8 +201,12 @@ impl CompiledHold for HoldHandle {
         self.0.stop_points()
     }
 
-    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
-        self.0.at_statement(at)
+    fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError> {
+        self.0.at_statement(at, names)
     }
 
     fn hold_compiled(
@@ -233,8 +247,12 @@ impl HoldHandle {
     }
 
     /// The decision at a statement start; see [`HoldPass::at_statement`].
-    pub(super) fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
-        self.0.at_statement(at)
+    pub(super) fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError> {
+        self.0.at_statement(at, names)
     }
 
     /// Holds the scan; see [`HoldPass::hold`].
@@ -344,13 +362,17 @@ where
         enabled
     }
 
-    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
+    fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError> {
         #[cfg(test)]
         assert!(
             self.cells_free(),
             "a cell of the loop is borrowed when the statement hook is called"
         );
-        self.debug.at_statement(at)
+        self.debug.at_statement(at, names)
     }
 
     fn hold(&self, at: &StatementStart<'_>, view: &HeldView<'_>) -> Result<(), RuntimeError> {

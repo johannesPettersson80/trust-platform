@@ -23,7 +23,8 @@ use trust_runtime::RuntimeMetadata;
 
 use crate::protocol::{
     Breakpoint, BreakpointEventBody, Event, MessageType, OutputEventBody, Request, Response,
-    SetBreakpointsArguments, SetBreakpointsResponseBody, Source, StoppedEventBody,
+    SetBreakpointsArguments, SetBreakpointsResponseBody, Source, SourceBreakpoint,
+    StoppedEventBody,
 };
 use crate::runtime::DebugRuntime;
 

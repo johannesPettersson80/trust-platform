@@ -22,6 +22,8 @@ mod util;
 mod variables;
 
 #[cfg(test)]
+mod compiled_evaluate_tests;
+#[cfg(test)]
 mod mqtt_install_enum_value_type_tests;
 #[cfg(test)]
 mod remote_value_type_tests;
@@ -51,6 +53,7 @@ use self::core::DebugRunner;
 use self::paused::PausedStateView;
 use self::remote::RemoteSession;
 use self::stop_remote::RemoteStopPoller;
+use self::variables::ExpressionTypes;
 
 #[derive(Debug, Clone)]
 enum VariableHandle {
@@ -243,6 +246,9 @@ pub struct DebugAdapter {
     variable_handles: HashMap<u32, VariableHandle>,
     next_variable_ref: u32,
     watch_cache: HashMap<String, Expr>,
+    /// The project's types with which debug expressions are compiled for a runtime that runs a
+    /// compiled program, and when they were loaded.
+    expression_types: Option<ExpressionTypes>,
     runner: Option<DebugRunner>,
     control_server: Option<DebugControlServer>,
     last_io_state: Arc<Mutex<Option<IoStateEventBody>>>,

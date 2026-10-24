@@ -1,8 +1,8 @@
 //! The debug operations of the control protocol, answered from a [`Debugger`]: `debug.state`,
 //! `debug.stops`, `debug.stack`, `debug.scopes`, `debug.variables`, `debug.breakpoint_locations`,
 //! `breakpoints.set`, `breakpoints.clear`, `breakpoints.list`, `breakpoints.clear_all`,
-//! `breakpoints.clear_id`, `step_in`, `step_over` and `step_out`, and the refusal of `eval` and
-//! `debug.evaluate` until a runtime evaluates compiled expressions (specification 11 §6.9 and
+//! `breakpoints.clear_id`, `step_in`, `step_over` and `step_out`, and `eval` and `debug.evaluate`,
+//! which a compiled program answers and any other program refuses (specification 11 §6.9 and
 //! §6.13; specification 13).
 //!
 //! The dispatcher has checked the request's role and the debug surface before it calls
@@ -13,6 +13,7 @@
 //! holds them one-based, and this module converts at its boundary.
 
 use alloc::string::String;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use serde::de::DeserializeOwned;
@@ -21,6 +22,9 @@ use serde_json::json;
 use trust_runtime_core::debug::StatementSpan;
 use trust_runtime_core::memory::FrameId;
 
+use super::breakpoint::BreakpointOptions;
+use super::logpoint::LogRecord;
+use super::options::{OptionsError, WireOptions};
 use super::paging::{ChildKind, Page};
 use super::projection::{file_name_of, DebugSource, DebugVariableHandles};
 use super::reads::{self, Located, ReadState};
@@ -39,6 +43,9 @@ pub struct BreakpointsParams {
     pub source: String,
     /// The zero-based lines to place a breakpoint on.
     pub lines: Vec<u32>,
+    /// Each line's options, as many as the lines (specification 11 §6.13.2).
+    #[serde(default)]
+    pub options: Option<Vec<Option<WireOptions>>>,
 }
 
 /// The parameters of `breakpoints.clear_id`.
@@ -160,16 +167,26 @@ pub trait Debugger {
     /// bound replaces the oldest (specification 11 §6.13.3).
     fn drain_stops(&self) -> Vec<StopRecord>;
 
+    /// The logpoint messages since the last call, oldest first, bounded as the stops are
+    /// (specification 11 §6.13.2); none from a debugger that evaluates no logpoint.
+    fn drain_logs(&self) -> Vec<LogRecord> {
+        Vec::new()
+    }
+
     /// The statement that a frame last stood at.
     fn frame_span(&self, frame: FrameId) -> Option<StatementSpan>;
 
     /// The breakpoints, in registration order.
     fn breakpoints(&self) -> Vec<BreakpointView>;
 
-    /// Replaces all breakpoints of file `file_id` with breakpoints on `spans`, and returns the
-    /// file's new generation (specification 13, "Runtime debug state, mutation, and projection
-    /// invariants").
-    fn replace_breakpoints(&self, file_id: u32, spans: Vec<Span<(u32, u32)>>) -> u64;
+    /// Replaces all breakpoints of file `file_id` with `breakpoints`, each on its span with its
+    /// options, and returns the file's new generation (specification 13, "Runtime debug state,
+    /// mutation, and projection invariants").
+    fn replace_breakpoints(
+        &self,
+        file_id: u32,
+        breakpoints: Vec<(Span<(u32, u32)>, BreakpointOptions)>,
+    ) -> u64;
 
     /// Clears every breakpoint and every generation.
     fn clear_breakpoints(&self);
@@ -219,18 +236,23 @@ pub fn is_debug_operation(kind: &str) -> bool {
 
 /// Answers the debug operation `request` from `debugger`.
 ///
-/// `eval` and `debug.evaluate` are refused whatever the program, because no compiled expression
-/// is evaluated yet (specification 11 §6.13.2). Every other operation on a program without a
-/// `LINE_TABLE` is refused with the stable `no_line_table` error (specification 11 §6.13.3).
+/// A compiled program evaluates `debug.evaluate` in the compiled form of version 1 and answers
+/// `eval` as an exact name read; a program without its memory, which evaluates no compiled
+/// expression, refuses both (specification 11 §6.13.2). Every other operation on a program without
+/// a `LINE_TABLE` is refused with the stable `no_line_table` error (specification 11 §6.13.3).
 #[must_use]
 pub fn answer(request: &ControlRequest, debugger: &dyn Debugger) -> ControlResponse {
     let id = request.id;
     let kind = request.r#type.as_str();
-    if matches!(kind, "eval" | "debug.evaluate") {
-        return replies::expressions_unavailable(id);
-    }
     if let Some(reason) = debugger.undebuggable() {
         return failed(id, reason);
+    }
+    if matches!(kind, "eval" | "debug.evaluate") {
+        #[cfg(feature = "native")]
+        if let Some(memory) = debugger.program_memory() {
+            return super::compiled::evaluate(id, kind, request.params.as_ref(), memory);
+        }
+        return replies::expressions_unavailable(id);
     }
     let Some(sources) = debugger.sources() else {
         return replies::no_line_table(id);
@@ -328,7 +350,21 @@ fn stops(id: u64, debugger: &dyn Debugger, sources: &LineSources) -> ControlResp
         .iter()
         .map(|stop| stop_json(stop, sources))
         .collect::<Vec<_>>();
-    replies::stops(id, &stops)
+    let logs = debugger
+        .drain_logs()
+        .iter()
+        .map(|log| {
+            replies::log(
+                &log.text,
+                log.statement.file_index,
+                sources.label(log.statement.file_index),
+                log.statement.start.0.saturating_sub(1),
+                log.statement.start.1.saturating_sub(1),
+                log.thread,
+            )
+        })
+        .collect::<Vec<_>>();
+    replies::stops(id, &stops, &logs)
 }
 
 fn stack(id: u64, debugger: &dyn Debugger, sources: &LineSources) -> ControlResponse {
@@ -484,25 +520,83 @@ fn carries_expression(params: &serde_json::Value) -> bool {
         .any(|member| params.get(member).is_some_and(|value| !value.is_null()))
 }
 
+/// Whether `debugger` evaluates compiled expressions: a compiled program's does.
+fn evaluates_expressions(debugger: &dyn Debugger) -> bool {
+    #[cfg(feature = "native")]
+    {
+        debugger.program_memory().is_some()
+    }
+    #[cfg(not(feature = "native"))]
+    {
+        let _ = debugger;
+        false
+    }
+}
+
+/// Each line's options of `params`, decoded, or the refusal of the whole request (specification 11
+/// §6.13.2).
+fn line_options(
+    id: u64,
+    params: &mut BreakpointsParams,
+    evaluates: bool,
+) -> Result<Vec<BreakpointOptions>, ControlResponse> {
+    let Some(options) = params.options.take() else {
+        return Ok(vec![BreakpointOptions::default(); params.lines.len()]);
+    };
+    if options.len() != params.lines.len() {
+        return Err(failed(id, "the options are not as many as the lines"));
+    }
+    options
+        .into_iter()
+        .map(|entry| {
+            let Some(entry) = entry else {
+                return Ok(BreakpointOptions::default());
+            };
+            if entry.has_expressions() && !evaluates {
+                return Err(replies::expressions_unavailable(id));
+            }
+            entry.decode().map_err(|error| match error {
+                OptionsError::Version(version) => replies::expr_version_unsupported(id, version),
+                OptionsError::Invalid(detail) => {
+                    ControlResponse::error_with_code(id, detail, "expr_invalid")
+                }
+                OptionsError::Malformed(detail) => failed(id, detail),
+            })
+        })
+        .collect()
+}
+
 fn breakpoints_set(
     id: u64,
     params: Option<&serde_json::Value>,
     debugger: &dyn Debugger,
     sources: &LineSources,
 ) -> ControlResponse {
+    let evaluates = evaluates_expressions(debugger);
     if params.is_some_and(carries_expression) {
+        // A condition or a message belongs to one line, in `options`.
+        if evaluates {
+            return failed(
+                id,
+                "a condition or a log message goes in `options`, one per line",
+            );
+        }
         return replies::expressions_unavailable(id);
     }
-    let params: BreakpointsParams = match parse(params) {
+    let mut params: BreakpointsParams = match parse(params) {
         Ok(params) => params,
         Err(error) => return failed(id, error),
+    };
+    let options = match line_options(id, &mut params, evaluates) {
+        Ok(options) => options,
+        Err(refusal) => return refusal,
     };
     let Some(file) = sources.file_index_of(&params.source) else {
         return failed(id, "unknown source path");
     };
     let mut spans = Vec::new();
     let mut resolved = Vec::new();
-    for line in params.lines {
+    for (line, options) in params.lines.into_iter().zip(options) {
         // The request carries a zero-based line. As trust-runtime resolves a request, the column
         // is the zero-based column 1, so the table is asked for one-based line + 1 and column 2.
         let Some(statement) = line
@@ -511,9 +605,12 @@ fn breakpoints_set(
         else {
             continue;
         };
-        spans.push(Span::new(
-            (statement.line, statement.column),
-            (statement.end_line, statement.end_column),
+        spans.push((
+            Span::new(
+                (statement.line, statement.column),
+                (statement.end_line, statement.end_column),
+            ),
+            options,
         ));
         resolved.push(replies::position(
             statement.line.saturating_sub(1),

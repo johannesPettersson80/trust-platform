@@ -22,7 +22,7 @@ use trust_runtime_core::ports::MonotonicClock;
 use super::super::debugger::{Boundary, StatementStart, StopPoints};
 use super::super::engine::held_time::HeldTime;
 use super::super::hold::{CompiledHeld, CompiledHold};
-use crate::debug::LineSources;
+use crate::debug::{FrameNames, LineSources};
 use crate::status::IoDriverStatus;
 
 /// The statement ids of `image` that `points` stops at, one flag per id: a breakpoint stops at every
@@ -122,7 +122,9 @@ impl<H: CompiledHold> CompiledDebug<H> {
             frame: Some(FrameId(depth)),
             call: PhantomData,
         };
-        if hold.at_statement(&at)? == Boundary::Run {
+        // A condition and a logpoint read the names of the frame that runs the statement.
+        let names = FrameNames::new(&*stop, Some(0));
+        if hold.at_statement(&at, Some(&names))? == Boundary::Run {
             return Ok(false);
         }
         let view = CompiledHeld {

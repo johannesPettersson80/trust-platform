@@ -1,5 +1,4 @@
 impl DebugAdapter {
-
     pub(super) fn dispatch_request(&mut self, request: Request<Value>) -> DispatchOutcome {
         if request.message_type != MessageType::Request {
             return DispatchOutcome::default();
@@ -44,7 +43,6 @@ impl DebugAdapter {
         outcome
     }
 
-
     pub(super) fn start_runner(&mut self) {
         if self.runner.is_some() {
             return;
@@ -88,13 +86,11 @@ impl DebugAdapter {
         });
     }
 
-
     pub(super) fn stop_runner(&mut self) {
         if let Some(runner) = self.runner.take() {
             runner.stop();
         }
     }
-
 
     fn next_seq(&self) -> u32 {
         self.next_seq.fetch_add(1, Ordering::Relaxed)
@@ -119,7 +115,6 @@ impl DebugAdapter {
         };
         serde_json::to_value(response).unwrap_or(Value::Null)
     }
-
 
     pub(super) fn error_response(&self, request: &Request<Value>, message: &str) -> Value {
         let response: Response<Value> = Response {
@@ -151,12 +146,10 @@ impl DebugAdapter {
         serde_json::to_value(event).unwrap_or(Value::Null)
     }
 
-
     fn drain_log_events(&self) -> Vec<Value> {
         let logs = self.session.debug_control().drain_logs();
         logs.into_iter().map(|log| self.output_event(log)).collect()
     }
-
 
     fn output_event(&self, log: DebugLog) -> Value {
         let (source, line, column) = log
@@ -190,12 +183,10 @@ impl DebugAdapter {
         self.event("output", Some(body))
     }
 
-
     pub(super) fn debug_output_message(&self, message: impl Into<String>) -> Value {
         let body = serde_json::json!({ "message": message.into() });
         self.event("trustDebugInternal", Some(body))
     }
-
 
     pub(super) fn breakpoint_event(&self, reason: &str, breakpoint: Breakpoint) -> Value {
         let body = BreakpointEventBody {
@@ -204,7 +195,6 @@ impl DebugAdapter {
         };
         self.event("breakpoint", Some(body))
     }
-
 
     pub(super) fn start_remote_polling(&mut self) {
         if self.remote_stop_poller.is_some() {
@@ -226,18 +216,17 @@ impl DebugAdapter {
                 logger: self.dap_logger.clone(),
                 seq: Arc::clone(&self.next_seq),
                 breakpoints: Arc::clone(&self.remote_breakpoints),
+                coordinate: self.coordinate,
             },
         );
         self.remote_stop_poller = Some(poller);
     }
-
 
     pub(super) fn stop_remote_polling(&mut self) {
         if let Some(poller) = self.remote_stop_poller.take() {
             poller.stop();
         }
     }
-
 
     pub(super) fn remote_stop_events(&self, stop: RemoteStop) -> Vec<Value> {
         let thread_id = stop.thread_id.or(Some(1));
@@ -258,5 +247,4 @@ impl DebugAdapter {
         );
         vec![output, stopped]
     }
-
 }

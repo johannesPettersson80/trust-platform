@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.18 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.19 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -11,7 +11,8 @@
   specification 34's online change requires; 0.16 gives the C6 a program region in its heap so that
   a debug image changes online and a change can follow a change, which the bench found it could
   not; 0.17 has computers run compiled programs with the chips' cycle, §8.8; 0.18 has a computer's
-  services and protocol clients reach them through the symbol table, §8.8),
+  services and protocol clients reach them through the symbol table, §8.8; 0.19 builds the debug
+  expressions that the owner's decision of 18 October 2026 has the tool compile, §13.2),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -991,9 +992,15 @@ project as `trust-runtime build` does.
 (specification 13), the simulator, runs the project's program compiled for this computer, as
 trust-runtime runs it (NX-14), and debugs it as an `attach` debugs a runtime. The adapter builds the
 project as `trust-runtime build` builds it (§4.1; `[build] debug` chooses a debug or a release
-image, §13.2) and runs the image in its own process with a computer's ports: the resource's scan
-thread and scheduler at the project's cycle interval (`runtime.toml`, else 10 ms), the drivers of
-`io.toml`, and the control server the panels connect to at the launch's control endpoint. Every
+image, §13.2), from the sources the launch names (its program's folder or `runtimeRoot` and its
+globs), each labelled by its path in that folder (§5.3). The image stays in the project's build
+folder: a simulation leaves the project's program (`program.tpi`, `program.stbc`) as it was. The
+adapter runs the image in its own process with a computer's ports, as trust-runtime does: the
+resource's scan thread and scheduler at the project's cycle interval (`runtime.toml`, else 10 ms),
+the drivers of `io.toml`, retained values kept in memory for the session, and the control server
+the panels connect to at the launch's control endpoint; it then connects to that endpoint as an
+`attach` does. `stopOnEntry` holds the first statement: the scheduler starts after the breakpoints
+and the pause have reached the runtime. Every
 request then goes through the control protocol to that runtime: breakpoints, stepping, pause and
 continue, the call stack and the variables of §13.2, the Live Values writes and forces and the I/O
 panel of §13.3, and the runtime's events, answered by the code that answers them on a trust-runtime
@@ -1001,10 +1008,11 @@ and on a chip. `stReload` builds the project again and changes the running progr
 new image (§12), keeping a pause as specification 13 keeps it; a build or a change that fails leaves
 the running program as it was and says why. Watch expressions, `evaluate`, breakpoint conditions and
 logpoints keep working: the adapter compiles them into the portable form of specification 11
-§6.13.2, which the runtime evaluates against the published state through the symbol table, so the
-simulator never does less than the bytecode engine's simulator did; until that form exists, the
-simulator stays on the bytecode engine. Until the bytecode engine is deleted (§15), a computer
-without the toolchain (§4.6) launches the program on the bytecode engine, and the adapter says so.
+§6.13.2, which the runtime evaluates against the published state through the symbol table (§13.2),
+so the simulator never does less than the bytecode engine's simulator did. Until the bytecode
+engine is deleted (§15), a computer without the toolchain (§4.6), and a project with a construct the
+native build does not compile yet (NX-15), launches the program on the bytecode engine, and the
+adapter says which and why in the debug console.
 
 ## 9. Determinism and numerics
 
@@ -1348,6 +1356,13 @@ interpreter's device loop takes (`RunControl`), and whose control requests (`bre
   symbol table, an instance by the index of its symbol, which is its identity (Live Values'
   `instance:<id>`); an element of an array of instances is reached through its array. Between scans
   the reads answer from the program's memory as the last scan left it, with no call stack.
+- Watch expressions, `debug.evaluate`, breakpoint conditions, hit conditions and logpoints are those
+  of specification 11 §6.13.2, version 1 (S3c, 24 October 2026): the tool compiles them from the
+  project's declarations and the runtime evaluates them, its names resolved through the symbol
+  table in the held frame, its instance, the globals and the program instances, and an enumeration
+  literal's number taken from the type table. A condition and a logpoint are evaluated at the stop
+  of their statement, in the frame that runs it, and a logpoint's message reaches the client with
+  the stops of `debug.stops`. `eval` reads one exact name through the symbol table.
 
 ### 13.3 Variables, Live Values, HMI and services
 
@@ -1536,4 +1551,5 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.15 | 24 October 2026 | Online change (the one list's N4), within specification 34 §11.3, which §12.1 keeps in full. §12.2: the device works the copy plan out from the two images it holds, whose symbol and type tables name every variable, instead of the build working it out against the image the tools last deployed and sending it with the image as a `TRSTA003` entry of kind 4: a plan worked out on the device cannot be worked out against another program than the one that runs, no tool keeps a copy of what a device runs, and `bytecode.reload` carries the image as it carries STBC. The rules are specification 11 §6.7.1's, made exact for the areas: process images by address, variables by name, members by name, `__CLASS` always the new program's, a library block's own state only into the same block, references repointed or `NULL`, the interpreter's events. §12.3: the new image stays where its upload lies, because an online change writes no flash and a device writes none while a program runs (specification 34 §5.1, Q10); 0.1 said it was installed into the other slot before the request, which specification 34 §11.2 (an install needs a Stopped resource) does not allow. The C6 copies the new module over the running one at the boundary and copies the running one back when the new program's cold-init entry faults; a module larger than the program code region cannot be changed online on the C6. §7.3: references keep generation 1, because the change repoints them; the installation generation is the services'. §10.3: the code region at a change. §13.3: an integer Live Values writes is an untyped literal, as specification 11 says for every runtime (the C6 bench found `set` of 2 into an `INT` refused). |
 | 0.16 | 24 October 2026 | The C6's program region (the one list's N4). The bench of 0.15 found that a running C6's largest heap block for an upload was about 74 KB: the reference workload's release image (67,848 bytes) changed online, its debug image (90,200 bytes) could not upload, and no change could follow a change, which needs two images at once. §10.3: the 128 KiB program code region becomes a 192 KiB program region of the heap, for programs' blocks only (a module copy at the top, an upload at the bottom, 64-byte boundaries), with 64 KiB taken from the main heap; an online change's module runs where its image lies, beside the running module, so the C6 no longer copies a change's module over the running one or back. §12.3: steps 2 and 4 and the C6 note. |
 | 0.18 | 24 October 2026 | A computer's services and clients on a compiled program (N5's computer part). §8.8 NX-14: the HMI, the ADS and OPC UA servers and the historian read the scan's published copy through the symbol table and publish what they publish of an interpreted program; the ADS and OPC UA clients bind each point to the global of its name, checked against its type or present value, and exchange it at the scan's boundaries; the OpenOT telemetry reads its producers by their full names after the scan, before the output commit deadline is checked; an MQTT tag binds a program instance's variable by name, past the program's process image when the program does not bind it, and an online change that resizes the image under such tags is refused. NX-15: no service refuses a compiled program any more; the computer runs what the last build wrote (an STBC build removes an earlier image, `fleet start` builds as `build` does); `[resource] max_statements_per_scan` (NX-10) is read from `runtime.toml`. §14.2: `trust-dev test` runs the tests compiled by default where the toolchain is installed. §8.9 NX-16: the simulator runs the compiled program as a computer's runtime in the adapter's process and debugs it through the control protocol. NX-09: a directly addressed global is compiled; NX-15: a construct not compiled yet builds `program.stbc` on a computer, with a note. |
+| 0.19 | 24 October 2026 | The debug expressions of compiled programs (S3c). §13.2: watch expressions, `debug.evaluate`, breakpoint conditions, hit conditions and logpoints in the portable form of specification 11 §6.13.2, version 1, which the tool compiles from the project's declarations and the runtime evaluates through the symbol and type tables; an enumeration literal by its names, its number from the program; `breakpoints.set` carries each line's options and `debug.stops` the logpoint messages; `eval` reads one name. §8.9 NX-16: the form exists, so the simulator moves to the compiled program. |
 | 0.17 | 24 October 2026 | Computers (the one list's N8). §8.8: NX-14, trust-runtime on Linux, Windows and macOS runs a compiled program with the chips' `CompiledCycle` and the computer's ports (the `io.toml` drivers, its clock, the bytecode engine's retain file, its debugger, holding on the scan thread), keeping its scan thread, scheduler, control plane, servers and program store; each scan publishes a copy of the areas with the image for the other threads. NX-15, the program a computer runs: `program.tpi` with `deployment-record.bin` in the project, written by `trust-runtime build` without `--target`, loaded by `run` and `play`, installed by `program.install`; until §15, `program.stbc` still runs, and a computer without the toolchain builds it and says so; the services that reach variables by name refuse a compiled program until they read the symbol table. |

@@ -6685,6 +6685,47 @@ beside the compiled form for display only, and no runtime reads it. The boundary
 release that implements it: a runtime that does not implement a version rejects it with
 `expr_version_unsupported` and decodes nothing.
 
+**Version 1 (S3c, 24 October 2026).** `expr_version` 1 is one expression in prefix order: each node
+is a tag byte followed by its operands, every integer is little-endian, and every text is a 2-byte
+length and that many bytes of UTF-8.
+
+| Tag | Node | Operands |
+| --- | --- | --- |
+| 1 | Literal | a value: its type code (1 byte) and its bytes, below |
+| 2 | Name | a text, the name as written |
+| 3 | Unary | the operator (1 byte: 1 `-`, 2 `+`, 3 `NOT`), then the operand |
+| 4 | Binary | the operator (1 byte: 1 `+`, 2 `-`, 3 `*`, 4 `/`, 5 `MOD`, 6 `**`, 7 `AND`, 8 `OR`, 9 `AND_THEN`, 10 `OR_ELSE`, 11 `XOR`, 12 `=`, 13 `<>`, 14 `<`, 15 `<=`, 16 `>`, 17 `>=`), then the left and the right operand |
+| 5 | Index | the number of indices (1 byte, 1 to 8), then the array and each index |
+| 6 | Field | a text, the member's name, then the structure or the instance |
+
+A literal's type codes are 1 `BOOL` (1 byte, 0 or 1), 2 `SINT`, 3 `INT`, 4 `DINT`, 5 `LINT`,
+6 `USINT`, 7 `UINT`, 8 `UDINT`, 9 `ULINT`, 10 `BYTE`, 11 `WORD`, 12 `DWORD` and 13 `LWORD` (each in its
+width), 14 `REAL` (4) and 15 `LREAL` (8, IEEE 754), 16 `TIME` and 17 `LTIME` (8, signed
+nanoseconds), 18 `STRING` (a text), 19 `WSTRING` (a 2-byte count and that many UTF-16 units),
+20 `CHAR` (1), 21 `WCHAR` (2) and 22 an enumeration's value by name, `Mode#Run` (its type's name
+and its value's name, each a text). The runtime takes the value's number from the program it runs,
+so that a project edited since its deployment cannot make an expression compare another value.
+
+The runtime resolves a name where it evaluates, without regard to case: in a held scan's frame
+first, among the frame's own variables (a function's or a method's inputs, locals and result) and
+then the variables of the frame's instance; then among the globals; then as `Instance.Variable`, a
+variable of a program instance. A member chain over a name, `Ctr.Count`, resolves its first name so
+and each further name as a member of the instance before it; a member of a structure is taken from
+the structure's value. The tool compiles with the types of the project's declarations, and the
+attached debugger reads them from the project folder it is given. Evaluation computes as the runtime's statements compute
+(specification 07, IEC 61131-3 §7.3.2): `AND_THEN` and `OR_ELSE` evaluate their right operand only
+when the left does not decide, the tool inserts no conversion, and an operation that the runtime's
+arithmetic refuses for its operands fails the evaluation. An encoding that is truncated or longer
+than its expression, longer than 4,096 bytes or nested deeper than 32 nodes, a tag, an operator or a
+type code outside these tables, a text that is not UTF-8, a name that resolves to no variable, an
+enumeration or a value of it that the program does not declare and a result that is no value (an
+instance) are `expr_invalid`; an index outside its bounds, a division by
+zero, an overflow and more than 1,024 nodes evaluated are `expr_evaluation_failed`. The tool
+compiles from the project's sources what this version can say, names, literals, the operators,
+indexing and member access, and refuses an expression with any other part (a call, a reference,
+`THIS`, `SUPER`, an initializer) before it sends a request. A compiled program evaluates version 1
+on every device; the bytecode engine keeps its text form until it is deleted (specification 44 §15).
+
 A runtime answers with a value, in the stable debug representation and with the public type name,
 exactly as `debug.variables` reports a variable of that type. Evaluation reads the published state
 (section 6.13.1) and is side-effect free: it stores nothing, calls nothing with a side effect, and
@@ -6704,12 +6745,40 @@ receives the rejection itself — a failed response carrying the code and its de
 `eval` keeps its own contract (section 6.8.1): it is a bounded exact name read, not an expression,
 and it carries text.
 
+**Breakpoint conditions, hit conditions and logpoints (S3c, 24 October 2026).** A
+`breakpoints.set` may carry `options`, an array as long as `lines` whose entry *i*, `null` or an
+object, belongs to the breakpoint of `lines[i]`:
+
+- `condition`: `{"expr_version", "expr"}`, a compiled expression; the breakpoint stops only where it
+  gives `TRUE`.
+- `hit_condition`: `{"op", "count"}`, `op` one of `=`, `>=` and `>`, and `count` an unsigned 64-bit
+  number from 1, applied to the breakpoint's hit count after the hit is counted.
+- `log_message`: an array of parts, each a text or a compiled expression `{"expr_version", "expr"}`;
+  the breakpoint is a logpoint.
+
+At a statement start the runtime keeps the order of specification 13 ("Breakpoint evaluation,
+source resolution, and hook contract"): it counts the hit, applies the hit condition to the count,
+then evaluates the condition in the frame that runs the statement, its names resolved as above; a
+logpoint then records its message and never stops, and a breakpoint stops. A logpoint's message is
+its parts in order, each expression replaced by its value as specification 13 formats a logpoint
+value, or by `<error: detail>`, and cut to 1,024 bytes at a character boundary. `debug.stops`
+answers the messages recorded since its last call beside the stops, as `logs` when there are
+any, oldest first, each
+`{"text", "file_id", "path", "line", "column", "thread"}` with the file's path as a stop names it
+and the zero-based start of the logpoint's statement; their buffer is bounded as the stops' buffer is (section 6.13.3), and a message beyond the
+bound replaces the oldest. A runtime refuses whole, and changes nothing, a `breakpoints.set` whose
+`options` are not as long as `lines`, carry an `op` outside the three or a `count` of 0, or carry an
+expression of a version it does not implement (below). A runtime that runs a compiled program
+implements version 1 for all of them. The bytecode engine evaluates no compiled form: it refuses
+`options` that carry anything, and a tool attached to it reports such a breakpoint unverified rather
+than stopping without its condition.
+
 **Before a runtime implements a version (owner, 18 October 2026).** A runtime that implements no
 `expr_version` yet, a chip until the tool compile exists, refuses every request that would evaluate
 an expression and decodes nothing: `debug.evaluate`; `eval`, which such a runtime does not answer as a
 name read; and a `breakpoints.set` whose parameters carry a `condition` or a `log_message` other than
-`null`, which it refuses whole, so that a breakpoint is never stored without the condition the client
-asked for. The refusal is a failed response with the stable code `expr_version_unsupported` and the
+`null`, at the top or in `options`, which it refuses whole, so that a breakpoint is never stored
+without the condition the client asked for. The refusal is a failed response with the stable code `expr_version_unsupported` and the
 message `this runtime evaluates no debug expressions yet: the compiled expression form is not
 implemented`. A refusal changes nothing.
 

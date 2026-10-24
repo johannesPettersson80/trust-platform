@@ -83,6 +83,48 @@ fn collect_sources(
     Ok(sources)
 }
 
+/// The sources of the project in the folder the source options name, without a program path: the
+/// files the include globs match (every Structured Text file below the folder without them), less
+/// the excluded ones and those carrying an ignore pragma, in path order.
+fn collect_project_sources(options: &SourceOptions) -> Result<Vec<(String, String)>, CompileError> {
+    let root = options
+        .root
+        .as_ref()
+        .map(|root| canonicalize_lossy(Path::new(root)))
+        .ok_or_else(|| CompileError::new("no project folder (runtimeRoot or cwd)"))?;
+    let mut include_globs = normalize_globs(&options.include_globs);
+    if include_globs.is_empty() {
+        include_globs.push(String::from("**/*.{st,ST,pou,POU}"));
+    }
+    let exclude_globs = normalize_globs(&options.exclude_globs);
+    let (excluded_files, excluded_dirs) = resolve_excludes(&root, &exclude_globs)?;
+    let ignore_pragmas = resolve_ignore_pragmas(options);
+    let mut unique = HashSet::new();
+    let mut sources = Vec::new();
+    for candidate in expand_globs(&root, &include_globs)? {
+        let candidate = canonicalize_lossy(&candidate);
+        if !unique.insert(candidate.clone())
+            || !candidate.is_file()
+            || !is_structured_text_file(&candidate)
+            || is_excluded(&candidate, &excluded_files, &excluded_dirs)
+        {
+            continue;
+        }
+        let content = std::fs::read_to_string(&candidate).map_err(|err| {
+            CompileError::new(format!(
+                "failed to read source '{}': {err}",
+                candidate.display()
+            ))
+        })?;
+        if !ignore_pragmas.is_empty() && has_ignore_pragma(&content, &ignore_pragmas) {
+            continue;
+        }
+        sources.push((candidate.to_string_lossy().to_string(), content));
+    }
+    sources.sort_by(|(a, _), (b, _)| a.cmp(b));
+    Ok(sources)
+}
+
 fn apply_project_io_config(
     runtime: &mut Runtime,
     program_path: &str,
@@ -478,7 +520,7 @@ fn requested_breakpoints(args: &SetBreakpointsArguments) -> Vec<SourceBreakpoint
         .collect()
 }
 
-fn parse_hit_condition(raw: &str) -> Option<HitCondition> {
+pub(crate) fn parse_hit_condition(raw: &str) -> Option<HitCondition> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return None;
@@ -503,14 +545,17 @@ fn parse_hit_condition(raw: &str) -> Option<HitCondition> {
     }
 }
 
-fn parse_log_message_with_abi(
-    template: &str,
-    registry: &mut trust_hir::types::TypeRegistry,
-    profile: trust_runtime::value::DateTimeProfile,
-    using: &[smol_str::SmolStr],
-    storage_abi: trust_runtime::value::StorageAbi,
-) -> Result<Vec<LogFragment>, String> {
-    let mut fragments = Vec::new();
+/// One part of a logpoint's message template: literal text, or the text of an expression.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum LogText {
+    Text(String),
+    Expression(String),
+}
+
+/// The parts of the logpoint message `template` (specification 13): `{expression}` encloses an
+/// expression, and `{{` and `}}` stand for a brace.
+pub(crate) fn split_log_message(template: &str) -> Result<Vec<LogText>, String> {
+    let mut parts = Vec::new();
     let mut literal = String::new();
     let mut chars = template.chars().peekable();
 
@@ -523,7 +568,7 @@ fn parse_log_message_with_abi(
                     continue;
                 }
                 if !literal.is_empty() {
-                    fragments.push(LogFragment::Text(std::mem::take(&mut literal)));
+                    parts.push(LogText::Text(std::mem::take(&mut literal)));
                 }
                 let mut expr = String::new();
                 let mut closed = false;
@@ -541,15 +586,7 @@ fn parse_log_message_with_abi(
                 if expr.is_empty() {
                     return Err("empty log expression".to_string());
                 }
-                let compiled = trust_runtime::harness::parse_debug_expression_with_abi(
-                    expr,
-                    registry,
-                    profile,
-                    using,
-                    storage_abi,
-                )
-                .map_err(|err| err.to_string())?;
-                fragments.push(LogFragment::Expr(compiled));
+                parts.push(LogText::Expression(expr.to_string()));
             }
             '}' => {
                 if chars.peek() == Some(&'}') {
@@ -564,10 +601,34 @@ fn parse_log_message_with_abi(
     }
 
     if !literal.is_empty() {
-        fragments.push(LogFragment::Text(literal));
+        parts.push(LogText::Text(literal));
     }
 
-    Ok(fragments)
+    Ok(parts)
+}
+
+fn parse_log_message_with_abi(
+    template: &str,
+    registry: &mut trust_hir::types::TypeRegistry,
+    profile: trust_runtime::value::DateTimeProfile,
+    using: &[smol_str::SmolStr],
+    storage_abi: trust_runtime::value::StorageAbi,
+) -> Result<Vec<LogFragment>, String> {
+    split_log_message(template)?
+        .into_iter()
+        .map(|part| match part {
+            LogText::Text(text) => Ok(LogFragment::Text(text)),
+            LogText::Expression(expr) => trust_runtime::harness::parse_debug_expression_with_abi(
+                &expr,
+                registry,
+                profile,
+                using,
+                storage_abi,
+            )
+            .map(LogFragment::Expr)
+            .map_err(|err| err.to_string()),
+        })
+        .collect()
 }
 
 fn to_zero_based(line: u32, column: Option<u32>) -> Option<(u32, u32)> {

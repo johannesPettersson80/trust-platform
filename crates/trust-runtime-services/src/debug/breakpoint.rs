@@ -9,7 +9,10 @@
 //! after a hit that the rule lets through.
 
 use alloc::collections::BTreeSet;
+use alloc::vec::Vec;
 
+use super::expression::Expression;
+use super::logpoint::LogPart;
 use super::statement::StatementId;
 
 /// A hit-count condition, applied to the count after the hit is counted (specification 13,
@@ -34,6 +37,27 @@ impl HitCondition {
             Self::AtLeast(target) => hits >= target,
             Self::GreaterThan(target) => hits > target,
         }
+    }
+}
+
+/// What a breakpoint asks for beyond its statement (specification 11 §6.13.2): a hit condition, a
+/// compiled condition, and the message that makes it a logpoint.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BreakpointOptions {
+    /// The hit condition, or `None` for a breakpoint that stops at every hit.
+    pub hit_condition: Option<HitCondition>,
+    /// The condition, or `None` for a breakpoint that stops whatever the program's state.
+    pub condition: Option<Expression>,
+    /// The message of a logpoint, which never stops; `None` for a breakpoint that stops.
+    pub log_message: Option<Vec<LogPart>>,
+}
+
+impl BreakpointOptions {
+    /// Whether the options carry an expression, which only a runtime that evaluates the compiled
+    /// form takes.
+    #[must_use]
+    pub fn has_expressions(&self) -> bool {
+        self.condition.is_some() || self.log_message.is_some()
     }
 }
 

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::debug::{offset_to_line_col, DebugBreakpoint, SourceLocation};
 use serde_json::json;
+use trust_runtime_services::debug::options::WireOptions;
 use trust_runtime_services::debug::replies;
 
 use super::types::{BreakpointsClearIdParams, BreakpointsParams};
@@ -15,6 +16,17 @@ pub(super) fn handle_breakpoints_set(
     if state.sources.is_empty() {
         return ControlResponse::error(id, "no sources registered".into());
     }
+    // The bytecode engine evaluates no compiled expression and takes no breakpoint options
+    // (specification 11 §6.13.2): it refuses them, whole, rather than store a breakpoint without
+    // what the client asked for.
+    let carries_expression = params.as_ref().is_some_and(|params| {
+        ["condition", "log_message"]
+            .into_iter()
+            .any(|member| params.get(member).is_some_and(|value| !value.is_null()))
+    });
+    if carries_expression {
+        return replies::expressions_unavailable(id);
+    }
     let params: BreakpointsParams = match params {
         Some(value) => match serde_json::from_value(value) {
             Ok(parsed) => parsed,
@@ -22,6 +34,16 @@ pub(super) fn handle_breakpoints_set(
         },
         None => return ControlResponse::error(id, "missing params".into()),
     };
+    let mut options = params.options.iter().flatten().flatten();
+    if options.clone().any(WireOptions::has_expressions) {
+        return replies::expressions_unavailable(id);
+    }
+    if options.next().is_some() {
+        return ControlResponse::error(
+            id,
+            "the bytecode engine takes no hit conditions: build the project compiled".into(),
+        );
+    }
     let path = PathBuf::from(params.source);
     let file_id = match state
         .sources

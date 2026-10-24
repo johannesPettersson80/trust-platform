@@ -215,28 +215,9 @@ fn scoped_context<'a>(
     }
 }
 
+/// A value as a logpoint shows it, with the formatter every runtime shares (specification 13).
 fn format_log_value(value: &Value) -> String {
-    match value {
-        Value::Bool(value) => {
-            if *value {
-                "TRUE".to_string()
-            } else {
-                "FALSE".to_string()
-            }
-        }
-        Value::String(value) => value.to_string(),
-        Value::WString(value) => value.clone(),
-        Value::Char(value) => (*value as char).to_string(),
-        Value::WChar(value) => char::from_u32((*value).into()).unwrap_or('?').to_string(),
-        Value::Array(value) => format!("[{}]", value.elements().len()),
-        Value::Struct(value) => format!("{} {{...}}", value.type_name()),
-        Value::Enum(value) => format!("{}::{}", value.type_name(), value.variant_name()),
-        Value::Reference(Some(_)) => "REF".to_string(),
-        Value::Reference(None) => "NULL_REF".to_string(),
-        Value::Instance(_) => "Instance".to_string(),
-        Value::Null => "NULL".to_string(),
-        _ => format!("{value:?}"),
-    }
+    trust_runtime_services::debug::logpoint::log_text(value)
 }
 
 #[cfg(test)]

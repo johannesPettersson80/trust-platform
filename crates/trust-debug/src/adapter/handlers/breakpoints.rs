@@ -19,7 +19,7 @@ const PENDING_ATTACH: &str = "pending until the attach completes";
 
 /// The message of a breakpoint the runtime did not resolve: no statement starts at or after its
 /// line (specification 13).
-const NO_STATEMENT: &str = "no statement at or after this line";
+pub(in crate::adapter) const NO_STATEMENT: &str = "no statement at or after this line";
 
 impl DebugAdapter {
     pub(in crate::adapter) fn handle_set_breakpoints(
@@ -369,7 +369,9 @@ impl DebugAdapter {
 }
 
 /// The breakpoints `args` asks for: its `breakpoints`, or its deprecated `lines`.
-fn requested_breakpoints(args: &SetBreakpointsArguments) -> Vec<SourceBreakpoint> {
+pub(in crate::adapter) fn requested_breakpoints(
+    args: &SetBreakpointsArguments,
+) -> Vec<SourceBreakpoint> {
     if let Some(breakpoints) = &args.breakpoints {
         return breakpoints.clone();
     }

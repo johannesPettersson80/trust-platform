@@ -459,7 +459,16 @@ struct Held {
     handles: RefCell<DebugVariableHandles>,
     io: IoSnapshotRead,
     last_stop: Option<StopRecord>,
+    /// The breakpoints each `breakpoints.set` replaced a file's with, by the file.
+    replaced: RefCell<Vec<Replaced>>,
 }
+
+/// The breakpoints one `breakpoints.set` replaced a file's with: the file, and each breakpoint's
+/// span with its options.
+type Replaced = (
+    u32,
+    Vec<(Span<(u32, u32)>, crate::debug::BreakpointOptions)>,
+);
 
 impl Held {
     /// The program with `symbols` and `retained`, held with `frames`, innermost first, each with
@@ -483,6 +492,7 @@ impl Held {
             handles: RefCell::new(DebugVariableHandles::with_bound(CHIP_HANDLE_BOUND)),
             io: IoSnapshotRead::Missing,
             last_stop: None,
+            replaced: RefCell::new(Vec::new()),
         }
     }
 
@@ -565,8 +575,14 @@ impl Debugger for Held {
         Vec::new()
     }
 
-    fn replace_breakpoints(&self, _file_id: u32, _spans: Vec<Span<(u32, u32)>>) -> u64 {
-        0
+    fn replace_breakpoints(
+        &self,
+        file_id: u32,
+        breakpoints: Vec<(Span<(u32, u32)>, crate::debug::BreakpointOptions)>,
+    ) -> u64 {
+        let mut replaced = self.replaced.borrow_mut();
+        replaced.push((file_id, breakpoints));
+        u64::try_from(replaced.len()).unwrap_or(u64::MAX)
     }
 
     fn clear_breakpoints(&self) {}
@@ -934,4 +950,5 @@ fn a_listing_pages_named_children_and_the_elements_of_an_array_of_instances() {
     );
 }
 
+mod evaluate;
 mod variables;

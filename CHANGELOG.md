@@ -116,7 +116,19 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   release image refuses the debugger with `the program was built without debug hooks ([build]
   debug = false)`. The kernel interface is version 4, so a chip's firmware and its programs are
   updated together. On the ESP32-C6 a breakpoint in a function holds the scan with the call stack
-  of the function, its function block and the program, steps and resumes, over USB.
+  of the function, its function block and the program, steps and resumes, over USB. Watch
+  expressions, hover and the debug console's `evaluate`, breakpoint conditions, hit counts and
+  logpoints work on compiled programs too: VS Code's debugger compiles each expression with the
+  project's types into the portable form of specification 11 §6.13.2, which the runtime evaluates
+  in the held frame without parsing ST text, on a computer and a chip alike, and a logpoint's
+  message appears in the debug console. An enumeration literal such as `Mode#Run` takes its number
+  from the program the runtime runs.
+- Fixed: VS Code's debugger, attached to a running runtime, answered every watch and `evaluate`
+  with an error, because it read the runtime's answer in the debug adapter protocol's spelling;
+  and it set a breakpoint with a condition, a hit count or a log message as a plain breakpoint,
+  which stopped every time. Now the answer is read as the runtime sends it, a runtime on the
+  bytecode engine gets no breakpoint whose options it cannot honor (the editor shows it unverified
+  with the reason), and every breakpoint is answered in the order the editor asked.
 - Added: trust-runtime on Linux, Windows and macOS runs compiled programs (specification 44 §8.8):
   `trust-runtime build` writes the project's program image for this computer, `program.tpi`, with
   its deployment record, when the Rust toolchain of truST is installed (`TRUST_TOOLCHAIN`; without

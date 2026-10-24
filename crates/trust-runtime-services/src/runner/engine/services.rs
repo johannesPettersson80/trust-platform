@@ -204,7 +204,7 @@ impl<C: MonotonicClock> DeviceServices<C> {
             frame: frame.activation(),
             call: core::marker::PhantomData,
         };
-        if hold.at_statement(&at)? == Boundary::Run {
+        if hold.at_statement(&at, None)? == Boundary::Run {
             return Ok(());
         }
         let view = HeldView {

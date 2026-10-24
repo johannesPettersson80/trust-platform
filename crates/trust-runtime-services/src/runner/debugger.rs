@@ -6,13 +6,15 @@
 //! The decisions are the shared ones of [`crate::debug`]: [`RunControl`](crate::debug::RunControl)
 //! decides pauses, steps, holds and stops, and [`observe_hit`](crate::debug::observe_hit) decides
 //! which breakpoint stops. [`ChipDebug`] keeps the fields they work on, and what the debug
-//! operations list: the breakpoints and their generations, the bounded buffer of stops, the
-//! statement each frame last stood at and the variable handles of the current stop. It owns no
-//! lock, thread or clock: a device's loop is one thread, so the fields sit in one `RefCell`.
+//! operations list: the breakpoints with their options and generations, the bounded buffers of
+//! stops and of logpoint messages, the statement each frame last stood at and the variable handles
+//! of the current stop. It owns no lock, thread or clock: a device's loop is one thread, so the
+//! fields sit in one `RefCell`.
 //!
-//! Every operation borrows the cell for its own work only and calls nothing outside this module
-//! while it holds the borrow, so no operation can find the state in use: a hold serves a `resume`
-//! after the statement hook has released it. An operation that still found it in use would not
+//! Every operation borrows the cell for its own work only and calls nothing that reaches the
+//! debugger while it holds the borrow (a breakpoint's condition and a logpoint's message read the
+//! program's memory, never the debugger), so no operation can find the state in use: a hold serves
+//! a `resume` after the statement hook has released it. An operation that still found it in use would not
 //! panic, which on a device is a firmware fault (specification 34, STATE-05). It would do nothing
 //! and record that it was refused (`ChipDebug::take_busy`), and the loop then faults the
 //! resource.
@@ -28,11 +30,15 @@ use core::convert::Infallible;
 use trust_runtime_core::debug::StatementSpan;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::FrameId;
+use trust_runtime_core::value::Value;
 
+use crate::debug::expression::{evaluate, Expression, Names};
+use crate::debug::logpoint::{format_message, LogPart, LogRecord};
 use crate::debug::projection::{DebugVariableHandles, CHIP_HANDLE_BOUND};
 use crate::debug::{
-    observe_hit, Breakpoint, BreakpointView, CycleSuppression, RunAction, RunControl, RunMode,
-    Span, StatementId, StepKind, StepState, StopReason, StopRecord,
+    observe_hit, Breakpoint, BreakpointOptions, BreakpointRecord, BreakpointView, CycleSuppression,
+    HitCondition, RunAction, RunControl, RunMode, Span, StatementId, StepKind, StepState,
+    StopReason, StopRecord,
 };
 
 /// A position in a source file: the 1-based `(line, column)` of the module's `LINE_TABLE`.
@@ -81,6 +87,46 @@ pub enum Boundary {
 
 /// The latest stop that the debugger emitted (specification 13, "Stopped Events").
 pub type LastStop = StopRecord;
+
+/// A breakpoint of the debugger: the shared record with its hit condition and count, and the
+/// condition and the logpoint message it evaluates at a hit that the record lets through
+/// (specification 11 §6.13.2).
+struct ChipBreakpoint {
+    record: Breakpoint<Position>,
+    condition: Option<Expression>,
+    log_message: Option<Vec<LogPart>>,
+}
+
+impl ChipBreakpoint {
+    /// A breakpoint on `id` with `options` and no hit counted.
+    fn new(id: StatementId<Position>, options: BreakpointOptions) -> Self {
+        let mut record = Breakpoint::new(id);
+        record.hit_condition = options.hit_condition;
+        Self {
+            record,
+            condition: options.condition,
+            log_message: options.log_message,
+        }
+    }
+}
+
+impl BreakpointRecord<Position> for ChipBreakpoint {
+    fn statement(&self) -> StatementId<Position> {
+        self.record.id
+    }
+
+    fn hit_condition(&self) -> Option<HitCondition> {
+        self.record.hit_condition
+    }
+
+    fn hits(&self) -> u64 {
+        self.record.hits
+    }
+
+    fn set_hits(&mut self, hits: u64) {
+        self.record.hits = hits;
+    }
+}
 
 /// A stop of `reason` before the statement `at`.
 fn stop_at(
@@ -151,7 +197,7 @@ impl RunFields {
 struct DebugState {
     run: RunFields,
     /// The breakpoints in registration order; the first eligible one owns a stop.
-    breakpoints: Vec<Breakpoint<Position>>,
+    breakpoints: Vec<ChipBreakpoint>,
     /// The generation of each file's breakpoint set; a replacement advances it (specification 13,
     /// "Runtime debug state, mutation, and projection invariants").
     generations: BTreeMap<u32, u64>,
@@ -160,6 +206,9 @@ struct DebugState {
     last_stop: Option<LastStop>,
     /// The stops that `debug.stops` has not returned yet, oldest first, at most `stop_capacity`.
     stops: VecDeque<LastStop>,
+    /// The logpoint messages that `debug.stops` has not returned yet, oldest first, at most
+    /// `stop_capacity`.
+    logs: VecDeque<LogRecord>,
     stop_capacity: usize,
     /// The statement each frame on the call stack last stood at, outermost frame first.
     frame_locations: Vec<FrameStop>,
@@ -192,6 +241,7 @@ impl ChipDebug {
                 suppression: CycleSuppression::default(),
                 last_stop: None,
                 stops: VecDeque::with_capacity(stop_capacity),
+                logs: VecDeque::with_capacity(stop_capacity),
                 stop_capacity,
                 frame_locations: Vec::new(),
                 handles: DebugVariableHandles::with_bound(CHIP_HANDLE_BOUND),
@@ -213,10 +263,14 @@ impl ChipDebug {
                 return true;
             }
             let mut stops = VecDeque::new();
-            if stops.try_reserve_exact(capacity).is_err() {
+            let mut logs = VecDeque::new();
+            if stops.try_reserve_exact(capacity).is_err()
+                || logs.try_reserve_exact(capacity).is_err()
+            {
                 return false;
             }
             state.stops = stops;
+            state.logs = logs;
             state.stop_capacity = capacity;
             true
         })
@@ -303,7 +357,12 @@ impl ChipDebug {
                 starts: state
                     .breakpoints
                     .iter()
-                    .map(|breakpoint| (breakpoint.id.file_id, breakpoint.id.span.start))
+                    .map(|breakpoint| {
+                        (
+                            breakpoint.record.id.file_id,
+                            breakpoint.record.id.span.start,
+                        )
+                    })
                     .collect(),
             }
         })
@@ -321,16 +380,26 @@ impl ChipDebug {
     /// Adds `breakpoint` after the breakpoints already set.
     #[cfg(test)]
     pub fn add_breakpoint(&self, breakpoint: Breakpoint<Position>) {
-        self.with(|state| state.breakpoints.push(breakpoint));
+        self.with(|state| {
+            state.breakpoints.push(ChipBreakpoint {
+                record: breakpoint,
+                condition: None,
+                log_message: None,
+            });
+        });
     }
 
-    /// Replaces the breakpoints of file `file_id` with breakpoints on `spans`, in the request's
-    /// order, and returns the file's new generation. The file's generation advances by one, with
-    /// saturation, even when `spans` is empty, and every replacement breakpoint starts with no
-    /// hit; the breakpoints of other files stay (specification 13, "Runtime debug state,
-    /// mutation, and projection invariants").
+    /// Replaces the breakpoints of file `file_id` with `breakpoints`, each on its span with its
+    /// options, in the request's order, and returns the file's new generation. The file's
+    /// generation advances by one, with saturation, even when `breakpoints` is empty, and every
+    /// replacement breakpoint starts with no hit; the breakpoints of other files stay
+    /// (specification 13, "Runtime debug state, mutation, and projection invariants").
     #[must_use]
-    pub fn replace_breakpoints(&self, file_id: u32, spans: Vec<Span<Position>>) -> u64 {
+    pub fn replace_breakpoints(
+        &self,
+        file_id: u32,
+        breakpoints: Vec<(Span<Position>, BreakpointOptions)>,
+    ) -> u64 {
         self.with(|state| {
             let generation = {
                 let entry = state.generations.entry(file_id).or_insert(0);
@@ -339,14 +408,19 @@ impl ChipDebug {
             };
             state
                 .breakpoints
-                .retain(|breakpoint| breakpoint.id.file_id != file_id);
-            state.breakpoints.extend(spans.into_iter().map(|span| {
-                Breakpoint::new(StatementId {
-                    file_id,
-                    span,
-                    generation,
-                })
-            }));
+                .retain(|breakpoint| breakpoint.record.id.file_id != file_id);
+            state
+                .breakpoints
+                .extend(breakpoints.into_iter().map(|(span, options)| {
+                    ChipBreakpoint::new(
+                        StatementId {
+                            file_id,
+                            span,
+                            generation,
+                        },
+                        options,
+                    )
+                }));
             generation
         })
         .unwrap_or(0)
@@ -370,9 +444,9 @@ impl ChipDebug {
                 .breakpoints
                 .iter()
                 .map(|breakpoint| BreakpointView {
-                    file_id: breakpoint.id.file_id,
-                    start: breakpoint.id.span.start,
-                    end: breakpoint.id.span.end,
+                    file_id: breakpoint.record.id.file_id,
+                    start: breakpoint.record.id.span.start,
+                    end: breakpoint.record.id.span.end,
                 })
                 .collect()
         })
@@ -390,6 +464,14 @@ impl ChipDebug {
     #[must_use]
     pub fn drain_stops(&self) -> Vec<LastStop> {
         self.with(|state| state.stops.drain(..).collect())
+            .unwrap_or_default()
+    }
+
+    /// The logpoint messages since the last call, oldest first, and an empty buffer after it
+    /// (specification 11 §6.13.2).
+    #[must_use]
+    pub fn drain_logs(&self) -> Vec<LogRecord> {
+        self.with(|state| state.logs.drain(..).collect())
             .unwrap_or_default()
     }
 
@@ -492,12 +574,18 @@ impl ChipDebug {
     /// The decision at a statement start (specification 13, "Runtime Debug-Control Execution" and
     /// "Breakpoint evaluation, source resolution, and hook contract"), in the order trust-runtime's
     /// hook takes it: the boundary is recorded and bound to its frame, the pending pause of a held
-    /// scan is emitted, and a step, or else a breakpoint, stops here.
+    /// scan is emitted, and a step, or else a breakpoint, stops here. A breakpoint's condition and
+    /// a logpoint's message are evaluated with `names`, the names of the frame that runs the
+    /// statement; without them a condition does not stop and a logpoint records nothing.
     ///
     /// # Errors
     ///
     /// [`RuntimeError::InvalidExecutionState`] when the state was in use.
-    pub fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
+    pub fn at_statement(
+        &self,
+        at: &StatementStart<'_>,
+        names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError> {
         self.with(|state| {
             let DebugState {
                 run,
@@ -505,6 +593,7 @@ impl ChipDebug {
                 suppression,
                 last_stop,
                 stops,
+                logs,
                 stop_capacity,
                 frame_locations,
                 ..
@@ -520,8 +609,23 @@ impl ChipDebug {
                 let stop = stop_at(reason, at, *control.current_thread, None);
                 record_stop(last_stop, stops, *stop_capacity, stop);
             }
+            let thread = *control.current_thread;
             let decided = control.boundary(at.depth, || {
-                Ok::<_, Infallible>(match_breakpoint(breakpoints, suppression, at))
+                let mut log = |text| {
+                    let record = LogRecord {
+                        text,
+                        statement: at.span,
+                        thread,
+                    };
+                    record_log(logs, *stop_capacity, record);
+                };
+                Ok::<_, Infallible>(match_breakpoint(
+                    breakpoints,
+                    suppression,
+                    at,
+                    names,
+                    &mut log,
+                ))
             });
             let Ok(stop) = decided;
             if let Some(stop) = stop {
@@ -588,6 +692,18 @@ fn record_stop(
     stops.push_back(stop);
 }
 
+/// Records the logpoint message `log`. A message beyond the buffer's capacity replaces the oldest;
+/// with no capacity none is kept.
+fn record_log(logs: &mut VecDeque<LogRecord>, capacity: usize, log: LogRecord) {
+    if capacity == 0 {
+        return;
+    }
+    if logs.len() >= capacity {
+        logs.pop_front();
+    }
+    logs.push_back(log);
+}
+
 /// Binds the statement to the frame that runs it, by the call depth it runs at: a statement at
 /// depth `d` ends every frame at depth `d` or deeper, which have returned, and leaves the frames
 /// below it at the statement that called into the next one. The runtime updates the active frame's
@@ -608,24 +724,50 @@ fn bind_frame_location(locations: &mut Vec<FrameStop>, at: &StatementStart<'_>) 
 }
 
 /// The generation of the breakpoint that stops at the statement `at`, if there is one: the first
-/// breakpoint, in registration order, whose hit the shared rule lets through. That breakpoint then
-/// stops no more in this scan (specification 13, "Breakpoint evaluation, source resolution, and hook
-/// contract").
+/// breakpoint, in registration order, whose hit the shared rule lets through and whose condition,
+/// evaluated with `names`, gives `TRUE`. That breakpoint then stops no more in this scan. A
+/// logpoint that the rule and its condition let through gives its message to `log` and stops
+/// nothing, and the cycle suppression never holds it back (specification 13, "Breakpoint
+/// evaluation, source resolution, and hook contract").
 fn match_breakpoint(
-    breakpoints: &mut [Breakpoint<Position>],
+    breakpoints: &mut [ChipBreakpoint],
     suppression: &mut CycleSuppression<Position>,
     at: &StatementStart<'_>,
+    names: Option<&dyn Names>,
+    log: &mut dyn FnMut(alloc::string::String),
 ) -> Option<u64> {
     for breakpoint in breakpoints.iter_mut() {
-        if observe_hit(
+        let is_logpoint = breakpoint.log_message.is_some();
+        if !observe_hit(
             breakpoint,
-            |id| suppression.suppresses(id),
+            |id| !is_logpoint && suppression.suppresses(id),
             at.span.file_index,
             at.span.start,
         ) {
-            suppression.record_stop(breakpoint.id);
-            return Some(breakpoint.id.generation);
+            continue;
         }
+        if let Some(condition) = &breakpoint.condition {
+            // A condition without the state to evaluate it in, or that gives no TRUE, does not
+            // stop; the hit stays counted.
+            let Some(names) = names else {
+                continue;
+            };
+            if !matches!(evaluate(condition, names), Ok(Value::Bool(true))) {
+                continue;
+            }
+        }
+        if let Some(parts) = &breakpoint.log_message {
+            if let Some(names) = names {
+                log(format_message(parts, names));
+            }
+            continue;
+        }
+        suppression.record_stop(breakpoint.record.id);
+        return Some(breakpoint.record.id.generation);
     }
     None
 }
+
+#[cfg(test)]
+#[path = "debugger/tests.rs"]
+mod tests;

@@ -8,6 +8,7 @@ mod build;
 mod coerce;
 mod compiler;
 mod config;
+mod expression;
 #[allow(clippy::module_inception)]
 mod harness;
 pub(crate) mod initializer;
@@ -32,6 +33,7 @@ pub(crate) use build::LoweredApplication;
 pub(crate) use build::{lower_application, lower_application_with_abi};
 pub use coerce::{coerce_initializer_value_to_type, coerce_value_to_type};
 pub(crate) use config::{program_access_target_policy, AccessTargetPolicy};
+pub use expression::{compile_debug_expression, project_expression_types};
 pub use harness::TestHarness;
 pub(crate) use io::{
     bind_value_ref_to_address, collect_direct_field_bindings, parse_field_address, FieldAddress,

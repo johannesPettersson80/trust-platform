@@ -15,7 +15,7 @@ use super::image::{Image, RetainRecord, SymbolRecord, NONE, SYMBOL_PROGRAM};
 use super::values::{damaged, read_value, Types, Writer};
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
-use crate::value::Value;
+use crate::value::{EnumValue, Value};
 
 /// Where a variable lies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -467,6 +467,33 @@ fn shape_of(types: &Types<'_>, type_index: u32, depth: u8) -> Result<TypeShape, 
         }
         elementary if elementary < kind::ENUM => TypeShape::Elementary(elementary),
         _ => TypeShape::Other,
+    })
+}
+
+/// The value `value` of the enumeration named `type_name`, with the names and the number the
+/// program declares, both names compared without regard to case; `None` when the program declares
+/// no such enumeration or no such value of it (a debug expression's enumeration literal,
+/// specification 11 §6.13.2).
+#[must_use]
+pub fn enum_value(image: &Image<'_>, type_name: &str, value: &str) -> Option<Value> {
+    use super::image::type_kind as kind;
+    let types = Types::of(image).ok()?;
+    (0..types.len()).find_map(|index| {
+        let ty = types.get(index).ok()?;
+        let declared = types.string(ty.name).ok()?;
+        if ty.kind != kind::ENUM || !declared.eq_ignore_ascii_case(type_name) {
+            return None;
+        }
+        types.variants(&ty).ok()?.find_map(|(name, number)| {
+            let name = types.string(name).ok()?;
+            name.eq_ignore_ascii_case(value).then(|| {
+                Value::Enum(Box::new(EnumValue::from_canonical_parts(
+                    SmolStr::new(declared),
+                    SmolStr::new(name),
+                    number,
+                )))
+            })
+        })
     })
 }
 

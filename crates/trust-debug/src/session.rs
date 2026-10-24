@@ -335,6 +335,22 @@ impl DebugRuntime for DebugSession {
         DebugSession::metadata(self)
     }
 
+    fn project_expression_types(
+        &self,
+    ) -> Result<
+        (
+            trust_hir::types::TypeRegistry,
+            trust_runtime::value::DateTimeProfile,
+        ),
+        CompileError,
+    > {
+        let sources = collect_project_sources(&self.source_options)?
+            .into_iter()
+            .map(|(path, text)| HarnessSourceFile::with_path(path, text))
+            .collect::<Vec<_>>();
+        trust_runtime::harness::project_expression_types(&sources)
+    }
+
     fn source_file_for_path(&self, path: &str) -> Option<&SourceFile> {
         DebugSession::source_file_for_path(self, path)
     }

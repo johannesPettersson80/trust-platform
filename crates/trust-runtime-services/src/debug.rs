@@ -22,6 +22,9 @@
 pub mod breakpoint;
 #[cfg(feature = "native")]
 mod compiled;
+pub mod expression;
+pub mod logpoint;
+pub mod options;
 pub mod paging;
 pub mod projection;
 pub mod reads;
@@ -32,9 +35,11 @@ pub mod sources;
 pub mod statement;
 
 pub use breakpoint::{
-    count_hit, observe_hit, Breakpoint, BreakpointRecord, CountedHit, CycleSuppression,
-    HitCondition,
+    count_hit, observe_hit, Breakpoint, BreakpointOptions, BreakpointRecord, CountedHit,
+    CycleSuppression, HitCondition,
 };
+#[cfg(feature = "native")]
+pub(crate) use compiled::FrameNames;
 pub use requests::{answer, is_debug_operation, BreakpointView, Debugger, StopRecord};
 pub use run::{
     BoundaryStop, RunAction, RunControl, RunEffect, RunMode, RunOutcome, StepKind, StepState,

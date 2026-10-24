@@ -8,11 +8,11 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use crate::protocol::{Event, MessageType, StoppedEventBody};
+use crate::protocol::{Event, MessageType, OutputEventBody, Source, StoppedEventBody};
 
 use super::protocol_io::write_protocol_log;
-use super::remote::{RemoteEndpoint, RemoteSession, RemoteStop};
-use super::StopGate;
+use super::remote::{RemoteEndpoint, RemoteLog, RemoteSession, RemoteStop};
+use super::{CoordinateConverter, StopGate};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
@@ -30,6 +30,8 @@ pub struct RemoteStopPollerConfig {
     pub logger: Option<Arc<Mutex<BufWriter<File>>>>,
     pub seq: Arc<AtomicU32>,
     pub breakpoints: Arc<Mutex<HashMap<u32, u64>>>,
+    /// The client's line and column base, for the positions of logpoint messages.
+    pub(super) coordinate: CoordinateConverter,
 }
 
 impl RemoteStopPoller {
@@ -37,12 +39,19 @@ impl RemoteStopPoller {
         let stop = Arc::new(AtomicBool::new(false));
         let stop_flag = Arc::clone(&stop);
         let handle = thread::spawn(move || {
-            let mut session = match RemoteSession::connect(config.endpoint, config.token) {
-                Ok(session) => session,
-                Err(_) => return,
-            };
+            let mut session =
+                match RemoteSession::connect(config.endpoint.clone(), config.token.clone()) {
+                    Ok(session) => session,
+                    Err(_) => return,
+                };
             while !stop_flag.load(Ordering::Relaxed) {
-                if let Ok(stops) = session.debug_stops() {
+                if let Ok((stops, logs)) = session.debug_stops() {
+                    // A logpoint's messages, which stop nothing (specification 11 §6.13.2).
+                    for log in logs {
+                        if !emit_log_event(&log, &config) {
+                            return;
+                        }
+                    }
                     for stop in stops {
                         config.stop_gate.wait_clear();
                         if !should_emit_stop(&stop, &config.pause_expected, &config.breakpoints) {
@@ -85,6 +94,42 @@ fn should_emit_stop(
         return false;
     }
     true
+}
+
+/// Writes the logpoint message `log` to the client as a `console` output event at the logpoint's
+/// source and position; `false` when the client is gone.
+fn emit_log_event(log: &RemoteLog, config: &RemoteStopPollerConfig) -> bool {
+    let output = if log.text.ends_with('\n') {
+        log.text.clone()
+    } else {
+        format!("{}\n", log.text)
+    };
+    let body = OutputEventBody {
+        output,
+        category: Some("console".to_string()),
+        source: log.path.as_ref().map(|path| Source {
+            name: None,
+            path: Some(path.clone()),
+            source_reference: None,
+        }),
+        line: log.line.map(|line| config.coordinate.to_client_line(line)),
+        column: log
+            .column
+            .map(|column| config.coordinate.to_client_column(column)),
+    };
+    let event = Event {
+        seq: config.seq.fetch_add(1, Ordering::Relaxed),
+        message_type: MessageType::Event,
+        event: "output".to_string(),
+        body: Some(body),
+    };
+    let Ok(serialized) = serde_json::to_string(&event) else {
+        return true;
+    };
+    if let Some(logger) = &config.logger {
+        let _ = write_protocol_log(logger, "->", &serialized);
+    }
+    super::protocol_io::write_message_locked(&config.writer, &serialized).is_ok()
 }
 
 fn emit_stop_event(

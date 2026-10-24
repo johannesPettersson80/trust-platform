@@ -56,6 +56,15 @@ pub struct RemoteStop {
     pub breakpoint_generation: Option<u64>,
 }
 
+/// A logpoint's message that `debug.stops` returned (specification 11 §6.13.2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteLog {
+    pub text: String,
+    pub path: Option<String>,
+    pub line: Option<u32>,
+    pub column: Option<u32>,
+}
+
 #[derive(Debug, Clone)]
 pub struct RemoteDebugState {
     pub paused: bool,
@@ -67,6 +76,9 @@ pub struct RemoteSession {
     endpoint: RemoteEndpoint,
     token: Option<String>,
     client: ControlClient,
+    /// Whether the runtime runs a compiled program, which evaluates debug expressions in their
+    /// compiled form (specification 11 §6.13.2); asked once, when an expression is first sent.
+    compiled: Option<bool>,
 }
 
 impl RemoteSession {
@@ -76,7 +88,28 @@ impl RemoteSession {
             endpoint,
             token,
             client,
+            compiled: None,
         })
+    }
+
+    /// Whether the runtime runs a compiled program, to which a debug expression goes compiled: its
+    /// `status` names the backend `native`. The answer holds for the session.
+    pub fn compiled(&mut self) -> bool {
+        if let Some(compiled) = self.compiled {
+            return compiled;
+        }
+        let compiled = self
+            .request("status", None)
+            .ok()
+            .and_then(|status| {
+                status
+                    .get("execution_backend")
+                    .and_then(Value::as_str)
+                    .map(|backend| backend == "native")
+            })
+            .unwrap_or(false);
+        self.compiled = Some(compiled);
+        compiled
     }
 
     pub fn endpoint(&self) -> &RemoteEndpoint {
@@ -97,25 +130,38 @@ impl RemoteSession {
         Ok(RemoteDebugState { paused, last_stop })
     }
 
-    pub fn debug_stops(&mut self) -> RemoteResult<Vec<RemoteStop>> {
+    /// The stops and the logpoint messages since the last call (specification 11 §6.13.2,
+    /// §6.13.3).
+    pub fn debug_stops(&mut self) -> RemoteResult<(Vec<RemoteStop>, Vec<RemoteLog>)> {
         let payload = self.request("debug.stops", None)?;
         let stops = payload
             .get("stops")
             .and_then(|value| value.as_array())
             .map(|stops| stops.iter().filter_map(parse_stop).collect())
             .unwrap_or_default();
-        Ok(stops)
+        let logs = payload
+            .get("logs")
+            .and_then(|value| value.as_array())
+            .map(|logs| logs.iter().filter_map(parse_log).collect())
+            .unwrap_or_default();
+        Ok((stops, logs))
     }
 
+    /// `breakpoints.set` of the zero-based `lines` of `source`, with each line's `options` when
+    /// any line has some (specification 11 §6.13.2).
     pub fn set_breakpoints(
         &mut self,
         source: &str,
         lines: Vec<u32>,
+        options: Option<Vec<Value>>,
     ) -> RemoteResult<(Vec<Breakpoint>, Option<u32>, Option<u64>)> {
-        let params = json!({
+        let mut params = json!({
             "source": source,
             "lines": lines,
         });
+        if let Some(options) = options {
+            params["options"] = Value::Array(options);
+        }
         let payload = self.request("breakpoints.set", Some(params))?;
         let resolved = payload
             .get("resolved")
@@ -254,7 +300,19 @@ impl RemoteSession {
             "frame_id": frame_id,
         });
         let payload = self.request("debug.evaluate", Some(params))?;
-        serde_json::from_value::<EvaluateResponseBody>(payload).map_err(|err| err.to_string())
+        evaluate_body(payload)
+    }
+
+    /// `debug.evaluate` of the compiled expression `expr`, version 1 (specification 11 §6.13.2).
+    pub fn evaluate_compiled(
+        &mut self,
+        expr: &[u8],
+        frame_id: Option<u32>,
+    ) -> RemoteResult<EvaluateResponseBody> {
+        let mut params = compiled_expression(expr);
+        params["frame_id"] = json!(frame_id);
+        let payload = self.request("debug.evaluate", Some(params))?;
+        evaluate_body(payload)
     }
 
     pub fn pause(&mut self) -> RemoteResult<()> {
@@ -399,6 +457,39 @@ impl RemoteSession {
     }
 }
 
+/// A compiled expression, version 1, as a control request carries it: `expr_version` and the base64
+/// of its bytes (specification 11 §6.13.2).
+pub fn compiled_expression(bytes: &[u8]) -> Value {
+    use base64::Engine as _;
+    json!({
+        "expr_version": 1,
+        "expr": base64::engine::general_purpose::STANDARD.encode(bytes),
+    })
+}
+
+/// A `debug.evaluate` answer as the control protocol carries it, in snake case (specification 11
+/// §6.13.2).
+#[derive(Debug, Deserialize)]
+struct EvaluateReply {
+    result: String,
+    #[serde(default, rename = "type")]
+    type_name: Option<String>,
+    #[serde(default)]
+    variables_reference: u32,
+}
+
+/// The DAP body of the `debug.evaluate` answer `payload`.
+fn evaluate_body(payload: Value) -> RemoteResult<EvaluateResponseBody> {
+    let reply = serde_json::from_value::<EvaluateReply>(payload).map_err(|err| err.to_string())?;
+    Ok(EvaluateResponseBody {
+        result: reply.result,
+        r#type: reply.type_name,
+        variables_reference: reply.variables_reference,
+        named_variables: None,
+        indexed_variables: None,
+    })
+}
+
 pub fn attach_from_args(
     args: &AttachArguments,
 ) -> RemoteResult<(RemoteSession, Option<RemoteDebugState>)> {
@@ -501,6 +592,24 @@ impl Write for ControlStream {
             ControlStream::Unix(stream) => stream.flush(),
         }
     }
+}
+
+fn parse_log(value: &Value) -> Option<RemoteLog> {
+    let number = |key: &str| {
+        value
+            .get(key)
+            .and_then(Value::as_u64)
+            .and_then(|number| u32::try_from(number).ok())
+    };
+    Some(RemoteLog {
+        text: value.get("text")?.as_str()?.to_string(),
+        path: value
+            .get("path")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        line: number("line"),
+        column: number("column"),
+    })
 }
 
 fn parse_stop(value: &Value) -> Option<RemoteStop> {

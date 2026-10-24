@@ -18,7 +18,7 @@ use crate::protocol::{
 use super::super::control_bridge::{default_control_endpoint, DebugControlServer};
 use super::super::launch::{
     launch_control_auth_token, launch_control_endpoint, launch_program_path, launch_runtime_root,
-    launch_stop_on_entry, source_options_from_launch,
+    launch_stop_on_entry, source_options_from_attach, source_options_from_launch,
 };
 use super::super::remote::attach_from_args;
 use super::super::util::is_configuration_request;
@@ -434,6 +434,9 @@ impl DebugAdapter {
         match attach_from_args(&args) {
             Ok((remote_session, state)) => {
                 self.remote_session = Some(remote_session);
+                self.session
+                    .update_source_options(source_options_from_attach(&args));
+                self.expression_types = None;
                 events
                     .push(self.debug_output_message("[trust-debug] attach: connected".to_string()));
                 // The breakpoints the client set while the attach was pending reach the runtime

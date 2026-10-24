@@ -15,6 +15,7 @@ use trust_runtime::value::Value as RuntimeValue;
 
 use crate::protocol::{EvaluateArguments, EvaluateResponseBody, Request};
 
+use super::super::remote::RemoteSession;
 use super::super::{DebugAdapter, DispatchOutcome};
 
 impl DebugAdapter {
@@ -33,8 +34,29 @@ impl DebugAdapter {
             };
         };
 
-        if let Some(remote) = self.remote_session.as_mut() {
-            match remote.evaluate(&args.expression, args.frame_id) {
+        if self.remote_session.is_some() {
+            let compiled = self
+                .remote_session
+                .as_mut()
+                .is_some_and(RemoteSession::compiled);
+            // A compiled program evaluates the expression compiled by the tool from the project's
+            // types (specification 11 §6.13.2).
+            let result = if compiled {
+                self.compile_for_runtime(&args.expression).and_then(|expr| {
+                    self.remote_session
+                        .as_mut()
+                        .map_or(Err(String::from("not attached")), |remote| {
+                            remote.evaluate_compiled(&expr, args.frame_id)
+                        })
+                })
+            } else {
+                self.remote_session
+                    .as_mut()
+                    .map_or(Err(String::from("not attached")), |remote| {
+                        remote.evaluate(&args.expression, args.frame_id)
+                    })
+            };
+            match result {
                 Ok(body) => {
                     return DispatchOutcome {
                         responses: vec![self.ok_response(&request, Some(body))],
