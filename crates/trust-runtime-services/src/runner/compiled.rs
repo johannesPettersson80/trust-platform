@@ -568,6 +568,7 @@ impl ScanHooks for TaskPhases<'_, '_> {
     }
 }
 
+mod change;
 mod debug;
 #[cfg(test)]
 mod loop_tests;

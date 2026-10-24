@@ -3920,27 +3920,59 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "line": 42,
+        "line": 57,
         "owner": "native execution (specification 44)",
-        "invariant": "The copy writes at most PROGRAM_CODE_BYTES bytes into the program code region while no program holds it (HELD was false and is set), from the mapped slot in flash, apart from it; fence.i makes the CPU fetch the written bytes (RISC-V Zifencei).",
+        "invariant": "The module lies in the slot the image window maps from flash, which the C6 executes in place; the program store never writes the running program's slot and the window is remapped only after that program is dropped (specification 34 \u00a75.1, MEM-14).",
         "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
-        "review_date": "2026-10-22"
+        "review_date": "2026-10-24"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "line": 54,
+        "line": 111,
         "owner": "native execution (specification 44)",
-        "invariant": "The module lies in the slot the image window maps from flash, which the C6 executes in place; the program store never writes the running program's slot and the window is remapped only after that program is dropped (specification 34 §5.1, MEM-14).",
-        "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
-        "review_date": "2026-10-22"
+        "invariant": "write_region writes at most PROGRAM_CODE_BYTES bytes into the program code region before a program's first scan or at a boundary, where no scan runs, so no code in the region runs or is read while it is written; the module lies in flash or in the heap, apart from the region; fence.i makes the CPU fetch the written bytes (RISC-V Zifencei).",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
+        "review_date": "2026-10-24"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/code_region.rs",
-        "line": 79,
+        "line": 145,
         "owner": "native execution (specification 44)",
-        "invariant": "The region holds the module this program copied in and holds until it is dropped, executable (outside esp-hal's no-execute ranges, trust_code.x) and unchanged since the copy; offset is checked inside the module.",
-        "test_evidence": "The pasteurizer's module copied into the program code region and run by the C6's native firmware on ESP32-C6-DevKitC-1 (22 October 2026, 1 h at 1x: control task 0.061 ms average).",
-        "review_date": "2026-10-22"
+        "invariant": "The region holds the module this program copied in, executable (outside esp-hal's no-execute ranges, trust_code.x) and unchanged while it runs: an online change replaces it only at a boundary, after which this program is dropped without running again, or copies it back before it runs again (specification 44 \u00a712.3); offset is checked inside the module.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
+        "line": 269,
+        "owner": "native execution (specification 44)",
+        "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/compiled_loader/changed_image.rs",
+        "line": 28,
+        "owner": "native execution (specification 44)",
+        "invariant": "ChangedImage::bytes is unsafe to call: the caller builds one program from the bytes and gives that program the image to own in its code, so the 'static slice never outlives the block.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/compiled_loader/changed_image.rs",
+        "line": 31,
+        "owner": "native execution (specification 44)",
+        "invariant": "The block is the image's own from Box::leak in new until drop, and nothing writes it; the caller keeps the image alive for as long as the bytes are used.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
+        "review_date": "2026-10-24"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/compiled_loader/changed_image.rs",
+        "line": 38,
+        "owner": "native execution (specification 44)",
+        "invariant": "The block came from Box::leak in new and is freed once, in drop.",
+        "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
+        "review_date": "2026-10-24"
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",

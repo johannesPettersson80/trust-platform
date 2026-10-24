@@ -986,5 +986,6 @@ pub fn fault_error(record: &FaultRecord, code: u32, budget: u32) -> RuntimeError
 }
 
 mod assertions;
+mod online_change;
 #[cfg(test)]
 pub(crate) mod tests;

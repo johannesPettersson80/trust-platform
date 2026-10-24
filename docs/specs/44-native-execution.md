@@ -1,12 +1,14 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.14 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.15 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
   recursion bounded by a call depth and the interface version 3 of 0.11 and the cheaper checks of
   0.12 chosen by the owner on 23 October 2026; 0.13 from the runtime defects lane the owner set on
-  23 October 2026; 0.14 makes exact the debugger of milestone M3 within the approved design),
+  23 October 2026; 0.14 makes exact the debugger of milestone M3 within the approved design; 0.15
+  works the copy plan of an online change out on the device and keeps a changed image in memory, as
+  specification 34's online change requires),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -97,7 +99,7 @@ preparer, the virtual machine and its compact, kinded and register paths, the le
 | Area | One flat block of program memory: inputs, outputs, markers, globals, retain, instances, stack (§7.1). |
 | Symbol table | The list of every named variable with its type, area and offset (§5.7). |
 | Statement table | Every statement's file, lines and POU, by statement id (§5.9). |
-| Copy plan | What an online change copies from the running program to the new one (§12.2). |
+| Copy plan | What an online change copies from the running program to the new one, worked out by the device from both images (§12.2). |
 | Target | A CPU and its Rust target triple (§4.4). |
 | Toolchain bundle | The pinned Rust compiler, linker and target libraries the tools carry (§4.6). |
 | Reference workload | `examples/vat_pasteurizer` (§14.1). |
@@ -114,8 +116,8 @@ Engineering computer                               Device (every platform)
 │  → rustc + rust-lld, pinned (§4)         │        │   scheduler, cycle, process image     │
 │  → image builder: tables, init memory,   │        │   retain, faults, watchdog            │
 │    symbol table, signature (§5)          │        │   online change (§12)                 │
-│ Tools: deploy, debugger, Live Values,    │        │   debugging and monitoring (§13)      │
-│   online change plan (§12.2)             │◄─────► │   control link and services           │
+│ Tools: deploy, online change, debugger,  │        │   debugging and monitoring (§13)      │
+│   Live Values                            │◄─────► │   control link and services           │
 └─────────────────────────────────────────┘        │ RAM: the areas and the stack (§7)     │
                                                    └──────────────────────────────────────┘
 ```
@@ -725,9 +727,12 @@ pointer), character index (u16: the 1-based index of a character reference, 0 ot
 (u32: the target's first byte in the area), extent (u32: the bytes the target spans), generation
 (u32: the installation generation of specification 34 UPDATE-04). A dereference checks that the area exists,
 that offset + extent lies inside it, and that the generation is the current one; an online change
-repoints or nulls references by its copy plan (§12.3). Until an online change gives an installation
-a generation of its own (milestone M3), every reference a compiled program takes carries
-generation 1, and the kernel interface of §8.2 carries no generation. `REF(variable)` takes the
+repoints or nulls references by its copy plan (§12.2). Every reference a compiled program takes
+carries generation 1, and the kernel interface of §8.2 carries no generation: the references a
+program holds lie in its areas, and an online change repoints each of them into the new program or
+makes it `NULL` (§12.2), so none names a variable of a program that no longer runs. The installation
+generation of specification 34 UPDATE-04 is the services' (Live Values' instance identities, the
+debugger's handles), which an online change advances (§12.3). `REF(variable)` takes the
 reference of a variable that lies in an area; a `VAR_IN_OUT` of a function block stores the
 reference of the argument of its last call and reads and writes the variable through it, and a
 `VAR_IN_OUT` of a function or a method is the caller's variable itself. A `REF` initializer of a
@@ -1002,8 +1007,10 @@ workload's control task took 0.243 ms on average and 1.05 ms at worst; copied in
 code region: 128 KiB of RAM (`PROGRAM_CODE_BYTES`), the linker section `.trust_code` between the
 firmware's static data and its main stack, where neither of esp-hal's no-execute ranges reaches,
 followed by `fence.i`. One program holds the region at a time; the loop drops the program that ran
-before it loads the next. A module larger than the region runs where it lies in the mapped slot,
-slower, and is not refused. The region is RAM the interpreter's firmware gave to its RAM code; the
+before it loads the next, and an online change copies the new module over the running one at its
+boundary (§12.3). A module larger than the region runs where it lies in the mapped slot, slower, and
+is not refused; an online change, whose image lies in the heap, which the C6 does not execute,
+refuses it (§12.3). The region is RAM the interpreter's firmware gave to its RAM code; the
 reference workload's module takes 43,725 bytes of it. The firmware keeps its own RAM code list
 (`ld/rwtext_hook_native.x`: the kernel's scan path and the loop around it, 26 KB instead of the
 interpreter's 105 KB), and its main heap takes 128 KiB more, because an install's upload is held in
@@ -1092,38 +1099,90 @@ same name keeps its value, retained or not, instances and timers included; a cha
 keeps what fits; references name the same variable or become `NULL`; a change never fails because
 of a value; the outputs never change at the boundary (decisions OC-1, OC-2).
 
-### 12.2 The copy plan, computed on the computer
+### 12.2 The copy plan, worked out by the device
 
-**NX-13.** The build computes the copy plan when it knows the running program: the tools keep the
-last image deployed to each device in the project (`.trust/deployed/<device>/program.tpi`), and when
-they do not, the deploy reads the running image's symbol and type tables from the device
-(`program.active` answers them, as specification 34 §11.2 says of the headers). The plan is a table
-of records (old area, old offset, new area, new offset, size, conversion id) produced by matching
-the two symbol tables by canonical name and type:
+**NX-13.** The device works out what an online change carries from the two images it holds at the
+change: the running program's, where it lies (§10.2), and the new one, where its upload lies
+(specification 34 §11.3). Both name every variable with its type (§5.7, §5.8), so nothing else is
+needed: `bytecode.reload` carries the new image as it carries an STBC program (`bytes` or
+`transfer`), and no tool keeps a copy of what a device runs. A plan worked out on the device
+cannot be worked out against another program than the one that runs, and the one implementation in
+the kernel crate (`native::change`) serves every device. (0.1 to 0.14 had the build work the plan
+out against the image the tools last deployed and send it with the image; 0.15 drops that.)
 
-- same type: copy the bytes;
-- a simple type that the new type holds (`INT` to `DINT`, a value inside a new subrange, an
-  enumeration value by name): the named conversion;
-- a structure or instance: its members, by this rule, recursively; an array: its elements by index
-  up to the shorter length;
-- a reference: repoint by the plan when its target exists in the new program, else `NULL`;
-- anything else: the new declaration's initial value, and an `online_change_value` event naming the
-  variable, as today.
+The rules are those of specification 11 §6.7.1, applied to the areas:
 
-The plan is deterministic and small (one record per variable kept), and it is transferred with the
-image in the same upload as a `TRSTA003` entry of kind 4. A plan the device finds inconsistent with
-the two images (an offset outside an area, a size mismatch) refuses the change before anything
-changes.
+- **The process images** (`%I`, `%Q`, `%M`, areas 1 to 3) are carried by address: the bytes both
+  programs have, at the same offsets (specification 34 §11.3). A variable located there follows its
+  address, not its name.
+- **The variables** are carried by name, names compared without regard to case: each global of the
+  new program (a symbol without a parent in the globals or retain area) from the running program's
+  global of the same name, and each variable of a program instance (a symbol whose parent is a
+  program root, §5.7) from the running program's variable of the same name, the program instances
+  matched by their names. A variable that moved between the globals or instance area and the retain
+  area (`RETAIN` added or removed) is carried from where it lay to where it lies.
+- **By type**, recursively, the types read from each image's type table (§5.8):
+  - an elementary value (a number, a bit string, a time or a date, a character, an enumeration or a
+    subrange) of the same type is copied; of a changed type it is kept when the new type holds it:
+    the value converted to the new type and back comes out unchanged, a subrange holds it within its
+    bounds, an enumeration has a value of the same name;
+  - a text is kept when the new capacity holds it; it is never cut;
+  - a structure keeps its members by name; a structure whose members overlap (`STRUCT OVERLAP`) and
+    a union are kept only when their layout is the same in both programs;
+  - an array keeps the elements at the indices both arrays have, each by these rules;
+  - a function block or class instance keeps its members by name and its base's through `__BASE`;
+    its class id (`__CLASS`) is always the new program's, which may number its classes otherwise; a
+    library block's own state (its other `__` members, such as a timer's start) is kept only into an
+    instance of the same function block; an in-out member is not carried, since every call binds it
+    again, and neither is a constant;
+  - a reference, a pointer or an interface value names the same variable or instance in the new
+    program when the new program has it with the type the reference names (an element of an array
+    at the same index, a character of a text at the same index when the new text has it), and is
+    `NULL` otherwise.
+- **Anything else** keeps the new program's starting value: a new variable, a value the new type
+  does not hold.
+
+The variables that do not go on with the running value as it was are recorded as the
+`online_change_value` events of specification 11 §6.7.1 (a new variable, a converted value, a value
+not kept, a reference made `NULL`), at most 32 and then their count, with the variable's path as the
+interpreter names it (`Plant.motor.speed`, `Plant.table[3]`). A value whose type is the same in both
+programs is copied as bytes, without building a value; only a changed elementary value is read and
+written through the type tables.
 
 ### 12.3 Applying the change
 
-At the boundary the kernel: copies `INIT` of the new image into a second set of areas (the device
-holds both programs' areas during the change, admitted by §10.2 step 6 against the memory the running
-program leaves free, UPDATE-06); applies the plan from the old areas to the new; repoints the
-references; swaps the area set and the entry table; retires the old areas. The scan that follows
-runs the new program with the old program's values and the task schedule continued (specification
-34 0.46, 0.49). Nothing is written to flash at the boundary: the new image was installed into the
-other slot before the request, as today.
+An online change writes no flash (specification 34 §11.3, decision Q10), and a device writes no
+flash while a program runs (specification 34 §5.1: "an upload begun while the resource runs is held
+in the heap"). The new image therefore stays where its upload lies, in the device's memory, for as
+long as the changed program runs, and a stop and a `restart`, or a reset, start the installed
+program in its place. At the boundary the device:
+
+1. admits the new image where its upload lies (§10.2, steps 2 to 6);
+2. checks its memory (specification 34 UPDATE-06): the new program's memory figure, less its stack
+   bound, which the two programs share, against the memory the running program and the upload leave
+   free, with the texts of specification 34 §11.3; on the C6 a module larger than the program code
+   region (§10.3) is refused with `the module of <n> bytes does not fit the program code region of
+   <m> bytes`, because the C6 executes no heap memory;
+3. builds the new program: its areas with `INIT`, its bindings checked against the running
+   program's lines and its safe state, as specification 34 §11.3 checks a candidate;
+4. places the new module where the CPU runs it, runs the new program's cold-init entry (§6.7) and
+   carries the running program's values into its areas (§12.2). A computer maps the new module
+   beside the running one. The C6 copies it into the program code region over the running module,
+   which no scan runs at a boundary, and when the cold-init entry faults, it copies the running
+   module back from its image and the running program goes on as it was (UPDATE-01);
+5. continues the running program's task schedule in the new program's tasks of the same names
+   (decision OC-2), swaps the programs, hands the new one the lines and the checkpoint store
+   (specification 34 §11.3), and retires the running program with its areas; an image that an
+   earlier change brought into the heap is freed with it.
+
+The scan that follows runs the new program with the running program's values (specification 34
+0.46, 0.49). The installation generation of specification 34 UPDATE-04 advances, so that Live
+Values' instance identities and the debugger's handles of the running program are stale; the
+references inside the program are repointed by §12.2 and keep generation 1 (§7.3).
+
+On the ESP32-C6 the heap must hold the changed program's image for as long as it runs, so a second
+change in a row needs room for both images at once. The bench measures it against the pasteurizer's
+image (the one list's N4).
 
 ## 13. Debugging and monitoring
 
@@ -1221,8 +1280,13 @@ queued variable writes are applied at the cycle start, before the program runs, 
 and then every active variable force; the queued image writes and the forces of the input and
 marker images after the drivers read the inputs, before the program samples them, so that a forced
 input holds over the physical one; and the output image's forces after the scan, before the
-outputs reach the drivers and the snapshot. Each write converts the value as the symbol's type does
-(`NativeProgram::write_symbol`) and leaves the variable as it was when it is refused. A target the
+outputs reach the drivers and the snapshot. An integer the request carries is an untyped literal
+(specification 11, "An admitted integer is an untyped literal"): it takes the declared integer or
+bit-string type of its variable, through aliases and subranges, or at a process-image address the
+type of the variable bound there, else the bit string of the address's width, whose bits the image
+holds, and a literal outside that type overflows. Each write then converts the value as the
+symbol's type does (`NativeProgram::write_symbol`) and leaves the variable as it was when it is
+refused. A target the
 program does not hold or of another generation is refused with a `WriteRejected` event, as the
 bytecode engine refuses it, and a refused force is withdrawn. A debugger's expression write
 (`setExpression`) waits for the debugger of compiled programs and is refused.
@@ -1371,3 +1435,4 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.12 | 23 October 2026 | The checks of M4 made cheaper, none dropped (the owner, 23 October 2026, on why truST's pasteurizer control task took 150 ns per activation against RuSTy's 140 ns: the checks RuSTy does not make). §6.5: the check of a real result, which the library made and the table did not list, is listed, and a chain of real `+ - *` whose operands can neither fault nor write is checked at its last operation, which faults in the same cases and the same statement. §6.6: a release image holds a `FOR` loop's control variable in a local when nothing in the body but the loop can write it, and writes it at the start of each pass. The constant index inside the bounds, unchecked since 0.1, is now unchecked in the generated code too. |
 | 0.13 | 23 October 2026 | The variables of instances retained as IEC 61131-3 §6.5.6.2 says (the runtime defects lane, D1). §5.10: the retain map holds one 16-byte record per retained variable, in the order of specification 11 §6.7, with its checkpoint key, its area, its offset in the area and its type; a retained variable of a function block or class instance lies with its instance, so a record names its area. §5.2 and §10.2: image format version 2. §6.7: a warm restart keeps every variable the retain map names and starts every other one, an instance or a reference in the retain area too. §11: the capture writes each variable from its area; the restore works out each entry's bytes from the variable's present bytes and checks them before any area changes, and finds a member declared without `RETAIN` by its key's path to leave it alone. §6.4 and Appendix A: a call beyond the call levels reads `call depth exceeded`, the bytecode engine's text too (specification 12 §7.4.1). |
 | 0.14 | 24 October 2026 | The debugger of compiled programs (the one list's N3), within the approved design, which named POU symbols and frame variable symbols (§5.7) and a frame base the hook records in `Cx` (§13.3): §5.7 makes both exact for a debug image, with POU symbols named `@<POU>` so that no variable lookup finds one; §8.2: `Cx` gains `frame`, the chain of `Frame` records a debug image links on each POU entry, and the interface becomes version 4; §13.2: breakpoints by the statement table, the stop's call depth from the frame chain, the hold inside `api.stop`, and the reads of a held scan through the symbol table. |
+| 0.15 | 24 October 2026 | Online change (the one list's N4), within specification 34 §11.3, which §12.1 keeps in full. §12.2: the device works the copy plan out from the two images it holds, whose symbol and type tables name every variable, instead of the build working it out against the image the tools last deployed and sending it with the image as a `TRSTA003` entry of kind 4: a plan worked out on the device cannot be worked out against another program than the one that runs, no tool keeps a copy of what a device runs, and `bytecode.reload` carries the image as it carries STBC. The rules are specification 11 §6.7.1's, made exact for the areas: process images by address, variables by name, members by name, `__CLASS` always the new program's, a library block's own state only into the same block, references repointed or `NULL`, the interpreter's events. §12.3: the new image stays where its upload lies, because an online change writes no flash and a device writes none while a program runs (specification 34 §5.1, Q10); 0.1 said it was installed into the other slot before the request, which specification 34 §11.2 (an install needs a Stopped resource) does not allow. The C6 copies the new module over the running one at the boundary and copies the running one back when the new program's cold-init entry faults; a module larger than the program code region cannot be changed online on the C6. §7.3: references keep generation 1, because the change repoints them; the installation generation is the services'. §10.3: the code region at a change. §13.3: an integer Live Values writes is an untyped literal, as specification 11 says for every runtime (the C6 bench found `set` of 2 into an `INT` refused). |

@@ -15,16 +15,24 @@
 //!    the cold start through the image's retain map (specification 44 §11).
 //!
 //! The lines are claimed last, so an image that is refused leaves the outputs as the stop of the
-//! program before it left them. An online change has no copy plan until milestone M3 (§12): the
-//! loader refuses a change with that reason.
+//! program before it left them.
+//!
+//! An online change (§12.3) writes no flash: the new image stays where its upload lies, in the heap,
+//! for as long as the changed program runs ([`ChangedImage`]). The change is checked first, its
+//! image, its memory beside the running program and the upload, its bindings against the running
+//! program's lines; then its module is copied over the running one in the program code region, its
+//! cold-init entry runs and it takes the running program's values (§12.2). A failure after the copy
+//! copies the running module back, so the running program goes on as it was.
 
 use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::native::image::Image;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::{self as native, ModuleCode, NativeProgram};
 use trust_runtime_core::native::KERNEL_FUNCTIONS;
@@ -33,20 +41,24 @@ use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::chip::platform::ProgramValues;
+use trust_runtime_services::chip::process_io::record_lines;
 use trust_runtime_services::installation::{Admitted, ProgramFormat};
 use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::ports::StatusPort;
 use trust_runtime_services::runner::{
-    check_image_retained_values, Candidate, CompiledCycle, EngineLiveValues, Loaded, ProgramLoader,
-    ResourceCycle, RetainSource,
+    address_text, check_image_retained_values, unwired_binding, Candidate, ChangeMemory,
+    CompiledCycle, EngineLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainSource,
 };
 
 use crate::loader::{
     cycle_timeout_ms, event_capacity, retain_config, settings, start_failure, CycleWatchdog,
-    ProgramHardware,
+    ProgramHardware, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
 };
 use crate::platform::NativePlatform;
 use crate::profile::NATIVE_TARGET;
+
+mod changed_image;
+pub use changed_image::ChangedImage;
 
 /// The cycle of a compiled program whose module runs where `K` put it.
 pub type CompiledProgramCycle<C, I, K> = CompiledCycle<'static, C, I, K>;
@@ -70,6 +82,23 @@ pub trait ModuleMemory {
     /// Puts `module`, the code and read-only data of an admitted image as they lie in the mapped
     /// slot, where the CPU runs them. The memory it takes is free again when the code is dropped.
     fn place(&mut self, module: &'static [u8]) -> Self::Code;
+
+    /// Puts the module of an online change, which lies in the heap `image`, where the CPU runs it,
+    /// in place of the running program's module, at a boundary (specification 44 §12.3, step 4).
+    /// The code owns `image`, so the image lives as long as the program.
+    ///
+    /// # Errors
+    ///
+    /// The refusal of a module the device cannot run from where a change puts it.
+    fn place_change(
+        &mut self,
+        module: &'static [u8],
+        image: ChangedImage,
+    ) -> Result<Self::Code, String>;
+
+    /// Puts `module`, the module of the running program whose code is `running`, back where the CPU
+    /// runs it, after a change that placed its module but did not complete.
+    fn restore(&mut self, running: &Self::Code, module: &'static [u8]);
 }
 
 /// The loader of compiled programs: the hardware it claims from, where it puts their modules, the
@@ -79,6 +108,9 @@ pub struct CompiledLoader<H, M, C> {
     modules: M,
     clock: C,
     room: fn() -> usize,
+    /// The configuration of the running program's record, which an online change keeps, since it
+    /// brings no record (specification 34 §11.3).
+    running: Option<Configuration>,
     /// The heap's count of its allocator operations, which each program's cycle reads around its
     /// scans (specification 34, "The allocation count").
     allocator_operations: Option<fn() -> u32>,
@@ -94,6 +126,7 @@ impl<H, M, C> CompiledLoader<H, M, C> {
             modules,
             clock,
             room,
+            running: None,
             allocator_operations: None,
         }
     }
@@ -133,6 +166,8 @@ where
         } = booted;
         let identity = record.checkpoint_identity();
         let config = record.configuration;
+        // A program that fails to load leaves no record of a running program.
+        self.running = None;
         if format != ProgramFormat::Image {
             return Err(String::from(
                 "the installed application is not a compiled program image: rebuild the project",
@@ -198,6 +233,7 @@ where
         };
         platform.feed();
         let event_capacity = event_capacity(&config);
+        self.running = Some(config.clone());
         platform.set_program(ProgramValues {
             resource_name: config.resource_name,
             debug_enabled: config.control_debug_enabled,
@@ -213,21 +249,134 @@ where
 
     fn prepare_change(
         &mut self,
-        _platform: &mut NativePlatform<W>,
-        _running: &mut CompiledProgramCycle<C, H::Io, M::Code>,
-        _program: Vec<u8>,
+        platform: &mut NativePlatform<W>,
+        running: &mut CompiledProgramCycle<C, H::Io, M::Code>,
+        program: Vec<u8>,
     ) -> Result<Candidate<CompiledProgramCycle<C, H::Io, M::Code>>, String> {
-        Err(String::from(
-            "an online change of a compiled program comes with its copy plan (specification 44 §12)",
-        ))
+        let config = self
+            .running
+            .clone()
+            .ok_or_else(|| String::from("the running program's record is not known"))?;
+        let budget = ChangeMemory::for_change(
+            program.len(),
+            (self.room)(),
+            ONLINE_CHANGE_WORKING_MEMORY_BYTES,
+        );
+        let image = ChangedImage::new(program);
+        // SAFETY: the bytes build the candidate's program alone, whose code takes `image`
+        // (`place_change`), so they are freed with that program; on a refusal before that, `image`
+        // is dropped after every value built from the bytes.
+        let bytes = unsafe { image.bytes() };
+        let device = NATIVE_TARGET.device(platform.device_descriptor().program_memory_bytes);
+        let admitted = native::admit(bytes, &device)
+            .map_err(|refusal| format!("the change cannot be loaded: {refusal}"))?;
+        platform.feed();
+        let figure = admitted.memory_figure();
+        if let Some(refusal) = budget.held_figure_refusal(
+            usize::try_from(figure.total.saturating_sub(figure.stack)).unwrap_or(usize::MAX),
+        ) {
+            return Err(refusal);
+        }
+        let (bindings, names) = io_bindings(&admitted)
+            .map_err(|error| format!("the change's Live Values cannot be bound: {error}"))?;
+        let (inputs, outputs) = record_lines(&config, "C6")?;
+        if let Some(address) = unwired_binding(&bindings, &inputs, &outputs) {
+            return Err(format!(
+                "the candidate binds {}, which the running program's record gives no line",
+                address_text(&address)
+            ));
+        }
+        let live = EngineLiveValues::for_compiled(bindings, names)
+            .map_err(|error| format!("the change's Live Values cannot be bound: {error}"))?;
+        // The candidate claims no line: the commit hands it the running program's.
+        let io = self.hardware.claim_lines(&Configuration::default())?;
+        let (_, module) = admitted.module();
+        // From here the running program's module may be overwritten; every refusal puts it back.
+        let code = self.modules.place_change(module, image)?;
+        let built = build_candidate(admitted, code, io, running, &device, budget);
+        let running_module = running.program().image().module().1;
+        match built {
+            Ok((cycle, events)) => {
+                platform.feed();
+                // A client that names an instance by its identity after the change names the
+                // generation that the change installed.
+                live.set_generation(cycle.generation());
+                Ok(Candidate {
+                    cycle,
+                    live,
+                    events,
+                })
+            }
+            Err(refusal) => {
+                self.modules
+                    .restore(running.program().code(), running_module);
+                Err(refusal)
+            }
+        }
     }
 
-    /// No change is ever prepared, so none is committed.
+    /// The lines and the checkpoint store change places with the candidate's empty ones: no pin is
+    /// released or claimed, and no output is written (specification 34 §11.3).
     fn commit_change(
         &mut self,
-        _platform: &mut NativePlatform<W>,
-        _running: &mut CompiledProgramCycle<C, H::Io, M::Code>,
-        _candidate: &mut Candidate<CompiledProgramCycle<C, H::Io, M::Code>>,
+        platform: &mut NativePlatform<W>,
+        running: &mut CompiledProgramCycle<C, H::Io, M::Code>,
+        candidate: &mut Candidate<CompiledProgramCycle<C, H::Io, M::Code>>,
     ) {
+        running.hand_over_to(&mut candidate.cycle);
+        if let Some(config) = &self.running {
+            platform.set_program(ProgramValues {
+                resource_name: config.resource_name.clone(),
+                debug_enabled: config.control_debug_enabled,
+                control_mode: config.control_mode,
+                live: candidate.live.clone(),
+            });
+        }
     }
+}
+
+/// A changed program's cycle and the events of the values it did not keep as they were.
+type Changed<C, I, K> = (
+    CompiledProgramCycle<C, I, K>,
+    Vec<trust_runtime_core::vm::CarriedValueEvent>,
+);
+
+/// The candidate of an online change, once its module is where the CPU runs it: its program over the
+/// process I/O `io` with the settings of `running`, checked against the running program's safe state,
+/// with room in the checkpoint store for its capture, its cold-init entry run and the running
+/// program's values taken (specification 44 §12.3, steps 3 and 4; specification 34 §11.3).
+///
+/// # Errors
+///
+/// The refusal of the change; the caller puts the running program's module back.
+fn build_candidate<C, I, K>(
+    admitted: Image<'static>,
+    code: K,
+    io: I,
+    running: &mut CompiledProgramCycle<C, I, K>,
+    device: &native::Device,
+    budget: ChangeMemory,
+) -> Result<Changed<C, I, K>, String>
+where
+    C: MonotonicClock + Copy + 'static,
+    I: trust_runtime_services::runner::engine::ProcessIo,
+    K: ModuleCode,
+{
+    let program = NativeProgram::new(admitted, code, device, &KERNEL_FUNCTIONS)
+        .map_err(|refusal| format!("the change cannot be loaded: {refusal}"))?;
+    let mut cycle = CompiledCycle::candidate(program, io, running);
+    cycle
+        .check_safe_outputs()
+        .map_err(|error| error.to_string())?;
+    let payload = cycle
+        .program()
+        .retain_payload_bound()
+        .map_err(|error| error.to_string())?;
+    running
+        .reserve_retain(payload)
+        .map_err(|_| budget.needs_more())?;
+    let events = cycle
+        .take_values(running)
+        .map_err(|error| format!("the change cannot start: {error}"))?;
+    Ok((cycle, events))
 }

@@ -94,7 +94,7 @@ impl<'i> Types<'i> {
     }
 
     /// `bytes` bytes of the detail of `ty`.
-    fn detail(&self, ty: &TypeRecord, bytes: usize) -> Result<&'i [u8], RuntimeError> {
+    pub(crate) fn detail(&self, ty: &TypeRecord, bytes: usize) -> Result<&'i [u8], RuntimeError> {
         let start = usize::try_from(ty.detail).map_err(|_| RuntimeError::Overflow)?;
         start
             .checked_add(bytes)

@@ -160,6 +160,24 @@ impl ChangeMemory {
         })
     }
 
+    /// The `insufficient memory` refusal of a compiled program whose areas, bookkeeping and retain
+    /// capture take `needed` bytes, its memory figure less its stack bound, which the running
+    /// program and the new one share, when they are more than the heap that remains beside the
+    /// running program and the new image, which stays in the heap for as long as the changed program
+    /// runs (specification 44 §12.3, step 2). `None` when they fit.
+    #[must_use]
+    pub fn held_figure_refusal(self, needed: usize) -> Option<String> {
+        let available = self.available();
+        (needed > available).then(|| {
+            format!(
+                "insufficient memory: {} of {} bytes needs {needed} bytes of memory, more than \
+                 the {available} bytes of heap that remain for it beside its image ({} bytes are \
+                 free, {} are kept in reserve)",
+                self.subject, self.bytes, self.room, self.reserve,
+            )
+        })
+    }
+
     /// The `insufficient stack` refusal of `prepared` when its static call depth is more than the call
     /// levels the device's main stack holds ([`too_deep`]; specification 34 MEM-03). `None` when the
     /// program fits.

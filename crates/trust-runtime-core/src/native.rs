@@ -7,8 +7,10 @@
 //! program. The image's deployment record ([`DeploymentRecord::for_image`](crate::deployment::DeploymentRecord::for_image))
 //! comes from its own tables.
 
+pub mod change;
 mod functions;
 pub mod image;
+mod literal;
 pub mod live;
 pub mod memory;
 pub mod program;

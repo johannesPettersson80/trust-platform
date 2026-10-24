@@ -7,7 +7,10 @@ use alloc::vec;
 use core::fmt;
 
 use super::image::{Image, SymbolRecord, NONE, SYMBOL_PROGRAM};
-use super::memory::{member_place, retained_place, symbol_place, write_place, ProgramMemory};
+use super::literal;
+use super::memory::{
+    member_place, retained_place, symbol_place, write_place, Place, ProgramMemory,
+};
 use super::program::{ModuleCode, NativeProgram};
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
@@ -191,6 +194,9 @@ impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
 
 /// Every program memory takes Live Values' writes the same way: between scans, and while a
 /// debugger holds a scan (specification 44 §13.2, §13.3).
+/// An integer that Live Values writes is an untyped literal, which takes the declared type of its
+/// variable or of the variable bound at its address (specification 11, "An admitted integer is an
+/// untyped literal"; specification 44 §13.3).
 impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
     fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
         let image = self.image();
@@ -198,12 +204,12 @@ impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
             .find_variable(name)
             .map_err(|_| RuntimeError::UndefinedVariable(name.into()))?;
         let (place, type_index) = symbol_place(&image, index)?;
-        write_place(self, place, type_index, value)
+        write_admitted(self, place, type_index, value)
     }
 
     fn write_retained(&mut self, label: &str, value: &Value) -> Result<(), RuntimeError> {
         let (place, type_index) = retained_place(&self.image(), label)?;
-        write_place(self, place, type_index, value)
+        write_admitted(self, place, type_index, value)
     }
 
     fn write_member(
@@ -213,11 +219,25 @@ impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
         value: &Value,
     ) -> Result<(), RuntimeError> {
         let (place, type_index) = member_place(&self.image(), instance, member)?;
-        write_place(self, place, type_index, value)
+        write_admitted(self, place, type_index, value)
     }
 
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
+        let value = literal::for_address(&self.image(), address, value)?;
         ProgramMemory::write_image(self, address, value)
+    }
+}
+
+/// Writes `value`, an integer literal typed for the variable first, at `place`.
+fn write_admitted<M: ProgramMemory + ?Sized>(
+    memory: &mut M,
+    place: Place,
+    type_index: u32,
+    value: &Value,
+) -> Result<(), RuntimeError> {
+    match literal::for_variable(&memory.image(), type_index, value)? {
+        Some(typed) => write_place(memory, place, type_index, &typed),
+        None => write_place(memory, place, type_index, value),
     }
 }
 

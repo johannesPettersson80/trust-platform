@@ -117,6 +117,20 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   debug = false)`. The kernel interface is version 4, so a chip's firmware and its programs are
   updated together. On the ESP32-C6 a breakpoint in a function holds the scan with the call stack
   of the function, its function block and the program, steps and resumes, over USB.
+- Added: online change of a compiled program (specification 44 §12). `bytecode.reload` with a
+  program image changes the running program at its next boundary and keeps its values as an
+  interpreted program's change keeps them: the process images by address, every variable by its
+  name, a structure's or an instance's members by name, a changed number, text or enumeration value
+  when its new type holds it, an array's elements at the indices both arrays have, and references
+  pointed at the same variable or made `NULL`, with the `online_change_value` events; the tasks go
+  on with their schedule and the outputs keep their levels. The device works out what to carry from
+  the two images it holds, so no tool keeps a copy of what a device runs. On the ESP32-C6 the new
+  image stays in the heap while it runs, since an online change writes no flash, and its code
+  replaces the running program's in the RAM the C6 executes at the boundary.
+- Fixed: Live Values `set`, `var.force`, `io.write` and `io.force` of an integer on a compiled
+  program: the integer takes the declared type of its variable, or of the variable bound at its
+  address, as it does on an interpreted program; it was refused as a type mismatch unless the
+  variable was a `LINT`.
 - Fixed: VS Code's debugger, attached to a running runtime, keeps the breakpoints the editor
   already had: they arrive while the attach waits for the configuration, and the adapter now sends
   them once it connects and reports each one verified, or why not. Before, they never reached the
