@@ -31,12 +31,27 @@ mod types;
 use std::path::Path;
 
 use crate::harness::SourceFile;
-pub use run::{load, HostCode};
+pub use run::{load, load_kept, HostCode};
 pub use settings::debug_hooks;
 pub use toolchain::{stack_frames, triple, Toolchain};
 pub use trust_runtime_core::native::image::Target;
 use trust_runtime_core::native::image::{Image, ImageWriter, MemoryFigure};
 pub use trust_runtime_core::native::program::{Device, NativeProgram, NoHooks, ScanHooks};
+
+/// The file of a project's program image for the computer that runs it, where the project kept
+/// `program.stbc` (specification 44 §8.8, NX-15).
+pub const PROGRAM_IMAGE_FILE: &str = "program.tpi";
+
+/// The device this computer is to a compiled program (specification 44 §8.8, NX-15): its CPU, no
+/// maximum for program memory, and the task stack and statement budget of
+/// [`DeviceDescriptor::hosted`](trust_runtime_core::deployment::DeviceDescriptor::hosted); `None` on
+/// a CPU that runs no program image.
+#[must_use]
+pub fn this_computer() -> Option<Device> {
+    trust_runtime_core::deployment::DeviceDescriptor::hosted()
+        .native
+        .map(|native| native.device(None))
+}
 
 /// The target `name` names: a device, a CPU, a Rust target triple or `host`, this computer's CPU
 /// (specification 44 §4.4); `None` for a name that names none.

@@ -13,7 +13,8 @@ pub enum ResourceCommand {
         bytes: Vec<u8>,
         /// Shared with the waiting request, which withdraws the reload if it times out first.
         claim: ReloadClaim,
-        respond_to: std::sync::mpsc::Sender<Result<RuntimeMetadata, RuntimeError>>,
+        /// The new metadata of a program on the bytecode engine; none for a compiled program.
+        respond_to: std::sync::mpsc::Sender<Result<Option<RuntimeMetadata>, RuntimeError>>,
     },
     MeshSnapshot {
         names: Vec<SmolStr>,
@@ -70,8 +71,9 @@ pub struct StartedProgram {
 /// the program that stopped, with its I/O drivers, before it builds the drivers of the new one.
 /// When it fails the slot holds either the program that stopped or a new program that did not
 /// start, so the next `restart` loads the program again.
-pub type ProgramLoader =
-    Box<dyn FnMut(&mut Runtime, crate::RestartMode) -> Result<StartedProgram, RuntimeError> + Send>;
+pub type ProgramLoader = Box<
+    dyn FnMut(&mut HostProgram, crate::RestartMode) -> Result<StartedProgram, RuntimeError> + Send,
+>;
 
 /// The kind of work `command` asks for; the shared supervisor rules decide what each kind does
 /// while running and while faulted.

@@ -97,7 +97,7 @@ fn spawn_blocking_input(name: &str, watchdog_ms: Option<i64>) -> HungInput {
     );
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     if let Some(timeout_ms) = watchdog_ms {
-        runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+        runner.program_mut().set_watchdog_policy(WatchdogPolicy {
             enabled: true,
             timeout: Duration::from_millis(timeout_ms),
             action: WatchdogAction::Halt,

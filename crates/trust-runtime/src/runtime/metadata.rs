@@ -205,8 +205,9 @@ fn span(statement: &LineStatement, file_id: u32, starts: &LineStarts) -> Option<
     Some(SourceLocation::new(file_id, start, end))
 }
 
-/// Snapshot of runtime metadata needed by external tooling.
-#[derive(Debug, Clone)]
+/// Snapshot of runtime metadata needed by external tooling. A compiled program has none of the
+/// bytecode engine's program model, so its metadata is the empty default (specification 44 §8.8).
+#[derive(Debug, Clone, Default)]
 pub struct RuntimeMetadata {
     pub(super) storage_abi: crate::value::StorageAbi,
     pub(super) profile: DateTimeProfile,

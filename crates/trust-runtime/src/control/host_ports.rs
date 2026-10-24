@@ -125,11 +125,21 @@ impl ResourcePort for ControlState {
     }
 
     fn debugger_pause(&self) {
-        let _ = self.debug.apply_action(ControlAction::Pause(None));
+        match self.debug.compiled() {
+            Some(compiled) => compiled.pause(),
+            None => {
+                let _ = self.debug.apply_action(ControlAction::Pause(None));
+            }
+        }
     }
 
     fn debugger_continue(&self) {
-        let _ = self.debug.apply_action(ControlAction::Continue);
+        match self.debug.compiled() {
+            Some(compiled) => compiled.resume(),
+            None => {
+                let _ = self.debug.apply_action(ControlAction::Continue);
+            }
+        }
     }
 
     fn update_pending_restart(&self, update: impl FnOnce(&mut Option<RestartMode>)) {

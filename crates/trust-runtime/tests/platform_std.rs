@@ -75,13 +75,19 @@ END_PROGRAM
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
     runner.tick().unwrap();
-    let program = match runner.runtime().storage().get_global("P") {
+    let program = match runner
+        .engine()
+        .expect("a program on the bytecode engine")
+        .storage()
+        .get_global("P")
+    {
         Some(Value::Instance(id)) => *id,
         other => panic!("expected program instance, got {other:?}"),
     };
     assert_eq!(
         runner
-            .runtime()
+            .engine()
+            .expect("a program on the bytecode engine")
             .storage()
             .get_instance_var(program, "counter"),
         Some(&Value::Int(0)),
@@ -92,7 +98,8 @@ END_PROGRAM
     runner.tick().unwrap();
     assert_eq!(
         runner
-            .runtime()
+            .engine()
+            .expect("a program on the bytecode engine")
             .storage()
             .get_instance_var(program, "counter"),
         Some(&Value::Int(1))

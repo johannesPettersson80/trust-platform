@@ -144,4 +144,7 @@ pub struct DebugControl {
     /// first, and does nothing else while it is false (specification 11 section 6.9). It is shared
     /// with the control state, so a `config.set` takes effect here.
     enabled: Arc<AtomicBool>,
+    /// The debugger of the compiled program the resource runs, when it runs one (specification 44
+    /// §8.8): the debug operations, pause and continue, and a stop's release go to it.
+    compiled: Arc<Mutex<Option<crate::runtime::CompiledDebugger>>>,
 }

@@ -229,6 +229,94 @@ impl RetainStore {
     }
 }
 
+/// Where a compiled program's cycle keeps its retained values (specification 34 §10; specification
+/// 11 §6.7; specification 44 §11, §8.8): a chip's checkpoint log over its flash ([`RetainStore`]), or
+/// a computer's retain file. The cycle captures through it after the output sample, advances a
+/// pending save between scans, saves at a stop and recovers the newest values at a warm restart.
+#[cfg(feature = "native")]
+pub trait CycleRetain {
+    /// Whether the store persists the retained values; one that does not saves nothing.
+    fn persists(&self) -> bool;
+
+    /// Reserves the capture for a program's largest retained payload, `bytes`, so that no capture
+    /// grows it (specification 34 MEM-09).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::Overflow`] when the memory has no room for it; the capture is unchanged.
+    fn reserve(&mut self, bytes: usize) -> Result<(), RuntimeError>;
+
+    /// Captures the finished scan's retained values with `fill`, at the scan's logical time `now`,
+    /// when a save is due, and begins the save.
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] of a save that did not begin or that an earlier step latched, and the
+    /// error of `fill`: the cycle fails the scan with it before physical outputs.
+    fn capture_with(
+        &mut self,
+        now: Duration,
+        fill: &mut dyn FnMut(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError>;
+
+    /// Advances a pending save by at most one step, between scans; a failed step is latched for
+    /// the next capture.
+    fn step(&mut self);
+
+    /// Captures the values with `fill` and completes the save before the resource reports Stopped.
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] of a save that did not complete; the newest saved values stay.
+    fn save_with(
+        &mut self,
+        now: Duration,
+        fill: &mut dyn FnMut(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError>;
+
+    /// The newest saved values, for a warm restart; an empty snapshot when none were saved.
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] of saved values that do not read, which fails the warm start.
+    fn recover(&mut self) -> Result<RetainSnapshot, RuntimeError>;
+}
+
+#[cfg(feature = "native")]
+impl CycleRetain for RetainStore {
+    fn persists(&self) -> bool {
+        RetainStore::persists(self)
+    }
+
+    fn reserve(&mut self, bytes: usize) -> Result<(), RuntimeError> {
+        RetainStore::reserve(self, bytes)
+    }
+
+    fn capture_with(
+        &mut self,
+        now: Duration,
+        fill: &mut dyn FnMut(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        RetainStore::capture_with(self, now, fill)
+    }
+
+    fn step(&mut self) {
+        RetainStore::step(self);
+    }
+
+    fn save_with(
+        &mut self,
+        now: Duration,
+        fill: &mut dyn FnMut(&mut RetainCapture) -> Result<(), RuntimeError>,
+    ) -> Result<(), RuntimeError> {
+        RetainStore::save_with(self, now, fill)
+    }
+
+    fn recover(&mut self) -> Result<RetainSnapshot, RuntimeError> {
+        RetainStore::recover(self)
+    }
+}
+
 /// The platform's checkpoint flash, owned by the persister, which holds its flash by value.
 struct OwnedFlash(Box<dyn CheckpointFlash>);
 

@@ -1,5 +1,7 @@
-//! Bundle build command (compile sources to program.stbc, or with `--target` to a native program
-//! image, specification 44 §4.1).
+//! Bundle build command (specification 44 §4.1, §8.8): the project compiled into this computer's
+//! program image `program.tpi`, a device's image with `--target`, or `program.stbc` for the bytecode
+//! engine with `--execution-backend vm` and, until that engine is deleted, on a computer without the
+//! toolchain.
 
 use std::path::{Path, PathBuf};
 
@@ -92,17 +94,32 @@ pub fn run_build(
     Ok(())
 }
 
-/// `trust-runtime build`: `program.stbc`, or with `--target` a native program image.
+/// `trust-runtime build` (specification 44 §8.8, NX-15): this computer's program image, a device's
+/// with `--target`, or `program.stbc` with `--execution-backend vm`. Until the bytecode engine is
+/// deleted (§15), a computer without the toolchain builds `program.stbc` and says so.
 pub fn run_build_command(
     bundle: Option<PathBuf>,
     sources: Option<PathBuf>,
     ci: bool,
     target: Option<String>,
     emit_source: bool,
+    execution_backend: Option<crate::cli::ExecutionBackendArg>,
 ) -> anyhow::Result<()> {
-    match target {
-        Some(target) => run_native_build(bundle, sources, &target, emit_source, ci),
-        None => run_build(bundle, sources, ci),
+    if let Some(target) = target {
+        return run_native_build(bundle, sources, &target, emit_source, ci, false);
+    }
+    if execution_backend.is_some() {
+        return run_build(bundle, sources, ci);
+    }
+    match trust_runtime::native::Toolchain::from_env() {
+        Ok(_) => run_native_build(bundle, sources, "host", emit_source, ci, true),
+        Err(error) => {
+            eprintln!(
+                "note: {error}: building program.stbc for the bytecode engine instead of this \
+                 computer's program image"
+            );
+            run_build(bundle, sources, ci)
+        }
     }
 }
 
@@ -113,13 +130,16 @@ pub(crate) fn native_target(name: &str) -> anyhow::Result<trust_runtime::native:
 }
 
 /// `trust-runtime build --target`: the project compiled into a native program image in its build
-/// folder, with the memory figure in `build.json` (specification 44 §4.1).
+/// folder, with the memory figure in `build.json` (specification 44 §4.1). The image of the computer
+/// that runs the project, `for_this_computer`, is the project's program instead: `program.tpi` with
+/// `deployment-record.bin`, where the project kept `program.stbc` (NX-15).
 pub fn run_native_build(
     bundle: Option<PathBuf>,
     sources: Option<PathBuf>,
     target: &str,
     emit_source: bool,
     ci: bool,
+    for_this_computer: bool,
 ) -> anyhow::Result<()> {
     use trust_runtime::native::{build, debug_hooks, triple, Options, Toolchain};
     let bundle_root = match bundle {
@@ -145,10 +165,20 @@ pub fn run_native_build(
         &toolchain,
         &work,
     )?;
-    let image = build_folder.join(format!("program.{}.tpi", triple(target)));
+    let (image, record) = if for_this_computer {
+        (
+            bundle_root.join(trust_runtime::native::PROGRAM_IMAGE_FILE),
+            bundle_root.join("deployment-record.bin"),
+        )
+    } else {
+        (
+            build_folder.join(format!("program.{}.tpi", triple(target))),
+            build_folder.join(format!("deployment-record.{}.bin", triple(target))),
+        )
+    };
+    std::fs::create_dir_all(&build_folder)?;
     std::fs::write(&image, &built.image)?;
     // The record a device admits the image with (specification 44 §10.1).
-    let record = build_folder.join(format!("deployment-record.{}.bin", triple(target)));
     std::fs::write(
         &record,
         trust_runtime::deployment::image_record(&bundle_root, &built.image)?,

@@ -43,7 +43,10 @@ pub use links::{
 };
 pub use retained::check_retained;
 
-use bundles::{copy_bundle_files, copy_sidecars, PROGRAM_FILE};
+use bundles::{
+    copy_bundle_files, copy_sidecars, is_program_file, program_file, program_path,
+    remove_other_program, PROGRAM_FILE,
+};
 use links::pointer_state;
 
 /// The folder of a store's bundles.
@@ -125,7 +128,7 @@ impl Payload {
     pub fn program(&self) -> Option<&[u8]> {
         self.files
             .iter()
-            .find(|file| file.path == PROGRAM_FILE)
+            .find(|file| is_program_file(&file.path))
             .map(|file| file.bytes.as_slice())
     }
 
@@ -281,7 +284,7 @@ pub fn deploy(
 pub fn install(project: &Path, program: &[u8]) -> Result<ProgramIdentity, StoreError> {
     let payload = Payload {
         files: vec![PayloadFile {
-            path: PROGRAM_FILE.to_string(),
+            path: program_file(program).to_string(),
             bytes: program.to_vec(),
         }],
     };
@@ -333,6 +336,9 @@ fn build_stage(
 ) -> Result<Vec<String>, StoreError> {
     copy_bundle_files(base, stage)?;
     write_payload(stage, payload)?;
+    if let Some(program) = payload.program() {
+        remove_other_program(stage, program)?;
+    }
     let record = payload
         .program()
         .map(|program| admit(stage, program))
@@ -377,11 +383,13 @@ fn read_sequence(bundle: &Path) -> Result<u64, StoreError> {
 fn deploy_in_place(project: &Path, payload: &Payload) -> Result<Deployed, StoreError> {
     admit_in_place(project, payload)?;
     write_payload(project, payload)?;
+    if let Some(program) = payload.program() {
+        remove_other_program(project, program)?;
+    }
     let record = payload
         .program()
-        .map(|program| write_record(project, program))
-        .transpose()
-        .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error))?;
+        .map(|program| write_program_record(project, program))
+        .transpose()?;
     Ok(Deployed {
         written: written_names(payload, record.as_ref()),
         sequence: 0,
@@ -440,12 +448,34 @@ fn stage_configuration(
 /// a dry-run preparation with the limits it grants (specification 34 §5.1.1; DEPLOY-04). A refused
 /// program is an error, and the caller writes nothing the runtime starts from.
 fn admit(dir: &Path, program: &[u8]) -> Result<RecordWrite, StoreError> {
-    let record = write_record(dir, program)
-        .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error))?;
+    let record = write_program_record(dir, program)?;
+    if program_file(program) == bundles::IMAGE_FILE {
+        // A program image is admitted on this computer as the runtime admits it at its start
+        // (specification 44 §10.2, §8.8).
+        let device = crate::native::this_computer()
+            .ok_or_else(|| refused("this computer's CPU runs no program image"))?;
+        trust_runtime_core::native::program::admit(program, &device)
+            .map_err(|refusal| refused(format!("the program image is refused: {refusal}")))?;
+        return Ok(record);
+    }
     let limits = admitted_limits(dir, program)?;
     PreparedModule::from_bytes(program, limits)
         .map_err(|error| refused(format!("the program does not prepare: {error}")))?;
     Ok(record)
+}
+
+/// Writes the deployment record of `program` into `dir`: a program image's own record
+/// (specification 44 §10.1), or the bytecode's.
+fn write_program_record(dir: &Path, program: &[u8]) -> Result<RecordWrite, StoreError> {
+    if program_file(program) != bundles::IMAGE_FILE {
+        return write_record(dir, program)
+            .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error));
+    }
+    let path = dir.join(DEPLOYMENT_RECORD_FILE);
+    let record = super::image_record(dir, program)?;
+    write_atomic(&path, &record)
+        .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error))?;
+    Ok(RecordWrite::Written(path))
 }
 
 /// Writes every payload file into `dir`, each through a temporary file and a rename.
@@ -467,7 +497,7 @@ fn written_names(payload: &Payload, record: Option<&RecordWrite>) -> Vec<String>
     let mut written = Vec::new();
     for file in &payload.files {
         written.push(file.path.clone());
-        if file.path == PROGRAM_FILE && matches!(record, Some(RecordWrite::Written(_))) {
+        if is_program_file(&file.path) && matches!(record, Some(RecordWrite::Written(_))) {
             written.push(DEPLOYMENT_RECORD_FILE.to_string());
         }
     }
@@ -576,8 +606,10 @@ pub fn identities(project: &Path) -> Option<ProgramIdentities> {
 /// admits it, or when it has no record, since the runtime then starts it with the default limits. A
 /// program that its record does not admit does not start, so nothing is reported for it.
 fn plain_identity(project: &Path) -> Option<ProgramIdentity> {
-    let program = fs::read(project.join(PROGRAM_FILE)).ok()?;
-    admitted_limits(project, &program).ok()?;
+    let program = fs::read(program_path(project)?).ok()?;
+    if program_file(&program) == PROGRAM_FILE {
+        admitted_limits(project, &program).ok()?;
+    }
     Some(ProgramIdentity {
         sequence: 0,
         program_sha256: sha256(&program),
@@ -587,7 +619,7 @@ fn plain_identity(project: &Path) -> Option<ProgramIdentity> {
 
 /// The identity of the program in `bundle`, or `None` when the program or its sequence cannot be read.
 fn identity_of(bundle: &Path) -> Option<ProgramIdentity> {
-    let program = fs::read(bundle.join(PROGRAM_FILE)).ok()?;
+    let program = fs::read(program_path(bundle)?).ok()?;
     let sequence = read_sequence(bundle).ok()?;
     Some(ProgramIdentity {
         sequence,

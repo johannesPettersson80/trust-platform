@@ -33,7 +33,7 @@ struct CycleDeadlineSnapshot {
 }
 
 fn arm_cycle_deadlines(
-    runtime: &mut Runtime,
+    runtime: &mut HostProgram,
     watchdog: crate::watchdog::WatchdogPolicy,
     wall_start: std::time::Instant,
 ) -> CycleDeadlineSnapshot {
@@ -49,7 +49,7 @@ fn arm_cycle_deadlines(
     snapshot
 }
 
-fn restore_cycle_deadlines(runtime: &mut Runtime, snapshot: CycleDeadlineSnapshot) {
+fn restore_cycle_deadlines(runtime: &mut HostProgram, snapshot: CycleDeadlineSnapshot) {
     runtime.set_execution_deadline(snapshot.execution_deadline);
     runtime.set_output_commit_deadline(snapshot.output_deadline);
 }
@@ -80,7 +80,7 @@ fn run_resource_loop_with_shared<C: Clock + Clone>(
         state,
         last_error,
         supervision,
-        move |runtime| shared.execute_cycle(runtime),
+        move |runtime| shared.execute_program_cycle(runtime),
     );
 }
 
@@ -98,7 +98,7 @@ fn run_resource_loop_core<C, F>(
     mut execute_cycle: F,
 ) where
     C: Clock + Clone,
-    F: FnMut(&mut Runtime) -> Result<(), RuntimeError>,
+    F: FnMut(&mut HostProgram) -> Result<(), RuntimeError>,
 {
     let shared = LoopShared {
         stop: &stop,
@@ -460,7 +460,7 @@ fn execute_protected_cycle<C, F>(
 ) -> Result<(), RuntimeError>
 where
     C: Clock + Clone,
-    F: FnMut(&mut Runtime) -> Result<(), RuntimeError>,
+    F: FnMut(&mut HostProgram) -> Result<(), RuntimeError>,
 {
     let mut sentinel = CyclePanicSentinel::entered();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -652,9 +652,10 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn cycle_deadline_guard_restores_previous_deadlines_after_success() {
-        let mut runtime = crate::RuntimeBuilder::new()
+        let runtime = crate::RuntimeBuilder::new()
             .build()
             .expect("admit runner fixture");
+        let mut runtime: HostProgram = runtime.into();
         let previous = std::time::Instant::now() + std::time::Duration::from_secs(30);
         runtime.set_execution_deadline(Some(previous));
         runtime.set_output_commit_deadline(Some(previous));
@@ -683,9 +684,10 @@ mod runner_loop_poison_tests {
     #[test]
     fn cycle_deadline_guard_restores_after_runtime_error_and_contained_panic() {
         for outcome in ["runtime-error", "panic"] {
-            let mut runtime = crate::RuntimeBuilder::new()
+            let runtime = crate::RuntimeBuilder::new()
                 .build()
                 .expect("admit runner fixture");
+            let mut runtime: HostProgram = runtime.into();
             let snapshot = arm_cycle_deadlines(
                 &mut runtime,
                 crate::watchdog::WatchdogPolicy {
@@ -726,9 +728,10 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn disabled_watchdog_does_not_arm_cycle_deadlines() {
-        let mut runtime = crate::RuntimeBuilder::new()
+        let runtime = crate::RuntimeBuilder::new()
             .build()
             .expect("admit runner fixture");
+        let mut runtime: HostProgram = runtime.into();
         let snapshot = arm_cycle_deadlines(
             &mut runtime,
             crate::watchdog::WatchdogPolicy {
@@ -830,15 +833,27 @@ END_PROGRAM
             &supervision,
         ));
         assert_eq!(
-            runner.runtime().storage().get_global("retained_value"),
+            runner
+                .engine()
+                .expect("a program on the bytecode engine")
+                .storage()
+                .get_global("retained_value"),
             Some(&Value::DInt(42)),
         );
         assert_eq!(
-            runner.runtime().storage().get_global("transient_value"),
+            runner
+                .engine()
+                .expect("a program on the bytecode engine")
+                .storage()
+                .get_global("transient_value"),
             Some(&Value::DInt(2)),
         );
         assert_eq!(
-            runner.runtime().storage().get_global("ordinary_value"),
+            runner
+                .engine()
+                .expect("a program on the bytecode engine")
+                .storage()
+                .get_global("ordinary_value"),
             Some(&Value::DInt(3)),
         );
         assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Running);
@@ -847,9 +862,10 @@ END_PROGRAM
 
     #[test]
     fn update_watchdog_zero_timeout_is_normalized_before_use() {
-        let mut runtime = crate::RuntimeBuilder::new()
+        let runtime = crate::RuntimeBuilder::new()
             .build()
             .expect("admit runner fixture");
+        let mut runtime: HostProgram = runtime.into();
 
         let fault_policy = runtime.fault_policy();
         apply_resource_command(
@@ -874,7 +890,7 @@ END_PROGRAM
     }
 }
 
-fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
+fn apply_resource_command(runtime: &mut HostProgram, command: ResourceCommand) {
     match command {
         ResourceCommand::Pause | ResourceCommand::Resume => {}
         // One command boundary applies the whole set: no cycle runs between the three updates.
@@ -891,7 +907,7 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
         } => {
             // A withdrawn reload is skipped: its caller has stopped waiting for it.
             if claim.take() {
-                let result = runtime.apply_online_change_bytes(&bytes, None);
+                let result = runtime.apply_online_change_bytes(&bytes);
                 let _ = respond_to.send(result);
             }
         }
@@ -905,25 +921,49 @@ fn apply_resource_command(runtime: &mut Runtime, command: ResourceCommand) {
             sequence: _,
         } => runtime.apply_mesh_updates(&updates),
         ResourceCommand::Snapshot { respond_to } => {
-            let snapshot = crate::debug::DebugSnapshot {
-                storage_abi: runtime.prepared().storage_abi(),
-                storage: runtime.storage().clone(),
-                now: runtime.current_time(),
+            let snapshot = match runtime {
+                HostProgram::Engine(runtime) => crate::debug::DebugSnapshot {
+                    storage_abi: runtime.prepared().storage_abi(),
+                    storage: runtime.storage().clone(),
+                    now: runtime.current_time(),
+                },
+                // A compiled program's variables are read from its state through its symbol table
+                // (specification 44 §8.8, §13.3), which holds no storage of the bytecode engine.
+                HostProgram::Compiled(program) => crate::debug::DebugSnapshot {
+                    storage_abi: crate::value::StorageAbi::default(),
+                    storage: crate::memory::VariableStorage::new(),
+                    now: program.current_time(),
+                },
             };
             let _ = respond_to.send(snapshot);
         }
         ResourceCommand::AdsStatus { respond_to } => {
-            let _ = respond_to.send(runtime.ads_status_report());
+            let report = match runtime {
+                HostProgram::Engine(runtime) => runtime.ads_status_report(),
+                HostProgram::Compiled(program) => program.ads_status_report(),
+            };
+            let _ = respond_to.send(report);
         }
         ResourceCommand::OpcUaClientStatus { respond_to } => {
-            let _ = respond_to.send(runtime.opcua_client_status_report());
+            let report = match runtime {
+                HostProgram::Engine(runtime) => runtime.opcua_client_status_report(),
+                HostProgram::Compiled(program) => program.opcua_client_status_report(),
+            };
+            let _ = respond_to.send(report);
         }
         ResourceCommand::ActiveAdsDevice {
             target,
             local,
             respond_to,
         } => {
-            let snapshot = runtime.active_ads_device_snapshot(&target, local.as_ref());
+            let snapshot = match runtime {
+                HostProgram::Engine(runtime) => {
+                    runtime.active_ads_device_snapshot(&target, local.as_ref())
+                }
+                HostProgram::Compiled(program) => {
+                    program.active_ads_device_snapshot(&target, local.as_ref())
+                }
+            };
             let _ = respond_to.send(snapshot);
         }
         // Only a stopped resource takes an install; the stopped wait notes it.

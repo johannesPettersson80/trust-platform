@@ -58,6 +58,15 @@ struct PlannedMapping {
     address: IoAddress,
 }
 
+/// Whether the MQTT driver parameters `params` map tags to program variables.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidConfig`] for parameters that are no table or whose mappings do not read.
+pub fn has_mqtt_tag_mappings(params: &TomlValue) -> Result<bool, RuntimeError> {
+    Ok(!parse_mappings(params)?.is_empty())
+}
+
 /// Resolve MQTT tag mappings into typed point maps and shared process-image bindings.
 pub fn resolve_mqtt_tag_mappings(
     runtime: &mut Runtime,

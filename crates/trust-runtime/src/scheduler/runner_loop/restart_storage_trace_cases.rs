@@ -168,17 +168,20 @@ fn run_restart_case(
             };
             (
                 runner
-                    .runtime()
+                    .engine()
+                    .expect("a program on the bytecode engine")
                     .storage()
                     .get_global("retained_value")
                     .cloned(),
                 runner
-                    .runtime()
+                    .engine()
+                    .expect("a program on the bytecode engine")
                     .storage()
                     .get_global("transient_value")
                     .cloned(),
                 runner
-                    .runtime()
+                    .engine()
+                    .expect("a program on the bytecode engine")
                     .storage()
                     .get_global("ordinary_value")
                     .cloned(),

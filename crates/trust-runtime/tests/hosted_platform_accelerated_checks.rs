@@ -31,7 +31,7 @@ fn fault_at_1x_and_accelerated(source: &str) -> (RuntimeError, RuntimeError) {
         .tick()
         .expect_err("the first accelerated scan must fault");
     assert!(
-        accelerated.runtime().faulted(),
+        accelerated.program().faulted(),
         "the accelerated fault must latch"
     );
     (one_x_error, accelerated_error)

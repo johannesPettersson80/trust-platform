@@ -183,4 +183,11 @@ impl RetainStore for FileRetainStore {
         let bytes = encode_snapshot(snapshot)?;
         self.write_bytes(&self.path, &bytes)
     }
+
+    /// The file holds the payload as the bytecode engine's save writes it, framed without decoding
+    /// it (specification 11 §6.7).
+    fn store_payload(&self, payload: &[u8]) -> Result<(), RuntimeError> {
+        let bytes = trust_runtime_core::retain::codec::frame_payload(payload);
+        self.write_bytes(&self.path, &bytes)
+    }
 }

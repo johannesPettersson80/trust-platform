@@ -9,7 +9,7 @@ pub use modbus::ModbusTcpDriver;
 mod mqtt;
 pub use mqtt::MqttIoDriver;
 mod mqtt_tag_mapping;
-pub use mqtt_tag_mapping::resolve_mqtt_tag_mappings;
+pub use mqtt_tag_mapping::{has_mqtt_tag_mappings, resolve_mqtt_tag_mappings};
 mod ethercat;
 pub use ethercat::{
     configured_ethercat_modules, discover_ethercat_modules, EthercatDiscoveryInfo,

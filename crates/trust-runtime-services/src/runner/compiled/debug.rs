@@ -21,14 +21,32 @@ use trust_runtime_core::ports::MonotonicClock;
 
 use super::super::debugger::{Boundary, StatementStart, StopPoints};
 use super::super::engine::held_time::HeldTime;
-use super::super::hold::{CompiledHeld, HoldHandle};
+use super::super::hold::{CompiledHeld, CompiledHold};
 use crate::debug::LineSources;
 use crate::status::IoDriverStatus;
 
-/// The debugger state of a compiled program's cycle.
-pub(super) struct CompiledDebug {
-    /// The loop's hold, once the loop attached it.
-    pub(super) hold: Option<HoldHandle>,
+/// The statement ids of `image` that `points` stops at, one flag per id: a breakpoint stops at every
+/// statement of its file that starts where it starts.
+pub(super) fn wanted(image: &Image<'_>, points: &StopPoints) -> Vec<bool> {
+    let Ok(statements) = image.table::<StmtRecord>() else {
+        return Vec::new();
+    };
+    statements
+        .iter()
+        .map(|statement| {
+            let start = (statement.start_line, u32::from(statement.start_column));
+            points
+                .starts
+                .iter()
+                .any(|(file, at)| *file == u32::from(statement.file) && *at == start)
+        })
+        .collect()
+}
+
+/// The debugger state of a compiled program's cycle, whose scans the platform's hold `H` holds.
+pub(super) struct CompiledDebug<H> {
+    /// The platform's hold, once the platform attached it.
+    pub(super) hold: Option<H>,
     /// The statement table and file labels of a debug image; none for a release image, which is
     /// not debuggable (specification 44 §13.2).
     pub(super) sources: Option<LineSources>,
@@ -43,7 +61,7 @@ pub(super) struct CompiledDebug {
     pub(super) drivers: Cell<Vec<IoDriverStatus>>,
 }
 
-impl CompiledDebug {
+impl<H: CompiledHold> CompiledDebug<H> {
     /// The debugger of the program of `image`, with no hold attached yet.
     pub(super) fn new(image: &Image<'_>) -> Self {
         let release = image.header().is_release();
@@ -74,24 +92,6 @@ impl CompiledDebug {
         }
         armed.clone_from(points);
         true
-    }
-
-    /// The statement ids of `image` that `points` stops at, one flag per id: a breakpoint stops at
-    /// every statement of its file that starts where it starts.
-    pub(super) fn wanted(image: &Image<'_>, points: &StopPoints) -> Vec<bool> {
-        let Ok(statements) = image.table::<StmtRecord>() else {
-            return Vec::new();
-        };
-        statements
-            .iter()
-            .map(|statement| {
-                let start = (statement.start_line, u32::from(statement.start_column));
-                points
-                    .starts
-                    .iter()
-                    .any(|(file, at)| *file == u32::from(statement.file) && *at == start)
-            })
-            .collect()
     }
 
     /// The stop at the held statement of `stop`: the debugger decides, and while it holds the scan
@@ -143,7 +143,7 @@ impl CompiledDebug {
         if !self.rearms(&points) {
             return;
         }
-        let wanted = Self::wanted(&stop.image(), &points);
+        let wanted = wanted(&stop.image(), &points);
         stop.arm(points.every, &|id| {
             usize::try_from(id)
                 .ok()

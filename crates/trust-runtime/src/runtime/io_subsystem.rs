@@ -196,19 +196,7 @@ impl IoSubsystem {
     /// that acquires it publishes the health current at that time, so readers may
     /// see a snapshot one cycle late.
     pub(super) fn update_health(&self) {
-        let Some(sink) = &self.health_sink else {
-            return;
-        };
-        let Ok(mut guard) = sink.try_lock() else {
-            return;
-        };
-        guard.clear();
-        for entry in &self.drivers {
-            guard.push(IoDriverStatus {
-                name: entry.name.clone(),
-                health: entry.driver.health(),
-            });
-        }
+        publish_health(&self.drivers, self.health_sink.as_ref());
     }
 
     pub(super) fn set_safe_state(&mut self, safe_state: IoSafeState) {
@@ -239,7 +227,34 @@ impl IoSubsystem {
     }
 }
 
-fn write_safe_outputs(drivers: &mut [IoDriverEntry], outputs: &[u8]) -> Result<(), RuntimeError> {
+/// Publishes the health of `drivers` into `sink` without waiting for a reader (spec 34 HOST-05).
+/// While a reader holds the sink nothing is published; the next call that acquires it publishes the
+/// health current then, so readers may see a snapshot one cycle late.
+pub(super) fn publish_health(
+    drivers: &[IoDriverEntry],
+    sink: Option<&Arc<Mutex<Vec<IoDriverStatus>>>>,
+) {
+    let Some(sink) = sink else {
+        return;
+    };
+    let Ok(mut guard) = sink.try_lock() else {
+        return;
+    };
+    guard.clear();
+    for entry in drivers {
+        guard.push(IoDriverStatus {
+            name: entry.name.clone(),
+            health: entry.driver.health(),
+        });
+    }
+}
+
+/// Drives every driver's outputs from `outputs`, the safe output image, attempting all of them and
+/// reporting the first failure.
+pub(super) fn write_safe_outputs(
+    drivers: &mut [IoDriverEntry],
+    outputs: &[u8],
+) -> Result<(), RuntimeError> {
     let mut first_failure = None;
     for entry in drivers {
         let failure = match entry.driver.write_outputs(outputs) {

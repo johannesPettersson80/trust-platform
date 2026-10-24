@@ -49,8 +49,12 @@ fn should_auto_create(path: &Path) -> anyhow::Result<bool> {
         anyhow::bail!("project folder is not a directory: {}", path.display());
     }
     let runtime_toml = path.join("runtime.toml");
-    let program_stbc = path.join("program.stbc");
-    Ok(!runtime_toml.is_file() || !program_stbc.is_file())
+    // A project's program is its image for this computer or its bytecode (specification 44 §8.8).
+    let has_program = path
+        .join(trust_runtime::native::PROGRAM_IMAGE_FILE)
+        .is_file()
+        || path.join("program.stbc").is_file();
+    Ok(!runtime_toml.is_file() || !has_program)
 }
 
 #[derive(Debug, PartialEq, Eq)]

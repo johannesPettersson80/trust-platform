@@ -104,7 +104,7 @@ fn spawn_blocked(watchdog_ms: Option<i64>, with_restart: bool) -> Blocked {
     );
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     if let Some(timeout_ms) = watchdog_ms {
-        runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+        runner.program_mut().set_watchdog_policy(WatchdogPolicy {
             enabled: true,
             timeout: Duration::from_millis(timeout_ms),
             action: WatchdogAction::Halt,
@@ -142,7 +142,7 @@ fn many_short_cycles_inside_their_timeout_are_never_declared_hung() {
     // preempts the scan thread; a cycle that really overruns is a true hang, so the margin must
     // cover OS jitter. The 40 cycles together take at least 200 ms, so a supervisor that carried
     // elapsed time across cycles instead of restarting it would still declare a hang here.
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(100),
         action: WatchdogAction::Halt,

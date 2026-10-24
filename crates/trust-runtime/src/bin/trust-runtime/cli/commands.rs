@@ -130,7 +130,8 @@ pub enum Command {
         #[arg(long, action = ArgAction::SetTrue)]
         ci: bool,
     },
-    /// Build program.stbc from project sources.
+    /// Build the project: this computer's program image (program.tpi), a device's with --target, or
+    /// program.stbc with --execution-backend vm.
     Build {
         /// Project folder directory (defaults to auto-detect or current directory).
         #[arg(long = "project", alias = "bundle")]
@@ -149,6 +150,10 @@ pub enum Command {
         /// With --target: keep the generated Rust crate next to the image.
         #[arg(long, action = ArgAction::SetTrue)]
         emit_source: bool,
+        /// `vm`: build program.stbc for the bytecode engine instead of this computer's program
+        /// image (specification 44 §8.8).
+        #[arg(long = "execution-backend", value_enum)]
+        execution_backend: Option<ExecutionBackendArg>,
     },
     /// Deprecated alias for `trust-dev test`.
     #[command(

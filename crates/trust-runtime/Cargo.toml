@@ -173,6 +173,8 @@ full = [
     "dep:trust-ads-core",
     "dep:trust-tcads-native",
     "dep:trust-runtime-services",
+    # A computer runs compiled programs with the chips' compiled cycle (specification 44 §8.8).
+    "trust-runtime-services/native",
     "dep:trust-plc-abi",
     "dep:trust-plc-lib",
     "dep:object",

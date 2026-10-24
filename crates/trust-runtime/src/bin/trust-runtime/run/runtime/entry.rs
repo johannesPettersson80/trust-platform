@@ -27,7 +27,7 @@ pub fn run_runtime(
         ide_shell_mode,
     } = load_runtime(project, config, runtime_root)?;
     let (selected_execution_backend, selected_execution_backend_source) =
-        resolve_execution_backend_selection(bundle.as_ref(), execution_backend)?;
+        select_execution_backend(bundle.as_ref(), &runtime, execution_backend)?;
 
     let simulation_requested = simulation;
     let simulation = build_simulation_plan(bundle.as_ref(), simulation, time_scale)?;
@@ -84,7 +84,7 @@ pub fn run_runtime(
         });
     }
 
-    start_runtime_program(
+    start_program(
         &mut runtime,
         bundle.as_ref(),
         selected_execution_backend,
@@ -97,9 +97,12 @@ pub fn run_runtime(
         .transpose()?
         .flatten();
 
+    // The scaffold reads the bytecode engine's program model; a compiled program's pages come from
+    // its symbol table (specification 44 §13.3).
     let startup_hmi_scaffold = bundle
         .as_ref()
-        .and_then(|bundle| auto_scaffold_hmi_update(bundle, &runtime, &sources));
+        .zip(runtime.engine())
+        .and_then(|(bundle, engine)| auto_scaffold_hmi_update(bundle, engine, &sources));
 
     let logger = RuntimeLogger::new(match &bundle {
         Some(bundle) => LogLevel::parse(bundle.runtime.log_level.as_str()),
@@ -114,7 +117,7 @@ pub fn run_runtime(
         }),
     );
 
-    let metadata = Arc::new(Mutex::new(runtime.metadata_snapshot()));
+    let metadata = Arc::new(Mutex::new(program_metadata(&runtime)));
     // The event store of the project's `runtime.events.capacity`, the computer's default when the
     // project sets none (specification 11, the event store).
     let event_capacity = bundle.as_ref().map_or(EVENT_STORE_CAPACITY, |bundle| {
@@ -662,6 +665,31 @@ fn load_startup_retain(runtime: &mut Runtime, restart_mode: RestartMode) -> anyh
         runtime.load_retain_store()?;
     }
     Ok(())
+}
+
+/// The backend of the loaded `program`: a project built for this computer runs its program image
+/// (specification 44 §8.8, NX-15), and any other program the backend its bundle or the command line
+/// selects.
+fn select_execution_backend(
+    bundle: Option<&RuntimeBundle>,
+    program: &trust_runtime::scheduler::HostProgram,
+    cli_override: Option<crate::cli::ExecutionBackendArg>,
+) -> anyhow::Result<(
+    trust_runtime::execution_backend::ExecutionBackend,
+    trust_runtime::execution_backend::ExecutionBackendSource,
+)> {
+    if program.compiled().is_none() {
+        return resolve_execution_backend_selection(bundle, cli_override);
+    }
+    if cli_override.is_some() {
+        anyhow::bail!(
+            "the project runs its program image; `--execution-backend vm` runs a project built with `trust-runtime build --execution-backend vm`"
+        );
+    }
+    Ok((
+        trust_runtime::execution_backend::ExecutionBackend::Native,
+        trust_runtime::execution_backend::ExecutionBackendSource::Default,
+    ))
 }
 
 fn resolve_execution_backend_selection(

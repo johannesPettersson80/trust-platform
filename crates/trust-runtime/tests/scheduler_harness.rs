@@ -19,11 +19,11 @@ END_PROGRAM
 
     clock.set_time(Duration::from_millis(0));
     runner.tick().unwrap();
-    assert_eq!(runner.runtime().current_time(), Duration::from_millis(0));
+    assert_eq!(runner.program().current_time(), Duration::from_millis(0));
 
     clock.advance(Duration::from_millis(5));
     runner.tick().unwrap();
-    assert_eq!(runner.runtime().current_time(), Duration::from_millis(5));
+    assert_eq!(runner.program().current_time(), Duration::from_millis(5));
 
     assert_eq!(clock.sleep_calls(), 0);
 }

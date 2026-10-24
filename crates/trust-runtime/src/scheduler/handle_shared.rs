@@ -290,6 +290,23 @@ impl SharedGlobals {
         self.with_lock(|globals| globals.get(name).cloned())
     }
 
+    /// [`Self::validate_destination`] for the runner's program. A compiled program shares no global
+    /// with another resource: an image holds one resource (specification 44 NX-03, §16).
+    fn validate_program_destination(&self, program: &mut HostProgram) -> Result<(), RuntimeError> {
+        match program {
+            HostProgram::Engine(runtime) => self.validate_destination(runtime),
+            HostProgram::Compiled(_) => Err(compiled_shares_no_globals()),
+        }
+    }
+
+    /// [`Self::execute_cycle`] for the runner's program.
+    fn execute_program_cycle(&self, program: &mut HostProgram) -> Result<(), RuntimeError> {
+        match program {
+            HostProgram::Engine(runtime) => self.execute_cycle(runtime),
+            HostProgram::Compiled(_) => Err(compiled_shares_no_globals()),
+        }
+    }
+
     fn validate_destination(&self, runtime: &mut Runtime) -> Result<(), RuntimeError> {
         self.with_lock(|globals| {
             for name in &self.names {
@@ -344,4 +361,13 @@ impl SharedGlobals {
         }
         Ok(())
     }
+}
+
+/// The refusal of globals shared between resources for a compiled program, whose image holds one
+/// resource (specification 44 NX-03, §16).
+fn compiled_shares_no_globals() -> RuntimeError {
+    RuntimeError::InvalidConfig(
+        "a compiled program shares no globals with another resource: its image holds one resource"
+            .into(),
+    )
 }

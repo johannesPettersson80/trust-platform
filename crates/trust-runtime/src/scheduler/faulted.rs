@@ -197,7 +197,7 @@ fn apply_recovery_reload<C: Clock + Clone>(
     if !claim.take() {
         return false;
     }
-    let result = runner.runtime.apply_online_change_bytes(&bytes, None);
+    let result = runner.runtime.apply_online_change_bytes(&bytes);
     let applied = result.is_ok();
     let _ = respond_to.send(result);
     applied

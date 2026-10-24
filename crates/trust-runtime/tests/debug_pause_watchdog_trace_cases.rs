@@ -113,7 +113,7 @@ fn statement_pause_observation(
 
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     runner
-        .runtime_mut()
+        .program_mut()
         .set_watchdog_policy(watchdog_policy(watchdog_ms));
     let mut handle = runner
         .spawn("debug-pause-proof")
@@ -153,7 +153,7 @@ fn resource_pause_observation(
     let (runtime, debug) = counter_runtime()?;
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     runner
-        .runtime_mut()
+        .program_mut()
         .set_watchdog_policy(watchdog_policy(watchdog_ms));
     let mut handle = runner
         .spawn("resource-pause-proof")

@@ -36,7 +36,7 @@ use crate::debug::{
 };
 
 /// A position in a source file: the 1-based `(line, column)` of the module's `LINE_TABLE`.
-pub(super) type Position = (u32, u32);
+pub type Position = (u32, u32);
 
 /// The thread that every statement of a device runs on until the debugger tells tasks apart, as a
 /// new trust-runtime debug control starts with current thread 1 (specification 13, "Runtime debug
@@ -46,14 +46,14 @@ const FIRST_THREAD: u32 = 1;
 /// A statement start that the hook found: where in the call stack it runs and where in the source it
 /// stands.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct StatementStart<'a> {
+pub struct StatementStart<'a> {
     /// The call depth of the statement's POU (specification 13, "Stepping Semantics").
-    pub(super) depth: u32,
+    pub depth: u32,
     /// The statement's file and its half-open source span.
-    pub(super) span: StatementSpan,
+    pub span: StatementSpan,
     /// The identity of the frame that runs the statement: the interpreter's activation, or a
     /// compiled program's frame by its call depth; `None` for a statement of no frame.
-    pub(super) frame: Option<FrameId>,
+    pub frame: Option<FrameId>,
     /// Ties the start to the hook call it was made in.
     pub(super) call: core::marker::PhantomData<&'a ()>,
 }
@@ -63,16 +63,16 @@ pub(super) struct StatementStart<'a> {
 /// its file and its position.
 #[cfg(feature = "native")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(super) struct StopPoints {
+pub struct StopPoints {
     /// Every statement stops.
-    pub(super) every: bool,
+    pub every: bool,
     /// The file and the start of each breakpoint's statement.
-    pub(super) starts: Vec<(u32, Position)>,
+    pub starts: Vec<(u32, Position)>,
 }
 
 /// What the hook does at a statement start.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Boundary {
+pub enum Boundary {
     /// The scan runs on.
     Run,
     /// The debugger holds the scan here.
@@ -80,7 +80,7 @@ pub(super) enum Boundary {
 }
 
 /// The latest stop that the debugger emitted (specification 13, "Stopped Events").
-pub(super) type LastStop = StopRecord;
+pub type LastStop = StopRecord;
 
 /// A stop of `reason` before the statement `at`.
 fn stop_at(
@@ -171,7 +171,7 @@ struct DebugState {
 }
 
 /// The debugger of one device's resource loop.
-pub(super) struct ChipDebug {
+pub struct ChipDebug {
     state: RefCell<DebugState>,
     /// An operation found the state in use and did nothing.
     busy: Cell<bool>,
@@ -182,7 +182,8 @@ impl ChipDebug {
     /// `stop_capacity` stops at once, so a heap that is too small for it fails here, at start,
     /// never in the middle of a scan (specification 34, ARCH-05); a capacity of 0 reserves nothing
     /// and keeps only the latest stop.
-    pub(super) fn new(stop_capacity: usize) -> Self {
+    #[must_use]
+    pub fn new(stop_capacity: usize) -> Self {
         Self {
             state: RefCell::new(DebugState {
                 run: RunFields::new(),
@@ -205,7 +206,8 @@ impl ChipDebug {
     /// [`Self::new`] reserves them (specification 11 §6.13.3), and drops the stops kept so far.
     /// Returns `false`, the buffer as it was, when the heap has no room for them or the state is in
     /// use.
-    pub(super) fn resize_stops(&self, capacity: usize) -> bool {
+    #[must_use]
+    pub fn resize_stops(&self, capacity: usize) -> bool {
         self.with(|state| {
             if capacity == state.stop_capacity {
                 return true;
@@ -223,7 +225,8 @@ impl ChipDebug {
 
     /// The stops `debug.stops` keeps at most.
     #[cfg(test)]
-    pub(super) fn stop_capacity(&self) -> usize {
+    #[must_use]
+    pub fn stop_capacity(&self) -> usize {
         self.with(|state| state.stop_capacity).unwrap_or(0)
     }
 
@@ -237,31 +240,33 @@ impl ChipDebug {
     }
 
     /// Whether an operation found the state in use since the last call.
-    pub(super) fn take_busy(&self) -> bool {
+    #[must_use]
+    pub fn take_busy(&self) -> bool {
         self.busy.take()
     }
 
     /// Whether the state is free, for the tests that prove no borrow outlives an operation.
     #[cfg(test)]
-    pub(super) fn is_free(&self) -> bool {
+    #[must_use]
+    pub fn is_free(&self) -> bool {
         self.state.try_borrow_mut().is_ok()
     }
 
     /// A debug-mode `pause`: the debugger holds the scan at its next statement start
     /// (specification 13, "Pause"). A pause while the scan is already held changes nothing.
-    pub(super) fn pause(&self) {
+    pub fn pause(&self) {
         self.apply(RunAction::Pause(None));
     }
 
     /// `resume`: releases a hold and clears a pending pause, whichever mode the resource runs in
     /// (specification 11 §6.9; specification 13, "Continue").
-    pub(super) fn resume(&self) {
+    pub fn resume(&self) {
         self.apply(RunAction::Continue);
     }
 
     /// A step of `kind` from a hold: the scan runs until its own boundary and is held again there
     /// (specification 13, "Stepping Semantics").
-    pub(super) fn step(&self, kind: StepKind) {
+    pub fn step(&self, kind: StepKind) {
         self.apply(match kind {
             StepKind::Into => RunAction::StepIn(None),
             StepKind::Over => RunAction::StepOver(None),
@@ -274,7 +279,8 @@ impl ChipDebug {
     }
 
     /// Whether the debugger holds the scan, or has a hold pending (specification 13, "Pause").
-    pub(super) fn is_held(&self) -> bool {
+    #[must_use]
+    pub fn is_held(&self) -> bool {
         self.with(|state| state.run.control().is_held())
             .unwrap_or(false)
     }
@@ -282,7 +288,8 @@ impl ChipDebug {
     /// What the statements of a compiled program's next stretch of scan stop for (specification 44
     /// §13.2): nothing once a stop request ended the holds.
     #[cfg(feature = "native")]
-    pub(super) fn stop_points(&self) -> StopPoints {
+    #[must_use]
+    pub fn stop_points(&self) -> StopPoints {
         self.with(|state| {
             let held = {
                 let control = state.run.control();
@@ -305,14 +312,15 @@ impl ChipDebug {
 
     /// Whether a step is accepted now: only while the debugger holds the scan (specification 11
     /// §6.9).
-    pub(super) fn accepts_step(&self) -> bool {
+    #[must_use]
+    pub fn accepts_step(&self) -> bool {
         self.with(|state| state.run.control().accepts_step())
             .unwrap_or(false)
     }
 
     /// Adds `breakpoint` after the breakpoints already set.
     #[cfg(test)]
-    pub(super) fn add_breakpoint(&self, breakpoint: Breakpoint<Position>) {
+    pub fn add_breakpoint(&self, breakpoint: Breakpoint<Position>) {
         self.with(|state| state.breakpoints.push(breakpoint));
     }
 
@@ -321,7 +329,8 @@ impl ChipDebug {
     /// saturation, even when `spans` is empty, and every replacement breakpoint starts with no
     /// hit; the breakpoints of other files stay (specification 13, "Runtime debug state,
     /// mutation, and projection invariants").
-    pub(super) fn replace_breakpoints(&self, file_id: u32, spans: Vec<Span<Position>>) -> u64 {
+    #[must_use]
+    pub fn replace_breakpoints(&self, file_id: u32, spans: Vec<Span<Position>>) -> u64 {
         self.with(|state| {
             let generation = {
                 let entry = state.generations.entry(file_id).or_insert(0);
@@ -345,7 +354,7 @@ impl ChipDebug {
 
     /// Clears every breakpoint, every generation and the stops that the scan in progress took
     /// (specification 13, "Runtime debug state, mutation, and projection invariants").
-    pub(super) fn clear_breakpoints(&self) {
+    pub fn clear_breakpoints(&self) {
         self.with(|state| {
             state.breakpoints.clear();
             state.generations.clear();
@@ -354,7 +363,8 @@ impl ChipDebug {
     }
 
     /// The breakpoints, in registration order.
-    pub(super) fn breakpoints(&self) -> Vec<BreakpointView> {
+    #[must_use]
+    pub fn breakpoints(&self) -> Vec<BreakpointView> {
         self.with(|state| {
             state
                 .breakpoints
@@ -370,19 +380,22 @@ impl ChipDebug {
     }
 
     /// The latest stop.
-    pub(super) fn last_stop(&self) -> Option<LastStop> {
+    #[must_use]
+    pub fn last_stop(&self) -> Option<LastStop> {
         self.with(|state| state.last_stop).flatten()
     }
 
     /// The stops since the last call, oldest first, and an empty buffer after it (specification 13,
     /// "Runtime debug state, mutation, and projection invariants").
-    pub(super) fn drain_stops(&self) -> Vec<LastStop> {
+    #[must_use]
+    pub fn drain_stops(&self) -> Vec<LastStop> {
         self.with(|state| state.stops.drain(..).collect())
             .unwrap_or_default()
     }
 
     /// The statement that `frame` last stood at, while it is on the call stack.
-    pub(super) fn frame_span(&self, frame: FrameId) -> Option<StatementSpan> {
+    #[must_use]
+    pub fn frame_span(&self, frame: FrameId) -> Option<StatementSpan> {
         self.with(|state| {
             state
                 .frame_locations
@@ -397,36 +410,38 @@ impl ChipDebug {
     /// "Multi-Task Thread Model"; specification 11 §6.13.3). It is out of line, so the scan's
     /// observer, which runs from RAM on a chip, only calls it.
     #[inline(never)]
-    pub(super) fn set_thread(&self, thread: Option<u32>) {
+    pub fn set_thread(&self, thread: Option<u32>) {
         self.with(|state| state.run.current_thread = thread);
     }
 
     /// A scan has ended, completed or faulted: a read between scans has a published state from
     /// now on (specification 11 §6.13.1).
-    pub(super) fn scan_ended(&self) {
+    pub fn scan_ended(&self) {
         self.with(|state| state.published = true);
     }
 
     /// The program starts again, or restarts in place: there is no published state until the next
     /// scan ends (specification 11 §6.13.1).
-    pub(super) fn restarted(&self) {
+    pub fn restarted(&self) {
         self.with(|state| state.published = false);
     }
 
     /// Whether a scan has ended since the program started.
-    pub(super) fn published(&self) -> bool {
+    #[must_use]
+    pub fn published(&self) -> bool {
         self.with(|state| state.published).unwrap_or(false)
     }
 
     /// Runs `operation` on the variable handles of the current stop.
-    pub(super) fn with_handles(&self, operation: &mut dyn FnMut(&mut DebugVariableHandles)) {
+    pub fn with_handles(&self, operation: &mut dyn FnMut(&mut DebugVariableHandles)) {
         self.with(|state| operation(&mut state.handles));
     }
 
     /// The wire label of the reason that a hold keeps the scan paused, as `status` names it, or
     /// none while the scan runs (specification 11 §6.9: while the debugger holds the scan, `status`
     /// reports the hold). A pause that no statement has taken yet reports its own reason.
-    pub(super) fn hold_label(&self) -> Option<&'static str> {
+    #[must_use]
+    pub fn hold_label(&self) -> Option<&'static str> {
         self.with(|state| {
             let last_stop = state.last_stop.map(|stop| stop.reason);
             state
@@ -440,7 +455,7 @@ impl ChipDebug {
 
     /// A scan begins: every ordinary stop of the last one is forgotten, so a breakpoint may stop
     /// again (specification 13, "Breakpoint evaluation, source resolution, and hook contract").
-    pub(super) fn begin_cycle(&self) {
+    pub fn begin_cycle(&self) {
         self.with(|state| state.suppression.begin_cycle());
     }
 
@@ -449,7 +464,7 @@ impl ChipDebug {
     /// breakpoint, and the resource then takes its ordinary stop path (specification 11 §6.9,
     /// "Operations while the debugger holds the scan"). It clears a pause that arrived after the
     /// request, too, so a program that ended holds nothing.
-    pub(super) fn release_for_stop(&self) {
+    pub fn release_for_stop(&self) {
         self.with(|state| state.run.control().release_for_stop());
     }
 
@@ -457,7 +472,7 @@ impl ChipDebug {
     /// debugger may hold it, though the stop ended the holds of the last run (specification 11
     /// §6.9: "a resource thread that starts later on the same debugger can be held again"). The
     /// breakpoints stay.
-    pub(super) fn rearm(&self) {
+    pub fn rearm(&self) {
         self.with(|state| state.run.control().rearm());
     }
 
@@ -467,7 +482,7 @@ impl ChipDebug {
     /// supplies them again. The breakpoints stay, and so does a pause (specification 13, "Hold
     /// duration": a configuration change does not release a hold); the change itself happens at a
     /// boundary, where no scan is held.
-    pub(super) fn program_replaced(&self) {
+    pub fn program_replaced(&self) {
         self.with(|state| {
             state.run.control().retire_observations();
             state.last_stop = None;
@@ -482,7 +497,7 @@ impl ChipDebug {
     /// # Errors
     ///
     /// [`RuntimeError::InvalidExecutionState`] when the state was in use.
-    pub(super) fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
+    pub fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
         self.with(|state| {
             let DebugState {
                 run,
@@ -534,7 +549,7 @@ impl ChipDebug {
     /// # Errors
     ///
     /// [`RuntimeError::InvalidExecutionState`] when the state was in use.
-    pub(super) fn holds(&self, at: &StatementStart<'_>) -> Result<bool, RuntimeError> {
+    pub fn holds(&self, at: &StatementStart<'_>) -> Result<bool, RuntimeError> {
         self.with(|state| {
             let DebugState {
                 run,

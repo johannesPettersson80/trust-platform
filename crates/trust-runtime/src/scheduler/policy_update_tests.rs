@@ -10,13 +10,14 @@ use super::{
 use crate::value::Duration;
 use crate::watchdog::{FaultPolicy, WatchdogAction, WatchdogPolicy};
 
-fn fresh_runtime() -> crate::Runtime {
+fn fresh_runtime() -> super::HostProgram {
     crate::RuntimeBuilder::new()
         .build()
         .expect("admit the policy fixture")
+        .into()
 }
 
-fn policies_of(runtime: &crate::Runtime) -> SchedulerPolicies {
+fn policies_of(runtime: &super::HostProgram) -> SchedulerPolicies {
     SchedulerPolicies {
         watchdog: runtime.watchdog_policy(),
         fault_policy: runtime.fault_policy(),
@@ -127,7 +128,7 @@ fn the_faulted_wait_applies_the_whole_policy_set_without_ending_the_wait() {
         "a policy update is not an online change, so the faulted wait continues"
     );
     assert_eq!(
-        policies_of(runner.runtime()),
+        policies_of(runner.program()),
         requested,
         "the faulted wait applies every policy"
     );

@@ -159,7 +159,7 @@ END_PROGRAM
     clock.set(Duration::from_millis(0));
 
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         // Watchdog enforcement is wall-clock based, so use an effectively-zero timeout.
         timeout: Duration::from_nanos(1),

@@ -248,12 +248,12 @@ pub(super) fn sync_hang_supervisor<C: super::Clock + Clone>(
     runner: &super::ResourceRunner<C>,
     supervision: &Arc<ScanSupervision>,
 ) -> Result<(), RuntimeError> {
-    let policy = runner.runtime().watchdog_policy();
+    let policy = runner.program().watchdog_policy();
     match (policy.enabled, slot.is_some()) {
         (true, false) => {
             let started = HangSupervisor::start(
                 supervision,
-                runner.runtime().debug_control(),
+                runner.program().debug_control(),
                 runner.hang_action,
                 policy.timeout,
             )?;

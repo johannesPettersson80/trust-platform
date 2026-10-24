@@ -109,7 +109,7 @@ fn installing_loader(source: &'static str, modes: Arc<Mutex<Vec<RestartMode>>>) 
             .expect("the installed program compiles")
             .into_runtime();
         next.restart(mode)?;
-        *slot = next;
+        *slot = next.into();
         Ok(StartedProgram {
             cycle_interval: Duration::from_millis(1),
             time_scale: 1,

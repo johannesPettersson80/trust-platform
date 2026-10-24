@@ -62,6 +62,75 @@ fn apply_bundle_runtime_services(
     Ok(())
 }
 
+/// [`apply_bundle_runtime_services`] for a compiled program (specification 44 §8.8): the watchdog
+/// and fault policies, the safe outputs, the `io.toml` drivers and the retain file. The services
+/// that reach the program's variables by name, the ADS and OPC UA clients, the MQTT tag mappings and
+/// the OpenOT telemetry, are refused for a compiled program until they read its symbol table
+/// (specification 44 §13.3).
+fn apply_bundle_compiled_services(
+    program: &mut trust_runtime::CompiledRuntime,
+    bundle: &RuntimeBundle,
+) -> anyhow::Result<()> {
+    if bundle.runtime.bundle_version != 1 {
+        anyhow::bail!(
+            "unsupported bundle version {}",
+            bundle.runtime.bundle_version
+        );
+    }
+    let unsupported = |setting: &str| {
+        anyhow::anyhow!(
+            "{setting}: a compiled program's variables are not yet reached by this service"
+        )
+    };
+    if bundle.runtime.ads.enabled {
+        return Err(unsupported("runtime.ads.enabled"));
+    }
+    if bundle.runtime.opcua_client.enabled {
+        return Err(unsupported("runtime.opcua_client.enabled"));
+    }
+    if bundle.runtime.openot.enabled {
+        return Err(unsupported("runtime.openot.enabled"));
+    }
+
+    program.set_watchdog_policy(bundle.runtime.watchdog);
+    program.set_fault_policy(bundle.runtime.fault_policy);
+    program.set_io_safe_state(bundle.io.safe_state.clone());
+
+    let registry = IoDriverRegistry::default_registry();
+    for driver in bundle.io.drivers.iter().filter(|driver| driver.enabled) {
+        if (driver.name.eq_ignore_ascii_case("mqtt")
+            || driver.name.eq_ignore_ascii_case("mqtt-tcp"))
+            && trust_runtime::io::has_mqtt_tag_mappings(&driver.params)?
+        {
+            return Err(unsupported("io.params.mappings of the mqtt driver"));
+        }
+        if let Some(spec) = registry
+            .build(driver.name.as_str(), &driver.params)
+            .map_err(anyhow::Error::from)?
+        {
+            program.add_io_driver(spec.name, spec.driver);
+        }
+    }
+
+    match bundle.runtime.retain_mode {
+        trust_runtime::watchdog::RetainMode::File => {
+            let store = bundle.runtime.retain_path.as_ref().map(|path| {
+                let path = if path.is_relative() {
+                    bundle.root.join(path)
+                } else {
+                    path.clone()
+                };
+                Box::new(FileRetainStore::new(path)) as _
+            });
+            program.set_retain_store(store, Some(bundle.runtime.retain_save_interval))?;
+        }
+        trust_runtime::watchdog::RetainMode::None => {
+            program.set_retain_store(None, None)?;
+        }
+    }
+    Ok(())
+}
+
 fn start_openot_persistence_service(
     bundle: &RuntimeBundle,
 ) -> anyhow::Result<Option<OpenOtPersistenceService>> {

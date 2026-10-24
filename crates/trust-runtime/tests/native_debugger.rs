@@ -155,7 +155,7 @@ impl ScanHooks for Recorder {
 #[test]
 fn a_debug_image_names_its_pous_and_their_frame_variables() {
     let program = program(true, "debugger-symbols");
-    let image = *program.image();
+    let image = program.image();
     let (twice_index, twice) = symbol(&image, "@TWICE");
     assert_eq!(twice.area, 0);
     assert_eq!(twice.type_index, NONE);
@@ -185,7 +185,7 @@ fn a_debug_image_names_its_pous_and_their_frame_variables() {
 #[test]
 fn a_breakpoint_holds_the_scan_with_its_call_stack_and_frame_variables() {
     let mut program = program(true, "debugger-stop");
-    let image = *program.image();
+    let image = program.image();
     let target = statement(&image, "doubled := n * 2;");
     let call = statement(&image, "count := Twice(count + 1);");
     let body = statement(&image, "c();");
@@ -201,7 +201,7 @@ fn a_breakpoint_holds_the_scan_with_its_call_stack_and_frame_variables() {
     assert_eq!(seen.names, ["Twice", "Counter", "Main"]);
     let statements: Vec<u32> = seen.frames.iter().map(|frame| frame.stmt).collect();
     assert_eq!(statements, [target, call, body]);
-    let (_, instance) = symbol(&image, "MAIN.C");
+    let (_, instance) = symbol(&program.image(), "MAIN.C");
     assert_eq!(
         seen.frames[1].instance,
         Some(Place::Area {
@@ -209,7 +209,7 @@ fn a_breakpoint_holds_the_scan_with_its_call_stack_and_frame_variables() {
             offset: instance.offset
         })
     );
-    let (_, main) = symbol(&image, "MAIN");
+    let (_, main) = symbol(&program.image(), "MAIN");
     assert_eq!(
         seen.frames[2].instance,
         Some(Place::Area {
@@ -232,7 +232,7 @@ fn a_breakpoint_holds_the_scan_with_its_call_stack_and_frame_variables() {
 #[test]
 fn a_release_image_never_stops_and_names_no_frames() {
     let mut program = program(false, "debugger-release");
-    let image = *program.image();
+    let image = program.image();
     assert!(image.header().is_release());
     assert!(image.find_symbol("@TWICE").is_none());
     assert!(image.find_symbol("@TWICE.N").is_none());

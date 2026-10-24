@@ -7,7 +7,7 @@ skinparam linetype ortho
 skinparam nodesep 45
 skinparam ranksep 35
 
-title truST Native Execution (specification 44): Build, Image and the Chip's Kernel
+title truST Native Execution (specification 44): Build, Image, the Chip's and the Computer's Kernel
 
 package "Engineering computer: trust-runtime build --target" as buildPkg #LightYellow {
     component "trust-hir\nrecorded types and resolved symbols\n(FileAnalysis)" as hir
@@ -51,7 +51,7 @@ package "Container and program store (specification 34 §5.1)" as storePkg #Ligh
 package "ESP32-C6 firmware --features native" as chipPkg #LightCyan {
     component "Runner (trust-runtime-services)\nfixed cycle grid (spec 10 §4.3),\nlink, faults, watchdog, metrics" as runner
     component "CompiledLoader\n(trust-platform-esp32)\nadmit, place module, claim lines" as loader
-    component "ProgramCode\n128 KiB .trust_code region in RAM,\nexecutable; flash window as fallback" as codeRegion
+    component "ProgramCode\n192 KiB program region of the heap (.trust_code),\nexecutable: module copies at the top, uploads\nat the bottom; flash window as fallback" as codeRegion
     component "CompiledCycle\nread inputs, scan, deadline,\nsnapshot, drive outputs" as cycle
     component "NativeProgram (trust-runtime-core::native)\nareas, task readiness,\nbindings, fault mapping" as kernel
     component "native::retain\ncapture and restore through the\nretain map and the type table" as retainMap
@@ -71,11 +71,25 @@ package "ESP32-C6 firmware --features native" as chipPkg #LightCyan {
     kernel --> retainMap
 }
 
+package "Computer: trust-runtime run (specification 44 §8.8)" as hostPkg #Lavender {
+    artifact "program.tpi + deployment-record.bin\n(trust-runtime build, program.install)" as hostImage
+    component "ResourceRunner, scan thread\n(HostProgram: engine or compiled),\ncycle grid, watchdog, faults, commands" as hostRunner
+    component "CompiledRuntime\nHostIo (io.toml drivers), RetainManager\n(retain file), metrics, events, snapshot" as hostRuntime
+    component "CompiledDebugger\nChipDebug under a lock; the scan thread\nholds, control threads answer" as hostDebugger
+    component "control server threads\ndebug::requests::answer, io.read,\nLive Values queues (DebugControl)" as hostControl
+    hostImage --> hostRuntime : CompiledRuntime::load\n(AdmittedImage kept, module mmapped)
+    hostRunner --> hostRuntime : execute_cycle / restart /\nonline change / step
+    hostRuntime --> cycle : the same CompiledCycle,\nhost ports
+    hostRuntime --> hostDebugger : hold port, published state
+    hostControl --> hostDebugger : debug operations
+}
+
 note bottom of chipPkg
     The observer sees the cycle start, input sample, task overruns, starts and ends,
     output sample and cycle end (CycleHooks::on_compiled_phase): status, tasks.stats,
     io.read and the allocation count work as for STBC. The retained values are checkpointed
-    in the format the interpreter writes (M2). Online change, breakpoints and Live Values
-    writes (M3) are not served yet.
+    in the format the interpreter writes (M2). Online change (the module runs in its image in
+    the program region), breakpoints, stepping and Live Values (M3) are served on the chip and
+    on the computer by the same cycle and debugger code.
 end note
 @enduml

@@ -37,19 +37,29 @@ END_PROGRAM
         runner.tick_with_shared(&shared),
         Err(RuntimeError::TypeMismatch)
     );
-    assert!(runner.runtime().faulted());
+    assert!(runner.program().faulted());
     assert_eq!(
-        runner.runtime().storage().get_global("shared"),
+        runner
+            .engine()
+            .expect("a program on the bytecode engine")
+            .storage()
+            .get_global("shared"),
         Some(&Value::Bool(false))
     );
     assert_eq!(writes.lock().unwrap().as_slice(), &[vec![0]]);
     assert_eq!(shared.get("shared"), Some(Value::Int(1)));
-    let Some(Value::Instance(program)) = runner.runtime().storage().get_global("P") else {
+    let Some(Value::Instance(program)) = runner
+        .engine()
+        .expect("a program on the bytecode engine")
+        .storage()
+        .get_global("P")
+    else {
         panic!("declared program root")
     };
     assert_eq!(
         runner
-            .runtime()
+            .engine()
+            .expect("a program on the bytecode engine")
             .storage()
             .get_instance_var(*program, "calls"),
         Some(&Value::Int(0))

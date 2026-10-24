@@ -43,7 +43,16 @@ pub(super) fn step<C: Clock + Clone>(
         steps.last = None;
         restart = None;
     }
-    let runtime = &mut runner.runtime;
+    // A compiled program steps through its compiled cycle, as a chip steps it (specification 44
+    // §8.8); the cycle restarts it at `restart_at` when the request still asks for a restart.
+    if let Some(program) = runner.runtime.compiled_mut() {
+        let mut request = request.clone();
+        request.restart = restart;
+        let outcome = program.step(&request, restart_at)?;
+        steps.last = Some(request.time);
+        return Ok(outcome);
+    }
+    let runtime = engine(runner)?;
     for name in request
         .inputs
         .iter()
@@ -79,14 +88,16 @@ pub(super) fn step<C: Clock + Clone>(
     }
     runtime.set_current_time(request.time);
     let watchdog = runtime.watchdog_policy();
-    let deadlines = arm_cycle_deadlines(runtime, watchdog, std::time::Instant::now());
+    let deadlines = arm_cycle_deadlines(&mut runner.runtime, watchdog, std::time::Instant::now());
+    let runtime = engine(runner)?;
     let error = match &run {
         Some(program) => runtime.execute_stepped_program(program),
         None => runtime.execute_stepped_cycle(),
     }
     .err();
-    restore_cycle_deadlines(runtime, deadlines);
+    restore_cycle_deadlines(&mut runner.runtime, deadlines);
     steps.last = Some(request.time);
+    let runtime = engine(runner)?;
     let values = request
         .watch
         .iter()
@@ -121,4 +132,15 @@ fn reason(error: &BoundaryError) -> String {
         BoundaryError::AmbiguousName { .. } => "names a variable of several programs".to_string(),
         other => other.to_string(),
     }
+}
+
+/// The program of `runner` on the bytecode engine, which a step that is not a compiled program's
+/// runs on.
+fn engine<C: Clock + Clone>(
+    runner: &mut ResourceRunner<C>,
+) -> Result<&mut crate::Runtime, StepRefusal> {
+    runner
+        .runtime
+        .engine_mut()
+        .ok_or_else(|| StepRefusal::NoProgram("the program runs on no engine".to_string()))
 }

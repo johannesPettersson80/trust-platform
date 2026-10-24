@@ -117,6 +117,17 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   debug = false)`. The kernel interface is version 4, so a chip's firmware and its programs are
   updated together. On the ESP32-C6 a breakpoint in a function holds the scan with the call stack
   of the function, its function block and the program, steps and resumes, over USB.
+- Added: trust-runtime on Linux, Windows and macOS runs compiled programs (specification 44 §8.8):
+  `trust-runtime build` writes the project's program image for this computer, `program.tpi`, with
+  its deployment record, when the Rust toolchain of truST is installed (`TRUST_TOOLCHAIN`; without
+  it the build still writes `program.stbc` and says so, and `--execution-backend vm` asks for it),
+  and `run` and `play` run `program.tpi` with the cycle a chip runs: the `io.toml` drivers, the
+  retain file the bytecode engine writes (each restores the other's), the watchdog and fault
+  policies, Live Values, online change with an image, `cycle.step`, `program.install` of an image
+  into the project or its program store, and the debugger with breakpoints, stepping and the call
+  stack, answered by the same code as on a chip. `status` reports `execution_backend: "native"`.
+  The ADS and OPC UA clients, the MQTT tag mappings and the OpenOT telemetry refuse to start with a
+  compiled program until they read its symbol table.
 - Added: online change of a compiled program (specification 44 §12). `bytecode.reload` with a
   program image changes the running program at its next boundary and keeps its values as an
   interpreted program's change keeps them: the process images by address, every variable by its

@@ -14,8 +14,17 @@ use trust_runtime_core::vm::CarriedValueEvent;
 
 use super::CompiledCycle;
 use crate::runner::engine::ProcessIo;
+use crate::runner::hold::CompiledHold;
+use crate::runner::retain::CycleRetain;
 
-impl<'i, C: MonotonicClock + Clone, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I, K> {
+impl<'i, C, I, K, H, R> CompiledCycle<'i, C, I, K, H, R>
+where
+    C: MonotonicClock + Clone,
+    I: ProcessIo,
+    K: ModuleCode,
+    H: CompiledHold,
+    R: CycleRetain,
+{
     /// The candidate of an online change: `program`, built from the new image and not started,
     /// over the process I/O `io`, with the settings, the clock, the allocator count, the logical
     /// time and the generation of `running`. It takes the running values with
@@ -41,7 +50,7 @@ impl<'i, C: MonotonicClock + Clone, I: ProcessIo, K: ModuleCode> CompiledCycle<'
     /// entry, or the error of a table that does not read; `running` is as it was.
     pub fn take_values<D: ModuleCode>(
         &mut self,
-        running: &CompiledCycle<'_, C, I, D>,
+        running: &CompiledCycle<'_, C, I, D, H, R>,
     ) -> Result<Vec<CarriedValueEvent>, RuntimeError> {
         let generation = running.generation.next().ok_or(RuntimeError::Overflow)?;
         let events = self.program.change_from(&running.program, running.now)?;

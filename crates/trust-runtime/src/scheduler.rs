@@ -13,12 +13,17 @@ use crate::debug::DebugControl;
 use crate::error::RuntimeError;
 use crate::value::Duration;
 use crate::value::Value;
+use crate::CompiledRuntime;
 use crate::Runtime;
 use crate::RuntimeMetadata;
 
 pub use trust_runtime_core::scheduler::ResourceState;
 
 use command_queue::{command_channel, try_queue};
+
+/// The stack of a resource's scan thread: 2 MiB, whatever `RUST_MIN_STACK` says, so that a compiled
+/// program's task stack of 1 MiB fits within it (specification 44 §8.5, NX-15).
+const SCAN_THREAD_STACK_BYTES: usize = 2 << 20;
 pub use command_queue::{CommandSendError, ReloadClaim, RESOURCE_COMMAND_CAPACITY};
 // The supervisor's decisions are shared runtime code (spec 34 ARCH-11); the threads, waits and
 // restarts below call them.
@@ -35,6 +40,7 @@ use trust_runtime_services::resource::supervisor::{
 
 include!("scheduler/clock.rs");
 include!("scheduler/model.rs");
+include!("scheduler/program.rs");
 include!("scheduler/runner_api.rs");
 include!("scheduler/runner_loop.rs");
 include!("scheduler/handle_shared.rs");

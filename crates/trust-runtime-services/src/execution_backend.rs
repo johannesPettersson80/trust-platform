@@ -10,6 +10,8 @@ pub enum ExecutionBackend {
     /// Bytecode VM execution path.
     #[default]
     BytecodeVm,
+    /// A compiled program image run by the kernel (specification 44 §8.8).
+    Native,
 }
 
 impl ExecutionBackend {
@@ -21,6 +23,7 @@ impl ExecutionBackend {
     pub fn parse(text: &str) -> Result<Self, RuntimeError> {
         match text.trim().to_ascii_lowercase().as_str() {
             "vm" => Ok(Self::BytecodeVm),
+            "native" => Ok(Self::Native),
             "interpreter" => Err(RuntimeError::InvalidConfig(
                 "runtime.execution_backend='interpreter' is no longer supported for production runtimes; use 'vm'"
                     .into(),
@@ -36,6 +39,7 @@ impl ExecutionBackend {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::BytecodeVm => "vm",
+            Self::Native => "native",
         }
     }
 }

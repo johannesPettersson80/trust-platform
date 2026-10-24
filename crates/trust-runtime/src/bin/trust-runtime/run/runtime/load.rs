@@ -12,6 +12,17 @@ fn load_runtime(
         } else {
             SourceRegistry::new(Vec::new())
         };
+        // A project built for this computer runs its program image (specification 44 §8.8, NX-15).
+        if let Some(image) = bundle.image.clone() {
+            let program =
+                trust_runtime::CompiledRuntime::load(image, bundle.runtime.resource_name.clone())?;
+            return Ok(LoadedRuntime {
+                bundle: Some(bundle),
+                runtime: program.into(),
+                sources,
+                ide_shell_mode,
+            });
+        }
         let module = BytecodeModule::decode(&bundle.bytecode)?;
         // The limits of the project's deployment record, or the defaults (spec 34 HOST-02).
         let runtime = compile_session_from_sources(&sources)
@@ -22,7 +33,7 @@ fn load_runtime(
             )?;
         return Ok(LoadedRuntime {
             bundle: Some(bundle),
-            runtime,
+            runtime: runtime.into(),
             sources,
             ide_shell_mode,
         });
@@ -39,7 +50,7 @@ fn load_runtime(
         let runtime = compile_runtime_from_sources(&sources)?;
         return Ok(LoadedRuntime {
             bundle: None,
-            runtime,
+            runtime: runtime.into(),
             sources,
             ide_shell_mode,
         });
@@ -58,7 +69,7 @@ fn load_runtime(
 
     Ok(LoadedRuntime {
         bundle: None,
-        runtime,
+        runtime: runtime.into(),
         sources,
         ide_shell_mode,
     })

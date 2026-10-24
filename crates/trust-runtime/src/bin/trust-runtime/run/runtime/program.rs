@@ -22,6 +22,34 @@ fn bundle_hang_action(bundle: Option<&RuntimeBundle>) -> trust_runtime::watchdog
         .unwrap_or_default()
 }
 
+/// Attaches a freshly loaded `program` to the control surfaces, applies the runtime-level services
+/// of its bundle, and starts it in `restart_mode`, as a new process starts its program: a compiled
+/// program as specification 44 §8.8 says, a program on the bytecode engine as before.
+fn start_program(
+    program: &mut trust_runtime::scheduler::HostProgram,
+    bundle: Option<&RuntimeBundle>,
+    backend: trust_runtime::execution_backend::ExecutionBackend,
+    wiring: &ProgramWiring,
+    restart_mode: RestartMode,
+) -> anyhow::Result<()> {
+    match program {
+        trust_runtime::scheduler::HostProgram::Engine(runtime) => {
+            start_runtime_program(runtime, bundle, backend, wiring, restart_mode)
+        }
+        trust_runtime::scheduler::HostProgram::Compiled(program) => {
+            program.set_debug_control(wiring.debug.clone());
+            program.set_metrics_sink(wiring.metrics.clone());
+            program.set_io_health_sink(Some(wiring.io_health.clone()));
+            if let Some(bundle) = bundle {
+                apply_bundle_compiled_services(program, bundle)?;
+            }
+            // A warm start takes the retained values of the retain file (specification 44 §11).
+            program.restart_with_retain_store(restart_mode)?;
+            Ok(())
+        }
+    }
+}
+
 /// Attaches a freshly loaded `runtime` to the control surfaces, applies the runtime-level services
 /// of its bundle, and starts it in `restart_mode`, as a new process starts its program.
 fn start_runtime_program(
@@ -44,6 +72,17 @@ fn start_runtime_program(
     runtime.restart(restart_mode)?;
     load_startup_retain(runtime, restart_mode)?;
     Ok(())
+}
+
+/// The metadata the control surfaces read of `program`: a compiled program has none of the bytecode
+/// engine's program model (specification 44 §8.8).
+fn program_metadata(
+    program: &trust_runtime::scheduler::HostProgram,
+) -> trust_runtime::RuntimeMetadata {
+    program
+        .engine()
+        .map(Runtime::metadata_snapshot)
+        .unwrap_or_default()
 }
 
 /// What a `restart` that finds the resource Stopped needs to load the installed program again: where
@@ -80,7 +119,7 @@ impl ProgramReload {
     /// settings that the program's configuration gives the scan are read again.
     fn load(
         &self,
-        slot: &mut Runtime,
+        slot: &mut trust_runtime::scheduler::HostProgram,
         restart_mode: RestartMode,
     ) -> anyhow::Result<trust_runtime::scheduler::StartedProgram> {
         let (project, config, runtime_root) = self.source.clone();
@@ -91,15 +130,15 @@ impl ProgramReload {
             ..
         } = load_runtime(project, config, runtime_root)?;
         let (backend, backend_source) =
-            resolve_execution_backend_selection(bundle.as_ref(), self.execution_backend)?;
+            select_execution_backend(bundle.as_ref(), &runtime, self.execution_backend)?;
         let plan = build_simulation_plan(bundle.as_ref(), self.simulation, self.time_scale)?;
 
         *slot = runtime;
         self.restart_records(backend);
-        start_runtime_program(slot, bundle.as_ref(), backend, &self.wiring, restart_mode)?;
+        start_program(slot, bundle.as_ref(), backend, &self.wiring, restart_mode)?;
 
         if let Ok(mut metadata) = self.metadata.lock() {
-            *metadata = slot.metadata_snapshot();
+            *metadata = program_metadata(slot);
         }
         if let Ok(mut settings) = self.settings.lock() {
             let fresh = build_runtime_settings(

@@ -450,6 +450,33 @@ pub struct Image<'a> {
     sections: [Option<Section>; 16],
 }
 
+/// What reading an image's header and section table found, so that the image is read again over
+/// its bytes without repeating [`Image::parse`]'s checks.
+#[derive(Clone, Copy)]
+pub(crate) struct Shape {
+    header: Header,
+    sections: [Option<Section>; 16],
+}
+
+impl<'a> Image<'a> {
+    /// What this image's header and section table hold.
+    pub(crate) fn shape(&self) -> Shape {
+        Shape {
+            header: self.header,
+            sections: self.sections,
+        }
+    }
+
+    /// The image in `bytes` as `shape` describes it: `bytes` are the bytes `shape` was read from.
+    pub(crate) fn over(bytes: &'a [u8], shape: &Shape) -> Self {
+        Self {
+            bytes,
+            header: shape.header,
+            sections: shape.sections,
+        }
+    }
+}
+
 impl<'a> Image<'a> {
     /// The image in `bytes`, its header and section table checked (specification 44 §10.2, steps 2
     /// and 3, without the device's own numbers).

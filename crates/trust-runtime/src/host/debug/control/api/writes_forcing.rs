@@ -1,4 +1,6 @@
 use crate::runtime::RuntimeMetadata;
+use trust_runtime_core::memory::IoArea;
+use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::vm::CycleAccess;
 use trust_runtime_services::live_values::apply::{self, WriteSink};
 
@@ -471,6 +473,40 @@ impl DebugControl {
     ) -> Result<(), RuntimeError> {
         self.run_live_values_apply(|queues, sink| {
             apply::forces(queues, metadata.retained_names(), access, sink)
+        })
+    }
+
+    /// Apply the queued Live Values of a compiled program at `point` of its scan, through its
+    /// symbol table (specification 44 §13.3): the variable writes and forces at the cycle start and
+    /// when a hold ends, the image writes and the input and marker forces after the drivers read
+    /// the inputs, and the output forces before the outputs reach the drivers. An instance target of
+    /// another generation than `generation` is refused, as on the bytecode engine.
+    pub(crate) fn apply_compiled_live_values(
+        &self,
+        point: CompiledAccessPoint,
+        generation: Generation,
+        variables: &mut dyn CompiledVariables,
+        time: Duration,
+    ) -> Result<(), RuntimeError> {
+        self.run_live_values_apply(|queues, sink| {
+            if queues.is_idle() {
+                return Ok(());
+            }
+            match point {
+                CompiledAccessPoint::CycleStart | CompiledAccessPoint::HoldEnd => {
+                    apply::compiled_cycle_start(queues, generation, variables, time, sink)
+                }
+                CompiledAccessPoint::AfterInputs => apply::compiled_images(
+                    queues,
+                    &[IoArea::Input, IoArea::Memory],
+                    variables,
+                    time,
+                    sink,
+                ),
+                CompiledAccessPoint::BeforeOutputs => {
+                    apply::compiled_images(queues, &[IoArea::Output], variables, time, sink)
+                }
+            }
         })
     }
 

@@ -126,13 +126,82 @@ pub(super) trait HoldPass {
 /// memory with the frames of its call stack, the sources of its statement table, and the health
 /// of the process I/O the cycle published before the program ran (specification 44 §13.2).
 #[cfg(feature = "native")]
-pub(super) struct CompiledHeld<'a> {
+pub struct CompiledHeld<'a> {
     /// The held scan's memory.
-    pub(super) memory: &'a dyn trust_runtime_core::native::memory::ProgramMemory,
+    pub memory: &'a dyn trust_runtime_core::native::memory::ProgramMemory,
     /// The program's statement table and file labels.
-    pub(super) sources: Option<&'a LineSources>,
+    pub sources: Option<&'a LineSources>,
     /// The health of the process I/O.
-    pub(super) drivers: &'a Cell<Vec<IoDriverStatus>>,
+    pub drivers: &'a Cell<Vec<IoDriverStatus>>,
+}
+
+/// How a compiled program's cycle holds its scan for the debugger (specification 44 §13.2, §8.8):
+/// a device's loop serves its link while it holds the scan ([`HoldHandle`]); a computer's debugger
+/// waits on the scan thread while the computer's other threads serve the control link.
+#[cfg(feature = "native")]
+pub trait CompiledHold {
+    /// The hold of a device's loop as this kind of hold, when it is one: the loop attaches its
+    /// hold to the installed cycle ([`ResourceCycle::attach_hold`]), and a hold of another kind
+    /// takes none.
+    ///
+    /// [`ResourceCycle::attach_hold`]: crate::runner::ResourceCycle::attach_hold
+    fn from_loop(hold: HoldHandle) -> Option<Self>
+    where
+        Self: Sized;
+
+    /// A scan begins: the ordinary stops of the last one are forgotten. Returns whether the
+    /// platform enables debugging for this scan.
+    fn scan_begins(&self) -> bool;
+
+    /// What the program's statements stop for from here.
+    fn stop_points(&self) -> super::debugger::StopPoints;
+
+    /// The decision at the statement start `at` (specification 13, "Runtime Debug-Control
+    /// Execution").
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] that fails the scan when the debugger's state cannot be read.
+    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError>;
+
+    /// Holds the scan before the statement `at` until the debugger releases it, with the held
+    /// scan's memory and frames for the debug reads.
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] that fails the scan when the hold cannot go on.
+    fn hold_compiled(
+        &self,
+        at: &StatementStart<'_>,
+        view: &CompiledHeld<'_>,
+    ) -> Result<(), RuntimeError>;
+}
+
+#[cfg(feature = "native")]
+impl CompiledHold for HoldHandle {
+    fn from_loop(hold: HoldHandle) -> Option<Self> {
+        Some(hold)
+    }
+
+    fn scan_begins(&self) -> bool {
+        self.0.scan_begins()
+    }
+
+    fn stop_points(&self) -> super::debugger::StopPoints {
+        self.0.stop_points()
+    }
+
+    fn at_statement(&self, at: &StatementStart<'_>) -> Result<Boundary, RuntimeError> {
+        self.0.at_statement(at)
+    }
+
+    fn hold_compiled(
+        &self,
+        at: &StatementStart<'_>,
+        view: &CompiledHeld<'_>,
+    ) -> Result<(), RuntimeError> {
+        self.0.hold_compiled(at, view)
+    }
 }
 
 /// The resource loop as the device services hold it, to hold a scan at a statement start. The loop
@@ -175,22 +244,6 @@ impl HoldHandle {
         view: &HeldView<'_>,
     ) -> Result<(), RuntimeError> {
         self.0.hold(at, view)
-    }
-
-    /// Holds a compiled program's scan; see [`HoldPass::hold_compiled`].
-    #[cfg(feature = "native")]
-    pub(super) fn hold_compiled(
-        &self,
-        at: &StatementStart<'_>,
-        view: &CompiledHeld<'_>,
-    ) -> Result<(), RuntimeError> {
-        self.0.hold_compiled(at, view)
-    }
-
-    /// What a compiled program's statements stop for; see [`HoldPass::stop_points`].
-    #[cfg(feature = "native")]
-    pub(super) fn stop_points(&self) -> super::debugger::StopPoints {
-        self.0.stop_points()
     }
 
     /// Whether no cell of the loop is borrowed, for the tests that prove no borrow outlives an

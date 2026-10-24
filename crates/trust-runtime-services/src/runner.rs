@@ -97,8 +97,13 @@ pub use compiled::CompiledCycle;
 #[cfg(feature = "native")]
 pub use cycle::CompiledView;
 pub use cycle::{resource_tasks, DebugView, ResourceCycle, RetainSource, TaskDescriptor};
+pub use debugger::ChipDebug;
+#[cfg(feature = "native")]
+pub use debugger::{Boundary, Position, StatementStart, StopPoints};
 pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
+#[cfg(feature = "native")]
+pub use hold::{CompiledHeld, CompiledHold};
 pub use host::RunnerPlatform;
 #[cfg(feature = "native")]
 pub use install::check_image_retained_values;
@@ -110,7 +115,9 @@ pub use online_change::{
     too_deep, unwired_binding, Candidate, ChangeMemory,
 };
 pub use reload::{Loaded, ProgramLoader};
-pub use retain::RetainConfig;
+#[cfg(feature = "native")]
+pub use retain::CycleRetain;
+pub use retain::{RetainConfig, RetainStore};
 pub use state::event_store_bytes;
 
 use crate::installation::Admitted;

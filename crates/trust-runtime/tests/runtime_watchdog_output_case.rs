@@ -158,7 +158,7 @@ fn run_watchdog_case(
 
     let clock = StepClock::new();
     let mut runner = ResourceRunner::new(runtime, clock, Duration::from_millis(cycle_interval_ms));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: watchdog_enabled,
         timeout: Duration::from_nanos(timeout_ns),
         action: WatchdogAction::Halt,

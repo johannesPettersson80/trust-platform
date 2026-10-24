@@ -96,6 +96,7 @@ fn bundle_with_backend(
         simulation: None,
         bytecode: Vec::new(),
         preparation_limits: trust_runtime::runtime_core::vm::PreparationLimits::default(),
+        image: None,
     }
 }
 
@@ -1060,14 +1061,30 @@ fn project_loader_uses_supplied_legacy_and_source_free_instructions() {
         std::fs::write(root.join("program.stbc"), supplied.encode().unwrap()).unwrap();
         let mut loaded = super::load_runtime(Some(root.clone()), None, None).unwrap();
         assert_eq!(
-            loaded.runtime.storage().get_global("marker"),
+            loaded
+                .runtime
+                .engine()
+                .expect("a program on the bytecode engine")
+                .storage()
+                .get_global("marker"),
             Some(&Value::Int(7))
         );
-        super::apply_bundle_runtime_services(&mut loaded.runtime, loaded.bundle.as_ref().unwrap())
-            .unwrap();
+        super::apply_bundle_runtime_services(
+            loaded
+                .runtime
+                .engine_mut()
+                .expect("a program on the bytecode engine"),
+            loaded.bundle.as_ref().unwrap(),
+        )
+        .unwrap();
         loaded.runtime.execute_cycle().unwrap();
         assert_eq!(
-            loaded.runtime.storage().get_global("marker"),
+            loaded
+                .runtime
+                .engine()
+                .expect("a program on the bytecode engine")
+                .storage()
+                .get_global("marker"),
             Some(&Value::Int(9))
         );
         std::fs::remove_dir_all(root).unwrap();

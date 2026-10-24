@@ -40,7 +40,35 @@ impl DebugControl {
             )),
             watchdog_pause_nanos: Arc::new(AtomicU64::new(0)),
             enabled: Arc::new(AtomicBool::new(true)),
+            compiled: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// The debugger of the compiled program the resource runs, when it runs one.
+    #[must_use]
+    pub fn compiled(&self) -> Option<crate::runtime::CompiledDebugger> {
+        self.compiled
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// The debugger of the compiled program the resource runs from now on, created on first use with
+    /// this control's switch (specification 44 §8.8).
+    pub(crate) fn compiled_debugger(&self) -> crate::runtime::CompiledDebugger {
+        self.compiled
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get_or_insert_with(|| crate::runtime::CompiledDebugger::new(Arc::clone(&self.enabled)))
+            .clone()
+    }
+
+    /// The resource runs a program on the bytecode engine from now on: no compiled debugger.
+    pub(crate) fn detach_compiled(&self) {
+        *self
+            .compiled
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
     }
 
     /// Use `enabled` as this control's debugging switch. A runtime that shares the switch with its
@@ -98,6 +126,9 @@ impl DebugControl {
     ///
     /// A stop request must not fail, so a poisoned lock is recovered here.
     pub(crate) fn release_for_stop(&self) {
+        if let Some(compiled) = self.compiled() {
+            compiled.release_for_stop();
+        }
         let (lock, cvar) = &*self.state;
         let mut state = lock
             .lock()
@@ -111,6 +142,9 @@ impl DebugControl {
     /// Let the debugger hold the scan again. A new resource thread starts with it, so a control
     /// that an earlier stop released is not left inert.
     pub(crate) fn rearm_after_stop(&self) {
+        if let Some(compiled) = self.compiled() {
+            compiled.rearm();
+        }
         let (lock, _) = &*self.state;
         let mut state = lock
             .lock()

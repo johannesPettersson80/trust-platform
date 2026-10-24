@@ -117,8 +117,9 @@ fn a_reload_taken_before_its_bound_reports_the_result_not_a_timeout() {
     // the answer, even though it arrives after the take bound has passed.
     let claim = crate::scheduler::ReloadClaim::default();
     assert!(claim.take(), "the scan thread takes the pending reload");
-    let (reply_tx, reply_rx) =
-        std::sync::mpsc::channel::<Result<crate::RuntimeMetadata, crate::error::RuntimeError>>();
+    let (reply_tx, reply_rx) = std::sync::mpsc::channel::<
+        Result<Option<crate::RuntimeMetadata>, crate::error::RuntimeError>,
+    >();
     let scan_thread = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(50));
         let _ = reply_tx.send(Err(crate::error::RuntimeError::ControlError(
@@ -149,8 +150,9 @@ fn a_taken_reload_without_a_result_within_the_commit_bound_is_unknown() {
     let claim = crate::scheduler::ReloadClaim::default();
     assert!(claim.take(), "the scan thread takes the pending reload");
     // The sender stays alive, so the wait times out rather than seeing a closed channel.
-    let (reply_tx, reply_rx) =
-        std::sync::mpsc::channel::<Result<crate::RuntimeMetadata, crate::error::RuntimeError>>();
+    let (reply_tx, reply_rx) = std::sync::mpsc::channel::<
+        Result<Option<crate::RuntimeMetadata>, crate::error::RuntimeError>,
+    >();
     let wait = super::program_handlers::ReloadWait {
         take: std::time::Duration::from_millis(10),
         commit: std::time::Duration::from_millis(20),
@@ -167,8 +169,9 @@ fn a_taken_reload_without_a_result_within_the_commit_bound_is_unknown() {
 #[test]
 fn a_reload_the_scheduler_drops_unapplied_is_reported_as_stopped() {
     let claim = crate::scheduler::ReloadClaim::default();
-    let (reply_tx, reply_rx) =
-        std::sync::mpsc::channel::<Result<crate::RuntimeMetadata, crate::error::RuntimeError>>();
+    let (reply_tx, reply_rx) = std::sync::mpsc::channel::<
+        Result<Option<crate::RuntimeMetadata>, crate::error::RuntimeError>,
+    >();
     // The scheduler dropped the queued command without taking it.
     drop(reply_tx);
     let wait = super::program_handlers::ReloadWait {

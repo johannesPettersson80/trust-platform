@@ -58,7 +58,7 @@ fn statement_pause_longer_than_watchdog_does_not_fault_resource() {
     debug.pause();
 
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(watchdog_policy());
+    runner.program_mut().set_watchdog_policy(watchdog_policy());
     let mut handle = runner.spawn("debug-pause-watchdog").expect("spawn runtime");
 
     let stop = stop_rx
@@ -89,7 +89,7 @@ fn statement_pause_longer_than_watchdog_does_not_fault_resource() {
 fn resource_pause_between_cycles_starts_no_scan_or_watchdog_interval() {
     let (runtime, debug) = counter_runtime();
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(watchdog_policy());
+    runner.program_mut().set_watchdog_policy(watchdog_policy());
     let mut handle = runner
         .spawn("resource-pause-watchdog")
         .expect("spawn runtime");
@@ -129,7 +129,7 @@ fn supervisor_does_not_trip_during_a_debugger_hold_longer_than_the_timeout() {
     debug.pause();
 
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(watchdog_policy());
+    runner.program_mut().set_watchdog_policy(watchdog_policy());
     let mut handle = runner
         .spawn("debug-hold-supervisor")
         .expect("spawn runtime");

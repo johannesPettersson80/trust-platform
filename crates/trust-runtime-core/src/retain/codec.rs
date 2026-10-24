@@ -50,16 +50,23 @@ const RETAIN_TRAILER: &[u8; 4] = b"ENDR";
 /// [`RuntimeError::RetainStore`] when a value cannot be persisted: a non-finite `REAL` or `LREAL`,
 /// a reference or instance value, or a physical checkpoint that is too large.
 pub fn encode_snapshot(snapshot: &RetainSnapshot) -> Result<Vec<u8>, RuntimeError> {
-    let payload = encode_snapshot_payload(snapshot)?;
-    let checksum = crate::crc32::checksum(&payload);
+    Ok(frame_payload(&encode_snapshot_payload(snapshot)?))
+}
+
+/// The complete STRN v3 retain file of a payload a capture staged: its magic, version, length and
+/// checksum around it (specification 11 §6.7). A compiled program's capture writes the payload from
+/// its retain area (specification 44 §11), so a computer frames it without decoding it.
+#[must_use]
+pub fn frame_payload(payload: &[u8]) -> Vec<u8> {
+    let checksum = crate::crc32::checksum(payload);
     let mut out = Vec::with_capacity(4 + 2 + 8 + payload.len() + 4 + 4);
     out.extend_from_slice(RETAIN_MAGIC);
     out.extend_from_slice(&RETAIN_VERSION.to_le_bytes());
     out.extend_from_slice(&(payload.len() as u64).to_le_bytes());
-    out.extend_from_slice(&payload);
+    out.extend_from_slice(payload);
     out.extend_from_slice(&checksum.to_le_bytes());
     out.extend_from_slice(RETAIN_TRAILER);
-    Ok(out)
+    out
 }
 
 fn encode_snapshot_payload(snapshot: &RetainSnapshot) -> Result<Vec<u8>, RuntimeError> {

@@ -85,7 +85,7 @@ fn enabled_watchdog_faults_the_resource_while_an_input_read_is_hung() {
     );
 
     let mut runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_millis(100),
         action: WatchdogAction::Halt,
@@ -178,7 +178,7 @@ fn spawn_hung_resource(timeout: Duration) -> HungResource {
     );
 
     let mut runner = ResourceRunner::new(runtime, StepClock::new(), Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout,
         action: WatchdogAction::Halt,

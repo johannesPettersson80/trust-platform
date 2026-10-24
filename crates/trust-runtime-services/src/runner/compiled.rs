@@ -41,8 +41,8 @@ use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::cycle::{CompiledView, ResourceCycle, RetainSource, TaskDescriptor};
 use super::engine::{CycleSettings, ProcessIo};
-use super::hold::HoldHandle;
-use super::retain::{RetainConfig, RetainStore};
+use super::hold::{CompiledHold, HoldHandle};
+use super::retain::{CycleRetain, RetainConfig, RetainStore};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
@@ -51,8 +51,10 @@ use crate::status::IoDriverStatus;
 /// platform's process I/O and clock.
 ///
 /// `'i` is the life of the image, which a chip maps for as long as the program runs. `C` is the
-/// platform's monotonic clock, `I` its process I/O and `K` where the module's code is.
-pub struct CompiledCycle<'i, C, I, K> {
+/// platform's monotonic clock, `I` its process I/O, `K` where the module's code is, `H` the hold of
+/// its debugger and `R` where it keeps the retained values: on a chip the loop's [`HoldHandle`] and
+/// the checkpoint log [`RetainStore`]; a computer gives its own (specification 44 §8.8).
+pub struct CompiledCycle<'i, C, I, K, H = HoldHandle, R = RetainStore> {
     program: NativeProgram<'i, K>,
     io: I,
     settings: CycleSettings,
@@ -71,12 +73,12 @@ pub struct CompiledCycle<'i, C, I, K> {
     /// The allocator operations the last scan's program made.
     last_allocations: Option<u64>,
     /// The checkpoint store of the retained values, when the program keeps them.
-    retain: Option<RetainStore>,
+    retain: Option<R>,
     /// The logical time of the last scan, which a stop's checkpoint carries.
     now: Duration,
     /// The debugger: the loop's hold, the statement table's sources and the armed statements
     /// (specification 44 §13.2).
-    debug: debug::CompiledDebug,
+    debug: debug::CompiledDebug<H>,
 }
 
 impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I, K> {
@@ -96,10 +98,39 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
         Ok(Self::built(program, io, settings, clock))
     }
 
+    /// This cycle with the checkpoint store of `retain` (specification 34 §10; specification 44
+    /// §11): the persister opens the log over the platform's flash, and the capture reserves the
+    /// program's largest retained payload, so that no capture grows it (specification 34 MEM-09).
+    ///
+    /// # Errors
+    ///
+    /// The [`RuntimeError`] of a checkpoint log that cannot be opened, of a retain map that does not
+    /// read, or of a heap without room for the capture.
+    pub fn with_retain(self, retain: RetainConfig) -> Result<Self, RuntimeError> {
+        self.with_retain_store(RetainStore::open(retain)?)
+    }
+}
+
+impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRetain>
+    CompiledCycle<'i, C, I, K, H, R>
+{
+    /// The cycle of `program`, not started, over the process I/O `io` with `settings`, as a
+    /// computer composes it (specification 44 §8.8): the platform restarts it, cold or warm from its
+    /// retained values ([`ResourceCycle::restart`]), and then starts its task timing.
+    #[must_use]
+    pub fn unstarted(
+        program: NativeProgram<'i, K>,
+        io: I,
+        settings: CycleSettings,
+        clock: C,
+    ) -> Self {
+        Self::built(program, io, settings, clock)
+    }
+
     /// The cycle of `program` as its memory is, in the first generation: its tasks, its snapshot
     /// and its debugger.
     fn built(program: NativeProgram<'i, K>, io: I, settings: CycleSettings, clock: C) -> Self {
-        let debug = debug::CompiledDebug::new(program.image());
+        let debug = debug::CompiledDebug::new(&program.image());
         let mut tasks = Vec::new();
         let task_index = program
             .tasks()
@@ -133,19 +164,51 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
         }
     }
 
-    /// This cycle with the checkpoint store of `retain` (specification 34 §10; specification 44
-    /// §11): the persister opens the log over the platform's flash, and the capture reserves the
-    /// program's largest retained payload, so that no capture grows it (specification 34 MEM-09).
+    /// This cycle with `store` keeping its retained values (specification 34 §10; specification 44
+    /// §11): the capture reserves the program's largest retained payload, so that no capture grows
+    /// it (specification 34 MEM-09).
     ///
     /// # Errors
     ///
-    /// The [`RuntimeError`] of a checkpoint log that cannot be opened, of a retain map that does not
-    /// read, or of a heap without room for the capture.
-    pub fn with_retain(mut self, retain: RetainConfig) -> Result<Self, RuntimeError> {
-        let mut store = RetainStore::open(retain)?;
+    /// The [`RuntimeError`] of a retain map that does not read, or of a memory without room for the
+    /// capture.
+    pub fn with_retain_store(mut self, store: R) -> Result<Self, RuntimeError> {
+        self.set_retain_store(store)?;
+        Ok(self)
+    }
+
+    /// Keeps the retained values in `store` from now on, as [`Self::with_retain_store`] does: a
+    /// computer sets its retain file when its configuration names one.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::with_retain_store`]; the cycle keeps the store it had.
+    pub fn set_retain_store(&mut self, mut store: R) -> Result<(), RuntimeError> {
         store.reserve(self.program.retain_payload_bound()?)?;
         self.retain = Some(store);
-        Ok(self)
+        Ok(())
+    }
+
+    /// Where the cycle keeps the retained values, when it keeps them.
+    pub fn retain_store(&self) -> Option<&R> {
+        self.retain.as_ref()
+    }
+
+    /// Where the cycle keeps the retained values, when it keeps them.
+    pub fn retain_store_mut(&mut self) -> Option<&mut R> {
+        self.retain.as_mut()
+    }
+
+    /// The fault the cycle latched since its last restart (STATE-04).
+    pub fn fault(&self) -> Option<&RuntimeError> {
+        self.fault.as_ref()
+    }
+
+    /// Attaches the platform's hold, which the stops of a debug image's scans go to (specification
+    /// 44 §13.2): a computer attaches its debugger's; a chip's loop attaches its own through
+    /// [`ResourceCycle::attach_hold`].
+    pub fn attach_compiled_hold(&mut self, hold: H) {
+        self.debug.hold = Some(hold);
     }
 
     /// This cycle, which counts the allocator operations of each scan's program with
@@ -162,21 +225,39 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
         &self.program
     }
 
+    /// The program the cycle runs, which a computer's simulation and mesh write between scans, as
+    /// they write an interpreted program's (specification 44 §8.8).
+    pub fn program_mut(&mut self) -> &mut NativeProgram<'i, K> {
+        &mut self.program
+    }
+
+    /// The settings the cycle runs with, which a computer changes when its configuration does
+    /// (specification 44 §8.8): the safe outputs a stop and a fault drive.
+    pub fn settings_mut(&mut self) -> &mut CycleSettings {
+        &mut self.settings
+    }
+
+    /// The process I/O, whose drivers a computer adds as its configuration names them.
+    pub fn process_io_mut(&mut self) -> &mut I {
+        &mut self.io
+    }
+
+    /// The process images as the last completed scan left them.
+    pub fn images(&self) -> &FlatImages {
+        &self.images
+    }
+
     /// Arms the program's statements for the scan that begins, as the debugger gives them while
     /// the platform enables debugging, and publishes the I/O health a hold reports
     /// (specification 44 §13.2). A scan that no debugger can hold arms nothing.
     fn arm(&mut self) {
-        let debugging = self
-            .debug
-            .hold
-            .as_ref()
-            .is_some_and(HoldHandle::scan_begins);
+        let debugging = self.debug.hold.as_ref().is_some_and(H::scan_begins);
         if debugging {
             self.debug.drivers.set(self.io.driver_health());
         }
         let points = self.debug.stop_points(debugging);
         if self.debug.rearms(&points) {
-            let wanted = debug::CompiledDebug::wanted(self.program.image(), &points);
+            let wanted = debug::wanted(&self.program.image(), &points);
             self.program.arm(points.every, &|id| {
                 usize::try_from(id)
                     .ok()
@@ -188,7 +269,9 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I,
     }
 }
 
-impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledCycle<'_, C, I, K> {
+impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRetain> ResourceCycle
+    for CompiledCycle<'_, C, I, K, H, R>
+{
     fn tasks(&self) -> Vec<TaskDescriptor> {
         self.tasks.clone()
     }
@@ -237,7 +320,7 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
                 engine: bytes(figure.bookkeeping),
                 retain_capture: bytes(figure.retain_capture),
             },
-            retains: self.retain.as_ref().is_some_and(RetainStore::persists),
+            retains: self.retain.as_ref().is_some_and(R::persists),
         })
     }
 
@@ -300,7 +383,7 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         // retain failure fails the scan before its outputs are driven (specification 11 §6.7).
         if let Some(retain) = self.retain.as_mut() {
             let program = &self.program;
-            retain.capture_with(now, |capture| program.capture_retain(capture))?;
+            retain.capture_with(now, &mut |capture| program.capture_retain(capture))?;
         }
         observer.on_compiled_phase(CyclePhase::AfterOutputSample, now, &self.images)?;
         self.io.write_outputs(&self.program.outputs)?;
@@ -329,7 +412,7 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
     fn save_retain(&mut self) -> Result<(), RuntimeError> {
         if let Some(retain) = self.retain.as_mut() {
             let program = &self.program;
-            retain.save_with(self.now, |capture| program.capture_retain(capture))?;
+            retain.save_with(self.now, &mut |capture| program.capture_retain(capture))?;
         }
         Ok(())
     }
@@ -485,9 +568,12 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
         self.io.driver_health()
     }
 
-    /// The loop's hold, which the stops of a debug image's scans go to (specification 44 §13.2).
+    /// The loop's hold, which the stops of a debug image's scans go to (specification 44 §13.2), when
+    /// the cycle's hold is the loop's kind.
     fn attach_hold(&mut self, hold: HoldHandle) {
-        self.debug.hold = Some(hold);
+        if let Some(hold) = H::from_loop(hold) {
+            self.debug.hold = Some(hold);
+        }
     }
 
     /// The program's memory between scans, with the sources of its statement table, once the loop
@@ -506,7 +592,7 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode> ResourceCycle for CompiledC
 /// the cycle's [`ResourceCycle::tasks`] number it. The first error the observer returns ends the
 /// forwarding and fails the scan once the program returns. With the platform's allocator count,
 /// it counts the observer's own operations, which are not the program's.
-struct TaskPhases<'h, 'o> {
+struct TaskPhases<'h, 'o, H> {
     observer: &'h mut (dyn CycleHooks + 'o),
     now: Duration,
     images: &'h FlatImages,
@@ -514,11 +600,11 @@ struct TaskPhases<'h, 'o> {
     error: Option<RuntimeError>,
     operations: Option<fn() -> u32>,
     observer_operations: u32,
-    debug: &'h debug::CompiledDebug,
+    debug: &'h debug::CompiledDebug<H>,
     clock: &'h dyn MonotonicClock,
 }
 
-impl TaskPhases<'_, '_> {
+impl<H> TaskPhases<'_, '_, H> {
     fn forward(&mut self, task: usize, phase: impl FnOnce(usize) -> CyclePhase) {
         if self.error.is_some() {
             return;
@@ -541,7 +627,7 @@ impl TaskPhases<'_, '_> {
     }
 }
 
-impl ScanHooks for TaskPhases<'_, '_> {
+impl<H: CompiledHold> ScanHooks for TaskPhases<'_, '_, H> {
     fn task_overrun(&mut self, task: usize, missed: u64) {
         self.forward(task, |index| CyclePhase::TaskOverrun { index, missed });
     }

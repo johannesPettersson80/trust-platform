@@ -7,6 +7,8 @@
 //! module's entry points. A platform puts the module's code where its CPU executes it and hands the
 //! kernel the entry points ([`ModuleCode`]).
 
+use alloc::boxed::Box;
+use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::Cell;
@@ -18,7 +20,7 @@ use trust_plc_abi::{Cx, FaultCode, FaultRecord, KernelApi, INTERFACE_VERSION};
 
 use super::image::{
     AreaRecord, EntryKind, EntryRecord, Image, ImageError, IoBindRecord, MemoryFigure, SectionId,
-    StmtRecord, SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
+    Shape, StmtRecord, SymbolRecord, Target, TaskRecord, AREA_HAS_INIT, BACKGROUND_PRIORITY, NONE,
 };
 use super::memory::{read_place, retained_place, symbol_place, write_place};
 use super::retain;
@@ -288,9 +290,57 @@ pub struct NoHooks;
 
 impl ScanHooks for NoHooks {}
 
+/// Where a program's image lies: in memory a device maps for as long as the program runs, or in
+/// memory the program shares with the readers of its state, as a computer keeps it (specification
+/// 44 §8.8).
+enum ImageBytes<'i> {
+    /// Where a device maps it.
+    Mapped(&'i [u8]),
+    /// The program's, shared.
+    Kept(Arc<AdmittedImage>),
+}
+
+impl ImageBytes<'_> {
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Mapped(bytes) => bytes,
+            Self::Kept(image) => &image.bytes,
+        }
+    }
+}
+
+/// An image admitted on a device (§10.2) with the bytes it lies in, which the program built from it
+/// keeps ([`NativeProgram::keeping`]) and shares with the readers of its state: a computer holds an
+/// image in its memory, not where a device maps it (specification 44 §8.8).
+pub struct AdmittedImage {
+    bytes: Box<[u8]>,
+    shape: Shape,
+}
+
+impl AdmittedImage {
+    /// Admits the image in `bytes` on `device`, as [`admit`] does, and keeps the bytes.
+    ///
+    /// # Errors
+    ///
+    /// The first [`Refusal`].
+    pub fn admit(bytes: Box<[u8]>, device: &Device) -> Result<Self, Refusal> {
+        let shape = admit(&bytes, device)?.shape();
+        Ok(Self { bytes, shape })
+    }
+
+    /// The admitted image.
+    #[must_use]
+    pub fn image(&self) -> Image<'_> {
+        Image::over(&self.bytes, &self.shape)
+    }
+}
+
 /// An admitted program with its areas.
 pub struct NativeProgram<'i, C> {
-    image: Image<'i>,
+    /// Where the image lies.
+    bytes: ImageBytes<'i>,
+    /// What the image's header and section table hold.
+    shape: Shape,
     code: C,
     areas: [Memory; 7],
     entries: Vec<Entry>,
@@ -328,6 +378,34 @@ fn process_image(id: u32) -> bool {
     (1..=3).contains(&id)
 }
 
+impl<C: ModuleCode> NativeProgram<'static, C> {
+    /// The program of the admitted `image`, which it keeps, with its module at `code`, its areas
+    /// allocated and zero, as a computer runs it (specification 44 §8.8). The program starts with
+    /// [`Self::cold_start`] or [`Self::warm_start`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::new`].
+    pub fn keeping(
+        image: Arc<AdmittedImage>,
+        code: C,
+        device: &Device,
+        api: &'static KernelApi,
+    ) -> Result<Self, Refusal> {
+        let shape = image.shape;
+        Self::built(ImageBytes::Kept(image), shape, code, device, api)
+    }
+
+    /// The admitted image the program keeps, which the readers of its state share.
+    #[must_use]
+    pub fn kept_image(&self) -> Option<Arc<AdmittedImage>> {
+        match &self.bytes {
+            ImageBytes::Kept(image) => Some(Arc::clone(image)),
+            ImageBytes::Mapped(_) => None,
+        }
+    }
+}
+
 impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// The program of the admitted `image` with its module at `code`, its areas allocated and
     /// zero. The program starts with [`Self::cold_start`] or [`Self::warm_start`].
@@ -342,6 +420,24 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         device: &Device,
         api: &'static KernelApi,
     ) -> Result<Self, Refusal> {
+        Self::built(
+            ImageBytes::Mapped(image.bytes()),
+            image.shape(),
+            code,
+            device,
+            api,
+        )
+    }
+
+    /// The program of the image in `bytes`, as `shape` describes it, with its module at `code`.
+    fn built(
+        bytes: ImageBytes<'i>,
+        shape: Shape,
+        code: C,
+        device: &Device,
+        api: &'static KernelApi,
+    ) -> Result<Self, Refusal> {
+        let image = Image::over(bytes.as_slice(), &shape);
         let table_error = Refusal::Image;
         let entries_table = image.table::<EntryRecord>().map_err(table_error)?;
         let mut entries = Vec::with_capacity(entries_table.len() as usize);
@@ -408,7 +504,8 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let statements = image.table::<StmtRecord>().map_err(table_error)?.len();
         let breakpoints = (0..statements.div_ceil(8)).map(|_| Cell::new(0)).collect();
         let mut program = Self {
-            image,
+            bytes,
+            shape,
             code,
             areas,
             entries,
@@ -434,8 +531,9 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     }
 
     /// The image the program runs.
-    pub fn image(&self) -> &Image<'i> {
-        &self.image
+    #[must_use]
+    pub fn image(&self) -> Image<'_> {
+        Image::over(self.bytes.as_slice(), &self.shape)
     }
 
     /// Where the module's code is.
@@ -481,8 +579,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// Copies the starting memory into the areas `starts` selects by their id (specification 44
     /// §6.7, §7.4).
     fn start_memory(&mut self, starts: impl Fn(u32) -> bool) -> Result<(), RuntimeError> {
-        let init = self.image.section_bytes(SectionId::Init);
-        let areas = self.image.table::<AreaRecord>().map_err(|error| {
+        // The image is read from its own fields, so that the areas can be written meanwhile.
+        let image = Image::over(self.bytes.as_slice(), &self.shape);
+        let init = image.section_bytes(SectionId::Init);
+        let areas = image.table::<AreaRecord>().map_err(|error| {
             RuntimeError::InvalidBundle(SmolStr::new(alloc::format!("{error}")))
         })?;
         for area in areas.iter() {
@@ -531,7 +631,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     ///
     /// The fault of the initialization.
     pub fn warm_start(&mut self, now: Duration) -> Result<(), RuntimeError> {
-        let kept = retain::retained_bytes(&self.image, |id| {
+        let kept = retain::retained_bytes(&self.image(), |id| {
             slot(id).and_then(|index| self.areas.get(index))
         })?;
         self.start_memory(|id| !process_image(id))?;
@@ -566,7 +666,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         .into_iter()
         .filter_map(|id| Some((id, self.areas.get(slot(id)?)?.bytes())))
         .collect();
-        let (staged, events) = retain::stage(&self.image, snapshot, |id| {
+        let (staged, events) = retain::stage(&self.image(), snapshot, |id| {
             current
                 .iter()
                 .find(|(area, _)| *area == id)
@@ -602,7 +702,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     pub fn capture_retain(&self, capture: &mut RetainCapture) -> Result<(), RuntimeError> {
         capture.refill(|payload| {
             retain::fill(
-                &self.image,
+                &self.image(),
                 |id| slot(id).and_then(|index| self.areas.get(index)),
                 payload,
             )
@@ -616,7 +716,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     ///
     /// The error of [`retain::payload_bound`].
     pub fn retain_payload_bound(&self) -> Result<usize, RuntimeError> {
-        retain::payload_bound(&self.image)
+        retain::payload_bound(&self.image())
     }
 
     /// Every task counts its next activation from `now` (specification 10 §4).
@@ -803,7 +903,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             Some(hooks) if self.armed => {
                 let mut sink = HeldScan {
                     hooks,
-                    image: self.image,
+                    image: Image::over(self.bytes.as_slice(), &self.shape),
                     bits: &self.breakpoints,
                     error: None,
                 };
@@ -824,7 +924,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         {
             // A test's failed assertion, worded as the runtime words it, its operands read
             // through the type table.
-            let types = Types::of(&self.image)?;
+            let types = Types::of(&self.image())?;
             Err(RuntimeError::AssertionFailed(
                 assertions::message(&types, &self.cx.fault, code, &self.areas[STACK]).into(),
             ))
@@ -843,7 +943,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// image has no body of.
     pub fn run_instance(&mut self, instance: u32, now: Duration) -> Result<(), RuntimeError> {
         let entry = self
-            .image
+            .image()
             .table::<EntryRecord>()
             .ok()
             .and_then(|entries| {
@@ -859,7 +959,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// type tables as the interpreter holds it (specification 44 §5.7, §5.8, §13.3); `None` for a
     /// name the image does not declare or a symbol that holds no value.
     pub fn value(&self, canonical: &str) -> Option<crate::value::Value> {
-        let (index, _) = self.image.find_symbol(canonical)?;
+        let (index, _) = self.image().find_symbol(canonical)?;
         self.read_symbol(index).ok()
     }
 
@@ -873,7 +973,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// frame variable) or bytes that are no value of the type, [`RuntimeError::InvalidBundle`] for a
     /// symbol or a type the image's tables do not hold.
     pub fn read_symbol(&self, index: u32) -> Result<crate::value::Value, RuntimeError> {
-        let (place, type_index) = symbol_place(&self.image, index)?;
+        let (place, type_index) = symbol_place(&self.image(), index)?;
         read_place(self, place, type_index)
     }
 
@@ -891,7 +991,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         index: u32,
         value: &crate::value::Value,
     ) -> Result<(), RuntimeError> {
-        let (place, type_index) = symbol_place(&self.image, index)?;
+        let (place, type_index) = symbol_place(&self.image(), index)?;
         write_place(self, place, type_index, value)
     }
 
@@ -908,7 +1008,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         label: &str,
         value: &crate::value::Value,
     ) -> Result<(), RuntimeError> {
-        let (place, type_index) = retained_place(&self.image, label)?;
+        let (place, type_index) = retained_place(&self.image(), label)?;
         write_place(self, place, type_index, value)
     }
 
@@ -921,7 +1021,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     /// The number of the image's statements, the ids a breakpoint names.
     #[must_use]
     pub fn statement_count(&self) -> u32 {
-        self.image
+        self.image()
             .table::<StmtRecord>()
             .map_or(0, |statements| statements.len())
     }

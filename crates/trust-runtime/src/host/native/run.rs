@@ -1,8 +1,12 @@
 //! A compiled program on this computer (specification 44 §10.3): its image admitted, its module's
 //! code copied into executable memory, and the kernel's program over it.
 
+use std::sync::Arc;
+
 use trust_plc_abi::kernel::{Entry, Executable};
-use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
+use trust_runtime_core::native::program::{
+    admit, AdmittedImage, Device, ModuleCode, NativeProgram,
+};
 use trust_runtime_core::native::KERNEL_FUNCTIONS;
 
 use super::NativeError;
@@ -31,5 +35,26 @@ pub fn load<'i>(
     let code = Executable::load(module)
         .map_err(|error| NativeError::Image(format!("the module cannot be mapped: {error}")))?;
     NativeProgram::new(image, HostCode(code), device, &KERNEL_FUNCTIONS)
+        .map_err(|refusal| NativeError::Image(refusal.to_string()))
+}
+
+/// The program of the image `bytes`, admitted on `device`, which keeps the bytes, with its module
+/// copied into executable memory: the program a computer's resource runs, for as long as it likes
+/// (specification 44 §8.8). It starts with `cold_start` or `warm_start`.
+///
+/// # Errors
+///
+/// [`NativeError::Image`] with the device's refusal, or the mapping's error.
+pub fn load_kept(
+    bytes: Vec<u8>,
+    device: &Device,
+) -> Result<NativeProgram<'static, HostCode>, NativeError> {
+    let image = Arc::new(
+        AdmittedImage::admit(bytes.into_boxed_slice(), device)
+            .map_err(|refusal| NativeError::Image(refusal.to_string()))?,
+    );
+    let code = Executable::load(image.image().module().1)
+        .map_err(|error| NativeError::Image(format!("the module cannot be mapped: {error}")))?;
+    NativeProgram::keeping(image, HostCode(code), device, &KERNEL_FUNCTIONS)
         .map_err(|refusal| NativeError::Image(refusal.to_string()))
 }

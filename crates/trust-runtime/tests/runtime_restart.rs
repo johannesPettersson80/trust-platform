@@ -144,14 +144,26 @@ END_PROGRAM
 
     clock.advance(Duration::from_millis(30));
     runner.tick().expect("pre-restart cycle");
-    assert_eq!(runner.runtime().task_overrun_count("Fast"), Some(2));
+    assert_eq!(
+        runner
+            .engine()
+            .expect("a program on the bytecode engine")
+            .task_overrun_count("Fast"),
+        Some(2)
+    );
 
     runner.restart(RestartMode::Warm).expect("warm restart");
-    let overrun_count_after_restart = runner.runtime().task_overrun_count("Fast");
+    let overrun_count_after_restart = runner
+        .engine()
+        .expect("a program on the bytecode engine")
+        .task_overrun_count("Fast");
     runner.tick().expect("first post-restart cycle");
 
     assert_eq!(
-        runner.runtime().task_overrun_count("Fast"),
+        runner
+            .engine()
+            .expect("a program on the bytecode engine")
+            .task_overrun_count("Fast"),
         overrun_count_after_restart,
         "pre-restart elapsed time must not produce a new phantom overrun"
     );

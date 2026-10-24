@@ -42,6 +42,17 @@ pub fn run_play(project: Option<PathBuf>, options: PlayOptions) -> anyhow::Resul
         PlayProjectPlan::Use(path) => (path, false),
         PlayProjectPlan::Create(path) => (wizard::create_bundle_auto(path)?, true),
     };
+    // A new project is built for this computer when the toolchain is there (specification 44 §8.8).
+    if created && trust_runtime::native::Toolchain::from_env().is_ok() {
+        crate::build::run_native_build(
+            Some(project_path.clone()),
+            None,
+            "host",
+            false,
+            false,
+            true,
+        )?;
+    }
     if created {
         println!(
             "{}",
@@ -99,11 +110,26 @@ pub(crate) fn validate_json_payload(bundle: PathBuf) -> anyhow::Result<serde_jso
             .validate(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?;
     }
-    let module = BytecodeModule::decode(&bundle.bytecode)?;
-    module.validate()?;
-    let metadata = module.metadata()?;
-    // Launch's own rule and error (spec 11 §6.7.1); never the primary resource.
-    trust_runtime::harness::configured_resource(&metadata, bundle.runtime.resource_name.as_str())?;
+    match &bundle.image {
+        // The program image is admitted as the computer admits it at its start (specification 44
+        // §10.2, §8.8).
+        Some(image) => {
+            let device = trust_runtime::native::this_computer()
+                .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+            trust_runtime_core::native::program::admit(image, &device)
+                .map_err(|refusal| anyhow::anyhow!("the program image is refused: {refusal}"))?;
+        }
+        None => {
+            let module = BytecodeModule::decode(&bundle.bytecode)?;
+            module.validate()?;
+            let metadata = module.metadata()?;
+            // Launch's own rule and error (spec 11 §6.7.1); never the primary resource.
+            trust_runtime::harness::configured_resource(
+                &metadata,
+                bundle.runtime.resource_name.as_str(),
+            )?;
+        }
+    }
     let io_drivers = enabled_io_driver_names(&bundle);
     Ok(json!({
         "version": 1,

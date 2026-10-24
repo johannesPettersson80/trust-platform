@@ -74,7 +74,7 @@ pub(super) const RELOAD_WAIT: ReloadWait = ReloadWait {
 pub(super) enum ReloadOutcome {
     /// The scan thread took the request and reported its commit or preparation result. Boxed,
     /// because the metadata is far larger than the other outcomes.
-    Applied(Box<Result<crate::RuntimeMetadata, RuntimeError>>),
+    Applied(Box<Result<Option<crate::RuntimeMetadata>, RuntimeError>>),
     /// The request was withdrawn before the scan thread took it, so it is never applied.
     Withdrawn,
     /// The scan thread dropped the request unapplied, because it stopped first.
@@ -109,7 +109,7 @@ pub(super) fn reload_on_resource(
 /// A reload that was taken already reports its own result.
 pub(super) fn await_reload(
     claim: &ReloadClaim,
-    replies: &Receiver<Result<crate::RuntimeMetadata, RuntimeError>>,
+    replies: &Receiver<Result<Option<crate::RuntimeMetadata>, RuntimeError>>,
     wait: ReloadWait,
 ) -> ReloadOutcome {
     match replies.recv_timeout(wait.take) {
@@ -144,9 +144,12 @@ fn reload_reply(id: u64, outcome: ReloadOutcome, state: &ControlState) -> Contro
         ReloadOutcome::Unknown => reload_rules::ReloadOutcome::Unknown,
     };
     // An applied reload stores its metadata and refreshes the ADS server before the reply, as it
-    // always has. The rules own the reply text; the stores stay with the control state.
+    // always has; a compiled program has no metadata of the bytecode engine to store. The rules
+    // own the reply text; the stores stay with the control state.
     reload_rules::reply(id, outcome, |metadata| {
-        if let Ok(mut guard) = state.metadata.lock() {
+        if let Some(metadata) = metadata
+            && let Ok(mut guard) = state.metadata.lock()
+        {
             *guard = metadata;
         }
         super::ads_handlers::refresh_ads_server_runtime_after_online_change(state)

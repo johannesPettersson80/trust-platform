@@ -35,14 +35,8 @@ fn execute_runtime_case_native(
     );
     let _ = fs::remove_dir_all(&work);
     let built = built.map_err(|error| anyhow!("the case does not compile natively: {error}"))?;
-    let device = native::Device {
-        target,
-        program_memory: 1 << 30,
-        // No more than the thread the module runs on has: 8 MiB for a main thread, 2 MiB for a
-        // test's thread; a recursion's call depth spends it (specification 44 §8.5).
-        task_stack: 1 << 20,
-        max_statements: 1_000_000,
-    };
+    let device = native::this_computer()
+        .ok_or_else(|| anyhow!("this computer's CPU runs no program image"))?;
     let mut program = native::load(&built.image, &device).map_err(|error| anyhow!("{error}"))?;
     program
         .cold_start(Duration::ZERO)
@@ -88,7 +82,7 @@ fn execute_runtime_case_native(
             }
             let value = parse_typed_value(raw)
                 .with_context(|| format!("parse input series value for '{name}'"))?;
-            let symbol = native_symbol(program.image(), name)?;
+            let symbol = native_symbol(&program.image(), name)?;
             program
                 .write_symbol(symbol, &value)
                 .map_err(|error| anyhow!("set input '{name}': {error}"))?;
@@ -109,7 +103,7 @@ fn execute_runtime_case_native(
 
         let mut globals = BTreeMap::new();
         for name in &case.manifest.watch_globals {
-            let symbol = native_symbol(program.image(), name)?;
+            let symbol = native_symbol(&program.image(), name)?;
             let value = program
                 .read_symbol(symbol)
                 .map_err(|error| anyhow!("watch global '{name}': {error}"))?;

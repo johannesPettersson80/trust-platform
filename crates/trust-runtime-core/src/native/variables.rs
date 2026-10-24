@@ -176,7 +176,7 @@ pub trait CompiledVariables {
 
 impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
     fn image(&self) -> Image<'_> {
-        *NativeProgram::image(self)
+        NativeProgram::image(self)
     }
 
     fn read_area(&self, id: u8, offset: usize, out: &mut [u8]) -> bool {

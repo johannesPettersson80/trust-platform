@@ -170,10 +170,20 @@ fn checked_admission_later_shared_transfer_outside_destination_range_latches_the
         upper: 5,
     };
     assert_eq!(runner.tick_with_shared(&shared), Err(rejected.clone()));
-    assert!(runner.runtime().faulted());
-    assert_eq!(runner.runtime().last_fault(), Some(&rejected));
+    assert!(runner.program().faulted());
     assert_eq!(
-        runner.runtime().storage().get_global("shared"),
+        runner
+            .engine()
+            .expect("a program on the bytecode engine")
+            .last_fault(),
+        Some(&rejected)
+    );
+    assert_eq!(
+        runner
+            .engine()
+            .expect("a program on the bytecode engine")
+            .storage()
+            .get_global("shared"),
         Some(&Value::Int(0))
     );
     assert_eq!(shared.get("shared"), Some(Value::Int(7)));

@@ -1,6 +1,6 @@
 /// Drives a runtime with a scheduling clock.
 pub struct ResourceRunner<C: Clock + Clone> {
-    runtime: Runtime,
+    runtime: HostProgram,
     clock: C,
     cycle_interval: Duration,
     time_scale: u32,
@@ -21,9 +21,9 @@ pub struct ResourceRunner<C: Clock + Clone> {
 
 impl<C: Clock + Clone> ResourceRunner<C> {
     #[must_use]
-    pub fn new(runtime: Runtime, clock: C, cycle_interval: Duration) -> Self {
+    pub fn new(runtime: impl Into<HostProgram>, clock: C, cycle_interval: Duration) -> Self {
         Self {
-            runtime,
+            runtime: runtime.into(),
             clock,
             cycle_interval,
             time_scale: 1,
@@ -94,15 +94,26 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         self
     }
 
-    /// Access the underlying runtime.
+    /// The program the runner runs.
     #[must_use]
-    pub fn runtime(&self) -> &Runtime {
+    pub fn program(&self) -> &HostProgram {
         &self.runtime
     }
 
-    /// Mutate the underlying runtime.
-    pub fn runtime_mut(&mut self) -> &mut Runtime {
+    /// The program the runner runs.
+    pub fn program_mut(&mut self) -> &mut HostProgram {
         &mut self.runtime
+    }
+
+    /// The program on the bytecode engine, when the runner runs one.
+    #[must_use]
+    pub fn engine(&self) -> Option<&Runtime> {
+        self.runtime.engine()
+    }
+
+    /// The program on the bytecode engine, when the runner runs one.
+    pub fn engine_mut(&mut self) -> Option<&mut Runtime> {
+        self.runtime.engine_mut()
     }
 
     /// The program's time on the scheduler clock: the clock's reading `clock_now` less its reading
@@ -182,7 +193,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
     pub fn tick_with_shared(&mut self, shared: &SharedGlobals) -> Result<(), RuntimeError> {
         let now = self.clock.now();
         self.runtime.set_current_time(now);
-        shared.execute_cycle(&mut self.runtime)
+        shared.execute_program_cycle(&mut self.runtime)
     }
 
     /// Spawn the runner in a dedicated OS thread.
@@ -206,7 +217,9 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let supervision_thread = supervision.clone();
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
-        let builder = thread::Builder::new().name(name.into());
+        let builder = thread::Builder::new()
+            .name(name.into())
+            .stack_size(SCAN_THREAD_STACK_BYTES);
         let thread_init_hook = runner.thread_init_hook.clone();
         let join = builder
             .spawn(move || {
@@ -256,7 +269,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         name: impl Into<String>,
         shared: SharedGlobals,
     ) -> Result<ResourceHandle<C>, RuntimeError> {
-        shared.validate_destination(&mut self.runtime)?;
+        shared.validate_program_destination(&mut self.runtime)?;
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
         let last_error = Arc::new(Mutex::new(None));
@@ -277,7 +290,9 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         let shared_thread = shared.clone();
 
         let (id_tx, id_rx) = std::sync::mpsc::channel();
-        let builder = thread::Builder::new().name(name.into());
+        let builder = thread::Builder::new()
+            .name(name.into())
+            .stack_size(SCAN_THREAD_STACK_BYTES);
         let thread_init_hook = runner.thread_init_hook.clone();
         let join = builder
             .spawn(move || {
@@ -328,7 +343,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 /// outlives its resource is not left inert. This runs on the spawning thread, before any stop
 /// request can reach the new thread (specification 11 section 6.9, "Operations while the debugger
 /// holds the scan").
-fn debug_for_new_thread(runtime: &Runtime) -> Option<DebugControl> {
+fn debug_for_new_thread(runtime: &HostProgram) -> Option<DebugControl> {
     let debug = runtime.debug_control();
     if let Some(debug) = &debug {
         debug.rearm_after_stop();

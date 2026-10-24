@@ -8,6 +8,7 @@ mod builder;
 mod bytecode;
 #[cfg(feature = "full")]
 mod checked_admission_compile_fail;
+mod compiled;
 #[cfg(test)]
 mod core;
 #[cfg(test)]
@@ -46,6 +47,7 @@ mod watchdog_subsystem;
 
 pub(crate) use authoring::BytecodeAuthoringView;
 pub use builder::RuntimeBuilder;
+pub use compiled::{CompiledDebugger, CompiledRuntime, CompiledState};
 #[cfg(test)]
 pub(crate) use core::Runtime as LegacyRuntimeFixture;
 pub use installed::Runtime;

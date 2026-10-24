@@ -39,6 +39,26 @@ pub fn check_retained(project: &Path, program: &[u8]) -> Result<(), RuntimeError
 
 fn check_in_scratch(scratch: &Path, project: &Path, program: &[u8]) -> Result<(), RuntimeError> {
     stage_configuration(scratch, project, &Payload::default())?;
+    // A program image is checked against the retain file through its retain map (specification 44
+    // §10.2, step 7), without building the program.
+    if program.starts_with(&trust_runtime_core::native::image::MAGIC) {
+        let config = RuntimeConfig::load(scratch.join("runtime.toml"))?;
+        if config.retain_mode == RetainMode::None {
+            return Ok(());
+        }
+        let Some(path) = config.retain_path else {
+            return Ok(());
+        };
+        let path = if path.is_relative() {
+            project.join(path)
+        } else {
+            path
+        };
+        let image = trust_runtime_core::native::image::Image::parse(program)
+            .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
+        let snapshot = FileRetainStore::new(path).load()?;
+        return trust_runtime_core::native::retain::check(&image, &snapshot.inner).map(drop);
+    }
     write_record(scratch, program).map_err(|error| {
         RuntimeError::InvalidBundle(format!("write the deployment record: {error}").into())
     })?;

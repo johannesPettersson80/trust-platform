@@ -486,6 +486,8 @@ impl Runtime {
     }
     /// Connect the existing debug control to detached observations and queued writes.
     pub fn set_debug_control(&mut self, control: DebugControl) {
+        // The control debugs this program on the bytecode engine, not a compiled one.
+        control.detach_compiled();
         // Requests that name an instance by a bare identity belong to this generation.
         control.set_generation(self.state.storage().generation());
         self.state.services_mut().set_debug_control(Some(control));

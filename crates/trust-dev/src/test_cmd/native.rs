@@ -93,7 +93,7 @@ fn execute_native_tests(
     tests: &[DiscoveredTest],
     timeout: u64,
 ) -> anyhow::Result<Vec<ExecutedTest>> {
-    use trust_runtime::native::{load, Device, Target, Toolchain};
+    use trust_runtime::native::{load, this_computer, Device, Target, Toolchain};
     use trust_runtime::value::Duration;
 
     let toolchain = Toolchain::from_env()
@@ -101,12 +101,8 @@ fn execute_native_tests(
     let host = Target::this_cpu().context("this computer's CPU has no native target")?;
     let built = build_test_image(project_root, discovered, host, &toolchain)?;
     let device = Device {
-        target: host,
-        program_memory: 1 << 30,
-        // No more than the thread the module runs on has: 8 MiB for a main thread, 2 MiB for a
-        // test's thread; a recursion's call depth spends it (specification 44 §8.5).
-        task_stack: 1 << 20,
         max_statements: NATIVE_TEST_STATEMENTS,
+        ..this_computer().context("this computer's CPU runs no program image")?
     };
     let mut program = load(&built.image, &device)
         .map_err(|error| anyhow::anyhow!("the program image does not load: {error}"))?;

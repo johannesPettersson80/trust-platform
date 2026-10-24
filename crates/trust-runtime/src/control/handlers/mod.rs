@@ -13,7 +13,8 @@ mod variables;
 /// Answers the operations only the host has: the shared request pipeline hands every operation
 /// it does not answer itself to this chain (the host's `ExtensionDispatch` port).
 pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option<ControlResponse> {
-    status::dispatch(request, state)
+    debug::dispatch_compiled(request, state)
+        .or_else(|| status::dispatch(request, state))
         .or_else(|| connectors::dispatch(request, state))
         .or_else(|| ads::dispatch(request, state))
         .or_else(|| comm::dispatch(request, state))

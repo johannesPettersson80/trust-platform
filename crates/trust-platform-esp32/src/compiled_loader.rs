@@ -184,7 +184,7 @@ where
         let program = NativeProgram::new(admitted, code, &device, &KERNEL_FUNCTIONS)
             .map_err(|refusal| format!("the installed application cannot be loaded: {refusal}"))?;
         platform.feed();
-        let (bindings, names) = io_bindings(program.image()).map_err(|error| {
+        let (bindings, names) = io_bindings(&program.image()).map_err(|error| {
             format!("the installed application's Live Values cannot be bound: {error}")
         })?;
         let live = EngineLiveValues::for_compiled(bindings, names).map_err(|error| {

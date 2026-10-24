@@ -742,7 +742,7 @@ fn watchdog_deadline_breach_before_commit_prevents_output_write() {
     let runtime = output_runtime(writes.clone(), RecordingDriver::new(writes.clone()));
     let clock = StepClock::new();
     let mut runner = ResourceRunner::new(runtime, clock, Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_nanos(1),
         action: WatchdogAction::Halt,
@@ -836,7 +836,7 @@ fn watchdog_partial_safe_state_preserves_unconfigured_committed_outputs() {
 
     let clock = StepClock::new();
     let mut runner = ResourceRunner::new(runtime, clock, Duration::from_millis(1));
-    runner.runtime_mut().set_watchdog_policy(WatchdogPolicy {
+    runner.program_mut().set_watchdog_policy(WatchdogPolicy {
         enabled: true,
         timeout: Duration::from_nanos(1),
         action: WatchdogAction::Halt,

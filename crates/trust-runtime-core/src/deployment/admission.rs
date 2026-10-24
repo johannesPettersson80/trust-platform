@@ -75,16 +75,42 @@ const SOURCE_FREE_VERSIONS: &[BytecodeVersion] = &[
     BytecodeVersion::SOURCE_FREE,
 ];
 
+/// What a computer runs: the source-free STBC versions until the bytecode engine is deleted, and
+/// program images of its own CPU (specification 44 §8.8, §15).
+const HOSTED_VERSIONS: &[BytecodeVersion] = &[
+    BytecodeVersion::SOURCE_FREE_V2,
+    BytecodeVersion::SOURCE_FREE,
+    BytecodeVersion::NATIVE_IMAGE,
+];
+
+/// The bytes of the task stack a computer gives a module's entry points: within the 2 MiB of the
+/// scan thread that runs them (specification 44 §8.5, NX-15).
+pub const HOSTED_TASK_STACK_BYTES: u64 = 1 << 20;
+
+/// The statements one task activation may execute on a computer, specification 44 NX-10's default.
+pub const HOSTED_MAX_STATEMENTS: u32 = 1_000_000;
+
 impl DeviceDescriptor {
     /// A computer: Linux, macOS or Windows. It allows at most the engine's 64 MiB artifact and
     /// 1,024 call levels, has no maximum for the other limits, keeps the newest 1,000 events by
     /// default and admits at most 1,000,000, and has no application slot (specification 34
-    /// HOST-02).
+    /// HOST-02). On a CPU of specification 44 §4.4 it also runs program images of that CPU, with a
+    /// task stack of 1 MiB and a budget of 1,000,000 statements per activation (specification 44
+    /// §8.8).
     #[must_use]
     pub fn hosted() -> Self {
         let unbounded = super::wide(usize::MAX);
+        let native = crate::native::image::Target::this_cpu().map(|target| NativeTarget {
+            target,
+            task_stack_bytes: HOSTED_TASK_STACK_BYTES,
+            max_statements: HOSTED_MAX_STATEMENTS,
+        });
         Self {
-            bytecode_versions: SOURCE_FREE_VERSIONS,
+            bytecode_versions: if native.is_some() {
+                HOSTED_VERSIONS
+            } else {
+                SOURCE_FREE_VERSIONS
+            },
             scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
             numeric_contracts: &[NumericContract::V1],
             timing_evidence: TimingEvidence::UNQUALIFIED,
@@ -106,7 +132,7 @@ impl DeviceDescriptor {
             event_store_max: 1_000_000,
             application_slot_bytes: None,
             program_memory_bytes: None,
-            native: None,
+            native,
         }
     }
 }

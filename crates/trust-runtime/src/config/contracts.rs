@@ -537,6 +537,9 @@ pub struct RuntimeBundle {
     /// The limits to prepare `bytecode` with: those of the admitted deployment record next to
     /// it, or the hosted defaults without one (specification 34 HOST-02).
     pub preparation_limits: trust_runtime_core::vm::PreparationLimits,
+    /// The project's program image, `program.tpi`, when the project holds one: the computer runs
+    /// it in place of `bytecode`, which is then empty (specification 44 §8.8, NX-15).
+    pub image: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone)]
