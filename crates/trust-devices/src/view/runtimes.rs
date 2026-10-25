@@ -10,7 +10,7 @@
 //! - The inspector: the actions first (`lifecycle`), then the state and detail, run target, mode,
 //!   cycle time, address, truST version, up time, faults, access, connections and container.
 
-use trust_runtime_client::TargetProbe;
+use trust_runtime_client::{TargetProbe, VersionAdvice};
 
 use super::address;
 use super::chips;
@@ -92,7 +92,14 @@ pub(crate) fn runtime(runtime: &topology::Runtime, place: Place<'_>, facts: &Fac
             secondary: lifecycle::secondary_actions(&subject),
             sections: vec![Section {
                 heading: None,
-                rows: inspector_rows(runtime, &state, status, endpoint.as_deref(), place),
+                rows: inspector_rows(
+                    runtime,
+                    &state,
+                    status,
+                    endpoint.as_deref(),
+                    place,
+                    facts.tool_version,
+                ),
             }],
             edit: None,
         },
@@ -488,6 +495,7 @@ fn inspector_rows(
     status: Option<&RuntimeStatus>,
     endpoint: Option<&str>,
     place: Place<'_>,
+    tool_version: &str,
 ) -> Vec<Row> {
     let mut rows = vec![
         Row {
@@ -522,6 +530,14 @@ fn inspector_rows(
     if let Some(status) = status {
         if let Some(version) = &status.version {
             rows.push(row(texts::ROW_VERSION, version.clone()));
+            // The update the runtime and this tool need when their versions differ
+            // (specification 34 TARGET-05).
+            if let Some(advice) = VersionAdvice::for_versions(tool_version, version) {
+                rows.push(Row {
+                    tone: Some(Tone::Warning),
+                    ..row(texts::ROW_UPDATE, texts::update_advice(&advice))
+                });
+            }
         }
         if let Some(uptime) = status.uptime_ms {
             rows.push(row(texts::ROW_UP_FOR, texts::duration(uptime / 1_000)));

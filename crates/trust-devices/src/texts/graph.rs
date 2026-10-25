@@ -269,6 +269,8 @@ pub const ROW_CYCLE: &str = "Cycle";
 pub const ROW_ADDRESS: &str = "Address";
 /// The row of the truST version.
 pub const ROW_VERSION: &str = "truST version";
+/// The row of the update a runtime and this tool need when their versions differ.
+pub const ROW_UPDATE: &str = "Update";
 /// The row of the up time.
 pub const ROW_UP_FOR: &str = "Up for";
 /// The row of the fault count.
@@ -567,3 +569,18 @@ pub const RUNTIME_KIND_SIMULATOR: &str = "Simulator";
 pub const RUNTIME_KIND_COMPUTER: &str = "Runtime on a computer";
 /// A runtime's kind word in the list: the truST firmware of a chip.
 pub const RUNTIME_KIND_CHIP: &str = "Runtime on a chip";
+
+/// The update a runtime and this tool need (specification 34 TARGET-05): the older side is updated
+/// to the newer, and a version that cannot be compared brings the runtime to this tool's release.
+#[must_use]
+pub fn update_advice(advice: &trust_runtime_client::VersionAdvice) -> String {
+    use trust_runtime_client::VersionAdvice;
+    match advice {
+        VersionAdvice::UpdateRuntime { tools, .. } | VersionAdvice::Unreadable { tools, .. } => {
+            format!("Update this runtime to truST {tools}")
+        }
+        VersionAdvice::UpdateTools { runtime, .. } => {
+            format!("Update truST on this computer to {runtime}")
+        }
+    }
+}

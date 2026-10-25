@@ -726,3 +726,35 @@ fn context_menu_has_its_four_entries() {
     );
     assert!(cell.context_menu.iter().all(|action| action.enabled));
 }
+
+/// The inspector names the update a runtime and this tool need when their truST versions differ
+/// (specification 25 §5.12, specification 34 TARGET-05; the tests' tool is truST 0.24.75): a
+/// runtime at 0.24.70 is to be updated to 0.24.75, a runtime at 0.25.0 asks for this computer's
+/// truST to be updated, both in the warning tone, and a runtime at 0.24.75 needs nothing. Catches
+/// an update named the wrong way, which would offer an older truST to a newer runtime, and a row
+/// for a runtime of the same release.
+#[test]
+fn the_inspector_names_the_update_a_different_version_needs() {
+    for (version, expected) in [
+        ("0.24.70", Some("Update this runtime to truST 0.24.75")),
+        ("0.25.0", Some("Update truST on this computer to 0.25.0")),
+        ("0.24.75", None),
+    ] {
+        let mut answer = status("running", "admin");
+        answer["version"] = json!(version);
+        let view = remote(answer, host(RunMode::Online, ""));
+        let cell = runtime_named(&view, "cell");
+        assert_eq!(row(cell, "truST version"), Some(version));
+        assert_eq!(row(cell, "Update"), expected, "{version}");
+        if expected.is_some() {
+            let tone = cell
+                .inspector
+                .sections
+                .iter()
+                .flat_map(|section| &section.rows)
+                .find(|row| row.label == "Update")
+                .and_then(|row| row.tone);
+            assert_eq!(tone, Some(Tone::Warning), "{version}");
+        }
+    }
+}

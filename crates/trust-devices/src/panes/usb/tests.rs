@@ -76,7 +76,7 @@ fn chip_file(name: &str) -> ChipFile {
 
 /// The chip files that the tests use: a new chip file does not change what they expect.
 fn catalog() -> Vec<ChipFile> {
-    vec![chip_file("stm32f407"), chip_file("esp32c6")]
+    vec![chip_file("stm32u5a9"), chip_file("esp32c6")]
 }
 
 fn trust_runtime(serial_number: &str) -> UsbIdentity {
@@ -211,7 +211,7 @@ fn usb_tray_offers_install_update_connect_or_show() {
     let chip = item(&view.items, "dev:usb:356A665D3431");
     assert_eq!(
         chip.detail,
-        "Supported chip with these IDs: STM32F407. The chip is confirmed when connecting and \
+        "Supported chip with these IDs: STM32U5A9. The chip is confirmed when connecting and \
          before any installation."
     );
     assert_eq!(chip.version.as_deref(), Some("No truST yet"));
@@ -383,11 +383,11 @@ fn usb_runtime_merges_with_its_network_find_by_runtime_id() {
 
 #[test]
 fn two_chip_files_sharing_a_boot_loader_are_one_entry_naming_both() {
-    // The STM32U5A9 shows the same DFU boot loader as the STM32F407.
-    let mut stm32u5a9 = chip_file("stm32f407");
-    stm32u5a9.identity.name = "stm32u5a9".to_owned();
-    stm32u5a9.identity.model = "STM32U5A9".to_owned();
-    let catalog = vec![chip_file("stm32f407"), chip_file("esp32c6"), stm32u5a9];
+    // A second STM32 of the family shows the same DFU boot loader as the STM32U5A9.
+    let mut stm32u5g9 = chip_file("stm32u5a9");
+    stm32u5g9.identity.name = "stm32u5g9".to_owned();
+    stm32u5g9.identity.model = "STM32U5G9".to_owned();
+    let catalog = vec![chip_file("stm32u5a9"), chip_file("esp32c6"), stm32u5g9];
     let grouped = boot_loaders(&catalog);
     let entries: Vec<(u16, u16, Vec<&str>)> = grouped
         .iter()
@@ -403,7 +403,7 @@ fn two_chip_files_sharing_a_boot_loader_are_one_entry_naming_both() {
     assert_eq!(
         entries,
         vec![
-            (0x0483, 0xDF11, vec!["stm32f407", "stm32u5a9"]),
+            (0x0483, 0xDF11, vec!["stm32u5a9", "stm32u5g9"]),
             (0x303A, 0x1001, vec!["esp32c6"]),
         ]
     );
@@ -415,7 +415,7 @@ fn two_chip_files_sharing_a_boot_loader_are_one_entry_naming_both() {
     assert_eq!(boot_loader.title, "STM32 boot loader (DFU)");
     assert_eq!(
         boot_loader.detail,
-        "Supported chips with these IDs: STM32F407, STM32U5A9. The chip is confirmed when \
+        "Supported chips with these IDs: STM32U5A9, STM32U5G9. The chip is confirmed when \
          connecting and before any installation."
     );
     assert_eq!(boot_loader.version.as_deref(), Some("No truST yet"));
@@ -425,4 +425,27 @@ fn two_chip_files_sharing_a_boot_loader_are_one_entry_naming_both() {
     let view = tray_with(&devices, &[], &[chip_file("esp32c6")], TOOL_VERSION);
     assert_eq!(view.items[0].detail, "No supported chip shows these IDs.");
     assert_eq!(view.items[0].actions, Vec::<Action>::new());
+}
+
+/// A runtime newer than this tool needs this tool's update, never an older truST: the tray offers
+/// it only `Show`. A version that cannot be compared offers `Update truST`, which brings the runtime
+/// to this tool's release (specification 34 TARGET-05). Catches `Update truST` offered for any
+/// version that differs, which would install an older truST over a newer one.
+#[test]
+fn a_newer_runtime_is_not_offered_an_older_trust() {
+    let devices = vec![
+        found("dev:usb:RT-4", Some(trust_runtime("RT-4"))),
+        found("dev:usb:RT-5", Some(trust_runtime("RT-5"))),
+    ];
+    let runtimes = vec![
+        shown("runtime:line-4", "Line 4", "usb://RT-4", "0.25.0"),
+        shown("runtime:line-5", "Line 5", "usb://RT-5", "dev"),
+    ];
+    let catalog = catalog();
+    let view = tray_with(&devices, &runtimes, &catalog, TOOL_VERSION);
+    assert_eq!(action_ids(item(&view.items, "dev:usb:RT-4")), vec!["show"]);
+    assert_eq!(
+        action_ids(item(&view.items, "dev:usb:RT-5")),
+        vec!["update_trust", "show"]
+    );
 }

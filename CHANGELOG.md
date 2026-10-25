@@ -25,6 +25,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
   `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
   and `runtime_preparation_limit`.
+- Added: the tools say which update is needed when a runtime runs another truST release
+  (specification 34 TARGET-05): `trust-runtime ctl` and the tools that open a device's link write,
+  for example, `warning: the runtime runs truST 0.30.9 and these tools are truST 0.31.0: update
+  the runtime to truST 0.31.0`, and the Devices panel names the update in the runtime's inspector.
+  The older side is the one to update.
 - Added: a chip answers `config.get` and `config.set` as trust-runtime does (specification 34
   TARGET-07): the log level, the cycle watchdog, the fault policy, retain and control of its
   installed program, in trust-runtime's keys, by the same rules. A change is committed before the

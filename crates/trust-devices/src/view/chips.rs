@@ -12,8 +12,8 @@ fn catalog() -> Option<&'static Catalog> {
     CATALOG.get_or_init(|| Catalog::embedded().ok()).as_ref()
 }
 
-/// The manufacturer's name of the chip that `platform` names, such as `STM32F407` for
-/// `stm32f407`; `None` for the platform of a computer.
+/// The manufacturer's name of the chip that `platform` names, such as `STM32U5A9` for
+/// `stm32u5a9`; `None` for the platform of a computer.
 pub(crate) fn model(platform: &str) -> Option<String> {
     catalog()?
         .chip(platform.trim())

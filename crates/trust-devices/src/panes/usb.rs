@@ -23,7 +23,7 @@
 use serde_json::json;
 use trust_chips::ChipFile;
 use trust_runtime::search::{FoundDevice, Identity, UsbIdentity, UsbRole};
-use trust_runtime_client::ControlEndpoint;
+use trust_runtime_client::{ControlEndpoint, VersionAdvice};
 
 use crate::texts::graph::CONNECT;
 use crate::texts::usb as texts;
@@ -212,7 +212,9 @@ fn item(
 }
 
 /// A device that is a runtime the panel shows: which runtime it is, its version, `Show`, and
-/// first `Update truST` when its version is not this tool's (specification 34 TARGET-05).
+/// first `Update truST` when its version is older than this tool's or cannot be compared
+/// (specification 34 TARGET-05); a runtime newer than this tool asks for this tool's update
+/// instead, which its inspector names, and is never offered an older truST.
 fn matched(
     device: &Found,
     usb: &UsbIdentity,
@@ -230,7 +232,8 @@ fn matched(
     if runtime
         .version
         .as_deref()
-        .is_some_and(|reported| reported.trim() != tool_version.trim())
+        .and_then(|reported| VersionAdvice::for_versions(tool_version, reported))
+        .is_some_and(|advice| advice.updates_runtime())
     {
         actions.push(enabled(
             "update_trust",

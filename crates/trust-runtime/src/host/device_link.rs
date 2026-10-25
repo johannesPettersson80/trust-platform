@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 
 use base64::Engine as _;
 use serde_json::{json, Value};
+use trust_runtime_client::VersionAdvice;
 
 use crate::native::Target;
 
@@ -144,13 +145,16 @@ pub struct DeviceLink {
     port: Box<dyn Stream>,
     buffer: Vec<u8>,
     next_id: u64,
+    /// The update the device and these tools need, read when the link opened.
+    version_advice: Option<VersionAdvice>,
 }
 
 impl DeviceLink {
     /// Opens `port`: a serial port, opened without resetting the device (the data terminal ready
     /// line on and the request to send line off, as the USB serial link of an ESP32 reads a reset
     /// from the other combinations), or `tcp://<host>:<port>`, a bridge to the device's serial port
-    /// on another computer. The device then takes this computer's clock (`give_clock`).
+    /// on another computer. The device then takes this computer's clock (`give_clock`), and its truST
+    /// version is read (`version_advice`).
     ///
     /// # Errors
     ///
@@ -180,9 +184,27 @@ impl DeviceLink {
             port: stream,
             buffer: Vec::new(),
             next_id: 1,
+            version_advice: None,
         };
         link.give_clock();
+        link.version_advice = link.read_version_advice();
         Ok(link)
+    }
+
+    /// The update the device and these tools need when the device's truST version is not theirs
+    /// (specification 34 TARGET-05), which a tool says before it goes on; none when they are the
+    /// same release or the device did not report a version.
+    #[must_use]
+    pub fn version_advice(&self) -> Option<&VersionAdvice> {
+        self.version_advice.as_ref()
+    }
+
+    /// Reads the device's version from `status`; a device that does not answer is left to the
+    /// requests that follow.
+    fn read_version_advice(&mut self) -> Option<VersionAdvice> {
+        let status = self.call("status", None, REPLY_WAIT).ok()?;
+        let version = status.get("version")?.as_str()?;
+        VersionAdvice::for_versions(env!("CARGO_PKG_VERSION"), version)
     }
 
     /// Gives the device this computer's clock with `clock.set` (specification 11, the runtime clock

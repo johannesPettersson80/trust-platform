@@ -106,8 +106,8 @@ const ENTRIES: [(&str, &str, &str, &str); 14] = [
 
 /// The entries of `Runtimes`: title, badge, purpose and whether they can be chosen.
 // One entry per chip of truST's chip files (specification 25, the Runtimes group): `chips/` holds the
-// STM32F407, the ESP32-C6 and the STM32U5A9, whose only listed interface of the four is USB.
-const RUNTIME_ENTRIES: [(&str, &str, &str, bool); 7] = [
+// ESP32-C6 and the STM32U5A9, whose only listed interface of the four is USB.
+const RUNTIME_ENTRIES: [(&str, &str, &str, bool); 6] = [
     (
         "Connect existing runtime",
         "Computer",
@@ -120,7 +120,6 @@ const RUNTIME_ENTRIES: [(&str, &str, &str, bool); 7] = [
         "Create a managed runtime project here, then select it as the Target and click Start.",
         true,
     ),
-    ("STM32F407", "Chip", "truST firmware · Ethernet, USB", true),
     (
         "ESP32-C6",
         "Chip",
@@ -546,8 +545,8 @@ fn runtimes_group_lists_chips_and_disabled_ssh_docker_with_details() {
         ("form.open", &json!({ "setup": "local" }))
     );
     assert_eq!(
-        payload(by_title("STM32F407")),
-        ("runtime.install_chip", &json!({ "chip": "stm32f407" }))
+        payload(by_title("STM32U5A9")),
+        ("runtime.install_chip", &json!({ "chip": "stm32u5a9" }))
     );
 }
 

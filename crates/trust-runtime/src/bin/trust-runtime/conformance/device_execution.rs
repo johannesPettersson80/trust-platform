@@ -15,6 +15,10 @@ impl DeviceRun {
         let toolchain = Toolchain::find()
             .map_err(|error| anyhow!("the native backend needs its toolchain: {error}"))?;
         let mut link = DeviceLink::open(port)?;
+        // Which update the device and these tools need (specification 34 TARGET-05).
+        if let Some(advice) = link.version_advice() {
+            eprintln!("warning: {advice}");
+        }
         let work = std::env::temp_dir().join(format!(
             "trust-conformance-device-{}-idle",
             std::process::id()

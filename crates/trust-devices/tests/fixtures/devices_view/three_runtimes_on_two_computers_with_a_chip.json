@@ -973,8 +973,8 @@
     {
       "id": "trust-fleet-v1:WyJob3N0IiwiaG9zdDpjb252ZXlvci1ub2RlIl0",
       "kind": "chip",
-      "heading": "STM32F407 192.168.10.31",
-      "platform": "STM32F407 chip",
+      "heading": "STM32U5A9 192.168.10.31",
+      "platform": "STM32U5A9 chip",
       "reachability": {
         "word": "Reachable",
         "tone": "ok",
@@ -1290,6 +1290,12 @@
                     "wide": false
                   },
                   {
+                    "label": "Update",
+                    "value": "Update truST on this computer to 0.24.77",
+                    "tone": "warning",
+                    "wide": false
+                  },
+                  {
                     "label": "Up for",
                     "value": "6 h 14 min",
                     "wide": false
@@ -1393,9 +1399,9 @@
             "kind": "runtime",
             "cells": {
               "address": "192.168.10.31:5680",
-              "belongs_to": "STM32F407 192.168.10.31",
+              "belongs_to": "STM32U5A9 192.168.10.31",
               "detail": "Runtime answered fleet.topology from its control channel.",
-              "identity": "0.24.77 · stm32f407",
+              "identity": "0.24.77 · stm32u5a9",
               "kind": "Runtime",
               "name": "Conveyor node",
               "state": "Running",
@@ -1405,7 +1411,7 @@
         }
       ],
       "hover": {
-        "title": "STM32F407 192.168.10.31",
+        "title": "STM32U5A9 192.168.10.31",
         "rows": [
           {
             "label": "Host name",
@@ -1437,7 +1443,7 @@
       "inspector": {
         "breadcrumb": "Devices & Connections / Chip",
         "kind": "Chip",
-        "title": "STM32F407 192.168.10.31",
+        "title": "STM32U5A9 192.168.10.31",
         "health": {
           "word": "Reachable",
           "tone": "ok",
@@ -1525,9 +1531,9 @@
           "identity": "conveyor-node",
           "kind": "Chip",
           "last_seen": "2 s ago",
-          "name": "STM32F407 192.168.10.31",
+          "name": "STM32U5A9 192.168.10.31",
           "state": "Reachable",
-          "type": "STM32F407 chip"
+          "type": "STM32U5A9 chip"
         }
       }
     }
@@ -1615,25 +1621,6 @@
               "action": "form.open",
               "payload": {
                 "setup": "local"
-              }
-            }
-          }
-        },
-        {
-          "protocol": "chip.stm32f407",
-          "title": "STM32F407",
-          "badge": "Chip",
-          "purpose": "truST firmware · Ethernet, USB",
-          "action": {
-            "id": "chip.stm32f407",
-            "label": "STM32F407",
-            "enabled": true,
-            "emphasis": "secondary",
-            "op": {
-              "kind": "rust",
-              "action": "runtime.install_chip",
-              "payload": {
-                "chip": "stm32f407"
               }
             }
           }

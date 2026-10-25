@@ -74,7 +74,7 @@ pub(crate) struct RuntimeStatus {
     pub(crate) debug_enabled: Option<bool>,
     /// The truST version.
     pub(crate) version: Option<String>,
-    /// The platform, such as `linux-x86_64` or `stm32f407`.
+    /// The platform, such as `linux-x86_64` or `stm32u5a9`.
     pub(crate) platform: Option<String>,
     /// What `shutdown` does to the runtime.
     pub(crate) program_control: ProgramControl,

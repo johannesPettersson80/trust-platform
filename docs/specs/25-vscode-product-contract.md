@@ -982,7 +982,10 @@ is specific to boards.
   authentication failure.
 - The runtime inspector then shows: state and detail; run target; mode; cycle
   time and its maximum; link and control address; truST version and the update
-  it needs, if any (specification 34 TARGET-05); up time and fault count; the
+  it needs, if any (specification 34 TARGET-05): `Update this runtime to truST
+  <version>` for a runtime older than this tool or whose version cannot be
+  compared, `Update truST on this computer to <version>` for a newer one, in
+  the warning tone; up time and fault count; the
   access role with the write and force rights; and the connections count. A
   chip adds its clock and its flash and RAM in use. `On this chip` lists the
   components of its firmware from its chip file and greys out a component the
@@ -1014,8 +1017,10 @@ is specific to boards.
   names that runtime and the network address where it is also reachable: the
   address of its network find (a device of the search with the runtime's ID),
   or the address the panel reaches it at. It offers `Update truST` first when
-  the runtime's truST version differs from this tool's (specification 34
-  TARGET-05). A USB-serial adapter offers nothing.
+  the runtime's truST version is older than this tool's or cannot be compared
+  with it (specification 34 TARGET-05); a runtime newer than this tool is never
+  offered this tool's older truST, and its inspector names the update of this
+  computer's truST instead. A USB-serial adapter offers nothing.
 - `Install truST` opens the installation in the inspector (specification 34
   TARGET-02, TARGET-04, TARGET-05, TARGET-09), in four steps: the chip found,
   with its identity; installing the release firmware, with progress and the

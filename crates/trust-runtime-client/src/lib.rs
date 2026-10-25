@@ -14,6 +14,9 @@ mod target_status;
 
 pub use target_status::{probe, ProbeTimeouts, TargetProbe};
 
+pub mod version;
+pub use version::VersionAdvice;
+
 #[cfg(test)]
 mod client_tests;
 #[cfg(test)]

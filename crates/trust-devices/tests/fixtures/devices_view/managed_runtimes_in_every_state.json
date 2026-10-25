@@ -2199,25 +2199,6 @@
           }
         },
         {
-          "protocol": "chip.stm32f407",
-          "title": "STM32F407",
-          "badge": "Chip",
-          "purpose": "truST firmware · Ethernet, USB",
-          "action": {
-            "id": "chip.stm32f407",
-            "label": "STM32F407",
-            "enabled": true,
-            "emphasis": "secondary",
-            "op": {
-              "kind": "rust",
-              "action": "runtime.install_chip",
-              "payload": {
-                "chip": "stm32f407"
-              }
-            }
-          }
-        },
-        {
           "protocol": "chip.esp32c6",
           "title": "ESP32-C6",
           "badge": "Chip",

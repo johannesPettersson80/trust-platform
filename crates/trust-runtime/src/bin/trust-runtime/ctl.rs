@@ -8,6 +8,7 @@ use anyhow::Context;
 use serde_json::{json, Value as JsonValue};
 use trust_runtime::config::RuntimeConfig;
 use trust_runtime::control::ControlEndpoint;
+use trust_runtime_client::VersionAdvice;
 
 use crate::cli::ControlAction;
 
@@ -69,10 +70,28 @@ fn send_control_request(
     target: &ResolvedControlTarget,
     action: &ControlAction,
 ) -> anyhow::Result<()> {
+    advise_version(target);
     let request = build_request(action, target.auth_token.as_deref());
     let response = send_control_request_value(&target.endpoint, &request)?;
     ensure_control_response_ok(&response)?;
     print_control_response(action, &response)
+}
+
+/// Says which update is needed when the runtime's truST version is not these tools'
+/// (specification 34 TARGET-05). A runtime that does not answer `status` is left to the request
+/// itself, which reports why.
+fn advise_version(target: &ResolvedControlTarget) {
+    let request = json!({"id": 0, "type": "status", "auth": target.auth_token});
+    let Ok(response) = send_control_request_value(&target.endpoint, &request) else {
+        return;
+    };
+    if let Some(version) = response
+        .pointer("/result/version")
+        .and_then(JsonValue::as_str)
+        && let Some(advice) = VersionAdvice::for_versions(env!("CARGO_PKG_VERSION"), version)
+    {
+        eprintln!("warning: {advice}");
+    }
 }
 
 pub(crate) fn ensure_control_response_ok(response: &JsonValue) -> anyhow::Result<()> {

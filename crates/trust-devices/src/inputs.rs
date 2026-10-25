@@ -53,7 +53,17 @@ pub(crate) struct Facts {
     pub(crate) project_target: Option<ProjectTarget>,
     /// Each runtime's `status` answer, by the control endpoint it answered on.
     pub(crate) statuses: BTreeMap<String, RuntimeStatus>,
+    /// The truST version of these tools, which a runtime's version is compared with
+    /// (specification 34 TARGET-05).
+    pub(crate) tool_version: &'static str,
 }
+
+/// The truST version of these tools. The tests pin it to their fixtures' release, so that their
+/// views do not change with each release.
+#[cfg(not(test))]
+pub(crate) const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(test)]
+pub(crate) const TOOL_VERSION: &str = "0.24.75";
 
 /// The target of the project's control endpoint.
 #[derive(Debug, Clone)]
@@ -127,6 +137,7 @@ pub(crate) fn read(gathered: &Gathered, host: &HostFacts, this_computer: Option<
                 reach: report.reach.clone(),
             }),
         statuses: statuses(gathered),
+        tool_version: TOOL_VERSION,
     };
     Inputs {
         topology,

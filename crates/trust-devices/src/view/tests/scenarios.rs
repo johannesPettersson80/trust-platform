@@ -108,7 +108,7 @@ fn simulator_running() -> DevicesView {
 }
 
 /// A computer with two runtimes, the project's at its control endpoint and another one, and a
-/// chip with the truST firmware of the STM32F407.
+/// chip with the truST firmware of the STM32U5A9.
 fn runtimes_with_a_chip() -> DevicesView {
     let mut configuration = configured_project();
     let host_facts = &mut configuration["hosts"][0];
@@ -151,7 +151,7 @@ fn runtimes_with_a_chip() -> DevicesView {
     chip["hosts"][0]["arch"] = json!("arm");
     chip["hosts"][0]["os"] = json!("none");
     let mut chip_status = status("running", "admin");
-    chip_status["platform"] = json!("stm32f407");
+    chip_status["platform"] = json!("stm32u5a9");
     chip_status["program_control"] = json!("keeps_control");
     chip_status["version"] = json!("0.24.77");
     chip_status["metrics"]["cycle_ms"] = json!({ "last": 1.02, "max": 1.31 });

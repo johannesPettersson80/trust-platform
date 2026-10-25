@@ -164,6 +164,10 @@ fn execute_native_tests_on_device(
     )?;
     let work = std::env::temp_dir().join(format!("trust-dev-device-{}", std::process::id()));
     let mut link = DeviceLink::open(port)?;
+    // Which update the device and these tools need (specification 34 TARGET-05).
+    if let Some(advice) = link.version_advice() {
+        eprintln!("warning: {advice}");
+    }
     let prepared = link
         .prepare_steps(target, &toolchain, &work.join("idle"))
         .and_then(|()| device_link::stepping_container(&built.image, &work.join("tests")))

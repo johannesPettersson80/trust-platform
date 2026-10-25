@@ -428,7 +428,18 @@ T — Targets (spec 34 §11.4):
       - CI building every firmware (D2).
 - [ ] T4 Installing truST on a chip and updating it, from `trust-runtime` and from the hardware
   canvas (TARGET-04).
-- [ ] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
+- [x] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
+  Done 25 Oct (spec 34 0.60 TARGET-05, spec 25 runtime inspector and USB tray): the rule in
+  `trust-runtime-client::version::VersionAdvice` (release-version order, pre-releases before their
+  release, build metadata ignored; the older side is updated, an unreadable version updates the
+  runtime); `trust-runtime ctl` and the device link (`trust-dev test --device`, `trust-runtime
+  conformance --device`) print `warning: ...` and carry on; the Devices inspector's `Update` row in
+  the warning tone; the USB tray offers `Update truST` only to an older or unreadable runtime (the
+  tray is not drawn yet, V7 C7). Tests: client `version::tests` (4), devices
+  `the_inspector_names_the_update_a_different_version_needs`,
+  `a_newer_runtime_is_not_offered_an_older_trust`. Found with it: the devices tests and golden
+  views still expected the STM32F407 that N11 deleted (6 tests failing since then); moved to the
+  STM32U5A9, fixtures rewritten by their own command (246 passed).
 - [ ] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
 - [x] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
   Gap analysis 25 Oct (read-only, against spec 34 and the code): `faults` and `events.tail` done on
