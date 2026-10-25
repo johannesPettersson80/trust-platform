@@ -10,6 +10,7 @@
 extern crate alloc;
 
 pub mod boot_counter;
+pub mod calendar;
 pub mod checkpoint;
 mod console_budget;
 pub use console_budget::ConsoleError;

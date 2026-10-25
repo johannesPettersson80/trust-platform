@@ -10,7 +10,8 @@
 //! [`runner`] is the single-thread resource loop of a device without an operating system, and
 //! [`link`] the framing and reply handling of its control link over a byte stream.
 //! [`transfer`] carries a request or reply longer than the frame in parts (PORT-05). [`cycle_step`]
-//! answers `cycle.step`, the stepped scans of a stopped program.
+//! answers `cycle.step`, the stepped scans of a stopped program, and [`clock`] `clock.set`, the
+//! time a device without a battery-held clock takes from the computer that talks to it.
 //! [`installation`] checks the `TRSTA001` and `TRSTA002` containers a chip holds its installed
 //! program in before any payload is exposed. [`loading`] installs a program into the two slots of
 //! the program store and selects the installed one after a reset. Transports, threads, files,
@@ -26,6 +27,7 @@ extern crate alloc;
 pub mod access;
 pub mod capabilities;
 pub mod chip;
+pub mod clock;
 pub mod cycle_step;
 pub mod debug;
 pub mod dispatch;

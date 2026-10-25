@@ -2871,7 +2871,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 340,
+        "line": 344,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2884,6 +2884,22 @@
         "invariant": "clone_unchecked copies a pin of the bank only after PinClaims::claim refused every line that holds it. A line keeps its PinClaim next to the driver built from the copy (ClaimedInput and ClaimedOutput own both and drop them together), so a pin is claimed again only after the driver that held it is gone, and at most one driver of a pin exists at a time.",
         "test_evidence": "cargo test -p trust-platform-esp32 --test pin_lines (a_claimed_pin_is_free_again_when_its_line_is_dropped) and --test reload (the_new_program_claims_the_pins_the_old_one_released); the esp-hal driver is exercised only by the chip build and the planned C6 bench run.",
         "review_date": "2026-10-19"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/calendar.rs",
+        "line": 107,
+        "owner": "native execution (specification 44)",
+        "invariant": "`words` addresses the CARRY_WORDS-word RTC-fast CARRY static, so every volatile load stays inside it and takes the value from RTC memory; a power-on leaves zeros, which the carry's mark and check word reject.",
+        "test_evidence": "The carry codec and arithmetic are proven by cargo test -p trust-platform-esp32 --lib calendar (a_carry_reads_back_and_other_words_do_not, a_reset_after_days_carries_the_seconds_since_the_copy); the RTC static is exercised by the C6 clock bench of N15 on fw 323fdba7 (clock-n15b-kept, 25 October 2026: not set after the flash, then carried over a USB reset to within 3 ms of the computer).",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/calendar.rs",
+        "line": 119,
+        "owner": "native execution (specification 44)",
+        "invariant": "`base` addresses the CARRY_WORDS-word RTC-fast CARRY static, so every volatile store stays inside it; only keep_at writes it, inside a critical section, in program order, the check word last.",
+        "test_evidence": "The carry codec and arithmetic are proven by cargo test -p trust-platform-esp32 --lib calendar; the RTC static is exercised by the C6 clock bench of N15 on fw 323fdba7 (clock-n15b-kept, 25 October 2026: not set after the flash, then carried over a USB reset to within 3 ms of the computer).",
+        "review_date": "2026-10-25"
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
@@ -2943,7 +2959,7 @@
       },
       {
         "path": "firmware/trust-esp32c6/src/memory.rs",
-        "line": 68,
+        "line": 70,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Called exactly once before any allocation on a single core; the private HEAP_MEMORY static of the main heap (32,832 bytes, or 163,904 in the firmware that runs compiled programs), the 64 KiB reclaimed static and the 16,320-byte LP SRAM static (LOW_POWER) are exclusively owned by the allocator, and the slices cover exactly those statics.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the three-region allocator is proven by cargo test -p trust-platform-memory (a_third_region_serves_only_what_the_first_two_cannot); the HP CPU's atomic instructions on LP SRAM were probed on the C6 bench (21 October 2026).",
@@ -3399,7 +3415,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
-        "line": 266,
+        "line": 271,
         "owner": "native execution (specification 44)",
         "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
@@ -3902,6 +3918,15 @@
         "invariant": "A critical_section::Mutex serializes the handler's interrupt clear with enable/disable from main on the single core; interrupts are masked inside. The cycle counter's SYSTIMER base is a cycle_clock::SharedBase, read and written by the main context alone.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
         "review_date": "2026-10-21"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/calendar.rs",
+        "primitive": "Mutex",
+        "owner": "native execution (specification 44)",
+        "shared_state": "the wall clock's offset from SYSTIMER, the low-power domain's timer, and SYSTIMER's reading at its last copy into the low-power domain",
+        "invariant": "critical_section::Mutex statics on the single core, read and written by the main context alone: the kernel's CURRENT_DT read, the loop's keep and the clock.set request all run on the resource loop's thread, and no interrupt handler touches them; interrupts are masked inside, including while the LP timer is read and its boot time written.",
+        "test_evidence": "trust-runtime-services clock contract tests (clock.set sets and answers the clock before and after, a computer refuses, malformed params refused); the C6 clock bench of N15 on ESP32-C6-DevKitC-1, fw 323fdba7 (trust-dev test asserting CURRENT_DT in the computer's year; the time carried over a USB reset to within 3 ms).",
+        "review_date": "2026-10-25"
       },
       {
         "path_prefix": "crates/trust-platform-esp32/src/cycle_clock.rs",

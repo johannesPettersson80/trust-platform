@@ -3181,6 +3181,27 @@ not claim wall-clock accuracy, lock-free concurrent collection,
 instrumentation completeness, a stable observer-overhead budget, or a general
 execution-time guarantee.
 
+###### Runtime clock contract
+
+`clock.set` sets the wall clock of a device without a battery-held clock from the computer at the
+other end of its control connection (specification 34, TARGET-06). Its one parameter, `utc_ms`, is
+the computer's time in whole milliseconds since 1970-01-01T00:00:00Z; a request without it, with
+another parameter or with a value that is no whole number of milliseconds is refused with
+`invalid params: <reason>`. A device sets its clock to it and answers `{"utc_ms": <its clock after
+the set>, "was_utc_ms": <its clock before the set, null while it was not set>}`, so that a tool can
+tell a device that kept its time, and by how much it drifted, from one that lost it; from then on
+`CURRENT_DT` reads that clock, and replies and events carry the time (TARGET-06). A computer's operating system holds its clock: trust-runtime on Linux, macOS and
+Windows refuses the request with the code `clock_not_settable` and the message `the operating
+system holds this runtime's clock`, and changes nothing. The minimum role is Engineer, and the
+request carries one audit record without operation details.
+
+The tools that open a device's control link (specification 34, PORT-05: `trust-runtime
+conformance --device`, `trust-dev test --device`, and every tool that reaches a device over that
+link) send `clock.set` with their computer's clock right after opening it. So a device that lost
+power has the time again as soon as a computer talks to it, and one that kept it takes the
+computer's time, which corrects what its crystal drifted. A refusal, or the `unsupported request`
+of a firmware that has no clock, changes nothing and does not stop the tool.
+
 ###### Runtime device capabilities contract
 
 `capabilities` reports the device descriptor that admission reads (specification 34, COMPAT-02 and
@@ -5794,7 +5815,7 @@ The explicit operation matrix is:
 |---|---|
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
-| Engineer | step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Engineer | step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `clock.set`, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
 | Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:

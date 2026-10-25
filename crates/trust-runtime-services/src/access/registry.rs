@@ -202,6 +202,7 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
     operation("var.force", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("var.unforce", RolePolicy::Fixed(AccessRole::Engineer), true),
     operation("io.write", RolePolicy::Fixed(AccessRole::Engineer), false),
+    operation("clock.set", RolePolicy::Fixed(AccessRole::Engineer), false),
     operation("io.force", RolePolicy::Fixed(AccessRole::Engineer), false),
     operation("io.unforce", RolePolicy::Fixed(AccessRole::Engineer), false),
     operation(

@@ -6,8 +6,9 @@ use trust_platform_esp32::profile::MAIN_STACK;
 use trust_platform_memory::memory::{MeasuredHeap, StackWindow, TargetMemory};
 
 /// Bytes of the main heap: the M2E 72 KiB arena less the 24 KiB given to RAM code (P1-9) and the
-/// 16,320 bytes the LP SRAM region takes over (the owner, 21 October 2026, "Use LP SRAM"), so the
-/// three regions hold the 112 KiB that the main heap and the reclaimed RAM held.
+/// 16,320 bytes the LP SRAM region took over (the owner, 21 October 2026, "Use LP SRAM"), so the
+/// three regions held the 112 KiB that the main heap and the reclaimed RAM held; the LP SRAM region
+/// has since given 64 bytes to the wall clock's carried time (specification 34 D.2).
 const HEAP_BYTES: usize = 32 * 1024 + 64;
 /// Bytes the main heap adds to [`HEAP_BYTES`]: 64 KiB of the RAM that the bytecode engine's RAM code
 /// took (specification 44 §10.3). A program's image, an install's or an online change's upload, goes
@@ -20,9 +21,10 @@ const MAIN_HEAP_BYTES: usize = HEAP_BYTES + PROGRAM_EXTRA_HEAP_BYTES;
 /// Bytes the boot loader leaves free after boot, reclaimed as the second heap region: esp-hal
 /// 1.2.2's `dram2_seg` at 0x4086E610 to 0x4087E610, 64 KiB.
 const RECLAIMED_BYTES: usize = 64 * 1024;
-/// Bytes of the LP SRAM region: the C6's 16 KiB of LP SRAM less 64 bytes, which hold the reset
-/// record and the boot counter (`.rtc_fast.persistent`, 52 bytes) with their alignment.
-const LOW_POWER_BYTES: usize = 16 * 1024 - 64;
+/// Bytes of the LP SRAM region: the C6's 16 KiB of LP SRAM less 128 bytes, which hold the reset
+/// record, the boot counter and the wall clock's carried time (`.rtc_fast.persistent`, 76 bytes)
+/// with their alignment.
+const LOW_POWER_BYTES: usize = 16 * 1024 - 128;
 
 /// Top of the esp-hal stack region (`_stack_start`): the end of HP SRAM below the second-stage
 /// bootloader in esp-hal 1.2.2's ESP32-C6 memory map. The stack grows down from it. A fixed window
@@ -60,7 +62,7 @@ pub static HEAP: MeasuredHeap = MeasuredHeap::empty();
 /// Give the allocator its three regions and paint the stack window. Call once, first in `main`:
 /// esp-riscv-rt does not paint the stack at reset, so the paint must precede the first
 /// measurement. An allocation is tried in the 32,832-byte main heap, then in the boot loader's
-/// 64 KiB, then in the LP SRAM's 16,320 bytes.
+/// 64 KiB, then in the LP SRAM's 16,256 bytes.
 pub fn initialize() {
     // SAFETY: called exactly once before any allocation, on a single core. Each private static is
     // exclusively owned by the allocator for the whole boot; these slices cover exactly those

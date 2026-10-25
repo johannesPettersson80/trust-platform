@@ -154,8 +154,16 @@ impl<T: MonotonicClock + ?Sized> MonotonicClock for &T {
 /// Wall-clock (calendar) time.
 pub trait WallClock {
     /// Milliseconds since the Unix epoch, or `None` while the time is not set: a device without a
-    /// battery-held clock has no time until its time server sets it (TARGET-06).
+    /// battery-held clock has no time until a time source sets it (TARGET-06).
     fn utc_ms(&self) -> Option<u64>;
+
+    /// Sets the clock to `utc_ms`, milliseconds since the Unix epoch, from the computer at the other
+    /// end of the control connection (TARGET-06; specification 11, the runtime clock contract), and
+    /// returns whether it did. The default is a runtime whose operating system holds its clock,
+    /// which sets nothing.
+    fn set_utc_ms(&self, _utc_ms: u64) -> bool {
+        false
+    }
 }
 
 /// A reading of the platform's wake counter (PORT-03).

@@ -18,7 +18,7 @@ composition (design §1.1):
 
 - `src/main.rs`: the boot sequence, the panic path and the runner composition.
 - `src/memory.rs`: the heap's three regions (the 32,832-byte main heap, the boot loader's 64 KiB
-  reclaimed region and the LP SRAM's 16,320 bytes) and the 78 KiB main-stack window.
+  reclaimed region and the LP SRAM's 16,256 bytes) and the 78 KiB main-stack window.
 
 ## Boot sequence
 
@@ -211,9 +211,9 @@ any step, even at a power loss, leaves the previous program selected (DEPLOY-03)
 
 | Region | Size | Purpose |
 |---|---|---|
-| Main heap (`HEAP_MEMORY`) | 32,832 B static | the first measured-allocator region; it gave 24 KiB of the M2E 72 KiB to scan-time code, and 16,320 bytes more that the LP SRAM region holds instead (owner, 21 October 2026), so the heap stays 112 KiB |
+| Main heap (`HEAP_MEMORY`) | 32,832 B static | the first measured-allocator region; it gave 24 KiB of the M2E 72 KiB to scan-time code, and 16,256 bytes more that the LP SRAM region holds instead (owner, 21 October 2026), so the heap stays 112 KiB |
 | Reclaimed region (`RECLAIMED`) | 64 KiB | the boot loader's RAM, `#[esp_hal::ram(reclaimed)]` in `.dram2_uninit`, the second heap region |
-| LP SRAM region (`LOW_POWER`) | 16,320 B at `0x50000000` | the third heap region, tried last: the LP SRAM less the 64 bytes of the reset record and the boot counter, `#[esp_hal::ram(unstable(rtc_fast, persistent))]` in `.rtc_fast.persistent`; a load or store there takes 2.0 cycles against 1.25 in HP SRAM |
+| LP SRAM region (`LOW_POWER`) | 16,256 B at `0x50000000` | the third heap region, tried last: the LP SRAM less the 128 bytes of the reset record, the boot counter and the wall clock's carried time, `#[esp_hal::ram(unstable(rtc_fast, persistent))]` in `.rtc_fast.persistent`; a load or store there takes 2.0 cycles against 1.25 in HP SRAM |
 | Main-stack window | 78 KiB below the fixed stack top `0x4086E610` | measured, 2 KiB minimum headroom; the linker refuses a stack region under 82 KiB |
 | Scan-time code (`.rwtext`) | about 300 KB | the interpreter and the engine's scan path, executed from RAM |
 

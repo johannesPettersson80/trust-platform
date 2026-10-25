@@ -25,6 +25,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
   `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
   and `runtime_preparation_limit`.
+- Added: the ESP32-C6 has a wall clock, so a program that calls `CURRENT_DT` installs and runs
+  there. The chip takes its time from the computer that talks to it: `trust-runtime` and
+  `trust-dev` send the new request `clock.set` with their own clock whenever they open the chip's
+  control link (specification 11, the runtime clock contract). The C6 counts the time with its
+  crystal and keeps it across every reset but a loss of power; until a computer sets it, its clock
+  counts from 1970-01-01 at power-up and replies carry no time. trust-runtime on a computer
+  refuses `clock.set` with `clock_not_settable`: its operating system holds its clock.
 - Added: a program type may have several instances in a configuration, each with its own
   variables, task, `RETAIN` or `NON_RETAIN`, `VAR_CONFIG` values and access paths (IEC 61131-3
   §6.8.2, Table 62 6a; specification 18 §2.4), where the build refused a second instance with "not

@@ -64,22 +64,22 @@ pub const PROGRAM_STEP_BYTES: usize = 256;
 
 /// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
 /// TARGET-03; specification 44 §10.2): the compiled program image as the only program format, its
-/// scheduling profile and numeric contract, its timing evidence, no platform capability, no maximum
+/// scheduling profile and numeric contract, its timing evidence, the wall clock, no maximum
 /// for the record's limits but the process image, which the image's checks bound, its event store's
 /// default and maximum, its application slot, and what it offers compiled programs
 /// ([`NATIVE_TARGET`]).
 ///
 /// The event store's default and maximum are the `[events]` table of `chips/esp32c6.toml` (200 and
 /// 200). The application slot is one program slot of the program store, not the whole
-/// `application` region: an install writes one slot (specification 34 §5.1). The C6 has no wall
-/// clock until slice T6, so it supplies no capability and admission refuses a program that calls
-/// `CURRENT_DT`.
+/// `application` region: an install writes one slot (specification 34 §5.1). The C6's wall clock is
+/// set by the computer at the other end of its control connection (specification 34 TARGET-06,
+/// D.2), so a program that calls `CURRENT_DT` installs.
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     program_versions: &[ProgramVersion::NATIVE_IMAGE],
     scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
     numeric_contracts: &[NumericContract::V1],
     timing_evidence: TimingEvidence::UNQUALIFIED,
-    capabilities: Capabilities::NONE,
+    capabilities: Capabilities::WALL_CLOCK,
     // The maxima of the chip file (`chips/esp32c6.toml`). An image requests the bytes of its process
     // images and 0 for every other limit (specification 44 §10.1), and its own checks bound it
     // (§10.2).
@@ -144,12 +144,12 @@ pub const NATIVE_TARGET: NativeTarget = NativeTarget {
 };
 
 /// The capacity of the C6's heap, in bytes: its three regions, the 32,832-byte main heap, the 64 KiB
-/// of the boot loader's reclaimed RAM and the 16,320 bytes of LP SRAM (`HEAP_BYTES`,
+/// of the boot loader's reclaimed RAM and the 16,256 bytes of LP SRAM (`HEAP_BYTES`,
 /// `RECLAIMED_BYTES` and `LOW_POWER_BYTES` of the firmware's `memory.rs`; specification 34, Appendix
 /// D.2). It is the reply capacity of the transfer session: a chip holds a reply as far as its heap
 /// reaches (PORT-05). The host test `the_c6_session_holds_replies_up_to_its_heap` keeps it equal to
 /// the three figures of `memory.rs`.
-pub const HEAP_CAPACITY_BYTES: usize = 32_832 + 65_536 + 16_320;
+pub const HEAP_CAPACITY_BYTES: usize = 32_832 + 65_536 + 16_256;
 
 /// The transfer session of boot number `boot` (specification 34, PORT-05). A transfer id carries the
 /// boot number in its high 32 bits, so an id of an earlier boot never names a transfer of this one. The

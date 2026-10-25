@@ -660,7 +660,9 @@ precision; IEC does not define this host-clock function.
 The function has this complete product contract:
 
 - it samples `std::time::SystemTime` once per call and interprets that sample
-  as a UTC Unix timestamp;
+  as a UTC Unix timestamp; on a device without an operating system it reads the
+  device's clock, which counts from `DT#1970-01-01-00:00:00` at power-up until
+  a time source sets it (specification 34, TARGET-06);
 - it returns a timezone-naive `DT` whose epoch is
   `DT#1970-01-01-00:00:00` and whose fixed resolution is one millisecond;
 - it truncates a positive sub-millisecond remainder toward the preceding

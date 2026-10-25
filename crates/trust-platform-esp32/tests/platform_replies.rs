@@ -45,13 +45,14 @@ fn platform() -> Platform<()> {
 
 /// The `capabilities` reply of the C6 is its descriptor and its reset, with the program format 44.1, the
 /// compiled program image (specification 44 §10.1), the cooperative resource profile, numeric contract 1, unqualified
-/// timing and no capability (the C6 has no wall clock until slice T6). Its maxima are the 64 MiB artifact
+/// timing and the wall clock (specification 34 TARGET-06, D.2). Its maxima are the 64 MiB artifact
 /// and 1,024 call levels, and every other limit is `null`. Its event store holds 200 events by default and
 /// at most 200, and its application slot is one program slot, 3,056 KiB = 3,129,344 bytes
 /// (`chips/esp32c6.toml`, `[events]` and `[layout] application_a`; specification 34 §5.1.1: an install
 /// writes one of the two slots). Its memory for programs is the number the firmware measured at boot
 /// (specification 34 MEM-12). Catches a field renamed, a maximum written as a number instead of `null`,
-/// a slot or event store of another chip, a slot that is the whole 6,112 KiB region, a program memory
+/// a slot or event store of another chip, a slot that is the whole 6,112 KiB region, the wall clock left
+/// out, so that a program that calls `CURRENT_DT` is refused at install, a program memory
 /// that the reply leaves out or does not take from the platform, and a reset that is not the power-on
 /// one.
 #[test]
@@ -71,7 +72,7 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
                 "scheduling_profiles": ["cooperative-resource-v1"],
                 "numeric_contracts": ["1"],
                 "timing_evidence": "unqualified",
-                "capabilities": [],
+                "capabilities": ["wall_clock"],
                 "maxima": {
                     "max_artifact_bytes": 67_108_864,
                     "max_preparation_bytes": null,

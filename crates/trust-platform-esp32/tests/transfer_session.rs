@@ -115,17 +115,17 @@ fn reply_of(len: usize) -> ReplyParts {
     let mut parts = ReplyParts::new();
     parts
         .try_write(&vec![b'x'; len])
-        .expect("a host heap has room for 114,689 bytes");
+        .expect("a host heap has room for 114,625 bytes");
     parts
 }
 
 /// Specification 34, PORT-05 (reply capacity and parts) and Appendix D.2 (long replies): the C6's
 /// session holds a reply of up to the capacity of its heap, the three regions that the firmware's
 /// `memory.rs` gives the allocator: the main heap of 32 x 1,024 + 64 = 32,832 bytes, the 64 x 1,024 =
-/// 65,536 bytes of reclaimed RAM and the 16 x 1,024 - 64 = 16,320 bytes of LP SRAM, 114,688 bytes in
-/// all, which is 28 parts of 4,096. The test reads the three figures out of `memory.rs`, so a change
-/// of the regions fails here until the profile follows. A reply of 114,688
-/// bytes is held whole, one byte more is refused with `reply longer than 114688 bytes`, and a reply
+/// 65,536 bytes of reclaimed RAM and the 16 x 1,024 - 128 = 16,256 bytes of LP SRAM, 114,624 bytes in
+/// all, which is 28 parts of 4,096, the last one 4,032 bytes. The test reads the three figures out of `memory.rs`, so a change
+/// of the regions fails here until the profile follows. A reply of 114,624
+/// bytes is held whole, one byte more is refused with `reply longer than 114624 bytes`, and a reply
 /// of 16,261 bytes, the 200 events of the C6's store, which is longer than the 8,192-byte frame, is
 /// held, where the interim rule refused everything above the frame. Catches a session still held to
 /// the frame, a capacity that leaves out a region, a figure that drifts from `memory.rs`, and an
@@ -134,35 +134,35 @@ fn reply_of(len: usize) -> ReplyParts {
 fn the_c6_session_holds_replies_up_to_its_heap() {
     assert_eq!(memory_rs_bytes("HEAP_BYTES"), 32_832);
     assert_eq!(memory_rs_bytes("RECLAIMED_BYTES"), 65_536);
-    assert_eq!(memory_rs_bytes("LOW_POWER_BYTES"), 16_320);
+    assert_eq!(memory_rs_bytes("LOW_POWER_BYTES"), 16_256);
     assert_eq!(
         HEAP_CAPACITY_BYTES,
         memory_rs_bytes("HEAP_BYTES")
             + memory_rs_bytes("RECLAIMED_BYTES")
             + memory_rs_bytes("LOW_POWER_BYTES")
     );
-    assert_eq!(HEAP_CAPACITY_BYTES, 114_688);
+    assert_eq!(HEAP_CAPACITY_BYTES, 114_624);
     assert_ne!(HEAP_CAPACITY_BYTES, DEVICE_FRAME_LEN, "not the frame");
 
     let mut session = transfer_session(1);
-    assert_eq!(session.reply_capacity(), 114_688);
+    assert_eq!(session.reply_capacity(), 114_624);
     let events = session
         .hold_reply(reply_of(16_261))
         .expect("200 events are longer than the frame and fit the heap");
     assert_eq!(events.bytes, 16_261);
     let whole = session
-        .hold_reply(reply_of(114_688))
+        .hold_reply(reply_of(114_624))
         .expect("a reply of exactly the heap's capacity is held");
-    assert_eq!(whole.bytes, 114_688);
+    assert_eq!(whole.bytes, 114_624);
     let refused = session
-        .hold_reply(reply_of(114_689))
+        .hold_reply(reply_of(114_625))
         .expect_err("one byte more than the heap is refused");
-    assert_eq!(refused, TransferError::ReplyTooLong { capacity: 114_688 });
-    assert_eq!(refused.to_string(), "reply longer than 114688 bytes");
-    // The refusal changed nothing: the reply held before it is still there, and its last part, from
-    // 114,688 - 4,096 = 110,592, reads.
+    assert_eq!(refused, TransferError::ReplyTooLong { capacity: 114_624 });
+    assert_eq!(refused.to_string(), "reply longer than 114624 bytes");
+    // The refusal changed nothing: the reply held before it is still there, and its last whole
+    // part, from 114,624 - 4,032 - 4,096 = 106,496, reads.
     let last = session
-        .get(whole.transfer, 110_592, 4_096)
+        .get(whole.transfer, 106_496, 4_096)
         .expect("the held reply still reads");
     assert_eq!(last.data.len(), 4_096);
 }

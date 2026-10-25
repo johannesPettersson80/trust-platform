@@ -35,6 +35,25 @@ impl ChipProfile for Esp32C6 {
     fn checkpoint_step_bytes() -> Option<usize> {
         Some(CHECKPOINT_STEP_BYTES)
     }
+
+    /// The C6's wall clock (specification 34 TARGET-06, D.2).
+    #[cfg(all(target_arch = "riscv32", target_os = "none"))]
+    fn utc_ms() -> Option<u64> {
+        crate::hardware::calendar::utc_ms()
+    }
+
+    /// The time source sets the C6's wall clock (specification 11, the runtime clock contract).
+    #[cfg(all(target_arch = "riscv32", target_os = "none"))]
+    fn set_utc_ms(utc_ms: u64) -> bool {
+        crate::hardware::calendar::set(utc_ms);
+        true
+    }
+
+    /// The loop keeps the C6's time in the low-power domain, which carries it over a reset.
+    #[cfg(all(target_arch = "riscv32", target_os = "none"))]
+    fn idle() {
+        crate::hardware::calendar::keep();
+    }
 }
 
 /// The C6's platform for the single-thread resource loop, over the watchdog `W` the adapter supplies

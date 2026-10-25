@@ -61,7 +61,7 @@ package "ESP32-C6 firmware (the STM32U5A9 runs CODE in place from flash)" as chi
     component "native::retain\ncapture and restore through the\nretain map and the type table" as retainMap
     component "RetainStore\nshared capture, checkpoint log\nin flash (STRN v3 payload)" as retainStore
     component "module entry points\nextern C fn(*mut Cx) -> u32;\na program instance's makes its input\nconnections, runs its body, then\nits output connections" as module
-    component "KERNEL_FUNCTIONS\nstop, debug_write, read_real, wall_clock\n(the runtime's reader of reals; the\nplatform's wall clock for CURRENT_DT)" as kernelFunctions
+    component "KERNEL_FUNCTIONS\nstop, debug_write, read_real, wall_clock\n(the runtime's reader of reals; the\nplatform's wall clock for CURRENT_DT:\na computer's system clock, the C6's\ncalendar clock that clock.set sets)" as kernelFunctions
     admission --> loader : boot / restart (Booted, format Image)
     loader --> codeRegion : copy CODE + RODATA, fence.i
     loader --> cycle : CompiledCycle::start (cold),\nwith_retain, warm restart\nfrom the checkpoint

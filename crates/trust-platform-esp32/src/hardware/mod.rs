@@ -22,6 +22,7 @@ use trust_runtime_core::ports::ProgramFlash;
 use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash};
 use trust_runtime_services::chip::process_io::record_lines;
 
+pub(crate) mod calendar;
 mod checkpoint_flash;
 mod clock;
 mod code_region;
@@ -31,6 +32,7 @@ mod image_window;
 mod reset;
 mod usb_link;
 mod wait;
+pub use calendar::KERNEL_FUNCTIONS;
 pub use clock::Monotonic;
 pub use code_region::{program_region, C6Code, Line, ProgramCode};
 pub use console::Console;
@@ -160,6 +162,8 @@ impl Board {
         let console = Console::new(UsbSerialJtag::new(peripherals.USB_DEVICE));
         let systimer = esp_hal::timer::systimer::SystemTimer::new(peripherals.SYSTIMER);
         let clock = Monotonic::new(systimer.alarm0);
+        // The wall clock reads SYSTIMER, so it starts after the clock (specification 34 TARGET-06).
+        calendar::start(peripherals.RTC_TIMER);
         let wait_alarm = Some(systimer.alarm1);
         let watchdog = Watchdog::new(peripherals.TIMG0);
         let reset = ResetControl::new();

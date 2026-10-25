@@ -36,6 +36,11 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::native::image::Image;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::{self as native, ModuleCode, NativeProgram};
+// The kernel's functions with the C6's wall clock (specification 44 §8.2); a host build of this
+// crate, for its tests, has the core's.
+#[cfg(all(target_arch = "riscv32", target_os = "none"))]
+use crate::hardware::KERNEL_FUNCTIONS;
+#[cfg(not(all(target_arch = "riscv32", target_os = "none")))]
 use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock};
 use trust_runtime_core::retain::checkpoint::CheckpointFlash;

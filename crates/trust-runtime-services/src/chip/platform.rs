@@ -63,6 +63,24 @@ pub trait ChipProfile {
     /// The most bytes one checkpoint step programs between two scans (specification 34 §10), or
     /// `None` while the chip keeps no checkpoint store.
     fn checkpoint_step_bytes() -> Option<usize>;
+
+    /// The chip's wall clock in milliseconds since the Unix epoch, or `None` while no time source
+    /// set it (specification 34 TARGET-06). The default is a chip without one.
+    #[must_use]
+    fn utc_ms() -> Option<u64> {
+        None
+    }
+
+    /// Sets the chip's wall clock to `utc_ms` and returns whether it did; a chip without one sets
+    /// nothing.
+    #[must_use]
+    fn set_utc_ms(_utc_ms: u64) -> bool {
+        false
+    }
+
+    /// The chip's own work between scans, once per pass of the loop (`RunnerPlatform::idle`); it
+    /// must not wait. The default does nothing.
+    fn idle() {}
 }
 
 /// The values of an installed program's record that its platform reports and answers from
@@ -248,10 +266,14 @@ impl<C, W> AuditSink for ChipPlatform<C, W> {
     }
 }
 
-/// A device whose clock nobody has set yet (specification 34, TARGET-06).
-impl<C, W> WallClock for ChipPlatform<C, W> {
+/// The chip's wall clock, `None` until a time source sets it (specification 34, TARGET-06).
+impl<C: ChipProfile, W> WallClock for ChipPlatform<C, W> {
     fn utc_ms(&self) -> Option<u64> {
-        None
+        C::utc_ms()
+    }
+
+    fn set_utc_ms(&self, utc_ms: u64) -> bool {
+        C::set_utc_ms(utc_ms)
     }
 }
 
@@ -371,6 +393,11 @@ impl<C: ChipProfile, W: HardwareWatchdog> RunnerPlatform for ChipPlatform<C, W> 
     /// memory is free for the next program (specification 34 STATE-08).
     fn unload_program(&mut self) {
         self.live = DeviceLiveValues::empty();
+    }
+
+    /// The chip's own work between scans, such as keeping its clock (specification 34 TARGET-06).
+    fn idle(&mut self) {
+        C::idle();
     }
 }
 

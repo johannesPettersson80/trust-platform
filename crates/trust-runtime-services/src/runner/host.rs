@@ -190,6 +190,10 @@ impl<P: RunnerPlatform, C> WallClock for RunnerHost<'_, P, C> {
     fn utc_ms(&self) -> Option<u64> {
         self.platform.utc_ms()
     }
+
+    fn set_utc_ms(&self, utc_ms: u64) -> bool {
+        self.platform.set_utc_ms(utc_ms)
+    }
 }
 
 /// The resource loop's own resource. The control mode comes from the platform's deployment

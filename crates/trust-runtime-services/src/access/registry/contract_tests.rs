@@ -62,6 +62,7 @@ const ENGINEER: &[&str] = &[
     "breakpoints.clear_all",
     "breakpoints.clear_id",
     "breakpoints.set",
+    "clock.set",
     "comm.apply",
     "comm.test",
     "cycle.step",

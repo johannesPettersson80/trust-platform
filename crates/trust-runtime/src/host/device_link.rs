@@ -150,7 +150,7 @@ impl DeviceLink {
     /// Opens `port`: a serial port, opened without resetting the device (the data terminal ready
     /// line on and the request to send line off, as the USB serial link of an ESP32 reads a reset
     /// from the other combinations), or `tcp://<host>:<port>`, a bridge to the device's serial port
-    /// on another computer.
+    /// on another computer. The device then takes this computer's clock (`give_clock`).
     ///
     /// # Errors
     ///
@@ -176,11 +176,25 @@ impl DeviceLink {
                 .map_err(|error| open(error.to_string()))?;
             Box::new(serial)
         };
-        Ok(Self {
+        let mut link = Self {
             port: stream,
             buffer: Vec::new(),
             next_id: 1,
-        })
+        };
+        link.give_clock();
+        Ok(link)
+    }
+
+    /// Gives the device this computer's clock with `clock.set` (specification 11, the runtime clock
+    /// contract; specification 34 TARGET-06): a device without a battery-held clock takes its time
+    /// from the computer that talks to it. A refusal, or the `unsupported request` of a firmware
+    /// without a clock, changes nothing.
+    fn give_clock(&mut self) {
+        let Ok(since) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) else {
+            return;
+        };
+        let utc_ms = u64::try_from(since.as_millis()).unwrap_or(u64::MAX);
+        let _ = self.call("clock.set", Some(json!({ "utc_ms": utc_ms })), REPLY_WAIT);
     }
 
     /// Sends request `kind` with `params` and returns the result of its reply, which must come

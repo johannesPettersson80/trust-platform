@@ -7,7 +7,7 @@
   "docs/diagrams/architecture/runtime-ads-client.puml": "d216d7dd6f7d36ed0f1328c935309020a838a89bd719235bc2c8e59434422628",
   "docs/diagrams/architecture/runtime-ads-server.puml": "03be05317624422ba85b39920525baf7fcddc05b4c0a7fb660f73207ae58ca1b",
   "docs/diagrams/architecture/runtime-cloud-planes.puml": "943b12abd97a3201616be6d17bed24195537f7d7ff86984dcf7e56f824434b8a",
-  "docs/diagrams/architecture/runtime-native-execution.puml": "3d3e01ae580e00af22cf152c1e436dd9f582453da0326229a078a45c974530aa",
+  "docs/diagrams/architecture/runtime-native-execution.puml": "b28beec0e08114d61c90e64edf7369eda0f6da56705511c5742a0832f2796481",
   "docs/diagrams/architecture/system-architecture.puml": "4e8ac09225bb67c5e6959cc5cb653ee371349439eeb590d59c3b27b5138f6d03",
   "docs/diagrams/architecture/verification-mutation-execution.puml": "3d8d835891f95dce7a36281a3ba1ed7b1c05860d7bb22be44bdad46a80e89d12",
   "docs/diagrams/debug/debug-architecture.puml": "d7a40c5f54b0f2949c865e03d3c54d78f2fcb99856fc2baae50665ef615265a6",
