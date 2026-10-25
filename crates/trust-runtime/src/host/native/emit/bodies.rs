@@ -278,7 +278,7 @@ fn function_body(
 }
 
 /// The source file of a POU: the file whose syntax tree holds its body.
-fn find_pou(
+pub(super) fn find_pou(
     front: &Front,
     kind: trust_syntax::syntax::SyntaxKind,
     name: &str,

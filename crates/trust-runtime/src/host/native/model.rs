@@ -10,7 +10,7 @@ use trust_hir::TypeId;
 
 use super::types::{lay_out, mangle, Kind, Member, Ty, Types};
 use super::NativeError;
-use crate::harness::{AccessPart, AccessPath, ConfigModel, LoweredApplication};
+use crate::harness::{AccessPart, AccessPath, ConfigModel, ConnectionEnd, LoweredApplication};
 use crate::io::IoAddress;
 use crate::task::ProgramDef;
 use crate::RetainPolicy;
@@ -53,6 +53,16 @@ pub(super) struct ProgramType<'a> {
     pub(super) retain_align: u32,
 }
 
+impl ProgramInstance {
+    /// Whether the configuration connects an output (`output`) or an input of the instance to a
+    /// global or a constant, which its entry makes around its body.
+    pub(super) fn connects(&self, output: bool) -> bool {
+        self.connections.iter().any(|connection| {
+            connection.output == output && !matches!(connection.end, ConnectionEnd::Address { .. })
+        })
+    }
+}
+
 impl ProgramType<'_> {
     /// The member named `name`, compared without case, and whether it is retained.
     pub(super) fn member(&self, name: &str) -> Option<(&Member, bool)> {
@@ -69,6 +79,10 @@ pub(super) struct ProgramInstance {
     pub(super) name: SmolStr,
     /// The index of its type in [`Model::program_types`].
     pub(super) program: usize,
+    /// The connections of its inputs and outputs (IEC §6.8.2, Table 62 8a, 8b, 9a, 9b): one to a
+    /// directly represented variable is a binding of the input or output there (`bindings`), the
+    /// others its entry makes around the body (`emit::connections`).
+    pub(super) connections: Vec<crate::harness::ProgramConnection>,
 }
 
 /// A task with the program instances it runs, in their order.
@@ -173,9 +187,12 @@ pub(super) struct Model<'a> {
     pub(super) stack: u32,
     /// Whether a body reads the platform's wall clock, `CURRENT_DT` (specification 44 §5.2).
     pub(super) wall_clock: bool,
-    /// The access paths the configuration and the programs declare (`VAR_ACCESS`, IEC §6.5.2.2),
-    /// which a body may name as the variables they name (specification 03 §2).
+    /// The access paths the configuration declares (`VAR_ACCESS`, IEC §6.5.2.2), which a body may
+    /// name as the variables they name (specification 03 §2).
     pub(super) access: Vec<crate::harness::AccessDecl>,
+    /// The access paths the programs declare, each path starting with its program's type: each
+    /// instance has its own, which the program's body names (IEC §6.5.2.2, Table 47).
+    pub(super) program_access: Vec<crate::harness::AccessDecl>,
 }
 
 impl<'a> Model<'a> {
@@ -269,12 +286,8 @@ impl<'a> Model<'a> {
             images,
             stack: 0,
             wall_clock: false,
-            access: configuration
-                .access
-                .iter()
-                .chain(&lowered.program_access)
-                .cloned()
-                .collect(),
+            access: configuration.access.clone(),
+            program_access: lowered.program_access.clone(),
         })
     }
 
@@ -491,6 +504,7 @@ fn instances<'a>(
         instances.push(ProgramInstance {
             name: config.name.clone(),
             program,
+            connections: config.connections.clone(),
         });
     }
     Ok((program_types, instances, block_tasks))
@@ -611,6 +625,58 @@ fn bindings(
             }
         }
     }
+    // An input or an output that the configuration connects to a directly represented variable
+    // lies there for its instance, as `VAR_CONFIG` locates a variable: the scan samples the input
+    // and publishes the output (IEC §6.8.2, Table 62 8a, 9a). An input reads an input or a marker
+    // address, an output writes an output or a marker address.
+    for instance in instances {
+        let program = &program_types[instance.program];
+        for connection in &instance.connections {
+            let ConnectionEnd::Address { address, text } = &connection.end else {
+                continue;
+            };
+            let named = || format!("{}.{}", instance.name, connection.parameter);
+            let Some(var) = program
+                .def
+                .vars
+                .iter()
+                .find(|var| var.name.eq_ignore_ascii_case(&connection.parameter))
+            else {
+                return Err(NativeError::Compile(format!(
+                    "the program {} of instance {} has no input or output {}",
+                    program.def.name, instance.name, connection.parameter
+                )));
+            };
+            if var.address.is_some() {
+                return Err(NativeError::Compile(format!(
+                    "{} is connected to {text} and declared at an address",
+                    named()
+                )));
+            }
+            let (allowed, what) = if connection.output {
+                (
+                    IoArea::Output,
+                    "an output writes an output or a marker address",
+                )
+            } else {
+                (IoArea::Input, "an input reads an input or a marker address")
+            };
+            if address.area != allowed && address.area != IoArea::Memory {
+                return Err(NativeError::Compile(format!(
+                    "{} is connected to {text}: {what} (IEC 61131-3 Table 62 8a, 9a)",
+                    named()
+                )));
+            }
+            let path = vec![instance.name.clone(), var.name.clone()];
+            if bindings.iter().any(|(bound, _)| same_path(bound, &path)) {
+                return Err(NativeError::Compile(format!(
+                    "{} is connected to {text} and located by VAR_CONFIG",
+                    named()
+                )));
+            }
+            bindings.push((path, address.clone()));
+        }
+    }
     // A location entry that names a variable by its name alone, no global, completes the one
     // incomplete location of that name (specification 03 §2): `out AT %QX0.1` gives `P1.out` its
     // address when no other program instance declares an `out` at an incomplete location.
@@ -664,6 +730,11 @@ fn bindings(
         }
     }
     Ok(bindings)
+}
+
+/// Whether two symbol paths are the same, compared without case.
+fn same_path(a: &[SmolStr], b: &[SmolStr]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(a, b)| a.eq_ignore_ascii_case(b))
 }
 
 /// The prefix of the process image area `area`: `%I`, `%Q` or `%M`.

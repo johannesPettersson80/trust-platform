@@ -3,8 +3,8 @@ use super::*;
 /// Specification 13, "Multi-Task Thread Model": the threads are the project's tasks in declaration
 /// order, numbered from 1, and one more, `Background`, for the programs that run in no task, all
 /// read from the declarations of the launch's project. Catches threads numbered in another order, a
-/// task left out, and programs without a task given no thread. Each instance has its own program
-/// type: the front end refuses two instances of one type.
+/// task left out, and programs without a task given no thread. The three are instances of one
+/// program type (IEC 61131-3 §6.8.2, Table 62 6a).
 #[test]
 fn dispatch_threads_maps_tasks() {
     let root = std::env::temp_dir().join(format!(
@@ -18,22 +18,16 @@ fn dispatch_threads_maps_tasks() {
     let program = root.join("main.st");
     std::fs::write(
         &program,
-        r#"PROGRAM FastMain
-END_PROGRAM
-
-PROGRAM SlowMain
-END_PROGRAM
-
-PROGRAM Idle
+        r#"PROGRAM Main
 END_PROGRAM
 
 CONFIGURATION Config
 RESOURCE Res ON PLC
     TASK FAST (INTERVAL := T#10ms, PRIORITY := 1);
     TASK SLOW (INTERVAL := T#20ms, PRIORITY := 2);
-    PROGRAM P1 WITH FAST : FastMain;
-    PROGRAM P2 WITH SLOW : SlowMain;
-    PROGRAM P3 : Idle;
+    PROGRAM P1 WITH FAST : Main;
+    PROGRAM P2 WITH SLOW : Main;
+    PROGRAM P3 : Main;
 END_RESOURCE
 END_CONFIGURATION
 "#,

@@ -238,19 +238,34 @@ END_CONFIGURATION
     );
 }
 
+/// IEC 61131-3 §6.8.2, Table 62 6a: a program type may have several instances, each with its own
+/// variables. Catches a front end that refuses the second instance or gives both one storage.
 #[test]
-fn configuration_contract_rejects_two_instances_of_one_program_type() {
-    assert_error_contains(
+fn configuration_contract_two_instances_of_one_program_type_each_have_their_own_variables() {
+    let runtime = compile_runtime(
         r#"
 PROGRAM Main
+VAR
+    value : INT;
+END_VAR
 END_PROGRAM
 CONFIGURATION C
 PROGRAM First : Main;
 PROGRAM Second : Main;
 END_CONFIGURATION
 "#,
-        "multiple instances of the same PROGRAM type",
     );
+    let names: Vec<&str> = runtime
+        .programs()
+        .keys()
+        .map(|name| name.as_str())
+        .collect();
+    assert_eq!(names, ["First", "Second"]);
+    let instance = |name: &str| match runtime.storage().get_global(name) {
+        Some(Value::Instance(id)) => *id,
+        other => panic!("{name} is no program instance: {other:?}"),
+    };
+    assert_ne!(instance("First"), instance("Second"));
 }
 
 #[test]
@@ -483,9 +498,12 @@ END_CONFIGURATION
     assert_eq!(policy("explicit_nonretain"), RetainPolicy::NonRetain);
 }
 
+/// IEC 61131-3 §6.5.6.2: `RETAIN` or `NON_RETAIN` on a program instance gives the variables declared
+/// without a qualifier that policy, instance by instance. Catches a qualifier merged per program
+/// type, which refused two instances that differ or gave one instance's qualifier to another.
 #[test]
-fn configuration_contract_conflicting_program_retain_policies_are_rejected_first() {
-    assert_error_contains(
+fn configuration_contract_program_retain_applies_per_instance() {
+    let runtime = compile_runtime(
         r#"
 PROGRAM Main
 VAR
@@ -495,10 +513,21 @@ END_PROGRAM
 CONFIGURATION C
 PROGRAM RETAIN First : Main;
 PROGRAM NON_RETAIN Second : Main;
+PROGRAM Third : Main;
 END_CONFIGURATION
 "#,
-        "conflicting RETAIN/NON_RETAIN qualifiers",
     );
+    let policy = |instance: &str| {
+        runtime
+            .programs()
+            .get(instance)
+            .and_then(|program| program.vars.iter().find(|var| var.name == "value"))
+            .map(|var| var.retain)
+            .unwrap_or_else(|| panic!("{instance}.value"))
+    };
+    assert_eq!(policy("First"), RetainPolicy::Retain);
+    assert_eq!(policy("Second"), RetainPolicy::NonRetain);
+    assert_eq!(policy("Third"), RetainPolicy::Unspecified);
 }
 
 #[test]

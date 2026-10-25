@@ -25,6 +25,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
   `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
   and `runtime_preparation_limit`.
+- Added: a program type may have several instances in a configuration, each with its own
+  variables, task, `RETAIN` or `NON_RETAIN`, `VAR_CONFIG` values and access paths (IEC 61131-3
+  §6.8.2, Table 62 6a; specification 18 §2.4), where the build refused a second instance with "not
+  supported yet". The connections of a program's inputs and outputs in the configuration,
+  `PROGRAM P1 WITH Fast : P(x1 := %IX1.1, x2 := w, out1 => %QW5)` (Table 62 8a, 8b, 9a, 9b), now
+  run: an input connected to a direct address reads it and an output writes it, and the others
+  are made at every activation, inputs before the body and outputs after it. The build used to
+  accept them and ignore them. A connection the program does not declare, an output connected
+  with `:=`, an input with `=>` or a value of another type is refused with the reason.
 - Added: compiled programs run every construct the bytecode engine ran (specification 44 0.23):
   `EN`/`ENO`, outputs given by position, `RETURN` with a value, `JMP` and labels, `VAR_STAT`,
   `UNION`, `STRUCT OVERLAP`, `POINTER TO` and `ADR`, `?=`, `WSTRING`, `IS_VALID`, edge-qualified

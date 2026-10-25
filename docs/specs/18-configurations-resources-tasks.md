@@ -71,6 +71,36 @@ behavior.
 `PROGRAM name WITH TaskName : ProgramType;` binds a program instance to a task
 declared in the same resource or configuration scope.
 
+A program type may have several instances (IEC 61131-3 Ed.3 §6.8.2, Table 62
+6a; Figure 28 has two instances `P1`). Each instance has its own variables, its
+own task, its own `RETAIN` or `NON_RETAIN`, which gives the variables declared
+without a qualifier that policy (§6.5.6.2), and its own `VAR_CONFIG` locations
+and initial values, named by the instance's path (`P1.COUNT`). The access paths
+a program declares (`VAR_ACCESS` in the program, §6.5.2.2, Table 47) belong to
+each instance: the program's body names its own instance's variable, and the
+tools name each instance's path `<instance>.<name>`, and `<name>` alone when the
+program has one instance.
+
+The configuration may connect a program instance's inputs and outputs (Table 62
+8a, 8b, 9a, 9b): `PROGRAM P1 WITH Fast : P(x1 := %IX1.1, x2 := w, out1 => %QW5,
+out2 => g);`. An input, connected with `:=`, reads a constant, a value of its
+enumeration, a global variable or an element of one, or a directly represented
+variable; an output, connected with `=>`, writes a global variable or an element
+of one, or a directly represented variable.
+
+- An input or an output connected to a directly represented variable lies at
+  that address for that instance, as `VAR_CONFIG` locates a variable: the scan
+  samples the input and publishes the output (specification 44 §5.6). An input
+  reads an `%I` or `%M` address and an output writes a `%Q` or `%M` address. A
+  variable declared at an address, or located by `VAR_CONFIG`, is not connected
+  as well.
+- Each other connection is made at every activation of the instance: its inputs
+  take their values before its body runs, and its outputs give theirs after it,
+  converted as an assignment converts them (§6.4.2, Table 11).
+- The build refuses a connection that names no `VAR_INPUT` of the program with
+  `:=` or no `VAR_OUTPUT` with `=>`, a global of a type that the value does not
+  convert to implicitly, and another expression than these.
+
 ### 2.5 Configuration parser composition
 
 A complete `CONFIGURATION ... END_CONFIGURATION` syntax tree may contain
@@ -143,6 +173,8 @@ being silently projected as globals.
 | `INTERVAL` | When present, must be a non-negative `TIME` literal; zero disables periodic triggering |
 | Program binding | `PROGRAM ... WITH <Task>` must reference a declared task in the same `RESOURCE`/`CONFIGURATION` |
 | Program type | Bound program type must resolve to a declared `PROGRAM` POU |
+| Program instances | Instance names are unique; a program type may have several instances (§2.4) |
+| Program connections | `:=` names a `VAR_INPUT`, `=>` a `VAR_OUTPUT`; the value converts implicitly (§2.4) |
 | Resource scope | Task/program names resolve within the containing resource/configuration hierarchy |
 
 These rules are surfaced as diagnostics by `trust-lsp` and revalidated during

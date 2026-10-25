@@ -114,10 +114,12 @@ pub(super) fn retain_map(model: &mut Model<'_>) -> Vec<Retained> {
                     (abi::AREA_INSTANCES, p_offset)
                 };
                 let (member_name, offset, ty) = (member.name.clone(), member.offset, member.ty);
+                // A variable in the retained area is retained by its own qualifier or by its
+                // program instance's (IEC §6.5.6.2), and so are the instances it holds.
                 let place = Place {
                     area,
                     offset: base + offset,
-                    holder: retained(policy),
+                    holder: retained(policy) || in_retain,
                 };
                 value(
                     model,

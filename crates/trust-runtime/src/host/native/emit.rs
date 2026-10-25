@@ -3,6 +3,7 @@
 //! function, and the entry points the kernel calls.
 
 mod bodies;
+mod connections;
 
 use std::fmt::Write as _;
 
@@ -161,6 +162,7 @@ pub(super) fn generate<'a>(
         }
     }
     functions.push_str(&super::dispatch::emit(model, &dispatchers, &mut graph)?);
+    connections::connections(front, ids, model, target.pointer_bytes(), &mut functions)?;
 
     let mut source = String::new();
     source.push_str(

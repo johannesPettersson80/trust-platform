@@ -180,6 +180,21 @@ impl Lowerer<'_, '_> {
                 is_ref: false,
             });
         }
+        // An access path of the body's own program names its variable in the instance that runs
+        // the body: each instance has its own (IEC §6.5.2.2, Table 47).
+        if let Frame::Program(index) = self.frame
+            && let Some(access) = self
+                .model
+                .program_access
+                .iter()
+                .find(|access| {
+                    access.name.eq_ignore_ascii_case(name)
+                        && declared_by(access, &self.model.program_types[index].def.name)
+                })
+                .cloned()
+        {
+            return self.own_access_place(node, index, &access);
+        }
         if let Some(access) = self
             .model
             .access
@@ -190,6 +205,35 @@ impl Lowerer<'_, '_> {
             return self.access_place(node, &access);
         }
         Err(self.unsupported(node, format!("the name {name}")))
+    }
+
+    /// The variable that the access path `access` of the program type `index`, the body's own,
+    /// names in the instance that runs the body: its path starts with the type.
+    fn own_access_place(
+        &mut self,
+        node: &SyntaxNode,
+        index: usize,
+        access: &crate::harness::AccessDecl,
+    ) -> Result<Place, NativeError> {
+        use crate::harness::{AccessPart, AccessPath};
+        let AccessPath::Parts(parts) = &access.path else {
+            return Err(self.unsupported(node, "an access path to a direct address"));
+        };
+        let Some((AccessPart::Name(variable), rest)) =
+            parts.get(1..).and_then(<[AccessPart]>::split_first)
+        else {
+            return Err(self.unsupported(node, format!("the access path {}", access.name)));
+        };
+        let Some((member, retained)) = self.model.program_types[index].member(variable) else {
+            return Err(self.unsupported(node, format!("the access path {}", access.name)));
+        };
+        let owner = if retained { "mr" } else { "me" };
+        let place = Place {
+            expr: format!("{owner}.{}", member.field()),
+            ty: member.ty,
+            is_ref: false,
+        };
+        self.access_rest(node, &access.name, place, rest)
     }
 
     /// The variable the access path `access` names (IEC §6.5.2.2; specification 03 §2): a program
@@ -214,7 +258,7 @@ impl Lowerer<'_, '_> {
             .iter()
             .find(|instance| instance.name.eq_ignore_ascii_case(first))
             .map(|instance| (instance.name.clone(), instance.program));
-        let mut place = if let Some((instance, program)) = instance {
+        let place = if let Some((instance, program)) = instance {
             let Some((AccessPart::Name(variable), tail)) = rest.split_first() else {
                 return Err(names_none(self));
             };
@@ -239,6 +283,45 @@ impl Lowerer<'_, '_> {
         } else {
             return Err(names_none(self));
         };
+        self.access_rest(node, &access.name, place, rest)
+    }
+
+    /// The global variable, or the member or element of one, that `parts` name: a global's name,
+    /// then its members and constant indices (IEC §6.8.2, `Global_Var_Access`); `None` when the
+    /// first part names no global. `label` names the path in a refusal.
+    pub(in crate::native) fn global_place(
+        &mut self,
+        node: &SyntaxNode,
+        label: &str,
+        parts: &[crate::harness::AccessPart],
+    ) -> Result<Option<Place>, NativeError> {
+        let Some((crate::harness::AccessPart::Name(first), rest)) = parts.split_first() else {
+            return Ok(None);
+        };
+        let Some(global) = self.model.global(first) else {
+            return Ok(None);
+        };
+        let area = if global.retained { "w.r" } else { "w.g" };
+        let place = Place {
+            expr: format!("{area}.{}", rust_field(&global.name)),
+            ty: global.ty,
+            is_ref: false,
+        };
+        self.access_rest(node, label, place, rest).map(Some)
+    }
+
+    /// The member or element of `place` that the rest `rest` of the access path `access` names:
+    /// its members and its elements at constant indices.
+    fn access_rest(
+        &mut self,
+        node: &SyntaxNode,
+        access: &str,
+        mut place: Place,
+        rest: &[crate::harness::AccessPart],
+    ) -> Result<Place, NativeError> {
+        use crate::harness::AccessPart;
+        let names_none =
+            |lowerer: &Self| lowerer.unsupported(node, format!("the access path {access}"));
         for part in rest {
             let info = self.info(place.ty).clone();
             place = match (part, &info.kind) {
@@ -437,4 +520,14 @@ impl Lowerer<'_, '_> {
             is_ref: true,
         })
     }
+}
+
+/// Whether the program type `program` declares the access path `access`: the path of a program's
+/// own access path starts with its type.
+fn declared_by(access: &crate::harness::AccessDecl, program: &str) -> bool {
+    use crate::harness::{AccessPart, AccessPath};
+    let AccessPath::Parts(parts) = &access.path else {
+        return false;
+    };
+    matches!(parts.first(), Some(AccessPart::Name(owner)) if owner.eq_ignore_ascii_case(program))
 }

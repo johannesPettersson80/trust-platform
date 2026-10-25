@@ -88,6 +88,33 @@ pub(crate) struct ProgramInstanceConfig {
     pub(crate) task: Option<SmolStr>,
     pub(crate) retain: Option<crate::RetainPolicy>,
     pub(crate) fb_tasks: Vec<FbTaskBinding>,
+    /// The connections of the instance's inputs and outputs (IEC 61131-3 §6.8.2, Table 62 8a, 8b,
+    /// 9a, 9b).
+    pub(crate) connections: Vec<ProgramConnection>,
+}
+
+/// A connection of a program instance's input or output in its configuration (IEC 61131-3 §6.8.2,
+/// Table 62 8a, 8b, 9a, 9b): `x1 := %IX1.1`, `x2 := w`, `out1 => w`.
+#[derive(Debug, Clone)]
+pub(crate) struct ProgramConnection {
+    /// The program's input, connected with `:=`, or output, connected with `=>`.
+    pub(crate) parameter: SmolStr,
+    /// Whether the connection is of an output.
+    pub(crate) output: bool,
+    /// What the input reads or the output writes.
+    pub(crate) end: ConnectionEnd,
+}
+
+/// The other end of a program connection.
+#[derive(Debug, Clone)]
+pub(crate) enum ConnectionEnd {
+    /// A directly represented variable, with its text as written.
+    Address { address: IoAddress, text: SmolStr },
+    /// A global variable or an element of one, by its name, its members and constant indices; a
+    /// name alone may also be a value of the parameter's enumeration.
+    Global(Vec<AccessPart>),
+    /// A constant.
+    Constant(Expr),
 }
 
 #[derive(Debug, Clone)]

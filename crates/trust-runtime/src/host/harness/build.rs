@@ -13,7 +13,7 @@ use trust_syntax::{parser, SyntaxNode};
 
 use super::compiler::{lower_root_global_var_blocks, LoweringInputs};
 
-use super::config::{apply_program_retain_overrides, attach_programs_to_tasks};
+use super::config::attach_programs_to_tasks;
 use super::types::{CompileError, SourceFile};
 
 /// Lowered declarations and original initialization expressions, before any storage is constructed.
@@ -499,18 +499,13 @@ impl LoweredApplication {
                             task: None,
                             retain: None,
                             fb_tasks: Vec::new(),
+                            connections: Vec::new(),
                         })
                         .collect(),
                 }
             }
         };
         self.globals.append(&mut config.globals);
-        apply_program_retain_overrides(
-            &mut self.program_defs,
-            &config.programs,
-            &config.using,
-            self.builder.registry(),
-        )?;
         let extras = if configured {
             build_extra_program_instances(
                 &self.program_defs,
@@ -526,15 +521,10 @@ impl LoweredApplication {
             &extras,
             &config.using,
         )?;
-        remap_program_access_instances(
-            &mut self.program_access,
-            &self.program_defs,
-            &config.programs,
-            &config.using,
-        )?;
         config.programs.extend(extras);
+        // A program type may have several instances, each with its own variables and its own
+        // `RETAIN` or `NON_RETAIN`, which the layout applies (IEC 61131-3 §6.8.2, §6.5.6.2).
         let mut names = std::collections::HashSet::new();
-        let mut types = std::collections::HashSet::new();
         for program in &mut config.programs {
             program.type_name = super::resolve_program_type_name(
                 &self.program_defs,
@@ -547,11 +537,6 @@ impl LoweredApplication {
                     program.name
                 )));
             }
-            if !types.insert(program.type_name.to_ascii_uppercase()) {
-                return Err(CompileError::new(
-                    "multiple instances of the same PROGRAM type are not supported yet",
-                ));
-            }
         }
         attach_programs_to_tasks(&mut config.tasks, &config.programs)?;
         self.configuration = Some(config);
@@ -563,29 +548,55 @@ impl LoweredApplication {
     }
 }
 
-fn remap_program_access_instances(
-    access: &mut [super::compiler::AccessDecl],
+/// The access paths the programs declare, one for each instance of the program that declares it
+/// (IEC 61131-3 §6.5.2.2: an access path names a variable of the program, so each instance has
+/// its own): named `<instance>.<name>`, and by its own name too when the program has one instance.
+fn instance_program_access(
+    access: Vec<super::compiler::AccessDecl>,
     program_defs: &IndexMap<SmolStr, ProgramDef>,
     programs: &[super::ProgramInstanceConfig],
     using: &[SmolStr],
-) -> Result<(), CompileError> {
+) -> Result<Vec<super::compiler::AccessDecl>, CompileError> {
+    let mut types = Vec::with_capacity(programs.len());
+    for program in programs {
+        types.push(super::resolve_program_type_name(
+            program_defs,
+            &program.type_name,
+            using,
+        )?);
+    }
+    let mut instanced = Vec::with_capacity(access.len());
     for declaration in access {
-        let super::compiler::AccessPath::Parts(parts) = &mut declaration.path else {
+        let owner = match &declaration.path {
+            super::compiler::AccessPath::Parts(parts) => match parts.first() {
+                Some(super::compiler::AccessPart::Name(owner)) => Some(owner.clone()),
+                _ => None,
+            },
+            super::compiler::AccessPath::Direct { .. } => None,
+        };
+        let Some(owner) = owner else {
+            instanced.push(declaration);
             continue;
         };
-        let Some(super::compiler::AccessPart::Name(owner)) = parts.first_mut() else {
-            continue;
-        };
-        for program in programs {
-            let type_name =
-                super::resolve_program_type_name(program_defs, &program.type_name, using)?;
-            if owner.eq_ignore_ascii_case(type_name.as_str()) {
-                *owner = program.name.clone();
-                break;
+        let instances: Vec<&SmolStr> = programs
+            .iter()
+            .zip(&types)
+            .filter(|(_, type_name)| type_name.eq_ignore_ascii_case(owner.as_str()))
+            .map(|(program, _)| &program.name)
+            .collect();
+        for instance in &instances {
+            let mut own = declaration.clone();
+            if let super::compiler::AccessPath::Parts(parts) = &mut own.path {
+                parts[0] = super::compiler::AccessPart::Name((*instance).clone());
             }
+            if instances.len() == 1 {
+                instanced.push(own.clone());
+            }
+            own.name = SmolStr::new(format!("{instance}.{}", declaration.name));
+            instanced.push(own);
         }
     }
-    Ok(())
+    Ok(instanced)
 }
 
 fn validate_task_single_bindings(
@@ -648,6 +659,7 @@ fn build_extra_program_instances(
             task: None,
             retain: None,
             fb_tasks: Vec::new(),
+            connections: Vec::new(),
         });
     }
 

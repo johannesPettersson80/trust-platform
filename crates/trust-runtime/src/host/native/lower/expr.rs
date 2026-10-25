@@ -307,7 +307,7 @@ impl Lowerer<'_, '_> {
     /// Converts `value` of type `from` to type `to` as IEC's implicit conversions do (Table 11):
     /// to a wider type of the same family, an integer to a real, a subrange's base to the subrange
     /// with its bounds checked (§6.5).
-    pub(super) fn convert(
+    pub(in crate::native) fn convert(
         &mut self,
         node: &SyntaxNode,
         value: &str,

@@ -172,10 +172,18 @@ pub(super) fn entries(
         let program = &model.program_types[instance.program];
         let symbol = format!("trust_entry_p{index}");
         let field = rust_field(&instance.name);
+        // The connections of the instance's inputs before its body and of its outputs after it
+        // (IEC §6.8.2, Table 62 8b, 9b; `emit::connections`).
+        let mut call = format!("{}(cx, &w, &w.p.{field}, &w.r.{field})", program.body);
+        if instance.connects(false) {
+            call = format!("connect_in_{index}(cx, &w)?;\n        {call}");
+        }
+        if instance.connects(true) {
+            call = format!("{call}?;\n        connect_out_{index}(cx, &w)");
+        }
         let _ = writeln!(
             source,
-            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        {}(cx, &w, &w.p.{field}, &w.r.{field})\n    }})\n}}\n",
-            program.body
+            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        {call}\n    }})\n}}\n"
         );
         entries.push(Entry {
             symbol,

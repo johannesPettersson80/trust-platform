@@ -2,13 +2,12 @@
 //! values the build computes, the configuration's initializations, access paths and tasks, which the
 //! tools read without running the program (the HMI's catalog, the browse of a project's symbols).
 use super::{
-    build_extra_program_instances, ensure_all_program_declarations_bound,
-    remap_program_access_instances, validate_task_single_bindings, LoweredApplication,
+    build_extra_program_instances, ensure_all_program_declarations_bound, instance_program_access,
+    validate_task_single_bindings, LoweredApplication,
 };
 use crate::harness::config::{
-    apply_config_inits, apply_globals, apply_program_retain_overrides,
-    attach_fb_instances_to_tasks, attach_programs_to_tasks, ensure_wildcards_resolved,
-    register_access_bindings, register_program_instances,
+    apply_config_inits, apply_globals, attach_fb_instances_to_tasks, attach_programs_to_tasks,
+    ensure_wildcards_resolved, register_access_bindings, register_program_instances,
 };
 use crate::harness::{self, CompileError};
 use crate::{memory::IoArea, task::ProgramDef, RuntimeBuilder};
@@ -22,7 +21,7 @@ impl LoweredApplication {
     ) -> Result<(RuntimeBuilder, IndexMap<SmolStr, ProgramDef>), CompileError> {
         let Self {
             builder,
-            mut program_defs,
+            program_defs,
             mut globals,
             mut program_access,
             configuration: config_model,
@@ -34,12 +33,6 @@ impl LoweredApplication {
                 runtime.set_resource_name(resource_name.clone());
             }
             globals.extend(config.globals);
-            apply_program_retain_overrides(
-                &mut program_defs,
-                &config.programs,
-                &config.using,
-                runtime.registry(),
-            )?;
             let mut wildcards = apply_globals(&mut runtime, &globals)?;
             register_program_instances(
                 &mut runtime,
@@ -53,8 +46,8 @@ impl LoweredApplication {
                 &config.programs,
                 extra_program_instances,
             )?;
-            remap_program_access_instances(
-                &mut program_access,
+            program_access = instance_program_access(
+                program_access,
                 &program_defs,
                 &config.programs,
                 &config.using,
@@ -95,6 +88,7 @@ impl LoweredApplication {
                     task: None,
                     retain: None,
                     fb_tasks: Vec::new(),
+                    connections: Vec::new(),
                 })
                 .collect::<Vec<_>>();
             register_program_instances(

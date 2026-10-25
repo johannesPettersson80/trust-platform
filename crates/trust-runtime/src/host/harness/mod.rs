@@ -41,8 +41,8 @@ pub use types::{CompileError, CycleResult, SourceFile};
 
 pub(crate) use compiler::{
     class_type_name, function_block_type_name, AccessDecl, AccessPart, AccessPath, ConfigInit,
-    ConfigModel, GlobalInit, NamedAccess, ProgramInstanceConfig, ResolvedAccess,
-    WildcardRequirement,
+    ConfigModel, ConnectionEnd, GlobalInit, NamedAccess, ProgramConnection, ProgramInstanceConfig,
+    ResolvedAccess, WildcardRequirement,
 };
 use compiler::{
     collect_edge_declarations, contains_textual_action, interface_type_name, lower_classes,

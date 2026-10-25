@@ -30,8 +30,8 @@ pub(super) use dependency_prelude::{
 pub(super) use edge::collect_edge_declarations;
 pub(crate) use model::ConfigModel;
 pub(crate) use model::{
-    AccessDecl, AccessPart, AccessPath, ConfigInit, GlobalInit, NamedAccess, ProgramInstanceConfig,
-    ResolvedAccess, WildcardRequirement,
+    AccessDecl, AccessPart, AccessPath, ConfigInit, ConnectionEnd, GlobalInit, NamedAccess,
+    ProgramConnection, ProgramInstanceConfig, ResolvedAccess, WildcardRequirement,
 };
 pub(super) use model::{CompileTimeConsts, LoweringContext, LoweringInputs};
 pub(super) use pou::{

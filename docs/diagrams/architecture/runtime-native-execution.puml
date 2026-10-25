@@ -60,7 +60,7 @@ package "ESP32-C6 firmware (the STM32U5A9 runs CODE in place from flash)" as chi
     component "NativeProgram (trust-runtime-core::native)\nareas, task readiness, bindings to the flat\nimages and the hierarchical image's slots,\nenumeration inputs checked, fault mapping" as kernel
     component "native::retain\ncapture and restore through the\nretain map and the type table" as retainMap
     component "RetainStore\nshared capture, checkpoint log\nin flash (STRN v3 payload)" as retainStore
-    component "module entry points\nextern C fn(*mut Cx) -> u32" as module
+    component "module entry points\nextern C fn(*mut Cx) -> u32;\na program instance's makes its input\nconnections, runs its body, then\nits output connections" as module
     component "KERNEL_FUNCTIONS\nstop, debug_write, read_real, wall_clock\n(the runtime's reader of reals; the\nplatform's wall clock for CURRENT_DT)" as kernelFunctions
     admission --> loader : boot / restart (Booted, format Image)
     loader --> codeRegion : copy CODE + RODATA, fence.i
