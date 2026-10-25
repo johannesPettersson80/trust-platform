@@ -1850,6 +1850,14 @@ execution model, not an IEC deviation.
   completion of the missed control deadline.
 - With the watchdog disabled there is no supervisor and a hang is not detected;
   the configuration documentation states this.
+- A device without an operating system has no supervisor thread: its hardware
+  watchdog resets it when a pass of its loop does not return, whether or not the
+  watchdog is enabled (specification 34 TIME-04). The boot that follows starts the
+  program and applies `hang_action` before the first scan: with `fault` the
+  resource is Faulted with `WatchdogTimeout` until a `restart`, and with `abort`
+  the program runs, as a service manager starts a computer's process again. After
+  a panic, which resets such a device, the resource is Faulted with
+  `ResourcePanic` and the panic's location (specification 34 TARGET-08).
 
 **Per-cycle deadline lifecycle:**
 - Before executing a cycle with an enabled watchdog, the scheduler arms both

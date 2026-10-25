@@ -223,6 +223,7 @@ fn main() -> ! {
             i64::try_from(config.cycle_interval_nanos).unwrap_or(i64::MAX),
         ),
         watchdog: config.watchdog,
+        hang_action: config.watchdog_hang_action,
         fault_policy: config.fault_policy,
         safe_outputs: config
             .safe_state
@@ -269,6 +270,9 @@ fn main() -> ! {
         )
         .with_transfers(transfer_session(parts.boot_count)),
     );
+    // A boot after the hardware watchdog or a panic ended the last program starts it faulted, as
+    // trust-runtime's resource stays faulted (specification 34 TARGET-08).
+    runner.fault_after_reset();
     let _ = runner.run();
     halt::emergency_halt("runner")
 }

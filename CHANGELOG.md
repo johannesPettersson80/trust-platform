@@ -25,6 +25,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
   `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
   and `runtime_preparation_limit`.
+- Fixed: a chip whose program hung or panicked comes back faulted, as trust-runtime's resource
+  stays faulted (specification 34 TARGET-08). After the hardware watchdog's reset the program is
+  Faulted with `watchdog timeout` while `runtime.watchdog.hang_action` is `fault`, the default, and
+  runs again with `abort`; after a panic it is Faulted with `resource panic '<location>'`. The fault
+  is logged, the safe outputs follow the watchdog's action or the fault policy, and a `restart`
+  runs the program. The chip ran the program again after either reset, so a program that hung or
+  panicked did so again in a loop of resets without saying so.
 - Added: a `STRUCT OVERLAP` may hold structures, other overlaps and arrays, as IEC 61131-3
   §6.4.4.7.1's own example `Com_data` does (specification 02 §3.6): each lies over the shared
   bytes in its own layout, its members and elements read and write those bytes, and a whole member

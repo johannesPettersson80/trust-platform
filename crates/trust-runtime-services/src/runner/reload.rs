@@ -167,9 +167,12 @@ where
     /// that finds a newer one does and starts it in `mode`. A program that cannot start leaves the
     /// resource Stopped with the reason, which `restart` names, and the loop counts the newest
     /// committed container as the one its boot refused, so that a `restart` loads only a newer one.
+    /// A boot after a reset that ended the last boot's program starts it faulted
+    /// ([`Self::fault_after_reset`]).
     pub fn boot(&mut self, mode: RestartMode) {
         if let Ok(events) = self.reload(mode) {
             self.begin_program(events);
+            self.fault_after_reset();
         } else {
             let refused = self.shell.install.newest_sequence();
             self.shell.install.set_loaded(refused);

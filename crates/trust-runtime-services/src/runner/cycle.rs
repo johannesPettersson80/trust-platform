@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::cycle::CycleHooks;
+use trust_runtime_core::deployment::HangAction;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::Generation;
@@ -29,6 +30,11 @@ pub struct CycleSettings {
     pub cycle_interval: Duration,
     /// The cycle watchdog of `[runtime.watchdog]`.
     pub watchdog: WatchdogPolicy,
+    /// `runtime.watchdog.hang_action`: whether a scan that did not return, which a device's
+    /// hardware watchdog ends with a reset, leaves the program faulted at the next boot (`fault`) or
+    /// runs it again (`abort`), as trust-runtime's resource stays faulted or its service manager
+    /// restarts it (specification 11, hosted hang supervision; specification 34 TARGET-08).
+    pub hang_action: HangAction,
     /// What follows a failed scan, `[runtime.fault]`.
     pub fault_policy: FaultPolicy,
     /// The safe value of each output, `io.toml` `[[io.safe_state]]`, in its order. Without any,
@@ -98,6 +104,12 @@ pub trait ResourceCycle {
 
     /// The fault policy that follows a failed scan.
     fn fault_policy(&self) -> FaultPolicy;
+
+    /// What follows a scan that did not return ([`CycleSettings::hang_action`]); `fault`, the
+    /// default of `[runtime.watchdog]`, for a cycle that has none.
+    fn hang_action(&self) -> HangAction {
+        HangAction::Fault
+    }
 
     /// The debugger holds that have run on this cycle since it started, on the monotonic clock. A
     /// hold still in progress counts up to now (specification 11 §6.6; specification 34 STATE-07).

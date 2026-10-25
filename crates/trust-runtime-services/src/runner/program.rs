@@ -87,6 +87,13 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
+    fn hang_action(&self) -> trust_runtime_core::deployment::HangAction {
+        match self {
+            Self::Installed(cycle) => cycle.hang_action(),
+            Self::Missing(_) => trust_runtime_core::deployment::HangAction::Fault,
+        }
+    }
+
     fn held_time(&self) -> TimeSpan {
         match self {
             Self::Installed(cycle) => cycle.held_time(),

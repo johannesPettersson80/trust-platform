@@ -13,7 +13,7 @@ use trust_platform_esp32::profile::{
 };
 use trust_platform_esp32::program_flash::{SLOT_A_OFFSET, SLOT_BYTES, SLOT_B_OFFSET};
 use trust_platform_esp32::{Platform, ResetCause, ResetRecord};
-use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
+use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_services::capabilities::{self, LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::ports::StatusPort;
@@ -100,9 +100,6 @@ fn the_device_descriptor_matches_the_chip_file() {
         file.events.default_capacity
     );
     assert_eq!(DEVICE_DESCRIPTOR.event_store_max, file.events.max_capacity);
-    // No maxima keys yet: the descriptor carries trust-runtime's hosted maxima, which the
-    // chip file will replace when Appendix H gains them.
-    assert_eq!(DEVICE_DESCRIPTOR.maxima, DeviceDescriptor::hosted().maxima);
 }
 
 /// The device offers one program slot, not the whole application region (specification 34 §5.1 and
@@ -206,8 +203,9 @@ fn the_capabilities_reply_of_the_chip_carries_the_chip_file_slot_and_event_store
     );
     assert_eq!(reply["event_store_max"], json!(file.events.max_capacity));
     assert_eq!(reply["timing_evidence"], json!("unqualified"));
-    // The C6 has no wall clock until slice T6 (profile.rs), so no capability is reported.
-    assert_eq!(reply["capabilities"], json!([]));
+    // The C6 offers its calendar clock, bit 0 (specification 34 TARGET-06 and Appendix D.2;
+    // specification 11, the runtime device capabilities contract).
+    assert_eq!(reply["capabilities"], json!(["wall_clock"]));
     // Specification 34 §5.1.1: a 64 MiB artifact and 1,024 call levels are bounded; the other
     // limits are `u64::MAX` in the descriptor, no maximum, and render as `null`.
     assert_eq!(reply["maxima"]["max_artifact_bytes"], json!(67_108_864));

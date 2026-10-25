@@ -584,6 +584,9 @@ mod live_values_contract_tests;
 mod reply_contract_tests;
 
 #[cfg(test)]
+mod reset_contract_tests;
+
+#[cfg(test)]
 mod scan_contract_tests;
 
 #[cfg(test)]

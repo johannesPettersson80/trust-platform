@@ -331,6 +331,10 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         self.settings.fault_policy
     }
 
+    fn hang_action(&self) -> trust_runtime_core::deployment::HangAction {
+        self.settings.hang_action
+    }
+
     /// The debugger's holds, which are no active time (specification 11 §6.6; specification 44
     /// §13.2).
     fn held_time(&self) -> TimeSpan {

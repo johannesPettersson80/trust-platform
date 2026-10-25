@@ -194,9 +194,12 @@ impl CompiledRuntime {
             .kept_image()
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let clock = HostMonotonicClock::default();
+        // A computer supervises a scan that does not return on a thread of its own (specification
+        // 11, hosted hang supervision), so the cycle's hang action is the default it never reads.
         let settings = CycleSettings {
             cycle_interval: Duration::ZERO,
             watchdog: WatchdogPolicy::default(),
+            hang_action: trust_runtime_core::deployment::HangAction::Fault,
             fault_policy: FaultPolicy::Halt,
             safe_outputs: Vec::new(),
         };

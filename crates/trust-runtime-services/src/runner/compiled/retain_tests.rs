@@ -323,6 +323,7 @@ fn power_on<'i>(
     let settings = CycleSettings {
         cycle_interval: Duration::from_millis(10),
         watchdog: WatchdogPolicy::default(),
+        hang_action: trust_runtime_core::deployment::HangAction::Fault,
         fault_policy: FaultPolicy::Halt,
         safe_outputs: Vec::new(),
     };

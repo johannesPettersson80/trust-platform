@@ -431,8 +431,32 @@ T — Targets (spec 34 §11.4):
 - [ ] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
 - [ ] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
 - [ ] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
+  Gap analysis 25 Oct (read-only, against spec 34 and the code): `faults` and `events.tail` done on
+  the C6 (the U5A9 refused replies over the frame until its transfer session, 25 Oct); missing:
+  `config.get`/`config.set` on chips (the platform answers `unsupported request`;
+  `deployment/configuration.rs` decodes `log_level` and nothing reads it): move the computer's
+  `control/config_handlers_{get,set}.rs` behind a settings port into the services, the record's
+  settings into `ProgramValues`. The computer/chip reply comparison (`runner_transcript_parity.rs`)
+  went with N11 and needs replacing for compiled programs.
 - [ ] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
   (TARGET-08).
+  Gap analysis 25 Oct: safe state on stop and fault done on the C6 (bench); `halt`/`safe_halt`/
+  `restart` code done, `restart` and `safe_halt` not benched.
+  - [x] Hang and panic (25 Oct, spec 34 0.58 TARGET-08, spec 11 hosted hang supervision): the boot
+    faults the program it starts after the hardware watchdog's reset with `WatchdogTimeout` when
+    `hang_action` is `fault` (safe outputs by the watchdog action), runs it with `abort`, and after
+    a panic faults it with `ResourcePanic(<location>)` (safe outputs by the fault policy, never
+    restarted): `Runner::fault_after_reset`, called by `Runner::boot` (C6) and the U5A9's main.
+    Tests `runner/reset_contract_tests.rs` (5). Bench C6, firmware e9ace98a (fw-n18): JTAG halt
+    with MWDT0 re-armed, the watchdog reset -> `faulted`, `watchdog timeout`, `last_reset`
+    `watchdog` (boot 7430), fault logged at 0; warm `restart` -> running; USB reset -> running,
+    `power_on` (`~/projects/.artifacts/native/t8-hang/result.txt`). A panic record written over JTAG
+    as the panic path writes it, then a USB reset -> `faulted`, `resource panic 't8-bench.rs:1'`,
+    `last_reset` `panic` with the text (boot 7432); `restart` -> running; next USB reset -> running
+    (`t8-panic-record/result.txt`). A real panic is not forced: no ST program reaches one.
+    Also fixed: two stale C6 chip-file assertions (`wall_clock` since N15, the computer's maxima
+    since N11).
+  - [ ] Bench the fault policies `restart` and `safe_halt` on the C6.
 
 QS — STM32 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE).
 - History: the owner paused the STM32 work on 17 October 2026 ("then we wait with stm32"). The

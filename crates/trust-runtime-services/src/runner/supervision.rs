@@ -7,6 +7,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::deployment::HangAction;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::ports::{
@@ -21,6 +22,7 @@ use trust_runtime_core::watchdog::FaultDecision;
 use super::live::LiveValuesHooks;
 use super::observer::ScanObserver;
 use super::{span, ResourceCycle, RetainSource, Runner, RunnerPlatform};
+use crate::capabilities::ResetCauseName;
 use crate::events::{retain_apply_event, RuntimeEvent};
 use crate::loading::reload::ReloadOutcome;
 use crate::metrics::RuntimeMetrics;
@@ -379,6 +381,35 @@ where
         self.shell.resource.set_state(ResourceState::Running);
         let backoff = automatic_restart_backoff(self.cycle.cycle_interval(), attempt);
         self.next_boundary = Some(self.clock.now().saturating_add(span(backoff)));
+    }
+
+    /// Leaves the program that a boot started faulted when the reset that ended the last boot ended
+    /// its program (specification 34 TARGET-08; specification 11, hosted hang supervision), as
+    /// trust-runtime's resource stays faulted after a scan that did not return or panicked: after the
+    /// hardware watchdog's reset with `WatchdogTimeout` when `runtime.watchdog.hang_action` is
+    /// `fault`, the safe outputs following the watchdog's action, and after a panic with
+    /// `ResourcePanic` and the panic's location, the safe outputs following the fault policy. The
+    /// fault is logged and a `restart` starts the program. With `abort`, and after any other reset,
+    /// the program runs. A device calls it once, after it starts the program at its boot and before
+    /// the first scan.
+    pub fn fault_after_reset(&mut self) {
+        let Some(Some(reset)) = self.shell.with_platform(|platform| platform.last_reset()) else {
+            return;
+        };
+        let (error, decision) = match reset.cause {
+            ResetCauseName::Watchdog if self.cycle.hang_action() == HangAction::Fault => (
+                RuntimeError::WatchdogTimeout,
+                FaultDecision::from_watchdog(self.cycle.watchdog().action),
+            ),
+            // A panic is never restarted automatically (`cycle_error_action`).
+            ResetCauseName::Panic => (
+                RuntimeError::ResourcePanic(reset.text),
+                FaultDecision::from_fault_policy(self.cycle.fault_policy()),
+            ),
+            _ => return,
+        };
+        let reported = self.apply_fault(error, decision);
+        self.halt(reported);
     }
 
     /// The resource faults with `error` and runs no scan until a restart; the faulted wait polls

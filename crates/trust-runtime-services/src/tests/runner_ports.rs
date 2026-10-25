@@ -742,6 +742,8 @@ pub(crate) struct CycleScript {
     /// Retained-value events the next successful restart reports.
     pub(crate) restart_events: Vec<RetainApplyEvent>,
     pub(crate) watchdog: WatchdogPolicy,
+    /// `runtime.watchdog.hang_action` of the program.
+    pub(crate) hang_action: trust_runtime_core::deployment::HangAction,
     pub(crate) fault_policy: FaultPolicy,
     /// The safe value of each output, as `[[io.safe_state]]` gives it.
     pub(crate) safe_outputs: Vec<(IoAddress, Value)>,
@@ -761,6 +763,7 @@ impl Default for CycleScript {
             retain_error: None,
             restart_events: Vec::new(),
             watchdog: WatchdogPolicy::default(),
+            hang_action: trust_runtime_core::deployment::HangAction::Fault,
             fault_policy: FaultPolicy::Halt,
             safe_outputs: Vec::new(),
         }
@@ -804,6 +807,10 @@ impl ResourceCycle for ScriptedCycle<'_> {
 
     fn fault_policy(&self) -> FaultPolicy {
         self.cycle.fault_policy()
+    }
+
+    fn hang_action(&self) -> trust_runtime_core::deployment::HangAction {
+        self.cycle.hang_action()
     }
 
     fn held_time(&self) -> TimeSpan {
@@ -1094,6 +1101,7 @@ impl Fixture {
             CycleSettings {
                 cycle_interval: script.cycle_interval,
                 watchdog: script.watchdog,
+                hang_action: script.hang_action,
                 fault_policy: script.fault_policy,
                 safe_outputs: script.safe_outputs.clone(),
             }
