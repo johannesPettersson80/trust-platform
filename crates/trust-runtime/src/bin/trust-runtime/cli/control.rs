@@ -39,6 +39,15 @@ pub enum ControlAction {
     Restart {
         mode: String,
     },
+    /// Upload a program container and install it on a stopped runtime (specification 34,
+    /// section 11.2), on a chip and on a computer alike.
+    Install {
+        /// The file of the `TRSTA002` program container.
+        container: PathBuf,
+        /// Start the installed program afterwards, cold or warm, and wait until it runs.
+        #[arg(long, value_parser = ["cold", "warm"])]
+        restart: Option<String>,
+    },
     /// Stop the program. The runtime keeps running in the Stopped state and `restart` starts the
     /// program again.
     Shutdown {

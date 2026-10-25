@@ -6,6 +6,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: `--endpoint serial:///dev/ttyACM0` (`serial://COM5` on Windows) reaches a chip over its USB
+  port in `trust-runtime ctl`, `ads server` and `discover`, and `trust-runtime ctl install
+  <container> [--restart cold|warm]` installs a program on a chip or a computer.
 - Removed: the bytecode engine. Every runtime now runs the project compiled into a program image
   (specification 44 §15): `trust-runtime build` writes `program.tpi`, and `run`, `play`, `fleet
   start`, `conformance`, `bench project`, `trust-dev test` and the VS Code simulator run it. The STBC

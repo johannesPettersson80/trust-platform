@@ -89,13 +89,13 @@ pub enum Command {
     /// Send control commands to a running runtime.
     Ctl {
         /// Project folder directory (to read control endpoint).
-        #[arg(long = "project", alias = "bundle")]
+        #[arg(long = "project", alias = "bundle", global = true)]
         project: Option<PathBuf>,
-        /// Control endpoint (tcp://host:port or unix://path).
-        #[arg(long)]
+        /// Control endpoint (tcp://host:port, unix://path or serial://port for a chip on USB).
+        #[arg(long, global = true)]
         endpoint: Option<String>,
         /// Control auth token (overrides project value).
-        #[arg(long)]
+        #[arg(long, global = true)]
         token: Option<String>,
         #[command(subcommand)]
         action: ControlAction,

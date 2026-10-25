@@ -8,8 +8,16 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# A reply held by the runtime is read in parts (specification 34, PORT-05): the parts are standard
+# base64, each carries a CRC-32, and the whole reply a SHA-256.
+base64 = "0.23.1"
+crc32fast = { workspace = true, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
+# A chip's USB serial port (specification 34, PORT-05). The workspace entry has the default
+# features off (no libudev): opening a port needs nothing else.
+serialport.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 
 [lints]

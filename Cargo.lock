@@ -7066,8 +7066,12 @@ dependencies = [
 name = "trust-runtime-client"
 version = "0.24.75"
 dependencies = [
+ "base64 0.23.1",
+ "crc32fast",
  "serde",
  "serde_json",
+ "serialport",
+ "sha2 0.11.0",
  "thiserror 2.0.21",
 ]
 
