@@ -173,3 +173,30 @@ fn a_logpoint_records_its_message_at_every_hit_and_never_stops() {
     assert_eq!(logs[0].thread, Some(1));
     assert_eq!(debug.drain_logs(), Vec::<LogRecord>::new());
 }
+
+/// Specification 34 MEM-12: a program whose record enables debugging keeps a buffer of as many stops
+/// as its event store keeps events, the device's default when the record names none, beside its
+/// memory figure; a program that does not enable debugging keeps none. With the C6's default of 200
+/// events the reserve is 200 stops and 200 logpoint messages; a record of 50 events keeps 50.
+/// Catches a memory check that leaves the buffer out, which let a debug program pass the check on a
+/// chip with Wi-Fi and run out of heap at its start (bench t1, 25 October 2026).
+#[test]
+fn a_debug_program_keeps_room_for_its_stops_beside_its_figure() {
+    let mut configuration = trust_runtime_core::deployment::Configuration::default();
+    assert_eq!(super::debug_reserve_bytes(&configuration, 200), 0);
+    configuration.control_debug_enabled = true;
+    assert_eq!(
+        super::debug_reserve_bytes(&configuration, 200),
+        super::stop_buffer_bytes(200)
+    );
+    configuration.event_capacity = 50;
+    assert_eq!(
+        super::debug_reserve_bytes(&configuration, 200),
+        super::stop_buffer_bytes(50)
+    );
+    assert_eq!(
+        super::stop_buffer_bytes(2),
+        2 * (core::mem::size_of::<super::LastStop>()
+            + core::mem::size_of::<crate::debug::logpoint::LogRecord>())
+    );
+}

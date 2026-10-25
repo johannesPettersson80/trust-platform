@@ -218,6 +218,33 @@ struct DebugState {
     published: bool,
 }
 
+/// The heap that a debugger's buffer of `capacity` stops takes: the stops and the logpoint messages
+/// that `debug.stops` has not returned yet, reserved at once when a program whose record enables
+/// debugging starts (specification 11 §6.13.3). A chip's memory check counts it with the program's
+/// memory figure (specification 34 MEM-12): 200 stops took 17,860 bytes of the C6's heap.
+#[must_use]
+pub fn stop_buffer_bytes(capacity: usize) -> usize {
+    capacity.saturating_mul(core::mem::size_of::<LastStop>() + core::mem::size_of::<LogRecord>())
+}
+
+/// The heap that a program with the record's `configuration` keeps for debugging beside its memory
+/// figure, on a device whose event store keeps `default_events` events when the record names none:
+/// [`stop_buffer_bytes`] of its event store's size when the record enables debugging, otherwise none.
+#[must_use]
+pub fn debug_reserve_bytes(
+    configuration: &trust_runtime_core::deployment::Configuration,
+    default_events: usize,
+) -> usize {
+    if !configuration.control_debug_enabled {
+        return 0;
+    }
+    let events = match configuration.event_capacity {
+        0 => default_events,
+        capacity => usize::try_from(capacity).unwrap_or(usize::MAX),
+    };
+    stop_buffer_bytes(events)
+}
+
 /// The debugger of one device's resource loop.
 pub struct ChipDebug {
     state: RefCell<DebugState>,

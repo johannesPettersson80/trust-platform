@@ -103,7 +103,7 @@ fn stage_two(capture: &mut RetainCapture, counter: i32) {
 /// A persister over `flash`, as a boot would open it.
 fn persister(flash: &mut SimFlash) -> CheckpointPersister<&mut SimFlash> {
     let log = CheckpointLog::open(flash).expect("open the checkpoint log");
-    CheckpointPersister::new(log, IDENTITY, IMAGE_BYTES)
+    CheckpointPersister::new(log, IDENTITY, IMAGE_BYTES).expect("room for the checkpoint buffer")
 }
 
 /// Run the pending checkpoint to its commit, one step per call.
@@ -715,7 +715,8 @@ fn recovery_reads_into_the_persisters_own_buffer_and_allocates_nothing() {
             schema: [0x33; 16],
         };
         let log = CheckpointLog::open(&mut flash).expect("open the checkpoint log");
-        let mut persister = CheckpointPersister::new(log, other, IMAGE_BYTES);
+        let mut persister = CheckpointPersister::new(log, other, IMAGE_BYTES)
+            .expect("room for the checkpoint buffer");
         let (record, length) = persister
             .recover_with(<[u8]>::len)
             .expect("recover")
@@ -783,7 +784,8 @@ fn a_recovered_image_of_this_identity_is_not_written_again() {
         stage(&mut capture, 1);
         {
             let log = CheckpointLog::open(&mut flash).expect("open the checkpoint log");
-            let mut persister = CheckpointPersister::new(log, other, IMAGE_BYTES);
+            let mut persister = CheckpointPersister::new(log, other, IMAGE_BYTES)
+                .expect("room for the checkpoint buffer");
             let mut buffer = vec![0; 16 * 1024];
             let recovered = persister
                 .recover(&mut buffer)

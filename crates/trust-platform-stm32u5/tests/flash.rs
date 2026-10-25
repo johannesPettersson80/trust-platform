@@ -93,7 +93,8 @@ fn recover(
     len: usize,
 ) -> (u64, Vec<u8>) {
     let log = CheckpointLog::open(flash).expect("the slots read");
-    let mut persister = CheckpointPersister::new(log, identity, len);
+    let mut persister =
+        CheckpointPersister::new(log, identity, len).expect("room for the checkpoint buffer");
     let mut payload = vec![0; len];
     let record = persister
         .recover(&mut payload)

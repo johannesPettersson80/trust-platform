@@ -54,6 +54,7 @@ use trust_platform_esp32::{
 use trust_platform_esp32::{C6Code, Platform, ProgramCode};
 use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
+use trust_runtime_services::capabilities::HeapFacts;
 use trust_runtime_services::chip::network::{ChipNetwork, NetworkFacts};
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::firmware::{FirmwareFacts, FirmwareStore};
@@ -83,6 +84,17 @@ type ChipRunner = Runner<ChipLink, Wait, ChipCycle, ChipPlatform, ChipClock>;
 /// The bytes of the heap that a container can take now (specification 34 §5.1).
 fn heap_room() -> usize {
     memory::HEAP.remaining()
+}
+
+/// The heap as it stands, which `capabilities` reports (specification 34 MEM-12). The counters are
+/// atomics, read without a lock.
+fn heap_facts() -> HeapFacts {
+    let (used, peak, _, _) = memory::HEAP.emergency_metrics();
+    HeapFacts {
+        capacity_bytes: memory::HEAP.capacity(),
+        used_bytes: used,
+        peak_bytes: peak,
+    }
 }
 
 /// The heap's count of its allocator operations, which the runtime reads around each scan
@@ -165,6 +177,7 @@ fn main() -> ! {
     )
     .with_device_settings(settings_flash);
     platform.set_firmware(firmware_facts.clone());
+    platform.set_heap_meter(heap_facts);
     // The watchdog runs from here, through every step of the boot: a firmware on trial that hangs
     // before it confirms itself below is reset by it, and the boot loader then boots the firmware
     // before it (specification 34 TARGET-04). The boot's steps feed it: the network's start once

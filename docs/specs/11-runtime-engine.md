@@ -3463,6 +3463,7 @@ on every runtime, a computer or a device without an operating system:
 | `last_reset` | object or null | The reset the device's boot read (below), or null |
 | `firmware` | object or null | A chip's firmware slots (specification 34 TARGET-04; the firmware update contract below), or null on a runtime that keeps none, a computer among them |
 | `network` | object or null | A chip's network as it stands (specification 34 ARCH-12; below), or null on a runtime that reports none, a computer among them, and on a chip whose device settings name no network |
+| `heap` | object or null | A chip's heap as it stands (specification 34 MEM-12): `capacity_bytes`, the bytes its allocator was given at boot; `used_bytes`, the bytes in use now; and `peak_bytes`, the most in use at once since the boot; null on a computer. It shows what a program, its drivers and the services took, which `program_memory_bytes`, measured before any program, cannot |
 
 | `firmware` field | Type | Value |
 |---|---|---|

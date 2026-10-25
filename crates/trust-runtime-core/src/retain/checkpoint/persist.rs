@@ -18,6 +18,7 @@
 //! for the persister's identity in that buffer, so a warm start does not write the checkpoint it
 //! has just restored (specification 11 §6.7).
 
+use alloc::format;
 use alloc::vec::Vec;
 
 use crate::error::RuntimeError;
@@ -64,15 +65,34 @@ pub struct CheckpointPersister<F> {
 impl<F: CheckpointFlash> CheckpointPersister<F> {
     /// A persister over `log` that writes checkpoints for `identity`, with its payload buffer
     /// reserved for an admitted retain image of `image_bytes` bytes.
-    #[must_use]
-    pub fn new(log: CheckpointLog<F>, identity: CheckpointIdentity, image_bytes: usize) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::RetainStore`] with `insufficient memory: no block of <n> bytes for the
+    /// checkpoint buffer` when the heap has no block that large, as a fragmented heap of a chip may
+    /// lack one while its free bytes would hold it (specification 34 MEM-12): the program is refused
+    /// with the numbers rather than the chip running out of heap.
+    pub fn new(
+        log: CheckpointLog<F>,
+        identity: CheckpointIdentity,
+        image_bytes: usize,
+    ) -> Result<Self, RuntimeError> {
+        let mut payload = Vec::new();
+        payload.try_reserve_exact(image_bytes).map_err(|_| {
+            RuntimeError::RetainStore(
+                format!(
+                    "insufficient memory: no block of {image_bytes} bytes for the checkpoint buffer"
+                )
+                .into(),
+            )
+        })?;
+        Ok(Self {
             log,
             identity,
-            payload: Vec::with_capacity(image_bytes),
+            payload,
             writing: false,
             failure: None,
-        }
+        })
     }
 
     /// Whether a checkpoint has begun and not committed.

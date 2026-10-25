@@ -97,6 +97,7 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
                 "last_reset": { "cause": "power_on", "text": "", "boot_count": 1 },
                 "firmware": null,
                 "network": null,
+                "heap": null,
             },
         })
     );

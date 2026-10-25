@@ -567,6 +567,16 @@ T — Targets (spec 34 §11.4):
     3,258 to 3,261 mV on a pad pulled up to 3.3 V. Found: with Wi-Fi (22,704 bytes for programs) the
     same program's start ran out of heap (`resource panic ... alloc.rs:665`, reset, faulted), and
     after it the chip had no room for a `status` reply; under investigation (debug image or drivers).
+  - 25 Oct night, found and fixed (bench t1/mem1-mem3 with `capabilities.heap`): a program whose
+    record enables debugging reserves 200 debugger stops and 200 logpoint messages, 17,860 bytes,
+    which the memory check did not count (production 62,116 bytes in use, debug 79,976, without
+    Wi-Fi). The install and the load now count it (the debug T1 with Wi-Fi is refused: `the program
+    needs 5783 bytes, the device has 5096`), the load checks the room after the drivers are
+    claimed, and the checkpoint buffer's block is taken without a panic. Found next: after several
+    loads the heap had 41,112 bytes free but no block of 16,300 for the checkpoint buffer
+    (fragmentation); it is now a refusal, and a reset recovers. Open: keep the checkpoint buffer
+    and the capture's buffers for the life of the loop, taken once at boot, so loads cannot
+    fragment the heap; ADC1 with Wi-Fi.
   - Found by the D1 review (25 Oct): the C6's flash pins GPIO24-GPIO30 were claimable (fixed,
     reason `flash`); the C6's chip file listed only engine, control and live-values (debug and
     deploy added); a trial firmware that hangs before it confirms has no watchdog yet, so it would

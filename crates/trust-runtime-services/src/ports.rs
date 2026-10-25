@@ -19,7 +19,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
 use crate::access::{AccessRole, AuthFailure, PairingService};
-use crate::capabilities::LastReset;
+use crate::capabilities::{HeapFacts, LastReset};
 use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
@@ -273,6 +273,12 @@ pub trait StatusPort {
     /// runtime that reports none, a computer among them, and on a chip whose device settings name
     /// no network (specification 34 ARCH-12). The default is none.
     fn network(&self) -> Option<NetworkFacts> {
+        None
+    }
+
+    /// A chip's heap as it stands, which `capabilities` reports as `heap`, or `None` on a runtime
+    /// that reports none, a computer among them. The default is none.
+    fn heap(&self) -> Option<HeapFacts> {
         None
     }
 }

@@ -143,6 +143,7 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
                 "driver_memory": null,
                 "time": null,
             },
+            "heap": null,
         }),
         "the chip's reply names the device's descriptor fields and its watchdog reset"
     );

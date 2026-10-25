@@ -54,8 +54,9 @@ use trust_runtime_services::loading::reload::ReloadImage;
 use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::ports::StatusPort;
 use trust_runtime_services::runner::{
-    address_text, check_image_retained_values, unwired_binding, Candidate, ChangeMemory,
-    CompiledCycle, DeviceLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainSource,
+    address_text, check_image_retained_values, debug_reserve_bytes, unwired_binding, Candidate,
+    ChangeMemory, CompiledCycle, DeviceLiveValues, Loaded, ProgramLoader, ResourceCycle,
+    RetainSource,
 };
 use trust_runtime_services::settings::RuntimeSettings;
 
@@ -203,10 +204,15 @@ where
         // not fit it is refused rather than loaded into a heap that runs out.
         let now = u64::try_from(program_memory_bytes(room, self.largest_payload)).ok();
         let descriptor = platform.device_descriptor();
+        // A program whose record enables debugging keeps a buffer of stops beside its memory figure,
+        // which the memory it is checked against leaves room for.
+        let default_events = usize::try_from(descriptor.event_store_default).unwrap_or(usize::MAX);
+        let debug = u64::try_from(debug_reserve_bytes(&config, default_events)).unwrap_or(u64::MAX);
         let memory = match (descriptor.program_memory_bytes, now) {
             (Some(boot), Some(now)) => Some(boot.min(now)),
             (boot, now) => boot.or(now),
-        };
+        }
+        .map(|memory| memory.saturating_sub(debug));
         let device = NATIVE_TARGET.device(memory, descriptor.trusted_keys);
         let admitted = native::admit(image, &device)
             .map_err(|refusal| format!("the installed application cannot be loaded: {refusal}"))?;
@@ -235,8 +241,23 @@ where
         } else {
             None
         };
-        // The lines are claimed last, right before the program starts.
+        // The lines are claimed last, right before the program starts. The drivers' blocks come out
+        // of the heap beside the program's figure: what remains must still hold the working memory,
+        // the checkpoint buffer and the debugger's stops, or the program is refused with the
+        // numbers rather than run into a heap that runs out (specification 34 MEM-12).
+        let before = (self.room)();
         let io = self.hardware.claim_lines(&config)?;
+        let after = (self.room)();
+        let needed = ONLINE_CHANGE_WORKING_MEMORY_BYTES
+            .saturating_add(if retains { self.largest_payload } else { 0 })
+            .saturating_add(usize::try_from(debug).unwrap_or(usize::MAX));
+        if after < needed {
+            return Err(format!(
+                "insufficient memory: the I/O drivers took {} bytes, and {after} remain where the \
+                 program's working memory, checkpoint buffer and debugger need {needed}",
+                before.saturating_sub(after)
+            ));
+        }
         let mut cycle = CompiledCycle::start(program, io, settings(&config), self.clock)
             .map_err(|error| format!("the installed application cannot be started: {error}"))?;
         if let Some(retain) = retain {

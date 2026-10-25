@@ -413,7 +413,7 @@ pub fn check_bytes(
     retain_check(&admitted).map_err(retain_refusal)?;
     let program_bytes = admitted.program.len();
     let program_sha256 = admitted.record.application.program_sha256;
-    check_image(admitted.program, device)?;
+    check_image(admitted.program, device, &admitted.record.configuration)?;
     Ok(Checked {
         program_bytes,
         program_sha256,
@@ -421,18 +421,25 @@ pub fn check_bytes(
 }
 
 /// The kernel's own checks of the compiled program image `image`, as a boot runs them, against the
-/// memory `device` has for programs (specification 44 §10.2, steps 2 to 6). Admission has already
-/// refused an image on a device that does not run images.
-fn check_image(image: &[u8], device: &DeviceDescriptor) -> Result<(), InstallError> {
+/// memory `device` has for programs less what the record's `configuration` keeps beside the
+/// program, its debugger's buffer of stops (specification 44 §10.2, steps 2 to 6; specification 34
+/// MEM-12). Admission has already refused an image on a device that does not run images.
+fn check_image(
+    image: &[u8],
+    device: &DeviceDescriptor,
+    configuration: &trust_runtime_core::deployment::Configuration,
+) -> Result<(), InstallError> {
     let Some(target) = device.native else {
         return Err(runs_no_images());
     };
-    native::admit(
-        image,
-        &target.device(device.program_memory_bytes, device.trusted_keys),
-    )
-    .map(|_| ())
-    .map_err(InstallError::Image)
+    let default_events = usize::try_from(device.event_store_default).unwrap_or(usize::MAX);
+    let reserve = crate::runner::debug_reserve_bytes(configuration, default_events);
+    let memory = device
+        .program_memory_bytes
+        .map(|bytes| bytes.saturating_sub(u64::try_from(reserve).unwrap_or(u64::MAX)));
+    native::admit(image, &target.device(memory, device.trusted_keys))
+        .map(|_| ())
+        .map_err(InstallError::Image)
 }
 
 /// The refusal of an image on a device that runs none, as admission refuses its record's version.

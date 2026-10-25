@@ -96,7 +96,7 @@ use trust_runtime_core::value;
 
 pub use compiled::CompiledCycle;
 pub use cycle::{CompiledView, CycleSettings, ResourceCycle, RetainSource, TaskDescriptor};
-pub use debugger::ChipDebug;
+pub use debugger::{debug_reserve_bytes, stop_buffer_bytes, ChipDebug};
 pub use debugger::{Boundary, Position, StatementStart, StopPoints};
 pub use hold::HoldHandle;
 pub use hold::{CompiledHeld, CompiledHold};

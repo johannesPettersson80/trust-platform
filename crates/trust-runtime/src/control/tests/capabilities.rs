@@ -59,6 +59,7 @@ END_PROGRAM
             "last_reset": null,
             "firmware": null,
             "network": null,
+            "heap": null,
         })),
         "a computer answers the hosted descriptor with no last reset"
     );

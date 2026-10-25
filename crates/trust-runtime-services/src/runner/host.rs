@@ -24,7 +24,7 @@ use super::online_change::ChangeState;
 use super::state::{Records, ResourceCell};
 use super::stepping::StepState;
 use crate::access::{AccessRole, AuthFailure, PairingService};
-use crate::capabilities::LastReset;
+use crate::capabilities::{HeapFacts, LastReset};
 use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
@@ -413,6 +413,10 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
 
     fn network(&self) -> Option<NetworkFacts> {
         self.platform.network()
+    }
+
+    fn heap(&self) -> Option<HeapFacts> {
+        self.platform.heap()
     }
 }
 

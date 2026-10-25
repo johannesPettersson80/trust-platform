@@ -3474,7 +3474,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
-        "line": 299,
+        "line": 320,
         "owner": "native execution (specification 44)",
         "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",

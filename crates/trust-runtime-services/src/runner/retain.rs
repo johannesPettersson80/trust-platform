@@ -79,7 +79,7 @@ impl RetainStore {
                 log,
                 config.identity,
                 config.image_bytes,
-            )),
+            )?),
             program_budget,
         })
     }

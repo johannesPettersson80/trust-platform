@@ -34,8 +34,37 @@ pub fn capabilities<H: StatusPort>(id: u64, host: &H) -> ControlResponse {
             "network".into(),
             host.network().map_or(Value::Null, |facts| facts.to_json()),
         );
+        object.insert(
+            "heap".into(),
+            host.heap().map_or(Value::Null, |facts| facts.to_json()),
+        );
     }
     ControlResponse::ok(id, result)
+}
+
+/// A chip's heap as it stands, which `capabilities` reports as `heap` (specification 11, the
+/// runtime device capabilities contract; specification 34 MEM-12): the bytes its allocator has,
+/// the bytes in use now, and the most in use at once since the boot. A computer reports none.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HeapFacts {
+    /// The bytes of the regions the allocator was given at boot.
+    pub capacity_bytes: usize,
+    /// The bytes in use now.
+    pub used_bytes: usize,
+    /// The most bytes in use at once since the boot.
+    pub peak_bytes: usize,
+}
+
+impl HeapFacts {
+    /// The `heap` object of the `capabilities` reply.
+    #[must_use]
+    pub fn to_json(&self) -> Value {
+        json!({
+            "capacity_bytes": self.capacity_bytes,
+            "used_bytes": self.used_bytes,
+            "peak_bytes": self.peak_bytes,
+        })
+    }
 }
 
 /// The `capabilities` result: every descriptor field under its own name, and `last_reset`, which

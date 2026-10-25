@@ -40,7 +40,7 @@ use super::pairing::{ChipPairingPort, RandomSource};
 use super::watchdog::{cycle_timeout_ms, CycleWatchdog};
 use crate::access::pairing::Pairings;
 use crate::access::{resolve_role, AccessRole, AuthFailure, PairingService};
-use crate::capabilities::{LastReset, ResetCauseName};
+use crate::capabilities::{HeapFacts, LastReset, ResetCauseName};
 use crate::device_settings::{DeviceInterfaces, DeviceSettings, SettingsFlash, SettingsStore};
 use crate::firmware::FirmwareFacts;
 use crate::flash_record::SectorFlash;
@@ -172,6 +172,9 @@ pub struct ChipPlatform<C, W> {
     /// The pairings in the chip's two pairing sectors (specification 11 §6.9.6), none on a chip
     /// that keeps none.
     pairings: Option<RefCell<Pairings<ChipPairingPort>>>,
+    /// Reads the chip's heap as it stands, which `capabilities` reports; none until the boot sets
+    /// it.
+    heap: Option<fn() -> HeapFacts>,
 }
 
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
@@ -207,6 +210,7 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             network: None,
             network_failure: None,
             pairings: None,
+            heap: None,
         }
     }
 
@@ -264,6 +268,12 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
     pub fn stored_settings(&self) -> Option<DeviceSettings> {
         let store = self.device.as_ref()?.try_borrow().ok()?;
         store.settings().map(|(_, settings)| settings)
+    }
+
+    /// Gives the platform the reading of the chip's heap, which `capabilities` reports as `heap`
+    /// (specification 34 MEM-12).
+    pub fn set_heap_meter(&mut self, meter: fn() -> HeapFacts) {
+        self.heap = Some(meter);
     }
 
     /// Gives the platform what the boot read of the chip's firmware slots, which `capabilities`
@@ -488,6 +498,10 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
             Some(network) => network.try_borrow().ok().map(|network| network.facts()),
             None => self.network_failure.clone(),
         }
+    }
+
+    fn heap(&self) -> Option<HeapFacts> {
+        self.heap.map(|meter| meter())
     }
 }
 
@@ -1004,6 +1018,34 @@ mod tests {
         assert_eq!(
             platform.request_role(&request, client),
             Ok(AccessRole::Viewer)
+        );
+    }
+
+    /// Specification 11, the runtime device capabilities contract: a chip whose boot set a heap
+    /// meter reports `heap` with the meter's three figures, read when the request is answered; one
+    /// without a meter, as a computer, reports null. Catches figures read once at boot, which could
+    /// not show what a program's start took, and a field missing from the reply.
+    #[test]
+    fn capabilities_report_the_heap_as_it_stands() {
+        let mut platform = platform_with(reset_of(ResetCauseName::PowerOn, "", 1));
+        let reply = crate::capabilities::capabilities(1, &platform);
+        assert_eq!(
+            reply.result.expect("a reply")["heap"],
+            serde_json::Value::Null
+        );
+        platform.set_heap_meter(|| HeapFacts {
+            capacity_bytes: 180_160,
+            used_bytes: 133_000,
+            peak_bytes: 151_000,
+        });
+        let reply = crate::capabilities::capabilities(2, &platform);
+        assert_eq!(
+            reply.result.expect("a reply")["heap"],
+            serde_json::json!({
+                "capacity_bytes": 180_160,
+                "used_bytes": 133_000,
+                "peak_bytes": 151_000,
+            })
         );
     }
 }
