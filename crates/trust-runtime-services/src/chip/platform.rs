@@ -17,6 +17,7 @@
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::cell::RefCell;
 use core::marker::PhantomData;
 
 use smol_str::SmolStr;
@@ -34,12 +35,14 @@ use trust_runtime_core::watchdog::RetainMode;
 use super::watchdog::{cycle_timeout_ms, CycleWatchdog};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::{LastReset, ResetCauseName};
+use crate::device_settings::{DeviceInterfaces, DeviceSettings, SettingsFlash, SettingsStore};
+use crate::firmware::FirmwareFacts;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
+    AccessPort, AuditRecord, AuditSink, DevicePort, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::{DeviceLiveValues, RunnerPlatform};
@@ -84,6 +87,17 @@ pub trait ChipProfile {
     /// The chip's own work between scans, once per pass of the loop (`RunnerPlatform::idle`); it
     /// must not wait. The default does nothing.
     fn idle() {}
+
+    /// The interfaces the chip's device settings are checked against (specification 34 TARGET-02),
+    /// or `None` for a chip that keeps no device settings. The default is none.
+    #[must_use]
+    fn interfaces() -> Option<DeviceInterfaces> {
+        None
+    }
+
+    /// Resets the chip into the firmware its boot loader selects (specification 34 TARGET-02 and
+    /// TARGET-04); on a chip it does not return. The default does nothing.
+    fn reset() {}
 }
 
 /// The values of an installed program's record that its platform reports and answers from
@@ -130,6 +144,12 @@ pub struct ChipPlatform<C, W> {
     /// The bytes of memory the chip has for a program, measured at boot (specification 34 MEM-12);
     /// `None` until the firmware measures it.
     program_memory: Option<u64>,
+    /// What the boot read of the chip's firmware slots (specification 34 TARGET-04); `None` for a
+    /// chip that keeps none.
+    firmware: Option<FirmwareFacts>,
+    /// The chip's device settings and their two sectors (specification 34 TARGET-02); `None` for a
+    /// chip that keeps none.
+    device: Option<RefCell<SettingsStore>>,
 }
 
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
@@ -158,7 +178,30 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             runtime_id,
             checkpoint: None,
             program_memory: None,
+            firmware: None,
+            device: None,
         }
+    }
+
+    /// Keeps the chip's device settings in `flash`, its two sectors, and reads the newest record
+    /// (specification 34 TARGET-02). A chip without device settings keeps none.
+    #[must_use]
+    pub fn with_device_settings(mut self, flash: Box<dyn SettingsFlash>) -> Self {
+        self.device = Some(RefCell::new(SettingsStore::open(flash)));
+        self
+    }
+
+    /// The stored device settings, which the boot reads before the network and the program start.
+    #[must_use]
+    pub fn stored_settings(&self) -> Option<DeviceSettings> {
+        let store = self.device.as_ref()?.try_borrow().ok()?;
+        store.settings().map(|(_, settings)| settings)
+    }
+
+    /// Gives the platform what the boot read of the chip's firmware slots, which `capabilities`
+    /// reports (specification 34 TARGET-04).
+    pub fn set_firmware(&mut self, facts: FirmwareFacts) {
+        self.firmware = Some(facts);
     }
 
     /// Gives the platform the bytes of memory the chip has for a program, which the firmware
@@ -344,6 +387,11 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
     fn last_reset(&self) -> Option<LastReset> {
         Some(self.last_reset.clone())
     }
+
+    /// What the boot read of the firmware slots (specification 34 TARGET-04).
+    fn firmware(&self) -> Option<FirmwareFacts> {
+        self.firmware.clone()
+    }
 }
 
 /// The wire name of the reset record's cause (specification 11, the runtime device capabilities
@@ -442,6 +490,39 @@ impl<C: ChipProfile, W: HardwareWatchdog + CycleWatchdog> RunnerPlatform for Chi
     /// The chip's own work between scans, such as keeping its clock (specification 34 TARGET-06).
     fn idle(&mut self) {
         C::idle();
+    }
+
+    /// The chip resets after the reply to a `firmware.install` or a `device.reset`.
+    fn reset_device(&mut self) {
+        C::reset();
+    }
+}
+
+/// A chip keeps its device settings in its two settings sectors (specification 34 TARGET-02).
+impl<C: ChipProfile, W> DevicePort for ChipPlatform<C, W> {
+    fn device_interfaces(&self) -> Option<DeviceInterfaces> {
+        self.device.as_ref().and(C::interfaces())
+    }
+
+    fn device_settings(&self) -> Result<Option<(u32, DeviceSettings)>, String> {
+        let Some(store) = self.device.as_ref() else {
+            return Ok(None);
+        };
+        let store = store
+            .try_borrow()
+            .map_err(|_| String::from("the device settings are in use"))?;
+        Ok(store.settings())
+    }
+
+    fn store_device_settings(&self, settings: &DeviceSettings) -> Result<u32, String> {
+        let store = self
+            .device
+            .as_ref()
+            .ok_or_else(|| String::from("unsupported request"))?;
+        store
+            .try_borrow_mut()
+            .map_err(|_| String::from("the device settings are in use"))?
+            .store(settings)
     }
 }
 

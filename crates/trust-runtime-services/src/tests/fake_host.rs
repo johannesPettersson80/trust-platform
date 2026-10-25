@@ -435,6 +435,8 @@ impl RecordsPort for FakeHost {
     }
 }
 
+impl crate::ports::DevicePort for FakeHost {}
+
 impl ExtensionDispatch for FakeHost {
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
         self.extension_calls

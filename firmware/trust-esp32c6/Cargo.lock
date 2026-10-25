@@ -1448,7 +1448,7 @@ dependencies = [
 
 [[package]]
 name = "trust-esp32c6"
-version = "0.1.0"
+version = "0.24.75"
 dependencies = [
  "esp-bootloader-esp-idf",
  "esp-hal",
@@ -1467,6 +1467,7 @@ dependencies = [
  "esp-hal",
  "esp-storage",
  "serde_json",
+ "sha2",
  "smol_str",
  "trust-platform-memory",
  "trust-plc-abi",

@@ -14,6 +14,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::WallClock;
+use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
@@ -21,7 +22,9 @@ use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
+use crate::device_settings::{DeviceInterfaces, DeviceSettings};
 use crate::events::RuntimeEvent;
+use crate::firmware::{FirmwareFacts, FirmwareImage};
 use crate::installation::Admitted;
 use crate::live_values::io_requests::IoQueuePort;
 use crate::live_values::var_requests::VariableQueuePort;
@@ -250,6 +253,13 @@ pub trait StatusPort {
     fn last_reset(&self) -> Option<LastReset> {
         None
     }
+
+    /// What a chip knows of its firmware slots, which `capabilities` reports as `firmware`, or `None`
+    /// on a runtime that keeps no firmware slots, a computer among them (specification 34 TARGET-04).
+    /// The default is none.
+    fn firmware(&self) -> Option<FirmwareFacts> {
+        None
+    }
 }
 
 /// One installed program, as `program.active` reports it: its install sequence, the SHA-256 of the
@@ -410,6 +420,46 @@ pub trait RecordsPort {
         Ok(self.program_identities())
     }
 
+    /// Opens an upload of `bytes` bytes whose SHA-256 is `digest` that a chip writes into the firmware
+    /// slot it does not run from (`transfer.begin {"for": "firmware"}`, specification 34 TARGET-04).
+    /// The caller has checked that the resource is Stopped. The default is a runtime without firmware
+    /// slots, which refuses with `unsupported request`.
+    ///
+    /// # Errors
+    ///
+    /// The [`TransferSessionError`] of a platform that gives out no session. The refusal of the
+    /// upload itself is the inner error's text.
+    fn begin_firmware_upload(
+        &self,
+        _bytes: u64,
+        _digest: [u8; 32],
+    ) -> Result<Result<TransferId, String>, TransferSessionError> {
+        Ok(Err("unsupported request".into()))
+    }
+
+    /// Whether `transfer` is an upload written into the firmware slots, which only
+    /// `firmware.install` takes. The default is none.
+    fn is_firmware_upload(&self, _transfer: TransferId) -> bool {
+        false
+    }
+
+    /// Whether the platform keeps firmware slots that `firmware.install` selects (TARGET-04). The
+    /// default is none: `firmware.install` answers `unsupported request`.
+    fn has_firmware_slots(&self) -> bool {
+        false
+    }
+
+    /// Has the chip check the firmware `upload` and begins its commit, which ends with the slot
+    /// selected for the next boot and the chip reset into it once the reply is sent (TARGET-04).
+    /// Returns the image and its slot. The default refuses.
+    ///
+    /// # Errors
+    ///
+    /// The refusal or the failure, as plain text.
+    fn commit_firmware(&self, _upload: StoredUpload) -> Result<(FirmwareImage, Slot), String> {
+        Err("unsupported request".into())
+    }
+
     /// Whether the platform keeps a program store that `program.install` commits to (specification
     /// 34 §11.2). The default is none: `program.install` then answers `unsupported request` after its
     /// state check, and takes nothing.
@@ -479,6 +529,43 @@ pub trait ExtensionDispatch {
     fn audit_details(&self, request: &ControlRequest) -> Option<serde_json::Value>;
 }
 
+/// A device's own settings, `device.toml` (specification 34 TARGET-02; specification 11, the device
+/// settings contract): a chip keeps them in its flash; a computer keeps none, because its operating
+/// system holds its settings, and keeps the defaults, so that the device requests answer `unsupported
+/// request` there.
+pub trait DevicePort {
+    /// The interfaces the device's settings are checked against, or `None` on a runtime that keeps no
+    /// device settings.
+    fn device_interfaces(&self) -> Option<DeviceInterfaces> {
+        None
+    }
+
+    /// The stored settings with their sequence, `None` when none are stored.
+    ///
+    /// # Errors
+    ///
+    /// The text of a flash that cannot be read.
+    fn device_settings(&self) -> Result<Option<(u32, DeviceSettings)>, String> {
+        Ok(None)
+    }
+
+    /// Stores `settings`, already checked, as the device's newest record, and returns its sequence.
+    /// They apply at the device's next boot.
+    ///
+    /// # Errors
+    ///
+    /// The text of the refusal or of the flash failure.
+    fn store_device_settings(&self, _settings: &DeviceSettings) -> Result<u32, String> {
+        Err("unsupported request".into())
+    }
+
+    /// Asks for the device to reset once the reply to the request is sent (`device.reset`), and
+    /// says whether it will.
+    fn request_device_reset(&self) -> bool {
+        false
+    }
+}
+
 /// Everything the control request pipeline needs from a platform.
 pub trait ControlHost:
     AccessPort
@@ -491,6 +578,7 @@ pub trait ControlHost:
     + IoQueuePort
     + VariableQueuePort
     + ExtensionDispatch
+    + DevicePort
 {
 }
 
@@ -505,5 +593,6 @@ impl<T> ControlHost for T where
         + IoQueuePort
         + VariableQueuePort
         + ExtensionDispatch
+        + DevicePort
 {
 }

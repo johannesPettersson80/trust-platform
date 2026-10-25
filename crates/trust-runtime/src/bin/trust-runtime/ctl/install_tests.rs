@@ -8,7 +8,7 @@ use std::io::{self, Read, Write};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use trust_runtime_client::ByteStream;
-use trust_runtime_services::transfer::{wire, TransferSession};
+use trust_runtime_services::transfer::{wire, Complete, Received, TransferSession};
 
 use super::*;
 
@@ -93,7 +93,7 @@ impl Device {
                     let result = self
                         .session
                         .part(part.transfer, part.offset, part.encoded, part.crc32)
-                        .map(wire::part_reply)
+                        .map(|received| wire::part_reply(next_offset(received)))
                         .map_err(|error| (error.to_string(), None));
                     let lost = self.lose_reply_of_part == Some(self.parts)
                         || self
@@ -142,6 +142,7 @@ impl Device {
         let container = self
             .session
             .take_complete(transfer)
+            .map(memory_bytes)
             .map_err(|error| (error.to_string(), None))?;
         self.installed = Some(container);
         Ok(json!({
@@ -526,4 +527,20 @@ fn ctl_install_gives_up_when_the_program_does_not_run() {
         error.to_string(),
         "the program is not running 0 seconds after the restart: its state is stopped"
     );
+}
+
+/// The next offset of a part that an in-memory session took.
+fn next_offset(received: Received) -> usize {
+    let Received::Next(next) = received else {
+        panic!("an upload held in memory takes each part at once");
+    };
+    next
+}
+
+/// The bytes of an upload that an in-memory session held.
+fn memory_bytes(complete: Complete) -> Vec<u8> {
+    let Complete::Memory(bytes) = complete else {
+        panic!("an upload held in memory completes in memory");
+    };
+    bytes
 }

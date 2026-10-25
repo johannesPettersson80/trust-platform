@@ -1,6 +1,8 @@
 [package]
 name = "trust-esp32c6"
-version = "0.1.0"
+# The truST release: the application descriptor carries it, and `firmware.install` reports it
+# (specification 34 TARGET-04, TARGET-05).
+version = "0.24.75"
 edition = "2024"
 rust-version = "1.99"
 publish = false
@@ -20,6 +22,12 @@ trust-runtime-services = { path = "../../crates/trust-runtime-services" }
 smol_str = { version = "0.3.6", default-features = false }
 esp-hal = { version = "=1.2.2", features = ["esp32c6", "unstable"] }
 esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c6"] }
+
+[features]
+# Bench only, never in a release: a firmware on trial after an update resets itself before it
+# confirms, as one that hangs or panics in its boot does, so that the C6 bench proves the boot
+# loader's rollback (specification 34 TARGET-04).
+bench-trial-reset = []
 
 [profile.release]
 opt-level = "z"

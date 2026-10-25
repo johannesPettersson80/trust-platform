@@ -26,6 +26,10 @@ trust-plc-abi = { workspace = true }
 # store the same record.
 trust-platform-memory.workspace = true
 
+# The SHA-256 a firmware image carries, which `firmware.install` checks before it selects the image
+# (specification 34 TARGET-04); the version the core already takes, without std.
+sha2 = { version = "0.11.0", default-features = false }
+
 # The C6's `Platform` for the resource loop answers `status` with a resource name (`SmolStr`) and
 # the shared realtime and persistence blocks (`serde_json`), as trust-runtime-services builds them.
 smol_str.workspace = true

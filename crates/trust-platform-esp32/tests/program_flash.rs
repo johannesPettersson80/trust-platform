@@ -121,7 +121,7 @@ impl RawFlash for RamFlash {
 }
 
 /// An access that runs past its slot is refused before the flash sees it (specification 34 §5.1:
-/// the store writes whole units inside its slot). Slot A ends at flash address 0x4F_C000, where slot
+/// the store writes whole units inside its slot). Slot A ends at flash address 0x5F_4000, where slot
 /// B begins, and slot B ends at 0x7F_8000, where checkpoint slot A begins. A write that ran past
 /// either end would land in the other program slot or in a checkpoint slot, and an erase at the end
 /// of slot B would clear checkpoint slot A's first unit. Each such access is refused and reaches
@@ -130,7 +130,7 @@ impl RawFlash for RamFlash {
 #[test]
 fn a_slot_refuses_an_access_outside_its_region() {
     let (mut slots, ops) = program_slots();
-    // The last 4-byte unit of slot A is at offset 3,129,340. An 8-byte write there runs into slot B.
+    // The last 4-byte unit of slot A is at offset 2,113,532. An 8-byte write there runs into slot B.
     assert_eq!(
         slots.program(Slot::A, SLOT_BYTES - 4, &[0; 8]),
         Err(FlashError::Program)
@@ -153,16 +153,16 @@ fn a_slot_refuses_an_access_outside_its_region() {
     );
     assert!(ops.borrow().is_empty(), "no flash operation ran");
 
-    // The last unit of slot A is at 0x4F_BFFC, and that of slot B at 0x7F_7FFC.
+    // The last unit of slot A is at 0x5F_3FFC, and that of slot B at 0x7F_7FFC.
     assert_eq!(slots.program(Slot::A, SLOT_BYTES - 4, &[0; 4]), Ok(()));
     assert_eq!(slots.program(Slot::B, SLOT_BYTES - 4, &[0; 4]), Ok(()));
     let reached: Vec<(u32, u64)> = ops.borrow().iter().map(Op::span).collect();
-    assert_eq!(reached, [(0x4F_BFFC, 4), (0x7F_7FFC, 4)]);
+    assert_eq!(reached, [(0x5F_3FFC, 4), (0x7F_7FFC, 4)]);
 }
 
 /// The store reads and programs whole 4-byte program units, at multiples of the unit (specification
 /// 34 §5.1). A program at offset 2, a 3-byte program, a read at offset 1 and a 3-byte read are refused
-/// and reach nothing. A whole unit at offset 4 of slot A is programmed at flash address 0x20_0004.
+/// and reach nothing. A whole unit at offset 4 of slot A is programmed at flash address 0x3F_0004.
 /// Catches a driver that programs a partial unit, which leaves a word that is neither the old record
 /// nor the new one.
 #[test]
@@ -178,7 +178,7 @@ fn a_program_or_read_that_is_not_whole_units_is_refused() {
     assert_eq!(
         *ops.borrow(),
         [Op::Program {
-            address: 0x20_0004,
+            address: 0x3F_0004,
             len: 4
         }]
     );
@@ -186,7 +186,7 @@ fn a_program_or_read_that_is_not_whole_units_is_refused() {
 
 /// An erase clears one whole 4 KiB erase unit that starts at its first byte (specification 34 §5.1).
 /// An erase 0x800 into slot A is refused and erases nothing. The unit at offset 0x3000 of slot B is
-/// erased at flash address 0x4F_F000 (0x4F_C000 + 0x3000), and the first unit of slot A at 0x20_0000.
+/// erased at flash address 0x5F_7000 (0x5F_4000 + 0x3000), and the first unit of slot A at 0x3F_0000.
 /// Catches an erase that starts mid-unit, which clears a unit other than the one addressed, and an
 /// erase that takes its base from the other slot.
 #[test]
@@ -200,16 +200,16 @@ fn an_erase_starts_at_the_first_byte_of_a_4_kib_unit() {
     assert_eq!(
         *ops.borrow(),
         [
-            Op::Erase { address: 0x4F_F000 },
-            Op::Erase { address: 0x20_0000 },
+            Op::Erase { address: 0x5F_7000 },
+            Op::Erase { address: 0x3F_0000 },
         ]
     );
 }
 
-/// The program slots are the chip file's `application_a` and `application_b`: 3,056 KiB each, at
-/// 0x20_0000 and 0x4F_C000 (specification 34 Appendix H.2). The slot is 764 erase units of 4 KiB,
-/// and 3,056 x 1,024 = 3,129,344 bytes. Catches slot numbers copied from the whole application
-/// region (6,112 KiB) or from the checkpoint slots, and a slot B that starts where slot A does not end.
+/// The program slots are the chip file's `application_a` and `application_b`: 2,064 KiB each, at
+/// 0x3F_0000 and 0x5F_4000 (specification 34 Appendix H.2). The slot is 516 erase units of 4 KiB,
+/// and 2,064 x 1,024 = 2,113,536 bytes. Catches slot numbers copied from the whole application
+/// region (4,128 KiB) or from the checkpoint slots, and a slot B that starts where slot A does not end.
 #[test]
 fn slot_numbers_match_the_chip_file() {
     let file = Catalog::embedded()
@@ -225,14 +225,14 @@ fn slot_numbers_match_the_chip_file() {
         .layout
         .application_b
         .expect("the ESP32-C6 names slot B");
-    assert_eq!((a.start, a.kib), (0x20_0000, 3_056));
-    assert_eq!((b.start, b.kib), (0x4F_C000, 3_056));
-    assert_eq!(a.bytes(), 3_129_344);
+    assert_eq!((a.start, a.kib), (0x3F_0000, 2_064));
+    assert_eq!((b.start, b.kib), (0x5F_4000, 2_064));
+    assert_eq!(a.bytes(), 2_113_536);
     assert_eq!(u64::from(b.start), a.end());
 
     assert_eq!(
         (SLOT_A_OFFSET, SLOT_B_OFFSET, SLOT_BYTES),
-        (0x20_0000, 0x4F_C000, 3_129_344)
+        (0x3F_0000, 0x5F_4000, 2_113_536)
     );
     let (slots, _ops) = program_slots();
     let geometry = slots.geometry();
@@ -242,9 +242,9 @@ fn slot_numbers_match_the_chip_file() {
             geometry.erase_unit(),
             geometry.slot_len()
         ),
-        (4, 4_096, 3_129_344)
+        (4, 4_096, 2_113_536)
     );
-    assert_eq!(geometry.erase_units(), 764);
+    assert_eq!(geometry.erase_units(), 516);
 }
 
 /// The boot reads the installed application after the checkpoint slots and the program slots are

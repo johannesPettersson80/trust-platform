@@ -93,9 +93,9 @@ impl InstallReport {
 }
 
 /// An upload that the runtime has opened.
-struct Upload {
+pub(super) struct Upload {
     /// The id of the upload: 16 hexadecimal digits.
-    transfer: String,
+    pub(super) transfer: String,
     /// The size of every part but the last.
     part_bytes: usize,
 }
@@ -124,7 +124,7 @@ pub(super) fn run(
 
 /// Connects the shared client to `endpoint`, with the wait for a reply that the endpoint has:
 /// 750 milliseconds on a socket, and the serial port's 5 seconds (specification 11, 6.8.1).
-fn connect(
+pub(super) fn connect(
     endpoint: &CtlEndpoint,
     token: Option<&str>,
 ) -> anyhow::Result<(ControlClient, Duration)> {
@@ -152,7 +152,7 @@ fn install(
     restart: Option<&str>,
     waits: &Waits,
 ) -> anyhow::Result<InstallReport> {
-    let upload = begin(client, container)?;
+    let upload = begin(client, container, false)?;
     let installed = match send_parts(client, &upload, container)
         .and_then(|()| commit(client, &upload.transfer, waits))
     {
@@ -173,9 +173,17 @@ fn install(
     })
 }
 
-/// Opens the upload with the length and the SHA-256 of the container (`transfer.begin`).
-fn begin(client: &mut ControlClient, container: &[u8]) -> anyhow::Result<Upload> {
-    let params = json!({ "bytes": container.len(), "sha256": sha256_hex(container) });
+/// Opens the upload with the length and the SHA-256 of the container (`transfer.begin`), or of a
+/// firmware image with `"for": "firmware"` (specification 34 TARGET-04).
+pub(super) fn begin(
+    client: &mut ControlClient,
+    container: &[u8],
+    firmware: bool,
+) -> anyhow::Result<Upload> {
+    let mut params = json!({ "bytes": container.len(), "sha256": sha256_hex(container) });
+    if firmware {
+        params["for"] = json!("firmware");
+    }
     let reply = client
         .request("transfer.begin", Some(params))
         .map_err(|error| step_failed("transfer.begin", &error))?;
@@ -201,7 +209,11 @@ fn begin(client: &mut ControlClient, container: &[u8]) -> anyhow::Result<Upload>
 }
 
 /// Sends the container in order, one `transfer.part` for each part of the upload's size.
-fn send_parts(client: &mut ControlClient, upload: &Upload, container: &[u8]) -> anyhow::Result<()> {
+pub(super) fn send_parts(
+    client: &mut ControlClient,
+    upload: &Upload,
+    container: &[u8],
+) -> anyhow::Result<()> {
     for (index, part) in container.chunks(upload.part_bytes).enumerate() {
         send_part(client, &upload.transfer, index * upload.part_bytes, part)?;
     }
@@ -280,7 +292,7 @@ fn commit(client: &mut ControlClient, transfer: &str, waits: &Waits) -> anyhow::
 /// Frees the upload on the runtime after a failure, so that none stays open and blocks the next
 /// install with `transfer busy`. The failure that is reported is the first one: an abort that
 /// fails too (the upload is gone, or so is the link) changes nothing.
-fn free_upload(client: &mut ControlClient, transfer: &str) {
+pub(super) fn free_upload(client: &mut ControlClient, transfer: &str) {
     let _ = client.request("transfer.abort", Some(json!({ "transfer": transfer })));
 }
 
@@ -329,7 +341,7 @@ fn restart_and_wait(
 }
 
 /// The failure of `step` with the runtime's own text, and its code when it gives one.
-fn step_failed(step: &str, error: &ControlError) -> anyhow::Error {
+pub(super) fn step_failed(step: &str, error: &ControlError) -> anyhow::Error {
     match error {
         ControlError::Refused {
             error,

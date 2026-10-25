@@ -12,6 +12,7 @@
 //! is Stopped. [`identity`] reads the identities `program.active` reports, in bounded reads. Nothing here
 //! reads a link or a clock: the platform composes these with its control loop.
 
+pub mod firmware_install;
 pub mod identity;
 pub mod install;
 pub mod program_install;

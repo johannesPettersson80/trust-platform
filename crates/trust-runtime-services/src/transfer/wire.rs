@@ -50,6 +50,9 @@ pub struct BeginRequest {
     pub bytes: u64,
     /// The SHA-256 of the whole container.
     pub digest: [u8; 32],
+    /// Whether the upload is a chip's firmware (`"for": "firmware"`, specification 34 TARGET-04)
+    /// rather than a program (`"for": "program"`, the default).
+    pub firmware: bool,
 }
 
 /// The parameters of `transfer.part`: one part, its base64 and its CRC-32. The base64 is borrowed
@@ -81,6 +84,8 @@ pub struct GetRequest {
 struct BeginParams<'a> {
     bytes: u64,
     sha256: &'a str,
+    #[serde(rename = "for", default)]
+    target: Option<&'a str>,
 }
 
 #[derive(Deserialize)]
@@ -108,7 +113,8 @@ struct TransferParams<'a> {
 /// # Errors
 ///
 /// [`WireError::Params`] when `params` is not an object with `bytes` and `sha256`, and
-/// [`WireError::Member`] when `sha256` is not 64 hexadecimal digits.
+/// [`WireError::Member`] when `sha256` is not 64 hexadecimal digits or `for` is neither `program`
+/// nor `firmware`.
 pub fn begin_request(params: &Value) -> Result<BeginRequest, WireError> {
     let params =
         BeginParams::deserialize(params).map_err(|err| WireError::Params(err.to_string()))?;
@@ -116,9 +122,20 @@ pub fn begin_request(params: &Value) -> Result<BeginRequest, WireError> {
         name: "sha256",
         expected: "64 hexadecimal digits",
     })?;
+    let firmware = match params.target {
+        None | Some("program") => false,
+        Some("firmware") => true,
+        Some(_) => {
+            return Err(WireError::Member {
+                name: "for",
+                expected: "\"program\" or \"firmware\"",
+            })
+        }
+    };
     Ok(BeginRequest {
         bytes: params.bytes,
         digest,
+        firmware,
     })
 }
 

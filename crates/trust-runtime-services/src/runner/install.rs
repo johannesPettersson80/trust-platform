@@ -40,6 +40,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::ProgramStore;
 use trust_runtime_core::retain::checkpoint::{FlashError, Slot};
 
+use crate::firmware::{CommitStep, FirmwareCommit, FirmwareImage, FirmwareStore};
 use crate::installation::Admitted;
 use crate::loading::identity::{self, IdentityError};
 use crate::loading::install::{self, Checked, Install, InstallError, Progress};
@@ -59,6 +60,9 @@ pub(super) enum Step {
     /// of the step that failed. A commit that nobody is owed a reply for has none, which is a defect
     /// of the loop.
     Finished(Option<String>),
+    /// A firmware commit ended with its slot selected: the reply is written, and the chip resets into
+    /// the new firmware once the link has sent it (specification 34 TARGET-04).
+    FinishedReset(Option<String>),
     /// The install state was in use, which the call structure of the loop rules out.
     InUse,
 }
@@ -80,8 +84,10 @@ struct Parts {
     store: Option<ProgramStore>,
     /// The device's retained-value check of an install (decision G13).
     retained_check: Option<RetainedCheck>,
-    /// The upload written into the store, and the slot it is written into (§5.1).
-    upload: Option<(TransferId, Slot)>,
+    /// The chip's firmware slots, which a firmware upload is written into (TARGET-04).
+    firmware: Option<FirmwareStore>,
+    /// The upload written into the program store or the firmware slots, and its slot (§5.1).
+    upload: Option<Upload>,
     /// The commit or the write that runs, one step in each pass.
     pending: Option<Pending>,
     /// The request being answered began the commit; the loop takes this once it has answered.
@@ -91,6 +97,17 @@ struct Parts {
     /// The identities `program.active` reports, kept from their reading until the store is written
     /// (specification 34 §11.2).
     identities: Option<ProgramIdentities>,
+    /// The request being answered asked for the device to reset after its reply.
+    reset: bool,
+}
+
+/// An upload written into flash as its parts arrive (§5.1, TARGET-04).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Upload {
+    transfer: TransferId,
+    slot: Slot,
+    /// Whether it is written into the firmware slots rather than the program store.
+    firmware: bool,
 }
 
 /// What the loop knows of the container its program came from (specification 34 STATE-08).
@@ -115,12 +132,16 @@ struct Pending {
 enum Work {
     /// The commit of `program.install`.
     Commit(Install),
+    /// The commit of `firmware.install` (TARGET-04).
+    Firmware(FirmwareCommit),
     /// The erase of `transfer.begin` (`part` false) or the write of a part (`part` true) of the
-    /// upload `transfer`, written into the store (§5.1).
+    /// upload `transfer`, written into the program store or, with `firmware`, the firmware slots
+    /// (§5.1).
     Upload {
         transfer: TransferId,
         write: StoreWrite,
         part: bool,
+        firmware: bool,
     },
 }
 
@@ -338,12 +359,17 @@ impl InstallState {
             Ok(transfer) => transfer,
             Err(error) => return Ok(Err(error.to_string())),
         };
-        parts.upload = Some((transfer, slot));
+        parts.upload = Some(Upload {
+            transfer,
+            slot,
+            firmware: false,
+        });
         parts.pending = Some(Pending {
             work: Work::Upload {
                 transfer,
                 write: StoreWrite::begin(store, slot),
                 part: false,
+                firmware: false,
             },
             reply: None,
         });
@@ -381,36 +407,44 @@ impl InstallState {
             Ok(received) => received,
             Err(error) => return Ok(Err(error.to_string())),
         };
-        let slot = parts
-            .upload
-            .filter(|(id, _)| *id == transfer)
-            .map(|(_, slot)| slot);
+        let upload = parts.upload.filter(|upload| upload.transfer == transfer);
         let len = session.part_bytes(transfer).map_or(0, <[u8]>::len);
-        let (Some(store), Some(slot), Ok(at), Ok(length)) = (
-            parts.store.as_mut(),
-            slot,
-            u32::try_from(offset),
-            u32::try_from(len),
-        ) else {
+        let store = match upload {
+            Some(Upload { firmware: true, .. }) => {
+                parts.firmware.as_mut().map(|firmware| &mut firmware.slots)
+            }
+            _ => parts.store.as_mut(),
+        };
+        let (Some(store), Some(upload), Ok(at), Ok(length)) =
+            (store, upload, u32::try_from(offset), u32::try_from(len))
+        else {
             return Ok(Err(TransferError::InStore.to_string()));
         };
         if let Received::Write { offset } = received {
             parts.pending = Some(Pending {
                 work: Work::Upload {
                     transfer,
-                    write: StoreWrite::part(store, slot, at, length),
+                    write: StoreWrite::part(store, upload.slot, at, length),
                     part: true,
+                    firmware: upload.firmware,
                 },
                 reply: None,
             });
             parts.began = true;
             return Ok(Ok(offset + len));
         }
-        let Some(stored) = store.flash.map(slot, at, length) else {
-            return Ok(Err(InstallError::Flash(FlashError::Read).to_string()));
+        // A repeat is compared with the bytes where the slot maps them, or as read from it.
+        let stored = if let Some(mapped) = store.flash.map(upload.slot, at, length) {
+            mapped.to_vec()
+        } else {
+            let mut read = alloc::vec![0u8; len];
+            if store.flash.read(upload.slot, at, &mut read).is_err() {
+                return Ok(Err(InstallError::Flash(FlashError::Read).to_string()));
+            }
+            read
         };
         Ok(session
-            .repeated(transfer, stored)
+            .repeated(transfer, &stored)
             .map_err(|error| error.to_string()))
     }
 
@@ -418,9 +452,11 @@ impl InstallState {
     /// the install's checks (§11.2). `None` when the store holds no such upload or cannot map it.
     pub(super) fn stored_region(&self, upload: &StoredUpload) -> Option<&'static [u8]> {
         self.with(|parts| {
-            let (_, slot) = parts.upload.filter(|(id, _)| *id == upload.transfer)?;
+            let written = parts
+                .upload
+                .filter(|written| written.transfer == upload.transfer && !written.firmware)?;
             let len = u32::try_from(upload.bytes).ok()?;
-            parts.store.as_mut()?.flash.map(slot, 0, len)
+            parts.store.as_mut()?.flash.map(written.slot, 0, len)
         })
         .flatten()
     }
@@ -451,6 +487,108 @@ impl InstallState {
             }
             parts.upload = None;
         });
+    }
+
+    /// Gives the loop the chip's firmware slots (specification 34 TARGET-04).
+    pub(super) fn set_firmware(&self, firmware: FirmwareStore) {
+        let _ = self.with(|parts| parts.firmware = Some(firmware));
+    }
+
+    /// Whether the device gave its loop firmware slots.
+    pub(super) fn has_firmware(&self) -> bool {
+        self.with(|parts| parts.firmware.is_some()).unwrap_or(false)
+    }
+
+    /// Whether `transfer` is an upload written into the firmware slots.
+    pub(super) fn is_firmware_upload(&self, transfer: TransferId) -> bool {
+        self.with(|parts| {
+            parts
+                .upload
+                .is_some_and(|upload| upload.transfer == transfer && upload.firmware)
+        })
+        .unwrap_or(false)
+    }
+
+    /// Opens an upload of `bytes` bytes whose SHA-256 is `digest` that the loop writes into the
+    /// firmware slot the chip does not run from as its parts arrive (TARGET-04, §5.1), and begins the
+    /// erase of the slot's first unit, whose step the reply waits for. The caller has checked that the
+    /// resource is Stopped.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::begin_upload`]; a loop without firmware slots refuses with `unsupported request`,
+    /// and an upload longer than a slot with `transfer too large`.
+    pub(super) fn begin_firmware_upload(
+        &self,
+        bytes: u64,
+        digest: [u8; 32],
+    ) -> Result<Result<TransferId, String>, TransferSessionError> {
+        let mut guard = self
+            .0
+            .try_borrow_mut()
+            .map_err(|_| TransferSessionError::Unavailable)?;
+        let parts = &mut *guard;
+        let session = parts
+            .transfers
+            .as_mut()
+            .ok_or(TransferSessionError::Unsupported)?;
+        let Some(firmware) = parts.firmware.as_mut() else {
+            return Ok(Err(String::from("unsupported request")));
+        };
+        let max = firmware.slots.flash.geometry().slot_len();
+        if bytes > u64::from(max) {
+            return Ok(Err(alloc::format!(
+                "transfer too large: {bytes}, the firmware slot takes at most {max}"
+            )));
+        }
+        let slot = crate::firmware::other(firmware.device.running());
+        let transfer = match session.begin_in_store(bytes, digest) {
+            Ok(transfer) => transfer,
+            Err(error) => return Ok(Err(error.to_string())),
+        };
+        parts.upload = Some(Upload {
+            transfer,
+            slot,
+            firmware: true,
+        });
+        parts.pending = Some(Pending {
+            work: Work::Upload {
+                transfer,
+                write: StoreWrite::begin(&firmware.slots, slot),
+                part: false,
+                firmware: true,
+            },
+            reply: None,
+        });
+        parts.began = true;
+        Ok(Ok(transfer))
+    }
+
+    /// Has the chip check the firmware `upload` written into its slot, and begins the commit that
+    /// programs its first bytes and selects the slot for the next boot (TARGET-04). Returns the image
+    /// and the slot.
+    ///
+    /// # Errors
+    ///
+    /// The refusal as plain text: no firmware slots, work that already runs, an upload the loop did
+    /// not write into the firmware slots, or the chip's refusal of the image.
+    pub(super) fn begin_firmware(
+        &self,
+        upload: &StoredUpload,
+    ) -> Result<(FirmwareImage, Slot), String> {
+        self.with(|parts| parts.begin_firmware(upload))
+            .unwrap_or_else(|| Err(String::from("the firmware slots are in use")))
+    }
+
+    /// Asks for the device to reset once the reply being written is sent (`device.reset`).
+    pub(super) fn request_reset(&self) {
+        let _ = self.with(|parts| parts.reset = true);
+    }
+
+    /// Whether the request just answered asked for a reset; true once.
+    pub(super) fn take_reset_request(&self) -> bool {
+        self.with(|parts| core::mem::take(&mut parts.reset))
+            .unwrap_or(false)
     }
 
     /// Whether a commit runs, so that its reply is the one in flight and the loop reads no request.
@@ -522,12 +660,48 @@ impl Parts {
         if self.pending.is_some() {
             return Err(String::from("a program install is already running"));
         }
-        let Some((_, slot)) = self.upload.take().filter(|(id, _)| *id == upload.transfer) else {
+        let Some(written) = self
+            .upload
+            .take()
+            .filter(|written| written.transfer == upload.transfer && !written.firmware)
+        else {
             return Err(TransferError::Unknown.to_string());
         };
-        let commit = install::start_stored(store, slot, upload.header, upload.bytes, checked)
-            .map_err(|error| error.to_string())?;
+        let commit =
+            install::start_stored(store, written.slot, upload.header, upload.bytes, checked)
+                .map_err(|error| error.to_string())?;
         Ok(self.run_commit(commit))
+    }
+
+    /// Checks the firmware `upload` and begins its commit (TARGET-04).
+    fn begin_firmware(&mut self, upload: &StoredUpload) -> Result<(FirmwareImage, Slot), String> {
+        let firmware = self
+            .firmware
+            .as_mut()
+            .ok_or_else(|| String::from("unsupported request"))?;
+        if self.pending.is_some() {
+            return Err(String::from("a firmware install is already running"));
+        }
+        let Some(written) = self
+            .upload
+            .take()
+            .filter(|written| written.transfer == upload.transfer && written.firmware)
+        else {
+            return Err(TransferError::Unknown.to_string());
+        };
+        let image = firmware.device.check(
+            &mut *firmware.slots.flash,
+            written.slot,
+            &upload.header,
+            upload.bytes,
+        )?;
+        let commit = FirmwareCommit::new(firmware, written.slot, &upload.header);
+        self.pending = Some(Pending {
+            work: Work::Firmware(commit),
+            reply: None,
+        });
+        self.began = true;
+        Ok((image, written.slot))
     }
 
     /// Makes `commit` the work that runs, and returns the identity it gives the program.
@@ -547,16 +721,17 @@ impl Parts {
 
     /// Advances the work by one step: the store's next erase, program, read-back or commit point.
     fn step(&mut self) -> Step {
-        let Some(store) = self.store.as_mut() else {
-            return Step::Idle;
-        };
         let Some(Pending { work, reply }) = self.pending.take() else {
             return Step::Idle;
         };
-        // The step may write the store, so the identities it held are read again when asked for.
-        self.identities = None;
-        let (transfer, mut write, part) = match work {
+        let (transfer, mut write, part, firmware) = match work {
             Work::Commit(commit) => {
+                let Some(store) = self.store.as_mut() else {
+                    return Step::Finished(None);
+                };
+                // The step may write the store, so the identities it held are read again when asked
+                // for.
+                self.identities = None;
                 return match commit.step(store) {
                     Ok(Progress::Pending(commit)) => {
                         self.pending = Some(Pending {
@@ -571,11 +746,37 @@ impl Parts {
                     }
                 };
             }
+            Work::Firmware(commit) => {
+                let Some(store) = self.firmware.as_mut() else {
+                    return Step::Finished(None);
+                };
+                return match commit.step(store) {
+                    Ok(CommitStep::Pending(commit)) => {
+                        self.pending = Some(Pending {
+                            work: Work::Firmware(commit),
+                            reply,
+                        });
+                        Step::Running
+                    }
+                    Ok(CommitStep::Done) => Step::FinishedReset(reply.map(|owed| owed.reply)),
+                    Err(error) => Step::Finished(reply.map(|owed| failure_reply(owed.id, &error))),
+                };
+            }
             Work::Upload {
                 transfer,
                 write,
                 part,
-            } => (transfer, write, part),
+                firmware,
+            } => (transfer, write, part, firmware),
+        };
+        let store = if firmware {
+            self.firmware.as_mut().map(|firmware| &mut firmware.slots)
+        } else {
+            self.identities = None;
+            self.store.as_mut()
+        };
+        let Some(store) = store else {
+            return Step::Finished(None);
         };
         let Some(session) = self.transfers.as_mut() else {
             return Step::Finished(None);
@@ -596,6 +797,7 @@ impl Parts {
                         transfer,
                         write,
                         part,
+                        firmware,
                     },
                     reply,
                 });

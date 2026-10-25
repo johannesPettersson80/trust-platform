@@ -10,8 +10,11 @@ use alloc::vec::Vec;
 
 use serde_json::{json, Value};
 
+use trust_runtime_core::scheduler::ResourceState;
+
 use crate::ports::{ControlHost, ProgramIdentities, ProgramIdentity, RecordsPort};
 use crate::protocol::{ControlRequest, ControlResponse};
+use crate::resource::replies::resource_not_running;
 use crate::status::{check_number_members, invalid_params, MemberKind};
 use crate::transfer::wire::{self, WireError};
 use crate::transfer::{Complete, TransferError, TransferId, TransferSession};
@@ -79,10 +82,22 @@ fn begin<H: ControlHost>(id: u64, params: &Value, host: &H) -> Result<Value, Con
         &[
             ("bytes", MemberKind::WholeNumber),
             ("sha256", MemberKind::Text),
+            ("for", MemberKind::Text),
         ],
     )?;
     let request = wire::begin_request(params).map_err(|error| wire_refusal(id, &error))?;
-    match host.begin_upload(request.bytes, request.digest) {
+    let opened = if request.firmware {
+        // A chip writes its firmware only while the resource is Stopped, as it installs a program
+        // (specification 34 TARGET-04; Appendix D.2: no flash is erased while a program runs).
+        let state = host.resource_state();
+        if !matches!(state, ResourceState::Stopped) {
+            return Err(resource_not_running(id, state));
+        }
+        host.begin_firmware_upload(request.bytes, request.digest)
+    } else {
+        host.begin_upload(request.bytes, request.digest)
+    };
+    match opened {
         Ok(Ok(transfer)) => Ok(wire::begin_reply(transfer)),
         Ok(Err(refusal)) => Err(ControlResponse::error(id, refusal)),
         Err(refused) => Err(refused.refusal(id)),

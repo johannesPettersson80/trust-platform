@@ -13,8 +13,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 use smol_str::SmolStr;
+use trust_runtime::native::HostCode;
 use trust_runtime_client::{ControlClient, SerialLine, SerialStream};
-use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{
     ControlLink, HardwareWatchdog, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass,
@@ -22,11 +23,11 @@ use trust_runtime_core::ports::{
 };
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::{status_settings, ChipPlatform, ChipProfile};
+use trust_runtime_services::chip::watchdog::CycleWatchdog;
 use trust_runtime_services::link::DeviceLineLink;
-use trust_runtime_services::runner::engine::{EngineCycle, ProcessIo};
-use trust_runtime_services::runner::{EngineLiveValues, Runner};
+use trust_runtime_services::runner::{CompiledCycle, DeviceLiveValues, ProcessIo, Runner};
 use trust_runtime_services::status::IoDriverStatus;
-use trust_runtime_services::transfer::{wire, TransferSession};
+use trust_runtime_services::transfer::{wire, ReplyParts, TransferSession};
 
 /// How long the client end waits for the chip before the test fails.
 const WAIT: Duration = Duration::from_secs(5);
@@ -174,6 +175,16 @@ impl HardwareWatchdog for Dog {
     fn feed(&mut self) {}
 }
 
+impl CycleWatchdog for Dog {
+    fn max_interval_ms(&self) -> u32 {
+        60_000
+    }
+
+    fn set_interval_ms(&mut self, _milliseconds: u32) -> bool {
+        true
+    }
+}
+
 /// The chip's monotonic clock: real time from its start.
 #[derive(Clone)]
 struct Clock {
@@ -293,9 +304,7 @@ fn runner_chip(from_client: Receiver<Vec<u8>>, to_client: Sender<Vec<u8>>, stop:
         Dog,
         SmolStr::new("Controller"),
         status_settings(),
-        false,
-        ControlMode::Production,
-        EngineLiveValues::empty(),
+        DeviceLiveValues::empty(),
         LastReset {
             cause: ResetCauseName::PowerOn,
             text: SmolStr::default(),
@@ -303,7 +312,7 @@ fn runner_chip(from_client: Receiver<Vec<u8>>, to_client: Sender<Vec<u8>>, stop:
         },
         SmolStr::new("testchip-0001"),
     );
-    let mut runner = Runner::<_, _, EngineCycle<'static, Clock, NoIo>, _, _>::stopped(
+    let mut runner = Runner::<_, _, CompiledCycle<'static, Clock, NoIo, HostCode>, _, _>::stopped(
         link,
         PacedWait,
         platform,
@@ -379,9 +388,9 @@ fn session_chip(
                 let params = &request["params"];
                 let response = match request["type"].as_str().expect("a request type") {
                     "status" => {
-                        let head = session
-                            .hold_reply(reply.clone())
-                            .expect("room for the reply");
+                        let mut parts = ReplyParts::new();
+                        parts.try_write(&reply).expect("room for the reply's parts");
+                        let head = session.hold_reply(parts).expect("room for the reply");
                         json!({"id": id, "ok": true, "result": wire::reply_head(&head)})
                     }
                     "transfer.get" => {

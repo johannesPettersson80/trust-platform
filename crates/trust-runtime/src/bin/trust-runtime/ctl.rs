@@ -12,6 +12,10 @@ use trust_runtime_client::{ControlClient, ControlEndpoint as ClientEndpoint, Ver
 
 use crate::cli::ControlAction;
 
+#[path = "ctl/device.rs"]
+mod device;
+#[path = "ctl/firmware.rs"]
+mod firmware;
 #[path = "ctl/install.rs"]
 mod install;
 
@@ -63,6 +67,12 @@ pub fn run_control(
     match action {
         ControlAction::Install { container, restart } => {
             install::run(&target, &container, restart.as_deref())
+        }
+        ControlAction::Firmware { image, wait } => {
+            firmware::run(&target, &image, std::time::Duration::from_secs(wait))
+        }
+        ControlAction::DeviceGet | ControlAction::DeviceSet { .. } | ControlAction::DeviceReset => {
+            device::run(&target, &action)
         }
         action => send_control_request(&target, &action),
     }
@@ -421,8 +431,12 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             "auth": auth,
             "params": { "mode": mode }
         }),
-        ControlAction::Install { .. } => {
-            unreachable!("ctl install is several requests; run_control sends it through install")
+        ControlAction::Install { .. }
+        | ControlAction::Firmware { .. }
+        | ControlAction::DeviceGet
+        | ControlAction::DeviceSet { .. }
+        | ControlAction::DeviceReset => {
+            unreachable!("run_control sends these through their own modules")
         }
         ControlAction::Shutdown { exit } => {
             let mut request = json!({"id": 1, "type": "shutdown", "auth": auth});

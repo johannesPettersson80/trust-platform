@@ -245,6 +245,14 @@ pub(super) const OPERATION_POLICIES: &[OperationPolicy] = &[
         false,
     ),
     operation(
+        "firmware.install",
+        RolePolicy::Fixed(AccessRole::Admin),
+        false,
+    ),
+    operation("device.get", RolePolicy::Fixed(AccessRole::Engineer), false),
+    operation("device.set", RolePolicy::Fixed(AccessRole::Admin), false),
+    operation("device.reset", RolePolicy::Fixed(AccessRole::Admin), false),
+    operation(
         "transfer.begin",
         RolePolicy::Fixed(AccessRole::Admin),
         false,

@@ -71,6 +71,10 @@ use crate::loading::reload::ReloadOutcome;
 use crate::ports::{AccessPort, StatusPort};
 use crate::protocol::{ControlAfterResponse, ControlResponse};
 
+/// How long after the reply of a `firmware.install` the chip resets, so that the host reads the
+/// reply's last bytes from the link first (specification 34 TARGET-04).
+const RESET_GRACE: TimeSpan = TimeSpan::new(core::time::Duration::from_millis(100));
+
 /// The link, wait, platform and receive buffer of the loop, with the resource state, the records
 /// and the debugger, which the loop and a hold on a scan share.
 pub(super) struct Shell<L, W, P, C> {
@@ -88,6 +92,9 @@ pub(super) struct Shell<L, W, P, C> {
     stop_requested: Cell<bool>,
     /// A cell was found in use (see the module documentation).
     fault: Cell<bool>,
+    /// The time from which the chip resets into the firmware a `firmware.install` selected, once the
+    /// link has sent the reply (specification 34 TARGET-04). The loop takes no request meanwhile.
+    reset_after: Cell<Option<MonotonicInstant>>,
     /// The wait failed inside a hold: the run ends with this failure at its next pass.
     port_failure: Cell<Option<PortError>>,
     pub(super) resource: ResourceCell,
@@ -132,6 +139,7 @@ where
             held: Cell::new(None),
             stop_requested: Cell::new(false),
             fault: Cell::new(false),
+            reset_after: Cell::new(None),
             port_failure: Cell::new(None),
             resource,
             records,
@@ -257,7 +265,7 @@ where
     /// pending: that reply is the one reply in flight, so the loop reads no request until it is
     /// written (specification 34, PORT-05). The requests that arrive meanwhile wait in the link.
     pub(super) fn next_frame(&self) -> Option<LinkFrame> {
-        if self.install.reply_pending() || self.change.reply_pending() {
+        if self.install.reply_pending() || self.change.reply_pending() || self.resetting() {
             return None;
         }
         if let Some(held) = self.held.take() {
@@ -320,6 +328,11 @@ where
             return prepared.after_response;
         }
         self.send(&prepared.response);
+        // A `device.reset` resets the device once its reply is sent (specification 34 TARGET-02).
+        if self.install.take_reset_request() {
+            self.reset_after
+                .set(Some(self.clock.now().saturating_add(RESET_GRACE)));
+        }
         prepared.after_response
     }
 
@@ -379,7 +392,31 @@ where
         match self.install.step() {
             Step::Idle | Step::Running => {}
             Step::Finished(Some(reply)) => self.send(&reply),
-            Step::Finished(None) | Step::InUse => self.fault.set(true),
+            Step::FinishedReset(Some(reply)) => {
+                self.send(&reply);
+                self.reset_after
+                    .set(Some(self.clock.now().saturating_add(RESET_GRACE)));
+            }
+            Step::Finished(None) | Step::FinishedReset(None) | Step::InUse => {
+                self.fault.set(true);
+            }
+        }
+    }
+
+    /// Whether the chip resets into a new firmware once its reply is sent.
+    pub(super) fn resetting(&self) -> bool {
+        self.reset_after.get().is_some()
+    }
+
+    /// Resets the chip into the firmware a `firmware.install` selected, once the link has handed its
+    /// reply to the hardware and the grace for the host to read it has passed (specification 34
+    /// TARGET-04).
+    pub(super) fn reset_when_sent(&self) {
+        let Some(after) = self.reset_after.get() else {
+            return;
+        };
+        if !self.link_sending() && self.clock.now() >= after {
+            self.update(&self.platform, RunnerPlatform::reset_device);
         }
     }
 

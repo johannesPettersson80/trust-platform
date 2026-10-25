@@ -25,12 +25,14 @@ use super::runner_ports::{ms, TestClock, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::chip::watchdog::watchdog_timeout_ms;
+use crate::device_settings::{DeviceInterfaces, DeviceSettings};
+use crate::firmware::FirmwareFacts;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::live_values::RequestQueueFull;
 use crate::ports::{
-    AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
+    AccessPort, AuditRecord, AuditSink, DevicePort, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::{DeviceLiveValues, RunnerPlatform};
@@ -45,6 +47,9 @@ pub(crate) const FEED_INTERVAL_MS: u64 = 1_000;
 /// The feeds after which the test platform stops a loop that never waits: no test feeds the
 /// watchdog so often, so a loop that does has spun.
 const MAX_FEEDS: u32 = 100_000;
+
+/// A test chip's stored device settings with their sequence.
+pub(crate) type StoredSettings = RefCell<Option<(u32, DeviceSettings)>>;
 
 /// The test platform.
 pub(crate) struct TestPlatform {
@@ -77,6 +82,12 @@ pub(crate) struct TestPlatform {
     pub(crate) device_descriptor: DeviceDescriptor,
     /// The reset the platform's boot read; `None` for a computer, which starts as a new process.
     pub(crate) last_reset: Option<LastReset>,
+    /// What a chip knows of its firmware slots; `None` for a computer.
+    pub(crate) firmware: Option<FirmwareFacts>,
+    /// A chip's device settings: its interfaces and the stored record; `None` for a computer.
+    pub(crate) device: Option<(DeviceInterfaces, StoredSettings)>,
+    /// How many times the loop reset the device; a test keeps a clone to read them.
+    pub(crate) resets: Rc<Cell<u32>>,
     /// How many times the loop dropped the program that ended (`unload_program`); a test keeps a
     /// clone to read them.
     pub(crate) unloads: Rc<Cell<u32>>,
@@ -109,6 +120,9 @@ impl Default for TestPlatform {
             control_mode: ControlMode::Production,
             device_descriptor: DeviceDescriptor::hosted(),
             last_reset: None,
+            firmware: None,
+            device: None,
+            resets: Rc::new(Cell::new(0)),
             unloads: Rc::new(Cell::new(0)),
             runtime: None,
             committed_token: None,
@@ -203,6 +217,10 @@ impl StatusPort for TestPlatform {
     fn last_reset(&self) -> Option<LastReset> {
         self.last_reset.clone()
     }
+
+    fn firmware(&self) -> Option<FirmwareFacts> {
+        self.firmware.clone()
+    }
 }
 
 impl ExtensionDispatch for TestPlatform {
@@ -245,9 +263,39 @@ impl CheckpointStorage for TestPlatform {
     }
 }
 
+impl DevicePort for TestPlatform {
+    fn device_interfaces(&self) -> Option<DeviceInterfaces> {
+        self.device.as_ref().map(|(interfaces, _)| *interfaces)
+    }
+
+    fn device_settings(&self) -> Result<Option<(u32, DeviceSettings)>, String> {
+        Ok(self
+            .device
+            .as_ref()
+            .and_then(|(_, stored)| stored.borrow().clone()))
+    }
+
+    fn store_device_settings(&self, settings: &DeviceSettings) -> Result<u32, String> {
+        let (_, stored) = self
+            .device
+            .as_ref()
+            .ok_or_else(|| String::from("unsupported request"))?;
+        let sequence = stored
+            .borrow()
+            .as_ref()
+            .map_or(1, |(sequence, _)| sequence + 1);
+        *stored.borrow_mut() = Some((sequence, settings.clone()));
+        Ok(sequence)
+    }
+}
+
 impl RunnerPlatform for TestPlatform {
     fn live_values(&self) -> &DeviceLiveValues {
         &self.live_values
+    }
+
+    fn reset_device(&mut self) {
+        self.resets.set(self.resets.get() + 1);
     }
 
     fn control_mode(&self) -> ControlMode {

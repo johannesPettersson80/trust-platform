@@ -27,8 +27,8 @@ const ORIGIN: u32 = 0x4200_0000;
 /// `addr` (`esp32c6.rom.ld` of esp-rom-sys).
 const CACHE_INVALIDATE_ADDR: usize = 0x4000_0648;
 
-/// The entries of one window: the pages a program slot of 3,056 KiB spans, 48 when it starts on a
-/// page and 49 when it does not (slot B starts at 0x4F_C000).
+/// The entries of one window: the pages a program slot of 2,064 KiB spans, 33 when it starts on a
+/// page and 34 when it does not (slot B starts at 0x5F_4000).
 pub(super) const WINDOW_PAGES: u32 = (crate::program_flash::SLOT_BYTES).div_ceil(PAGE_BYTES) + 1;
 
 /// The first windows' first entry, 0 until it is found (entry 0 is always the firmware's).
@@ -72,6 +72,14 @@ pub(super) fn map(index: u32, address: u32, len: u32) -> Option<&'static [u8]> {
     // slot whose image a held program reads, and the window is mapped again only after the program
     // that read it is dropped (specification 34 §5.1 and MEM-14; `ProgramFlash::map`).
     Some(unsafe { core::slice::from_raw_parts(bytes as *const u8, len as usize) })
+}
+
+/// The flash address of the firmware's first mapped page: MMU entry 0, which maps the start of the
+/// firmware's code and read-only data from the firmware slot the boot loader booted, as ESP-IDF's
+/// `esp_ota_get_running_partition` finds that slot (specification 34 TARGET-04).
+pub(super) fn running_firmware_address() -> u32 {
+    select(0);
+    u32::from(SPI0::regs().mmu_item_content().read().paddr().bits()) * PAGE_BYTES
 }
 
 /// The window's first entry: the entry after the highest one that the firmware maps, below the

@@ -6,6 +6,21 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: a chip keeps its own settings, `device.toml` (specification 34 TARGET-02): its name, its
+  Wi-Fi network and address, Bluetooth, its time server, the keys whose signed programs it trusts
+  and the wiring values it cannot detect. `trust-runtime ctl device-set <device.toml>` stores them
+  while the program is stopped, `ctl device-get` reads them back without the Wi-Fi password, and
+  `ctl device-reset` restarts the chip with them. A setting the chip has no hardware for is refused
+  with the reason.
+- Added: truST is installed on a chip and updated from the tools (specification 34 TARGET-04).
+  `trust-runtime firmware install --chip esp32c6 <folder>` writes the release's firmware through the
+  chip's own boot loader over USB, and `trust-runtime ctl firmware <image>` updates a chip that runs
+  truST over its control connection: the image goes into the firmware slot that does not run, the
+  chip checks it, restarts into it and runs it on trial until its boot is done; a firmware that does
+  not finish its boot is rolled back by the boot loader, and the command says so. `capabilities`
+  reports a chip's firmware slot, version and rollback. The ESP32-C6's flash layout changes for the
+  second firmware slot (the program store is now two slots of 2,064 KiB), so a chip needs a fresh
+  `firmware install` and its program installed again once.
 - Added: `--endpoint serial:///dev/ttyACM0` (`serial://COM5` on Windows) reaches a chip over its USB
   port in `trust-runtime ctl`, `ads server` and `discover`, and `trust-runtime ctl install
   <container> [--restart cold|warm]` installs a program on a chip or a computer.

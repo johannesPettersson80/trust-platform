@@ -295,6 +295,8 @@ impl RecordsPort for FullStore {
     }
 }
 
+impl trust_runtime_services::ports::DevicePort for FullStore {}
+
 impl ExtensionDispatch for FullStore {
     fn dispatch_extension(&self, _request: &ControlRequest) -> Option<ControlResponse> {
         None

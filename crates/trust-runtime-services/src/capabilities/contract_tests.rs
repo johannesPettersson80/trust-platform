@@ -9,9 +9,12 @@ use trust_runtime_core::deployment::{
     SchedulingProfile, TimingEvidence,
 };
 
+use trust_runtime_core::retain::checkpoint::Slot;
+
 use super::{LastReset, ResetCauseName};
 use crate::access::AccessRole;
 use crate::dispatch::dispatch_value;
+use crate::firmware::FirmwareFacts;
 use crate::tests::fake_host::FakeHost;
 use crate::tests::runner_ports::{Fixture, TestPlatform};
 
@@ -55,9 +58,11 @@ fn chip_descriptor() -> DeviceDescriptor {
 #[test]
 fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
     // Specification 11, the runtime device capabilities contract: a device without an operating
-    // system answers its own descriptor and the reset its boot read. Here the boot read a watchdog
-    // reset with the text "scan" and boot count 3, the chip's counter for the boot that reads it
-    // (specification 34, the fixed-size reset record). The request goes through the device runner,
+    // system answers its own descriptor, the reset its boot read and its firmware slots. Here the
+    // boot read a watchdog reset with the text "scan" and boot count 3, the chip's counter for the
+    // boot that reads it (specification 34, the fixed-size reset record), and the chip runs truST
+    // 0.24.76 from slot b, confirmed, while slot a holds 0.24.77, which the boot loader rolled back
+    // (specification 34 TARGET-04). The request goes through the device runner,
     // the path a chip's requests take. The wrong behaviours it catches: the runner answers the
     // computer's descriptor instead of the platform's; the last reset is dropped or read as null
     // on a chip; a cause is renamed on the way (a watchdog reported as `panic`); the text or the
@@ -69,6 +74,12 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
             cause: ResetCauseName::Watchdog,
             text: SmolStr::new_static("scan"),
             boot_count: 3,
+        }),
+        firmware: Some(FirmwareFacts {
+            slot: Slot::B,
+            version: "0.24.76".into(),
+            confirmed: true,
+            rolled_back: Some("0.24.77".into()),
         }),
         ..TestPlatform::default()
     };
@@ -104,6 +115,12 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
             "application_slot_bytes": 6_258_688,
             "program_memory_bytes": 81_920,
             "last_reset": {"cause": "watchdog", "text": "scan", "boot_count": 3},
+            "firmware": {
+                "slot": "b",
+                "version": "0.24.76",
+                "confirmed": true,
+                "rolled_back": "0.24.77",
+            },
         }),
         "the chip's reply names the device's descriptor fields and its watchdog reset"
     );
@@ -143,6 +160,11 @@ fn capabilities_is_read_only_for_a_viewer() {
     };
     assert_eq!(result["program_versions"], versions);
     assert_eq!(result["last_reset"], json!(null));
+    assert_eq!(
+        result["firmware"],
+        json!(null),
+        "a computer keeps no firmware slots"
+    );
     assert!(
         result.get("access").is_none(),
         "only status carries the access block: {result}"

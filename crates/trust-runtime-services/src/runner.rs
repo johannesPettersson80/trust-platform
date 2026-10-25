@@ -111,6 +111,7 @@ pub use retain::{RetainConfig, RetainStore};
 pub use stack::DeviceStack;
 pub use state::event_store_bytes;
 
+use crate::firmware::FirmwareStore;
 use crate::installation::Admitted;
 use crate::protocol::ControlAfterResponse;
 use crate::resource::supervisor::AutomaticRestartLimiter;
@@ -394,6 +395,15 @@ impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
             .set_store(store, Box::new(retained_check));
         self
     }
+
+    /// Gives the loop the chip's two firmware slots (specification 34 TARGET-04), which a firmware
+    /// upload is written into and `firmware.install` selects. The loop answers `firmware.install`
+    /// with `unsupported request` until it is given them.
+    #[must_use]
+    pub fn with_firmware(self, firmware: FirmwareStore) -> Self {
+        self.shell.install.set_firmware(firmware);
+        self
+    }
 }
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
@@ -462,6 +472,7 @@ where
         }
         let token = self.shell.wake_token();
         self.shell.step_install();
+        self.shell.reset_when_sent();
         self.shell.expire_change();
         let more_frames = self.serve_link();
         self.supervise();
@@ -476,10 +487,11 @@ where
         let mut deadline = self
             .next_boundary
             .map_or(liveness, |boundary| boundary.min(liveness));
-        if self.shell.link_sending() {
+        if self.shell.link_sending() || self.shell.resetting() {
             // The link still holds reply bytes: service it soon again, so the reply reaches its
             // end without waiting for the next request to wake the loop (specification 34,
-            // PORT-05). An idle link keeps the loop's own waits.
+            // PORT-05), and so that a chip that resets into a new firmware does so as soon as the
+            // reply is out (TARGET-04). An idle link keeps the loop's own waits.
             deadline = deadline.min(self.clock.now().saturating_add(REPLY_SERVICE_INTERVAL));
         }
         if let Some(expiry) = self.shell.change.expiry() {
@@ -571,6 +583,12 @@ mod contract_tests;
 
 #[cfg(test)]
 mod disconnect_contract_tests;
+
+#[cfg(test)]
+mod device_contract_tests;
+
+#[cfg(test)]
+mod firmware_contract_tests;
 
 #[cfg(test)]
 mod install_contract_tests;

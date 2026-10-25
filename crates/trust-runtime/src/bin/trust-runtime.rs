@@ -34,6 +34,8 @@ mod dev_forward;
 mod discover;
 #[path = "trust-runtime/docs.rs"]
 mod docs;
+#[path = "trust-runtime/firmware.rs"]
+mod firmware;
 #[path = "trust-runtime/fleet.rs"]
 mod fleet;
 #[path = "trust-runtime/git.rs"]
@@ -308,6 +310,7 @@ fn run() -> anyhow::Result<()> {
         Some(Command::Bench { action }) => bench::run_bench(action),
         Some(Command::Conformance(args)) => conformance::run_conformance(args),
         Some(Command::Toolchain { action }) => toolchain::run_toolchain(action),
+        Some(Command::Firmware { action }) => firmware::run_firmware(action),
     }
 }
 

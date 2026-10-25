@@ -33,13 +33,11 @@ pub const RESET_USB: u8 = 0x15;
 /// Power-on reset (`ChipPowerOn`).
 pub const RESET_POWER_ON: u8 = 0x01;
 
-/// Factory application partition; its first 24 bytes are the running image header.
-pub const FACTORY_OFFSET: u32 = 0x1_0000;
 /// Separately installable application bundle partition (`stbc`).
-pub const STBC_OFFSET: u32 = 0x20_0000;
-/// Size of the `stbc` partition in bytes: the flash the chip allows for the installed application,
-/// from [`STBC_OFFSET`] to the two checkpoint slots at the end of the 8 MB module.
-pub const STBC_BYTES: usize = 6112 * 1024;
+pub const STBC_OFFSET: u32 = 0x3F_0000;
+/// Size of the `stbc` partition in bytes: the installed application's flash, from [`STBC_OFFSET`],
+/// after the second firmware slot, to the two checkpoint slots at the end of the 8 MB module.
+pub const STBC_BYTES: usize = 4128 * 1024;
 
 /// Checkpoint slot `checkpoint_a`: its flash address, the chip file's `[layout] checkpoint_a`
 /// (specification 34 D.2 and §10.1). The slot follows the installed application.
@@ -339,8 +337,8 @@ mod tests {
             (RESET_WATCHDOG, RESET_USB, RESET_POWER_ON),
             (0x07, 0x15, 0x01)
         );
-        assert_eq!((FACTORY_OFFSET, STBC_OFFSET), (0x1_0000, 0x20_0000));
-        assert_eq!(STBC_BYTES, 6112 * 1024);
+        assert_eq!(STBC_OFFSET, 0x3F_0000);
+        assert_eq!(STBC_BYTES, 4128 * 1024);
         assert_eq!((BUTTON_GPIO, OUTPUT_GPIO), (9, 18));
     }
 }

@@ -428,6 +428,14 @@
     },
     {
       "from": "trust-runtime",
+      "to": "trust-chips",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability",
+      "rationale": "trust-runtime firmware install places each part of a chip's firmware where the chip file's layout puts it (specification 34 TARGET-03, TARGET-04); the reader depends on no firmware or adapter."
+    },
+    {
+      "from": "trust-runtime",
       "to": "trust-runtime-client",
       "kind": "normal",
       "status": "allowed",
@@ -749,6 +757,12 @@
       "rationale": "the compiler toolchain bundle: status, install and bundle (specification 44 §4.6)"
     },
     {
+      "name": "Firmware",
+      "class": "product",
+      "owner": "runtime portability",
+      "rationale": "installs truST's firmware on a chip through its own boot loader (specification 34 TARGET-04)"
+    },
+    {
       "name": "Agent",
       "class": "workbench_dev",
       "owner": "dev tooling",
@@ -899,6 +913,12 @@
       "class": "product",
       "owner": "runtime/native",
       "rationale": "toolchain command module"
+    },
+    {
+      "name": "firmware",
+      "class": "product",
+      "owner": "runtime portability",
+      "rationale": "firmware command module (specification 34 TARGET-04)"
     },
     {
       "name": "agent",
@@ -1057,6 +1077,12 @@
       "class": "product",
       "owner": "runtime/native",
       "rationale": "toolchain subcommands"
+    },
+    {
+      "name": "FirmwareAction",
+      "class": "product",
+      "owner": "runtime portability",
+      "rationale": "firmware subcommands"
     },
     {
       "name": "AgentAction",
@@ -2231,7 +2257,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 75,
+        "line": 77,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2239,7 +2265,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 76,
+        "line": 78,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2247,7 +2273,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 79,
+        "line": 81,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2255,7 +2281,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 82,
+        "line": 84,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2263,7 +2289,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 85,
+        "line": 87,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2271,7 +2297,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 88,
+        "line": 90,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2279,7 +2305,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 91,
+        "line": 93,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2287,7 +2313,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 94,
+        "line": 96,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2295,7 +2321,7 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 97,
+        "line": 99,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
         "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
@@ -2863,7 +2889,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 342,
+        "line": 384,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3247,7 +3273,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/image_window.rs",
-        "line": 99,
+        "line": 107,
         "owner": "runtime portability P1 (MEM-14, the program image in place)",
         "invariant": "Selects an MMU entry (MMU_ITEM_INDEX) for the next content read or write; the index is below the MMU's 256 entries.",
         "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",

@@ -1,11 +1,14 @@
 //! Bare-metal ownership and initialization of the fixed ESP32-C6 board peripherals.
 use crate::{
     boot_counter::{BootCounter, BootCounterError},
+    device_flash::DeviceSectors,
+    firmware_flash::{C6Firmware, FirmwareSlots},
+    firmware_slots::{slot_at, slot_offset},
     image::{decode_image_header, IMAGE_HEADER_BYTES},
     loader::ProgramHardware,
     process_io::{bind_lines, claim_lines, GpioBank, GpioIo},
-    profile::{CPU_HZ, FACTORY_OFFSET, STBC_BYTES},
-    program_flash::FlashOwner,
+    profile::{CPU_HZ, STBC_BYTES},
+    program_flash::{FlashOwner, SharedFlash},
 };
 use alloc::boxed::Box;
 use alloc::format;
@@ -19,8 +22,9 @@ use esp_storage::FlashStorage;
 use trust_platform_memory::reset::ResetStore;
 use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::ports::ProgramFlash;
-use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash};
+use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash, Slot};
 use trust_runtime_services::chip::process_io::record_lines;
+use trust_runtime_services::device_settings::SettingsFlash;
 
 pub(crate) mod calendar;
 mod checkpoint_flash;
@@ -166,7 +170,7 @@ impl Board {
         let watchdog = Watchdog::new(peripherals.TIMG0);
         let reset = ResetControl::new();
         let mut flash = FlashStorage::new(peripherals.FLASH);
-        let identity = read_identity(&mut flash)?;
+        let identity = read_identity(&mut flash, running_slot())?;
         Ok(Self {
             clock,
             console,
@@ -203,6 +207,32 @@ impl Board {
             .map_err(BoardError::BootCounter)?;
         self.reset.set_boot_count(count);
         Ok(count)
+    }
+
+    /// The C6's firmware slots as the program-store shape the loop writes a firmware upload into
+    /// (specification 34 TARGET-04).
+    ///
+    /// # Errors
+    ///
+    /// [`BoardError::ProgramSlots`] when their geometry cannot be used.
+    pub fn firmware_slots(&self) -> Result<Box<dyn ProgramFlash>, BoardError> {
+        let slots = FirmwareSlots::new(self.flash.raw()).map_err(BoardError::ProgramSlots)?;
+        let slots: Box<dyn ProgramFlash> = Box::new(slots);
+        Ok(slots)
+    }
+
+    /// What the loop asks of the C6 for a firmware update, and what the boot reads of its slots: the
+    /// slot it runs from, found in its MMU, and the boot loader's selection (specification 34
+    /// TARGET-04).
+    #[must_use]
+    pub fn firmware(&self) -> C6Firmware<SharedFlash<FlashStorage<'static>>> {
+        C6Firmware::new(self.flash.raw(), running_slot())
+    }
+
+    /// The flash of the C6's two device settings sectors (specification 34 TARGET-02).
+    #[must_use]
+    pub fn settings_flash(&self) -> Box<dyn SettingsFlash> {
+        Box::new(DeviceSectors::new(self.flash.raw()))
     }
 
     /// The SYSTIMER alarm the resource loop's wait arms; taken once, so the wait owns it.
@@ -315,10 +345,22 @@ impl ProgramHardware for BoardHardware {
     }
 }
 
-fn read_identity(flash: &mut FlashStorage<'_>) -> Result<Identity, BoardError> {
+/// The firmware slot the boot loader booted, from the MMU's first entry; slot A when the entry lies
+/// in neither slot, which only a firmware flashed outside the slots would see.
+fn running_slot() -> Slot {
+    slot_at(image_window::running_firmware_address()).unwrap_or(Slot::A)
+}
+
+/// Resets the chip into the firmware the boot loader selects next (specification 34 TARGET-04,
+/// TARGET-02).
+pub(crate) fn reset_chip() {
+    esp_hal::system::software_reset();
+}
+
+fn read_identity(flash: &mut FlashStorage<'_>, running: Slot) -> Result<Identity, BoardError> {
     let mut header = [0u8; IMAGE_HEADER_BYTES];
     flash
-        .read(FACTORY_OFFSET, &mut header)
+        .read(slot_offset(running), &mut header)
         .map_err(|_| BoardError::FlashRead)?;
     let image = decode_image_header(&header).ok_or(BoardError::ImageHeader)?;
     let mut mac = [0u8; 6];

@@ -65,15 +65,27 @@ partition_table = { start = 0x8000, kib = 4 }
 # partitions bootcnt_a and bootcnt_b of partitions.csv.
 boot_counter_a = { start = 0x9000, kib = 4 }
 boot_counter_b = { start = 0xA000, kib = 4 }
+# The boot loader's choice between the two firmware slots, ESP-IDF's `otadata` (specification 34
+# TARGET-04): two erase units, one entry each.
+firmware_select = { start = 0xB000, kib = 8 }
+# The two sectors of the device settings, device.toml (TARGET-02).
+device_a = { start = 0xD000, kib = 4 }
+device_b = { start = 0xE000, kib = 4 }
+# The two firmware slots, `ota_0` and `ota_1` (TARGET-04): an update over the control connection is
+# written into the slot that does not run, and the boot loader rolls back a firmware that does not
+# confirm itself. FIRMWARE_A_OFFSET, FIRMWARE_B_OFFSET and FIRMWARE_SLOT_BYTES of firmware_slots.rs.
 firmware = { start = 0x1_0000, kib = 1984 }
-# The installed application takes the flash the chip allows (owner decision O7): from its start
-# to the two checkpoint slots, which sit at the very end of the 8 MB module.
-application = { start = 0x20_0000, kib = 6112 }
+firmware_b = { start = 0x20_0000, kib = 1984 }
+# The installed application: from after the second firmware slot to the two checkpoint slots at the
+# very end of the 8 MB module (owner, 25 October 2026: the second firmware slot takes 1,984 KiB of
+# what O7 gave the application; a program runs from at most 192 KiB of RAM, so no program loses
+# room).
+application = { start = 0x3F_0000, kib = 4128 }
 # The two program slots of the program store (specification 34 §5.1): the two halves of `application`,
 # of equal size, which an install writes in turn. Their offsets and size are SLOT_A_OFFSET,
 # SLOT_B_OFFSET and SLOT_BYTES of program_flash.rs, and the host test chip_file.rs checks them.
-application_a = { start = 0x20_0000, kib = 3056 }
-application_b = { start = 0x4F_C000, kib = 3056 }
+application_a = { start = 0x3F_0000, kib = 2064 }
+application_b = { start = 0x5F_4000, kib = 2064 }
 checkpoint_a = { start = 0x7F_8000, kib = 16 }
 checkpoint_b = { start = 0x7F_C000, kib = 16 }
 

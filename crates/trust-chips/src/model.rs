@@ -218,8 +218,19 @@ pub struct Layout {
     pub bootloader: Option<Region>,
     /// The partition table (the `esp32` family).
     pub partition_table: Option<Region>,
-    /// The truST firmware.
+    /// The truST firmware, the first of its two slots when the file names `firmware_b`.
     pub firmware: Region,
+    /// The second firmware slot, of the size of `firmware` (specification 34 TARGET-04): a chip
+    /// updated over its control connection writes the new firmware into the slot it does not run
+    /// from. A file names it with `firmware_select` or names neither.
+    pub firmware_b: Option<Region>,
+    /// Where the boot loader keeps which firmware slot it boots (the ESP32's `otadata`).
+    pub firmware_select: Option<Region>,
+    /// The first of the two sectors that hold the device settings, `device.toml` (TARGET-02):
+    /// exactly one erase unit. A file names both sectors or neither.
+    pub device_a: Option<Region>,
+    /// The second device settings sector, also exactly one erase unit.
+    pub device_b: Option<Region>,
     /// The separately installed application.
     pub application: Region,
     /// The first of the program store's two slots, inside `application` (specification 34 §5.1).
@@ -248,6 +259,10 @@ impl Layout {
             ("bootloader", self.bootloader),
             ("partition_table", self.partition_table),
             ("firmware", Some(self.firmware)),
+            ("firmware_b", self.firmware_b),
+            ("firmware_select", self.firmware_select),
+            ("device_a", self.device_a),
+            ("device_b", self.device_b),
             ("application", Some(self.application)),
             ("checkpoint_a", Some(self.checkpoint_a)),
             ("checkpoint_b", Some(self.checkpoint_b)),

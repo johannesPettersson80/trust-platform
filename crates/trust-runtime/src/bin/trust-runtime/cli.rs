@@ -17,5 +17,6 @@ include!("cli/setup.rs");
 include!("cli/plcopen.rs");
 include!("cli/registry.rs");
 include!("cli/control.rs");
+include!("cli/firmware.rs");
 include!("cli/toolchain.rs");
 include!("cli/tests.rs");

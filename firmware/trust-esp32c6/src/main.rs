@@ -48,6 +48,7 @@ use trust_platform_esp32::{C6Code, Platform, ProgramCode};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::firmware::{FirmwareFacts, FirmwareStore};
 use trust_runtime_services::runner::{DeviceLiveValues, Runner};
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -105,6 +106,23 @@ fn main() -> ! {
     let Ok(checkpoint_reader) = board.checkpoint_reader() else {
         emergency_halt("checkpoint-reader");
     };
+    // The firmware slots (specification 34 TARGET-04): the boot reads the choice the boot loader
+    // left, whether this firmware runs on trial after an update, and the version of a newer firmware
+    // that the boot loader rolled back; the loop writes an update into the slot that does not run.
+    let mut firmware = board.firmware();
+    let (trial, firmware_facts) = firmware.boot(env!("CARGO_PKG_VERSION"));
+    let Ok(firmware_flash) = board.firmware_slots() else {
+        emergency_halt("firmware-slots");
+    };
+    // The device settings, device.toml (specification 34 TARGET-02), in their two sectors.
+    let settings_flash = board.settings_flash();
+    let firmware_store = FirmwareStore {
+        slots: ProgramStore {
+            flash: firmware_flash,
+            program_budget: PROGRAM_STEP_BYTES,
+        },
+        device: Box::new(board.firmware()),
+    };
     let mut parts = board.into_parts();
     let store = ProgramStore {
         flash: program_flash,
@@ -118,14 +136,16 @@ fn main() -> ! {
     // The platform starts with the values of a chip that has no application: it reports `production`
     // without a debug surface, the record's defaults (specification 11 §6.9). The loader sets those of
     // the installed record.
-    let platform = ChipPlatform::new(
+    let mut platform = ChipPlatform::new(
         parts.watchdog,
         SmolStr::new_static("Controller"),
         status_settings(),
         DeviceLiveValues::empty(),
         last_reset,
         runtime_id(parts.identity.mac),
-    );
+    )
+    .with_device_settings(settings_flash);
+    platform.set_firmware(firmware_facts.clone());
     // The loader builds the program of the installed container at the boot and again at every
     // `restart` that finds a newer one (specification 34 STATE-08): the same steps in the same order.
     // It also builds the candidate of an online change (specification 34 §11.3).
@@ -155,6 +175,7 @@ fn main() -> ! {
         )
         .with_transfers(transfer_session(boot_count))
         .with_program_store(store, retained_check)
+        .with_firmware(firmware_store)
         .with_program_loader(loader, None),
     );
     // The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2): the heap's free bytes
@@ -166,6 +187,21 @@ fn main() -> ! {
     // The installed application: the committed container with the highest install sequence, admitted,
     // loaded and started warm. One that cannot start leaves the loop Stopped with the reason.
     runner.boot(RestartMode::Warm);
+    // The boot is done: a firmware on trial after an update confirms itself now, so the boot loader
+    // keeps booting it (specification 34 TARGET-04). One that panicked or hung before this point was
+    // reset by the watchdog, and the boot loader booted the firmware before it.
+    #[cfg(feature = "bench-trial-reset")]
+    if !firmware_facts.confirmed {
+        esp_hal::system::software_reset();
+    }
+    if !firmware_facts.confirmed && firmware.confirm(&trial).is_ok() {
+        let _ = runner.with_platform(|platform| {
+            platform.set_firmware(FirmwareFacts {
+                confirmed: true,
+                ..firmware_facts
+            });
+        });
+    }
 
     // The watchdog runs from here: building the program took far more time than any pass of the loop,
     // and the loop feeds it in every pass.

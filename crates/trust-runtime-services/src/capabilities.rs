@@ -24,7 +24,14 @@ use crate::protocol::ControlResponse;
 #[must_use]
 pub fn capabilities<H: StatusPort>(id: u64, host: &H) -> ControlResponse {
     let descriptor = host.device_descriptor();
-    ControlResponse::ok(id, descriptor_json(&descriptor, host.last_reset().as_ref()))
+    let mut result = descriptor_json(&descriptor, host.last_reset().as_ref());
+    if let Some(object) = result.as_object_mut() {
+        object.insert(
+            "firmware".into(),
+            host.firmware().map_or(Value::Null, |facts| facts.to_json()),
+        );
+    }
+    ControlResponse::ok(id, result)
 }
 
 /// The `capabilities` result: every descriptor field under its own name, and `last_reset`, which

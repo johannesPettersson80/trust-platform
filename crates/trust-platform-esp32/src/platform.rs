@@ -6,6 +6,7 @@
 
 use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_services::chip::platform::{ChipPlatform, ChipProfile};
+use trust_runtime_services::device_settings::DeviceInterfaces;
 
 use crate::profile::{CHECKPOINT_STEP_BYTES, DEVICE_DESCRIPTOR, PLATFORM, RESET_WATCHDOG};
 
@@ -54,7 +55,29 @@ impl ChipProfile for Esp32C6 {
     fn idle() {
         crate::hardware::calendar::keep();
     }
+
+    /// The C6's interfaces, which its device settings are checked against (specification 34
+    /// TARGET-02; chips/esp32c6.toml).
+    fn interfaces() -> Option<DeviceInterfaces> {
+        Some(INTERFACES)
+    }
+
+    /// The C6 resets into the firmware its boot loader selects (specification 34 TARGET-04).
+    #[cfg(all(target_arch = "riscv32", target_os = "none"))]
+    fn reset() {
+        crate::hardware::reset_chip();
+    }
 }
+
+/// The ESP32-C6's interfaces (`[interfaces]` and `[clock]` of chips/esp32c6.toml): Wi-Fi and
+/// Bluetooth, no Ethernet, a 40 MHz crystal.
+pub const INTERFACES: DeviceInterfaces = DeviceInterfaces {
+    model: "ESP32-C6",
+    wifi: true,
+    ethernet: false,
+    bluetooth: true,
+    crystal_hz: (40_000_000, 40_000_000),
+};
 
 /// The C6's platform for the single-thread resource loop, over the watchdog `W` the adapter supplies
 /// (specification 34, ARCH-11).

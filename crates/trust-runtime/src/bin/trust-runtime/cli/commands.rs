@@ -362,6 +362,14 @@ pub enum Command {
         #[command(subcommand)]
         action: ToolchainAction,
     },
+    /// Install truST's firmware on a chip (specification 34 TARGET-04).
+    #[command(
+        after_help = "Examples:\n  trust-runtime firmware install --chip esp32c6 ./trust-firmware-esp32c6\n  trust-runtime firmware install --chip esp32c6 --port /dev/ttyACM0 ./trust-firmware-esp32c6\n\nUpdate a chip that runs truST over its control connection:\n  trust-runtime ctl --endpoint serial:///dev/ttyACM0 firmware ./trust-firmware-esp32c6/firmware.bin"
+    )]
+    Firmware {
+        #[command(subcommand)]
+        action: FirmwareAction,
+    },
 }
 
 /// The options of `conformance`.

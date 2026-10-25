@@ -669,6 +669,8 @@ impl StatusPort for BoardPlatform {
 }
 
 /// The device answers no platform operation yet.
+impl trust_runtime_services::ports::DevicePort for BoardPlatform {}
+
 impl ExtensionDispatch for BoardPlatform {
     fn dispatch_extension(&self, _request: &ControlRequest) -> Option<ControlResponse> {
         None

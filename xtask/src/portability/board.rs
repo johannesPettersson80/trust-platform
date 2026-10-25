@@ -182,7 +182,7 @@ mod tests {
         assert_eq!(c6.stack_window_bytes, 78 * 1024);
         assert_eq!(c6.stack_headroom_bytes, 2 * 1024);
         assert_eq!(c6.image_capacity_bytes, 0x1F0000);
-        assert_eq!(c6.application_bytes, 6112 * 1024);
+        assert_eq!(c6.application_bytes, 4128 * 1024);
     }
 
     #[test]
@@ -213,7 +213,19 @@ mod tests {
                 "0x01",
                 span(layout.boot_counter_b.unwrap()),
             ),
-            ("factory", "app", "factory", span(layout.firmware)),
+            // The boot loader's choice between the firmware slots and the two device settings
+            // sectors (specification 34 TARGET-04 and TARGET-02).
+            (
+                "otadata",
+                "data",
+                "ota",
+                span(layout.firmware_select.unwrap()),
+            ),
+            ("device_a", "0x43", "0x00", span(layout.device_a.unwrap())),
+            ("device_b", "0x43", "0x01", span(layout.device_b.unwrap())),
+            // The two firmware slots.
+            ("ota_0", "app", "ota_0", span(layout.firmware)),
+            ("ota_1", "app", "ota_1", span(layout.firmware_b.unwrap())),
             ("stbc", "0x40", "0x00", span(layout.application)),
             ("ckpt_a", "0x41", "0x00", span(layout.checkpoint_a)),
             ("ckpt_b", "0x41", "0x01", span(layout.checkpoint_b)),
@@ -228,13 +240,14 @@ mod tests {
         for pair in rows.windows(2) {
             assert!(number(pair[0][3]) + number(pair[0][4]) <= number(pair[1][3]));
         }
-        // The factory partition and the application partition are the profile's capacities.
+        // Each firmware slot and the application partition are the profile's capacities.
         let c6 = Board::Esp32c6Devkitc1.profile().unwrap();
         let size_of = |name: &str| {
             let row = rows.iter().find(|row| row[0] == name).unwrap();
             number(row[4])
         };
-        assert_eq!(size_of("factory"), c6.image_capacity_bytes);
+        assert_eq!(size_of("ota_0"), c6.image_capacity_bytes);
+        assert_eq!(size_of("ota_1"), c6.image_capacity_bytes);
         assert_eq!(size_of("stbc"), c6.application_bytes);
     }
 }

@@ -48,6 +48,27 @@ pub enum ControlAction {
         #[arg(long, value_parser = ["cold", "warm"])]
         restart: Option<String>,
     },
+    /// Read a chip's device settings, `device.toml`, without its Wi-Fi password (specification 34
+    /// TARGET-02).
+    DeviceGet,
+    /// Store a chip's device settings from a `device.toml` file while its program is stopped; they
+    /// apply at the chip's next boot (`device-reset`).
+    DeviceSet {
+        /// The `device.toml` file.
+        file: PathBuf,
+    },
+    /// Reset a chip while its program is stopped; it boots with its stored device settings.
+    DeviceReset,
+    /// Update a chip's truST firmware over the control connection (specification 34 TARGET-04): the
+    /// runtime must be stopped; the image is written into the firmware slot that does not run, the
+    /// chip restarts into it, and the command waits until it runs the new firmware.
+    Firmware {
+        /// The firmware image: the chip's application image, as the release carries it.
+        image: PathBuf,
+        /// How long to wait for the chip to run the new firmware, in seconds.
+        #[arg(long, default_value_t = 60)]
+        wait: u64,
+    },
     /// Stop the program. The runtime keeps running in the Stopped state and `restart` starts the
     /// program again.
     Shutdown {

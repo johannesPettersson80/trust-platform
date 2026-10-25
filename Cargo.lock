@@ -6902,6 +6902,7 @@ dependencies = [
  "esp-hal",
  "esp-storage",
  "serde_json",
+ "sha2 0.11.0",
  "smol_str",
  "trust-chips",
  "trust-platform-memory",

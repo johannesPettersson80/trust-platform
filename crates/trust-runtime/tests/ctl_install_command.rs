@@ -16,7 +16,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use trust_runtime_services::transfer::{wire, TransferSession};
+use trust_runtime_services::transfer::{wire, Complete, Received, TransferSession};
 
 use runtime_process::{describe, trust_runtime_command};
 
@@ -90,13 +90,14 @@ fn spawn_runtime(token: &'static str) -> (String, JoinHandle<Seen>) {
                     let part = wire::part_request(&params).expect("a readable part");
                     session
                         .part(part.transfer, part.offset, part.encoded, part.crc32)
-                        .map(wire::part_reply)
+                        .map(|received| wire::part_reply(next_offset(received)))
                         .map_err(|error| error.to_string())
                 }
                 "program.install" => {
                     let transfer = wire::transfer_request(&params).expect("a transfer id");
                     session
                         .take_complete(transfer)
+                        .map(memory_bytes)
                         .map(|container| {
                             seen.installed = Some(container);
                             json!({
@@ -290,4 +291,20 @@ mod computer {
         assert_climbs_by(&runtime, before, 2);
         let _ = fs::remove_file(file);
     }
+}
+
+/// The next offset of a part that an in-memory session took.
+fn next_offset(received: Received) -> usize {
+    let Received::Next(next) = received else {
+        panic!("an upload held in memory takes each part at once");
+    };
+    next
+}
+
+/// The bytes of an upload that an in-memory session held.
+fn memory_bytes(complete: Complete) -> Vec<u8> {
+    let Complete::Memory(bytes) = complete else {
+        panic!("an upload held in memory completes in memory");
+    };
+    bytes
 }

@@ -37,6 +37,7 @@ binary reports them.
 | `bench` | communication/runtime benchmark surfaces |
 | `conformance` | deterministic conformance suite runner |
 | `toolchain` | the compiler toolchain that builds programs: `status`, `install`, `bundle` |
+| `firmware` | install truST's firmware on a chip through the chip's own boot loader: `install` |
 
 ## Entry-point and Error Contract
 
@@ -362,6 +363,9 @@ Important control subcommands:
 - `io-unforce`
 - `restart`
 - `install <container> [--restart cold|warm]` (any `--endpoint`, also `serial:///dev/ttyACM0`)
+- `firmware <image> [--wait <seconds>]` (a chip's truST firmware, while its program is stopped)
+- `device-get`, `device-set <device.toml>`, `device-reset` (a chip's own settings: name, network,
+  time server, trusted keys; they apply at the chip's next boot)
 - `shutdown [--exit]`
 - `config-get`
 - `config-set`
@@ -371,6 +375,18 @@ control server, web UI and other services; `restart cold` or `restart warm` star
 program again. `shutdown --exit` also ends the runtime's process. Both need the Admin role. A
 chip answers `--exit` as a plain `shutdown`, because its firmware never ends. The process also
 ends on SIGINT or SIGTERM, and `trust-runtime fleet runtime stop` sends the exit.
+
+`firmware` updates a chip's truST firmware: the image goes into the firmware slot that does not
+run, the chip restarts into it and runs it on trial until its boot is done, and the command waits
+until the chip runs it. A firmware that does not finish its boot is rolled back by the chip's boot
+loader, and the command says so. The first install on a chip that does not run truST yet goes
+through the chip's own boot loader:
+
+```text
+trust-runtime firmware install --chip esp32c6 ./trust-firmware-esp32c6
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 shutdown
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 firmware ./trust-firmware-esp32c6/firmware.bin
+```
 
 ![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)
 

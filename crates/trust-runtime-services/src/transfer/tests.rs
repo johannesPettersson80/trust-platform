@@ -790,7 +790,8 @@ fn a_begin_request_reads_its_size_and_digest() {
         wire::begin_request(&request),
         Ok(wire::BeginRequest {
             bytes: 5000,
-            digest: digest(DIGEST_5000)
+            digest: digest(DIGEST_5000),
+            firmware: false,
         })
     );
 }

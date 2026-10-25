@@ -433,7 +433,55 @@ fn layout(family: Family, layout: &Layout, flash: &FlashSpace<'_>) -> Result<(),
         return Err(Problem::BootRegion { region: boot });
     }
     program_slots(layout, flash)?;
+    firmware_slots(layout)?;
+    one_unit_pair(
+        ("device_a", layout.device_a),
+        ("device_b", layout.device_b),
+        flash,
+    )?;
     boot_counter(layout, flash)
+}
+
+/// The second firmware slot and the boot loader's selection, when the file names them
+/// (specification 34 TARGET-04 and Appendix H.2): both or neither, and the second slot of the first
+/// slot's size, because an update writes a firmware that ran from either.
+fn firmware_slots(layout: &Layout) -> Result<(), Problem> {
+    match (layout.firmware_b, layout.firmware_select) {
+        (Some(_), None) => Err(Problem::MissingRegion {
+            region: "firmware_select",
+        }),
+        (None, Some(_)) => Err(Problem::MissingRegion {
+            region: "firmware_b",
+        }),
+        (Some(second), Some(_)) if second.kib != layout.firmware.kib => {
+            Err(Problem::UnequalSlots {
+                first: "firmware",
+                second: "firmware_b",
+            })
+        }
+        (None, None) | (Some(_), Some(_)) => Ok(()),
+    }
+}
+
+/// Two sectors that a file names both or neither, each exactly one erase unit: the device settings
+/// (TARGET-02), which a write erases one whole sector of.
+fn one_unit_pair(
+    (first_key, first): (&'static str, Option<Region>),
+    (second_key, second): (&'static str, Option<Region>),
+    flash: &FlashSpace<'_>,
+) -> Result<(), Problem> {
+    let (first, second) = match (first, second) {
+        (None, None) => return Ok(()),
+        (Some(first), Some(second)) => (first, second),
+        (Some(_), None) => return Err(Problem::MissingRegion { region: second_key }),
+        (None, Some(_)) => return Err(Problem::MissingRegion { region: first_key }),
+    };
+    for (key, region) in [(first_key, first), (second_key, second)] {
+        if flash.unit_end(u64::from(region.start)) != Some(region.end()) {
+            return Err(Problem::NotOneEraseUnit { region: key });
+        }
+    }
+    Ok(())
 }
 
 /// The boot counter's two sectors, when the file names them (specification 34 PORT-05 and Appendix

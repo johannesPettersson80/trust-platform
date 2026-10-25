@@ -11,6 +11,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, WallClock};
+use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
@@ -26,7 +27,9 @@ use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
+use crate::device_settings::{DeviceInterfaces, DeviceSettings};
 use crate::events::RuntimeEvent;
+use crate::firmware::{FirmwareFacts, FirmwareImage};
 use crate::installation::Admitted;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
@@ -36,7 +39,7 @@ use crate::loading::install::Checked;
 use crate::loading::reload;
 use crate::metrics::RuntimeMetricsSnapshot;
 use crate::ports::{
-    part_in_memory, AccessPort, AuditRecord, AuditSink, EventSink, ExtensionDispatch,
+    part_in_memory, AccessPort, AuditRecord, AuditSink, DevicePort, EventSink, ExtensionDispatch,
     ProgramControl, ProgramIdentities, ProgramIdentity, RecordsPort, ResourcePort, StatusPort,
     TransferSessionError,
 };
@@ -62,6 +65,7 @@ pub trait RunnerPlatform:
     + WallClock
     + StatusPort
     + ExtensionDispatch
+    + DevicePort
     + HardwareWatchdog
     + IoQueuePort
     + VariableQueuePort
@@ -135,6 +139,11 @@ pub trait RunnerPlatform:
     fn program_identities(&self) -> Option<ProgramIdentities> {
         None
     }
+
+    /// Resets the device into the firmware its boot loader selects: after the reply to a
+    /// `firmware.install` or a `device.reset` is sent (specification 34 TARGET-04, TARGET-02). On a
+    /// chip it does not return. A computer never resets, so the default does nothing.
+    fn reset_device(&mut self) {}
 
     /// The program that ended is dropped: the platform lets go of the values of its record, which a
     /// device that loads a program in place replaces when it loads the next (specification 34
@@ -373,6 +382,10 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
     fn last_reset(&self) -> Option<LastReset> {
         self.platform.last_reset()
     }
+
+    fn firmware(&self) -> Option<FirmwareFacts> {
+        self.platform.firmware()
+    }
 }
 
 impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> {
@@ -493,6 +506,36 @@ impl<P: RunnerPlatform, C: MonotonicClock> RecordsPort for RunnerHost<'_, P, C> 
     fn commit_program(&self, container: Vec<u8>) -> Result<ProgramIdentity, String> {
         self.install.begin(container)
     }
+
+    /// A firmware upload in the loop's own session, written into the firmware slot the chip does not
+    /// run from (specification 34 TARGET-04).
+    fn begin_firmware_upload(
+        &self,
+        bytes: u64,
+        digest: [u8; 32],
+    ) -> Result<Result<TransferId, String>, TransferSessionError> {
+        if !self.install.keeps_transfers() {
+            return self
+                .platform
+                .with_transfers(|_| Err(String::from("unsupported request")));
+        }
+        self.install.begin_firmware_upload(bytes, digest)
+    }
+
+    fn is_firmware_upload(&self, transfer: TransferId) -> bool {
+        self.install.is_firmware_upload(transfer)
+    }
+
+    /// Whether the device gave its loop firmware slots (specification 34 TARGET-04).
+    fn has_firmware_slots(&self) -> bool {
+        self.install.has_firmware()
+    }
+
+    /// Begins the stepped commit of a checked firmware upload; the loop writes the `installed` reply
+    /// when the slot is selected and then resets the chip (specification 34 TARGET-04).
+    fn commit_firmware(&self, upload: StoredUpload) -> Result<(FirmwareImage, Slot), String> {
+        self.install.begin_firmware(&upload)
+    }
 }
 
 impl<P: RunnerPlatform, C: MonotonicClock> RunnerHost<'_, P, C> {
@@ -514,6 +557,26 @@ impl<P: RunnerPlatform, C: MonotonicClock> RunnerHost<'_, P, C> {
             Ok(()) => ControlResponse::ok(id, serde_json::json!({"status": "reloaded"})),
             Err(refusal) => ControlResponse::error(id, refusal),
         }
+    }
+}
+
+impl<P: RunnerPlatform, C> DevicePort for RunnerHost<'_, P, C> {
+    fn device_interfaces(&self) -> Option<DeviceInterfaces> {
+        self.platform.device_interfaces()
+    }
+
+    fn device_settings(&self) -> Result<Option<(u32, DeviceSettings)>, String> {
+        self.platform.device_settings()
+    }
+
+    fn store_device_settings(&self, settings: &DeviceSettings) -> Result<u32, String> {
+        self.platform.store_device_settings(settings)
+    }
+
+    /// The loop resets the device once the reply is sent (specification 34 TARGET-02).
+    fn request_device_reset(&self) -> bool {
+        self.install.request_reset();
+        true
     }
 }
 

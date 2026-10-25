@@ -24,7 +24,7 @@ use crate::cycle_step;
 use crate::debug::{answer as answer_debug, is_debug_operation};
 use crate::events::{wall_time, RuntimeEvent};
 use crate::live_values::{io_requests, var_requests};
-use crate::loading::program_install;
+use crate::loading::{firmware_install, program_install};
 use crate::ports::{AuditRecord, ControlHost};
 use crate::protocol::{
     read_line, ControlAfterResponse, ControlRequest, ControlResponse, LineError,
@@ -284,6 +284,10 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "cycle.step" => cycle_step::request(id, request.params.as_ref(), host),
         "shutdown" => operations::shutdown(id, request.params.as_ref()),
         "program.install" => program_install::request(id, request.params.as_ref(), host),
+        "firmware.install" => firmware_install::request(id, request.params.as_ref(), host),
+        "device.get" => device::get(id, host),
+        "device.set" => device::set(id, request.params.as_ref(), host),
+        "device.reset" => device::reset(id, host),
         "transfer.begin" | "transfer.part" | "transfer.status" | "transfer.get"
         | "transfer.abort" => transfers::answer_transfer(request, host),
         "program.active" => transfers::program_active(id, host),
@@ -318,6 +322,7 @@ fn audited<H: ControlHost>(
     response.with_audit_id(audit_id)
 }
 
+mod device;
 mod link_reply;
 pub(crate) mod transfers;
 

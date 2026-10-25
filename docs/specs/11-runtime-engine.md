@@ -2760,6 +2760,22 @@ specification 34 STATE-08). With `--restart` the command then sends `restart {mo
 mode=<mode> state=running`; a `faulted` state ends the wait at once and fails with the
 fault. Without `--restart` the installed program does not start.
 
+`ctl firmware <image> [--wait <seconds>]` updates a chip's truST firmware (specification 34
+TARGET-04; the firmware update contract above). It sends `capabilities` and `status` first and
+fails, before anything is uploaded, with `this runtime keeps no firmware slots: truST on a computer
+is updated by installing truST on that computer` when `firmware` is null, and with `the runtime's
+program is <state>: stop it first (trust-runtime ctl shutdown), then update its firmware` unless the
+state is `stopped`. It uploads the image as `ctl install` uploads a container, with `"for":
+"firmware"`, and sends `firmware.install`, whose reply it awaits at most 60 seconds, and prints
+`installed version=<v> slot=<s>; the runtime restarts into it (it ran <v> from slot <s>)`. It then
+connects again every second, at most `--wait` seconds (60 by default), until `capabilities`
+answers: when the chip runs the installed version from the installed slot and `confirmed` is true
+it prints `running version=<v> slot=<s> confirmed`; when `rolled_back` names the installed version it
+fails with `the runtime rolled the update back: truST <v> did not finish its boot, and the runtime
+runs truST <v> from slot <s> again`. `trust-runtime firmware install --chip <chip> [--port <port>]
+<folder>` installs truST on a chip that does not run it yet, through the chip's own boot loader
+(specification 34 TARGET-04).
+
 `config.set` values trim surrounding whitespace and decode case-insensitive
 `null`, `true`, and `false`, followed by an in-range signed 64-bit decimal
 integer; every other value remains the trimmed string. Human-oriented rendering
@@ -3302,6 +3318,54 @@ Its result is the same shape on every runtime, a computer or a device without an
 | `application_slot_bytes` | integer or null | The bytes of the device's application slot, or null when it has none |
 | `program_memory_bytes` | integer or null | The bytes of memory the device has for a program, which admission compares a program's memory figure with (specification 34 MEM-12, §5.1.1): a chip's measurement at boot, or null where there is no maximum, as on a computer |
 | `last_reset` | object or null | The reset the device's boot read (below), or null |
+| `firmware` | object or null | A chip's firmware slots (specification 34 TARGET-04; the firmware update contract below), or null on a runtime that keeps none, a computer among them |
+
+| `firmware` field | Type | Value |
+|---|---|---|
+| `slot` | string | The slot the firmware runs from: `a` or `b` |
+| `version` | string | The running firmware's truST version |
+| `confirmed` | boolean | False while the firmware runs on trial after an update, until its boot is done; true otherwise |
+| `rolled_back` | string or null | The version of a newer firmware in the other slot that the boot loader stopped booting because it did not confirm itself, or null |
+
+###### Device settings contract
+
+A chip keeps its own settings, `device.toml` (specification 34 TARGET-02, which defines the keys and
+their checks). `device.get` (Engineer) answers `{"settings": <object>, "sequence": <n>}`, the settings
+as `device.toml`'s sections with `network.wifi.password` replaced by `password_set` (true when a
+password is set), or `{"settings": null, "sequence": null}` when none are stored. `device.set
+{settings}` (Admin) refuses, in this order: missing params; `invalid params: settings must be an
+object`; a settings object that does not read as `device.toml` (an unknown section or key, a value
+of the wrong type), as `invalid params: <reason>`; a hung resource; a resource that is not Stopped, as
+`resource_not_running`; a setting the chip cannot take, with the key and the reason, for example
+`network.ethernet: the ESP32-C6 has no Ethernet`; and a flash failure. It answers `{"status":
+"stored", "sequence": <n>, "applies": "boot"}`. `device.reset` (Admin) refuses a hung resource and
+one that is not Stopped, and answers `{"status": "resetting"}`; the chip answers no further request
+and resets once the reply is sent and 100 ms have passed. A runtime that keeps no device settings, a
+computer among them, answers all three with `unsupported request`. `ctl device-get` prints the
+settings as `device.toml` text after the line `# device settings, sequence <n>`, or `no device
+settings are stored`; `ctl device-set <file>` reads the `device.toml` file and sends its tables as
+`settings`, and prints `stored sequence=<n>; the settings apply at the device's next boot
+(trust-runtime ctl device-reset)`; `ctl device-reset` prints `resetting`.
+
+###### Firmware update contract
+
+A chip is updated over its control connection (specification 34 TARGET-04). While the resource is
+Stopped, `transfer.begin` with `"for": "firmware"` opens an upload of the chip's firmware image that
+the chip writes into the firmware slot it does not run from; `for` is `program` (the default) or
+`firmware`, and any other value is refused with `invalid params: for must be "program" or
+"firmware"`. On a resource that is not Stopped it is refused as `resource_not_running`, and on a
+runtime without firmware slots, a computer among them, with `unsupported request`. `firmware.install
+{transfer}` (Admin) refuses, in this order: missing params and a malformed `transfer`; a hung
+resource; a resource that is not Stopped, as `resource_not_running`; a runtime without firmware
+slots, with `unsupported request`; a transfer that is not an open firmware upload, with `the
+transfer is not a firmware upload: begin it with "for": "firmware"` (an unknown or unfinished one
+with the session's own text); the chip's check of the image, with its text, for example `the
+firmware image's SHA-256 is wrong`. The transfer is taken only after the checks before the image's
+own, so those refusals leave it open, and `program.install` of a firmware upload is refused with
+`the transfer is a firmware upload, which firmware.install installs` and leaves it open too. The
+reply waits for the commit (the image's first bytes, their read-back and the slot's selection) and
+is `{"status": "installed", "version": "<version>", "slot": "a"|"b", "restarting": true}`. The chip
+then answers no further request and resets into the new firmware once the reply is sent.
 
 A computer reports `last_reset` as null: it starts as a new process. A device without an operating
 system reports the reset its boot read once: the record the previous boot left (specification 34,
@@ -5894,8 +5958,8 @@ The explicit operation matrix is:
 |---|---|
 | Viewer | `status`, `capabilities`, `health`, `tasks.stats`, `events.tail`, `events`, `faults`, `config.get`, `connectors.status`, ADS/discovery/status/route-plan reads, `comm.capabilities`, `comm.schema`, `comm.discover`, `comm.search.start` without a confirmed fieldbus scan, `comm.search.status`, `comm.search.cancel`, `fleet.topology`, `io.list`, `io.read`, HMI schema/value/trend/alarm/descriptor reads, historian reads, debug state/stack/scope/variable/location reads, `breakpoints.list`, `var.forced`, `program.active` |
 | Operator | `pause`, `resume`, `restart`, `hmi.alarm.ack`, `pair.claim` |
-| Engineer | step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `clock.set`, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
-| Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
+| Engineer | `device.get` (specification 34 TARGET-02), step operations, `cycle.step`, breakpoint mutation, `eval`, `set`, variable and I/O write/force/release, `clock.set`, `debug.evaluate`, HMI write/descriptor/scaffold mutation, communication apply/test, a confirmed fieldbus scan (`comm.search.start` with `confirm_fieldbus_scan = true`), ADS server doctor actions |
+| Admin | `shutdown`, `bytecode.reload`, `program.install` (specification 34 §11.2, refused unless the resource is Stopped), `firmware.install` (specification 34 TARGET-04, refused unless the resource is Stopped), `device.set` and `device.reset` (specification 34 TARGET-02, refused unless the resource is Stopped), the transfer operations `transfer.begin`, `transfer.part`, `transfer.status`, `transfer.get` and `transfer.abort` (specification 34, PORT-05), ADS route add/remove, pairing start/list/revoke, and security/exposure configuration listed below |
 
 Parameter-sensitive operations retain these boundaries:
 

@@ -23,6 +23,10 @@ use crate::protocol::ControlResponse;
 use crate::resource::replies::{hung_refusal, resource_not_running};
 use crate::transfer::{wire, Complete};
 
+/// The refusal of `program.install` for an upload written into the firmware slots.
+pub const FIRMWARE_UPLOAD: &str =
+    "the transfer is a firmware upload, which firmware.install installs";
+
 /// Answers `program.install {transfer}`. The request pipeline refuses every role below Admin before
 /// this runs.
 ///
@@ -50,6 +54,11 @@ pub fn request<H: ControlHost>(id: u64, params: Option<&Value>, host: &H) -> Con
     }
     if !host.has_program_store() {
         return ControlResponse::error(id, "unsupported request".to_string());
+    }
+    // A firmware upload is installed by `firmware.install` and stays open (specification 34
+    // TARGET-04).
+    if host.is_firmware_upload(transfer) {
+        return ControlResponse::error(id, FIRMWARE_UPLOAD.to_string());
     }
     let upload = match take_upload(id, transfer, host) {
         Ok(upload) => upload,

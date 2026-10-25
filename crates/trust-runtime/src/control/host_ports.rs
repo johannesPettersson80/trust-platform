@@ -408,6 +408,10 @@ impl VariableQueuePort for ControlState {
     }
 }
 
+/// A computer keeps no device settings: its operating system holds them (specification 34
+/// TARGET-02), so the device requests answer `unsupported request`.
+impl trust_runtime_services::ports::DevicePort for ControlState {}
+
 impl ExtensionDispatch for ControlState {
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
         handlers::dispatch(request, self)
