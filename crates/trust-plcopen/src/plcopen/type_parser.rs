@@ -146,9 +146,10 @@ fn parse_type_expression_node(node: roxmltree::Node<'_, '_>) -> Option<String> {
                 .map(|raw| raw.trim().to_string())
                 .filter(|raw| !raw.is_empty())
             {
-                if !is_valid_string_length(&length) {
-                    return None;
-                }
+                // Symbolic lengths pass through verbatim: the analyzer owns
+                // resolution (initializer-backed constants, qualified
+                // names — IEC_DEVIATIONS 2026-10-21/2026-10-25), mirroring
+                // the array-dimension lower/upper pass-through.
                 base.push('[');
                 base.push_str(&length);
                 base.push(']');
@@ -443,8 +444,4 @@ fn is_sized_string_base(base: &str) -> bool {
     !expr.is_empty()
         && !expr.contains(';')
         && base[open + 1 + expr_end + close.len_utf8()..].trim().is_empty()
-}
-
-fn is_valid_string_length(value: &str) -> bool {
-    value.parse::<u64>().is_ok_and(|length| length > 0)
 }

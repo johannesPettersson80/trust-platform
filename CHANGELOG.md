@@ -6,7 +6,22 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Fixed
 
+- The help under a hardware terminal that no PLC signal fits, in Devices & Connections, suggests an address the runtime
+  binds the terminal's type to: `%ID0` for a `TIME`, `%IW0` for a `WCHAR` and the byte address `%IB0` for a `STRING`.
+  Before, it suggested a long-word address such as `%IL0`, which the runtime refuses for these types, and it did the
+  same for a `DATE` or a structure, which now get the advice without an example (HMI component catalogue §8.1).
+- Cancelling Identify while it waits for a loop in Auto to settle always stops before the loop is switched to Manual.
+  Before, a Cancel that arrived during the wait's last reading could still let the switch happen; the mode was
+  returned afterwards (specification 35, B3.4).
+
+- Interface and abstract-method conformance diagnostics move from `E202` to
+  the new dedicated code `E208` ("must implement method/property",
+  signature and visibility mismatches, missing abstract implementations).
+  Type-used-as-value, access-specifier and initializer-constraint
+  diagnostics keep `E202`, so per-code severity overrides no longer mask
+  interface completeness regressions.
 - Declaration sizes over flattened library containers: a dotted size
   reference (`STRING(LogParameter.MAX_LOG_MSG_LEN)`,
   `STRING(WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN)`) resolves when the
@@ -18,23 +33,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   ordinary initializers keep the strict rule (IEC_DEVIATIONS 2026-10-25).
   The analyzer and the runtime harness fold the same value, so
   documentation-faithful sizes (128/20/40-class stub constants) compile at
-  their declared capacities instead of failing the compile.
+  their declared capacities instead of failing the compile. PLCopen
+  import/export passes symbolic string lengths through verbatim (mirroring
+  array dimensions) instead of failing POUs closed at import.
 
-### Fixed
-- Interface and abstract-method conformance diagnostics move from `E202` to
-  the new dedicated code `E208` ("must implement method/property",
-  signature and visibility mismatches, missing abstract implementations).
-  Type-used-as-value, access-specifier and initializer-constraint
-  diagnostics keep `E202`, so per-code severity overrides no longer mask
-  interface completeness regressions.
-
-### Fixed
-- Interface and abstract-method conformance diagnostics move from `E202` to
-  the new dedicated code `E208` ("must implement method/property",
-  signature and visibility mismatches, missing abstract implementations).
-  Type-used-as-value, access-specifier and initializer-constraint
-  diagnostics keep `E202`, so per-code severity overrides no longer mask
-  interface completeness regressions.
+## [0.27.0] - 2026-10-31
 
 ### Changed
 
