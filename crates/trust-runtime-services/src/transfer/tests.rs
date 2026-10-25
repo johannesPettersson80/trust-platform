@@ -832,13 +832,17 @@ fn a_transfer_id_of_fifteen_digits_is_refused() {
     );
 }
 
-/// An upload of a program image keeps the SHA-512 of the bytes its signature covers, every byte but
-/// the last 100 (`SIGN`, the image's last section; specification 44 §5.11), built part by part: a
-/// 9,000-byte image arrives in parts at 0, 4,096 and 8,192, a repeat of the first part changes
-/// nothing, and the hash is that of bytes 0 to 8,900 in one block. An upload that does not start
-/// with the image's magic `TRSTI001`, or an image shorter than `SIGN`, keeps none. Catches a hash
-/// that takes `SIGN` or a repeat in, which would refuse every signed online change, and a session
-/// that hashes uploads that are no image.
+/// An upload of a program image on a device that trusts keys keeps the SHA-512 of the bytes its
+/// signature covers, every byte but the last 100 (`SIGN`, the image's last section; specification 44
+/// §5.11), which the loop builds between scans a block of 128 bytes at a time: a 9,000-byte image
+/// arrives in parts at 0, 4,096 and 8,192, a repeat of the first part changes nothing, and the
+/// session owes the hash from the last part until every one of the 8,900 signed bytes is hashed:
+/// 8,900 / 128 = 69.53, so 70 steps, the last of 68 bytes. The hash is that of bytes 0 to 8,900 in
+/// one block. A device that trusts no key hashes nothing, and an upload that does not start with the
+/// image's magic `TRSTI001`, or an image shorter than `SIGN`, keeps no hash. Catches a hash that
+/// takes `SIGN` or a repeat in, which would refuse every signed online change; a session that hashes
+/// on a device that checks no signature, which stalled the C6's scans for 50 ms a part (S5 bench,
+/// 25 October 2026); and requests answered while the hash is owed.
 #[test]
 fn an_image_upload_keeps_the_hash_of_its_signed_bytes() {
     use trust_runtime_core::deployment::sha256;
@@ -847,22 +851,57 @@ fn an_image_upload_keeps_the_hash_of_its_signed_bytes() {
     let mut image = b"TRSTI001".to_vec();
     image.extend(pattern(9_000 - 8));
     let part = |bytes: &[u8]| (encoded(bytes), trust_runtime_core::crc32::checksum(bytes));
-    let mut session = TransferSession::new(1, 10_000, 1_000);
-    let id = session
-        .begin(9_000, sha256(&image))
-        .expect("a 9,000-byte upload opens");
-    for (offset, end) in [(0, 4_096), (0, 4_096), (4_096, 8_192), (8_192, 9_000)] {
-        let (text, crc) = part(&image[offset..end]);
-        session
-            .part(id, offset as u64, &text, crc)
-            .expect("the part is taken");
+    let upload = |session: &mut TransferSession, steps: bool| -> (TransferId, usize) {
+        let id = session
+            .begin(9_000, sha256(&image))
+            .expect("a 9,000-byte upload opens");
+        let mut hashed = 0;
+        for (offset, end) in [(0, 4_096), (0, 4_096), (4_096, 8_192), (8_192, 9_000)] {
+            let (text, crc) = part(&image[offset..end]);
+            session
+                .part(id, offset as u64, &text, crc)
+                .expect("the part is taken");
+            while steps && end < 9_000 && session.hash_step() {
+                hashed += 1;
+            }
+        }
+        (id, hashed)
+    };
+
+    let mut session = TransferSession::new(1, 10_000, 1_000).with_prehash(true);
+    let (id, before_last) = upload(&mut session, true);
+    // 8,192 bytes had arrived before the last part: 64 blocks.
+    assert_eq!(before_last, 64);
+    assert!(
+        session.hash_owed(),
+        "the last part's bytes are not hashed yet"
+    );
+    let mut steps = 0;
+    while session.hash_step() {
+        steps += 1;
     }
+    // 8,900 − 8,192 = 708 bytes: 5 blocks of 128 and one of 68.
+    assert_eq!(steps, 6);
+    assert!(!session.hash_owed());
     let mut expected = Prehash::new();
     expected.update(&image[..8_900]);
     assert_eq!(
         session.take_complete(id),
+        Ok(Complete::Memory(image.clone(), Some(expected.clone())))
+    );
+
+    // A request that takes the upload before the loop hashed it gets the same hash.
+    let (id, _) = upload(&mut session, false);
+    assert_eq!(
+        session.take_complete(id),
         Ok(Complete::Memory(image.clone(), Some(expected)))
     );
+
+    let mut keyless = TransferSession::new(1, 10_000, 1_000);
+    let (id, steps) = upload(&mut keyless, true);
+    assert_eq!(steps, 0, "a device that trusts no key hashes nothing");
+    assert!(!keyless.hash_owed());
+    assert_eq!(keyless.take_complete(id), Ok(Complete::Memory(image, None)));
 
     let short = b"TRSTI001 short".to_vec();
     let id = session
@@ -870,5 +909,6 @@ fn an_image_upload_keeps_the_hash_of_its_signed_bytes() {
         .expect("a short upload opens");
     let (text, crc) = part(&short);
     session.part(id, 0, &text, crc).expect("the part is taken");
+    assert!(!session.hash_owed());
     assert_eq!(session.take_complete(id), Ok(Complete::Memory(short, None)));
 }

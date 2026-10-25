@@ -197,7 +197,18 @@ pub struct Runner<L, W, Y, P, C> {
     /// specification 11 §6.8.1). A step of another generation is no step since the resource
     /// stopped: every start and every restart of the program installs the next generation.
     last_step: Cell<Option<(Generation, value::Duration)>>,
+    /// How long the last block of an upload's hash took ([`Runner::step_hash`]), which the loop
+    /// keeps free before the next boundary for the next block.
+    hash_block: TimeSpan,
 }
+
+/// What the loop assumes a block of an upload's hash takes until it has measured one: the ESP32-C6
+/// takes about 1.6 ms (specification 44 §5.11).
+const FIRST_HASH_BLOCK: TimeSpan = TimeSpan::new(core::time::Duration::from_millis(2));
+
+/// The longest the loop hashes in one pass when no boundary is due, a program that has ended: the
+/// link is served again in between.
+const HASH_PASS_WITHOUT_BOUNDARY: TimeSpan = TimeSpan::new(core::time::Duration::from_millis(5));
 
 impl<L, W, Y, P, C> Runner<L, W, Y, P, C>
 where
@@ -281,6 +292,7 @@ where
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
             request_grant: false,
+            hash_block: FIRST_HASH_BLOCK,
             last_step: Cell::new(None),
         }
     }
@@ -330,6 +342,7 @@ where
             program_time: value::Duration::ZERO,
             restarts: AutomaticRestartLimiter::default(),
             request_grant: false,
+            hash_block: FIRST_HASH_BLOCK,
             last_step: Cell::new(None),
         }
     }
@@ -374,8 +387,20 @@ impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
     ///
     /// Without a session of its own the loop uses the platform's ([`RunnerPlatform::with_transfers`]).
     #[must_use]
-    pub fn with_transfers(self, session: TransferSession) -> Self {
-        self.shell.install.set_transfers(session);
+    pub fn with_transfers(self, session: TransferSession) -> Self
+    where
+        L: ControlLink,
+        W: RunnerWait,
+        P: RunnerPlatform,
+        C: MonotonicClock,
+    {
+        // A device that trusts keys checks an online change's signature, so its session hashes an
+        // image upload for it (specification 44 §5.11); one that trusts none hashes nothing.
+        let keys = self
+            .shell
+            .device_descriptor()
+            .is_some_and(|descriptor| !descriptor.trusted_keys.is_empty());
+        self.shell.install.set_transfers(session.with_prehash(keys));
         self
     }
 
@@ -478,6 +503,7 @@ where
         let more_frames = self.serve_link();
         self.supervise();
         self.step_retain();
+        self.step_hash();
         self.shell.idle();
         self.shell.feed();
         self.fault_on_shell_defect();
@@ -521,6 +547,31 @@ where
         }
     }
 
+    /// Hashes an image upload's signed bytes between scans (specification 44 §5.11): one block at a
+    /// time, while the next boundary leaves time for one more block as long as the last took, and
+    /// for at most [`HASH_PASS_WITHOUT_BOUNDARY`] when there is no boundary. A device that trusts no
+    /// key hashes nothing.
+    fn step_hash(&mut self) {
+        // The clock is read only while there is something to hash (checklist P1-6).
+        if !self.shell.hash_work() {
+            return;
+        }
+        let start = self.clock.now();
+        let limit = self
+            .next_boundary
+            .unwrap_or_else(|| start.saturating_add(HASH_PASS_WITHOUT_BOUNDARY));
+        loop {
+            let before = self.clock.now();
+            if before.saturating_add(self.hash_block) >= limit {
+                return;
+            }
+            if !self.shell.hash_step() {
+                return;
+            }
+            self.hash_block = self.clock.now().saturating_since(before);
+        }
+    }
+
     /// Serves up to [`FRAMES_PER_PASS`] requests, and returns true when it stops with the link not
     /// yet dry: at the bound, or at a request it holds back. It starts no request while the next
     /// boundary is due, so the boundary waits for at most the request being answered; the one
@@ -532,6 +583,13 @@ where
                 return false;
             };
             if self.boundary_due() && !core::mem::take(&mut self.request_grant) {
+                self.shell.hold_back(received);
+                return true;
+            }
+            // An image upload whose hash is still owed holds the requests back until the loop has
+            // hashed it between scans, so the request that takes it never hashes it while the
+            // program runs (specification 44 §5.11).
+            if self.shell.hash_owed() {
                 self.shell.hold_back(received);
                 return true;
             }

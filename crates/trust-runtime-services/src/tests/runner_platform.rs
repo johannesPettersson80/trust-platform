@@ -191,6 +191,16 @@ impl StatusPort for TestPlatform {
         ProgramControl::KeepsControl
     }
 
+    /// `trusted` while the descriptor names keys, as a chip's platform says (specification 44
+    /// §5.11).
+    fn signature(&self) -> &'static str {
+        if self.device_descriptor.trusted_keys.is_empty() {
+            "none"
+        } else {
+            "trusted"
+        }
+    }
+
     /// A chip's settings: compiled programs, production control and no simulation.
     fn status_settings(&self) -> Option<StatusSettings> {
         Some(crate::chip::platform::status_settings())

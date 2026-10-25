@@ -639,3 +639,71 @@ fn a_loop_without_a_program_store_answers_unsupported_request_and_keeps_the_uplo
     );
     assert_eq!(status["result"]["state"], json!("complete"));
 }
+
+#[test]
+fn requests_wait_while_an_image_uploads_hash_is_owed() {
+    // Specification 44 §5.11: a device that trusts keys hashes an image upload's signed bytes
+    // between scans and holds the requests back until they are all hashed, so the request that takes
+    // the upload, an online change's, never hashes them while the program runs. The 1,000-byte image
+    // arrives in one part; `status` comes in the same pass, after it. The part is answered, and
+    // `status` waits: in that pass the loop hashes the 900 signed bytes (the image less its 100-byte
+    // `SIGN`), and in the next it answers `status`. Wrong behaviour caught: a request served while
+    // the hash is owed, which would hash the image in the request on the C6, 50 ms a part (S5 bench,
+    // 25 October 2026), and a loop that never hashes, which would hold the link back for good.
+    static KEYS: [[u8; 32]; 1] = [[9; 32]];
+    let rig = Rig::new(FlashProbe::erased(), CheckpointProbe::erased());
+    let defaults = TestPlatform::default();
+    let platform = TestPlatform {
+        device_descriptor: trust_runtime_core::deployment::DeviceDescriptor {
+            trusted_keys: &KEYS,
+            ..defaults.device_descriptor.clone()
+        },
+        ..defaults
+    };
+    let mut runner = rig.runner_with(platform);
+    let mut image = b"TRSTI001".to_vec();
+    image.resize(1_000, 0x5A);
+    let begin = rig.ports.call(
+        &mut runner,
+        &json!({
+            "id": 1,
+            "type": "transfer.begin",
+            "params": {"bytes": image.len(), "sha256": hex(&sha256(&image))},
+        }),
+    );
+    let transfer = begin["result"]["transfer"]
+        .as_str()
+        .expect("begin names the transfer")
+        .to_string();
+    rig.ports.link.send(&json!({
+        "id": 2,
+        "type": "transfer.part",
+        "params": {
+            "transfer": transfer,
+            "offset": 0,
+            "data": STANDARD.encode(&image),
+            "crc32": format!("{:08x}", crc32::checksum(&image)),
+        },
+    }));
+    rig.ports.link.send(&json!({"id": 3, "type": "status"}));
+    runner.run_pass().expect("the test wait does not fail");
+    let first: Vec<Value> = rig.ports.link.take_replies();
+    assert_eq!(
+        first
+            .iter()
+            .map(|reply| reply["id"].clone())
+            .collect::<Vec<_>>(),
+        vec![json!(2)],
+        "the part is answered and `status` waits: {first:?}"
+    );
+    runner.run_pass().expect("the test wait does not fail");
+    let second: Vec<Value> = rig.ports.link.take_replies();
+    assert_eq!(
+        second
+            .iter()
+            .map(|reply| reply["id"].clone())
+            .collect::<Vec<_>>(),
+        vec![json!(3)],
+        "`status` is answered once the hash is done: {second:?}"
+    );
+}

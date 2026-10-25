@@ -365,6 +365,11 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
         ProgramControl::KeepsControl
     }
 
+    /// How the platform admits program images by their signature (specification 44 §5.11).
+    fn signature(&self) -> &'static str {
+        self.platform.signature()
+    }
+
     fn status_settings(&self) -> Option<StatusSettings> {
         self.platform.status_settings()
     }

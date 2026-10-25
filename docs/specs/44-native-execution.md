@@ -552,12 +552,17 @@ error. A device whose list is empty checks no signature: with no key to trust, a
 nothing that the record's hash (§10.2 step 1) does not. It admits signed and unsigned images alike
 and reports `signature: none`, so that development needs no setup. An online change is admitted as
 an install is, against the same list. A chip reads its list once at boot, so a list that
-`device.set` changes applies from the next boot (specification 34 TARGET-02), and it hashes an
-upload's bytes as each part arrives: the pure Ed25519 of 0.20 hashed a 90 KB image in one block of
-0.85 s on the ESP32-C6, at the build's size optimization (bench, 24 October 2026), which an online
-change took from the running scan. Its signature code is built for speed, not size (the firmware's
-profile builds `sha2`, `curve25519-dalek` and `ed25519-dalek` at `opt-level = 3`), with the
-precomputed tables of the base point. Signing is for authenticity and integrity; it hides nothing, and the symbol table and the
+`device.set` changes applies from the next boot (specification 34 TARGET-02). A chip that trusts
+keys hashes an online change's upload between scans: its loop hashes the signed bytes that have
+arrived a SHA-512 block (128 bytes) at a time, only while the next scan leaves time for one more
+block as long as the last one took, and once the upload is complete it holds the requests back until
+every signed byte is hashed, so the request that takes the upload never hashes it while the program
+runs. A chip that trusts no key hashes nothing. The ESP32-C6 hashes about 12 µs a byte, 50 ms a part
+of 4,096 bytes, which, hashed in the request, stalled the scans by that much (S5 bench, 25 October
+2026); the pure Ed25519 of 0.20 hashed a 90 KB image in one block of 0.85 s (bench, 24 October 2026),
+which an online change took from the running scan. Its signature code is built at `opt-level = 3`
+in the firmware's profile (`sha2`, `curve25519-dalek` and `ed25519-dalek`), with the precomputed
+tables of the base point. Signing is for authenticity and integrity; it hides nothing, and the symbol table and the
 optional sources keep the program readable on the device.
 
 ## 6. Code generation

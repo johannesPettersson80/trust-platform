@@ -70,6 +70,7 @@ use crate::dispatch::{invalid_line, prepare_line_within, reply_within, PreparedL
 use crate::loading::reload::ReloadOutcome;
 use crate::ports::{AccessPort, StatusPort};
 use crate::protocol::{ControlAfterResponse, ControlResponse};
+use crate::transfer::TransferSession;
 
 /// How long after the reply of a `firmware.install` the chip resets, so that the host reads the
 /// reply's last bytes from the link first (specification 34 TARGET-04).
@@ -431,6 +432,29 @@ where
     /// Whether an install's reply is pending: its commit runs, and the loop reads no request.
     pub(super) fn install_pending(&self) -> bool {
         self.install.reply_pending()
+    }
+
+    /// Whether the loop's transfer session holds a complete image upload whose hash is still owed
+    /// (specification 44 §5.11): the loop holds the requests back until it has hashed it.
+    pub(super) fn hash_owed(&self) -> bool {
+        self.install
+            .with_transfers(|session| session.hash_owed())
+            .unwrap_or(false)
+    }
+
+    /// Whether the loop's image upload has received bytes to hash (specification 44 §5.11).
+    pub(super) fn hash_work(&self) -> bool {
+        self.install
+            .with_transfers(|session| session.hash_work())
+            .unwrap_or(false)
+    }
+
+    /// Hashes the next block of the loop's image upload between scans, and returns whether there
+    /// was one (specification 44 §5.11).
+    pub(super) fn hash_step(&self) -> bool {
+        self.install
+            .with_transfers(TransferSession::hash_step)
+            .unwrap_or(false)
     }
 
     /// Withdraws the online change that no boundary took within five seconds, and writes its reply,

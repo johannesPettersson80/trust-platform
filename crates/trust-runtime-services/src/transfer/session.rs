@@ -332,6 +332,9 @@ pub struct TransferSession {
     part_reserve: PartReserve,
     upload: Option<Upload>,
     reply: Option<HeldReply>,
+    /// Whether an image upload held in memory is hashed for its signature check: on a device that
+    /// trusts keys (specification 44 §5.11), which checks signatures; off by default.
+    prehash: bool,
 }
 
 /// An open upload. Its buffers are reserved at begin and freed with the upload. `part` is where each
@@ -352,13 +355,15 @@ struct Upload {
 }
 
 /// The bytes of an upload that a program image's signature covers, every byte before `SIGN`, the
-/// image's last section, and their SHA-512, which the session builds as the parts arrive. A device
-/// then checks the signature of an online change without hashing the image in one block while its
-/// program runs (specification 44 §5.11).
+/// image's last section, and their SHA-512, which the loop builds a block at a time between scans
+/// ([`TransferSession::hash_step`]). A device then checks the signature of an online change
+/// without hashing the image while its program runs (specification 44 §5.11).
 #[derive(Debug)]
 struct Signed {
     /// The end of the signed bytes: the upload's length less `SIGN`.
     end: usize,
+    /// The signed bytes hashed so far.
+    hashed: usize,
     hash: Prehash,
 }
 
@@ -369,18 +374,33 @@ impl Signed {
         first.starts_with(&IMAGE_MAGIC).then_some(())?;
         Some(Self {
             end: bytes.checked_sub(SIGN_BYTES)?,
+            hashed: 0,
             hash: Prehash::new(),
         })
     }
 
-    /// Adds the signed bytes of `part`, the part at `offset`.
-    fn add(&mut self, offset: usize, part: &[u8]) {
-        let end = self.end.min(offset + part.len());
-        if offset < end {
-            self.hash.update(&part[..end - offset]);
+    /// Hashes the next block, at most [`HASH_BLOCK_BYTES`], of the signed bytes among the first
+    /// `received` bytes of `buffer`, and returns whether there was one.
+    fn step(&mut self, buffer: &[u8], received: usize) -> bool {
+        let stop = self.end.min(received);
+        if self.hashed >= stop {
+            return false;
         }
+        let next = stop.min(self.hashed + HASH_BLOCK_BYTES);
+        self.hash.update(&buffer[self.hashed..next]);
+        self.hashed = next;
+        true
+    }
+
+    /// Whether every signed byte is hashed.
+    fn done(&self) -> bool {
+        self.hashed >= self.end
     }
 }
+
+/// The bytes the loop hashes in one step between scans: one SHA-512 block, which the ESP32-C6 hashes
+/// in about 1.6 ms (the S5 bench of 25 October 2026: 12 µs a byte).
+pub const HASH_BLOCK_BYTES: usize = 128;
 
 /// Where an upload's received bytes are (specification 34, PORT-05 and §5.1).
 #[derive(Debug)]
@@ -448,7 +468,52 @@ impl TransferSession {
             part_reserve: reserve_part,
             upload: None,
             reply: None,
+            prehash: false,
         }
+    }
+
+    /// As `self`, hashing an image upload held in memory for its signature check when `prehash`
+    /// says so: a device that trusts keys turns it on (specification 44 §5.11).
+    #[must_use]
+    pub fn with_prehash(mut self, prehash: bool) -> Self {
+        self.prehash = prehash;
+        self
+    }
+
+    /// Hashes the next block of the open image upload's received signed bytes, between scans, and
+    /// returns whether there was one (specification 44 §5.11). The loop calls it while the next
+    /// scan leaves time for a block.
+    pub fn hash_step(&mut self) -> bool {
+        let Some(upload) = self.upload.as_mut() else {
+            return false;
+        };
+        let (Some(signed), Held::Memory(buffer)) = (upload.signed.as_mut(), &upload.held) else {
+            return false;
+        };
+        signed.step(buffer, upload.next_offset)
+    }
+
+    /// Whether the open upload has received signed bytes that are not hashed yet, which
+    /// [`Self::hash_step`] would hash.
+    #[must_use]
+    pub fn hash_work(&self) -> bool {
+        self.upload.as_ref().is_some_and(|upload| {
+            upload
+                .signed
+                .as_ref()
+                .is_some_and(|signed| signed.hashed < signed.end.min(upload.next_offset))
+        })
+    }
+
+    /// Whether the open upload is complete and its signed bytes are not all hashed yet: the loop
+    /// holds the requests back until they are, so that the request that takes the upload never
+    /// hashes them itself (specification 44 §5.11).
+    #[must_use]
+    pub fn hash_owed(&self) -> bool {
+        self.upload.as_ref().is_some_and(|upload| {
+            upload.state() == State::Complete
+                && upload.signed.as_ref().is_some_and(|signed| !signed.done())
+        })
     }
 
     /// As `self`, with each part of a reply taken by `reserve`. A test passes a function that
@@ -582,6 +647,7 @@ impl TransferSession {
         encoded: &str,
         crc: u32,
     ) -> Result<Received, TransferError> {
+        let prehash = self.prehash;
         let upload = self.open_upload_mut(id)?;
         if let Held::Store(stored) = &mut upload.held {
             stored.waiting = None;
@@ -616,11 +682,8 @@ impl TransferSession {
                 }
             };
             buffer[received..end].copy_from_slice(&upload.part[..decoded]);
-            if received == 0 {
+            if received == 0 && prehash {
                 upload.signed = Signed::of(&buffer[..end], upload.bytes);
-            }
-            if let Some(signed) = &mut upload.signed {
-                signed.add(received, &buffer[received..end]);
             }
             upload.next_offset = end;
             if end == upload.bytes && sha256(buffer) != upload.digest {
@@ -794,7 +857,13 @@ impl TransferSession {
         let complete = self.upload.take().ok_or(TransferError::Unknown)?;
         Ok(match complete.held {
             Held::Memory(buffer) => {
-                Complete::Memory(buffer, complete.signed.map(|signed| signed.hash))
+                // The loop hashes the signed bytes between scans and holds the requests back until
+                // they are all hashed; what is left is hashed here, which a loop never leaves.
+                let prehash = complete.signed.map(|mut signed| {
+                    while signed.step(&buffer, buffer.len()) {}
+                    signed.hash
+                });
+                Complete::Memory(buffer, prehash)
             }
             Held::Store(stored) => Complete::Store(StoredUpload {
                 transfer: complete.id,

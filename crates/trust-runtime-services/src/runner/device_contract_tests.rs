@@ -198,3 +198,34 @@ fn a_runtime_without_device_settings_refuses_them() {
     }
     assert_eq!(rig.resets.get(), 0);
 }
+
+/// `status` reports the platform's signature check through the loop (specification 44 §5.11;
+/// specification 11, `status`): `trusted` while the platform names keys, and `none` without. The
+/// keys are any 32 bytes. Catches a loop that answers with the port's default, `none`, for a chip
+/// that checks every program's signature, which the C6 bench of 25 October 2026 found.
+#[test]
+fn status_reports_the_platforms_signature_check() {
+    static KEYS: [[u8; 32]; 1] = [[7; 32]];
+    let rig = Rig::new();
+    let trusting = TestPlatform {
+        device_descriptor: trust_runtime_core::deployment::DeviceDescriptor {
+            trusted_keys: &KEYS,
+            ..trust_runtime_core::deployment::DeviceDescriptor::hosted()
+        },
+        ..rig.platform(true)
+    };
+    let mut runner = Runner::stopped(
+        rig.ports.link.clone(),
+        rig.ports.wait.clone(),
+        trusting,
+        rig.ports.clock.clone(),
+        SmolStr::new_static("no TRSTA002 container in either slot"),
+        EVENT_STORE_CAPACITY,
+    );
+    let reply = rig.call(&mut runner, &json!({"id": 1, "type": "status"}));
+    assert_eq!(reply["result"]["signature"], json!("trusted"), "{reply}");
+
+    let mut bare = rig.stopped(true);
+    let reply = rig.call(&mut bare, &json!({"id": 2, "type": "status"}));
+    assert_eq!(reply["result"]["signature"], json!("none"), "{reply}");
+}
