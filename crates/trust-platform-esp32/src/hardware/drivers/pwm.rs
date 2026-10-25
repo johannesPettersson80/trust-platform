@@ -30,13 +30,14 @@ use esp_hal::peripherals::LEDC;
 use esp_hal::time::Rate;
 use smol_str::SmolStr;
 use trust_runtime_core::deployment::Configuration;
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_services::chip::process_io::ChipDriver;
 use trust_runtime_services::io_drivers::pwm::{duty_ticks, PwmOutput, PwmParams};
 use trust_runtime_services::status::IoDriverHealth;
 
 use super::DriverPeripherals;
 use crate::driver_plans::{
-    self, health_of, pwm_plan, read_image, refusal, Lease, PwmChannelPlan, TimerPlan,
+    self, driver_error, health_of, pwm_plan, read_image, refusal, Lease, PwmChannelPlan, TimerPlan,
     LEDC_CLOCK_HZ, LEDC_MAX_BITS, LEDC_TIMERS,
 };
 #[cfg(feature = "bench-loopback")]
@@ -370,7 +371,7 @@ impl ChipDriver for PwmDriver {
     }
 
     /// The PWM driver has no inputs.
-    fn read_inputs(&mut self, _image: &mut [u8]) -> Result<(), String> {
+    fn read_inputs(&mut self, _image: &mut [u8]) -> Result<(), RuntimeError> {
         Ok(())
     }
 
@@ -378,7 +379,7 @@ impl ChipDriver for PwmDriver {
     /// resolution, when that differs from the one it runs at; the LEDC takes it at the channel's next
     /// period. Every output is written even when one word lies outside the image, and the first
     /// failure is the error.
-    fn write_outputs(&mut self, image: &[u8]) -> Result<(), String> {
+    fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
         let mut result = Ok(());
         for line in &mut self.outputs {
             match read_image::<2>(image, line.byte, &line.address) {
@@ -397,7 +398,7 @@ impl ChipDriver for PwmDriver {
             }
         }
         self.health = health_of(&result);
-        result
+        result.map_err(|error| driver_error(NAME, error))
     }
 
     fn health(&self) -> IoDriverHealth {

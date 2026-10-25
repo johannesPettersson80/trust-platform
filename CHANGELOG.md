@@ -6,6 +6,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: the `modbus-tcp` driver on a chip with a network: the ESP32-C6 reads and writes a Modbus TCP
+  server over Wi-Fi with the computer's keys, checks and deadlines, from one shared implementation
+  of the driver's exchange that builds every frame with the `trust-modbus` crate.
 - Added: the `analog`, `pwm`, `counter` and `can` I/O drivers, with the same `io.toml` keys on a
   chip and on Linux (specification 11 §6.5): on the ESP32-C6 over its ADC, LEDC, PCNT and TWAI
   controllers, on Linux over IIO, sysfs PWM, the counter subsystem and SocketCAN. macOS and Windows

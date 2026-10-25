@@ -12,8 +12,10 @@ use crate::{
 };
 use alloc::boxed::Box;
 use alloc::format;
+use alloc::rc::Rc;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::cell::RefCell;
 use core::sync::atomic::{AtomicBool, Ordering};
 use esp_hal::{
     clock::CpuClock, efuse, gpio::Pin, timer::systimer::Alarm, usb::usb_serial_jtag::UsbSerialJtag,
@@ -325,6 +327,7 @@ impl Board {
                 gpio: self.gpio,
                 flash: self.flash,
                 drivers: self.drivers,
+                network: None,
             },
         }
     }
@@ -355,6 +358,16 @@ pub struct BoardHardware {
     gpio: GpioBank,
     flash: FlashOwner<FlashStorage<'static>>,
     drivers: DriverPeripherals,
+    /// The chip's network, which carries the connections of the `modbus-tcp` driver; `None` for a
+    /// chip that serves none.
+    network: Option<Rc<RefCell<C6Net>>>,
+}
+
+impl BoardHardware {
+    /// Gives the drivers the chip's network, once it has started (specification 11 §6.5).
+    pub fn set_network(&mut self, network: Rc<RefCell<C6Net>>) {
+        self.network = Some(network);
+    }
 }
 
 impl ProgramHardware for BoardHardware {
@@ -377,7 +390,13 @@ impl ProgramHardware for BoardHardware {
             })?;
         let mut drivers = Vec::with_capacity(requests.len());
         for request in &requests {
-            drivers.push(claim_driver(request, &self.gpio, &self.drivers, config)?);
+            drivers.push(claim_driver(
+                request,
+                &self.gpio,
+                &self.drivers,
+                self.network.as_ref(),
+                config,
+            )?);
         }
         Ok(bind_lines(inputs, outputs).with_drivers(drivers))
     }

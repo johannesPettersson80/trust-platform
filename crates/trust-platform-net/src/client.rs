@@ -160,13 +160,27 @@ impl Clients {
 
     /// Moves each link's bytes between its queues and its socket, makes the connections their
     /// drivers asked for, and closes the ones they let go. `addressed` says whether the chip has
-    /// an address: without one no connection can be made.
+    /// an address: without one no connection can be made. A link that no driver holds any more,
+    /// whose program was unloaded, gives its socket and buffers back.
     pub(crate) fn pump(
         &mut self,
         context: &mut Context,
         sockets: &mut SocketSet<'static>,
         addressed: bool,
     ) {
+        self.links.retain(|(link, handle)| {
+            if Rc::strong_count(&link.0) > 1 {
+                return true;
+            }
+            let socket = sockets.get_mut::<tcp::Socket>(*handle);
+            if socket.is_open() {
+                // The reset goes out with the next egress; the socket goes at the next pump.
+                socket.abort();
+                return true;
+            }
+            sockets.remove(*handle);
+            false
+        });
         for (link, handle) in &self.links {
             let socket = sockets.get_mut::<tcp::Socket>(*handle);
             let mut shared = link.0.borrow_mut();

@@ -25,6 +25,7 @@ use esp_hal::pcnt::unit::Unit;
 use esp_hal::pcnt::Pcnt;
 use esp_hal::peripherals::PCNT;
 use smol_str::SmolStr;
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_services::chip::process_io::ChipDriver;
 use trust_runtime_services::io_drivers::counter::{CounterParams, WideCount};
 use trust_runtime_services::status::IoDriverHealth;
@@ -33,8 +34,8 @@ use super::DriverPeripherals;
 #[cfg(feature = "bench-loopback")]
 use crate::driver_plans::LoopbackPads;
 use crate::driver_plans::{
-    self, counter_plan, health_of, refusal, write_image, ChannelSetting, ControlAction, EdgeAction,
-    Lease, UnitSetting,
+    self, counter_plan, driver_error, health_of, refusal, write_image, ChannelSetting,
+    ControlAction, EdgeAction, Lease, UnitSetting,
 };
 #[cfg(feature = "bench-loopback")]
 use crate::process_io::GpioPin;
@@ -349,7 +350,7 @@ impl ChipDriver for CounterDriver {
     /// Adds each unit's change since the last read to its input's count and writes the count into
     /// its `%ID` double word. Every input is written even when one double word lies outside the
     /// image, and the first failure is the error.
-    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), String> {
+    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
         let units = self.units.get();
         let mut result = Ok(());
         for input in &mut self.inputs {
@@ -368,11 +369,11 @@ impl ChipDriver for CounterDriver {
             }
         }
         self.health = health_of(&result);
-        result
+        result.map_err(|error| driver_error(NAME, error))
     }
 
     /// The counter driver has no outputs.
-    fn write_outputs(&mut self, _image: &[u8]) -> Result<(), String> {
+    fn write_outputs(&mut self, _image: &[u8]) -> Result<(), RuntimeError> {
         Ok(())
     }
 

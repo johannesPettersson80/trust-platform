@@ -37,6 +37,7 @@ use esp_hal::twai::{
 };
 use esp_hal::Blocking;
 use smol_str::SmolStr;
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_services::chip::process_io::ChipDriver;
 use trust_runtime_services::io_drivers::can::{CanExchange, CanFrame, CanId, CanParams};
 use trust_runtime_services::io_drivers::OnError;
@@ -383,6 +384,24 @@ fn data_frame(id: impl Into<Id>, data: &[u8]) -> Option<EspTwaiFrame> {
 }
 
 /// The health of one path faulted with `error`.
+/// The transport error `<driver>: <error>`, a controller that cannot exchange frames.
+fn transport(error: &str) -> RuntimeError {
+    RuntimeError::IoTransport(format!("{NAME}: {error}").into())
+}
+
+impl CanDriver {
+    /// The health a failure gives a path: faulted under `on_error = "fault"`, degraded under
+    /// `warn` and `ignore`, as for Modbus.
+    fn failed(&self, error: &str) -> IoDriverHealth {
+        match self.on_error {
+            OnError::Fault => faulted(error),
+            OnError::Warn | OnError::Ignore => IoDriverHealth::Degraded {
+                error: error.into(),
+            },
+        }
+    }
+}
+
 fn faulted(error: &str) -> IoDriverHealth {
     IoDriverHealth::Faulted {
         error: error.into(),
@@ -402,25 +421,29 @@ impl ChipDriver for CanDriver {
     }
 
     /// Takes the frames the controller received into the exchange, then writes each receive's
-    /// newest data into its input bytes. A bus-off controller is the error `bus off`, and starts
-    /// its recovery; otherwise the first receive whose timeout ran out is the error. A FIFO that
-    /// overran degrades the inputs' path.
-    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), String> {
+    /// newest data into its input bytes. A bus-off controller is the transport error `bus off`, and
+    /// starts its recovery; otherwise the first receive whose timeout ran out is a freshness error,
+    /// as on Linux. Under `fault` the error faults the inputs' path, under `warn` and `ignore` it
+    /// degrades it (specification 11 §6.5, as for Modbus). A FIFO that overran degrades the path.
+    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
         let now = now_ms();
         let Some(twai) = self.twai.as_mut() else {
-            self.inputs = faulted(STOPPED);
-            return Err(STOPPED.into());
+            self.inputs = self.failed(STOPPED);
+            return Err(transport(STOPPED));
         };
         let off = bus_off(twai, &mut self.recovering);
         let overrun = !off && drain(twai, &mut self.exchange, now);
         let timeouts = self.exchange.read_inputs(image, now);
         let (result, health) = if off {
-            (Err(String::from(BUS_OFF)), faulted(BUS_OFF))
+            (Err(transport(BUS_OFF)), self.failed(BUS_OFF))
         } else {
             match timeouts {
                 Err(error) => {
-                    let health = faulted(&error);
-                    (Err(error), health)
+                    let health = self.failed(&error);
+                    (
+                        Err(RuntimeError::IoFreshness(format!("{NAME}: {error}").into())),
+                        health,
+                    )
                 }
                 Ok(()) if overrun => (Ok(()), degraded(OVERRUN)),
                 Ok(()) => (Ok(()), IoDriverHealth::Ok),
@@ -433,18 +456,18 @@ impl ChipDriver for CanDriver {
     /// Queues the frames the exchange finds due in the output image, then hands the controller the
     /// pending frames until it takes no more. A bus-off controller is the error `bus off`, and
     /// starts its recovery; the frames wait. An error-passive controller degrades the outputs' path.
-    fn write_outputs(&mut self, image: &[u8]) -> Result<(), String> {
+    fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
         let now = now_ms();
         let pending = &mut self.pending;
         self.exchange
             .send_due(image, now, |frame| queue_frame(pending, frame));
         let Some(twai) = self.twai.as_mut() else {
-            self.outputs = faulted(STOPPED);
-            return Err(STOPPED.into());
+            self.outputs = self.failed(STOPPED);
+            return Err(transport(STOPPED));
         };
         if bus_off(twai, &mut self.recovering) {
-            self.outputs = faulted(BUS_OFF);
-            return Err(BUS_OFF.into());
+            self.outputs = self.failed(BUS_OFF);
+            return Err(transport(BUS_OFF));
         }
         transmit(twai, &mut self.pending);
         let passive = twai.transmit_error_count() >= ERROR_PASSIVE
@@ -459,6 +482,11 @@ impl ChipDriver for CanDriver {
 
     fn health(&self) -> IoDriverHealth {
         worse_health(&self.inputs, &self.outputs)
+    }
+
+    /// A receive's timeout concerns the input path only, so it never unconfirms a safe state.
+    fn output_health(&self) -> IoDriverHealth {
+        self.outputs.clone()
     }
 
     fn on_error(&self) -> OnError {

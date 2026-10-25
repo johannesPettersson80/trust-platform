@@ -3,6 +3,14 @@
   "review_date": "2026-04-30",
   "allowed_workspace_edges": [
     {
+      "from": "trust-runtime-services",
+      "to": "trust-modbus",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability S7 (shared Modbus TCP driver)",
+      "rationale": "The shared modbus-tcp driver's exchange builds and checks every frame with the one Modbus protocol crate (spec 11 §6.5, \"the protocol is one implementation on every runtime\"); trust-modbus has no dependencies and no heap, so the chips and the computer build it alike."
+    },
+    {
       "from": "xtask",
       "to": "trust-chips",
       "kind": "normal",
@@ -1593,6 +1601,15 @@
     ],
     "module_size_allowlist": [
       {
+        "crate_name": "trust-runtime-services",
+        "module_name": "io_drivers",
+        "path": "crates/trust-runtime-services/src/io_drivers",
+        "owner": "runtime portability T1 and S7 (shared I/O drivers)",
+        "rationale": "Spec 11 §6.5 and spec 34 TARGET-01 put every I/O driver's parameters and logic in one shared implementation that the computer and the chips call. The module is one focused child module per driver (analog, pwm, counter, can, modbus, mqtt), each with its tests beside it; the aggregate crosses 5000 lines as the sum of these drivers, not as one implementation file or a mixed owner, and about a third of the lines are tests.",
+        "review_date": "2026-10-25",
+        "split_plan": "Keep one child module per driver and split a driver's own module by responsibility (parameters, point maps, request plan, exchange, protocol codec) before any file approaches 1000 lines; the shared parameter reader stays in io_drivers.rs."
+      },
+      {
         "crate_name": "trust-runtime-core",
         "module_name": "stdlib",
         "path": "crates/trust-runtime-core/src/stdlib",
@@ -2913,7 +2930,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 438,
+        "line": 457,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3625,7 +3642,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/drivers/analog.rs",
-        "line": 159,
+        "line": 161,
         "owner": "runtime portability T1 (C6 I/O drivers)",
         "invariant": "Copies ADC1 out of its PeripheralSlot while the driver holds the slot's Lease, which refuses ADC1 to every other driver; the converter built from the copy is a field declared before the lease, so it is dropped first and at most one instance of ADC1 is in use at a time, as clone_unchecked requires.",
         "test_evidence": "Bench T1: an analog driver claimed, dropped by a restart and claimed again; a second analog driver in one record is refused.",
@@ -3633,7 +3650,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/drivers/can.rs",
-        "line": 196,
+        "line": 197,
         "owner": "runtime portability T1 (C6 I/O drivers)",
         "invariant": "Copies a TWAI controller out of its PeripheralSlot while the driver holds the slot's Lease, which refuses the controller to every other driver; the driver stops and drops the controller built from the copy in Drop, before its lease field is dropped, so at most one instance of the controller is in use at a time, as clone_unchecked requires.",
         "test_evidence": "Bench T1: a can driver claimed, dropped by a restart and claimed again; a second can driver on the same controller is refused.",

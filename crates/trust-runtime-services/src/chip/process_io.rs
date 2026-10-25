@@ -74,20 +74,29 @@ pub trait ChipDriver {
     ///
     /// # Errors
     ///
-    /// What failed; the driver's `on_error` decides what the error does to the resource.
-    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), String>;
+    /// What failed, after the driver's name and of its kind, as a computer's driver reports it
+    /// (`IoDriver`, `IoTransport`, `IoAddress` or `IoFreshness`); the driver's `on_error` decides
+    /// what the error does to the resource.
+    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError>;
 
     /// Writes the driver's outputs from `image`, the flat output image, after the tasks ran; also the
     /// safe state's image when the resource goes to its safe state.
     ///
     /// # Errors
     ///
-    /// What failed; the driver's `on_error` decides what the error does to the resource.
-    fn write_outputs(&mut self, image: &[u8]) -> Result<(), String>;
+    /// What failed, as for [`Self::read_inputs`].
+    fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError>;
 
     /// The driver's health now: degraded or faulted with the reason of its last failure, and ok again
     /// after an exchange that succeeds.
     fn health(&self) -> IoDriverHealth;
+
+    /// The health of the driver's output path, which confirms a safe-state write (specification 11,
+    /// safe-state handoff confirmation): the driver's health, unless the driver tells its input
+    /// path's conditions apart, which never unconfirm a safe state.
+    fn output_health(&self) -> IoDriverHealth {
+        self.health()
+    }
 
     /// What an error of the driver does to the resource; `fault` unless its parameters say
     /// otherwise.
@@ -132,12 +141,13 @@ impl<P: GpioPins> ProcessImage<P> {
 /// What a driver's error does at a cycle boundary: with `fault` it is the boundary's error, so the
 /// resource faults; with `warn` or `ignore` the resource runs on, and the driver's own health says
 /// what happened (specification 11 §6.5).
-fn driver_result(driver: &dyn ChipDriver, result: Result<(), String>) -> Result<(), RuntimeError> {
+fn driver_result(
+    driver: &dyn ChipDriver,
+    result: Result<(), RuntimeError>,
+) -> Result<(), RuntimeError> {
     match (result, driver.on_error()) {
         (Ok(()), _) | (Err(_), OnError::Warn | OnError::Ignore) => Ok(()),
-        (Err(error), OnError::Fault) => Err(RuntimeError::IoDriver(
-            format!("{}: {error}", driver.name()).into(),
-        )),
+        (Err(error), OnError::Fault) => Err(error),
     }
 }
 
@@ -180,14 +190,29 @@ impl<P: GpioPins> ProcessIo for ProcessImage<P> {
                 }
             }
         }
-        // Every driver is attempted too, whatever its `on_error`: the safe state is not a scan.
+        // Every driver is attempted too, whatever its `on_error`: the safe state is not a scan. A
+        // driver's safe state is confirmed only by a write that succeeds and an output path that is
+        // ok at once after it: a handoff still pending, or one under `warn`, is not confirmed
+        // (specification 11, safe-state handoff confirmation).
         for driver in &mut self.drivers {
-            if let Err(error) = driver.write_outputs(image)
+            let result = driver
+                .write_outputs(image)
+                .and_then(|()| match driver.output_health() {
+                    IoDriverHealth::Ok => Ok(()),
+                    IoDriverHealth::Degraded { error } | IoDriverHealth::Faulted { error } => {
+                        Err(RuntimeError::IoDriver(
+                            format!(
+                                "{}: the safe state is not confirmed: {error}",
+                                driver.name()
+                            )
+                            .into(),
+                        ))
+                    }
+                });
+            if let Err(error) = result
                 && first.is_none()
             {
-                first = Some(RuntimeError::IoDriver(
-                    format!("{}: {error}", driver.name()).into(),
-                ));
+                first = Some(error);
             }
         }
         first.map_or(Ok(()), Err)
@@ -376,17 +401,21 @@ mod tests {
             self.name
         }
 
-        fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), String> {
+        fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
             if let Some(failure) = self.failure {
-                return Err(failure.into());
+                return Err(RuntimeError::IoTransport(
+                    format!("{}: {failure}", self.name).into(),
+                ));
             }
             image[self.byte] = self.value;
             Ok(())
         }
 
-        fn write_outputs(&mut self, image: &[u8]) -> Result<(), String> {
+        fn write_outputs(&mut self, image: &[u8]) -> Result<(), RuntimeError> {
             if let Some(failure) = self.failure {
-                return Err(failure.into());
+                return Err(RuntimeError::IoTransport(
+                    format!("{}: {failure}", self.name).into(),
+                ));
             }
             self.written.borrow_mut().push(image[self.byte]);
             Ok(())
@@ -409,9 +438,10 @@ mod tests {
     /// The image runs its other drivers after the GPIO lines, in order, and lists their health after
     /// `gpio` (specification 11 §6.5). A failing driver whose `on_error` is `warn` lets the boundary
     /// succeed and the next driver run; one whose `on_error` is `fault` makes the boundary fail with
-    /// `IoDriver("<name>: <reason>")`. The safe state tries every driver, whatever its `on_error`, and
-    /// reports the first failure. Catches drivers that are never called, a warning that stops the
-    /// resource, and a fault that is swallowed.
+    /// the driver's own error, of its own kind (here `IoTransport("can: bus off")`). The safe state
+    /// tries every driver, whatever its `on_error`, and reports the first failure. Catches drivers
+    /// that are never called, a warning that stops the resource, a fault that is swallowed, and an
+    /// error whose kind the image rewrites, which would turn a Modbus exception into another error.
     #[test]
     fn the_image_runs_its_other_drivers_after_the_gpio_lines() {
         let (gpio, _) = pins(Vec::new(), 0);
@@ -464,16 +494,58 @@ mod tests {
         ]);
         assert_eq!(
             faulting.read_inputs(&mut [0u8; 2]),
-            Err(RuntimeError::IoDriver("can: bus off".into()))
+            Err(RuntimeError::IoTransport("can: bus off".into()))
         );
         assert_eq!(
             faulting.write_safe_outputs(&[0, 3]),
-            Err(RuntimeError::IoDriver("can: bus off".into()))
+            Err(RuntimeError::IoTransport("can: bus off".into()))
         );
         assert_eq!(
             *written.borrow(),
             vec![3],
             "the safe state reached the next driver"
+        );
+    }
+
+    /// A driver whose write succeeds while its output path is not ok: a handoff still pending.
+    struct PendingDriver;
+
+    impl ChipDriver for PendingDriver {
+        fn name(&self) -> &'static str {
+            "modbus-tcp"
+        }
+
+        fn read_inputs(&mut self, _image: &mut [u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn write_outputs(&mut self, _image: &[u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn health(&self) -> IoDriverHealth {
+            IoDriverHealth::Degraded {
+                error: "modbus output handoff pending".into(),
+            }
+        }
+    }
+
+    /// Specification 11, safe-state handoff confirmation: a driver's safe state is confirmed only by
+    /// a write that succeeds and an output path that is ok at once after it. A driver whose write
+    /// returns while its handoff is pending (degraded) leaves the safe state unconfirmed, with
+    /// `modbus-tcp: the safe state is not confirmed: modbus output handoff pending`; its ordinary
+    /// write still succeeds. Catches a chip that reports a safe state that never reached the device.
+    #[test]
+    fn a_safe_state_whose_handoff_is_pending_is_not_confirmed() {
+        let (gpio, _) = pins(Vec::new(), 0);
+        let mut image = ProcessImage::new(gpio, Vec::new(), Vec::new())
+            .with_drivers(vec![alloc::boxed::Box::new(PendingDriver)]);
+        assert_eq!(image.write_outputs(&[0]), Ok(()));
+        assert_eq!(
+            image.write_safe_outputs(&[0]),
+            Err(RuntimeError::IoDriver(
+                "modbus-tcp: the safe state is not confirmed: modbus output handoff pending".into()
+            ))
         );
     }
 

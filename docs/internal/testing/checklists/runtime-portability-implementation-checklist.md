@@ -395,6 +395,16 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     ("Found 10.42.0.209: truST runtimes"). Open: the mesh part.
 - [ ] S7 Communication services: the `io.toml` drivers (Modbus TCP, MQTT and the others) and
   Bluetooth devices where the chip has Bluetooth.
+  - 25 Oct night, Modbus TCP on the C6: `trust-modbus` (no_std protocol crate); the shared
+    exchange `io_drivers::modbus` (38 tests: parameters, typed points, request splitting, response
+    checks, deadlines, safe-state confirmation, backoff); chip TCP links in `trust-platform-net`
+    (4 tests); the C6 driver `hardware/drivers/modbus.rs`; `ChipDriver` errors keep their kind and a
+    chip's safe state is confirmed only by a healthy output path. Bench `s7/run1`: two input
+    registers read and two holding registers written every 100 ms over Wi-Fi from the Pi's server,
+    health degraded under `warn` while the server was away and recovered after. Open: the computer's
+    driver onto the shared exchange (the agent listed 14 deviations of today's computer driver from
+    spec 11, among them its own frame code without the response checks, no request splitting and an
+    FC16 byte count that wraps above 254 bytes), MQTT (agent), Bluetooth devices (L4).
 - [ ] S8 Web pages and HMI.
 - [ ] S9 Modbus RTU (owner, 16 October 2026): the `modbus-rtu` driver of specification 11, built-in
   driver 6, on Linux, macOS and Windows serial ports and on the chips' UARTs, sharing the Modbus

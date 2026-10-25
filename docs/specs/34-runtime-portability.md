@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.67 — a load in the running loop measures the memory for programs again and refuses a program that no longer fits (MEM-12, D.2); the reset record keeps the end of a long panic location.
+- **Version:** 0.69 — drivers, pairings and installs on the chips (0.68: record version 2 with each driver's parameters, the C6's analog, PWM, counter and CAN drivers, the pairing sectors, `--reset-settings`); a panic for want of heap names the request and the free bytes (TARGET-08).
 - **Date:** 25 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -2727,7 +2727,9 @@ return, whether or not `[runtime.watchdog]` is enabled; after its reset the reso
 follow the watchdog's action as after an overrun (`halt` and `safe_halt` drive them, `restart` does
 not, and does not restart the program); with `abort` the program runs, as trust-runtime's service
 manager starts its process again. After a panic the resource faults with `ResourcePanic` and the
-record's location, and the safe outputs follow `[runtime.fault]` as after a scan's panic on
+record's location; a panic of an allocation that found no room records `no heap for <bytes> B,
+<free> free` instead, the request and the heap's free bytes, since the allocator's location says
+nothing of the program. The safe outputs follow `[runtime.fault]` as after a scan's panic on
 trust-runtime (`safe_halt` drives them); a panic is never restarted automatically, under `restart`
 either. The fault is logged at the program's time zero, `status` reports it, and a `restart` starts
 the program. A power-on, a host reset and a requested restart end no program, so the program runs.
@@ -3696,6 +3698,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.69 | 25 October 2026 | A chip's panic for want of heap says so (the portability checklist's T1 bench). TARGET-08: the reset record of a panic of an allocation that found no room holds `no heap for <bytes> B, <free> free`, the request and the free bytes, instead of the allocator's location, which named only `alloc.rs`: the bench's debug program with four drivers ran out of heap on a chip with Wi-Fi, and the record did not say how much it asked for. D.2: the drivers' bench numbers (ADC1, LEDC into PCNT, TWAI self-test), ADC1's readings disturbed while Wi-Fi runs (open), and the `modbus-tcp` driver on the C6 over a client link of the chip's network with the computer's scan-side deadline, benched against a server on the Pi. |
 | 0.68 | 25 October 2026 | Drivers, pairings and installs on the chips (the portability checklist's T1, S5, D1 and the documentation review; the owner, 25 October 2026: "do whats professional, compare to twin at and codesys and it must follow iec standard. so you deside. please finish the complete checklist"). §5.1.1: record version 2 adds section 8, each I/O driver's `params` as JSON, so that a chip runs every driver it carries out with a computer's keys, defaults and checks; a reader takes versions 1 and 2. D.2: the `analog`, `pwm`, `counter` and `can` drivers on the C6's ADC1, LEDC, PCNT and TWAI; the heap figures corrected to 180,160 bytes; GPIO24 to GPIO30 reserved for the SPI flash (H.2 reason `flash`); the pairings in `pair_a` at 0x7F6000 and `pair_b` at 0x7F7000, 4 KiB each, taken from the program store, whose slots are now 2,060 KiB at 0x3F0000 and 0x5F3000; a pairing write is the second flash write a running resource allows, measured on the bench. H.2: the layout keys `pairing_a` and `pairing_b`; H.5 rule 7 names the device settings and the pairings with the boot counter. TARGET-02: `ssid` is required in a given `[network.wifi]`. TARGET-03: the C6 needs 8 MB of flash. TARGET-04: `firmware install --reset-settings` erases the device settings and the pairings, the way back to a chip whose control token is lost. H.3: pairing is part of `access`, not `cloud`; the C6 holds `debug` and `deploy`, as benched on 24 October 2026. §11.3: an online change on a chip keeps the running program's drivers with its lines, and counts a binding that shares a byte with a driver's entry as wired. |
 | 0.67 | 25 October 2026 | A load in the running loop (the portability checklist's L3). D.2, MEM-12: a `restart` that loads a newer program, or an install with a restart, measures the memory for programs again before it reads the program and refuses one that no longer fits; on the router, the bench's install with a restart panicked in the running loop, where the same program loaded at the next boot. The reset record keeps the end of a panic location longer than it, after `...`; it kept `panic`, which hid where that panic was. |
 | 0.66 | 25 October 2026 | The memory a program has on a chip with Wi-Fi, and a boot that a program's load ended (the portability checklist's L3). D.2: the radio's arena is 56 KiB, the bench's peak of 47,864 bytes under load with a fifth more; it was 64 KiB. The network takes 38,588 bytes of the heap besides the arena, measured at boot; the text said about 26 KiB. PORT-06: the busy reply carries the `error_code` `server_busy`, and a client whose first request on a connection gets it connects again after 50, 100, 200, 400 and 800 ms; the bench's `install` right after a `shutdown` found the chip still closing the connection while it saved its retained values. PORT-06: the chip derives a WPA2 passphrase's key at boot, before its program starts; the radio's driver derived it at the first join and stalled the reference program's scans for about 0.85 seconds at every boot (ControlTask missed 86 activations of 10 ms; none with the 64-digit key). TARGET-08: a boot that a reset ended while it loaded the installed program does not load it again; the next boot leaves the program unloaded and the resource faulted as the reset leaves a program, and a `restart` loads it again. The bench installed a debug image whose figure (specification 44 §10.4, which 0.29 there makes count what a load keeps) let a chip with Wi-Fi admit it: its load ran out of heap, panicked, and the chip reset at every boot, about 470 times, until its device settings were erased. |
@@ -4086,7 +4089,22 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   PCNT's four units, a `quadrature` counter using both channels of its unit. `can` on the two TWAI
   controllers, `TWAI0` and `TWAI1`, whose `tx` and `rx` the GPIO matrix routes to any pins but those
   the firmware keeps. A pin serves one line of one driver. The numbers the drivers depend on, the
-  ADC's range among them, are measured on the bench and written here with their source.
+  ADC's range among them, are measured on the bench and written here with their source: on
+  25 October 2026 (`t1/run2`) ADC1 read 3,258 to 3,261 mV on a pad pulled up to the 3.3 V rail,
+  the LEDC's 1 kHz output gave the PCNT 1,000 edges a second, and TWAI0 at 500 kbit/s carried a
+  frame each cycle in self-test. With Wi-Fi running, the same pad read 4,057 mV: the radio disturbs
+  ADC1's conversions, which is open (the readings are not to be trusted with Wi-Fi until it is
+  fixed and measured again).
+- **Modbus TCP (S7).** The `modbus-tcp` driver runs the shared exchange of specification 11 §6.5 over
+  a TCP connection of the chip's network (`trust-platform-net` client links, one socket of 2 KiB
+  buffers each way per driver, given back when its program is unloaded). As on a computer, the scan
+  side waits for a fresh input snapshot, and for an output handoff, up to the fixed deadline of
+  40 ms; a computer's worker thread makes the round trips meanwhile, and the chip polls its network
+  in that time. A chip without a network refuses the driver with `modbus-tcp: the device serves no
+  network: name one in device.toml`. Bench `s7/run1`, 25 October 2026: the C6 read two input
+  registers and wrote two holding registers of a server on the bench Pi every 100 ms cycle over
+  Wi-Fi, with no overrun; with the server stopped the driver's health degraded under `warn` and the
+  program ran on, and it recovered when the server came back.
 - **Memory.** The main heap is 32,832 bytes: F401's 72 KiB allocator arena less the 24 KiB that
   RAM-resident code takes, so that the scan's code runs from RAM (the owner, 21 October 2026, "Give
   code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1), and less

@@ -569,6 +569,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-modbus"
+version = "0.24.75"
+
+[[package]]
 name = "trust-platform-memory"
 version = "0.24.75"
 dependencies = [
@@ -627,6 +631,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smol_str",
+ "trust-modbus",
  "trust-platform-memory",
  "trust-runtime-core",
 ]

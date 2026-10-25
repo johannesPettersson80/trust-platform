@@ -20,12 +20,14 @@ use esp_hal::gpio::{Flex, InputConfig, Pin, Pull};
 use esp_hal::peripherals::{ADC1, GPIO0, GPIO1, GPIO2, GPIO3, GPIO4, GPIO5, GPIO6};
 use esp_hal::Blocking;
 use smol_str::SmolStr;
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_services::chip::process_io::ChipDriver;
 use trust_runtime_services::io_drivers::analog::{input_value, AnalogParams};
 use trust_runtime_services::status::IoDriverHealth;
 
 use crate::driver_plans::{
-    self, adc1_channel_of, health_of, not_analog_input, refusal, write_image, Lease, PeripheralSlot,
+    self, adc1_channel_of, driver_error, health_of, not_analog_input, refusal, write_image, Lease,
+    PeripheralSlot,
 };
 use crate::hardware::clock::now_us;
 use crate::process_io::{GpioBank, GpioPin, PinClaim};
@@ -254,7 +256,7 @@ impl ChipDriver for AnalogDriver {
 
     /// Converts each input once and writes its millivolts, as an `INT`, into its `%IW` word. Every
     /// input is converted even when one fails, and the first failure is the error.
-    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), String> {
+    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), RuntimeError> {
         let Some(converter) = self.converter.as_mut() else {
             return Ok(());
         };
@@ -277,11 +279,11 @@ impl ChipDriver for AnalogDriver {
             }
         }
         self.health = health_of(&result);
-        result
+        result.map_err(|error| driver_error(NAME, error))
     }
 
     /// The C6's analog driver has no outputs.
-    fn write_outputs(&mut self, _image: &[u8]) -> Result<(), String> {
+    fn write_outputs(&mut self, _image: &[u8]) -> Result<(), RuntimeError> {
         Ok(())
     }
 

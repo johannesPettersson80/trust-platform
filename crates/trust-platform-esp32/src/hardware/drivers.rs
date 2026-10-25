@@ -17,10 +17,13 @@
 mod analog;
 mod can;
 mod counter;
+mod modbus;
 mod pwm;
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::string::String;
+use core::cell::RefCell;
 
 #[cfg(feature = "bench-loopback")]
 use esp_hal::gpio::interconnect::InputSignal;
@@ -34,6 +37,8 @@ use trust_runtime_services::chip::process_io::{unsupported_driver, ChipDriver, D
 use crate::driver_plans::LoopbackPads;
 use crate::driver_plans::PeripheralSlot;
 use crate::process_io::GpioBank;
+
+use super::C6Net;
 
 /// The peripherals the drivers claim, taken from `esp_hal::init` with the board and kept for the life
 /// of the boot. Each serves one driver at a time and is free again when that driver is dropped.
@@ -78,8 +83,9 @@ impl DriverPeripherals {
 }
 
 /// The driver that `request` names, built over its pins from `bank` and its peripheral from
-/// `peripherals` (specification 11 §6.5): `analog`, `pwm`, `counter` or `can`. `config` gives a
-/// `pwm` output its safe state.
+/// `peripherals` (specification 11 §6.5): `analog`, `pwm`, `counter` or `can`, or `modbus-tcp` over a
+/// connection of `network`, the chip's network when it serves one. `config` gives a `pwm` output
+/// its safe state.
 ///
 /// # Errors
 ///
@@ -91,6 +97,7 @@ pub(crate) fn claim_driver(
     request: &DriverRequest<'_>,
     bank: &GpioBank,
     peripherals: &DriverPeripherals,
+    network: Option<&Rc<RefCell<C6Net>>>,
     config: &Configuration,
 ) -> Result<Box<dyn ChipDriver>, String> {
     match request.name {
@@ -98,6 +105,7 @@ pub(crate) fn claim_driver(
         pwm::NAME => pwm::claim(request.params, bank, peripherals, config),
         counter::NAME => counter::claim(request.params, bank, peripherals),
         can::NAME => can::claim(request.params, bank, &peripherals.twai),
+        modbus::NAME => modbus::claim(request.params, network),
         other => Err(unsupported_driver(other, "C6")),
     }
 }

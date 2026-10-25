@@ -17,6 +17,7 @@ use core::cell::Cell;
 use core::fmt;
 
 use trust_runtime_core::deployment::Configuration;
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::value::Value;
 use trust_runtime_services::io_drivers::can::{CanFrame, CanId, CanParams, CanReceive};
@@ -43,6 +44,13 @@ pub const CAN: &str = "can";
 #[must_use]
 pub fn refusal(driver: &str, key: &str, reason: impl fmt::Display) -> String {
     format!("{driver}: {key}: {reason}")
+}
+
+/// A driver's failure at a cycle as the runtime reports it: `IoDriver("<driver>: <error>")`, the
+/// kind a computer's driver gives a failed reading or write of its own hardware.
+#[must_use]
+pub fn driver_error(driver: &str, error: impl fmt::Display) -> RuntimeError {
+    RuntimeError::IoDriver(format!("{driver}: {error}").into())
 }
 
 /// The health that the result of one exchange gives a driver's path: ok, or faulted with the

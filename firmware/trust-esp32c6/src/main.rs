@@ -175,6 +175,10 @@ fn main() -> ! {
     // memory for programs is measured. A radio that does not start leaves the chip on its USB link
     // and is reported in `capabilities`.
     let (platform, net) = start_network(parts.radio.take(), platform);
+    // The `modbus-tcp` driver's connections go over the network (specification 11 §6.5).
+    if let Some(net) = &net {
+        parts.hardware.set_network(Rc::clone(net));
+    }
     // The pairings (specification 11 §6.9.6): codes and tokens come from the C6's generator, which
     // is random only while the radio runs, so the chip pairs only while it serves a network.
     let mut platform =
@@ -315,7 +319,15 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
         length: 0,
         cut: false,
     };
+    // An allocation that found no room panics in `alloc`, whose location says nothing of the
+    // program: the record names the request and the heap's free bytes instead, which fit its 32
+    // bytes (`no heap for 65536 B, 99999 free`). The counters are atomics, safe to read here.
+    let failed = memory::HEAP.last_failure();
+    let free = memory::HEAP.capacity().saturating_sub(memory::HEAP.used());
     let written = match info.location() {
+        Some(location) if failed > 0 && location.file().ends_with("alloc.rs") => {
+            write!(record, "no heap for {failed} B, {free} free")
+        }
         Some(location) => write!(record, "{}:{}", location.file(), location.line()),
         None => write!(record, "panic"),
     };

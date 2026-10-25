@@ -179,3 +179,22 @@ fn a_chip_without_an_address_reports_it() {
         LinkStatus::Closed("the device has no network address")
     );
 }
+
+/// A link whose driver let it go, as when its program is unloaded, gives its socket back: a new
+/// link to the same server still connects, and the dropped link's connection is gone from the
+/// server's side. Catches a chip that keeps a socket and its buffers for every program it ever
+/// loaded.
+#[test]
+fn a_link_no_driver_holds_gives_its_socket_back() {
+    let mut bench = Bench::fixed();
+    let link = bench.chip.client((SERVER, MODBUS));
+    link.open();
+    bench.run(20);
+    assert_eq!(link.status(), LinkStatus::Open);
+    drop(link);
+    bench.run(50);
+    assert!(
+        !bench.server_socket().may_recv(),
+        "the server sees the connection end"
+    );
+}

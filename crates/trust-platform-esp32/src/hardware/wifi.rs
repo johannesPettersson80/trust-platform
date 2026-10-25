@@ -37,7 +37,8 @@ use esp_radio::wifi::{
 use trust_platform_memory::memory::MeasuredHeap;
 use trust_platform_net::smoltcp::phy::{self, DeviceCapabilities, Medium};
 use trust_platform_net::smoltcp::time::Instant;
-use trust_platform_net::{retry, Identity, Network, NetworkSettings, TimeResult};
+use trust_platform_net::smoltcp::wire::Ipv4Address;
+use trust_platform_net::{retry, ClientLink, Identity, Network, NetworkSettings, TimeResult};
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicInstant, PortError, WakeSignal, WallClock,
 };
@@ -237,6 +238,13 @@ pub struct C6Net {
 }
 
 impl C6Net {
+    /// A connection for an I/O driver to the server at `remote`, idle until the driver opens it
+    /// (specification 11 §6.5); the network carries it between the scans and while a driver waits
+    /// for its exchange.
+    pub(crate) fn client(&mut self, remote: (Ipv4Address, u16)) -> ClientLink {
+        self.network.client(remote)
+    }
+
     /// Joins the network, and joins it again after a loss: at once at boot, then after the waits of
     /// [`retry::wait_us`].
     fn drive_station(&mut self, now: u64, cx: &mut Context<'_>, up: bool) {

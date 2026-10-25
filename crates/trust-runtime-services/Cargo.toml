@@ -22,6 +22,9 @@ trust-runtime-core = { workspace = true }
 # The fixed-size reset record a chip keeps across a reset, which the shared chip platform reads into
 # the `capabilities` reply. The memory crate depends on no runtime or compiler.
 trust-platform-memory = { workspace = true }
+# The Modbus protocol of the shared `modbus-tcp` driver's exchange (specification 11 §6.5): every
+# frame is built and checked by this one crate on every runtime.
+trust-modbus = { workspace = true }
 
 [dev-dependencies]
 # The stand-in modules of the compiled cycle's tests are written against the kernel interface
