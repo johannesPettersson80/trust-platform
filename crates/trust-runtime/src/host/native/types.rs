@@ -164,12 +164,13 @@ pub(super) fn rust_field(name: &str) -> String {
     mangle(name)
 }
 
-/// A qualified IEC name as a Rust identifier: capitals, `.` as `__`, and the `::` of a static's
-/// hidden name (`__STAT::Owner::name`) as `__`.
+/// A qualified IEC name as a Rust identifier: capitals, `.` as `__`, the `::` of a static's hidden
+/// name (`__STAT::Owner::name`) as `__`, and the `%` of a directly represented variable's name as
+/// `__` (`%IX0.1` as `__IX0__1`), which no IEC identifier can start with (IEC §6.1.2).
 pub(super) fn mangle(name: &str) -> String {
     name.to_ascii_uppercase()
         .replace("::", "__")
-        .replace('.', "__")
+        .replace(['.', '%'], "__")
 }
 
 fn align_up(value: u32, alignment: u32) -> u32 {

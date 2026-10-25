@@ -447,7 +447,7 @@ fn bindings(
             },
             // A hierarchical address is its text, which the kernel parses (§5.6).
             byte: if hierarchical {
-                pool.add(&address_text(address))
+                pool.add(&super::located::address_text(address))
             } else {
                 address.byte
             },
@@ -463,27 +463,6 @@ fn bindings(
     }
     writer.table(&records, &[]);
     Ok(())
-}
-
-/// The text of `address` as a declaration spells it: `%IX1.2.3`, `%QW2.5.7.1`.
-fn address_text(address: &trust_runtime_core::io_address::IoAddress) -> String {
-    let area = match address.area {
-        IoArea::Input => 'I',
-        IoArea::Output => 'Q',
-        IoArea::Memory => 'M',
-    };
-    let size = match address.size {
-        IoSize::Bit => 'X',
-        IoSize::Byte => 'B',
-        IoSize::Word => 'W',
-        IoSize::DWord => 'D',
-        IoSize::LWord | IoSize::Bytes(_) => 'L',
-    };
-    let mut parts: Vec<String> = address.path.iter().map(u32::to_string).collect();
-    if matches!(address.size, IoSize::Bit) {
-        parts.push(address.bit.to_string());
-    }
-    format!("%{area}{size}{}", parts.join("."))
 }
 
 /// The tasks with their program lists of entry indexes.

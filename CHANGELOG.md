@@ -25,6 +25,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
   `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
   and `runtime_preparation_limit`.
+- Added: a body may name a directly represented variable, `%QX0.2 := %IX0.1;`, in a program,
+  function block, function or method, as IEC 61131-3 §6.5.5.1 permits (specification 03 §5). The
+  build refused it with "the name %IX0.1 is not compiled yet". Each address is a variable at that
+  address, sampled, published and kept as a variable declared `AT` it is.
 - Added: the ESP32-C6 has a wall clock, so a program that calls `CURRENT_DT` installs and runs
   there. The chip takes its time from the computer that talks to it: `trust-runtime` and
   `trust-dev` send the new request `clock.set` with their own clock whenever they open the chip's

@@ -13,6 +13,7 @@ use trust_syntax::syntax::SyntaxNode;
 
 use super::NativeError;
 use crate::harness::{lower_application_and_frontend, LoweredApplication, SourceFile};
+use crate::io::IoAddress;
 
 /// One source file.
 pub(super) struct Source {
@@ -148,6 +149,53 @@ impl Front {
             lowered,
             sources: checked,
         })
+    }
+
+    /// The directly represented variables that the bodies name (IEC 61131-3 §6.5.5.1, Table 16),
+    /// each once, in the order of their text: `%IX0.1` in `x := %IX0.1;`. The address of a
+    /// declaration (`AT`), of the configuration (`VAR_CONFIG`, `VAR_ACCESS`, a program connection)
+    /// or of an initial value is none of them: those bind the variable they belong to.
+    ///
+    /// # Errors
+    ///
+    /// [`NativeError::Compile`] for an address that does not parse.
+    pub(super) fn direct_addresses(&self) -> Result<Vec<IoAddress>, NativeError> {
+        use trust_syntax::syntax::SyntaxKind as K;
+        let mut found: Vec<(String, IoAddress)> = Vec::new();
+        for source in &self.sources {
+            for node in source
+                .root
+                .descendants()
+                .filter(|node| node.kind() == K::NameRef)
+            {
+                let Some(token) = node
+                    .children_with_tokens()
+                    .filter_map(|element| element.into_token())
+                    .find(|token| !token.kind().is_trivia())
+                else {
+                    continue;
+                };
+                if token.kind() != K::DirectAddress
+                    || node.ancestors().any(|ancestor| {
+                        matches!(
+                            ancestor.kind(),
+                            K::ProgramConfigElem | K::ConfigInit | K::AccessDecl | K::VarDecl
+                        )
+                    })
+                {
+                    continue;
+                }
+                let address = IoAddress::parse(token.text()).map_err(|error| {
+                    NativeError::Compile(format!("{}: {error}", source.at(&node)))
+                })?;
+                let text = super::located::address_text(&address);
+                if !found.iter().any(|(known, _)| *known == text) {
+                    found.push((text, address));
+                }
+            }
+        }
+        found.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(found.into_iter().map(|(_, address)| address).collect())
     }
 
     /// The statement ids of every statement in every POU body, in source order: file by file,

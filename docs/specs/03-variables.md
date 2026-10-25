@@ -488,6 +488,20 @@ See `10-runtime-semantics.md` §9 for the language/runtime I/O contract and
 %QW2.5.7.1    // Additional levels are implementer-specific
 ```
 
+### Use in Bodies
+
+A body may name a directly represented variable as it names any variable:
+`%QX0.2 := %IX0.1;`. IEC 61131-3 Ed.3 §6.5.5.1 permits it "in the body of
+functions, function blocks, programs, methods, and in configurations and
+resource", as deprecated functionality. Each address that a body names is one
+variable of the size's type (the table above), at that address as a global
+declared `AT` it: the scan samples an input at the input sample, publishes an
+output at the output sample, and a marker keeps its value from scan to scan
+(`11-runtime-engine.md` §6.4; specification 44 §5.6). Two spellings of one
+address, `%I0.1` and `%IX0.1`, name the same variable. An address in a
+declaration (`AT`), in the configuration or in an initial value binds the
+variable it belongs to instead.
+
 ### Symbolic Mapping with AT
 
 ```

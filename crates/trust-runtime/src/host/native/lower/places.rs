@@ -102,12 +102,19 @@ impl Lowerer<'_, '_> {
         }
     }
 
-    /// The variable `name` as `node` names it: the frame's own, the instance's, a global.
+    /// The variable `name` as `node` names it: the frame's own, the instance's, a global; a
+    /// directly represented variable is the global of its address's name (IEC §6.5.5.1).
     pub(in crate::native) fn name_place(
         &mut self,
         node: &SyntaxNode,
         name: &str,
     ) -> Result<Place, NativeError> {
+        let direct = name
+            .starts_with('%')
+            .then(|| crate::io::IoAddress::parse(name).ok())
+            .flatten()
+            .map(|address| super::super::located::address_text(&address));
+        let name = direct.as_deref().unwrap_or(name);
         if let Some(local) = self
             .locals
             .iter()

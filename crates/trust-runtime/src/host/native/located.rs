@@ -8,6 +8,7 @@
 
 use smol_str::SmolStr;
 use trust_runtime_core::io_address::{IoAddress, IoSize};
+use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::image::{BIND_RAW, BIND_TIME_MILLIS};
 
 use super::model::{Binding, Global, ProgramInstance, ProgramType};
@@ -329,6 +330,28 @@ fn walk(
 }
 
 /// The error of a located variable whose leaves lie beyond what an image can address.
+/// The text of `address` as a declaration spells it: `%IX1.2.3`, `%QW2.5.7.1`; the name of the
+/// directly represented variable at it (`Front::direct_addresses`).
+pub(super) fn address_text(address: &IoAddress) -> String {
+    let area = match address.area {
+        IoArea::Input => 'I',
+        IoArea::Output => 'Q',
+        IoArea::Memory => 'M',
+    };
+    let size = match address.size {
+        IoSize::Bit => 'X',
+        IoSize::Byte => 'B',
+        IoSize::Word => 'W',
+        IoSize::DWord => 'D',
+        IoSize::LWord | IoSize::Bytes(_) => 'L',
+    };
+    let mut parts: Vec<String> = address.path.iter().map(u32::to_string).collect();
+    if matches!(address.size, IoSize::Bit) {
+        parts.push(address.bit.to_string());
+    }
+    format!("%{area}{size}{}", parts.join("."))
+}
+
 fn too_far(path: &[SmolStr]) -> NativeError {
     NativeError::unsupported(format!(
         "the located variable {}, which reaches past 4 GiB",

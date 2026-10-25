@@ -11,7 +11,7 @@ use trust_hir::TypeId;
 use super::types::{lay_out, mangle, Kind, Member, Ty, Types};
 use super::NativeError;
 use crate::harness::{AccessPart, AccessPath, ConfigModel, ConnectionEnd, LoweredApplication};
-use crate::io::IoAddress;
+use crate::io::{IoAddress, IoSize};
 use crate::task::ProgramDef;
 use crate::RetainPolicy;
 use trust_runtime_core::memory::IoArea;
@@ -205,6 +205,7 @@ impl<'a> Model<'a> {
         lowered: &'a LoweredApplication,
         registry: trust_hir::types::TypeRegistry,
         tests: &[SmolStr],
+        direct: &[IoAddress],
     ) -> Result<Self, NativeError> {
         let builder = &lowered.builder;
         let mut types = Types::new(
@@ -221,7 +222,7 @@ impl<'a> Model<'a> {
                 "the project has no CONFIGURATION with a RESOURCE to compile".into(),
             ));
         };
-        let globals = globals(lowered, configuration, &mut types)?;
+        let globals = globals(lowered, configuration, direct, &mut types)?;
         let (program_types, instances, block_tasks) =
             instances(lowered, configuration, &mut types)?;
         let tasks = tasks(configuration, tests, &block_tasks);
@@ -401,6 +402,7 @@ fn program_type<'a>(
 fn globals(
     lowered: &LoweredApplication,
     configuration: &ConfigModel,
+    direct: &[IoAddress],
     types: &mut Types<'_>,
 ) -> Result<Vec<Global>, NativeError> {
     let mut globals: Vec<Global> = Vec::new();
@@ -429,6 +431,26 @@ fn globals(
             retained: retained(global.retain),
             constant: global.constant,
             address,
+        });
+    }
+    // A directly represented variable that a body names (IEC §6.5.5.1, Table 16) is a global of its
+    // address's own name, `%IX0.1`, which no declaration can have, at its address as a global
+    // declared `AT` it is: the scan samples it at the input sample and publishes it at the output
+    // sample (specification 44 §5.6), its type the size's (`%IW2` a `WORD`).
+    for address in direct {
+        let type_id = match address.size {
+            IoSize::Bit => TypeId::BOOL,
+            IoSize::Byte => TypeId::BYTE,
+            IoSize::Word => TypeId::WORD,
+            IoSize::DWord => TypeId::DWORD,
+            IoSize::LWord | IoSize::Bytes(_) => TypeId::LWORD,
+        };
+        globals.push(Global {
+            name: SmolStr::new(super::located::address_text(address)),
+            ty: types.of(type_id)?,
+            retained: false,
+            constant: false,
+            address: Some(address.clone()),
         });
     }
     // A function's `VAR_STAT` variables live as long as the program, one of each per function

@@ -233,7 +233,7 @@ pub fn generate_source(sources: &[SourceFile], options: &Options) -> Result<Stri
     let front = front::Front::analyze(sources, &[])?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
-    let mut model = model::Model::new(&front.lowered, registry, &[])?;
+    let mut model = model::Model::new(&front.lowered, registry, &[], &front.direct_addresses()?)?;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     Ok(generated.source)
 }
@@ -294,7 +294,7 @@ pub fn build_with_tests(
     let front = front::Front::analyze(&instrumented, tests)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
-    let mut model = model::Model::new(&front.lowered, registry, tests)?;
+    let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     let memory = init::starting_memory(&front.lowered, &mut model)?;
     let symbols: Vec<String> = generated
