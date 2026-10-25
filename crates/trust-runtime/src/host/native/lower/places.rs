@@ -422,8 +422,9 @@ impl Lowerer<'_, '_> {
         })
     }
 
-    /// The place of member `name` of `base`, a `STRUCT OVERLAP`: the view of the bytes it takes of
-    /// the backing, or of its bit (specification 02 §3.6).
+    /// The place of member `name` of `base`, a `STRUCT OVERLAP` or a region of a backing: the view
+    /// of the bytes it takes of the backing, of its bit, or the region of a structure or an array
+    /// that lies there (specification 02 §3.6; IEC §6.4.4.7.1).
     pub(super) fn overlap_member(
         &self,
         node: &SyntaxNode,
@@ -440,20 +441,17 @@ impl Lowerer<'_, '_> {
         };
         let member = &members[index];
         let start = member.offset;
+        let region = if base.is_overlap_region() {
+            base.expr.clone()
+        } else {
+            format!("ov::Region::new(&{}.B, 0)", base.expr)
+        };
         let expr = match bits.get(index).copied().flatten() {
-            Some(bit) => format!("ov::Bit::new(&{}.B[{start}], {bit})", base.expr),
-            None => {
-                let info = self.info(member.ty);
-                let Some(elem) = info.scalar() else {
-                    return Err(self.unsupported(node, format!("the member {name}")));
-                };
-                format!(
-                    "ov::At::<{}>::new(&{}.B[{start}..{}])",
-                    elem.rust(),
-                    base.expr,
-                    start + info.size
-                )
-            }
+            Some(bit) => format!("ov::Bit::in_region({region}, {start}, {bit})"),
+            None => match self.info(member.ty).scalar() {
+                Some(elem) => format!("ov::At::<{}>::in_region({region}, {start})", elem.rust()),
+                None => format!("ov::Region::of({region}.sub({start}))"),
+            },
         };
         Ok(Place {
             expr,
@@ -498,6 +496,9 @@ impl Lowerer<'_, '_> {
         let indices: Vec<SyntaxNode> = children.collect();
         if matches!(self.info(array.ty).kind, Kind::Open { .. }) {
             return self.open_element(node, &array, &indices);
+        }
+        if array.is_overlap_region() {
+            return self.region_element(node, &array, &indices);
         }
         let info = self.info(array.ty).clone();
         let Kind::Array { elem, dims } = &info.kind else {

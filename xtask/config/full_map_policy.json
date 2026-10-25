@@ -2991,7 +2991,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 327,
+        "line": 343,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
@@ -2999,7 +2999,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 192,
+        "line": 198,
         "owner": "native execution (specification 44)",
         "invariant": "The module is the CODE section of an image the loader admitted on this device (specification 44 §10.2), in internal flash the CPU executes in place and that nothing writes while the program runs (§10.3).",
         "test_evidence": "cargo run -p xtask -- portability build-firmware stm32u5a9 (links); the device run is open: the STM32U5A9 is not connected.",

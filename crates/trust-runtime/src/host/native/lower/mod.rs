@@ -19,6 +19,7 @@ mod functions;
 mod jumps;
 mod object;
 mod open;
+mod overlap;
 mod partial;
 mod places;
 mod prelude;
@@ -77,6 +78,12 @@ impl Place {
     /// no Rust reference names (the prelude's `ov`).
     pub(super) fn is_overlap_member(&self) -> bool {
         self.expr.starts_with("ov::")
+    }
+
+    /// Whether the place is a structure or an array that lies in a `STRUCT OVERLAP`'s backing, an
+    /// `ov::Region` of its bytes (IEC §6.4.4.7.1; `overlap`).
+    pub(super) fn is_overlap_region(&self) -> bool {
+        self.expr.starts_with("ov::Region")
     }
 
     /// A reference to the storage.
@@ -504,6 +511,10 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     /// Stores the value of `value` into `place`, converted to the place's type as the assignment
     /// converts it.
     pub(super) fn store(&mut self, place: &Place, value: &SyntaxNode) -> Result<(), NativeError> {
+        // A structure or an array that lies in an overlap's backing (`overlap`).
+        if place.is_overlap_region() {
+            return self.store_region(place, value);
+        }
         let info = self.info(place.ty).clone();
         match &info.kind {
             Kind::Str(_) | Kind::WStr(_) => self.store_text(place, value),

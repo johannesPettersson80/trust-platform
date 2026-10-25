@@ -143,13 +143,14 @@ pub const NATIVE_TARGET: NativeTarget = NativeTarget {
     max_statements: 1_000_000,
 };
 
-/// The capacity of the C6's heap, in bytes: its three regions, the 32,832-byte main heap, the 64 KiB
-/// of the boot loader's reclaimed RAM and the 16,256 bytes of LP SRAM (`HEAP_BYTES`,
+/// The capacity of the C6's heap, in bytes: its three regions, the 98,368-byte main heap (32,832
+/// bytes and the 64 KiB that the deleted engine's RAM code took), the 64 KiB of the boot loader's
+/// reclaimed RAM and the 16,256 bytes of LP SRAM (`HEAP_BYTES` with `PROGRAM_EXTRA_HEAP_BYTES`,
 /// `RECLAIMED_BYTES` and `LOW_POWER_BYTES` of the firmware's `memory.rs`; specification 34, Appendix
 /// D.2). It is the reply capacity of the transfer session: a chip holds a reply as far as its heap
 /// reaches (PORT-05). The host test `the_c6_session_holds_replies_up_to_its_heap` keeps it equal to
 /// the three figures of `memory.rs`.
-pub const HEAP_CAPACITY_BYTES: usize = 32_832 + 65_536 + 16_256;
+pub const HEAP_CAPACITY_BYTES: usize = 98_368 + 65_536 + 16_256;
 
 /// The transfer session of boot number `boot` (specification 34, PORT-05). A transfer id carries the
 /// boot number in its high 32 bits, so an id of an earlier boot never names a transfer of this one. The

@@ -1,13 +1,14 @@
-//! The fixed STM32U5A9 profile: the installed application's region and the device descriptor that
-//! admission reads (specification 34, §5.1.1, COMPAT-02 and TARGET-03; specification 44 §10.2;
-//! design §4.4).
-use trust_platform_stm32u5::memory::MAIN_STACK as MAIN_STACK_REGION;
+//! The fixed STM32U5A9 profile: the installed application's region, the device descriptor that
+//! admission reads and the transfer session of a boot (specification 34, §5.1.1, COMPAT-02, TARGET-03
+//! and PORT-05; specification 44 §10.2; design §4.4).
+use trust_platform_stm32u5::memory::{HEAP_A, MAIN_STACK as MAIN_STACK_REGION};
 use trust_runtime_core::deployment::{
     Capabilities, DeviceDescriptor, NativeTarget, NumericContract, ProgramVersion, RequestedLimits,
     SchedulingProfile, TimingEvidence,
 };
 use trust_runtime_core::native::image::Target;
 use trust_runtime_services::runner::DeviceStack;
+use trust_runtime_services::transfer::TransferSession;
 
 /// First byte of the installed application: bank 2 (`[layout] application` of chips/stm32u5a9.toml).
 pub const APPLICATION_BASE: usize = 0x0820_0000;
@@ -38,6 +39,33 @@ pub const NATIVE_TARGET: NativeTarget = NativeTarget {
 /// The bytes of the heap the STM32U5A9 keeps free beside a program and its event store: its replies
 /// and the Live Values and services of the program (specification 34 MEM-12, Appendix D.5).
 pub const PROGRAM_MEMORY_RESERVE_BYTES: usize = 8 * 1024;
+
+/// The capacity of the STM32U5A9's heap, in bytes: its one region, region A, the 1,048,576 bytes
+/// (1 MiB) of SRAM1, SRAM2 and the first 192 KiB of SRAM3 (`HEAP_A` of the adapter's memory map, which
+/// the firmware's `memory.rs` gives the allocator whole and asserts to be 1 MiB; specification 34,
+/// Appendix D.5). Heap region B, the 754 KiB of SRAM5 below the main stack, is not given to the
+/// allocator, so it is not counted. It is the reply capacity of the transfer session: a chip holds a
+/// reply as far as its heap reaches (PORT-05).
+pub const HEAP_CAPACITY_BYTES: usize = (HEAP_A.end - HEAP_A.start) as usize;
+
+/// The transfer session of boot number `boot` (specification 34, PORT-05). A transfer id carries the
+/// boot number in its high 32 bits, so that an id of an earlier boot never names a transfer of this
+/// one. The boot number is the chip's boot counter in the backup register BKP14R
+/// (`ResetControl::note_boot`), the count its reset record carries: it rises by one at every boot, and
+/// the board's CR1220 cell keeps it across a loss of main power (Appendix D.5). A power-on with the
+/// cell flat or missing finds the backup registers cleared and counts from 1 again, so an id of a boot
+/// before that power-on can repeat; PORT-05 asks for a counter kept in the flash, as the ESP32-C6's is.
+///
+/// An upload takes at most the application slot, [`APPLICATION_BYTES`], since a larger container can
+/// never be installed. A reply is held up to the capacity of the heap, [`HEAP_CAPACITY_BYTES`], as a
+/// computer holds one: the chip answers a reply longer than its 8,192-byte frame with a head and the
+/// client reads it with `transfer.get` (PORT-05). The reply is written in parts of 4,096 bytes that the
+/// heap gives as the writing reaches them, and they are freed when the reply is read, aborted or
+/// replaced.
+#[must_use]
+pub fn transfer_session(boot: u32) -> TransferSession {
+    TransferSession::new(boot, APPLICATION_BYTES, HEAP_CAPACITY_BYTES)
+}
 
 /// The device descriptor admission reads for the STM32U5A9 (specification 34 §5.1.1, COMPAT-02 and
 /// TARGET-03; specification 44 §10.2): the compiled program image as the only program format, its

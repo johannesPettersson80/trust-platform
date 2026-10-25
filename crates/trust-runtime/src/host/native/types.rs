@@ -21,6 +21,7 @@ pub(super) use super::std_blocks::StdFb;
 use super::NativeError;
 
 mod elem;
+mod region;
 
 pub(super) use elem::Elem;
 
@@ -214,6 +215,11 @@ pub(super) struct Types<'a> {
     /// The bit offset of each member of a structure with relatively located members, `AT %B2`
     /// or `AT %X3.1`, in member order; `None` for a member without one (IEC §6.4.4.7).
     pub(super) relative: HashMap<Ty, Vec<Option<u64>>>,
+    /// The type a structure, or an array of structures, is in a `STRUCT OVERLAP`'s backing, by the
+    /// type ([`Types::region`]).
+    regions: HashMap<Ty, Ty>,
+    /// The type a region type is outside a backing: the inverse of `regions`.
+    naturals: HashMap<Ty, Ty>,
 }
 
 impl<'a> Types<'a> {
@@ -226,6 +232,8 @@ impl<'a> Types<'a> {
             by_rust: HashMap::new(),
             class_ids: Vec::new(),
             relative: HashMap::new(),
+            regions: HashMap::new(),
+            naturals: HashMap::new(),
         }
     }
 
@@ -585,9 +593,10 @@ impl<'a> Types<'a> {
     }
 
     /// A `STRUCT OVERLAP`: each member at the bits its relative address names, a `BOOL` one bit
-    /// and every other elementary value whole bytes from a byte on, over a backing of the bytes up
-    /// to the end of the last member, aligned to 1 (specification 02 §3.6; specification 34
-    /// MEM-12). Members of other types are refused.
+    /// and every other value whole bytes from a byte on, over a backing of the bytes up to the end
+    /// of the last member, aligned to 1 (specification 02 §3.6; specification 34 MEM-12). A
+    /// structure, an overlap or an array is the bytes of its own layout ([`Self::region`]); a
+    /// string is refused (IEC §6.4.4.7.1).
     fn overlap(
         &mut self,
         reserved: Ty,
@@ -605,9 +614,6 @@ impl<'a> Types<'a> {
                 ))
             };
             let ty = self.of(field.type_id)?;
-            let Some(elem) = self.info(ty).scalar() else {
-                return Err(refused("which is no elementary value"));
-            };
             let at = field
                 .address
                 .as_deref()
@@ -616,7 +622,21 @@ impl<'a> Types<'a> {
             let byte = u32::try_from(at / 8).map_err(|_| refused("which lies past 4 GiB"))?;
             #[allow(clippy::cast_possible_truncation)]
             let bit = (at % 8) as u8;
-            let (bit, bytes) = if elem == Elem::Bool {
+            // A structure, an overlap or an array lies in the backing as the bytes of its own
+            // layout (IEC §6.4.4.7.1, its example `Com_data`), a string not: "Overlapping of
+            // strings is beyond the scope of this standard".
+            let ty = match self.info(ty).kind {
+                Kind::Str(_) | Kind::WStr(_) => {
+                    return Err(refused(
+                        "a string, whose overlapping IEC 61131-3 §6.4.4.7.1 leaves outside the \
+                         standard",
+                    ));
+                }
+                _ => self
+                    .region(ty)
+                    .map_err(|_| refused("which is no data value"))?,
+            };
+            let (bit, bytes) = if self.info(ty).scalar() == Some(Elem::Bool) {
                 self.bit(bit);
                 (Some(bit), 1)
             } else if bit == 0 {

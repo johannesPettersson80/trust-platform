@@ -750,6 +750,13 @@ impl Lowerer<'_, '_> {
             | SyntaxKind::IndexExpr
             | SyntaxKind::DerefExpr => {
                 let place = self.place(node)?;
+                // A structure or an array that lies in an overlap's backing is copied out of it,
+                // into a value of its own type (IEC §6.4.4.7.1; `overlap`).
+                if place.is_overlap_region()
+                    && self.model.types.natural(place.ty).unwrap_or(place.ty) == ty
+                {
+                    return Ok(self.region_value(&place, ty));
+                }
                 if place.ty != ty {
                     return Err(self.unsupported(node, "an assignment between different types"));
                 }

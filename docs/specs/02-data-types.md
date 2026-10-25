@@ -411,6 +411,16 @@ END_TYPE
 - In an `OVERLAP` structure, intersecting relative fields share the same
   backing bits. A write through one field is observed through every overlapping
   field according to its declared type and target byte order.
+- A field of an `OVERLAP` structure may be a structure, another `OVERLAP`
+  structure or an array (IEC 61131-3 Ed.3 §6.4.4.7.1, whose example `Com_data`
+  overlaps two structures). It lies in the backing as the bytes of its own
+  layout: a structure's fields at their relative addresses, or at their offsets
+  in the structure when it declares none, a `BOOL` without a relative address
+  taking its whole byte. Its fields and elements read and write those bytes, an
+  index outside an array faults as any index does, and assigning the whole field
+  copies it field by field from or into a value of its type. A string is no
+  field of an `OVERLAP` structure: "Overlapping of strings is beyond the scope of
+  this standard" (§6.4.4.7.1).
 - Overlapped structures cannot have an explicit type, member, aggregate, or
   variable initializer. Their backing storage starts from zero/default storage
   only. (IEC 61131-3 Ed.3 §6.4.4.7.2)

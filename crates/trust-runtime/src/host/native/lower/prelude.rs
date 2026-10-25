@@ -106,28 +106,127 @@ mod ov {
 
     views!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
 
+    impl<'a, T> At<'a, T> {
+        /// The member of type `T` `offset` bytes into `region`.
+        #[inline]
+        pub fn in_region(region: Region<'a>, offset: usize) -> Self {
+            Self::new(region.bytes(offset, core::mem::size_of::<T>()))
+        }
+    }
+
     /// A `BOOL` member: one bit of a byte, read and written as a stored `BOOL`, 0 or 1.
     pub struct Bit<'a> {
-        byte: &'a Cell<u8>,
+        byte: &'a [Cell<u8>],
         bit: u8,
     }
 
     impl<'a> Bit<'a> {
         #[inline]
         pub fn new(byte: &'a Cell<u8>, bit: u8) -> Self {
-            Self { byte, bit }
+            Self {
+                byte: core::slice::from_ref(byte),
+                bit,
+            }
+        }
+
+        /// The bit `bit` of the byte `offset` bytes into `region`.
+        #[inline]
+        pub fn in_region(region: Region<'a>, offset: usize, bit: u8) -> Self {
+            Self {
+                byte: region.bytes(offset, 1),
+                bit,
+            }
         }
 
         #[inline]
         pub fn get(&self) -> u8 {
-            (self.byte.get() >> self.bit) & 1
+            self.byte.first().map_or(0, |byte| (byte.get() >> self.bit) & 1)
         }
 
         #[inline]
         pub fn set(&self, value: u8) {
-            let mask = 1u8 << self.bit;
-            let byte = self.byte.get();
-            self.byte.set(if value != 0 { byte | mask } else { byte & !mask });
+            if let Some(byte) = self.byte.first() {
+                let mask = 1u8 << self.bit;
+                let old = byte.get();
+                byte.set(if value != 0 { old | mask } else { old & !mask });
+            }
+        }
+    }
+
+    /// The bytes of a structure or an array that lies in a backing from `at` on, as the bytes of
+    /// its own layout (IEC §6.4.4.7.1): its members and its elements are views of those bytes.
+    #[derive(Clone, Copy)]
+    pub struct Region<'a> {
+        bytes: &'a [Cell<u8>],
+        at: usize,
+    }
+
+    impl<'a> Region<'a> {
+        #[inline]
+        pub fn new(bytes: &'a [Cell<u8>], at: usize) -> Self {
+            Self { bytes, at }
+        }
+
+        /// The region itself: the generated code writes a region's expression as this call.
+        #[inline]
+        pub fn of(region: Self) -> Self {
+            region
+        }
+
+        /// The region that starts `offset` bytes further.
+        #[inline]
+        pub fn sub(self, offset: usize) -> Self {
+            Self {
+                bytes: self.bytes,
+                at: self.at.saturating_add(offset),
+            }
+        }
+
+        /// The `len` bytes `offset` bytes into the region; none past the backing, which the
+        /// layout rules out, so that no access can panic.
+        #[inline]
+        pub fn bytes(self, offset: usize, len: usize) -> &'a [Cell<u8>] {
+            let start = self.at.saturating_add(offset);
+            self.bytes
+                .get(start..start.saturating_add(len))
+                .unwrap_or(&[])
+        }
+
+        /// The element `index` of an array of `count` elements of `stride` bytes from `lower` that
+        /// lies at the region's start, or the fault of an index outside the array.
+        #[inline]
+        pub fn element(
+            self,
+            cx: &mut super::Cx,
+            index: i64,
+            lower: i64,
+            count: usize,
+            stride: usize,
+        ) -> super::R<Self> {
+            match usize::try_from(index.wrapping_sub(lower))
+                .ok()
+                .filter(|offset| *offset < count)
+            {
+                Some(offset) => Ok(self.sub(offset.saturating_mul(stride))),
+                None => {
+                    let upper = lower.saturating_add(i64::try_from(count).unwrap_or(i64::MAX) - 1);
+                    Err(super::fault(
+                        cx,
+                        super::abi::FaultCode::IndexOutOfBounds,
+                        index,
+                        lower,
+                        upper,
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Copies the bytes `source` into `target`, as far as both reach.
+    #[inline]
+    pub fn copy(target: &[Cell<u8>], source: &[Cell<u8>]) {
+        for (cell, byte) in target.iter().zip(source) {
+            cell.set(byte.get());
         }
     }
 }

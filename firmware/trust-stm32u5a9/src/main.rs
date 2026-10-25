@@ -6,10 +6,11 @@
 //! installed application admitted before any state exists; the watchdog timeout the record needs; the
 //! record's pins claimed by name, each output at its safe level; the compiled program image checked as
 //! the kernel checks it, its module run where it lies in the internal flash (specification 44 §10.2,
-//! §10.3), and the program started; then the runner serves the control link over USB. A refusal serves the link Stopped with
-//! its reason (specification 34, STATE-08). A panic or a fault ends in `halt::emergency_halt`: the
-//! outputs to their safe levels, the cause in the reset record, then a reset (R3). It never writes to
-//! the link.
+//! §10.3), and the program started; then the runner, with the transfer session of the boot
+//! (specification 34, PORT-05), serves the control link over USB. A refusal serves the link Stopped
+//! with its reason (specification 34, STATE-08). A panic or a fault ends in `halt::emergency_halt`:
+//! the outputs to their safe levels, the cause in the reset record, then a reset (R3). It never writes
+//! to the link.
 #![no_std]
 #![no_main]
 
@@ -51,7 +52,9 @@ use trust_runtime_services::runner::{CompiledCycle, CycleSettings, DeviceLiveVal
 
 use crate::platform::Platform;
 use crate::process_io::{claim, GpioIo};
-use crate::profile::{DEVICE_DESCRIPTOR, NATIVE_TARGET, PROGRAM_MEMORY_RESERVE_BYTES};
+use crate::profile::{
+    transfer_session, DEVICE_DESCRIPTOR, NATIVE_TARGET, PROGRAM_MEMORY_RESERVE_BYTES,
+};
 use crate::watchdog::{timeout_for, Watchdog, STOPPED_TIMEOUT_MS};
 
 /// The resource loop's clock: the chip's TIM2 microsecond counter through the adapter's [`Monotonic`].
@@ -81,6 +84,8 @@ struct Parts {
     wait: Wait,
     watchdog: Watchdog,
     last_reset: LastReset,
+    /// This boot's count, the boot number of the transfer ids (specification 34, PORT-05).
+    boot_count: u32,
 }
 
 /// The heap's count of its allocator operations, which the runtime reads around each scan
@@ -111,6 +116,7 @@ fn main() -> ! {
         wait,
         watchdog: Watchdog::new(p.IWDG),
         last_reset: Platform::boot_last_reset(watchdog_reset, previous_record, boot_count),
+        boot_count,
     };
 
     // The identity: a part that is not this chip, or that has TrustZone enabled, does not run (design
@@ -250,14 +256,19 @@ fn main() -> ! {
         Ok(link) => link,
         Err(_) => halt::emergency_halt("usb-link"),
     };
-    let mut runner: Box<ChipRunner> = Box::new(Runner::new(
-        link,
-        parts.wait,
-        cycle,
-        platform,
-        parts.clock,
-        event_capacity(&config),
-    ));
+    // The loop holds a reply longer than the link's frame in the transfer session of this boot, and the
+    // client reads it in parts, as from trust-runtime on a computer (specification 34, PORT-05).
+    let mut runner: Box<ChipRunner> = Box::new(
+        Runner::new(
+            link,
+            parts.wait,
+            cycle,
+            platform,
+            parts.clock,
+            event_capacity(&config),
+        )
+        .with_transfers(transfer_session(parts.boot_count)),
+    );
     let _ = runner.run();
     halt::emergency_halt("runner")
 }
@@ -270,6 +281,7 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
         wait,
         mut watchdog,
         last_reset,
+        boot_count,
     } = parts;
     if let Err(error) = watchdog.start(STOPPED_TIMEOUT_MS) {
         halt::emergency_halt(error);
@@ -290,15 +302,19 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
         Ok(link) => link,
         Err(_) => halt::emergency_halt("usb-link"),
     };
-    // A Stopped loop holds no cycle, so its type is named: the loop a program would run in.
-    let mut runner = Box::new(ChipRunner::stopped(
-        link,
-        wait,
-        platform,
-        clock,
-        SmolStr::from(reason),
-        default_event_capacity(),
-    ));
+    // A Stopped loop holds no cycle, so its type is named: the loop a program would run in. It holds a
+    // long reply in the transfer session of this boot as the running loop does (PORT-05).
+    let mut runner = Box::new(
+        ChipRunner::stopped(
+            link,
+            wait,
+            platform,
+            clock,
+            SmolStr::from(reason),
+            default_event_capacity(),
+        )
+        .with_transfers(transfer_session(boot_count)),
+    );
     let _ = runner.run();
     halt::emergency_halt("runner-stopped")
 }

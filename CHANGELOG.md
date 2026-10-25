@@ -25,6 +25,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
   `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
   and `runtime_preparation_limit`.
+- Added: a `STRUCT OVERLAP` may hold structures, other overlaps and arrays, as IEC 61131-3
+  §6.4.4.7.1's own example `Com_data` does (specification 02 §3.6): each lies over the shared
+  bytes in its own layout, its members and elements read and write those bytes, and a whole member
+  is copied member by member. The build refused such a member with "which is no elementary value".
+  A string stays refused, as IEC leaves the overlapping of strings out of the standard.
+- Fixed: the ESP32-C6 holds a reply up to its whole heap, 180,160 bytes; the capacity left out the
+  main heap's 64 KiB since the bytecode engine's RAM code was freed. The STM32U5A9 holds a reply
+  longer than the 8,192-byte frame in parts, as the C6 and trust-runtime do, up to its 1 MiB heap
+  (specification 34 PORT-05); it refused such a reply.
 - Added: a body may name a directly represented variable, `%QX0.2 := %IX0.1;`, in a program,
   function block, function or method, as IEC 61131-3 §6.5.5.1 permits (specification 03 §5). The
   build refused it with "the name %IX0.1 is not compiled yet". Each address is a variable at that
