@@ -660,6 +660,138 @@ END_PROGRAM
     assert_eq!(array_dimensions(&runtime, "Samples"), vec![(0, 3)]);
 }
 
+// IEC_DEVIATIONS 2026-10-25: a library stub that flattens the GVL level
+// into namespace-level constants still resolves documentation-faithful
+// dotted size references through the unique-leaf tolerance — both inside
+// the namespace and through the full dotted path from outside.
+#[test]
+fn derived_type_constant_flattened_library_container_sizes_fold_exactly() {
+    let runtime = runtime(&[
+        (
+            "stubs.st",
+            r#"
+NAMESPACE WagoTypesLog
+VAR_GLOBAL CONSTANT
+    MAX_CMP_NAME_LEN : USINT := 20;
+    MAX_LOG_MSG_LEN : USINT := 128;
+END_VAR
+
+INTERFACE I_LogChannel
+METHOD Msg
+VAR_IN_OUT
+    sLoggerName : STRING(LogParameter.MAX_CMP_NAME_LEN);
+    sMessage : STRING(LogParameter.MAX_LOG_MSG_LEN);
+END_VAR
+END_METHOD
+END_INTERFACE
+END_NAMESPACE
+"#,
+        ),
+        (
+            "types.st",
+            r#"
+TYPE Label : STRING(LogParameter.MAX_CMP_NAME_LEN);
+Frame : STRING(WagoTypesLog.LogParameter.MAX_LOG_MSG_LEN);
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+        ),
+    ]);
+
+    assert_eq!(string_capacity(&runtime, "Label"), 20);
+    assert_eq!(string_capacity(&runtime, "Frame"), 128);
+}
+
+#[test]
+fn derived_type_constant_gvl_qualified_declared_size_folds_exactly() {
+    let runtime = runtime(&[
+        (
+            "gvl.st",
+            r#"
+NAMESPACE GVLMqtt
+VAR_GLOBAL
+    udiLenMsgBuffer : UDINT := 2048;
+END_VAR
+END_NAMESPACE
+"#,
+        ),
+        (
+            "types.st",
+            r#"
+TYPE Payload : STRING(GVLMqtt.udiLenMsgBuffer);
+Samples : ARRAY[0..(GVLMqtt.udiLenMsgBuffer - 1)] OF INT;
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+        ),
+    ]);
+
+    assert_eq!(string_capacity(&runtime, "Payload"), 2048);
+    assert_eq!(array_dimensions(&runtime, "Samples"), [(0, 2047)]);
+}
+
+#[test]
+fn derived_type_constant_rejects_ambiguous_leaf_container_reference() {
+    let error = compile_error(&[
+        (
+            "stubs.st",
+            r#"
+NAMESPACE CellA
+VAR_GLOBAL CONSTANT
+    MAX_LEN : USINT := 20;
+END_VAR
+END_NAMESPACE
+
+NAMESPACE CellB
+VAR_GLOBAL CONSTANT
+    MAX_LEN : USINT := 128;
+END_VAR
+END_NAMESPACE
+"#,
+        ),
+        (
+            "types.st",
+            r#"
+TYPE Label : STRING(Phantom.MAX_LEN);
+END_TYPE
+PROGRAM Main
+END_PROGRAM
+"#,
+        ),
+    ]);
+
+    assert!(error.to_ascii_lowercase().contains("max_len"), "{error}");
+}
+
+// The unique-leaf tolerance lives only in declaration-size lowering: an
+// ordinary initializer through the same flattened-container spelling must
+// keep the strict diagnostic.
+#[test]
+fn derived_type_constant_rejects_flattened_container_in_plain_initializer() {
+    let error = compile_error(&[(
+        "initializer.st",
+        r#"
+NAMESPACE WagoTypesLog
+VAR_GLOBAL CONSTANT
+    MAX_LOG_MSG_LEN : USINT := 128;
+END_VAR
+END_NAMESPACE
+VAR_GLOBAL
+    Copied : INT := LogParameter.MAX_LOG_MSG_LEN;
+END_VAR
+PROGRAM Main
+END_PROGRAM
+"#,
+    )]);
+
+    assert!(
+        error.to_ascii_lowercase().contains("max_log_msg_len"),
+        "{error}"
+    );
+}
+
 #[test]
 fn derived_type_constant_rejects_mutable_enum_value() {
     let error = compile_error(&[(
