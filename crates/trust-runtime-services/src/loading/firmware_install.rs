@@ -63,7 +63,7 @@ pub fn request<H: ControlHost>(id: u64, params: Option<&Value>, host: &H) -> Con
     }
     let upload = match take_upload(id, transfer, host) {
         Ok(Complete::Store(upload)) => upload,
-        Ok(Complete::Memory(_)) => return ControlResponse::error(id, NOT_FIRMWARE.to_string()),
+        Ok(Complete::Memory(..)) => return ControlResponse::error(id, NOT_FIRMWARE.to_string()),
         Err(refusal) => return refusal,
     };
     match host.commit_firmware(upload) {

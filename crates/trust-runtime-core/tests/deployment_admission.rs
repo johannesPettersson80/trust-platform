@@ -132,6 +132,7 @@ fn a_computer_runs_program_images_without_maxima() {
             event_store_max: 1_000_000,
             application_slot_bytes: None,
             program_memory_bytes: None,
+            trusted_keys: &[],
             native,
         }
     );

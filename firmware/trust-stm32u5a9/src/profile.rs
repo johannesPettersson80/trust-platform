@@ -101,5 +101,8 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(APPLICATION_BYTES as u64),
     // Measured at boot, before the program loads (`Platform::set_program_memory`).
     program_memory_bytes: None,
+    // The U5A9 keeps no device settings yet (specification 34 TARGET-02 on the U5A9 comes with its
+    // bring-up), so it names no key to trust and checks no signature.
+    trusted_keys: &[],
     native: Some(NATIVE_TARGET),
 };

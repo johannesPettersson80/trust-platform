@@ -36,6 +36,10 @@ pub struct DeviceDescriptor {
     /// (specification 44 §10.4). A chip measures it at boot, before it loads a program; a computer
     /// has no maximum.
     pub program_memory_bytes: Option<u64>,
+    /// The Ed25519 public keys whose signatures the device trusts (specification 44 §5.11): a device
+    /// that names keys admits only an image one of them signed; one that names none checks no
+    /// signature.
+    pub trusted_keys: &'static [[u8; 32]],
     /// What the device offers compiled programs, on a device whose versions name
     /// [`ProgramVersion::NATIVE_IMAGE`] (specification 44 §10.2).
     pub native: Option<NativeTarget>,
@@ -56,16 +60,21 @@ pub struct NativeTarget {
 
 impl NativeTarget {
     /// The device the kernel admits an image against (specification 44 §10.2), with
-    /// `program_memory_bytes`, the memory the device has for programs; a device without a maximum, a
-    /// computer, admits every memory figure.
+    /// `program_memory_bytes`, the memory the device has for programs, and `trusted_keys`, the keys
+    /// whose signatures it trusts (§5.11); a device without a maximum, a computer, admits every memory
+    /// figure.
     #[must_use]
-    pub fn device(self, program_memory_bytes: Option<u64>) -> crate::native::program::Device {
+    pub fn device(
+        self,
+        program_memory_bytes: Option<u64>,
+        trusted_keys: &'static [[u8; 32]],
+    ) -> crate::native::program::Device {
         crate::native::program::Device {
             target: self.target,
             program_memory: program_memory_bytes.unwrap_or(u64::MAX),
             task_stack: self.task_stack_bytes,
             max_statements: self.max_statements,
-            trusted_keys: &[],
+            trusted_keys,
         }
     }
 }
@@ -109,6 +118,7 @@ impl DeviceDescriptor {
             event_store_max: 1_000_000,
             application_slot_bytes: None,
             program_memory_bytes: None,
+            trusted_keys: &[],
             native,
         }
     }

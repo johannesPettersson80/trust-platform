@@ -37,5 +37,16 @@ debug = 1
 panic = "abort"
 overflow-checks = true
 
+# The signature check of a program image hashes the image and does Ed25519's curve arithmetic
+# (specification 44 §5.11): those crates are built for speed, the rest of the firmware for size.
+[profile.release.package.sha2]
+opt-level = 3
+
+[profile.release.package.curve25519-dalek]
+opt-level = 3
+
+[profile.release.package.ed25519-dalek]
+opt-level = 3
+
 [profile.dev]
 panic = "abort"

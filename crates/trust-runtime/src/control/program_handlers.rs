@@ -26,11 +26,13 @@ pub(super) fn handle_bytecode_reload(
     params: Option<serde_json::Value>,
     state: &ControlState,
 ) -> ControlResponse {
-    let bytes = match reload_rules::admit(id, params, state) {
-        Ok(bytes) => bytes,
+    // A computer hashes the image's signed bytes when it admits the change: it has no running scan
+    // to spare the time, which a chip does (specification 44 §5.11).
+    let program = match reload_rules::admit(id, params, state) {
+        Ok(program) => program,
         Err(refusal) => return refusal,
     };
-    reload_on_resource(id, state, bytes, RELOAD_WAIT)
+    reload_on_resource(id, state, program.bytes, RELOAD_WAIT)
 }
 
 /// How long a reload request waits for the scan thread to take it, and then for its commit result

@@ -52,6 +52,7 @@ fn chip_descriptor() -> DeviceDescriptor {
         event_store_max: 200,
         application_slot_bytes: Some(6_258_688),
         program_memory_bytes: Some(81_920),
+        trusted_keys: &[],
         native: None,
     }
 }

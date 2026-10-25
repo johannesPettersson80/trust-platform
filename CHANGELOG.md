@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Changed: a program image is signed with Ed25519ph (RFC 8032), over the SHA-512 of the image with
+  the context `truST program image`, where it was pure Ed25519 (specification 44 §5.11). A chip
+  hashes an online change's image as its parts arrive, so that checking the signature no longer
+  holds the running program's scans while the whole image is hashed. Images signed before this
+  change are refused; build them again. The chips build their signature code for speed.
+- Added: a chip trusts the keys its `device.toml` names under `[signing] trusted_keys` (specification
+  44 §5.11): it then runs only programs one of them signed, at an install, a restart and an online
+  change, and `status` reports `signature: trusted`. A computer's install also checks the
+  signature against its own `device.toml`, where before only its start did.
+
 - Added: a chip on a network is found by the same discovery as every truST runtime (specification
   34 PORT-06): it announces `_trust._plc._tcp.local.` over mDNS with its runtime ID, version,
   platform and control endpoint when it takes an address, answers browses, and withdraws itself

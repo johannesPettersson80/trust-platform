@@ -106,6 +106,8 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(SLOT_BYTES as u64),
     // Measured at boot, before the first program loads (`Platform::set_program_memory`).
     program_memory_bytes: None,
+    // Read at boot from the device settings (`ChipPlatform::with_device_settings`).
+    trusted_keys: &[],
     native: Some(NATIVE_TARGET),
 };
 

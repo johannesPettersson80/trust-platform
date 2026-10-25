@@ -9,7 +9,7 @@ use trust_plc_abi::INTERFACE_VERSION;
 
 use super::image::{Image, ImageError, IoBindRecord, Target};
 use super::library::{library_hash, PROGRAM_LIBRARY};
-use super::signature::{self, SignatureError};
+use super::signature::{self, Prehash, SignatureError};
 use crate::error::RuntimeError;
 
 /// What a device offers a program (specification 44 §10.2, steps 2 and 6).
@@ -136,6 +136,30 @@ impl From<Refusal> for RuntimeError {
 ///
 /// The first [`Refusal`].
 pub fn admit<'i>(bytes: &'i [u8], device: &Device) -> Result<Image<'i>, Refusal> {
+    admit_with(bytes, device, None)
+}
+
+/// [`admit`] with `prehash`, the SHA-512 of the bytes before `SIGN` that the device built as an
+/// upload's parts arrived, so that step 4 does not hash them again (specification 44 §5.11). A
+/// prehash of other bytes fails the signature.
+///
+/// # Errors
+///
+/// The first [`Refusal`].
+pub fn admit_prehashed<'i>(
+    bytes: &'i [u8],
+    device: &Device,
+    prehash: Prehash,
+) -> Result<Image<'i>, Refusal> {
+    admit_with(bytes, device, Some(prehash))
+}
+
+/// [`admit`], with the signed bytes' hash when the caller has it.
+fn admit_with<'i>(
+    bytes: &'i [u8],
+    device: &Device,
+    prehash: Option<Prehash>,
+) -> Result<Image<'i>, Refusal> {
     let image = Image::parse(bytes).map_err(Refusal::Image)?;
     let header = *image.header();
     if Target::from_raw(header.target) != Some(device.target) {
@@ -156,7 +180,11 @@ pub fn admit<'i>(bytes: &'i [u8], device: &Device) -> Result<Image<'i>, Refusal>
             kernel,
         });
     }
-    signature::check(&image, device.trusted_keys).map_err(Refusal::Signature)?;
+    match prehash {
+        Some(prehash) => signature::check_prehashed(&image, device.trusted_keys, prehash),
+        None => signature::check(&image, device.trusted_keys),
+    }
+    .map_err(Refusal::Signature)?;
     image.check_tables().map_err(Refusal::Image)?;
     check_bindings(&image)?;
     let figure = image.memory_figure();

@@ -539,7 +539,7 @@ fn next_offset(received: Received) -> usize {
 
 /// The bytes of an upload that an in-memory session held.
 fn memory_bytes(complete: Complete) -> Vec<u8> {
-    let Complete::Memory(bytes) = complete else {
+    let Complete::Memory(bytes, _) = complete else {
         panic!("an upload held in memory completes in memory");
     };
     bytes

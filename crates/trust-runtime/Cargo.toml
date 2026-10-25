@@ -76,7 +76,7 @@ hex = { workspace = true, optional = true }
 flate2 = { version = "1.1.10", optional = true }
 tar = { version = "0.4.44", default-features = false, optional = true }
 # Signing program images with the project's Ed25519 key, kept in PKCS#8 PEM (specification 44 §5.11).
-ed25519-dalek = { version = "3.0.0", default-features = false, features = ["pkcs8", "pem", "zeroize"], optional = true }
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["digest", "pkcs8", "pem", "zeroize"], optional = true }
 signal-hook = { version = "0.4.5", optional = true }
 rustls = { version = "0.23.45", optional = true }
 tiverse-mmap = { version = "1.0.0", optional = true }

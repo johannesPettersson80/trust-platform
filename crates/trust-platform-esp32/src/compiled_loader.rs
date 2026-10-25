@@ -50,6 +50,7 @@ use trust_runtime_services::chip::platform::ProgramValues;
 use trust_runtime_services::chip::process_io::record_lines;
 use trust_runtime_services::chip::watchdog::{cycle_timeout_ms, CycleWatchdog};
 use trust_runtime_services::installation::{Admitted, ProgramFormat};
+use trust_runtime_services::loading::reload::ReloadImage;
 use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::ports::StatusPort;
 use trust_runtime_services::runner::{
@@ -201,11 +202,12 @@ where
         // running loop what the services hold can leave less than at boot, and a program that does
         // not fit it is refused rather than loaded into a heap that runs out.
         let now = u64::try_from(program_memory_bytes(room, self.largest_payload)).ok();
-        let memory = match (platform.device_descriptor().program_memory_bytes, now) {
+        let descriptor = platform.device_descriptor();
+        let memory = match (descriptor.program_memory_bytes, now) {
             (Some(boot), Some(now)) => Some(boot.min(now)),
             (boot, now) => boot.or(now),
         };
-        let device = NATIVE_TARGET.device(memory);
+        let device = NATIVE_TARGET.device(memory, descriptor.trusted_keys);
         let admitted = native::admit(image, &device)
             .map_err(|refusal| format!("the installed application cannot be loaded: {refusal}"))?;
         let (_, module) = admitted.module();
@@ -275,8 +277,12 @@ where
         &mut self,
         platform: &mut Platform<W>,
         running: &mut CompiledProgramCycle<C, H::Io, M::Code>,
-        program: Vec<u8>,
+        program: ReloadImage,
     ) -> Result<Candidate<CompiledProgramCycle<C, H::Io, M::Code>>, String> {
+        let ReloadImage {
+            bytes: program,
+            prehash,
+        } = program;
         let config = self
             .running
             .clone()
@@ -291,9 +297,16 @@ where
         // (`place_change`), so they are freed with that program; on a refusal before that, `image`
         // is dropped after every value built from the bytes.
         let bytes = unsafe { image.bytes() };
-        let device = NATIVE_TARGET.device(platform.device_descriptor().program_memory_bytes);
-        let admitted = native::admit(bytes, &device)
-            .map_err(|refusal| format!("the change cannot be loaded: {refusal}"))?;
+        let descriptor = platform.device_descriptor();
+        let device = NATIVE_TARGET.device(descriptor.program_memory_bytes, descriptor.trusted_keys);
+        // The signature of an uploaded image is checked against the hash the transfer built as its
+        // parts arrived, so the running program's scans are not held while 90 KB are hashed
+        // (specification 44 §5.11).
+        let admitted = match prehash {
+            Some(prehash) => native::admit_prehashed(bytes, &device, prehash),
+            None => native::admit(bytes, &device),
+        }
+        .map_err(|refusal| format!("the change cannot be loaded: {refusal}"))?;
         platform.feed();
         let figure = admitted.memory_figure();
         if let Some(refusal) = budget.held_figure_refusal(

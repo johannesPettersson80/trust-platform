@@ -58,7 +58,7 @@ pub const PROGRAM_IMAGE_FILE: &str = "program.tpi";
 pub fn this_computer() -> Option<Device> {
     trust_runtime_core::deployment::DeviceDescriptor::hosted()
         .native
-        .map(|native| native.device(None))
+        .map(|native| native.device(None, &[]))
 }
 
 /// [`this_computer`] as trust-runtime admits the program it is given (specification 44 §5.11): with

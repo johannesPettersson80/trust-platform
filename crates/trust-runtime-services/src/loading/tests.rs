@@ -21,6 +21,8 @@ use trust_runtime_core::deployment::{
     RequestedLimits, SchedulingProfile, TimingEvidence,
 };
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::native::program::Refusal;
+use trust_runtime_core::native::signature::SignatureError;
 use trust_runtime_core::ports::{ProgramFlash, ProgramStore};
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
 
@@ -496,6 +498,30 @@ fn an_install_refused_by_admission_writes_no_byte() {
         )))
     );
     assert_eq!(flash.borrow().writes, 0);
+}
+
+#[test]
+fn an_install_on_a_device_that_trusts_keys_refuses_an_unsigned_program_before_any_write() {
+    // Specification 44 §5.11 and §10.2 step 4: a device that trusts a key admits only an image that
+    // key signed. The board probe's image is unsigned (algorithm 0), so the device that trusts one key
+    // refuses it as untrusted, before the store writes a byte; the device that trusts none admits it.
+    // Catches an install check that ignores the device's keys, which a chip only found at the next
+    // load, after the install had replaced the program it would boot.
+    static KEYS: [[u8; 32]; 1] = [[0x5A; 32]];
+    let (flash, mut store) = erased_store();
+    let trusting = DeviceDescriptor {
+        trusted_keys: &KEYS,
+        ..device()
+    };
+    let refused = begin(&mut store, transfer_of(program()), &trusting, |_| Ok(()));
+    assert_eq!(
+        refused.err(),
+        Some(InstallError::Image(Refusal::Signature(
+            SignatureError::Untrusted
+        )))
+    );
+    assert_eq!(flash.borrow().writes, 0);
+    assert!(begin(&mut store, transfer_of(program()), &device(), |_| Ok(())).is_ok());
 }
 
 #[test]

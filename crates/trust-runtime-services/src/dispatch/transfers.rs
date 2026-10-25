@@ -7,6 +7,7 @@
 use alloc::format;
 use alloc::string::ToString;
 use alloc::vec::Vec;
+use trust_runtime_core::native::signature::Prehash;
 
 use serde_json::{json, Value};
 
@@ -171,13 +172,14 @@ pub(crate) fn take_upload<H: ControlHost>(
 }
 
 /// Takes the bytes of the complete transfer `transfer`, held in memory, which ends it, as
-/// [`take_upload`] does. An upload written into the program store, which only `program.install`
+/// [`take_upload`] does, with the hash of the bytes a program image's signature covers when the
+/// upload is an image. An upload written into the program store, which only `program.install`
 /// takes, is refused and stays open.
 pub(crate) fn take_complete<H: ControlHost>(
     id: u64,
     transfer: TransferId,
     host: &H,
-) -> Result<Vec<u8>, ControlResponse> {
+) -> Result<(Vec<u8>, Option<Prehash>), ControlResponse> {
     let in_store = host
         .with_transfers(|session| session.in_store(transfer))
         .map_err(|refused| refused.refusal(id))?;
@@ -188,7 +190,7 @@ pub(crate) fn take_complete<H: ControlHost>(
         ));
     }
     match take_upload(id, transfer, host)? {
-        Complete::Memory(bytes) => Ok(bytes),
+        Complete::Memory(bytes, prehash) => Ok((bytes, prehash)),
         Complete::Store(_) => Err(ControlResponse::error(
             id,
             TransferError::InStore.to_string(),

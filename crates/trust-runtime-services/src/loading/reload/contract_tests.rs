@@ -83,12 +83,16 @@ fn admitted_reload_queues_the_decoded_bytes_and_a_faulted_resource_takes_it() {
     // Wrong behaviour: the base64 text is queued instead of the bytes it encodes.
     let bytes = admit(1, Some(json!({"bytes": "eA=="})), &running)
         .expect("a running resource takes the reload");
-    assert_eq!(bytes, vec![0x78]);
+    assert_eq!(bytes.bytes, vec![0x78]);
+    assert_eq!(
+        bytes.prehash, None,
+        "bytes in the request are not an upload's parts"
+    );
 
     // Wrong behaviour: an extra field refuses the request. The params never denied unknown fields.
     let extra = admit(2, Some(json!({"bytes": "eA==", "note": 1})), &running)
         .expect("an extra field is ignored");
-    assert_eq!(extra, vec![0x78]);
+    assert_eq!(extra.bytes, vec![0x78]);
 
     // Wrong behaviour: a faulted resource refuses the reload. Its scan thread waits alive in the
     // faulted wait and takes the reload, so only a stopped or a hung resource is refused.
@@ -96,7 +100,7 @@ fn admitted_reload_queues_the_decoded_bytes_and_a_faulted_resource_takes_it() {
     faulted.state.set(ResourceState::Faulted);
     let taken = admit(3, Some(json!({"bytes": "eA=="})), &faulted)
         .expect("a faulted resource takes the reload");
-    assert_eq!(taken, vec![0x78]);
+    assert_eq!(taken.bytes, vec![0x78]);
 }
 
 #[test]
@@ -197,7 +201,11 @@ fn bytecode_reload_applies_only_a_complete_transfer() {
         .expect("the part is stored");
     let applied = admit(2, Some(json!({"transfer": FIRST_ID})), &host)
         .expect("a complete transfer is applied");
-    assert_eq!(applied, b"hello".to_vec());
+    assert_eq!(applied.bytes, b"hello".to_vec());
+    assert_eq!(
+        applied.prehash, None,
+        "an upload that is no image keeps no prehash"
+    );
     let taken = admit(3, Some(json!({"transfer": FIRST_ID})), &host)
         .expect_err("a transfer that the reload took is unknown");
     assert_refusal(&taken, "unknown transfer", None);

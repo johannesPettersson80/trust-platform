@@ -48,7 +48,7 @@ impl ModuleCode for InPlace {
     }
 }
 
-pub use super::admission::{admit, Device, Refusal};
+pub use super::admission::{admit, admit_prehashed, Device, Refusal};
 
 /// One area's memory: 8-byte words, so that the module's views are aligned.
 pub(super) struct Memory {

@@ -34,6 +34,7 @@ use trust_runtime_core::retain::RetainApplyEvent;
 use super::online_change::Candidate;
 use super::program::{no_program, Program};
 use super::{DeviceLiveValues, ResourceCycle, RetainSource, Runner, RunnerPlatform};
+use crate::loading::reload::ReloadImage;
 use crate::loading::select::{Booted, ScanError};
 
 /// What the loop shows of a program that is being loaded: it is not a reason a restart would be
@@ -115,7 +116,7 @@ pub trait ProgramLoader<P, Y> {
         &mut self,
         platform: &mut P,
         running: &mut Y,
-        program: Vec<u8>,
+        program: ReloadImage,
     ) -> Result<Candidate<Y>, String>;
 
     /// The commit of an online change, in the one step that cannot fail: hands the lines and the

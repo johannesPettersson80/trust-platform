@@ -158,6 +158,9 @@ pub struct ChipPlatform<C, W> {
     /// The chip's device settings and their two sectors (specification 34 TARGET-02); `None` for a
     /// chip that keeps none.
     device: Option<RefCell<SettingsStore>>,
+    /// The keys whose signatures the chip trusts, the device settings' `[signing] trusted_keys` read
+    /// at boot (specification 44 §5.11); empty for a chip that keeps none, which checks no signature.
+    trusted_keys: &'static [[u8; 32]],
     /// The chip's network, which the idle work keeps (specification 34 ARCH-12); `None` for a chip
     /// without one, and for one whose device settings name no network.
     network: Option<Rc<RefCell<dyn ChipNetwork>>>,
@@ -194,21 +197,26 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             program_memory: None,
             firmware: None,
             device: None,
+            trusted_keys: &[],
             network: None,
             network_failure: None,
         }
     }
 
     /// Keeps the chip's device settings in `flash`, its two sectors, and reads the newest record
-    /// (specification 34 TARGET-02): its control token is the one a request must carry, and a
-    /// network that it names with a token serves the control connection, which then requires one.
-    /// A chip without device settings keeps none.
+    /// (specification 34 TARGET-02): its control token is the one a request must carry, a network
+    /// that it names with a token serves the control connection, which then requires one, and its
+    /// trusted keys are the ones every admission checks a program's signature against
+    /// (specification 44 §5.11). A chip without device settings keeps none.
     #[must_use]
     pub fn with_device_settings(mut self, flash: Box<dyn SettingsFlash>) -> Self {
         let store = SettingsStore::open(flash);
         if let Some((_, settings)) = store.settings() {
             self.token = settings.control.token.as_deref().map(SmolStr::new);
             self.token_required = self.token.is_some() && settings.network.names_one();
+            // Read once for the whole boot, as a computer reads its keys once: a change takes
+            // effect at the next boot (specification 34 TARGET-02).
+            self.trusted_keys = Box::leak(settings.trusted_keys().into_boxed_slice());
         }
         self.device = Some(RefCell::new(store));
         self
@@ -380,6 +388,16 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
         C::platform_name()
     }
 
+    /// `trusted` while the device settings name keys to trust, and `none` without (specification 44
+    /// §5.11).
+    fn signature(&self) -> &'static str {
+        if self.trusted_keys.is_empty() {
+            "none"
+        } else {
+            "trusted"
+        }
+    }
+
     /// The chip's name and USB serial number (specification 11, `status`).
     fn runtime_id(&self) -> &str {
         self.runtime_id.as_str()
@@ -417,6 +435,7 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
     fn device_descriptor(&self) -> DeviceDescriptor {
         DeviceDescriptor {
             program_memory_bytes: self.program_memory,
+            trusted_keys: self.trusted_keys,
             ..C::device_descriptor()
         }
     }
@@ -653,6 +672,8 @@ impl<C, W> VariableQueuePort for ChipPlatform<C, W> {
 mod tests {
     use core::time::Duration;
 
+    use trust_runtime_core::retain::checkpoint::FlashError;
+
     use super::*;
 
     /// A chip profile of the tests: its watchdog reset is reason 7, and its name is `test-chip`.
@@ -782,6 +803,65 @@ mod tests {
         let boot = reset_of(ResetCauseName::Watchdog, "", 4);
         let platform = platform_with(boot.clone());
         assert_eq!(StatusPort::last_reset(&platform), Some(boot));
+    }
+
+    /// Two settings sectors in memory: the first holds `record`, the second is erased.
+    struct Sectors([Vec<u8>; 2]);
+
+    impl SettingsFlash for Sectors {
+        fn sector_bytes(&self) -> usize {
+            4_096
+        }
+
+        fn read(&mut self, sector: usize, bytes: &mut [u8]) -> Result<(), FlashError> {
+            let source = self.0.get(sector).ok_or(FlashError::Read)?;
+            bytes.copy_from_slice(source.get(..bytes.len()).ok_or(FlashError::Read)?);
+            Ok(())
+        }
+
+        fn erase(&mut self, _sector: usize) -> Result<(), FlashError> {
+            Err(FlashError::Erase)
+        }
+
+        fn program(&mut self, _sector: usize, _bytes: &[u8]) -> Result<(), FlashError> {
+            Err(FlashError::Program)
+        }
+    }
+
+    /// A chip whose device settings name a trusted key reads it at boot, admits against it and says
+    /// `signature: trusted`; a chip without device settings names no key and says `none`
+    /// (specification 44 §5.11). The key is the 64 digits `0011…eeff` twice, so its bytes are 0x00,
+    /// 0x11, … 0xFF, then the same again. Catches keys that stay in the settings and never reach
+    /// admission, so that a chip set to trust a key would still run unsigned programs.
+    #[test]
+    fn a_chip_trusts_the_keys_its_device_settings_name_and_says_so() {
+        let key = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+        let settings = DeviceSettings::from_value(&serde_json::json!({
+            "signing": {"trusted_keys": [key]},
+        }))
+        .expect("the settings read");
+        let record = crate::device_settings::encode(&settings, 1, 4_096).expect("it fits");
+        let mut padded = record;
+        padded.resize(4_096, 0xFF);
+        let platform = platform_with(reset_of(ResetCauseName::PowerOn, "", 1))
+            .with_device_settings(Box::new(Sectors([padded, alloc::vec![0xFF; 4_096]])));
+        let half = [
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD,
+            0xEE, 0xFF,
+        ];
+        let mut bytes = [0u8; 32];
+        bytes[..16].copy_from_slice(&half);
+        bytes[16..].copy_from_slice(&half);
+        assert_eq!(
+            StatusPort::device_descriptor(&platform).trusted_keys,
+            &[bytes][..]
+        );
+        assert_eq!(StatusPort::signature(&platform), "trusted");
+
+        let bare = platform_with(reset_of(ResetCauseName::PowerOn, "", 1));
+        let none: &[[u8; 32]] = &[];
+        assert_eq!(StatusPort::device_descriptor(&bare).trusted_keys, none);
+        assert_eq!(StatusPort::signature(&bare), "none");
     }
 
     /// The watchdog feeds reach the chip's watchdog, one for each feed the runner makes. Catches a

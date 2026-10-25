@@ -217,7 +217,7 @@ const EXAMPLE: &str = "memory_marker_counter";
 #[cfg(unix)]
 mod computer {
     use sha2::{Digest, Sha256};
-    use trust_runtime_services::installation::encode_sequenced;
+    use trust_runtime_services::installation::encode_image;
 
     use super::{container_file, describe, fs, EXAMPLE};
     use crate::runtime_process::{build_program, ExampleRuntime, Runtime, CLIMB, WAIT};
@@ -266,7 +266,8 @@ mod computer {
             runtime.status().state == "stopped"
         });
         let step_two = build_program(EXAMPLE, &[("src/Main.st", STEP_ONE, STEP_TWO)]);
-        let container = encode_sequenced(1, &step_two.program, &step_two.record)
+        // A compiled program travels as an image container, entry kind 3 (specification 44 §10.1).
+        let container = encode_image(1, &step_two.program, &step_two.record)
             .expect("encode the container of the second program");
         let file = container_file(&container);
 
@@ -303,7 +304,7 @@ fn next_offset(received: Received) -> usize {
 
 /// The bytes of an upload that an in-memory session held.
 fn memory_bytes(complete: Complete) -> Vec<u8> {
-    let Complete::Memory(bytes) = complete else {
+    let Complete::Memory(bytes, _) = complete else {
         panic!("an upload held in memory completes in memory");
     };
     bytes

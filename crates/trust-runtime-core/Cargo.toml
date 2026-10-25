@@ -25,9 +25,10 @@ rustc-hash.workspace = true
 # The workspace's sha2 0.11.0 without its `alloc` and `oid` defaults: the deployment record's
 # identities on every target, chips included (spec 34 §5.1.1).
 sha2 = { version = "0.11.0", default-features = false }
-# The verification of a program image's Ed25519 signature (specification 44 §5.11), without the
-# standard library, so that every device checks signatures with the same code.
-ed25519-dalek = { version = "3.0.0", default-features = false }
+# The verification of a program image's Ed25519ph signature (specification 44 §5.11), without the
+# standard library, so that every device checks signatures with the same code: `digest` for the
+# prehashed form, `fast` for the base point's precomputed tables.
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["digest", "fast"] }
 smol_str.workspace = true
 thiserror.workspace = true
 trust-hir = { workspace = true, optional = true }

@@ -66,7 +66,7 @@ pub fn request<H: ControlHost>(id: u64, params: Option<&Value>, host: &H) -> Con
     };
     let device = host.device_descriptor();
     let committed = match upload {
-        Complete::Memory(container) => install::check(&container, &device, |admitted| {
+        Complete::Memory(container, _) => install::check(&container, &device, |admitted| {
             host.check_retained_values(admitted)
         })
         .map_err(|error| error.to_string())

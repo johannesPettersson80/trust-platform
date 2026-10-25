@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.29 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.30 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -28,9 +28,10 @@
   0.27 overlaps structures and arrays as IEC's own example does; 0.28 gives 80 KiB of the C6's
   program region to the Wi-Fi radio's RAM code, §10.3, for the network the owner had decided on 25
   October 2026, "do whats professional"; 0.29 counts in the memory figure what a load really keeps,
-  which the C6 bench found the figure left out, §10.4),
+  which the C6 bench found the figure left out, §10.4; 0.30 signs with Ed25519ph, so that a chip
+hashes an upload as its parts arrive, §5.11),
   with the six
-  decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
+  decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 (Ed25519ph since 0.30) with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
   non-preemptive scheduler in v1 (§16), sources embedded on computers only (§5.3), and the request
   name `bytecode.reload` kept (§12.1).
@@ -515,10 +516,17 @@ into the kernel and one written by the kernel restores into the runtime.
 
 ### 5.11 Signature
 
-`SIGN` holds: algorithm (4: 0 unsigned, 1 Ed25519), the signer's public key (32), the signature
-(64) over bytes 0 to the start of `SIGN`. The native build always writes `SIGN`, unsigned (algorithm
-0 and zeros), so that signing fills it in place without moving a byte; the CRC of §5.2 covers the
-header and the section table, not `SIGN`. The tools that deploy sign what they build
+`SIGN` holds: algorithm (4: 0 unsigned, 2 Ed25519ph), the signer's public key (32), the signature
+(64). The signature is Ed25519ph of RFC 8032 §5.1, the prehashed Ed25519, with the context
+`truST program image` (19 bytes): it signs the SHA-512 of bytes 0 to the start of `SIGN`, which is
+always the last section, so the bytes it covers are the image less its last 100. A device can hash
+those bytes as they arrive, in the parts of an upload (specification 34 PORT-05), and its check at
+an install or an online change then costs only the signature's own arithmetic; a device that admits
+an image from its store hashes the bytes where they lie. The context keeps a signature over an
+image from ever being taken for a signature over anything else the same key signs. Algorithm 1, the
+pure Ed25519 of 0.20 to 0.29, is malformed now: a tool signs again what it signed before. The native
+build always writes `SIGN`, unsigned (algorithm 0 and zeros), so that signing fills it in place
+without moving a byte; the CRC of §5.2 covers the header and the section table, not `SIGN`. The tools that deploy sign what they build
 (`trust-runtime build`, `trust-dev test --device`, and the programs a tool installs on a device to
 step or test it); the simulator (§8.9) and `trust-dev test` on this computer run their images
 unsigned. They sign with the project's key (`trust-lsp.toml` `[signing] key = <path>`, relative to
@@ -541,10 +549,15 @@ verifies anything, and one whose signature does not verify over its bytes (`the 
 does not verify: it was changed after signing`); it reports `signature: trusted` in `status`, as
 does a computer whose `device.toml` cannot be read, which admits no image and names the file's
 error. A device whose list is empty checks no signature: with no key to trust, a signature proves
-nothing that the record's hash (§10.2 step 1) does not, and on the ESP32-C6 the check of a 90 KB
-image takes 0.85 s (bench, 24 October 2026), which an online change would take from the running
-scan. It admits signed and unsigned images alike and reports `signature: none`, so that development
-needs no setup. An online change is admitted as an install is, against the same list. Signing is for authenticity and integrity; it hides nothing, and the symbol table and the
+nothing that the record's hash (§10.2 step 1) does not. It admits signed and unsigned images alike
+and reports `signature: none`, so that development needs no setup. An online change is admitted as
+an install is, against the same list. A chip reads its list once at boot, so a list that
+`device.set` changes applies from the next boot (specification 34 TARGET-02), and it hashes an
+upload's bytes as each part arrives: the pure Ed25519 of 0.20 hashed a 90 KB image in one block of
+0.85 s on the ESP32-C6, at the build's size optimization (bench, 24 October 2026), which an online
+change took from the running scan. Its signature code is built for speed, not size (the firmware's
+profile builds `sha2`, `curve25519-dalek` and `ed25519-dalek` at `opt-level = 3`), with the
+precomputed tables of the base point. Signing is for authenticity and integrity; it hides nothing, and the symbol table and the
 optional sources keep the program readable on the device.
 
 ## 6. Code generation
@@ -1735,6 +1748,7 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
 | 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner approved on 25 October 2026 (§14.4: "if its professional and according to iec then i trust you"): each records an IEC 61131-3 construct whose representation IEC leaves to the implementer (the resource of §6.8.1, the direct and hierarchical addresses of §6.5.5 and Table 16, `STRUCT OVERLAP` of §6.4.4.6, the variable-length arrays of §6.5.3) or the truST function `CURRENT_DT` (specification 07). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
+| 0.30 | 25 October 2026 | Signatures that a chip checks as the parts arrive (§5.11; the portability checklist's S5, which the owner's "do whats professional ... you decide" of 25 October 2026 leaves to this specification). `SIGN`'s algorithm 2 is Ed25519ph of RFC 8032 with the context `truST program image`, over the SHA-512 of the image less `SIGN`, so that a device hashes an upload part by part and the check at an install or online change costs only the signature's arithmetic, where the pure Ed25519 of 0.20 hashed a 90 KB image in 0.85 s in one block on the ESP32-C6. Algorithm 1 is refused. A chip reads its trusted keys from its device settings at boot. The chips build the signature code for speed, with the base point's tables. |
 | 0.29 | 25 October 2026 | The memory figure counts what a load keeps (§10.4; the portability checklist's L3). The bookkeeping now also holds the cycle's copies of the process images (the last scan's inputs, outputs and markers, and the outputs the drivers last took) and, for a debug image, the debugger's line table: 28 bytes per statement and the file labels; the Live Values and services take the device's reserve. The C6 bench found a debug image of the reference workload whose figure was 10,300 bytes keep 19,772 bytes beside the checkpoint store's buffer: its line table, built entry by entry, had room for 256 entries for its 168 statements, and with Wi-Fi the chip admitted a program its heap could not load. The line table is now built with exactly its entries. |
 | 0.28 | 25 October 2026 | The ESP32-C6's program region shrinks from 192 KiB to 112 KiB (specification 34 PORT-06, D.2; the portability checklist's L3; the owner, 25 October 2026, "do whats professional"): the Wi-Fi radio's driver keeps about 81 KB of code and data in RAM, which the link places there whether or not the chip uses Wi-Fi, and the program region gave 80 KiB, so that the main stack keeps its 82 KiB and the heap its 180,160 bytes. 112 KiB still hold the reference workload's running module and its changed release image at once; a changed image beyond the region's room is held in the heap and its module copied into the region (§10.3, §12.3). |
 | 0.27 | 25 October 2026 | `STRUCT OVERLAP` with members that are structures or arrays (the one list's N17; IEC 61131-3 §6.4.4.7.1 and its example `Com_data`; the owner, 25 October 2026: "we mist follow the iec standard"). §6.2: such a member lies in the overlap's backing as the bytes of its region type, an overlap of a structure's members at their relative addresses (or offsets) and an array of those, which the type table lists, so that the debugger and Live Values read the bytes the program writes; the generated code reaches its members and elements through `ov::Region` views and checks a variable index; a whole member is copied member by member between its type and its region type. A string member is refused (§6.4.4.7.1). The image format is unchanged. |

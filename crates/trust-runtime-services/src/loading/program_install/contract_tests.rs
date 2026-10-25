@@ -223,7 +223,8 @@ fn bytecode_reload_while_running_is_still_allowed() {
     // Stopped rule of `program.install` does not reach it. The request is admitted and its bytes are
     // queued. Wrong behaviour: a running program refuses its online change.
     let running = FakeHost::running();
-    let bytes = reload::admit(1, Some(json!({"bytes": "eA=="})), &running)
+    let program = reload::admit(1, Some(json!({"bytes": "eA=="})), &running)
         .expect("a running resource takes an online change");
-    assert_eq!(bytes, b"x".to_vec());
+    assert_eq!(program.bytes, b"x".to_vec());
+    assert_eq!(program.prehash, None);
 }

@@ -17,6 +17,7 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use serde::Deserialize;
 use serde_json::json;
+use trust_runtime_core::native::signature::Prehash;
 use trust_runtime_core::scheduler::ResourceState;
 
 use crate::dispatch::transfers::{take_complete, transfer_member};
@@ -28,6 +29,17 @@ use crate::transfer::TransferId;
 
 /// The operation this module decides.
 pub const OPERATION: &str = "bytecode.reload";
+
+/// The program of an admitted `bytecode.reload`: its bytes, and the SHA-512 of the bytes its
+/// signature covers when the transfer session built it as an upload's parts arrived (specification
+/// 44 §5.11); `None` for bytes given in the request itself, which the device's check hashes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReloadImage {
+    /// The program's bytes.
+    pub bytes: Vec<u8>,
+    /// The hash of the bytes its signature covers, when the session built it.
+    pub prehash: Option<Prehash>,
+}
 
 /// How long a reload request waits for the resource to take it, on every runtime: five seconds
 /// (specification 11 §6.7.1). A request that no boundary has taken by then is withdrawn and never
@@ -65,7 +77,7 @@ pub fn admit<H: ControlHost>(
     id: u64,
     params: Option<serde_json::Value>,
     host: &H,
-) -> Result<Vec<u8>, ControlResponse> {
+) -> Result<ReloadImage, ControlResponse> {
     let source = decode(id, params)?;
     if host.is_hung() {
         return Err(hung_refusal(id));
@@ -77,8 +89,13 @@ pub fn admit<H: ControlHost>(
         return Err(resource_not_running(id, resource));
     }
     match source {
-        Source::Bytes(bytes) => Ok(bytes),
-        Source::Transfer(transfer) => take_complete(id, transfer, host),
+        Source::Bytes(bytes) => Ok(ReloadImage {
+            bytes,
+            prehash: None,
+        }),
+        Source::Transfer(transfer) => {
+            take_complete(id, transfer, host).map(|(bytes, prehash)| ReloadImage { bytes, prehash })
+        }
     }
 }
 

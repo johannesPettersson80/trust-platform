@@ -39,7 +39,7 @@ pub use rules::{address_text, unwired_binding, ChangeMemory};
 
 use super::program::Program;
 use super::{DeviceLiveValues, ResourceCycle, Runner, RunnerPlatform};
-use crate::loading::reload::{self, ReloadOutcome, TAKE_WAIT};
+use crate::loading::reload::{self, ReloadImage, ReloadOutcome, TAKE_WAIT};
 use crate::protocol::ControlResponse;
 
 /// The program that replaces the running one in an online change, prepared and checked
@@ -80,7 +80,7 @@ struct Parts {
 /// A queued change.
 struct Pending {
     /// The upload of the request, until a boundary takes it.
-    program: Option<Vec<u8>>,
+    program: Option<ReloadImage>,
     /// The reply the request is owed, once the loop has answered it.
     held: Option<Held>,
 }
@@ -119,7 +119,7 @@ impl ChangeState {
     ///
     /// The refusal as plain text: a change is queued already, or the state is in use. The loop reads
     /// no request while a change waits, so neither happens in practice.
-    pub(super) fn begin(&self, program: Vec<u8>) -> Result<(), String> {
+    pub(super) fn begin(&self, program: ReloadImage) -> Result<(), String> {
         self.with(|parts| {
             if parts.pending.is_some() {
                 return Err(String::from("an online change is already queued"));
@@ -173,7 +173,7 @@ impl ChangeState {
     }
 
     /// Takes the upload of the queued change out of the state, at a boundary. The reply is still owed.
-    pub(super) fn take_program(&self) -> Option<Vec<u8>> {
+    pub(super) fn take_program(&self) -> Option<ReloadImage> {
         self.with(|parts| parts.pending.as_mut()?.program.take())
             .flatten()
     }
@@ -244,7 +244,7 @@ where
 
     /// Has the device prepare and check the candidate of `program`, while the running program stays
     /// as it is.
-    fn prepare_change(&mut self, program: Vec<u8>) -> Result<Candidate<Y>, String> {
+    fn prepare_change(&mut self, program: ReloadImage) -> Result<Candidate<Y>, String> {
         let Program::Installed(running) = &mut self.cycle else {
             return Err(String::from("there is no installed program to change"));
         };

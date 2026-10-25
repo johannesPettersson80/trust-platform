@@ -241,8 +241,14 @@ impl StatusPort for ControlState {
 
     /// A computer's descriptor (specification 34, HOST-02); the `capabilities` operation reports
     /// it (specification 11, the runtime device capabilities contract).
+    /// A computer, with the keys of its `device.toml` that an install checks a program's signature
+    /// against (specification 44 §5.11). A file that cannot be read names no key here; the runtime
+    /// then admits no image at the load and names the file's error.
     fn device_descriptor(&self) -> DeviceDescriptor {
-        DeviceDescriptor::hosted()
+        DeviceDescriptor {
+            trusted_keys: crate::native::computer_trusted_keys().unwrap_or(&[]),
+            ..DeviceDescriptor::hosted()
+        }
     }
 
     /// A computer starts as a new process and has no last reset (specification 11, the runtime

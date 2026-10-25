@@ -427,9 +427,12 @@ fn check_image(image: &[u8], device: &DeviceDescriptor) -> Result<(), InstallErr
     let Some(target) = device.native else {
         return Err(runs_no_images());
     };
-    native::admit(image, &target.device(device.program_memory_bytes))
-        .map(|_| ())
-        .map_err(InstallError::Image)
+    native::admit(
+        image,
+        &target.device(device.program_memory_bytes, device.trusted_keys),
+    )
+    .map(|_| ())
+    .map_err(InstallError::Image)
 }
 
 /// The refusal of an image on a device that runs none, as admission refuses its record's version.

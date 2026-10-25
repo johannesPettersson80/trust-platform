@@ -185,7 +185,10 @@ fn main() -> ! {
     // The image is checked where it lies, against the chip's CPU, its memory for programs and its
     // task stack (specification 44 §10.2), and its module runs there: the internal flash is executable
     // memory with no cache that the program shares (§10.3).
-    let device = NATIVE_TARGET.device(u64::try_from(program_memory).ok());
+    let device = NATIVE_TARGET.device(
+        u64::try_from(program_memory).ok(),
+        DEVICE_DESCRIPTOR.trusted_keys,
+    );
     let admitted = match native::admit(program, &device) {
         Ok(admitted) => admitted,
         Err(refusal) => serve_stopped(

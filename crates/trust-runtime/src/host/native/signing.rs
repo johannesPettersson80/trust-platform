@@ -1,18 +1,19 @@
 //! Signing a program image (specification 44 §5.11): the project's key, or the user's own, which
 //! the first signing creates readable by its owner alone and which no tool prints, fills the
-//! image's `SIGN` section with the Ed25519 signature over every byte before it; and the keys this
-//! computer trusts, from the `device.toml` of truST's configuration folder.
+//! image's `SIGN` section with the Ed25519ph signature over the SHA-512 of every byte before it;
+//! and the keys this computer trusts, from the `device.toml` of truST's configuration folder.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use ed25519_dalek::pkcs8::spki::der::pem::LineEnding;
 use ed25519_dalek::pkcs8::{DecodePrivateKey, EncodePrivateKey};
-use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::SigningKey;
 use rand::TryRng;
 use serde::Deserialize;
+use sha2::{Digest as _, Sha512};
 use trust_runtime_core::native::image::{Image, SectionId};
-use trust_runtime_core::native::signature::{ED25519, SIGN_BYTES};
+use trust_runtime_core::native::signature::{CONTEXT, ED25519PH, SIGN_BYTES};
 
 use super::settings::signing_key_setting;
 use super::NativeError;
@@ -145,7 +146,8 @@ pub fn create_key(path: &Path) -> Result<SigningKey, NativeError> {
 }
 
 /// Signs `image` with `key` in place: its `SIGN` section takes the algorithm, the public key and
-/// the signature over every byte before the section (specification 44 §5.11).
+/// the Ed25519ph signature, with the image's context, over the SHA-512 of every byte before the
+/// section (specification 44 §5.11).
 ///
 /// # Errors
 ///
@@ -161,9 +163,11 @@ pub fn sign(image: &mut [u8], key: &SigningKey) -> Result<(), NativeError> {
         usize::try_from(section.offset)
             .map_err(|_| NativeError::Image(String::from("the SIGN section lies out of reach")))?
     };
-    let signature = key.sign(&image[..start]);
+    let signature = key
+        .sign_prehashed(Sha512::new_with_prefix(&image[..start]), Some(CONTEXT))
+        .map_err(|error| NativeError::Image(format!("the image cannot be signed: {error}")))?;
     let content = &mut image[start..start + SIGN_BYTES];
-    content[..4].copy_from_slice(&ED25519.to_le_bytes());
+    content[..4].copy_from_slice(&ED25519PH.to_le_bytes());
     content[4..36].copy_from_slice(key.verifying_key().as_bytes());
     content[36..].copy_from_slice(&signature.to_bytes());
     Ok(())

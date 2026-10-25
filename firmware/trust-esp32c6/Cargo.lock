@@ -350,6 +350,7 @@ dependencies = [
  "curve25519-dalek",
  "ed25519",
  "sha2",
+ "signature",
  "subtle",
 ]
 
@@ -1524,6 +1525,9 @@ name = "signature"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28d567dcbaf0049cb8ac2608a76cd95ff9e4412e1899d389ee400918ca7537f5"
+dependencies = [
+ "digest 0.11.3",
+]
 
 [[package]]
 name = "smol_str"

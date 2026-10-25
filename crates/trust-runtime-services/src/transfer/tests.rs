@@ -137,7 +137,7 @@ fn part_at_another_offset_is_refused_and_nothing_is_stored() {
         session.part(id, 4096, &last, CRC_5000_LAST),
         Ok(Received::Next(5000))
     );
-    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data, None)));
 }
 
 #[test]
@@ -163,7 +163,7 @@ fn repeated_part_with_the_same_bytes_is_acknowledged_again() {
         session.part(id, 4096, &last, CRC_5000_LAST),
         Ok(Received::Next(5000))
     );
-    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data, None)));
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn repeated_offset_with_other_bytes_is_refused() {
         session.part(id, 4096, &last, CRC_5000_LAST),
         Ok(Received::Next(5000))
     );
-    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data, None)));
 }
 
 #[test]
@@ -348,7 +348,7 @@ fn progress_survives_a_new_host_session() {
         session.part(id, 4096, &last, CRC_5000_LAST),
         Ok(Received::Next(5000))
     );
-    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data, None)));
 }
 
 #[test]
@@ -450,7 +450,7 @@ fn a_correct_container_completes_and_is_taken_once() {
     );
     assert_eq!(
         session.take_complete(id),
-        Ok(Complete::Memory(b"abc".to_vec()))
+        Ok(Complete::Memory(b"abc".to_vec(), None))
     );
     assert_eq!(session.part_buffer_capacity(), 0);
     assert_eq!(session.status(id), Err(TransferError::Unknown));
@@ -522,7 +522,7 @@ fn a_short_part_in_the_middle_is_refused_and_nothing_is_stored() {
         session.part(id, 4096, &last, CRC_5000_LAST),
         Ok(Received::Next(5000))
     );
-    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data)));
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(data, None)));
 }
 
 #[test]
@@ -622,7 +622,10 @@ fn an_empty_upload_is_complete_at_once_only_with_the_digest_of_no_bytes() {
             bytes: 0
         })
     );
-    assert_eq!(session.take_complete(id), Ok(Complete::Memory(Vec::new())));
+    assert_eq!(
+        session.take_complete(id),
+        Ok(Complete::Memory(Vec::new(), None))
+    );
     assert_eq!(session.part_buffer_capacity(), 0);
 }
 
@@ -666,7 +669,10 @@ fn parts_are_decoded_without_allocating() {
         );
         assert_eq!(session.part_buffer_capacity(), 4_096);
     }
-    assert_eq!(session.take_complete(id), Ok(Complete::Memory(payload)));
+    assert_eq!(
+        session.take_complete(id),
+        Ok(Complete::Memory(payload, None))
+    );
 }
 
 #[test]
@@ -824,4 +830,45 @@ fn a_transfer_id_of_fifteen_digits_is_refused() {
             expected: "16 hexadecimal digits"
         })
     );
+}
+
+/// An upload of a program image keeps the SHA-512 of the bytes its signature covers, every byte but
+/// the last 100 (`SIGN`, the image's last section; specification 44 §5.11), built part by part: a
+/// 9,000-byte image arrives in parts at 0, 4,096 and 8,192, a repeat of the first part changes
+/// nothing, and the hash is that of bytes 0 to 8,900 in one block. An upload that does not start
+/// with the image's magic `TRSTI001`, or an image shorter than `SIGN`, keeps none. Catches a hash
+/// that takes `SIGN` or a repeat in, which would refuse every signed online change, and a session
+/// that hashes uploads that are no image.
+#[test]
+fn an_image_upload_keeps_the_hash_of_its_signed_bytes() {
+    use trust_runtime_core::deployment::sha256;
+    use trust_runtime_core::native::signature::Prehash;
+
+    let mut image = b"TRSTI001".to_vec();
+    image.extend(pattern(9_000 - 8));
+    let part = |bytes: &[u8]| (encoded(bytes), trust_runtime_core::crc32::checksum(bytes));
+    let mut session = TransferSession::new(1, 10_000, 1_000);
+    let id = session
+        .begin(9_000, sha256(&image))
+        .expect("a 9,000-byte upload opens");
+    for (offset, end) in [(0, 4_096), (0, 4_096), (4_096, 8_192), (8_192, 9_000)] {
+        let (text, crc) = part(&image[offset..end]);
+        session
+            .part(id, offset as u64, &text, crc)
+            .expect("the part is taken");
+    }
+    let mut expected = Prehash::new();
+    expected.update(&image[..8_900]);
+    assert_eq!(
+        session.take_complete(id),
+        Ok(Complete::Memory(image.clone(), Some(expected)))
+    );
+
+    let short = b"TRSTI001 short".to_vec();
+    let id = session
+        .begin(short.len() as u64, sha256(&short))
+        .expect("a short upload opens");
+    let (text, crc) = part(&short);
+    session.part(id, 0, &text, crc).expect("the part is taken");
+    assert_eq!(session.take_complete(id), Ok(Complete::Memory(short, None)));
 }

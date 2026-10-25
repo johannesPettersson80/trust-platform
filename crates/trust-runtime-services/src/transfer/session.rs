@@ -14,6 +14,8 @@ use base64::engine::general_purpose::STANDARD;
 use base64::{DecodeSliceError, Engine as _};
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{sha256, Sha256Stream};
+use trust_runtime_core::native::image::MAGIC as IMAGE_MAGIC;
+use trust_runtime_core::native::signature::{Prehash, SIGN_BYTES};
 
 use super::ids::{IdSequence, TransferId};
 use super::reply_parts::{reserve_part, PartReserve, ReplyParts};
@@ -250,8 +252,9 @@ pub enum Received {
 /// A complete upload, as the operation that uses it takes it.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Complete {
-    /// An upload held in memory: its bytes.
-    Memory(Vec<u8>),
+    /// An upload held in memory: its bytes, and when it is a program image, the SHA-512 of the bytes
+    /// its signature covers, which the session built as the parts arrived (specification 44 §5.11).
+    Memory(Vec<u8>, Option<Prehash>),
     /// An upload written into a program store.
     Store(StoredUpload),
 }
@@ -343,6 +346,40 @@ struct Upload {
     next_offset: usize,
     bytes: usize,
     held: Held,
+    /// The signed bytes of an upload held in memory that is a program image, known from its first
+    /// part.
+    signed: Option<Signed>,
+}
+
+/// The bytes of an upload that a program image's signature covers, every byte before `SIGN`, the
+/// image's last section, and their SHA-512, which the session builds as the parts arrive. A device
+/// then checks the signature of an online change without hashing the image in one block while its
+/// program runs (specification 44 §5.11).
+#[derive(Debug)]
+struct Signed {
+    /// The end of the signed bytes: the upload's length less `SIGN`.
+    end: usize,
+    hash: Prehash,
+}
+
+impl Signed {
+    /// The signed bytes of an upload of `bytes` bytes whose first part is `first`: those of a
+    /// program image, which starts with the image's magic, and none of any other upload.
+    fn of(first: &[u8], bytes: usize) -> Option<Self> {
+        first.starts_with(&IMAGE_MAGIC).then_some(())?;
+        Some(Self {
+            end: bytes.checked_sub(SIGN_BYTES)?,
+            hash: Prehash::new(),
+        })
+    }
+
+    /// Adds the signed bytes of `part`, the part at `offset`.
+    fn add(&mut self, offset: usize, part: &[u8]) {
+        let end = self.end.min(offset + part.len());
+        if offset < end {
+            self.hash.update(&part[..end - offset]);
+        }
+    }
 }
 
 /// Where an upload's received bytes are (specification 34, PORT-05 and §5.1).
@@ -505,6 +542,7 @@ impl TransferSession {
             next_offset: 0,
             bytes: size,
             held,
+            signed: None,
         };
         if upload.state() == State::Complete && sha256(&[]) != upload.digest {
             return Err(TransferError::Sha256Mismatch);
@@ -578,6 +616,12 @@ impl TransferSession {
                 }
             };
             buffer[received..end].copy_from_slice(&upload.part[..decoded]);
+            if received == 0 {
+                upload.signed = Signed::of(&buffer[..end], upload.bytes);
+            }
+            if let Some(signed) = &mut upload.signed {
+                signed.add(received, &buffer[received..end]);
+            }
             upload.next_offset = end;
             if end == upload.bytes && sha256(buffer) != upload.digest {
                 self.upload = None;
@@ -749,7 +793,9 @@ impl TransferSession {
         }
         let complete = self.upload.take().ok_or(TransferError::Unknown)?;
         Ok(match complete.held {
-            Held::Memory(buffer) => Complete::Memory(buffer),
+            Held::Memory(buffer) => {
+                Complete::Memory(buffer, complete.signed.map(|signed| signed.hash))
+            }
             Held::Store(stored) => Complete::Store(StoredUpload {
                 transfer: complete.id,
                 bytes: complete.bytes,
