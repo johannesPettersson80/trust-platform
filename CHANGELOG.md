@@ -18,8 +18,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `[control]` section it serves the control protocol on TCP port 9901 (`[control] port`), so
   `trust-runtime ctl --endpoint tcp://<address>:9901 --token <token>` reaches it as it reaches a
   computer, installs included. The token is then required on every link. One client holds the
-  network connection at a time; a second is told that the device is busy. The chip answers ping on
-  its address. `capabilities` reports the chip's network, its address and the reason a radio did
+  network connection at a time; a second is told that the device is busy (`server_busy`), and a
+  tool connects again for about a second and a half, as a chip frees its connection a moment after
+  a client closes it. The chip answers ping on its address, leaves its network before a reset it
+  makes itself, and derives a WPA2 passphrase's key at boot, so that joining never stalls its
+  program's scans. `capabilities` reports the chip's network, its address and the reason a radio did
   not start. The radio's code takes 80
   KiB of the C6's program region, now 112 KiB; a chip without Wi-Fi settings starts no radio and
   keeps its heap whole.

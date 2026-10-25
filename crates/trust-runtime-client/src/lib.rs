@@ -141,7 +141,27 @@ pub struct ControlClient {
     reader: BufReader<Box<dyn ByteStream>>,
     auth: Option<String>,
     response_limit: Option<usize>,
+    /// Where the client connected and how long it waits, so that it connects again when a device
+    /// answers the first request that another client holds its connection; none for a stream that
+    /// the caller connected.
+    endpoint: Option<(ControlEndpoint, Duration)>,
 }
+
+/// The `error_code` of a device that serves one control connection at a time while another client
+/// holds it (specification 34 PORT-06).
+const SERVER_BUSY: &str = "server_busy";
+
+/// The waits before the client connects again after a first request answered [`SERVER_BUSY`]: a
+/// device frees its connection a moment after its client closes it, later while it stops a program
+/// and saves its retained values, so the client tries again for about a second and a half before it
+/// reports the busy device (specification 34 PORT-06).
+const BUSY_WAITS: [Duration; 5] = [
+    Duration::from_millis(50),
+    Duration::from_millis(100),
+    Duration::from_millis(200),
+    Duration::from_millis(400),
+    Duration::from_millis(800),
+];
 
 impl ControlClient {
     /// Connects to `endpoint`; every read and write waits at most `timeout`. A blank `auth` is
@@ -157,27 +177,9 @@ impl ControlClient {
         auth: Option<&str>,
         timeout: Duration,
     ) -> Result<Self, ControlError> {
-        let transport = |error: std::io::Error| ControlError::Transport(error.to_string());
-        let stream: Box<dyn ByteStream> = match endpoint {
-            ControlEndpoint::Tcp(address) => {
-                let socket = resolve_socket_addr(address).ok_or_else(|| {
-                    ControlError::Transport(format!("{address} is not a socket address"))
-                })?;
-                let stream = TcpStream::connect_timeout(&socket, timeout).map_err(transport)?;
-                stream.set_timeout(timeout).map_err(transport)?;
-                Box::new(stream)
-            }
-            #[cfg(unix)]
-            ControlEndpoint::Unix(path) => {
-                let stream = UnixStream::connect(path).map_err(transport)?;
-                stream.set_timeout(timeout).map_err(transport)?;
-                Box::new(stream)
-            }
-            ControlEndpoint::Serial(name) => serial_port::open(name, timeout).map_err(|error| {
-                ControlError::Transport(format!("cannot open the serial port {name}: {error}"))
-            })?,
-        };
-        Ok(Self::with_stream(stream, auth))
+        let mut client = Self::with_stream(open_stream(endpoint, timeout)?, auth);
+        client.endpoint = Some((endpoint.clone(), timeout));
+        Ok(client)
     }
 
     /// A client over `stream`, any [`ByteStream`]: a socket that the caller connected, a serial
@@ -197,6 +199,7 @@ impl ControlClient {
                 .filter(|value| !value.is_empty())
                 .map(str::to_string),
             response_limit: None,
+            endpoint: None,
         }
     }
 
@@ -258,18 +261,38 @@ impl ControlClient {
     }
 
     /// Writes one request and reads the line that answers it, and checks that the answer is this
-    /// request's. One request is in flight at a time.
+    /// request's. One request is in flight at a time. A device that another client holds answers a
+    /// connection's first request [`SERVER_BUSY`] and closes the connection: the client connects
+    /// again after each of the [`BUSY_WAITS`] and sends the request again, and returns the busy
+    /// answer when the device stays busy.
     fn round_trip(&mut self, kind: &str, params: Option<Value>) -> Result<Value, ControlError> {
         let id = self.seq;
         let line = self.request_line(id, kind, params)?;
         self.seq = self.seq.saturating_add(1);
+        let mut response = self.send_line(&line, kind)?;
+        if id == 1
+            && let Some((endpoint, timeout)) = self.endpoint.clone()
+        {
+            for wait in BUSY_WAITS {
+                if response.get("error_code").and_then(Value::as_str) != Some(SERVER_BUSY) {
+                    break;
+                }
+                std::thread::sleep(wait);
+                self.reader = BufReader::new(open_stream(&endpoint, timeout)?);
+                response = self.send_line(&line, kind)?;
+            }
+        }
+        check_id(&response, kind, id)?;
+        Ok(response)
+    }
+
+    /// Writes the request `line` and reads the response to it.
+    fn send_line(&mut self, line: &str, kind: &str) -> Result<Value, ControlError> {
         let transport = |error: std::io::Error| ControlError::Transport(error.to_string());
         let stream = self.reader.get_mut();
         stream.write_all(line.as_bytes()).map_err(transport)?;
         stream.flush().map_err(transport)?;
-        let response = self.read_response(kind)?;
-        check_id(&response, kind, id)?;
-        Ok(response)
+        self.read_response(kind)
     }
 
     /// The request as one line with its line end. A request longer than the link's frame is
@@ -397,6 +420,33 @@ fn response_in(line: &[u8]) -> Option<Value> {
 /// Checks that `response` answers request `id`. The runtime answers with the request's id (E0.1).
 /// An answer with another id belongs to another request, such as one that timed out earlier on
 /// this connection. An answer without an id is taken as this one's: a connection carries one
+/// The stream of a new connection to `endpoint`, whose reads and writes wait at most `timeout`.
+fn open_stream(
+    endpoint: &ControlEndpoint,
+    timeout: Duration,
+) -> Result<Box<dyn ByteStream>, ControlError> {
+    let transport = |error: std::io::Error| ControlError::Transport(error.to_string());
+    Ok(match endpoint {
+        ControlEndpoint::Tcp(address) => {
+            let socket = resolve_socket_addr(address).ok_or_else(|| {
+                ControlError::Transport(format!("{address} is not a socket address"))
+            })?;
+            let stream = TcpStream::connect_timeout(&socket, timeout).map_err(transport)?;
+            stream.set_timeout(timeout).map_err(transport)?;
+            Box::new(stream)
+        }
+        #[cfg(unix)]
+        ControlEndpoint::Unix(path) => {
+            let stream = UnixStream::connect(path).map_err(transport)?;
+            stream.set_timeout(timeout).map_err(transport)?;
+            Box::new(stream)
+        }
+        ControlEndpoint::Serial(name) => serial_port::open(name, timeout).map_err(|error| {
+            ControlError::Transport(format!("cannot open the serial port {name}: {error}"))
+        })?,
+    })
+}
+
 /// request at a time.
 fn check_id(response: &Value, kind: &str, id: u64) -> Result<(), ControlError> {
     match response.get("id") {

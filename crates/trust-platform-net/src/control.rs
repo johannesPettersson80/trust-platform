@@ -21,6 +21,9 @@ use trust_runtime_services::link::{DeviceLineLink, ReplyRefused};
 pub const BUSY_ERROR: &str =
     "server busy: the device serves one control connection at a time, and another client holds it";
 
+/// The `error_code` of the busy reply, which a client connects again for.
+pub const BUSY_CODE: &str = "server_busy";
+
 /// The most bytes of a second client's first request that are read for its `id`.
 const BUSY_REQUEST_BYTES: usize = 512;
 
@@ -232,8 +235,12 @@ fn busy_reply(line: &[u8]) -> Vec<u8> {
         .ok()
         .and_then(|request| request.id);
     let reply = match id {
-        Some(id) => format!("{{\"id\":{id},\"ok\":false,\"error\":\"{BUSY_ERROR}\"}}\n"),
-        None => format!("{{\"ok\":false,\"error\":\"{BUSY_ERROR}\"}}\n"),
+        Some(id) => format!(
+            "{{\"id\":{id},\"ok\":false,\"error\":\"{BUSY_ERROR}\",\"error_code\":\"{BUSY_CODE}\"}}\n"
+        ),
+        None => {
+            format!("{{\"ok\":false,\"error\":\"{BUSY_ERROR}\",\"error_code\":\"{BUSY_CODE}\"}}\n")
+        }
     };
     reply.into_bytes()
 }

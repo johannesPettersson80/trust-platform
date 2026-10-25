@@ -12,6 +12,9 @@ rust-version.workspace = true
 # answer to ping, the multicast group of discovery and the name lookup of a time server, and TCP and
 # UDP sockets. Pinned, as the chips' firmware is.
 smoltcp = { version = "=0.14.0", default-features = false, features = ["alloc", "medium-ethernet", "proto-ipv4", "proto-dhcpv4", "proto-dns", "auto-icmp-echo-reply", "multicast", "socket-tcp", "socket-udp", "socket-dhcpv4", "socket-dns"] }
+# The pre-shared key of a WPA2 passphrase (PBKDF2 with HMAC-SHA1), which a chip derives at boot.
+hmac = { version = "0.13.0", default-features = false }
+sha1 = { version = "0.11.0", default-features = false }
 # The `id` of a second client's request, which the busy reply answers; without std.
 serde = { version = "1.0.229", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }

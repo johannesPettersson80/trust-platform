@@ -16,7 +16,7 @@ use trust_platform_net::smoltcp::wire::{
     EthernetAddress, HardwareAddress, Icmpv4Packet, Icmpv4Repr, IpAddress, IpCidr, Ipv4Address,
     Ipv4Cidr,
 };
-use trust_platform_net::{Addressing, Network, NetworkSettings, BUSY_ERROR};
+use trust_platform_net::{Addressing, Network, NetworkSettings, BUSY_CODE, BUSY_ERROR};
 use trust_runtime_core::ports::{LinkFrame, PeerClass};
 
 const CHIP: Ipv4Address = Ipv4Address::new(10, 0, 0, 2);
@@ -197,7 +197,10 @@ fn a_second_client_is_told_the_device_is_busy() {
     bench.send(second, b"{\"auth\":\"x\",\"id\":7,\"type\":\"status\"}\n");
     assert_eq!(
         bench.received(second),
-        format!("{{\"id\":7,\"ok\":false,\"error\":\"{BUSY_ERROR}\"}}\n").into_bytes()
+        format!(
+            "{{\"id\":7,\"ok\":false,\"error\":\"{BUSY_ERROR}\",\"error_code\":\"{BUSY_CODE}\"}}\n"
+        )
+        .into_bytes()
     );
     assert!(!bench.socket(second).may_recv(), "the device closed it");
     bench.send(first, b"{\"id\":3,\"type\":\"status\"}\n");

@@ -7410,8 +7410,10 @@ dependencies = [
 name = "trust-platform-net"
 version = "0.24.75"
 dependencies = [
+ "hmac 0.13.0",
  "serde",
  "serde_json",
+ "sha1 0.11.0",
  "smoltcp",
  "trust-runtime-core",
  "trust-runtime-services",

@@ -107,7 +107,9 @@ pub fn bring_up(
 ) -> Result<Rc<RefCell<C6Net>>, RadioFailure> {
     let station_config = StationConfig::default()
         .with_ssid(Ssid::try_from(wifi.ssid.as_str()).map_err(RadioFailure::Settings)?)
-        .with_authentication(authentication(&wifi.password).map_err(RadioFailure::Settings)?);
+        .with_authentication(
+            authentication(&wifi.ssid, &wifi.password).map_err(RadioFailure::Settings)?,
+        );
     let country = wifi
         .country
         .as_deref()
@@ -168,14 +170,20 @@ pub fn bring_up(
     Ok(Rc::new(RefCell::new(net)))
 }
 
-/// The network's authentication: none for an empty password, WPA2-Personal otherwise, from a
-/// passphrase or a 64-digit pre-shared key.
-fn authentication(password: &str) -> Result<AuthenticationMethodConfig, WifiError> {
+/// The network's authentication: none for an empty password, WPA2-Personal otherwise, with the
+/// 64-digit pre-shared key of the settings or of their passphrase.
+fn authentication(ssid: &str, password: &str) -> Result<AuthenticationMethodConfig, WifiError> {
     if password.is_empty() {
         return Ok(AuthenticationMethodConfig::Open);
     }
+    // A passphrase's key is derived here, at boot and before the program starts: the radio's
+    // driver would derive it at the first join, above the program's priority, and stall the scans
+    // (specification 34 PORT-06). The settings' 64 digits are the key already.
+    let key = (password.len() < 64)
+        .then(|| trust_platform_net::wpa::psk_hex(password, ssid))
+        .flatten();
     Ok(AuthenticationMethodConfig::Wpa2Personal(
-        Password::try_from(password)?,
+        Password::try_from(key.as_deref().unwrap_or(password))?,
     ))
 }
 

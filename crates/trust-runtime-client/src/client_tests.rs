@@ -190,3 +190,83 @@ fn client_times_out_within_its_budget() {
     );
     assert!(started.elapsed() < budget + SLACK);
 }
+
+/// The busy answer of a device that another client holds (specification 34 PORT-06).
+const BUSY: &str = concat!(
+    r#"{"id":1,"ok":false,"error":"server busy: the device serves one control connection at a "#,
+    r#"time, and another client holds it","error_code":"server_busy"}"#
+);
+
+/// A fake device on a local port that answers the first request of each of its connections with
+/// the next of `answers` and then closes that connection, and returns the requests it read.
+fn device_answering(answers: Vec<&'static str>) -> (String, std::thread::JoinHandle<Vec<Value>>) {
+    use std::io::{BufRead, BufReader, Write};
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+    let endpoint = format!("tcp://{}", listener.local_addr().expect("local address"));
+    let server = std::thread::spawn(move || {
+        let mut requests = Vec::new();
+        for answer in answers {
+            let (stream, _) = listener.accept().expect("accept the client");
+            let mut writer = stream.try_clone().expect("clone the connection");
+            let mut line = String::new();
+            BufReader::new(stream)
+                .read_line(&mut line)
+                .expect("read the request");
+            requests.push(serde_json::from_str::<Value>(&line).expect("a JSON request line"));
+            writer
+                .write_all(format!("{answer}\n").as_bytes())
+                .expect("answer the request");
+        }
+        requests
+    });
+    (endpoint, server)
+}
+
+/// A device still closing the connection of the client before answers `server_busy` and closes the
+/// new one (specification 34 PORT-06): the client connects again, sends the same request again,
+/// and returns the answer of the free device. Catches a tool run right after another, which the
+/// chip, still closing the first connection while it stopped its program, told it was busy.
+#[test]
+fn a_busy_device_is_asked_again_on_a_new_connection() {
+    let (endpoint, server) = device_answering(vec![
+        BUSY,
+        r#"{"id":1,"ok":true,"result":{"state":"running"}}"#,
+    ]);
+    let mut client = connect(&endpoint, Some("token-of-sixteen"), Duration::from_secs(2));
+    let response = client
+        .exchange("status", None)
+        .expect("the second connection answers");
+    assert_eq!(
+        response,
+        json!({"id": 1, "ok": true, "result": {"state": "running"}})
+    );
+    let requests = server.join().expect("the fake device ends");
+    assert_eq!(requests.len(), 2, "one request on each connection");
+    assert_eq!(requests[0], requests[1], "the same request again");
+}
+
+/// A device that stays busy is reported after the client connected again five times, within the
+/// waits of 50, 100, 200, 400 and 800 ms, 1.55 s in all (specification 34 PORT-06). Catches a client
+/// that waits for a busy device without end, and one that gives up at once.
+#[test]
+fn a_device_that_stays_busy_is_reported_after_the_waits() {
+    let (endpoint, server) = device_answering(vec![BUSY; 6]);
+    let mut client = connect(&endpoint, None, Duration::from_secs(2));
+    let started = Instant::now();
+    let refused = client.request("status", None);
+    let elapsed = started.elapsed();
+    assert!(
+        matches!(
+            &refused,
+            Err(ControlError::Refused { code: Some(code), .. }) if code == "server_busy"
+        ),
+        "{refused:?}"
+    );
+    assert!(elapsed >= Duration::from_millis(1_550), "{elapsed:?}");
+    assert!(
+        elapsed < Duration::from_millis(1_550) + SLACK,
+        "{elapsed:?}"
+    );
+    assert_eq!(server.join().expect("the fake device ends").len(), 6);
+}
