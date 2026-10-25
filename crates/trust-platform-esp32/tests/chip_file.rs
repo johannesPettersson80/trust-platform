@@ -13,7 +13,6 @@ use trust_platform_esp32::profile::{
 };
 use trust_platform_esp32::program_flash::{SLOT_A_OFFSET, SLOT_BYTES, SLOT_B_OFFSET};
 use trust_platform_esp32::{Platform, ResetCause, ResetRecord};
-use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_services::capabilities::{self, LastReset, ResetCauseName};
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::ports::StatusPort;
@@ -219,8 +218,6 @@ fn platform_with(last_reset: LastReset) -> Platform<()> {
         (),
         SmolStr::new_static("Controller"),
         status_settings(),
-        false,
-        ControlMode::Production,
         DeviceLiveValues::empty(),
         last_reset,
         trust_platform_esp32::profile::runtime_id([0x20, 0x6E, 0xF1, 0x17, 0x04, 0xC0]),

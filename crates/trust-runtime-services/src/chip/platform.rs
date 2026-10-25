@@ -5,11 +5,12 @@
 //! watchdog, its runtime ID and its settings to [`ChipPlatform::new`]; the rest is the same on every
 //! chip.
 //!
-//! A USB client is local (specification 11 §6.9.5), so the link carries no transport label and no
-//! control token is configured yet; a local client therefore acts as `Admin`, exactly as
-//! trust-runtime's local socket without a configured token. A chip has no wall clock until slice T6,
-//! no audit store and no platform operation yet, so those ports answer as an absent value does, not
-//! with an invented one. The chip answers the `io.*`, `set` and `var.*` operations from its own Live
+//! A USB client is local (specification 11 §6.9.5), so the link carries no transport label; a local
+//! client acts as `Admin` until `config.set` gives the chip a control token, after which a request
+//! must carry it, exactly as on trust-runtime's local socket. The platform keeps the settings of the
+//! installed program's record as `config.get` reports them and `config.set` changes them
+//! (specification 11, the runtime configuration contract). A chip has no audit store and no
+//! platform operation yet, so those ports answer as an absent value does, not with an invented one. The chip answers the `io.*`, `set` and `var.*` operations from its own Live
 //! Values, the queues the runner applies and the snapshot it publishes (specification 11, "Live
 //! Values"; specification 34 §4.3.1).
 
@@ -30,6 +31,7 @@ use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::value::Value;
 use trust_runtime_core::watchdog::RetainMode;
 
+use super::watchdog::{cycle_timeout_ms, CycleWatchdog};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::{LastReset, ResetCauseName};
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
@@ -41,6 +43,7 @@ use crate::ports::{
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::{DeviceLiveValues, RunnerPlatform};
+use crate::settings::{RuntimeSettings, TokenChange};
 use crate::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
@@ -89,10 +92,9 @@ pub trait ChipProfile {
 pub struct ProgramValues {
     /// `resource.name` of the record, which `status` reports.
     pub resource_name: SmolStr,
-    /// `runtime.control.debug_enabled` of the record.
-    pub debug_enabled: bool,
-    /// `runtime.control.mode` of the record.
-    pub control_mode: ControlMode,
+    /// The settings of the record that `config.get` reports, among them `runtime.control.mode` and
+    /// `runtime.control.debug_enabled`.
+    pub settings: RuntimeSettings,
     /// The Live Values of the program, which the runner applies and the `io.*`, `set` and `var.*`
     /// operations answer from.
     pub live: DeviceLiveValues,
@@ -105,10 +107,15 @@ pub struct ChipPlatform<C, W> {
     watchdog: W,
     resource_name: SmolStr,
     settings: StatusSettings,
-    debug_enabled: bool,
-    /// `runtime.control.mode` of the installed application's deployment record (specification 34
-    /// §5.1.1, section 7): the mode `status` reports and the path `pause` and `resume` take.
-    control_mode: ControlMode,
+    /// The settings of the installed program's record, as `config.set` changed them (specification
+    /// 34 §5.1.1, section 7): among them the control mode `status` reports and the path `pause` and
+    /// `resume` take. None while the chip has no program, which then reports `production` without a
+    /// debug surface, the record's defaults.
+    runtime: Option<RuntimeSettings>,
+    /// The control token `config.set` gave the chip, which a request then must carry; none until
+    /// then. It is kept in memory, so a reset forgets it, as a computer's process forgets one set
+    /// over its control connection.
+    token: Option<SmolStr>,
     /// The Live Values the runner applies at its cycle phases and the `io.*`, `set` and `var.*`
     /// operations answer from (specification 11, "Live Values"; specification 34 §4.3.1).
     live: DeviceLiveValues,
@@ -126,21 +133,15 @@ pub struct ChipPlatform<C, W> {
 }
 
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
-    /// A platform over `watchdog` that reports `resource_name`, the runtime `settings`, whether the
-    /// debug surface is `debug_enabled` and the record's `control_mode`, with the Live Values `live` of
-    /// the installed program (or [`DeviceLiveValues::empty`] for a chip without one), the `last_reset`
-    /// the boot reports, and the chip's stable `runtime_id`.
+    /// A platform over `watchdog` that reports `resource_name` and the runtime `settings`, with the
+    /// Live Values `live` (or [`DeviceLiveValues::empty`] for a chip without a program), the
+    /// `last_reset` the boot reports, and the chip's stable `runtime_id`. It has no program's record
+    /// until [`Self::set_program`].
     #[must_use]
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "one argument for each value the installed record and the chip supply"
-    )]
     pub fn new(
         watchdog: W,
         resource_name: SmolStr,
         settings: StatusSettings,
-        debug_enabled: bool,
-        control_mode: ControlMode,
         live: DeviceLiveValues,
         last_reset: LastReset,
         runtime_id: SmolStr,
@@ -150,8 +151,8 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             watchdog,
             resource_name,
             settings,
-            debug_enabled,
-            control_mode,
+            runtime: None,
+            token: None,
             live,
             last_reset,
             runtime_id,
@@ -191,12 +192,17 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
     }
 
     /// Gives the platform the values of the record of a program that was loaded: its resource name,
-    /// the debug surface, the control mode and the Live Values (specification 34 STATE-08).
+    /// its settings and the Live Values (specification 34 STATE-08).
     pub fn set_program(&mut self, program: ProgramValues) {
         self.resource_name = program.resource_name;
-        self.debug_enabled = program.debug_enabled;
-        self.control_mode = program.control_mode;
+        self.runtime = Some(program.settings);
         self.live = program.live;
+    }
+
+    /// Gives the platform the Live Values of the program that an online change gave the resource;
+    /// the record, and the settings `config.set` changed, stay (specification 34 §11.3).
+    pub fn set_live_values(&mut self, live: DeviceLiveValues) {
+        self.live = live;
     }
 
     /// The reset the boot reports (specification 11, the runtime device capabilities contract). Its
@@ -251,11 +257,17 @@ impl<C, W> AccessPort for ChipPlatform<C, W> {
         request: &ControlRequest,
         client: Option<&str>,
     ) -> Result<AccessRole, AuthFailure> {
-        resolve_role(request.auth.as_deref(), None, false, client, |_| None)
+        resolve_role(
+            request.auth.as_deref(),
+            self.token.as_deref(),
+            false,
+            client,
+            |_| None,
+        )
     }
 
     fn debug_enabled(&self) -> bool {
-        self.debug_enabled
+        self.runtime.is_some_and(|settings| settings.debug_enabled)
     }
 }
 
@@ -379,20 +391,52 @@ impl<C, W: HardwareWatchdog> HardwareWatchdog for ChipPlatform<C, W> {
     }
 }
 
-impl<C: ChipProfile, W: HardwareWatchdog> RunnerPlatform for ChipPlatform<C, W> {
+impl<C: ChipProfile, W: HardwareWatchdog + CycleWatchdog> RunnerPlatform for ChipPlatform<C, W> {
     fn live_values(&self) -> &DeviceLiveValues {
         &self.live
     }
 
-    /// The installed application's record carries the mode (specification 34 §5.1.1, section 7).
+    /// The installed application's record carries the mode (specification 34 §5.1.1, section 7);
+    /// `config.set` changes it.
     fn control_mode(&self) -> ControlMode {
-        self.control_mode
+        self.runtime
+            .map_or(ControlMode::Production, |settings| settings.control_mode)
+    }
+
+    fn runtime_settings(&self) -> Option<RuntimeSettings> {
+        self.runtime
+    }
+
+    fn control_token_length(&self) -> Option<usize> {
+        self.token.as_ref().map(SmolStr::len)
+    }
+
+    /// The hardware watchdog's interval follows the cycle watchdog's timeout (specification 34,
+    /// TIME-04), so a timeout whose interval the chip's watchdog does not take is refused.
+    fn takes_cycle_timeout_ms(&self, cycle_timeout_ms: u32) -> bool {
+        self.watchdog.takes_cycle_timeout_ms(cycle_timeout_ms)
+    }
+
+    /// The settings and the token of a `config.set` that every check passed; a new cycle watchdog
+    /// timeout sets the hardware watchdog's interval, which the check found the watchdog takes.
+    fn commit_settings(&mut self, settings: RuntimeSettings, token: TokenChange) {
+        let timeout = cycle_timeout_ms(&settings.watchdog);
+        if self
+            .runtime
+            .is_none_or(|running| cycle_timeout_ms(&running.watchdog) != timeout)
+        {
+            let _ = self.watchdog.apply_cycle_timeout_ms(timeout);
+        }
+        self.runtime = Some(settings);
+        token.apply_to(&mut self.token);
     }
 
     /// The Live Values of the program that ended give way to those of no program, so that their
-    /// memory is free for the next program (specification 34 STATE-08).
+    /// memory is free for the next program, and its record's settings go with it (specification 34
+    /// STATE-08). The control token is the chip's, not the program's, and stays.
     fn unload_program(&mut self) {
         self.live = DeviceLiveValues::empty();
+        self.runtime = None;
     }
 
     /// The chip's own work between scans, such as keeping its clock (specification 34 TARGET-06).
@@ -500,14 +544,22 @@ mod tests {
         }
     }
 
+    impl super::super::watchdog::CycleWatchdog for CountingWatchdog {
+        fn max_interval_ms(&self) -> u32 {
+            60_000
+        }
+
+        fn set_interval_ms(&mut self, _milliseconds: u32) -> bool {
+            true
+        }
+    }
+
     /// A platform of the test chip over a counting watchdog, which reports the reset `last_reset`.
     fn platform_with(last_reset: LastReset) -> ChipPlatform<TestChip, CountingWatchdog> {
         ChipPlatform::new(
             CountingWatchdog::default(),
             SmolStr::new_static("Controller"),
             status_settings(),
-            false,
-            ControlMode::Production,
             DeviceLiveValues::empty(),
             last_reset,
             SmolStr::new_static("test-chip-01"),

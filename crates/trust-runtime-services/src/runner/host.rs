@@ -15,6 +15,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
+use super::config::ConfigState;
 use super::debugger::ChipDebug;
 use super::install::InstallState;
 use super::live::DeviceLiveValues;
@@ -42,6 +43,7 @@ use crate::ports::{
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::resource::commands::{CommandClass, CommandSendError};
 use crate::resource::replies::no_installed_program;
+use crate::settings::{RuntimeSettings, TokenChange};
 use crate::status::{IoDriverStatus, StatusSettings};
 use crate::transfer::{StoredUpload, TransferId, TransferSession};
 
@@ -85,6 +87,30 @@ pub trait RunnerPlatform:
     fn control_mode(&self) -> ControlMode {
         ControlMode::Production
     }
+
+    /// The settings of the installed program's record, as `config.get` reports them and
+    /// `config.set` changed them (specification 11, the runtime configuration contract). The loop
+    /// answers both requests from them; a platform that keeps none, the default, answers them
+    /// itself.
+    fn runtime_settings(&self) -> Option<RuntimeSettings> {
+        None
+    }
+
+    /// The length of the control token a request must carry, none without one. The token itself is
+    /// never reported.
+    fn control_token_length(&self) -> Option<usize> {
+        None
+    }
+
+    /// Whether the platform's hardware watchdog takes the interval for a cycle watchdog timeout of
+    /// `cycle_timeout_ms` (specification 34 TIME-04). The default takes every timeout.
+    fn takes_cycle_timeout_ms(&self, _cycle_timeout_ms: u32) -> bool {
+        true
+    }
+
+    /// Takes the settings and the token of a `config.set` that every check passed, before its reply
+    /// is written. The default keeps nothing.
+    fn commit_settings(&mut self, _settings: RuntimeSettings, _token: TokenChange) {}
 
     /// The transfer session the platform keeps for the transfer operations (specification 34,
     /// PORT-05). A platform without one keeps the default, and the transfer operations are then
@@ -158,6 +184,8 @@ pub(super) struct RunnerHost<'a, P, C> {
     pub(super) change: &'a ChangeState,
     /// The step deferred to the loop.
     pub(super) step: &'a StepState,
+    /// The change of a `config.set` and the scheduler's copies it left for the loop.
+    pub(super) config: &'a ConfigState,
 }
 
 impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
@@ -495,6 +523,9 @@ impl<P: RunnerPlatform, C: MonotonicClock> ExtensionDispatch for RunnerHost<'_, 
     fn dispatch_extension(&self, request: &ControlRequest) -> Option<ControlResponse> {
         if request.r#type == reload::OPERATION && self.change.enabled() {
             return Some(self.queue_online_change(request));
+        }
+        if let Some(response) = self.answer_config(request) {
+            return Some(response);
         }
         self.platform.dispatch_extension(request)
     }

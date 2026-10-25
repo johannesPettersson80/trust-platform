@@ -111,17 +111,12 @@ fn cycle_interval(interval: Duration) -> Result<u64, RuntimeError> {
 
 /// `runtime.log.level` as section 7's code, where `warning` is `warn` (specification 34 §5.1.1).
 fn log_level(level: &str) -> Result<LogLevel, RuntimeError> {
-    match level.trim().to_ascii_lowercase().as_str() {
-        "error" => Ok(LogLevel::Error),
-        "warn" | "warning" => Ok(LogLevel::Warn),
-        "info" => Ok(LogLevel::Info),
-        "debug" => Ok(LogLevel::Debug),
-        "trace" => Ok(LogLevel::Trace),
-        _ => Err(invalid(format!(
+    LogLevel::parse(level).ok_or_else(|| {
+        invalid(format!(
             "runtime.toml: runtime.log.level '{level}' is not a level the deployment record's \
              configuration section holds"
-        ))),
-    }
+        ))
+    })
 }
 
 /// `runtime.events.capacity` as section 7's four bytes: 0 when the project sets none, so the

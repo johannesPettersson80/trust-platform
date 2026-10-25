@@ -5,6 +5,7 @@
 
 use alloc::vec::Vec;
 
+use crate::resource::commands::SchedulerPolicies;
 use smol_str::SmolStr;
 use trust_runtime_core::cycle::CycleHooks;
 use trust_runtime_core::deployment::HangAction;
@@ -104,6 +105,11 @@ pub trait ResourceCycle {
 
     /// The fault policy that follows a failed scan.
     fn fault_policy(&self) -> FaultPolicy;
+
+    /// Takes the scheduler's copies that `config.set` changed: the watchdog, the fault policy and
+    /// the retain save interval, which the loop gives at the program's boundary, as trust-runtime's
+    /// scan thread takes them (specification 11, the runtime configuration contract).
+    fn apply_policies(&mut self, policies: SchedulerPolicies);
 
     /// What follows a scan that did not return ([`CycleSettings::hang_action`]); `fault`, the
     /// default of `[runtime.watchdog]`, for a cycle that has none.

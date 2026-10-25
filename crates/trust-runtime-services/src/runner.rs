@@ -54,6 +54,7 @@
 //! in `online_change.rs`).
 
 pub mod compiled;
+mod config;
 mod cycle;
 mod debug_port;
 mod debugger;

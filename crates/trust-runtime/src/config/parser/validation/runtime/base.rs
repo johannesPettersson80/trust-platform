@@ -36,10 +36,7 @@ fn validate_base_sections(cfg: &RuntimeToml) -> Result<(), RuntimeError> {
             "runtime.log.level must not be empty".into(),
         ));
     }
-    if !matches!(
-        log_level.as_str(),
-        "error" | "warn" | "warning" | "info" | "debug" | "trace"
-    ) {
+    if trust_runtime_core::deployment::LogLevel::parse(&log_level).is_none() {
         return Err(RuntimeError::InvalidConfig(
             "runtime.log.level must be error, warn, warning, info, debug, or trace".into(),
         ));

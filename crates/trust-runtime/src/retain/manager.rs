@@ -153,6 +153,10 @@ impl trust_runtime_services::runner::CycleRetain for RetainManager {
     /// A computer writes its retain file at once, so no save waits for a step.
     fn step(&mut self) {}
 
+    fn set_save_interval(&mut self, interval: Option<Duration>) {
+        RetainManager::set_save_interval(self, interval);
+    }
+
     fn save_with(
         &mut self,
         now: Duration,

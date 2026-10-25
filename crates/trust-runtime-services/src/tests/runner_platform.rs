@@ -24,6 +24,7 @@ use trust_runtime_core::value::Value;
 use super::runner_ports::{ms, TestClock, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::chip::watchdog::watchdog_timeout_ms;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
@@ -33,6 +34,7 @@ use crate::ports::{
 };
 use crate::protocol::{ControlRequest, ControlResponse};
 use crate::runner::{DeviceLiveValues, RunnerPlatform};
+use crate::settings::{RuntimeSettings, TokenChange};
 use crate::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
@@ -78,6 +80,14 @@ pub(crate) struct TestPlatform {
     /// How many times the loop dropped the program that ended (`unload_program`); a test keeps a
     /// clone to read them.
     pub(crate) unloads: Rc<Cell<u32>>,
+    /// The settings of the program's record that the loop answers `config.get` and `config.set`
+    /// from; `None`, the default, leaves both to the platform. When set, they give the control mode
+    /// and the debug surface.
+    pub(crate) runtime: Option<RuntimeSettings>,
+    /// The control token a `config.set` gave the platform, which then replaces `control_token`.
+    pub(crate) committed_token: Option<SmolStr>,
+    /// The longest interval the platform's hardware watchdog takes, in milliseconds.
+    pub(crate) max_watchdog_ms: u32,
 }
 
 impl Default for TestPlatform {
@@ -100,6 +110,9 @@ impl Default for TestPlatform {
             device_descriptor: DeviceDescriptor::hosted(),
             last_reset: None,
             unloads: Rc::new(Cell::new(0)),
+            runtime: None,
+            committed_token: None,
+            max_watchdog_ms: u32::MAX,
         }
     }
 }
@@ -112,7 +125,7 @@ impl AccessPort for TestPlatform {
     ) -> Result<AccessRole, AuthFailure> {
         resolve_role(
             request.auth.as_deref(),
-            self.control_token,
+            self.committed_token.as_deref().or(self.control_token),
             false,
             client,
             |_| None,
@@ -120,7 +133,8 @@ impl AccessPort for TestPlatform {
     }
 
     fn debug_enabled(&self) -> bool {
-        self.debug_enabled
+        self.runtime
+            .map_or(self.debug_enabled, |settings| settings.debug_enabled)
     }
 }
 
@@ -237,7 +251,28 @@ impl RunnerPlatform for TestPlatform {
     }
 
     fn control_mode(&self) -> ControlMode {
-        self.control_mode
+        self.runtime
+            .map_or(self.control_mode, |settings| settings.control_mode)
+    }
+
+    fn runtime_settings(&self) -> Option<RuntimeSettings> {
+        self.runtime
+    }
+
+    fn control_token_length(&self) -> Option<usize> {
+        self.committed_token
+            .as_ref()
+            .map(SmolStr::len)
+            .or(self.control_token.map(str::len))
+    }
+
+    fn takes_cycle_timeout_ms(&self, cycle_timeout_ms: u32) -> bool {
+        watchdog_timeout_ms(cycle_timeout_ms) <= self.max_watchdog_ms
+    }
+
+    fn commit_settings(&mut self, settings: RuntimeSettings, token: TokenChange) {
+        self.runtime = Some(settings);
+        token.apply_to(&mut self.committed_token);
     }
 
     fn idle(&mut self) {

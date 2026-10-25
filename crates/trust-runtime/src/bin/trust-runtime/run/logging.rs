@@ -1,46 +1,44 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum LogLevel {
-    Error,
-    Warn,
-    Info,
-    Debug,
-    Trace,
-}
+use trust_runtime_core::deployment::LogLevel;
 
-impl LogLevel {
-    fn parse(text: &str) -> Self {
-        match text.trim().to_ascii_lowercase().as_str() {
-            "error" => Self::Error,
-            "warn" | "warning" => Self::Warn,
-            "debug" => Self::Debug,
-            "trace" => Self::Trace,
-            _ => Self::Info,
-        }
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Error => "error",
-            Self::Warn => "warn",
-            Self::Info => "info",
-            Self::Debug => "debug",
-            Self::Trace => "trace",
-        }
-    }
-}
-
+/// The runtime's log lines on standard output, each written when its level is at most the
+/// configured one, `[runtime.log] level`.
 #[derive(Debug, Clone)]
 struct RuntimeLogger {
+    /// The level the runtime starts with.
     level: LogLevel,
+    /// The runtime's settings once they exist, shared by every clone: from then on the level is
+    /// their `log.level`, which `config.set` changes while the runtime runs (specification 11, the
+    /// runtime configuration contract).
+    settings: Arc<std::sync::OnceLock<Arc<Mutex<RuntimeSettings>>>>,
 }
 
 impl RuntimeLogger {
     fn new(level: LogLevel) -> Self {
-        Self { level }
+        Self {
+            level,
+            settings: Arc::new(std::sync::OnceLock::new()),
+        }
+    }
+
+    /// Every clone takes its level from `settings` from now on.
+    fn follow(&self, settings: Arc<Mutex<RuntimeSettings>>) {
+        let _ = self.settings.set(settings);
+    }
+
+    /// The configured level: the settings' `log.level`, or the starting level before the settings
+    /// exist or while they cannot be read.
+    fn level(&self) -> LogLevel {
+        self.settings
+            .get()
+            .and_then(|settings| {
+                let settings = settings.lock().ok()?;
+                LogLevel::parse(&settings.log_level)
+            })
+            .unwrap_or(self.level)
     }
 
     fn enabled(&self, level: LogLevel) -> bool {
-        level <= self.level
+        level <= self.level()
     }
 
     fn log(&self, level: LogLevel, event: &str, data: serde_json::Value) {

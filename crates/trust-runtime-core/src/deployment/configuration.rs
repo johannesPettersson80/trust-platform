@@ -81,8 +81,9 @@ pub enum ControlMode {
 }
 
 /// `runtime.log.level`, with the level names the runtime's configuration parser accepts
-/// (`warning` is `warn`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// (`warning` is `warn`). The levels are ordered from the fewest messages to the most, so a
+/// message is written when its level is at most the configured one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LogLevel {
     /// `error`.
     Error = 1,
@@ -104,6 +105,82 @@ pub enum HangAction {
     Fault = 1,
     /// `abort`: record the fault, then stop the runtime.
     Abort = 2,
+}
+
+impl ControlMode {
+    /// The mode that `text` names, trimmed and in any ASCII case.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        named(
+            text,
+            &[("production", Self::Production), ("debug", Self::Debug)],
+        )
+    }
+
+    /// The mode's configuration name.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Production => "production",
+            Self::Debug => "debug",
+        }
+    }
+}
+
+impl LogLevel {
+    /// The level that `text` names, trimmed and in any ASCII case; `warning` is `warn`.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        named(
+            text,
+            &[
+                ("error", Self::Error),
+                ("warn", Self::Warn),
+                ("warning", Self::Warn),
+                ("info", Self::Info),
+                ("debug", Self::Debug),
+                ("trace", Self::Trace),
+            ],
+        )
+    }
+
+    /// The level's configuration name.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warn => "warn",
+            Self::Info => "info",
+            Self::Debug => "debug",
+            Self::Trace => "trace",
+        }
+    }
+}
+
+impl HangAction {
+    /// The action that `text` names, trimmed and in any ASCII case.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        named(text, &[("fault", Self::Fault), ("abort", Self::Abort)])
+    }
+
+    /// The action's configuration name.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fault => "fault",
+            Self::Abort => "abort",
+        }
+    }
+}
+
+/// The value of the first of `names` that `text`, trimmed, spells in any ASCII case.
+fn named<T: Copy>(text: &str, names: &[(&str, T)]) -> Option<T> {
+    let text = text.trim();
+    names
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case(text))
+        .map(|&(_, value)| value)
 }
 
 /// One `[[resource.tasks]]` override.

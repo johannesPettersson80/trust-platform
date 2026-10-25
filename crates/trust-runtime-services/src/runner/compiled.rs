@@ -335,6 +335,14 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
         self.settings.hang_action
     }
 
+    fn apply_policies(&mut self, policies: crate::resource::commands::SchedulerPolicies) {
+        self.settings.watchdog = policies.watchdog;
+        self.settings.fault_policy = policies.fault_policy;
+        if let Some(retain) = self.retain.as_mut() {
+            retain.set_save_interval(policies.retain_save_interval);
+        }
+    }
+
     /// The debugger's holds, which are no active time (specification 11 §6.6; specification 44
     /// §13.2).
     fn held_time(&self) -> TimeSpan {

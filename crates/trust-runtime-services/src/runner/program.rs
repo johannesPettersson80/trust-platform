@@ -94,6 +94,12 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
+    fn apply_policies(&mut self, policies: crate::resource::commands::SchedulerPolicies) {
+        if let Self::Installed(cycle) = self {
+            cycle.apply_policies(policies);
+        }
+    }
+
     fn held_time(&self) -> TimeSpan {
         match self {
             Self::Installed(cycle) => cycle.held_time(),

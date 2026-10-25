@@ -58,6 +58,7 @@ use trust_runtime_core::ports::{
 };
 use trust_runtime_core::scheduler::ResourceState;
 
+use super::config::ConfigState;
 use super::debugger::ChipDebug;
 use super::host::{ProgramView, RunnerHost};
 use super::install::{InstallState, Step};
@@ -98,6 +99,8 @@ pub(super) struct Shell<L, W, P, C> {
     pub(super) change: ChangeState,
     /// The stepped scan whose cold restart loads a newer program, deferred to the loop.
     pub(super) step: StepState,
+    /// The change of a `config.set` and the scheduler's copies it left for the loop.
+    pub(super) config: ConfigState,
     pub(super) clock: C,
 }
 
@@ -136,6 +139,7 @@ where
             install: InstallState::default(),
             change: ChangeState::default(),
             step: StepState::default(),
+            config: ConfigState::default(),
             clock,
         }
     }
@@ -285,7 +289,12 @@ where
         received: LinkFrame,
         program: &dyn ProgramView,
     ) -> Option<ControlAfterResponse> {
-        let prepared = self.answer(received, program)?;
+        let prepared = self.answer(received, program);
+        // A `config.set` that every check passed changes the platform before its reply is written.
+        if let Some(commit) = self.config.take_commit() {
+            self.update(&self.platform, |platform| commit.apply(platform));
+        }
+        let prepared = prepared?;
         if self.install.take_began() {
             if !self
                 .install
@@ -331,6 +340,7 @@ where
             install: &self.install,
             change: &self.change,
             step: &self.step,
+            config: &self.config,
         };
         let prepared = reply_within(response, self.max_frame_len, &host);
         self.send(&prepared.response);
@@ -429,6 +439,7 @@ where
             install: &self.install,
             change: &self.change,
             step: &self.step,
+            config: &self.config,
         };
         Some(prepare_line_within(line, &host, client.as_deref(), max_len))
     }

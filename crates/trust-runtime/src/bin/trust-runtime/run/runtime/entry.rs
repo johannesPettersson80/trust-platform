@@ -91,7 +91,10 @@ pub fn run_runtime(
         .and_then(|bundle| auto_scaffold_hmi_update(bundle, &runtime, &sources));
 
     let logger = RuntimeLogger::new(match &bundle {
-        Some(bundle) => LogLevel::parse(bundle.runtime.log_level.as_str()),
+        // The configuration parser has checked the level's name.
+        Some(bundle) => {
+            LogLevel::parse(bundle.runtime.log_level.as_str()).unwrap_or(LogLevel::Info)
+        }
         None => LogLevel::Info,
     });
     logger.log(
@@ -162,6 +165,7 @@ pub fn run_runtime(
     );
     let web_config = resolve_web_config(bundle.as_ref(), &initial_settings);
     let settings = Arc::new(Mutex::new(initial_settings));
+    logger.follow(settings.clone());
     let program_reload = ProgramReload {
         source: program_source,
         simulation: simulation_requested,

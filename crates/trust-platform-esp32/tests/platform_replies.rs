@@ -11,7 +11,7 @@ use serde_json::json;
 use smol_str::SmolStr;
 use trust_platform_esp32::profile::runtime_id;
 use trust_platform_esp32::Platform;
-use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
+use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
@@ -31,8 +31,6 @@ fn platform() -> Platform<()> {
         (),
         SmolStr::new_static("Controller"),
         status_settings(),
-        false,
-        ControlMode::Production,
         DeviceLiveValues::empty(),
         LastReset {
             cause: ResetCauseName::PowerOn,

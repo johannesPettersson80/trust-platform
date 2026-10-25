@@ -38,7 +38,7 @@ use trust_platform_stm32u5::reset::ResetControl;
 use trust_platform_stm32u5::usb_link;
 use trust_platform_stm32u5::wait::{Monotonic, Wait};
 use trust_plc_abi::kernel::InPlace;
-use trust_runtime_core::deployment::{Configuration, ControlMode};
+use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::{self as native, NativeProgram};
 use trust_runtime_core::native::KERNEL_FUNCTIONS;
@@ -46,9 +46,11 @@ use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
-use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::chip::platform::{status_settings, ProgramValues};
+use trust_runtime_services::chip::watchdog::cycle_timeout_ms;
 use trust_runtime_services::link::DeviceLineLink;
 use trust_runtime_services::runner::{CompiledCycle, CycleSettings, DeviceLiveValues, Runner};
+use trust_runtime_services::settings::RuntimeSettings;
 
 use crate::platform::Platform;
 use crate::process_io::{claim, GpioIo};
@@ -144,7 +146,7 @@ fn main() -> ! {
     }
 
     // The hardware watchdog's timeout, refused before any pin is claimed (specification 34, TIME-04).
-    let timeout = match timeout_for(cycle_timeout_ms(&config)) {
+    let timeout = match timeout_for(cycle_timeout_ms(&config.watchdog)) {
         Ok(timeout) => timeout,
         Err(reason) => serve_stopped(parts, String::from(reason)),
     };
@@ -246,12 +248,15 @@ fn main() -> ! {
         parts.watchdog,
         config.resource_name.clone(),
         status_settings(),
-        config.control_debug_enabled,
-        config.control_mode,
-        live,
+        DeviceLiveValues::empty(),
         parts.last_reset,
         platform::device_runtime_id(),
     );
+    platform.set_program(ProgramValues {
+        resource_name: config.resource_name.clone(),
+        settings: RuntimeSettings::from_record(&config),
+        live,
+    });
     platform.set_program_memory(program_memory);
     let link = match usb_link::bind(parts.clock) {
         Ok(link) => link,
@@ -290,14 +295,12 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
     if let Err(error) = watchdog.start(STOPPED_TIMEOUT_MS) {
         halt::emergency_halt(error);
     }
+    // A device that has not admitted an application has no record: it reports `production` without a
+    // debug surface, the record's defaults (specification 11 §6.9).
     let platform = Platform::new(
         watchdog,
         SmolStr::new_static("Controller"),
         status_settings(),
-        false,
-        // A device that has not admitted an application has no record: it reports `production`, the
-        // record's default (specification 11 §6.9).
-        ControlMode::Production,
         DeviceLiveValues::empty(),
         last_reset,
         platform::device_runtime_id(),
@@ -321,11 +324,6 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
     );
     let _ = runner.run();
     halt::emergency_halt("runner-stopped")
-}
-
-/// The cycle watchdog timeout the record configures, in whole milliseconds; a disabled watchdog is zero.
-fn cycle_timeout_ms(config: &Configuration) -> u32 {
-    u32::try_from(config.watchdog.timeout.as_millis().max(0)).unwrap_or(u32::MAX)
 }
 
 /// The newest events the event store keeps: the record's capacity, or the chip's default when the record

@@ -719,6 +719,8 @@ pub(crate) enum CycleCall {
         source: RetainSource,
     },
     TaskTiming(Duration),
+    /// The scheduler's copies a `config.set` changed, taken at a boundary.
+    Policies(crate::resource::commands::SchedulerPolicies),
 }
 
 /// The settings and failures a test gives the program, and what the loop asked of it. The
@@ -811,6 +813,14 @@ impl ResourceCycle for ScriptedCycle<'_> {
 
     fn hang_action(&self) -> trust_runtime_core::deployment::HangAction {
         self.cycle.hang_action()
+    }
+
+    fn apply_policies(&mut self, policies: crate::resource::commands::SchedulerPolicies) {
+        self.script
+            .borrow_mut()
+            .calls
+            .push(CycleCall::Policies(policies));
+        self.cycle.apply_policies(policies);
     }
 
     fn held_time(&self) -> TimeSpan {

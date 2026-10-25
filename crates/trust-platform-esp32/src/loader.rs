@@ -42,14 +42,6 @@ pub trait ProgramHardware {
     fn checkpoint_flash(&mut self) -> Result<Box<dyn CheckpointFlash>, String>;
 }
 
-/// A hardware watchdog whose interval the loader sets from the cycle watchdog of a record.
-pub trait CycleWatchdog {
-    /// Sets the interval from the cycle watchdog timeout `cycle_timeout_ms` of a record: the larger of
-    /// 4 s and the timeout plus 2 s (specification 34 TIME-04). Returns whether the interval is in the
-    /// watchdog's range; when it is not, the interval did not change.
-    fn apply_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> bool;
-}
-
 /// The bytes of the heap that an online change keeps free for its working memory, beyond the running
 /// program and the new one (specification 34 §11.3, UPDATE-06 and Appendix D.2; specification 44
 /// §12.3): the change's areas must fit in the heap's room now less these bytes. What it takes at its
@@ -127,13 +119,6 @@ pub(crate) fn settings(config: &Configuration) -> CycleSettings {
             .map(|entry| (entry.address.clone(), entry.value.clone()))
             .collect(),
     }
-}
-
-/// The cycle watchdog timeout the record configures, in whole milliseconds; a disabled watchdog is
-/// zero, which keeps the hardware watchdog at its 4 s minimum (design §2.5).
-#[must_use]
-pub fn cycle_timeout_ms(config: &Configuration) -> u32 {
-    u32::try_from(config.watchdog.timeout.as_millis().max(0)).unwrap_or(u32::MAX)
 }
 
 /// The newest events the event store keeps: the record's section-7 capacity, or the C6's default when

@@ -5,6 +5,8 @@ use super::simulation_warning_message;
 #[cfg(unix)]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+
+use smol_str::SmolStr;
 use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointQuality, SymbolDescriptor, SymbolFlag,
 };
@@ -222,8 +224,70 @@ fn runtime_logger_threshold_uses_canonical_severity_order() {
     assert!(!logger.enabled(super::LogLevel::Info));
     assert!(!logger.enabled(super::LogLevel::Debug));
     assert!(!logger.enabled(super::LogLevel::Trace));
-    assert_eq!(super::LogLevel::parse(" WARNING "), super::LogLevel::Warn);
+    assert_eq!(
+        super::LogLevel::parse(" WARNING "),
+        Some(super::LogLevel::Warn)
+    );
     assert_eq!(super::LogLevel::Warn.as_str(), "warn");
+}
+
+/// `config.set` changes `log.level` while the runtime runs (specification 11, the runtime
+/// configuration contract: a live update), so a logger that follows the settings writes by their
+/// level, not the level it started with: `warn` at the start, then `debug` and `error` as the
+/// settings say. Catches a logger that keeps its starting level, as trust-runtime's did.
+#[test]
+fn runtime_logger_follows_a_live_log_level_change() {
+    let logger = super::RuntimeLogger::new(super::LogLevel::Warn);
+    let clone = logger.clone();
+    let mut settings = trust_runtime::settings::RuntimeSettings::new(
+        trust_runtime::value::Duration::from_millis(10),
+        trust_runtime::settings::BaseSettings {
+            log_level: SmolStr::new_static("warn"),
+            watchdog: trust_runtime::watchdog::WatchdogPolicy::default(),
+            fault_policy: trust_runtime::watchdog::FaultPolicy::Halt,
+            retain_mode: trust_runtime::watchdog::RetainMode::None,
+            retain_save_interval: None,
+        },
+        trust_runtime::settings::WebSettings {
+            enabled: false,
+            listen: SmolStr::new_static("127.0.0.1:0"),
+            auth: SmolStr::new_static("local"),
+            tls: false,
+        },
+        trust_runtime::settings::DiscoverySettings {
+            enabled: false,
+            service_name: SmolStr::new_static("truST"),
+            advertise: false,
+            interfaces: Vec::new(),
+            host_group: None,
+        },
+        trust_runtime::settings::MeshSettings {
+            enabled: false,
+            role: trust_runtime::config::MeshRole::Peer,
+            listen: SmolStr::new_static("127.0.0.1:0"),
+            connect: Vec::new(),
+            tls: false,
+            auth_token: None,
+            publish: Vec::new(),
+            subscribe: indexmap::IndexMap::new(),
+            zenohd_version: SmolStr::new_static("1.7.2"),
+            plugin_versions: indexmap::IndexMap::new(),
+        },
+        trust_runtime::settings::SimulationSettings {
+            enabled: false,
+            time_scale: 1,
+            mode_label: SmolStr::new_static("production"),
+            warning: SmolStr::new_static(""),
+        },
+    );
+    settings.log_level = SmolStr::new_static("debug");
+    let shared = std::sync::Arc::new(std::sync::Mutex::new(settings));
+    logger.follow(shared.clone());
+    assert!(clone.enabled(super::LogLevel::Debug), "a clone follows too");
+    assert!(!clone.enabled(super::LogLevel::Trace));
+    shared.lock().expect("settings").log_level = SmolStr::new_static("error");
+    assert!(!logger.enabled(super::LogLevel::Warn));
+    assert!(logger.enabled(super::LogLevel::Error));
 }
 
 #[test]

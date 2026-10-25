@@ -13,7 +13,6 @@ use trust_platform_esp32::profile::{
     FLASH_PROGRAM_BYTES,
 };
 use trust_platform_esp32::Platform;
-use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::ports::CheckpointStorage;
 use trust_runtime_core::retain::checkpoint::{CheckpointFlash, FlashError, Slot};
 use trust_runtime_core::watchdog::RetainMode;
@@ -89,8 +88,6 @@ fn platform_with(retain: RetainMode, flash: Box<dyn CheckpointFlash>) -> Platfor
         (),
         SmolStr::new_static("Controller"),
         status_settings(),
-        false,
-        ControlMode::Production,
         DeviceLiveValues::empty(),
         LastReset {
             cause: ResetCauseName::PowerOn,

@@ -240,6 +240,10 @@ pub trait CycleRetain {
     /// the next capture.
     fn step(&mut self);
 
+    /// Sets the interval of the periodic saves, `[runtime.retain] save_interval_ms`, none for no
+    /// periodic save, as `config.set` changes it; a capture already due stays due.
+    fn set_save_interval(&mut self, interval: Option<Duration>);
+
     /// Captures the values with `fill` and completes the save before the resource reports Stopped.
     ///
     /// # Errors
@@ -278,6 +282,10 @@ impl CycleRetain for RetainStore {
 
     fn step(&mut self) {
         RetainStore::step(self);
+    }
+
+    fn set_save_interval(&mut self, interval: Option<Duration>) {
+        self.capture.set_interval(interval);
     }
 
     fn save_with(

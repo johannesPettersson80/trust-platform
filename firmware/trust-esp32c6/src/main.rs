@@ -45,7 +45,6 @@ use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES};
 use trust_platform_esp32::{emergency_halt, Board, Monotonic, UsbLink, Wait, Watchdog};
 use trust_platform_esp32::{C6Code, Platform, ProgramCode};
-use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
@@ -116,14 +115,13 @@ fn main() -> ! {
         emergency_halt("wait-alarm");
     };
 
-    // The platform starts with the values of a chip that has no application: it reports `production`,
-    // the record's default (specification 11 §6.9). The loader sets those of the installed record.
+    // The platform starts with the values of a chip that has no application: it reports `production`
+    // without a debug surface, the record's defaults (specification 11 §6.9). The loader sets those of
+    // the installed record.
     let platform = ChipPlatform::new(
         parts.watchdog,
         SmolStr::new_static("Controller"),
         status_settings(),
-        false,
-        ControlMode::Production,
         DeviceLiveValues::empty(),
         last_reset,
         runtime_id(parts.identity.mac),

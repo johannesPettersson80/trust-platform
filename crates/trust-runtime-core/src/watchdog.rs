@@ -31,6 +31,16 @@ impl WatchdogAction {
             )),
         }
     }
+
+    /// The action's configuration name, as [`Self::parse`] reads it.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Halt => "halt",
+            Self::SafeHalt => "safe_halt",
+            Self::Restart => "restart",
+        }
+    }
 }
 
 /// Retain persistence backend mode.
@@ -51,6 +61,15 @@ impl RetainMode {
             _ => Err(RuntimeError::InvalidConfig(
                 format!("invalid retain mode '{text}'").into(),
             )),
+        }
+    }
+
+    /// The mode's configuration name, as [`Self::parse`] reads it.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::File => "file",
         }
     }
 }
@@ -76,6 +95,16 @@ impl FaultPolicy {
             _ => Err(RuntimeError::InvalidConfig(
                 format!("invalid fault policy '{text}'").into(),
             )),
+        }
+    }
+
+    /// The policy's configuration name, as [`Self::parse`] reads it.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Halt => "halt",
+            Self::SafeHalt => "safe_halt",
+            Self::Restart => "restart",
         }
     }
 }

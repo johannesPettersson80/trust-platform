@@ -50,8 +50,6 @@ static TAKEN: AtomicBool = AtomicBool::new(false);
 pub enum BoardError {
     /// The board was already taken; a second `Board::take` is refused.
     PeripheralsTaken,
-    /// Watchdog interval must be between 1 and 60,000 nominal milliseconds.
-    WatchdogInterval,
     /// Phase zero is invalid, or the RTC-memory readback did not match the written cookie.
     ResetCookie,
     /// The flash driver rejected a read.

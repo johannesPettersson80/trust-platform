@@ -13,6 +13,7 @@ use esp_hal::{
 };
 use trust_platform_memory::reset::{self, ResetCause, ResetRecord, ResetStore, RECORD_WORDS};
 use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan};
+use trust_runtime_services::chip::watchdog::CycleWatchdog;
 
 /// Largest accepted MWDT0 stage-0 interval in milliseconds.
 const MAX_WATCHDOG_MS: u32 = 60_000;
@@ -34,23 +35,8 @@ impl Watchdog {
         Self { inner }
     }
 
-    /// Set MWDT0's stage-0 interval from the project's cycle watchdog timeout: the larger of 4 s
-    /// and the cycle timeout plus 2 s (design §2.5 and specification 34, TIME-04).
-    ///
-    /// # Errors
-    ///
-    /// [`BoardError::WatchdogInterval`] when the rule's interval is outside 1..=60,000 ms.
-    pub fn set_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> Result<(), BoardError> {
-        let milliseconds = watchdog_timeout_ms(cycle_timeout_ms);
-        if !(1..=MAX_WATCHDOG_MS).contains(&milliseconds) {
-            return Err(BoardError::WatchdogInterval);
-        }
-        configure(&mut self.inner, milliseconds);
-        Ok(())
-    }
-
-    /// Enable MWDT0 with the interval [`Self::new`] or [`Self::set_cycle_timeout_ms`] set. Only a
-    /// reset stops it afterwards.
+    /// Enable MWDT0 with the interval [`Self::new`] or the program's cycle watchdog set
+    /// ([`CycleWatchdog`]). Only a reset stops it afterwards.
     pub fn start(&mut self) {
         self.inner.enable();
     }
@@ -217,10 +203,15 @@ fn read_words() -> [u32; 2] {
     unsafe { [read_volatile(words), read_volatile(words.add(1))] }
 }
 
-/// The loader sets the interval of MWDT0 from the cycle watchdog of the record it loads (specification
-/// 34 TIME-04).
-impl crate::loader::CycleWatchdog for Watchdog {
-    fn apply_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> bool {
-        self.set_cycle_timeout_ms(cycle_timeout_ms).is_ok()
+/// MWDT0's stage-0 interval follows the program's cycle watchdog (design §2.5 and specification 34,
+/// TIME-04): the loader sets it from the record it loads, and `config.set` from a new timeout.
+impl CycleWatchdog for Watchdog {
+    fn max_interval_ms(&self) -> u32 {
+        MAX_WATCHDOG_MS
+    }
+
+    fn set_interval_ms(&mut self, milliseconds: u32) -> bool {
+        configure(&mut self.inner, milliseconds);
+        true
     }
 }

@@ -8,7 +8,7 @@ use stm32u5::stm32u5a9 as pac;
 use trust_platform_stm32u5::watchdog::{Watchdog as Iwdg, MAX_INTERVAL_MS};
 use trust_runtime_core::ports::{HardwareWatchdog, TimeSpan};
 use trust_runtime_services::chip::watchdog::{
-    watchdog_timeout_ms, FEED_INTERVAL_MS, MIN_TIMEOUT_MS,
+    watchdog_timeout_ms, CycleWatchdog, FEED_INTERVAL_MS, MIN_TIMEOUT_MS,
 };
 
 /// The timeout of a stopped device, which has no cycle watchdog: the 4 s minimum.
@@ -52,6 +52,19 @@ impl Watchdog {
         self.chip
             .start(milliseconds)
             .map_err(|_| "the independent watchdog did not take its interval")
+    }
+}
+
+/// The independent watchdog's interval follows the program's cycle watchdog (specification 34,
+/// TIME-04): `config.set` sets it from a new timeout. The chip writes the interval while the counter
+/// runs, as its start does.
+impl CycleWatchdog for Watchdog {
+    fn max_interval_ms(&self) -> u32 {
+        MAX_INTERVAL_MS
+    }
+
+    fn set_interval_ms(&mut self, milliseconds: u32) -> bool {
+        self.chip.start(milliseconds).is_ok()
     }
 }
 

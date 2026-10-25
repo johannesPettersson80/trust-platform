@@ -48,6 +48,7 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::chip::platform::ProgramValues;
 use trust_runtime_services::chip::process_io::record_lines;
+use trust_runtime_services::chip::watchdog::{cycle_timeout_ms, CycleWatchdog};
 use trust_runtime_services::installation::{Admitted, ProgramFormat};
 use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::ports::StatusPort;
@@ -55,10 +56,11 @@ use trust_runtime_services::runner::{
     address_text, check_image_retained_values, unwired_binding, Candidate, ChangeMemory,
     CompiledCycle, DeviceLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainSource,
 };
+use trust_runtime_services::settings::RuntimeSettings;
 
 use crate::loader::{
-    cycle_timeout_ms, event_capacity, retain_config, settings, start_failure, CycleWatchdog,
-    ProgramHardware, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
+    event_capacity, retain_config, settings, start_failure, ProgramHardware,
+    ONLINE_CHANGE_WORKING_MEMORY_BYTES,
 };
 use crate::platform::Platform;
 use crate::profile::NATIVE_TARGET;
@@ -198,7 +200,7 @@ where
         })?;
         if !platform
             .watchdog_mut()
-            .apply_cycle_timeout_ms(cycle_timeout_ms(&config))
+            .apply_cycle_timeout_ms(cycle_timeout_ms(&config.watchdog))
         {
             return Err(String::from(
                 "the installed application's watchdog timeout is outside the C6's range",
@@ -237,9 +239,8 @@ where
         let event_capacity = event_capacity(&config);
         self.running = Some(config.clone());
         platform.set_program(ProgramValues {
+            settings: RuntimeSettings::from_record(&config),
             resource_name: config.resource_name,
-            debug_enabled: config.control_debug_enabled,
-            control_mode: config.control_mode,
             live,
         });
         Ok(Loaded {
@@ -315,14 +316,9 @@ where
         candidate: &mut Candidate<CompiledProgramCycle<C, H::Io, M::Code>>,
     ) {
         running.hand_over_to(&mut candidate.cycle);
-        if let Some(config) = &self.running {
-            platform.set_program(ProgramValues {
-                resource_name: config.resource_name.clone(),
-                debug_enabled: config.control_debug_enabled,
-                control_mode: config.control_mode,
-                live: candidate.live.clone(),
-            });
-        }
+        // The record stays the running one, with the settings `config.set` gave it, as a computer's
+        // online change keeps them; only the Live Values are the changed program's.
+        platform.set_live_values(candidate.live.clone());
     }
 }
 

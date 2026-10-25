@@ -1792,14 +1792,6 @@
         "split_plan": "Split request cases into typed child handlers if the IDE HTTP API changes."
       },
       {
-        "path": "crates/trust-runtime/src/control/config_handlers_set.rs",
-        "name": "handle_config_set",
-        "owner": "runtime/control",
-        "rationale": "config set handler centralizes validation and writeback policy",
-        "review_date": "2026-05-02",
-        "split_plan": "Split per-section setters behind the same control request contract."
-      },
-      {
         "path": "crates/trust-runtime/src/web/ide_routes/basic.rs",
         "name": "handle_basic_route",
         "owner": "runtime/web",
@@ -2871,7 +2863,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 344,
+        "line": 342,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2903,7 +2895,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 172,
+        "line": 158,
         "owner": "runtime portability S1b-4b2 (reset record)",
         "invariant": "`words` addresses the RECORD_WORDS-word RTC-fast RECORD static, so every volatile load stays inside it and takes the value from RTC memory.",
         "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (a_reset_record_survives_a_reset_and_is_read_once, a_damaged_reset_record_is_no_record); the RTC statics are exercised only by the chip build and the planned C6 bench run.",
@@ -2911,7 +2903,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 183,
+        "line": 169,
         "owner": "runtime portability S1b-4b2 (reset record)",
         "invariant": "`base` addresses the RECORD_WORDS-word RTC-fast RECORD static, so every volatile store stays inside it; only ResetControl writes the record, in program order.",
         "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (a_reset_record_survives_a_reset_and_is_read_once, a_damaged_reset_record_is_no_record); the RTC statics are exercised only by the chip build and the planned C6 bench run.",
@@ -2919,7 +2911,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 189,
+        "line": 175,
         "owner": "runtime portability S1b-4b2 (reset record)",
         "invariant": "BOOT_COUNT is a one-word RTC-fast `u32` static; the volatile load reads it from RTC memory.",
         "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (the_boot_counter_increments_once_per_boot); the RTC static is exercised only by the chip build and the planned C6 bench run.",
@@ -2927,7 +2919,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 194,
+        "line": 180,
         "owner": "runtime portability S1b-4b2 (reset record)",
         "invariant": "BOOT_COUNT is a one-word RTC-fast `u32` static; the volatile store keeps it in RTC memory.",
         "test_evidence": "The shared record codec is proven by cargo test -p trust-platform-memory (the_boot_counter_increments_once_per_boot); the RTC static is exercised only by the chip build and the planned C6 bench run.",
@@ -2935,7 +2927,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 209,
+        "line": 195,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "The index is bounds-checked against the two-word RTC-fast COOKIE static; only ResetControl writes it, in program order.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2943,7 +2935,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/reset.rs",
-        "line": 217,
+        "line": 203,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Both loads stay inside the two-word RTC-fast COOKIE static; volatile, so the value comes from RTC memory.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -2991,7 +2983,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 347,
+        "line": 345,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
@@ -2999,7 +2991,7 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 198,
+        "line": 200,
         "owner": "native execution (specification 44)",
         "invariant": "The module is the CODE section of an image the loader admitted on this device (specification 44 §10.2), in internal flash the CPU executes in place and that nothing writes while the program runs (§10.3).",
         "test_evidence": "cargo run -p xtask -- portability build-firmware stm32u5a9 (links); the device run is open: the STM32U5A9 is not connected.",
@@ -3415,7 +3407,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
-        "line": 271,
+        "line": 272,
         "owner": "native execution (specification 44)",
         "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",

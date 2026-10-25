@@ -27,6 +27,39 @@ pub const fn watchdog_timeout_ms(cycle_timeout_ms: u32) -> u32 {
     }
 }
 
+/// A chip's hardware watchdog, whose interval follows the program's cycle watchdog timeout by
+/// [`watchdog_timeout_ms`] (specification 34, TIME-04): a loader sets it from the record of the
+/// program it loads, and `config.set` from a new timeout. The chip supplies its interval limit and
+/// the peripheral's setting; the rule is the shared one.
+pub trait CycleWatchdog {
+    /// The longest interval the watchdog takes, in milliseconds.
+    fn max_interval_ms(&self) -> u32;
+
+    /// Sets the interval to `milliseconds`, from 1 to [`Self::max_interval_ms`]. Returns whether the
+    /// peripheral took it.
+    fn set_interval_ms(&mut self, milliseconds: u32) -> bool;
+
+    /// Whether the watchdog takes the interval for a cycle watchdog timeout of `cycle_timeout_ms`.
+    fn takes_cycle_timeout_ms(&self, cycle_timeout_ms: u32) -> bool {
+        (1..=self.max_interval_ms()).contains(&watchdog_timeout_ms(cycle_timeout_ms))
+    }
+
+    /// Sets the interval for a cycle watchdog timeout of `cycle_timeout_ms`. Returns whether the
+    /// watchdog took it; when it did not, the interval did not change.
+    fn apply_cycle_timeout_ms(&mut self, cycle_timeout_ms: u32) -> bool {
+        self.takes_cycle_timeout_ms(cycle_timeout_ms)
+            && self.set_interval_ms(watchdog_timeout_ms(cycle_timeout_ms))
+    }
+}
+
+/// The cycle watchdog timeout of `watchdog` in the whole milliseconds a chip's interval takes, the
+/// largest for a timeout beyond `u32` milliseconds. A disabled watchdog keeps its timeout, so its
+/// interval stays what the timeout gives (a project without one has the zero timeout).
+#[must_use]
+pub fn cycle_timeout_ms(watchdog: &trust_runtime_core::watchdog::WatchdogPolicy) -> u32 {
+    u32::try_from(watchdog.timeout.as_millis().max(0)).unwrap_or(u32::MAX)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

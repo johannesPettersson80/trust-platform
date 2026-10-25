@@ -25,6 +25,15 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
   `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
   and `runtime_preparation_limit`.
+- Added: a chip answers `config.get` and `config.set` as trust-runtime does (specification 34
+  TARGET-07): the log level, the cycle watchdog, the fault policy, retain and control of its
+  installed program, in trust-runtime's keys, by the same rules. A change is committed before the
+  reply, the program takes a new watchdog, fault policy or retain save interval at its next
+  boundary, the hardware watchdog follows a new cycle watchdog timeout, and a control token set this
+  way is required from then on. A chip answered both with `unsupported request`.
+- Fixed: `config.set` refuses a `log.level` that is not one of `error`, `warn`, `warning`, `info`,
+  `debug` and `trace`, and trust-runtime writes its log lines by a level changed with `config.set`
+  at once; it took any text and kept logging by the level it started with.
 - Fixed: a chip whose program hung or panicked comes back faulted, as trust-runtime's resource
   stays faulted (specification 34 TARGET-08). After the hardware watchdog's reset the program is
   Faulted with `watchdog timeout` while `runtime.watchdog.hang_action` is `fault`, the default, and

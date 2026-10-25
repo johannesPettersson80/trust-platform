@@ -70,10 +70,10 @@ where
     }
 
     /// The boundary of a running or paused program, as trust-runtime's scan thread begins each
-    /// pass: a requested stop first, then the queued pause and resume in order, then a queued
-    /// online change (specification 34 §11.3), then a pending restart, which keeps a pause and acts on
-    /// the program the change gave; then the scan, or while paused the wait for the next cycle
-    /// interval.
+    /// pass: a requested stop first, then the queued pause and resume in order and the scheduler's
+    /// copies a `config.set` changed, then a queued online change (specification 34 §11.3), then a
+    /// pending restart, which keeps a pause and acts on the program the change gave; then the scan,
+    /// or while paused the wait for the next cycle interval.
     fn take_boundary(&mut self) {
         let mut boundary = self.next_boundary;
         if self.shell.stop_requested() {
@@ -89,6 +89,7 @@ where
             }
             Some(RunningCommandEffect::Apply) | None => {}
         }
+        self.take_policies();
         self.apply_online_change();
         if let Some(mode) = self.shell.resource.take_pending_restart() {
             if let Err(error) = self.restart_in_place(mode, RetainSource::Checkpoint) {
@@ -108,13 +109,15 @@ where
     }
 
     /// One poll of the faulted wait, as trust-runtime's faulted wait ends each poll period: the
-    /// queued commands are dropped, an online change that succeeds recovers the program (specification
-    /// 11 §6.6), a pending restart recovers the program, which then takes its boundary at once, and a
+    /// queued commands are dropped but the scheduler's copies a `config.set` changed are taken, an
+    /// online change that succeeds recovers the program (specification 11 §6.6), a pending restart
+    /// recovers the program, which then takes its boundary at once, and a
     /// requested stop stops the program as a stop of a running one does (specification 34 STATE-08):
     /// the safe outputs again and the retain save, and the resource is Stopped, or Faulted with the
     /// stop's error. The root fault stays in `last_error` until the next start.
     fn faulted_poll(&mut self, now: MonotonicInstant) {
         let _ = self.shell.resource.take_commands();
+        self.take_policies();
         if self.apply_online_change() {
             // The program the change gave the resource has no fault; the old program's is gone.
             self.restarts.reset();
@@ -451,6 +454,9 @@ where
         // An online change that waited for a boundary is dropped with the program, never applied, as
         // it is when a computer's scan thread ends (specification 11 §6.7.1).
         self.shell.finish_change(ReloadOutcome::Stopped);
+        // The scheduler's copies a `config.set` left go with the program, as with a computer's
+        // scan thread that ends.
+        let _ = self.shell.config.take_policies();
         self.shell.resource.end();
         // A program that has ended holds nothing: a pause that arrived between the stop request
         // and the stop is gone, and the debugger holds no scan until the program starts again.

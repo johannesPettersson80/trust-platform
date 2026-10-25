@@ -438,7 +438,24 @@ T — Targets (spec 34 §11.4):
   `control/config_handlers_{get,set}.rs` behind a settings port into the services, the record's
   settings into `ProgramValues`. The computer/chip reply comparison (`runner_transcript_parity.rs`)
   went with N11 and needs replacing for compiled programs.
-- [ ] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
+  - [x] `config.get`/`config.set` on chips (25 Oct, spec 34 0.59 TARGET-07, spec 11 configuration
+    contract): shared rules in `trust-runtime-services::settings` (projection, staging in the
+    computer's order and texts, value checks moved from trust-runtime), used by the computer's
+    handlers and by the runner (`runner/config.rs`) on chips; the chip platform keeps the record's
+    `RuntimeSettings` and a control token; policies at the next boundary (also paused/faulted),
+    refused when the program has ended; MWDT0/IWDG follow a new timeout (`chip::watchdog::
+    CycleWatchdog`, the C6's own trait removed); online change keeps the settings. Computer fixes:
+    `log.level` validated, the logger follows a live level. Tests `settings/tests.rs` (5),
+    `runner/config/contract_tests.rs` (7), `run::tests::runtime_logger_follows_a_live_log_level_change`.
+  - [x] C6 bench of `config.get`/`config.set` (25 Oct, firmware 0121aa89,
+    `~/projects/.artifacts/native/c6-config.sh`, evidence `t7-config/`): the fault project's record
+    in the 15 shared keys; `config.set` of `log.level` debug and a 30,000 ms enabled watchdog
+    committed at once, MWDT0's stage-0 hold 160,000,000 -> 1,280,000,000 ticks (4 s -> 32 s, read
+    over JTAG); 70,000 ms refused (72 s > 60 s), `web.enabled` unknown; a token set, `status`
+    without it refused `missing_auth_token`, `config.get` with it length 13; a USB reset forgets
+    the token and the changes, MWDT0 back to 4 s.
+  - [ ] Replace the computer/chip reply comparison for compiled programs.
+- [x] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
   (TARGET-08).
   Gap analysis 25 Oct: safe state on stop and fault done on the C6 (bench); `halt`/`safe_halt`/
   `restart` code done, `restart` and `safe_halt` not benched.
@@ -456,7 +473,15 @@ T — Targets (spec 34 §11.4):
     (`t8-panic-record/result.txt`). A real panic is not forced: no ST program reaches one.
     Also fixed: two stale C6 chip-file assertions (`wall_clock` since N15, the computer's maxima
     since N11).
-  - [ ] Bench the fault policies `restart` and `safe_halt` on the C6.
+  - [x] The fault policies on the C6 (25 Oct, firmware e9ace98a,
+    `~/projects/.artifacts/native/c6-fault-policy.sh`, evidence `t8-fault-policy/result.txt`): the
+    bench's fault project built three times, installed after a `shutdown` and started cold; a forced
+    `%IX0.0` indexes `Cells[20]` and faults the scan (`array index 20 out of bounds [1..10]`, logged,
+    `faults` metric 1). GPIO18 (`%QX0.0`, TRUE every scan, safe value FALSE) read over JTAG:
+    `halt` -> Faulted, latch stays 1; `safe_halt` -> Faulted, latch 0, warm `restart` -> 1;
+    `restart` -> Running again by itself, the fault logged, latch 1. GPIO18 is a driven GPIO output
+    (GPIO_ENABLE bit 18, IO_MUX function 1, FUNC_OUT_SEL 0x80, `t8-fault-policy/gpio18-config.txt`);
+    its pad reads 0 because its input buffer is off (FUN_IE 0).
 
 QS — STM32 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F401RE).
 - History: the owner paused the STM32 work on 17 October 2026 ("then we wait with stm32"). The

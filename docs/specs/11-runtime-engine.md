@@ -3052,6 +3052,37 @@ Derived startup/backend-source, simulation, observability, and credential
 presence fields are read-only observations rather than implicit authorization
 for `config.set`.
 
+`log.level` takes the level names of the configuration, `error`, `warn` or
+`warning`, `info`, `debug` and `trace`, trimmed and in any ASCII case, and
+another name rejects with `invalid config value for 'log.level': must be error,
+warn, warning, info, debug or trace`; `config.get` reports the level in its
+canonical spelling. A computer writes its log lines by the new level at once.
+
+A device without an operating system answers both requests from the deployment
+record of its installed program (specification 34 §5.1.1, section 7), as
+`config.set` changed it, with the keys every runtime has: `log.level`, the
+`watchdog.*` keys, `resource.cycle_interval_ms`, `runtime.execution_backend`
+and its source, `fault.policy`, `retain.mode`, `retain.save_interval_ms` and the
+`control.*` keys, in the spellings and with the values above (specification 34
+TARGET-07). It runs none of a computer's own services, so it has none of their
+keys (`web.*`, `discovery.*`, `mesh.*`, `runtime_cloud.*`, `realtime.*`,
+`opcua.*`, `simulation.*`, `observability.*` and `hmi.*`), and `config.set`
+rejects one as an unknown key. It has no log output beside its event store,
+which keeps every event whatever the level, as a computer's store does. It
+commits a request that passes every check before it writes the reply, and the
+program takes the watchdog, the fault policy and the retain save interval at
+its next boundary, where a computer's scan thread takes them, also while it is
+paused or faulted. A program that has ended takes none of them, so a request
+that changes one is rejected with the stable refusal that names the resource
+state, as a computer's closed scheduler rejects it. Its hardware watchdog's
+interval follows `watchdog.timeout_ms` (specification 34 TIME-04), so a
+timeout whose interval that watchdog does not take is rejected with `invalid
+config value for 'watchdog.timeout_ms': the device's hardware watchdog does not
+take the interval this timeout needs`. A control token that `config.set` gives
+it is kept in memory, as a computer keeps one, and required from then on. A
+device without an installed program rejects both requests with `no installed
+program: <reason>`, as it rejects `restart`.
+
 ###### Runtime execution-backend report contract
 
 Every runtime runs the program compiled into a program image (specification 44
