@@ -652,3 +652,9 @@ re-check them against this rule when touched.
   names a scope-local value (FB instance member access) are excluded, and
   ambiguity is rejected rather than silently bound.
 
+- PLCopen import/export (trust-plcopen): `<string length>` /
+  `<wstring maxLength>` attributes and `STRING[…]` export expressions pass
+  symbolic lengths through verbatim, mirroring the array-dimension
+  lower/upper pass-through; the analyzer owns resolution and validation, so
+  numeric-only length filtering no longer fails POUs closed at import.
+

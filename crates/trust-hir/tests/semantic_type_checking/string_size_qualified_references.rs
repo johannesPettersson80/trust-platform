@@ -3,8 +3,8 @@
 //! (IEC_DEVIATIONS 2026-10-21 and 2026-10-25).
 
 use crate::common::{
-    check_has_error, Database, DiagnosticCode, DiagnosticSeverity, Dialect, FileId, SemanticDatabase,
-    SourceDatabase, Type,
+    check_has_error, Database, DiagnosticCode, DiagnosticSeverity, Dialect, FileId,
+    SemanticDatabase, SourceDatabase, Type,
 };
 
 fn string_capacity(db: &Database, file: FileId, variable: &str) -> u32 {
