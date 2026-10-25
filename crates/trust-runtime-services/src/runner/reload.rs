@@ -65,7 +65,9 @@ pub trait ProgramLoader<P, Y> {
     /// Builds the program of `booted`, the newest committed container, admitted: prepares it with the
     /// limits the device allows, claims the lines of its record, sets the values of its record on
     /// `platform`, constructs it and starts it as `mode` asks (specification 34 STATE-08). The device
-    /// feeds the hardware watchdog of `platform` between the steps that can take long.
+    /// feeds the hardware watchdog of `platform` between the steps that can take long. `room` is the
+    /// heap's room before the container was read ([`Self::room`]), from which the device measures the
+    /// memory it has for programs now (MEM-12): a load in a running loop can find less than at boot.
     ///
     /// # Errors
     ///
@@ -76,6 +78,7 @@ pub trait ProgramLoader<P, Y> {
         platform: &mut P,
         booted: Booted,
         mode: RestartMode,
+        room: usize,
     ) -> Result<Loaded<Y>, String>;
 
     /// Prepares and checks the candidate of an online change: the program of `program`, the upload of a
@@ -235,10 +238,11 @@ where
             .as_mut()
             .ok_or_else(|| String::from("the loop has no program loader"))?;
         let device = self.shell.device_descriptor().ok_or_else(in_use)?;
+        let room = provider.room();
         let booted = self
             .shell
             .install
-            .boot(&device, provider.room())
+            .boot(&device, room)
             .ok_or_else(in_use)?
             .map_err(|error| error.reason().to_string())?;
         let sequence = booted.sequence;
@@ -247,7 +251,7 @@ where
             .shell
             .with_platform(
                 |platform| -> Result<(Loaded<Y>, DeviceLiveValues), String> {
-                    let program = provider.load(platform, booted, mode)?;
+                    let program = provider.load(platform, booted, mode, room)?;
                     Ok((program, platform.live_values().clone()))
                 },
             )

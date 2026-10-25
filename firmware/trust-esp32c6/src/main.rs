@@ -177,7 +177,8 @@ fn main() -> ! {
     // map (specification 44 §11); the store's own check then admits the image as the kernel does.
     let (loader, retained_check) = (
         CompiledLoader::new(parts.hardware, ProgramCode, clock, heap_room)
-            .with_allocator_operations(allocator_operations),
+            .with_allocator_operations(allocator_operations)
+            .with_checkpoint_payload(largest_payload),
         compiled_install_check(checkpoint_reader),
     );
 
@@ -295,12 +296,16 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     let mut record = LocationRecord {
         bytes: [0u8; LOCATION_BYTES],
         length: 0,
+        cut: false,
     };
     let written = match info.location() {
         Some(location) => write!(record, "{}:{}", location.file(), location.line()),
         None => write!(record, "panic"),
     };
-    // A location that did not fit its buffer reads as `panic`, never as a partial path.
+    // A location longer than the record keeps its end, the file and the line, after `...`.
+    if record.cut {
+        record.bytes[..3].copy_from_slice(b"...");
+    }
     let text = if written.is_ok() {
         core::str::from_utf8(&record.bytes[..record.length]).unwrap_or("panic")
     } else {
@@ -309,24 +314,26 @@ fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     emergency_halt(text)
 }
 
-/// A fixed-size buffer the panic location is formatted into without allocating.
+/// A fixed-size buffer the panic location is formatted into without allocating; it keeps the last
+/// [`LOCATION_BYTES`] bytes of a longer location.
 struct LocationRecord {
     bytes: [u8; LOCATION_BYTES],
     length: usize,
+    /// Whether bytes at the start were dropped.
+    cut: bool,
 }
 
 impl core::fmt::Write for LocationRecord {
     fn write_str(&mut self, text: &str) -> core::fmt::Result {
-        let end = self
-            .length
-            .checked_add(text.len())
-            .ok_or(core::fmt::Error)?;
-        let target = self
-            .bytes
-            .get_mut(self.length..end)
-            .ok_or(core::fmt::Error)?;
-        target.copy_from_slice(text.as_bytes());
-        self.length = end;
+        for &byte in text.as_bytes() {
+            if self.length == LOCATION_BYTES {
+                self.bytes.copy_within(1.., 0);
+                self.length -= 1;
+                self.cut = true;
+            }
+            self.bytes[self.length] = byte;
+            self.length += 1;
+        }
         Ok(())
     }
 }

@@ -59,7 +59,7 @@ use trust_runtime_services::runner::{
 use trust_runtime_services::settings::RuntimeSettings;
 
 use crate::loader::{
-    event_capacity, retain_config, settings, start_failure, ProgramHardware,
+    event_capacity, program_memory_bytes, retain_config, settings, start_failure, ProgramHardware,
     ONLINE_CHANGE_WORKING_MEMORY_BYTES,
 };
 use crate::platform::Platform;
@@ -118,6 +118,9 @@ pub struct CompiledLoader<H, M, C> {
     /// The heap's count of its allocator operations, which each program's cycle reads around its
     /// scans (specification 34, "The allocation count").
     allocator_operations: Option<fn() -> u32>,
+    /// The checkpoint store's largest payload, which the memory for programs keeps beside a program
+    /// ([`program_memory_bytes`]).
+    largest_payload: usize,
 }
 
 impl<H, M, C> CompiledLoader<H, M, C> {
@@ -132,7 +135,16 @@ impl<H, M, C> CompiledLoader<H, M, C> {
             room,
             running: None,
             allocator_operations: None,
+            largest_payload: 0,
         }
+    }
+
+    /// This loader, which keeps `bytes`, the checkpoint store's largest payload, beside each program
+    /// when it measures the memory for programs at a load, as the boot does (specification 34 MEM-12).
+    #[must_use]
+    pub fn with_checkpoint_payload(mut self, bytes: usize) -> Self {
+        self.largest_payload = bytes;
+        self
     }
 
     /// This loader, whose programs count their scans' allocator operations with `operations`, the
@@ -161,6 +173,7 @@ where
         platform: &mut Platform<W>,
         booted: Booted,
         mode: RestartMode,
+        room: usize,
     ) -> Result<Loaded<CompiledProgramCycle<C, H::Io, M::Code>>, String> {
         let Booted {
             format,
@@ -184,7 +197,15 @@ where
                 "the installed application's image is not mapped where it lies",
             ));
         };
-        let device = NATIVE_TARGET.device(platform.device_descriptor().program_memory_bytes);
+        // The memory for programs now, as the boot measures it (specification 34 MEM-12): in a
+        // running loop what the services hold can leave less than at boot, and a program that does
+        // not fit it is refused rather than loaded into a heap that runs out.
+        let now = u64::try_from(program_memory_bytes(room, self.largest_payload)).ok();
+        let memory = match (platform.device_descriptor().program_memory_bytes, now) {
+            (Some(boot), Some(now)) => Some(boot.min(now)),
+            (boot, now) => boot.or(now),
+        };
+        let device = NATIVE_TARGET.device(memory);
         let admitted = native::admit(image, &device)
             .map_err(|refusal| format!("the installed application cannot be loaded: {refusal}"))?;
         let (_, module) = admitted.module();
