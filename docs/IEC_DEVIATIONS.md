@@ -622,3 +622,5 @@ re-check them against this rule when touched.
 - Mitigation:
   - The subset is explicit in tests and the LD profile; a future schema version
     can add dedicated `CU`, `CD`, `R`, and `LD` pins plus `QU`/`QD` outputs.
+
+
