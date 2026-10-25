@@ -69,7 +69,7 @@ fn a_full_table_reads_into_its_entries() {
                     address: flat(IoArea::Input, IoSize::DWord, 12),
                     line: "GPIO7".into(),
                     mode: CounterMode::Quadrature {
-                        line_b: "GPIO8".into(),
+                        line_b: Some("GPIO8".into()),
                     },
                 },
             ],
@@ -82,9 +82,10 @@ fn a_full_table_reads_into_its_entries() {
 }
 
 /// `mode` is `pulse` or `quadrature` and `edge` is `rising`, `falling` or `both`; a quadrature
-/// counter refuses `edge` and requires `line_b`, and a pulse counter, the default, refuses
-/// `line_b` (specification 11 §6.5). Catches a misspelt mode counted as pulses, a second line
-/// ignored by a pulse counter, and an encoder without its B line counted in one direction only.
+/// counter refuses `edge` and takes `line_b` when it is given, which the runtime's hardware then
+/// requires (a chip) or refuses (Linux), and a pulse counter, the default, refuses `line_b`
+/// (specification 11 §6.5). Catches a misspelt mode counted as pulses, a second line ignored by a
+/// pulse counter, and a Linux encoder, which names no B line, refused by the shared rules.
 #[test]
 fn each_mode_takes_only_its_own_keys() {
     assert_eq!(
@@ -120,11 +121,13 @@ fn each_mode_takes_only_its_own_keys() {
     assert_eq!(input_with(r#""line_b":"GPIO8""#), pulse_line_b);
     assert_eq!(
         input_with(r#""mode":"quadrature""#),
-        refused(
-            "inputs[0].line_b",
-            "is required with mode = \"quadrature\", a non-empty string naming the encoder's \
-             B line"
-        )
+        Ok(CounterParams {
+            inputs: vec![CounterInput {
+                address: flat(IoArea::Input, IoSize::DWord, 0),
+                line: "GPIO7".into(),
+                mode: CounterMode::Quadrature { line_b: None },
+            }],
+        })
     );
     assert_eq!(
         input_with(r#""line_b":"","mode":"quadrature""#),

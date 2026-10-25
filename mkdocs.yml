@@ -130,6 +130,7 @@ nav:
           - Driver Matrix: connect/devices-and-fieldbus/driver-matrix.md
           - I/O Binding: connect/devices-and-fieldbus/io-binding.md
           - GPIO: connect/devices-and-fieldbus/gpio.md
+          - Analog, PWM, Counters And CAN: connect/devices-and-fieldbus/analog-pwm-counter-can.md
           - EtherCAT: connect/devices-and-fieldbus/ethercat.md
           - Simulated And Loopback I/O: connect/devices-and-fieldbus/simulated-and-loopback.md
           - Multi Driver: connect/devices-and-fieldbus/multi-driver.md

@@ -20,6 +20,7 @@ pub use cookie::{ResetCookie, RUNNING_PHASE, WATCHDOG_PHASE};
 #[cfg(any(test, all(target_arch = "riscv32", target_os = "none")))]
 mod cycle_clock;
 pub mod device_flash;
+pub mod driver_plans;
 pub mod firmware_flash;
 pub mod firmware_slots;
 // The fixed-size reset record the C6 keeps in RTC fast memory, shared with the U5A9 so both chips

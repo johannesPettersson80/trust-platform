@@ -1,10 +1,16 @@
 //! The `counter` driver on the C6 (specification 11 §6.5; specification 34 Appendix D.2): inputs on
-//! the PCNT's four units, one unit for each input. A `pulse` input counts the edges of its line on
-//! the unit's first channel; a `quadrature` input decodes an encoder's A and B on both of the unit's
-//! channels, four counts per cycle of A. At the start of each cycle the driver reads each unit's
-//! 16-bit count and adds the change since its last read to the input's 32-bit count (`WideCount`),
-//! which it writes into its `%ID` double word as a `UDINT` (pulse) or a `DINT` (quadrature). The
-//! units count with their limits, thresholds and glitch filters off, so the 16-bit count wraps.
+//! the PCNT's four units, one unit for each input (`driver_plans::counter_plan`). A `pulse` input
+//! counts the edges of its line on the unit's first channel; a `quadrature` input decodes an
+//! encoder's A and B on both of the unit's channels, four counts per cycle of A. At the start of
+//! each cycle the driver reads each unit's 16-bit count and adds the change since its last read to
+//! the input's 32-bit count (`WideCount`), which it writes into its `%ID` double word as a `UDINT`
+//! (pulse) or a `DINT` (quadrature). The units count with their limits, thresholds and glitch
+//! filters off, so the 16-bit count wraps.
+//!
+//! Bench only, with the `bench-loopback` feature: an input's line may name the pin of a `pwm`
+//! output of the same record listed before it. The unit then counts that output's pad through the
+//! pad's input buffer, which the GPIO matrix routes to it, without claiming the pin, which the
+//! output holds, so a PWM output is measured without a wire (`PinSource::pin`).
 
 use alloc::boxed::Box;
 use alloc::format;
@@ -12,24 +18,30 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use esp_hal::gpio::interconnect::InputSignal;
 use esp_hal::gpio::{AnyPin, Flex, InputConfig, Level};
-use esp_hal::pcnt::channel::{CtrlMode, EdgeMode};
+use esp_hal::pcnt::channel::{Channel, CtrlMode, EdgeMode};
 use esp_hal::pcnt::unit::Unit;
 use esp_hal::pcnt::Pcnt;
 use esp_hal::peripherals::PCNT;
 use smol_str::SmolStr;
 use trust_runtime_services::chip::process_io::ChipDriver;
-use trust_runtime_services::io_drivers::counter::{CounterMode, CounterParams, Edge, WideCount};
+use trust_runtime_services::io_drivers::counter::{CounterParams, WideCount};
 use trust_runtime_services::status::IoDriverHealth;
 
-use super::{health_of, refusal, write_image, Lease, PeripheralSlot};
+use super::DriverPeripherals;
+#[cfg(feature = "bench-loopback")]
+use crate::driver_plans::LoopbackPads;
+use crate::driver_plans::{
+    self, counter_plan, health_of, refusal, write_image, ChannelSetting, ControlAction, EdgeAction,
+    Lease, UnitSetting,
+};
+#[cfg(feature = "bench-loopback")]
+use crate::process_io::GpioPin;
 use crate::process_io::{GpioBank, PinClaim};
 
 /// The driver's name in `io.toml`.
-pub(super) const NAME: &str = "counter";
-
-/// The PCNT's units on the C6, one for each counter.
-const UNITS: usize = 4;
+pub(super) const NAME: &str = driver_plans::COUNTER;
 
 /// The PCNT's four units, taken from the peripheral once at boot: `Pcnt::new` enables the PCNT's
 /// clock and resets every unit (no limit, threshold or filter; both channels hold), and each unit
@@ -67,13 +79,11 @@ impl PulseUnits {
 
 /// A PCNT unit, whatever its number.
 trait PulseUnit {
-    /// Counts the `edge`s of `line` up on channel 0, from 0; channel 1 counts nothing.
-    fn count_pulses(&self, line: &Flex<'static>, edge: Edge);
-
-    /// Decodes an encoder's A on `a` and B on `b` from 0: channel 0 counts A's edges and channel 1
-    /// B's, each up or down by the other line's level, so the count rises by one at each edge while
-    /// A leads B and falls by one while B leads A, four counts per cycle of A.
-    fn count_quadrature(&self, a: &Flex<'static>, b: &Flex<'static>);
+    /// Counts from 0 with the modes of `setting`: channel 0 counts the edges of `a`, with `b` as
+    /// its control signal, and channel 1 the edges of `b`, with `a` as its control signal. A pulse
+    /// input has no `b`: channel 0 counts the edges of `a`, and channel 1, which holds, keeps its
+    /// signals.
+    fn count(&self, setting: UnitSetting, a: InputSignal<'static>, b: Option<InputSignal<'static>>);
 
     /// Stops the unit and connects its channels to a low level instead of their pins, so that the
     /// program loaded next finds it idle and the pins free of it.
@@ -84,44 +94,26 @@ trait PulseUnit {
 }
 
 impl<const N: usize> PulseUnit for Unit<'static, N> {
-    fn count_pulses(&self, line: &Flex<'static>, edge: Edge) {
-        // (falling edge, rising edge): the input modes take the falling edge first.
-        let (falling, rising) = match edge {
-            Edge::Rising => (EdgeMode::Hold, EdgeMode::Increment),
-            Edge::Falling => (EdgeMode::Increment, EdgeMode::Hold),
-            Edge::Both => (EdgeMode::Increment, EdgeMode::Increment),
-        };
+    fn count(
+        &self,
+        setting: UnitSetting,
+        a: InputSignal<'static>,
+        b: Option<InputSignal<'static>>,
+    ) {
         self.pause();
-        self.channel0.set_edge_signal(line.peripheral_input());
-        self.channel0.set_ctrl_mode(CtrlMode::Keep, CtrlMode::Keep);
-        self.channel0.set_input_mode(falling, rising);
-        self.channel1.set_ctrl_mode(CtrlMode::Keep, CtrlMode::Keep);
-        self.channel1.set_input_mode(EdgeMode::Hold, EdgeMode::Hold);
-        self.clear();
-        self.resume();
-    }
-
-    fn count_quadrature(&self, a: &Flex<'static>, b: &Flex<'static>) {
-        // A leads B through (A, B) = (0, 0), (1, 0), (1, 1), (0, 1): A rises while B is low, B rises
-        // while A is high, A falls while B is high and B falls while A is low, each +1. B leads A
-        // through the same states backwards, each -1.
-        self.pause();
-        // Channel 0 counts A's edges: up on a rising A and down on a falling A while B is low,
-        // reversed while B is high. The control modes take the low level first.
-        self.channel0.set_edge_signal(a.peripheral_input());
-        self.channel0.set_ctrl_signal(b.peripheral_input());
-        self.channel0
-            .set_input_mode(EdgeMode::Decrement, EdgeMode::Increment);
-        self.channel0
-            .set_ctrl_mode(CtrlMode::Keep, CtrlMode::Reverse);
-        // Channel 1 counts B's edges: up on a falling B and down on a rising B while A is low,
-        // reversed while A is high.
-        self.channel1.set_edge_signal(b.peripheral_input());
-        self.channel1.set_ctrl_signal(a.peripheral_input());
-        self.channel1
-            .set_input_mode(EdgeMode::Increment, EdgeMode::Decrement);
-        self.channel1
-            .set_ctrl_mode(CtrlMode::Keep, CtrlMode::Reverse);
+        match b {
+            Some(b) => {
+                self.channel0.set_edge_signal(a.clone());
+                self.channel0.set_ctrl_signal(b.clone());
+                self.channel1.set_edge_signal(b);
+                self.channel1.set_ctrl_signal(a);
+            }
+            None => {
+                self.channel0.set_edge_signal(a);
+            }
+        }
+        set_modes(&self.channel0, setting.channel0);
+        set_modes(&self.channel1, setting.channel1);
         self.clear();
         self.resume();
     }
@@ -144,6 +136,98 @@ impl<const N: usize> PulseUnit for Unit<'static, N> {
     }
 }
 
+/// Sets the modes of the PCNT channel `channel` to `setting`: the actions of a falling and a rising
+/// edge of its signal (the input modes take the falling edge first), and what a low and a high
+/// control level do to them (the control modes take the low level first).
+fn set_modes<const UNIT: usize, const NUM: usize>(
+    channel: &Channel<'_, UNIT, NUM>,
+    setting: ChannelSetting,
+) {
+    channel.set_input_mode(edge_mode(setting.falling), edge_mode(setting.rising));
+    channel.set_ctrl_mode(ctrl_mode(setting.low), ctrl_mode(setting.high));
+}
+
+/// The PCNT's mode of the edge action `action`.
+fn edge_mode(action: EdgeAction) -> EdgeMode {
+    match action {
+        EdgeAction::Hold => EdgeMode::Hold,
+        EdgeAction::Increment => EdgeMode::Increment,
+        EdgeAction::Decrement => EdgeMode::Decrement,
+    }
+}
+
+/// The PCNT's mode of the control action `action`.
+fn ctrl_mode(action: ControlAction) -> CtrlMode {
+    match action {
+        ControlAction::Keep => CtrlMode::Keep,
+        ControlAction::Reverse => CtrlMode::Reverse,
+    }
+}
+
+/// A pin that a counter input counts.
+enum CounterPin {
+    /// A pin claimed from the GPIO bank as an input without a pull, and the claim that holds it.
+    Claimed {
+        pin: Flex<'static>,
+        _claim: PinClaim,
+    },
+    /// Bench only (`bench-loopback`): the pad of a `pwm` output of the same record, read through
+    /// the pad's input buffer; the output holds the pin.
+    #[cfg(feature = "bench-loopback")]
+    Pad(InputSignal<'static>),
+}
+
+impl CounterPin {
+    /// The pad's input signal, for a PCNT channel; a claimed pin's input buffer is enabled.
+    fn signal(&self) -> InputSignal<'static> {
+        match self {
+            Self::Claimed { pin, .. } => pin.peripheral_input(),
+            #[cfg(feature = "bench-loopback")]
+            Self::Pad(signal) => signal.clone(),
+        }
+    }
+}
+
+/// Where a counter input's pins come from: the GPIO bank and, with `bench-loopback`, the pads of
+/// the running program's `pwm` outputs.
+struct PinSource<'a> {
+    bank: &'a GpioBank,
+    /// Bench only (`bench-loopback`): the pads the `pwm` outputs published.
+    #[cfg(feature = "bench-loopback")]
+    pads: &'a LoopbackPads<InputSignal<'static>>,
+}
+
+impl PinSource<'_> {
+    /// The pin `name` for a unit to count, claimed from the bank as an input without a pull. Bench
+    /// only, with `bench-loopback`: when a `pwm` output of the same record drives the pin, its
+    /// published pad, which the unit reads without claiming the pin.
+    ///
+    /// # Errors
+    ///
+    /// `counter: <key>: <reason>` for a pin that is not a pin name, that the chip lacks or keeps,
+    /// or that another line holds.
+    fn pin(&self, name: &str, key: &str) -> Result<CounterPin, String> {
+        #[cfg(feature = "bench-loopback")]
+        if let Some(signal) = GpioPin::parse(name)
+            .ok()
+            .and_then(|pin| self.pads.find(pin))
+        {
+            return Ok(CounterPin::Pad(signal));
+        }
+        let (_, pin, claim): (_, AnyPin<'static>, PinClaim) = self
+            .bank
+            .claim_pin(name)
+            .map_err(|error| refusal(NAME, key, error))?;
+        let mut input = Flex::new(pin);
+        input.apply_input_config(&InputConfig::default());
+        input.set_input_enable(true);
+        Ok(CounterPin::Claimed {
+            pin: input,
+            _claim: claim,
+        })
+    }
+}
+
 /// One input: its double word of the input image, its unit and its count, and its pins.
 struct CounterLine {
     /// The first byte of the `%ID` double word.
@@ -156,8 +240,8 @@ struct CounterLine {
     quadrature: bool,
     /// The 32-bit count over the unit's 16-bit one.
     count: WideCount,
-    /// The input's pins, `line` and for an encoder `line_b`, as inputs, with their claims.
-    _pins: Vec<(Flex<'static>, PinClaim)>,
+    /// The input's pins, `line` and for an encoder `line_b`.
+    _pins: Vec<CounterPin>,
 }
 
 /// The `counter` driver: its inputs on the PCNT.
@@ -180,13 +264,15 @@ impl Drop for CounterDriver {
     }
 }
 
-/// Builds the `counter` driver of the parameters `params` (JSON): the PCNT is claimed from `pcnt`,
-/// each input's pins from `bank`, and input `i` counts on unit `i` from 0.
+/// Builds the `counter` driver of the parameters `params` (JSON): the PCNT is claimed from
+/// `peripherals`, each input's pins from `bank`, and input `i` counts on unit `i` from 0
+/// (`driver_plans::counter_plan`).
 ///
 /// # Errors
 ///
 /// - the shared parameter refusal, `counter: <key>: <reason>`;
-/// - `counter: inputs: the C6's PCNT has 4 counters, and the driver names <n> inputs`;
+/// - the refusals of `driver_plans::counter_plan`, before any hardware is touched: more than 4
+///   inputs, or a `quadrature` input without `line_b`;
 /// - `counter: inputs: the PCNT is already used by another counter driver`;
 /// - `counter: inputs[<i>].line: <reason>` or `counter: inputs[<i>].line_b: <reason>` for a pin
 ///   that is not a pin name, that the chip lacks or keeps, or that another line holds, the encoder's
@@ -194,36 +280,28 @@ impl Drop for CounterDriver {
 pub(super) fn claim(
     params: &str,
     bank: &GpioBank,
-    pcnt: &PeripheralSlot<PulseUnits>,
+    peripherals: &DriverPeripherals,
 ) -> Result<Box<dyn ChipDriver>, String> {
     let params = CounterParams::from_json(params).map_err(|error| format!("{NAME}: {error}"))?;
-    if params.inputs.len() > UNITS {
-        return Err(refusal(
-            NAME,
-            "inputs",
-            format!(
-                "the C6's PCNT has {UNITS} counters, and the driver names {} inputs",
-                params.inputs.len()
-            ),
-        ));
-    }
-    let units = pcnt.claim().ok_or_else(|| {
+    let plans = counter_plan(&params.inputs)?;
+    let units = peripherals.pcnt.claim().ok_or_else(|| {
         refusal(
             NAME,
             "inputs",
             "the PCNT is already used by another counter driver",
         )
     })?;
+    let source = PinSource {
+        bank,
+        #[cfg(feature = "bench-loopback")]
+        pads: &peripherals.loopback,
+    };
     // Every pin first, so that a refused pin leaves every unit as it was.
-    let mut pins = Vec::with_capacity(params.inputs.len());
-    for (index, input) in params.inputs.iter().enumerate() {
-        let mut lines = vec![input_pin(
-            bank,
-            &input.line,
-            &format!("inputs[{index}].line"),
-        )?];
-        if let CounterMode::Quadrature { line_b } = &input.mode {
-            lines.push(input_pin(bank, line_b, &format!("inputs[{index}].line_b"))?);
+    let mut pins = Vec::with_capacity(plans.len());
+    for (index, plan) in plans.iter().enumerate() {
+        let mut lines = vec![source.pin(plan.line, &format!("inputs[{index}].line"))?];
+        if let Some(line_b) = plan.line_b {
+            lines.push(source.pin(line_b, &format!("inputs[{index}].line_b"))?);
         }
         pins.push(lines);
     }
@@ -234,19 +312,13 @@ pub(super) fn claim(
         health: IoDriverHealth::Ok,
         units,
     };
-    for (index, (input, lines)) in params.inputs.iter().zip(pins).enumerate() {
-        let Some(unit) = driver.units.get().unit(index) else {
+    for ((plan, lines), input) in plans.iter().zip(pins).zip(&params.inputs) {
+        let Some(unit) = driver.units.get().unit(plan.unit) else {
             return Err(refusal(NAME, "inputs", "the C6's PCNT has no such counter"));
         };
-        let quadrature = match (&input.mode, lines.as_slice()) {
-            (CounterMode::Pulse { edge }, [(line, _)]) => {
-                unit.count_pulses(line, *edge);
-                false
-            }
-            (CounterMode::Quadrature { .. }, [(a, _), (b, _)]) => {
-                unit.count_quadrature(a, b);
-                true
-            }
+        match (plan.quadrature(), lines.as_slice()) {
+            (false, [line]) => unit.count(plan.setting, line.signal(), None),
+            (true, [a, b]) => unit.count(plan.setting, a.signal(), Some(b.signal())),
             _ => {
                 return Err(refusal(
                     NAME,
@@ -254,35 +326,19 @@ pub(super) fn claim(
                     "the input's lines do not match its mode",
                 ))
             }
-        };
+        }
         let count = WideCount::new(unit.raw());
         let byte = input.address.byte as usize;
         driver.inputs.push(CounterLine {
             byte,
             address: format!("%ID{byte}").into(),
-            unit: index,
-            quadrature,
+            unit: plan.unit,
+            quadrature: plan.quadrature(),
             count,
             _pins: lines,
         });
     }
     Ok(Box::new(driver))
-}
-
-/// The pin `name` claimed from `bank` as an input without a pull, for a unit to count.
-///
-/// # Errors
-///
-/// `counter: <key>: <reason>` for a pin that is not a pin name, that the chip lacks or keeps, or
-/// that another line holds.
-fn input_pin(bank: &GpioBank, name: &str, key: &str) -> Result<(Flex<'static>, PinClaim), String> {
-    let (_, pin, claim): (_, AnyPin<'static>, PinClaim) = bank
-        .claim_pin(name)
-        .map_err(|error| refusal(NAME, key, error))?;
-    let mut input = Flex::new(pin);
-    input.apply_input_config(&InputConfig::default());
-    input.set_input_enable(true);
-    Ok((input, claim))
 }
 
 impl ChipDriver for CounterDriver {

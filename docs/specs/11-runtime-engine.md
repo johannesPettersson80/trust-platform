@@ -592,8 +592,11 @@ the entries of one list use bytes of their own, so no entry's bytes overlap
 another's (`%IW0` takes bytes 0 and 1, so `%IW1` beside it is refused, and `%IW2`
 is not). Numbers are JSON integers and words are exact, except `on_error`, which
 reads as the Modbus driver's does. Each input is read once at the start of each
-cycle, and each output is written after the tasks ran, as for every driver. An
-output's safe value is its `[[io.safe_state]]` value, otherwise 0.
+cycle, and each output is written after the tasks ran, as for every driver; an
+output whose value did not change since its last good write is not written
+again. A stop or a fault writes the `[[io.safe_state]]` values as for every
+driver (§6.6), and a chip's terminal fault path, which resets the chip, drives
+each output to its safe value and otherwise to 0 (specification 34 TARGET-08).
 
 `analog`:
 
@@ -602,15 +605,19 @@ output's safe value is its `[[io.safe_state]]` value, otherwise 0.
   own calibration at the attenuation that measures its whole range
   (specification 34 Appendix D names each chip's range). On Linux the line is an
   IIO input channel, `iio:device0/in_voltage1`, and the value is
-  `(raw + offset) × scale` from the channel's `_raw`, `_offset` (0 when absent)
-  and `_scale` files (`_scale` in millivolts per count, or the device's shared
-  `in_voltage_scale`), rounded to the nearest millivolt.
+  `(raw + offset) × scale` from the channel's `_raw`, `_offset` and `_scale`
+  files, or the device's shared `in_voltage_offset` and `in_voltage_scale`
+  (`_scale` in millivolts per count; an offset absent from both is 0), read once
+  when the driver starts and rounded to the nearest millivolt. A differential
+  channel (`in_voltage0-voltage1`) is refused.
 - `outputs = [{ address, line, initial }]`: `address` is a `%QW` word, the
   millivolts the line is driven to as an `INT`, from `initial` (default 0)
   until the program writes it. On Linux the line is an IIO output channel,
   `iio:device0/out_voltage0`, written as `round(mV / scale) − offset`. A chip
   without a digital-to-analog converter refuses an output, with the reason.
-- A value outside what the hardware converts is limited to its range.
+- A value outside what the hardware converts is limited to its range; on Linux
+  the range of an output is its channel's `_raw_available`, and without that
+  file a code the converter refuses faults the driver.
 
 `pwm`:
 
@@ -620,8 +627,8 @@ output's safe value is its `[[io.safe_state]]` value, otherwise 0.
   1 to 1,000,000; `initial` is the duty cycle before the program writes it,
   default 0. The driver makes the frequency with the finest duty resolution the
   hardware has at it and refuses a frequency the hardware cannot make, with both
-  numbers. On a chip, outputs of one frequency share a timer, and the chip file
-  names how many timers and outputs it has. On Linux the line is a sysfs PWM
+  numbers. On a chip, outputs of one frequency share a timer, and specification
+  34 Appendix D names how many timers and outputs each chip has. On Linux the line is a sysfs PWM
   channel, `pwmchip0/pwm1`, which the driver exports and sets through `period`
   (1,000,000,000 / `frequency_hz` nanoseconds, rounded down), `duty_cycle` and
   `enable`.
@@ -635,14 +642,16 @@ output's safe value is its `[[io.safe_state]]` value, otherwise 0.
   `UDINT` that wraps from 4,294,967,295 to 0. `line_b` is refused.
 - `quadrature`: `line` and `line_b` are an encoder's A and B; the count rises by
   one at each edge of either line while A leads B and falls by one while B leads
-  A (four counts per cycle of A), as a `DINT` that wraps. `edge` is refused.
+  A (four counts per cycle of A), as a `DINT` that wraps. `edge` is refused. A
+  chip counts B on a pin of its own and requires `line_b`.
 - A chip counts in hardware with a 16-bit counter and adds the change since its
   last read at each cycle start, so at most 32,767 counts may arrive between two
-  cycles; the chip file names how many counters it has. On Linux the line is a
+  cycles; specification 34 Appendix D names how many counters each chip has. On Linux the line is a
   counter device's count, `counter0/count0`, whose `function` the driver sets to
   `increase` (with the synapse action of `edge`) or `quadrature x4` and whose
-  `count` it reads as the change since its last read; `line_b` is refused there,
-  as the device's own signals are the encoder's lines.
+  `count` it reads as the change since its last read, across the wrap at its
+  `ceiling`, for an encoder the shorter way round; `line_b` is refused there, as
+  the device's own signals are the encoder's lines.
 
 `can` (CAN 2.0, ISO 11898-1):
 
@@ -654,21 +663,28 @@ output's safe value is its `[[io.safe_state]]` value, otherwise 0.
   500,000, 800,000 or 1,000,000 bit/s, the rates of CiA 301. A chip refuses a
   rate its clock cannot make. On Linux the interface's rate belongs to the
   operating system (`ip link`): the driver reads it, refuses another rate with
-  both numbers, and refuses an interface that is down.
+  both numbers, and refuses an interface that is down; an interface that has no
+  rate, such as `vcan`, is taken.
 - `receive = [{ id, extended, address, length, timeout_ms }]`: each data frame
   with `id` (11 bits, or 29 bits with `extended = true`) writes its data bytes to
   the `length` bytes (0 to 8) of the input image from `address`, a `%IB` byte,
   and zeros where its data length code does not reach; the newest frame before a
   cycle start is the one read. With `timeout_ms` (1 to 60,000), no such frame
-  for that long makes the driver's health faulted with `no frame <id> for
-  <timeout_ms> ms`, and its `on_error` applies; the next frame ends it.
+  for that long is the error `no frame <id> for <timeout_ms> ms` under
+  `on_error`, as for Modbus: `fault` faults the driver's health and the
+  resource, `warn` and `ignore` degrade the health; the next frame ends it. A
+  receive's error concerns the input path only, so it never leaves a safe-state
+  handoff unconfirmed.
 - `transmit = [{ id, extended, address, length, period_ms }]`: every
   `period_ms` (1 to 60,000) the driver sends a data frame with `id` and the
   `length` bytes of the output image from `address`, a `%QB` byte; the safe
   state's values are sent the same way.
 - `on_error` is `fault` (the default), `warn` or `ignore`, as for Modbus.
 - A controller that goes bus-off makes the driver's health faulted with `bus
-  off` and rejoins after the bus recovery of ISO 11898-1, without a restart.
+  off` and rejoins after the bus recovery of ISO 11898-1, without a restart. On
+  Linux the interface rejoins by itself only with its `restart-ms` set (`ip link
+  set can0 type can restart-ms 100`); with 0 it stays bus-off, as the driver
+  reports, until the interface is restarted.
 - Two receives, or two transmits, with one `id` and `extended` are refused; a
   receive and a transmit may share one.
 

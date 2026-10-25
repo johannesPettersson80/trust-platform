@@ -1,8 +1,12 @@
 //! The `analog` driver on the C6 (specification 11 §6.5; specification 34 Appendix D.2): inputs on
-//! ADC1, whose channels 0 to 6 are GPIO0 to GPIO6. At the start of each cycle each input is
-//! converted once, with the chip's eFuse calibration at the attenuation of its whole range, and the
-//! millivolts at its pin are written as an `INT` into its `%IW` word, limited to the `INT` range.
-//! The C6 has no digital-to-analog converter, so an output is refused.
+//! ADC1, whose channels 0 to 6 are GPIO0 to GPIO6 (`driver_plans::adc1_channel_of`). At the start
+//! of each cycle each input is converted once, with the chip's eFuse calibration at the attenuation
+//! of its whole range, and the millivolts at its pin are written as an `INT` into its `%IW` word,
+//! limited to the `INT` range. The C6 has no digital-to-analog converter, so an output is refused.
+//!
+//! Bench only, with the `bench-loopback` feature: every input's pad takes its internal pull-up
+//! after ADC1 made it analog (`bench_pull_up`), so that an input without a wire reads a known level
+//! near the top of its range instead of a floating pad.
 
 use alloc::boxed::Box;
 use alloc::format;
@@ -10,7 +14,9 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use esp_hal::analog::adc::{Adc, AdcCalCurve, AdcChannel, AdcConfig, AdcPin, Attenuation};
-use esp_hal::gpio::{AnalogPin, AnyPin, Pin};
+use esp_hal::gpio::AnyPin;
+#[cfg(feature = "bench-loopback")]
+use esp_hal::gpio::{Flex, InputConfig, Pin, Pull};
 use esp_hal::peripherals::{ADC1, GPIO0, GPIO1, GPIO2, GPIO3, GPIO4, GPIO5, GPIO6};
 use esp_hal::Blocking;
 use smol_str::SmolStr;
@@ -18,12 +24,14 @@ use trust_runtime_services::chip::process_io::ChipDriver;
 use trust_runtime_services::io_drivers::analog::{input_value, AnalogParams};
 use trust_runtime_services::status::IoDriverHealth;
 
-use super::{health_of, refusal, write_image, Lease, PeripheralSlot};
+use crate::driver_plans::{
+    self, adc1_channel_of, health_of, not_analog_input, refusal, write_image, Lease, PeripheralSlot,
+};
 use crate::hardware::clock::now_us;
 use crate::process_io::{GpioBank, GpioPin, PinClaim};
 
 /// The driver's name in `io.toml`.
-pub(super) const NAME: &str = "analog";
+pub(super) const NAME: &str = driver_plans::ANALOG;
 
 /// The calibration of every input. esp-hal 1.2.2 gives the C6 three schemes: `AdcCalBasic`, which
 /// only removes the zero offset and reads raw counts; `AdcCalLine`, which adds the gain of one
@@ -87,7 +95,7 @@ struct AnalogDriver {
 /// - `analog: inputs[<i>].line: <reason>` for a pin that is not a pin name, that the chip lacks or
 ///   keeps, or that another line holds;
 /// - `analog: inputs[<i>].line: GPIO<n> is not an analog input of the C6: its ADC1 channels 0 to 6
-///   are GPIO0 to GPIO6`.
+///   are GPIO0 to GPIO6` (`driver_plans::not_analog_input`).
 pub(super) fn claim(
     params: &str,
     bank: &GpioBank,
@@ -132,16 +140,9 @@ pub(super) fn claim(
         let (pin, any, claim) = bank
             .claim_pin(&input.line)
             .map_err(|error| refusal(NAME, &key, error))?;
-        let channel = enable(any, &mut config).map_err(|_| {
-            refusal(
-                NAME,
-                &key,
-                format!(
-                    "{pin} is not an analog input of the C6: its ADC1 channels 0 to 6 are GPIO0 \
-                     to GPIO6"
-                ),
-            )
-        })?;
+        let not_analog = || refusal(NAME, &key, not_analog_input(pin));
+        let number = adc1_channel_of(pin).ok_or_else(not_analog)?;
+        let channel = enable(number, any, &mut config).map_err(|_| not_analog())?;
         let byte = input.address.byte as usize;
         inputs.push(AnalogInput {
             byte,
@@ -164,34 +165,56 @@ pub(super) fn claim(
     }))
 }
 
-/// The ADC1 channel of `pin`, one of GPIO0 to GPIO6, enabled in `config` at the full-range
-/// attenuation with its calibration, which turns the pin's pad into an analog input.
+/// ADC1's channel `number` on `pin`, one of GPIO0 to GPIO6, enabled in `config` at the full-range
+/// attenuation with its calibration, which turns the pin's pad into an analog input; with
+/// `bench-loopback`, the pad then takes its internal pull-up ([`bench_pull_up`]).
 ///
 /// # Errors
 ///
-/// The pin itself, unchanged, when it is not one of ADC1's pins.
+/// The pin itself, unchanged, when it is not the pin of channel `number`.
 fn enable(
+    number: u8,
     pin: AnyPin<'static>,
     config: &mut AdcConfig<ADC1<'static>>,
 ) -> Result<Box<dyn AnalogChannel>, AnyPin<'static>> {
-    match pin.number() {
-        0 => Ok(adc_input(pin.downcast::<GPIO0<'static>>()?, config)),
-        1 => Ok(adc_input(pin.downcast::<GPIO1<'static>>()?, config)),
-        2 => Ok(adc_input(pin.downcast::<GPIO2<'static>>()?, config)),
-        3 => Ok(adc_input(pin.downcast::<GPIO3<'static>>()?, config)),
-        4 => Ok(adc_input(pin.downcast::<GPIO4<'static>>()?, config)),
-        5 => Ok(adc_input(pin.downcast::<GPIO5<'static>>()?, config)),
-        6 => Ok(adc_input(pin.downcast::<GPIO6<'static>>()?, config)),
+    // ADC1's pins are each a type of their own, which `enable_pin_with_cal` takes.
+    macro_rules! adc_input {
+        ($gpio:ident) => {{
+            let pin = pin.downcast::<$gpio<'static>>()?;
+            let input = config.enable_pin_with_cal::<$gpio<'static>, Calibration>(pin, ATTENUATION);
+            #[cfg(feature = "bench-loopback")]
+            let input = {
+                let mut input = input;
+                bench_pull_up(input.pin.reborrow());
+                input
+            };
+            let input: Box<dyn AnalogChannel> = Box::new(input);
+            Ok(input)
+        }};
+    }
+    match number {
+        0 => adc_input!(GPIO0),
+        1 => adc_input!(GPIO1),
+        2 => adc_input!(GPIO2),
+        3 => adc_input!(GPIO3),
+        4 => adc_input!(GPIO4),
+        5 => adc_input!(GPIO5),
+        6 => adc_input!(GPIO6),
         _ => Err(pin),
     }
 }
 
-/// The ADC1 channel of the analog pin `pin`, enabled in `config`.
-fn adc_input<P>(pin: P, config: &mut AdcConfig<ADC1<'static>>) -> Box<dyn AnalogChannel>
-where
-    P: AdcChannel + AnalogPin + 'static,
-{
-    Box::new(config.enable_pin_with_cal::<P, Calibration>(pin, ATTENUATION))
+/// Bench only, with the `bench-loopback` feature: gives the pad of an analog input its internal
+/// pull-up, so that an input without a wire reads a known level near the top of its range, the
+/// pad's supply through the pull-up, rather than a floating pad. ADC1's `enable_pin_with_cal`
+/// clears the pad's pulls when it makes the pad analog, so the pull-up is set after it, through a
+/// GPIO driver over a reborrow of the input's pin: making it resets the pad to a GPIO with its
+/// input and output off, the state the analog pad is already in, and dropping it leaves the pad as
+/// it is.
+#[cfg(feature = "bench-loopback")]
+fn bench_pull_up<'d>(pad: impl Pin + 'd) {
+    let mut pad = Flex::new(pad);
+    pad.apply_input_config(&InputConfig::default().with_pull(Pull::Up));
 }
 
 /// One pin of ADC1 with its calibration, whatever the pin's type, so that the seven pin types of

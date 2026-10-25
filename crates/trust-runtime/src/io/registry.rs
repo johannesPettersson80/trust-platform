@@ -2,11 +2,19 @@
 
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use smol_str::SmolStr;
+use trust_runtime_services::io_drivers::analog::AnalogParams;
+use trust_runtime_services::io_drivers::can::CanParams;
+use trust_runtime_services::io_drivers::counter::CounterParams;
+use trust_runtime_services::io_drivers::pwm::PwmParams;
+use trust_runtime_services::io_drivers::ParamsError;
 
 use crate::error::RuntimeError;
 
+#[cfg(target_os = "linux")]
+use super::{analog::AnalogDriver, can::CanDriver, counter::CounterDriver, pwm::PwmDriver};
 use super::{
     EthercatIoDriver, GpioDriver, IoDriver, LoopbackIoDriver, ModbusTcpDriver, MqttIoDriver,
     SimulatedIoDriver,
@@ -62,6 +70,13 @@ impl IoDriverRegistry {
         registry.register("ethercat", create_ethercat, validate_ethercat);
         registry.register_alias("ether-cat", "ethercat");
         registry.register_alias("ecat", "ethercat");
+
+        // The drivers every runtime shares (specification 11 §6.5), with the parameter rules of
+        // `trust_runtime_services::io_drivers`.
+        registry.register("analog", create_analog, validate_analog);
+        registry.register("can", create_can, validate_can);
+        registry.register("counter", create_counter, validate_counter);
+        registry.register("pwm", create_pwm, validate_pwm);
         registry
     }
 
@@ -201,6 +216,142 @@ fn create_ethercat(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeErr
     Ok(Box::new(driver))
 }
 
+fn validate_analog(params: &toml::Value) -> Result<(), RuntimeError> {
+    shared_params("analog", params, AnalogParams::from_json)?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn create_analog(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    let params = shared_params("analog", params, AnalogParams::from_json)?;
+    Ok(Box::new(AnalogDriver::start(params)?))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn create_analog(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    validate_analog(params)?;
+    Err(unavailable(
+        "analog",
+        "analog I/O is not available on this computer",
+    ))
+}
+
+fn validate_can(params: &toml::Value) -> Result<(), RuntimeError> {
+    shared_params("can", params, CanParams::from_json)?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn create_can(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    let params = shared_params("can", params, CanParams::from_json)?;
+    Ok(Box::new(CanDriver::start(params)?))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn create_can(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    validate_can(params)?;
+    Err(unavailable("can", "CAN is not available on this computer"))
+}
+
+fn validate_counter(params: &toml::Value) -> Result<(), RuntimeError> {
+    shared_params("counter", params, CounterParams::from_json)?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn create_counter(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    let params = shared_params("counter", params, CounterParams::from_json)?;
+    Ok(Box::new(CounterDriver::start(params)?))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn create_counter(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    validate_counter(params)?;
+    Err(unavailable(
+        "counter",
+        "hardware counters are not available on this computer",
+    ))
+}
+
+fn validate_pwm(params: &toml::Value) -> Result<(), RuntimeError> {
+    shared_params("pwm", params, PwmParams::from_json)?;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn create_pwm(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    let params = shared_params("pwm", params, PwmParams::from_json)?;
+    Ok(Box::new(PwmDriver::start(params)?))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn create_pwm(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
+    validate_pwm(params)?;
+    Err(unavailable("pwm", "PWM is not available on this computer"))
+}
+
+/// The refusal, on a computer that is not Linux, of a driver whose hardware the computer lacks,
+/// when the driver starts (specification 11 §6.5, specification 34 ARCH-13).
+#[cfg(not(target_os = "linux"))]
+fn unavailable(driver: &str, reason: &str) -> RuntimeError {
+    RuntimeError::InvalidConfig(format!("{driver}: {reason}").into())
+}
+
+/// The parameters of the driver `driver`, read from `params` by its shared parser `parse`
+/// (specification 11 §6.5). The table is passed as the JSON text that a chip reads from its
+/// deployment record (specification 34 §5.1.1, section 8), so that a computer and a chip accept
+/// and refuse the same `io.toml`. Reading opens no device. A refusal is `<driver>: <key>:
+/// <reason>`.
+fn shared_params<P>(
+    driver: &str,
+    params: &toml::Value,
+    parse: fn(&str) -> Result<P, ParamsError>,
+) -> Result<P, RuntimeError> {
+    let json = params_json(params, "").map_err(|reason| params_refused(driver, &reason))?;
+    let text = serde_json::to_string(&json).map_err(|error| params_refused(driver, &error))?;
+    parse(&text).map_err(|error| params_refused(driver, &error))
+}
+
+/// `value`, the table at `key` or a value in it, as JSON, as the deployment record carries a
+/// driver's parameters (specification 34 §5.1.1): a date or a time as its RFC 3339 text, and a
+/// float that is not finite refused with its key.
+fn params_json(value: &toml::Value, key: &str) -> Result<serde_json::Value, String> {
+    Ok(match value {
+        toml::Value::String(text) => serde_json::Value::String(text.clone()),
+        toml::Value::Integer(number) => serde_json::Value::from(*number),
+        toml::Value::Float(number) => serde_json::Number::from_f64(*number)
+            .map(serde_json::Value::Number)
+            .ok_or_else(|| format!("{key}: {number} is not a finite number"))?,
+        toml::Value::Boolean(flag) => serde_json::Value::Bool(*flag),
+        toml::Value::Datetime(when) => serde_json::Value::String(when.to_string()),
+        toml::Value::Array(items) => serde_json::Value::Array(
+            items
+                .iter()
+                .enumerate()
+                .map(|(index, item)| params_json(item, &format!("{key}[{index}]")))
+                .collect::<Result<_, _>>()?,
+        ),
+        toml::Value::Table(table) => serde_json::Value::Object(
+            table
+                .iter()
+                .map(|(name, item)| {
+                    let path = if key.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{key}.{name}")
+                    };
+                    params_json(item, &path).map(|item| (name.clone(), item))
+                })
+                .collect::<Result<_, _>>()?,
+        ),
+    })
+}
+
+/// The refusal of the parameters of the driver `driver`: its name and `reason`.
+fn params_refused(driver: &str, reason: &dyn Display) -> RuntimeError {
+    RuntimeError::InvalidConfig(format!("{driver}: {reason}").into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,14 +363,120 @@ mod tests {
         assert_eq!(
             names,
             vec![
+                "analog".to_string(),
+                "can".to_string(),
+                "counter".to_string(),
                 "ethercat".to_string(),
                 "gpio".to_string(),
                 "loopback".to_string(),
                 "modbus-tcp".to_string(),
                 "mqtt".to_string(),
+                "pwm".to_string(),
                 "simulated".to_string(),
             ]
         );
+    }
+
+    /// The parameters of one `pwm` output on `line` at `frequency_hz`.
+    fn pwm_params(line: &str, frequency_hz: u32) -> toml::Value {
+        toml::from_str(&format!(
+            "outputs = [{{ address = \"%QW0\", line = \"{line}\", frequency_hz = {frequency_hz} }}]"
+        ))
+        .expect("pwm parameters")
+    }
+
+    /// Each shared driver with parameters that name hardware no computer has, and its refusal
+    /// when it starts on Linux.
+    fn drivers_without_hardware() -> [(&'static str, toml::Value, &'static str); 4] {
+        let params = |text: &str| -> toml::Value { toml::from_str(text).expect("parameters") };
+        [
+            (
+                "analog",
+                params(r#"inputs = [{ address = "%IW0", line = "iio:device999/in_voltage0" }]"#),
+                "analog: this computer has no IIO device iio:device999",
+            ),
+            (
+                "can",
+                params("line = \"trustcan999\"\nbitrate = 500000\n"),
+                "can: this computer has no CAN interface trustcan999",
+            ),
+            (
+                "counter",
+                params(r#"inputs = [{ address = "%ID0", line = "counter999/count0" }]"#),
+                "counter: this computer has no counter device counter999",
+            ),
+            (
+                "pwm",
+                pwm_params("pwmchip999/pwm0", 1000),
+                "pwm: this computer has no PWM chip pwmchip999",
+            ),
+        ]
+    }
+
+    /// Specification 11 §6.5: the shared drivers read their parameters with the shared rules, and
+    /// a refusal is `<driver>: <key>: <reason>`. A `frequency_hz` of 0 is outside 1 to 1,000,000.
+    /// Catches a refusal that does not say which driver or which key, and a parameter that only
+    /// fails when the driver starts.
+    #[test]
+    fn a_shared_driver_refuses_a_parameter_with_its_name_and_the_key() {
+        let error = IoDriverRegistry::default_registry()
+            .validate("pwm", &pwm_params("pwmchip0/pwm0", 0))
+            .expect_err("a frequency of 0 is refused");
+
+        assert!(
+            error
+                .to_string()
+                .starts_with("invalid config 'pwm: outputs[0].frequency_hz: "),
+            "{error}"
+        );
+    }
+
+    /// Specification 11 §6.5 (registry validation and construction are separate boundaries):
+    /// validation reads the parameters and opens no device, so a project validates on a
+    /// computer without the hardware it names, while the driver is refused when it starts, with
+    /// its name and the reason. Catches a validation that looks for the hardware, and a driver
+    /// that starts over hardware that is not there.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_shared_driver_validates_without_its_hardware_and_is_refused_when_it_starts() {
+        let registry = IoDriverRegistry::default_registry();
+        for (driver, params, refusal) in drivers_without_hardware() {
+            registry
+                .validate(driver, &params)
+                .unwrap_or_else(|error| panic!("{driver} must validate: {error}"));
+            let error = match registry.build(driver, &params) {
+                Ok(_) => panic!("{driver} must be refused"),
+                Err(error) => error,
+            };
+            assert_eq!(error.to_string(), format!("invalid config '{refusal}'"));
+        }
+    }
+
+    /// Specification 11 §6.5 and 34 ARCH-13: a runtime without the hardware, macOS and Windows
+    /// among them, refuses these drivers when they start, with the driver's name and the reason,
+    /// while their parameters validate. Catches a driver that starts and does nothing.
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn the_shared_drivers_are_refused_on_a_computer_without_their_hardware() {
+        let registry = IoDriverRegistry::default_registry();
+        for (driver, params, _) in drivers_without_hardware() {
+            registry
+                .validate(driver, &params)
+                .unwrap_or_else(|error| panic!("{driver} must validate: {error}"));
+            let error = match registry.build(driver, &params) {
+                Ok(_) => panic!("{driver} must be refused"),
+                Err(error) => error,
+            };
+            assert!(
+                error
+                    .to_string()
+                    .starts_with(&format!("invalid config '{driver}: "))
+                    && error
+                        .to_string()
+                        .ends_with("not available on this computer'"),
+                "{error}"
+            );
+        }
     }
 
     #[test]

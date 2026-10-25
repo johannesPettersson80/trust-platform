@@ -48,3 +48,10 @@ serde_json = { version = "1.0.152", default-features = false, features = ["alloc
 # is resolved only for this workspace's own tests, never for a firmware build.
 [dev-dependencies]
 trust-chips.workspace = true
+
+[features]
+# Bench only, never in a release: hooks that let the C6 bench prove the I/O drivers on a board
+# without wires (checklist T1). A `counter` input counts the pad of a `pwm` output of the same
+# record listed before it, the `can` controller runs in TWAI self-test mode and receives its own
+# frames from its `tx` pad, and every `analog` input's pad takes its internal pull-up.
+bench-loopback = []

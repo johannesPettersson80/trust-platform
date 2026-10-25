@@ -47,8 +47,14 @@ pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result
     )?;
     let binary_flags = artifacts.map_flags(&mut flags)?;
     let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
+    // A bench build names the firmware's bench features (`bench-loopback`, `bench-trial-hang`) in
+    // TRUST_FIRMWARE_FEATURES; the report records them, and a release build names none.
+    let features = env::var("TRUST_FIRMWARE_FEATURES")
+        .ok()
+        .filter(|features| !features.trim().is_empty());
     let mut configuration = serde_json::json!({
         "firmware": firmware.name, "target": firmware.target, "profile": "release",
+        "features": features,
         "rustflags": flags,
         "binary_rustflags": binary_flags, "manifest": directory.join("Cargo.toml"),
         "status": "started",
@@ -66,6 +72,9 @@ pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result
         firmware.bin.as_str(),
         "--message-format=json-render-diagnostics",
     ]);
+    if let Some(features) = &features {
+        command.args(["--features", features.as_str()]);
+    }
     command
         .arg("--")
         .args(&binary_flags)

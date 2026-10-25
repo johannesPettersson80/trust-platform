@@ -47,8 +47,10 @@ pub enum CounterMode {
     /// `mode = "quadrature"`: an encoder's A (`line`) and B (`line_b`), four counts per cycle of A,
     /// up while A leads B, as a `DINT` that wraps.
     Quadrature {
-        /// `line_b`, the encoder's B; required, and refused on Linux.
-        line_b: SmolStr,
+        /// `line_b`, the encoder's B: a chip counts it on a pin of its own and requires it, and
+        /// Linux refuses it, as a counter device's own signals are the encoder's lines
+        /// (specification 11 §6.5).
+        line_b: Option<SmolStr>,
     },
 }
 
@@ -108,7 +110,8 @@ impl CounterParams {
 
 /// An entry's `mode` with the key of its own: a pulse counter's `edge`, which a quadrature counter
 /// refuses, and a quadrature counter's `line_b`, which a pulse counter refuses and which no other
-/// key of the driver names (`lines`).
+/// key of the driver names (`lines`). Whether a quadrature counter needs `line_b` is the runtime's
+/// hardware: a chip requires it and Linux refuses it.
 fn counter_mode(entry: &Table<'_>, lines: &mut Once<SmolStr>) -> Result<CounterMode, ParamsError> {
     let counting = entry
         .choice(
@@ -147,13 +150,7 @@ fn counter_mode(entry: &Table<'_>, lines: &mut Once<SmolStr>) -> Result<CounterM
                      edge of both lines",
                 ));
             }
-            let Some(line_b) = entry.line("line_b", LINE, lines)? else {
-                return Err(entry.refuse(
-                    "line_b",
-                    "is required with mode = \"quadrature\", a non-empty string naming the \
-                     encoder's B line",
-                ));
-            };
+            let line_b = entry.line("line_b", LINE, lines)?;
             Ok(CounterMode::Quadrature { line_b })
         }
     }

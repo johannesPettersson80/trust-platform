@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: the `analog`, `pwm`, `counter` and `can` I/O drivers, with the same `io.toml` keys on a
+  chip and on Linux (specification 11 §6.5): on the ESP32-C6 over its ADC, LEDC, PCNT and TWAI
+  controllers, on Linux over IIO, sysfs PWM, the counter subsystem and SocketCAN. macOS and Windows
+  refuse them with the reason. `trust-runtime` on Linux now links `socketcan`.
 - Added: `trust-runtime build` also writes `build/install.<target>.bin`, the container that
   `trust-runtime ctl install` installs on a device, so a chip's program no longer needs a developer
   tool to pack it (specification 44 §4.1).

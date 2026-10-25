@@ -11,6 +11,7 @@ use smoltcp::wire::{DhcpOption, EthernetAddress, HardwareAddress, IpCidr, Ipv4Ad
 use trust_runtime_core::ports::{LinkFrame, MonotonicInstant, WallClock};
 use trust_runtime_services::link::ReplyRefused;
 
+use crate::client::{ClientLink, Clients};
 use crate::control::ControlServer;
 use crate::discovery::Discovery;
 use crate::settings::{Addressing, NetworkSettings};
@@ -31,6 +32,8 @@ pub struct Network {
     addressing: Addressing,
     dhcp: Option<SocketHandle>,
     control: Option<ControlServer>,
+    /// The connections the I/O drivers keep to their servers.
+    clients: Clients,
     discovery: Option<Discovery>,
     time: Option<TimeService>,
     /// The time server of the settings, which [`Self::time_result`] reports.
@@ -88,6 +91,7 @@ impl Network {
             addressing: settings.addressing,
             dhcp,
             control,
+            clients: Clients::new(random_seed),
             discovery,
             time,
             time_server: settings.time_server,
@@ -214,11 +218,21 @@ impl Network {
         if let Some(control) = &mut self.control {
             control.pump(&mut self.sockets);
         }
+        self.clients
+            .pump(self.iface.context(), &mut self.sockets, address.is_some());
         let _ = self.iface.poll_egress(now, device, &mut self.sockets);
         if let Some(control) = &mut self.control {
             // What the egress made room for.
             control.pump(&mut self.sockets);
         }
+        self.clients
+            .pump(self.iface.context(), &mut self.sockets, address.is_some());
+    }
+
+    /// A connection for an I/O driver to the server at `remote` (specification 11 §6.5), idle
+    /// until the driver opens it; the network then carries its bytes in [`Self::poll`].
+    pub fn client(&mut self, remote: (Ipv4Address, u16)) -> ClientLink {
+        self.clients.add(&mut self.sockets, remote)
     }
 
     /// When the stack's work is next due, a retransmission or a lease, in microseconds on the

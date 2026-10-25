@@ -81,7 +81,7 @@ owner tests and approves, and only then is anything released. Nothing is done wh
 below is open.
 
 C — Bounded operation (M3), shared by both chips:
-- [ ] C1 Bounded compound storage (18 Oct, day: C1-3c2a, the per-depth call scratch, is committed in `dd2684a87` on `feat/engine-calls` (focused check engine/c13c2a green; calls 45, blocks 13, methods 12 allocations per scan); C1-3c2b, standard-library arguments and SPLIT outputs without vectors, runs there. C1-5, the prepared cell layouts with their tables charged at preparation, is committed in `1953d13e6` on `feat/engine-init` (engine-init/c15 green, with the 74 test binaries that check preparation charges); C1-6a, the 16-byte cell and the cell store, runs there. The agent check's chip lanes now deny warnings as CI's portable lane does: three items that only the hosted runtime, the register tier and the tests use were dead in a chip build and are gated in `addeee6c4` here and `78c2edc8d` on `feat/engine-calls`. 18 Oct: C1-3a and C1-3b are merged into this branch in
+- [x] (Closed 25 Oct as superseded: the bytecode engine and its cell storage were deleted, native list N11; a compiled program keeps its variables in the fixed areas its build lays out, spec 44 §7, and its memory figure is what a load keeps, spec 44 §10.4, with no allocation in a scan.) C1 Bounded compound storage (18 Oct, day: C1-3c2a, the per-depth call scratch, is committed in `dd2684a87` on `feat/engine-calls` (focused check engine/c13c2a green; calls 45, blocks 13, methods 12 allocations per scan); C1-3c2b, standard-library arguments and SPLIT outputs without vectors, runs there. C1-5, the prepared cell layouts with their tables charged at preparation, is committed in `1953d13e6` on `feat/engine-init` (engine-init/c15 green, with the 74 test binaries that check preparation charges); C1-6a, the 16-byte cell and the cell store, runs there. The agent check's chip lanes now deny warnings as CI's portable lane does: three items that only the hosted runtime, the register tier and the tests use were dead in a chip build and are gated in `addeee6c4` here and `78c2edc8d` on `feat/engine-calls`. 18 Oct: C1-3a and C1-3b are merged into this branch in
   `d07154f10`, checked by c6/merge1 with its rerun. 17 Oct, night: C1-3a, reservations sized to the static call depth with the depth check kept at `max_call_depth`, and C1-3b, call plans resolved at preparation, are committed in `7271a23b3` on `feat/engine-calls`, focused check engine/c13 green; calls 81, blocks 28, methods 23 allocations per scan remain for C1-3c. C1-3c1, per-depth frame payloads, runs in `trust-platform-engine`; C1-4, the bookkeeping scratch, runs in `trust-platform-engine-init` (`feat/engine-init`). Both merge into this branch after C5-2b. 17 Oct evening: C1-2, the scan scratch reservation, and STRING 80 with byte capacity and the character-write cut are committed in `0cb9710b9`, validated by focused check c6/wave1. C1-3a, reservations sized to the static call depth, runs in `~/projects/trust-platform-engine` (`feat/engine-calls`). 17 Oct: C1-1 done. `scan_allocation_zero` measures the corpus of 15 fixtures and three saved board artifacts per phase. It asserts per-run ceilings, which only go down: scalar 1 alloc per scan today, gpio 8, io 64, blocks 87, instances 148, the board main program 925 over 101 scans. Next, C1-2 scratch; 22 slices to go, see `~/projects/.artifacts/bounded-c/design.md`): retire `Arc`, `SmolStr` and `IndexMap` from bounded value and
   compound paths (MEM-06, MEM-10, MEM-11); no allocation during a scan on the chips.
 - [x] (Closed 17 Oct by C2-0 and C2-1. Builder batches c1-1 to c1-3: `checked_admission_stale_binding` and `restart_generation_stale_handles` run un-ignored and pass with `restart_generation_queued_write` and `restart_generation_online_change`; `generation_handles` passes on the std, no-std and i686 lanes; workspace Clippy with all features is clean.) C2 Real generation lifetimes (MEM-07, UPDATE-04): stale handles across a warm restart or an
@@ -113,7 +113,7 @@ C — Bounded operation (M3), shared by both chips:
   bytes, 96,000 for the 1,000-event store (D-C3-2); the chips' measured RAM goes to the owner with
   the S1b-5 bench. A chip keeps the cause of a panic or watchdog reset in its reset record,
   `f904c8949` on `feat/chip-control-link`.)
-- [ ] C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-3 demand, after the C1-9 switch. 18 Oct: C4-4, the device descriptor and a chip's last
+- [x] (Closed 25 Oct as superseded by the native list's N6, the install checks of spec 44 §10.2, done 24 Oct; C4-3 belonged to the deleted engine.) C4 Import and admission bounds (17 Oct evening: C4-1, the deployment record, is committed in `0cb9710b9`. 17 Oct: C4-2 done. Every built-in function and FB has a contract, and admission refuses a missing or mismatched import by name with `runtime_import_unsupported`. Open: C4-3 demand, after the C1-9 switch. 18 Oct: C4-4, the device descriptor and a chip's last
   reset in `capabilities`, `4ebe03858`, merged in `2d667368c`), and capability and deployment records (including the
   HOST-02 deployment-level limit record).
 - [ ] C5 Persistence (18 Oct, afternoon: C5-4 for the C6 runs in s1b; the F407 part is superseded
@@ -321,7 +321,7 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     trust-runtime-services in three parts, then the device runner answers `io.*`, `var.*` and
     `set`. S2a, the queues, runs in `~/projects/trust-platform-live-values` (`feat/live-values`,
     from `106420bb1`). Owner question O6 (the C6's RAM) stays open; the move is needed either way.
-- [ ] S3 Debugging (includes from the A01 leftovers: the defect that debugger scratch slots read
+- [x] (Closed 25 Oct as superseded by the native list's N3: breakpoints, stepping, call stack, variables and evaluation of compiled programs from VS Code on a computer and the C6, 24 Oct. The FOR-body scratch-slot defect was the deleted engine's.) S3 Debugging (includes from the A01 leftovers: the defect that debugger scratch slots read
   Null at a stop inside a `FOR` body, to be reproduced with a probe and fixed, and a test seam for
   capture failures): breakpoints, pause, continue, stepping, call stack, variables and evaluation
   (specification 13), as in trust-runtime (STATE-07).
@@ -332,7 +332,7 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     `s3/decisions.md` (O2 is the owner's: what a debugger shows after a faulted scan). Slices S3d-1
     (the A01 probe, running) to S3d-9 (the C6 bench), then S3c (compiled expressions). The C6 chip
     file lists `debug` only once all of it holds, S3c included.
-- [ ] S4 Program loading: deployment and online change over the control connection (DEPLOY-02,
+- [x] (Closed 25 Oct: installs over the control connection into the two-slot program store, safe against interruption, spec 34 §5.1 and DEPLOY-03, benched on the C6 with T4 and L3; online change of compiled programs is the native list's N4, benched on the C6 24 Oct; from VS Code it is V4.) S4 Program loading: deployment and online change over the control connection (DEPLOY-02,
   §11.3), safe against interruption (DEPLOY-03).
 - [ ] S5 Access rights: tokens and roles, TLS and signed deployment, as in trust-runtime.
   Signed deployment (24 Oct, spec 44 §5.11, native list N6): the kernel's admission checks
@@ -343,6 +343,45 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
   in about 0.85 s (fw24, opt-level z; fixed part about 50 ms, the SHA-512 about 9 µs a byte), which
   an online change would take from the running scan: hash the image as its parts arrive, or check
   in the M5 request context, or both.
+  - 25 Oct evening, signed deployment DONE in code (bcd041583; spec 44 0.30): the chip reads
+    `[signing] trusted_keys` at boot into its descriptor and every admission (boot, restart,
+    install, online change) checks them; Ed25519ph with the context `truST program image`, the
+    online change's upload hashed as its parts arrive (`admit_prehashed`); crypto at opt-level 3.
+    Bench s5/run1 (C6): the unsigned twin refused at install with `the program is not signed by a
+    key this device trusts`, the signed vat installed in 1.40 s (0.16 s without keys). Found:
+    `status` said `signature: none` (the runner host did not forward it; fixed with a test); the
+    90 KB vat's online change no longer fits the heap since L3's radio code (`no room for a transfer
+    of 90676 bytes`), so the signed online change runs on the small s5/sig project.
+    Bench s5/run2 (snapshot fw with the status fix): `signature: trusted` with keys; the signed
+    change reloaded in 52 ms (50 ms without keys); one signed by another key refused, the program
+    running on. Found: hashing a part in its request stalled the scans (overrun events); measured
+    with `s5/hash-speed.py`: a 4,096-byte part 112 ms hashed against 62 ms not, so SHA-512 costs the
+    C6 about 12 µs a byte, 50 ms a part. Fixed: the session hashes only on a device that trusts keys,
+    the loop hashes 128-byte blocks between scans while the next boundary leaves time, and holds the
+    requests back until a complete upload is hashed (spec 44 §5.11 rewritten). Run 3 (the vat
+    release image, 17 parts) proves it. The 90 KB debug image's online change is a RAM limit with
+    Wi-Fi (112 KiB region beside a 43.8 KB module, 23 KB heap), not a flash question: a flash write
+    stalls the C6's code fetches, so an online change stays in RAM; release images fit.
+  - Pairing on chips, 25 Oct night, in code (spec 11 §6.9.6 rewritten; spec 34 0.68): the rules
+    moved to `trust-runtime-services::access::pairing` (one implementation; the computer's
+    `PairingStore` and the shared `pair.*` handlers call it; the web `/api/pair/*` routes answer
+    with the same texts); the chip keeps the pairing file as JSON without spaces in `pairing_a`
+    (0x7F6000) and `pairing_b` (0x7F7000) through `flash_record::RecordStore` (magic `TRSTPR01`),
+    room for 24 tokens, disabled tokens removed oldest first when a claim needs room, `the device
+    has no room for another pairing` otherwise; tokens only while the clock is set; codes and
+    tokens from the radio-backed RNG only while a network is served. The program slots shrank to
+    2,060 KiB (0x3F0000, 0x5F3000) for the two sectors; `firmware install --reset-settings` also
+    erases them. Bench pair-run3 (25 Oct, snapshot snap4 firmware installed through the boot loader
+    with the new partition table, `~/projects/.artifacts/native/s5/pair-run3/steps.log`): the 90 KB
+    debug vat installed into the moved slots (sequence 11); over Wi-Fi `pair.start` 11.7 ms,
+    `pair.claim` 42.2 ms with the record write, no overrun and no event; the token's `status` says
+    `role: operator`, its `pair.list` is refused `requires role admin`; after `device-reset` (boot
+    8123, clock from SNTP) the token still acts as Operator; `pair.revoke` disables it, it is then
+    refused `invalid auth token`, and the list shows it disabled. Found on the way: a bench helper
+    echoed a request with the control token into a log; the token was rotated on the chip at once
+    (`l3/run17`). Remaining for S5: TLS on the chip's control link, a hardware limit to report. TLS on a chip's control link: a hardware limit to report to the owner (TLS
+    buffers of about 15 KB against the C6's 23 KB for programs with Wi-Fi, and the handshake's
+    arithmetic in the control loop without the M5 request context).
 - [ ] S6 Discovery and mesh: a runtime on the network, a board included, is found and can be used at
   once (ARCH-12).
   - 25 Oct, discovery written (spec 34 PORT-06 Discovery; spec 11 network `time`): mDNS responder
@@ -391,6 +430,16 @@ D — Documentation and build:
   `device.toml` reference, and the list of supported chips; written to the rendered pages.
 - [ ] D2 CI builds the firmware of every chip on every change, and the Pi bench runs the tests on
   the real chips.
+  - 25 Oct night: the first half is in CI already (`ci.yml` job `firmware`, the C6 and the U5A9 on
+    every change, a required gate). The second half is written: `.github/workflows/chip-bench.yml`
+    runs after each green CI run on main, downloads the C6 firmware CI built and runs
+    `scripts/chip_bench.py`, which installs it as `firmware install` does (the selection erased,
+    boot loader, partition table and firmware at the chip file's addresses, settings and programs
+    kept) and checks that the chip answers `capabilities` with the workspace version, confirmed, and
+    `status` (tests `scripts/chip_bench_tests.py`, 2 passed locally). It passes with a notice until
+    the owner registers a self-hosted runner on the bench Pi and sets `TRUST_CHIP_BENCH_RUNNER`,
+    `TRUST_CHIP_BENCH_PORT` and the secret `TRUST_CHIP_BENCH_TOKEN` (an outside setting: the owner's
+    to make). Open: those settings, then the first green run.
 
 H — Hardware the owner provides:
 - [ ] H1 A NUCLEO-F429ZI (owner, 16 October 2026: the plan with it agreed): the same STM32F4 family
@@ -479,6 +528,40 @@ T — Targets (spec 34 §11.4):
 - [ ] T1 The same project on a chip: `runtime.toml` and `io.toml` with the same keys and meaning;
   the `gpio` driver's `line` names a pin of the chip; analog, PWM, counters and CAN as `io.toml`
   drivers (TARGET-01).
+  - 25 Oct evening: spec 11 §6.5 defines `analog`, `pwm`, `counter` and `can` for every runtime
+    (Linux over IIO, sysfs PWM, the counter subsystem and SocketCAN); spec 34 D.2 the C6's ADC1,
+    LEDC, PCNT and TWAI0/1; the deployment record version 2 carries each driver's parameters
+    (section 8); `ChipDriver` and `record_drivers` compose a chip's drivers after its GPIO lines.
+    The shared parameter rules and logic (`trust-runtime-services::io_drivers`) are with an agent;
+    next the C6 drivers and the Linux drivers (agents), then the bench (PWM into a counter on one
+    pin, an ADC pin at 0 V and 3.3 V, TWAI in self-test). The online change's binding check must
+    take the drivers' addresses too (`unwired_binding`).
+  - 25 Oct night, in code: the shared rules and logic (`io_drivers::{analog,pwm,counter,can}`,
+    35 tests; entries of a list may not overlap in bytes, `on_error` read as Modbus reads it); the
+    C6 drivers (`hardware/drivers/*`: ADC1 one-shot with the eFuse curve calibration, LEDC with one
+    timer per frequency and the divider from the 80 MHz clock, PCNT pulse and quadrature with the
+    32-bit count, TWAI0/1 at the nine CiA 301 rates with a code/mask filter; peripherals leased so
+    a restart frees them; a PWM pin handed to its latch on the emergency path); the online change
+    counts a driver entry's bytes as wired (`record_entry_bytes`). Snapshot check snap4: fmt,
+    Clippy, rustdoc, unsafe register (three new sites), architecture and the C6 firmware green;
+    services 853 tests. With agents: the Linux drivers; host tests of the C6 drivers' planning and
+    `bench-loopback` hooks (PWM into a counter on one pad, TWAI self-test, ADC pull-up). Open: the
+    bench, and the measured numbers in D.2.
+  - 25 Oct night, Linux drivers in (IIO, sysfs PWM, the counter subsystem with quadrature x4,
+    SocketCAN; 42 tests over a fake sysfs; `socketcan` 4.0.0 with `neli` 0.7.4); `line_b` optional
+    in the shared rules (a chip requires it, Linux refuses it); 31 host tests of the C6 drivers'
+    planning (`driver_plans.rs`). Bench t1/run1-run2 (`~/projects/.artifacts/native/t1/`, the
+    `bench-loopback` firmware, project t1): without Wi-Fi all four drivers `ok`; PWM 50 % at 1 kHz
+    counted on its own pad, 10,300 edges in about 10.3 s, 25 % about 1,000 a second, 0 % and 100 %
+    none; the CAN word sent each cycle came back through TWAI0's self-test one cycle later; ADC1 read
+    3,258 to 3,261 mV on a pad pulled up to 3.3 V. Found: with Wi-Fi (22,704 bytes for programs) the
+    same program's start ran out of heap (`resource panic ... alloc.rs:665`, reset, faulted), and
+    after it the chip had no room for a `status` reply; under investigation (debug image or drivers).
+  - Found by the D1 review (25 Oct): the C6's flash pins GPIO24-GPIO30 were claimable (fixed,
+    reason `flash`); the C6's chip file listed only engine, control and live-values (debug and
+    deploy added); a trial firmware that hangs before it confirms has no watchdog yet, so it would
+    not roll back (TARGET-04; the watchdog moves before the boot's steps, with a bench feature that
+    hangs).
 - [x] T2 `device.toml` on the device: name, network interfaces, Wi-Fi, Bluetooth and time server;
   the crystal frequency and the Ethernet PHY detected (TARGET-02).
   Done 25 Oct, commit d6ec86deb (spec 34 0.63 TARGET-02, spec 11 device settings contract):
@@ -622,12 +705,12 @@ QS — STM32 product and qualification (M4; replaces QF1–QF7 for the NUCLEO-F4
   The network services are tested on the C6 (Wi-Fi) until the owner chooses an STM32 with Ethernet.
 - The F407 port stays as written and CI checks its build. Its USB slices S1b-8 and S1b-9 become the
   U5A9's.
-- [ ] QS1 The STM32U5A9 boots into its controlled state and runs the installed project with every
+- [x] (Moved 25 Oct to the native list's N7, the U5A9 at the numbers of spec 44 §14.1, which needs the board; it stays open there.) QS1 The STM32U5A9 boots into its controlled state and runs the installed project with every
   item of S, L1 and T.
-- [ ] QS2 Retain on the U5A9, using C5.
-- [ ] QS3 Disturbed and mixed-rate workloads and extended tests; section 14 acceptance within the
+- [x] (Moved 25 Oct to the native list's N7, the U5A9 at the numbers of spec 44 §14.1, which needs the board; it stays open there.) QS2 Retain on the U5A9, using C5.
+- [x] (Moved 25 Oct to the native list's N7, the U5A9 at the numbers of spec 44 §14.1, which needs the board; it stays open there.) QS3 Disturbed and mixed-rate workloads and extended tests; section 14 acceptance within the
   U5A9's flash, RAM and stack, with completion-level timing evidence.
-- [ ] QS4 Release: the U5A9 firmware in the GitHub release (TARGET-09), last.
+- [x] (Moved 25 Oct to the native list's N13, the release, which stays open there.) QS4 Release: the U5A9 firmware in the GitHub release (TARGET-09), last.
 
 QE — ESP32-C6 product and qualification (M5):
 - [ ] QE1 The C6 boots into its controlled state and runs the installed project with every item of
@@ -635,14 +718,14 @@ QE — ESP32-C6 product and qualification (M5):
 - [ ] QE2 Retain on the C6, using C5.
 - [ ] QE3 Disturbances and the common corpus; section 14 acceptance; the released bootloader and
   the QIO retest.
-- [ ] QE4 Release: the C6 firmware in the GitHub release (TARGET-09), last.
+- [x] (Moved 25 Oct to the native list's N13, the release, which stays open there.) QE4 Release: the C6 firmware in the GitHub release (TARGET-09), last.
 
 V — From VS Code, exactly as for trust-runtime (owner: "you shall be able to debug from vs code
 etc."):
 - [ ] V1 Both chips appear in Devices & Connections as runtimes, found over USB and on the network,
   and connect like any trust-runtime; nothing in the extension is specific to boards.
-- [ ] V2 Live Values with write, force and release on both chips.
-- [ ] V3 Debugging on both chips with VS Code's debugger.
+- [x] (Closed 25 Oct as superseded: Live Values with write, force and release for compiled programs are the native list's N2, benched on the C6; VS Code reaching a chip is V1, and the U5A9 is N7.) V2 Live Values with write, force and release on both chips.
+- [x] (Closed 25 Oct as superseded: debugging compiled programs with VS Code's debugger is the native list's N3, on the C6 through the debug adapter; the U5A9 is N7.) V3 Debugging on both chips with VS Code's debugger.
 - [ ] V4 Deployment and online change on both chips; installing and updating truST from the
   hardware canvas.
 - [ ] V6 The simulator in VS Code applies a chip's memory and timing limits, so that a program is
@@ -787,7 +870,7 @@ Open, to be fixed:
   space recheck, `release_candidate_guard.py` requires it, a new test compares it with CI's
   Documentation job, and the skill names it; 45/45 guard tests pass in this worktree; the
   canonical copies in the primary checkout are updated and copied here.)
-- [ ] Mutation testing (A05): stage 2 on the engine left 589 of 864 mutants uncaught (268 caught,
+- [x] (Closed 25 Oct as superseded: the campaign mutated the deleted bytecode engine, N11.) Mutation testing (A05): stage 2 on the engine left 589 of 864 mutants uncaught (268 caught,
   6 unviable, 1 timeout). It ran only `trust-runtime-core`'s own unit tests; rerun the uncaught
   mutants against the `trust-runtime` integration and journey suites, then add tests for the real
   gaps.
@@ -829,6 +912,11 @@ Open, to be fixed:
   STATE-07; the earlier STATE-06 citation was wrong). S3d-6 makes the chip's deadline and overrun
   check leave out held time, S3d-7 feeds the watchdog on every hold pass, S3d-9 measures it on the
   C6 (`~/projects/.artifacts/s3/chip-debugger.md` §3.5).
+  - 25 Oct night, bench t1/run2: a breakpoint held the scan 10 s, more than twice the 4 s hardware
+    watchdog; the chip did not reset (boot 8132 before and after), the resource was not faulted,
+    and `resume` went on running; the task then reported its 133 missed activations, as the host
+    does (`a_pause_holds_the_scans_..._reports_the_missed_activations`). Open: the same with the
+    program's own watchdog on (1 s) to show the scan's deadline leaving out the hold on the chip.
 - [x] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
   in Rust (never resetting a board); specifications 25 and 34 first, then its own PR. (Merged 16 Oct into V1 and V7: specified in spec 25 §5.12 and spec 34 TARGET-04 (V7a, done);
   the passive USB scan is V7c and the panel V7d.)
@@ -1011,7 +1099,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   by the runtime watchdog, which the A10 tests disproved (see below); independent hosted hang
   supervision is a separate H slice. The missing H tests and the RT_* trace-runner fix (the
   runners ignored the cases' declared `expect.*` and `no_partial_apply`) are below.
-- [ ] A06/A07: a pinned nightly (`nightly-2026-10-14`, rustc 1.101) is installed on the builder
+- [x] (Closed 25 Oct as superseded: the bytecode fuzz targets went with the engine, and `image_admission` fuzzes the kernel's admission, N11; the fuzz registry's stale entries are cleaned up with it.) A06/A07: a pinned nightly (`nightly-2026-10-14`, rustc 1.101) is installed on the builder
   for cargo-fuzz and Miri. Two cargo-fuzz targets are added: `bytecode_admission` (CRC repaired,
   full preparation under small explicit limits, register and stack executors agree for three
   cycles) and `bytecode_reprepare` (repeated preparation agrees; decode→encode fixed point). They
@@ -1249,7 +1337,7 @@ applicable. Then move on to all the tests. We need a perfect runtime that's bug-
   - Not defects: reference SIZEOF follows the executing target (spec 29 §1); TIME images count
     whole milliseconds (spec 07 §2.8); OPC UA exposes no temporal types. SCHED-04 timing admission
     has no H seam (spec 34 defers it to M3/M4).
-- [ ] Assurance campaign order, by expected defect yield; each slice is audit, tests, one
+- [x] (Closed 25 Oct as superseded by spec 44 §14, the acceptance of compiled programs.) Assurance campaign order, by expected defect yield; each slice is audit, tests, one
   batch, fixes, then commit, guard, push and CI:
   1. A05 mutation testing on the core VM, register IR, Tier-1, decoder/validator and the
      engine's admission and write paths (the shard map first moves to the H file layout).
@@ -2227,7 +2315,7 @@ a sparse outer declaration map would retain that cause.
 - [x] (Superseded 16 Oct: bookkeeping is no longer charged (TIME-08).) H-CURRENT-INDEX-CHARGES — One entry unit plus the actual branch's index bounds
   before each search, preserving dense paths and sparse/missing fallback. Recorded
   change-scan prefix projects 61,826 fewer units; completion is not yet demonstrated.
-- [ ] H-CURRENT-STACK-ONLY — Keep native stack calls in the SAME opcode loop only
+- [x] (Closed 25 Oct as superseded: the deleted engine's opcode loop on the F401.) H-CURRENT-STACK-ONLY — Keep native stack calls in the SAME opcode loop only
   without register-ir. Keep hosted register pump and call/cleanup semantics unchanged.
   Review external H-stack-segment-continuation-plan.md. No predicted size credit.
 
@@ -2445,6 +2533,11 @@ dependency.
   typed/include/endpoint configuration behavior with native compatibility tests.
   Prove both locked graphs no longer reach unsafe-libyaml and remove the exception;
   no automatic renewal. Decision/RCA: external `H-unsafe-libyaml/`.
+  - Sooner, 18 November 2026 (found 25 Oct): eight more `deny.toml` exceptions expire then, and the
+    release preflight (`scripts/check_dependency_exceptions.py`) fails after it: opcua 0.12's idna
+    0.1 and derivative (move `opcua-wire` to a maintained OPC UA stack, with S11), tiny_http 0.12's
+    `ssl-rustls` with rustls 0.20, ring 0.16 and rustls-pemfile 0.2 (move HTTPS hosting off it,
+    with S8), and zenoh 1.7.2's paste (with S6's mesh). They gate N13.
 
 **13 October: remaining hosted performance decision (pending).**
 Source comparison confirms 1,340 runtime/core/config records still match the

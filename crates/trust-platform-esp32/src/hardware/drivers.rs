@@ -1,11 +1,18 @@
 //! The C6's I/O drivers beside its GPIO lines (specification 11 §6.5; specification 34 TARGET-01 and
 //! Appendix D.2): `analog` on ADC1, `pwm` on the LEDC, `counter` on the PCNT and `can` on TWAI0 and
 //! TWAI1. Each driver reads its parameters with the rules every runtime shares
-//! (`trust_runtime_services::io_drivers`), claims its pins from the GPIO bank, where a pin serves one
-//! line of one driver, GPIO lines included, and its peripheral from [`DriverPeripherals`], where a
-//! peripheral serves one driver. It gives both back when its program drops it, so the program
-//! loaded next claims them again (STATE-08). The process image calls each driver at every cycle
-//! through `ChipDriver`, after the GPIO lines.
+//! (`trust_runtime_services::io_drivers`), plans what they ask of the C6 before it touches any
+//! hardware (`crate::driver_plans`, which the host tests prove), claims its pins from the GPIO
+//! bank, where a pin serves one line of one driver, GPIO lines included, and its peripheral from
+//! [`DriverPeripherals`], where a peripheral serves one driver. It gives both back when its program
+//! drops it, so the program loaded next claims them again (STATE-08). The process image calls each
+//! driver at every cycle through `ChipDriver`, after the GPIO lines.
+//!
+//! The `bench-loopback` feature, for the bench only and never in a release, lets a board without
+//! wires prove the drivers: a `counter` input counts the pad of a `pwm` output of the same record
+//! (`pwm`, `counter`), the `can` controller runs in self-test mode and receives its own frames from
+//! its `tx` pad (`can`), and every `analog` input's pad takes its internal pull-up (`analog`).
+//! Without the feature none of this is built.
 
 mod analog;
 mod can;
@@ -13,19 +20,19 @@ mod counter;
 mod pwm;
 
 use alloc::boxed::Box;
-use alloc::format;
-use alloc::rc::Rc;
 use alloc::string::String;
-use core::cell::Cell;
-use core::fmt;
 
+#[cfg(feature = "bench-loopback")]
+use esp_hal::gpio::interconnect::InputSignal;
 use esp_hal::ledc::Ledc;
 use esp_hal::peripherals::{ADC1, LEDC, PCNT, TWAI0, TWAI1};
 use esp_hal::twai::AnyTwai;
 use trust_runtime_core::deployment::Configuration;
 use trust_runtime_services::chip::process_io::{unsupported_driver, ChipDriver, DriverRequest};
-use trust_runtime_services::status::IoDriverHealth;
 
+#[cfg(feature = "bench-loopback")]
+use crate::driver_plans::LoopbackPads;
+use crate::driver_plans::PeripheralSlot;
 use crate::process_io::GpioBank;
 
 /// The peripherals the drivers claim, taken from `esp_hal::init` with the board and kept for the life
@@ -39,6 +46,10 @@ pub(crate) struct DriverPeripherals {
     pcnt: PeripheralSlot<counter::PulseUnits>,
     /// TWAI0 and TWAI1, for a `can` driver each.
     twai: [PeripheralSlot<AnyTwai<'static>>; 2],
+    /// Bench only (`bench-loopback`): the pads of the running program's `pwm` outputs, each with
+    /// its input signal, which a `counter` input of the same record counts without a wire.
+    #[cfg(feature = "bench-loopback")]
+    loopback: LoopbackPads<InputSignal<'static>>,
 }
 
 impl DriverPeripherals {
@@ -60,6 +71,8 @@ impl DriverPeripherals {
                 PeripheralSlot::new(AnyTwai::from(twai0)),
                 PeripheralSlot::new(AnyTwai::from(twai1)),
             ],
+            #[cfg(feature = "bench-loopback")]
+            loopback: LoopbackPads::default(),
         }
     }
 }
@@ -82,116 +95,9 @@ pub(crate) fn claim_driver(
 ) -> Result<Box<dyn ChipDriver>, String> {
     match request.name {
         analog::NAME => analog::claim(request.params, bank, &peripherals.adc1),
-        pwm::NAME => pwm::claim(request.params, bank, &peripherals.ledc, config),
-        counter::NAME => counter::claim(request.params, bank, &peripherals.pcnt),
+        pwm::NAME => pwm::claim(request.params, bank, peripherals, config),
+        counter::NAME => counter::claim(request.params, bank, peripherals),
         can::NAME => can::claim(request.params, bank, &peripherals.twai),
         other => Err(unsupported_driver(other, "C6")),
     }
-}
-
-/// A peripheral of the board that one driver at a time holds (specification 34 STATE-08). The
-/// peripheral stays in the slot; a driver holds a [`Lease`] on it, and a second claim is refused
-/// until that lease is dropped.
-struct PeripheralSlot<P> {
-    shared: Rc<Shared<P>>,
-}
-
-/// A slot's peripheral and whether a driver holds it.
-struct Shared<P> {
-    peripheral: P,
-    held: Cell<bool>,
-}
-
-impl<P> PeripheralSlot<P> {
-    /// A free slot of `peripheral`.
-    fn new(peripheral: P) -> Self {
-        Self {
-            shared: Rc::new(Shared {
-                peripheral,
-                held: Cell::new(false),
-            }),
-        }
-    }
-
-    /// The peripheral for one driver, held until the lease is dropped; `None` while another driver
-    /// holds it.
-    fn claim(&self) -> Option<Lease<P>> {
-        if self.shared.held.replace(true) {
-            return None;
-        }
-        Some(Lease {
-            shared: Rc::clone(&self.shared),
-        })
-    }
-}
-
-/// A driver's hold on a peripheral of the board. Dropping it frees the peripheral, so a driver
-/// declares its lease after everything it built on the peripheral, which is then dropped first.
-struct Lease<P> {
-    shared: Rc<Shared<P>>,
-}
-
-impl<P> Lease<P> {
-    /// The held peripheral.
-    fn get(&self) -> &P {
-        &self.shared.peripheral
-    }
-}
-
-impl<P> Drop for Lease<P> {
-    fn drop(&mut self) {
-        self.shared.held.set(false);
-    }
-}
-
-/// The refusal of a driver's parameter on the C6: `<driver>: <key>: <reason>`, the form of the
-/// shared parameter refusal (`ParamsError` after the driver's name), which `status` reports.
-fn refusal(driver: &str, key: &str, reason: impl fmt::Display) -> String {
-    format!("{driver}: {key}: {reason}")
-}
-
-/// The health that the result of one exchange gives a driver's path: ok, or faulted with the
-/// error, so a path is ok again after an exchange that succeeds.
-fn health_of(result: &Result<(), String>) -> IoDriverHealth {
-    match result {
-        Ok(()) => IoDriverHealth::Ok,
-        Err(error) => IoDriverHealth::Faulted {
-            error: error.as_str().into(),
-        },
-    }
-}
-
-/// Writes `bytes` into `image` from byte `byte`, the place of `address` (`%IW4`).
-///
-/// # Errors
-///
-/// `<address> lies outside the process image of <n> bytes`, and nothing is written.
-fn write_image(image: &mut [u8], byte: usize, bytes: &[u8], address: &str) -> Result<(), String> {
-    let place = byte
-        .checked_add(bytes.len())
-        .and_then(|end| image.get_mut(byte..end));
-    match place {
-        Some(place) => {
-            place.copy_from_slice(bytes);
-            Ok(())
-        }
-        None => Err(outside(address, image.len())),
-    }
-}
-
-/// The `N` bytes of `image` from byte `byte`, the place of `address` (`%QW4`).
-///
-/// # Errors
-///
-/// `<address> lies outside the process image of <n> bytes`.
-fn read_image<const N: usize>(image: &[u8], byte: usize, address: &str) -> Result<[u8; N], String> {
-    byte.checked_add(N)
-        .and_then(|end| image.get(byte..end))
-        .and_then(|bytes| <[u8; N]>::try_from(bytes).ok())
-        .ok_or_else(|| outside(address, image.len()))
-}
-
-/// The error of an address that does not fit the process image of `len` bytes.
-fn outside(address: &str, len: usize) -> String {
-    format!("{address} lies outside the process image of {len} bytes")
 }

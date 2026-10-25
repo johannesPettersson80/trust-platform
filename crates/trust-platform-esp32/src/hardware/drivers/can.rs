@@ -2,21 +2,27 @@
 //! Appendix D.2): one of the two TWAI controllers, `TWAI0` or `TWAI1`, whose `tx` and `rx` the GPIO
 //! matrix routes to the pins that go to the transceiver. The controller runs in normal mode at the
 //! driver's bit rate, from the C6's 40 MHz crystal, and its acceptance filter keeps the data frames
-//! of the receive identifiers when they share one frame format.
+//! of the receive identifiers when they share one frame format (`driver_plans::can_plan`).
 //!
 //! At the start of each cycle the driver hands the frames the controller received since the last one
 //! to the shared exchange, which writes the newest data of each receive into its input bytes and
 //! checks the receive timeouts. After the tasks it gives the exchange the output image, which hands
 //! back the frames that are due, and the controller takes them in order until its one transmit
 //! buffer is busy; a frame it cannot take now is sent at a later cycle, the newest data of each
-//! identifier replacing the older. Nothing waits for the bus. The controller's receive FIFO holds
-//! 64 bytes, five standard or four extended frames of eight data bytes, so at most that many frames
-//! that pass the filter may arrive between two cycle starts, and its one transmit buffer takes one
-//! frame per cycle.
+//! identifier replacing the older (`driver_plans::queue_frame`). Nothing waits for the bus. The
+//! controller's receive FIFO holds 64 bytes, five standard or four extended frames of eight data
+//! bytes, so at most that many frames that pass the filter may arrive between two cycle starts, and
+//! its one transmit buffer takes one frame per cycle.
 //!
 //! A controller that goes bus-off makes the driver's health faulted with `bus off`; the driver starts
 //! the bus recovery of ISO 11898-1 (128 occurrences of 11 recessive bits), after which the
 //! controller rejoins by itself, without a restart.
+//!
+//! Bench only, with the `bench-loopback` feature: the controller runs in TWAI self-test mode, where
+//! a frame it sends needs no acknowledgement, its receive input reads its own `tx` pad through the
+//! pad's input buffer instead of the `rx` pin, and it sends every frame with a self-reception
+//! request, so each frame it sends comes back into its receives without a transceiver or another
+//! node.
 
 use alloc::boxed::Box;
 use alloc::collections::VecDeque;
@@ -32,21 +38,28 @@ use esp_hal::twai::{
 use esp_hal::Blocking;
 use smol_str::SmolStr;
 use trust_runtime_services::chip::process_io::ChipDriver;
-use trust_runtime_services::io_drivers::can::{
-    CanExchange, CanFrame, CanId, CanParams, CanReceive,
-};
+use trust_runtime_services::io_drivers::can::{CanExchange, CanFrame, CanId, CanParams};
 use trust_runtime_services::io_drivers::OnError;
 use trust_runtime_services::status::IoDriverHealth;
 
-use super::{refusal, Lease, PeripheralSlot};
+use crate::driver_plans::{
+    self, can_plan, queue_frame, received_frame, refusal, worse_health, AcceptanceFilter, CanPlan,
+    Lease, PeripheralSlot,
+};
 use crate::hardware::clock::now_us;
 use crate::process_io::{GpioBank, PinClaim};
 
 /// The driver's name in `io.toml`.
-pub(super) const NAME: &str = "can";
+pub(super) const NAME: &str = driver_plans::CAN;
 
-/// The clock of the C6's TWAI controllers: the 40 MHz crystal (esp-hal 1.2.2, `BaudRate`).
-const CLOCK_HZ: u32 = 40_000_000;
+/// The controller's mode: normal, where a frame it sends needs another node's acknowledgement.
+#[cfg(not(feature = "bench-loopback"))]
+const MODE: TwaiMode = TwaiMode::Normal;
+
+/// Bench only, with the `bench-loopback` feature: TWAI self-test mode, where a frame the controller
+/// sends needs no acknowledgement, so that it sends without another node on the bus.
+#[cfg(feature = "bench-loopback")]
+const MODE: TwaiMode = TwaiMode::SelfTest;
 
 /// The most frames one cycle start takes from the controller: more than its FIFO holds, a bound for
 /// the scan.
@@ -90,7 +103,8 @@ struct CanDriver {
     /// The `tx` pin: a GPIO output whose latch holds the recessive level, high, which the GPIO
     /// matrix routes the controller's transmit signal over.
     tx: Flex<'static>,
-    /// The `rx` pin, an input the GPIO matrix routes to the controller.
+    /// The `rx` pin, an input the GPIO matrix routes to the controller (with `bench-loopback`,
+    /// claimed but not routed: the controller reads its `tx` pad).
     _rx: Flex<'static>,
     _tx_claim: PinClaim,
     _rx_claim: PinClaim,
@@ -112,15 +126,15 @@ impl Drop for CanDriver {
 }
 
 /// Builds the `can` driver of the parameters `params` (JSON): the controller `line` is claimed from
-/// `controllers`, its `tx` and `rx` pins from `bank`, and it starts in normal mode at `bitrate`.
+/// `controllers`, its `tx` and `rx` pins from `bank`, and it starts at `bitrate`
+/// (`driver_plans::can_plan`) in normal mode, or with `bench-loopback` in self-test mode
+/// ([`MODE`]).
 ///
 /// # Errors
 ///
 /// - the shared parameter refusal, `can: <key>: <reason>`;
-/// - `can: line: <line> is not a CAN controller of the C6: its controllers are TWAI0 and TWAI1`;
-/// - `can: bitrate: <line> cannot run at <rate> bit/s from its 40000000 Hz clock`;
-/// - `can: tx: <line> needs the pin that goes to the transceiver's input`, and for `rx` the pin
-///   that comes from the transceiver's output;
+/// - the refusals of `driver_plans::can_plan`, before any hardware is touched: a `line` that is not
+///   `TWAI0` or `TWAI1`, a rate the clock cannot make, and a missing `tx` or `rx`;
 /// - `can: line: <line> is already used by another can driver`;
 /// - `can: tx: <reason>` or `can: rx: <reason>` for a pin that is not a pin name, that the chip
 ///   lacks or keeps, or that another line holds, the other of the two included.
@@ -130,42 +144,19 @@ pub(super) fn claim(
     controllers: &[PeripheralSlot<AnyTwai<'static>>; 2],
 ) -> Result<Box<dyn ChipDriver>, String> {
     let params = CanParams::from_json(params).map_err(|error| format!("{NAME}: {error}"))?;
+    let CanPlan {
+        controller,
+        timing,
+        tx: tx_name,
+        rx: rx_name,
+        filter,
+    } = can_plan(&params)?;
     let line = params.line.clone();
-    let (controller, slot) = match line.as_str() {
-        "TWAI0" => (0, &controllers[0]),
-        "TWAI1" => (1, &controllers[1]),
-        _ => {
-            return Err(refusal(
-                NAME,
-                "line",
-                format!(
-                    "{line} is not a CAN controller of the C6: its controllers are TWAI0 and TWAI1"
-                ),
-            ));
-        }
-    };
-    let bit_timing = timing(params.bitrate).ok_or_else(|| {
+    let slot = controllers.get(controller).ok_or_else(|| {
         refusal(
             NAME,
-            "bitrate",
-            format!(
-                "{line} cannot run at {} bit/s from its {CLOCK_HZ} Hz clock",
-                params.bitrate
-            ),
-        )
-    })?;
-    let tx_name = params.tx.clone().ok_or_else(|| {
-        refusal(
-            NAME,
-            "tx",
-            format!("{line} needs the pin that goes to the transceiver's input"),
-        )
-    })?;
-    let rx_name = params.rx.clone().ok_or_else(|| {
-        refusal(
-            NAME,
-            "rx",
-            format!("{line} needs the pin that comes from the transceiver's output"),
+            "line",
+            format!("{line} is not a CAN controller of the C6"),
         )
     })?;
     let lease = slot.claim().ok_or_else(|| {
@@ -176,10 +167,10 @@ pub(super) fn claim(
         )
     })?;
     let (_, tx_pin, tx_claim) = bank
-        .claim_pin(&tx_name)
+        .claim_pin(tx_name)
         .map_err(|error| refusal(NAME, "tx", error))?;
     let (_, rx_pin, rx_claim) = bank
-        .claim_pin(&rx_name)
+        .claim_pin(rx_name)
         .map_err(|error| refusal(NAME, "rx", error))?;
     // The transmit pin drives the recessive level, high, until the controller drives it, and again
     // when the driver lets it go.
@@ -190,6 +181,13 @@ pub(super) fn claim(
     let mut rx = Flex::new(rx_pin);
     rx.apply_input_config(&InputConfig::default());
     rx.set_input_enable(true);
+    // The controller's receive input: the `rx` pin, which comes from the transceiver.
+    #[cfg(not(feature = "bench-loopback"))]
+    let receive_from = rx.peripheral_input();
+    // Bench only: the controller's own `tx` pad, through the pad's input buffer, so that the frames
+    // it sends come back into its receives without a transceiver; `rx` stays claimed and unused.
+    #[cfg(feature = "bench-loopback")]
+    let receive_from = tx.peripheral_input();
     // SAFETY: `PeripheralSlot::claim` refused this controller to every other driver until `lease`
     // is dropped, and the driver below keeps the controller built from this copy in a field it
     // stops and drops in `Drop`, before its lease field is dropped, so the copy is gone before the
@@ -200,12 +198,18 @@ pub(super) fn claim(
     // itself, so that it can give the pin back when it is dropped.
     let mut configuration = TwaiConfiguration::new(
         peripheral,
-        rx.peripheral_input(),
+        receive_from,
         NoPin,
-        BaudRate::Custom(bit_timing),
-        TwaiMode::Normal,
+        BaudRate::Custom(TimingConfig {
+            baud_rate_prescaler: timing.prescaler,
+            sync_jump_width: timing.sync_jump_width,
+            tseg_1: timing.tseg_1,
+            tseg_2: timing.tseg_2,
+            triple_sample: false,
+        }),
+        MODE,
     );
-    accept(&mut configuration, &params.receive);
+    accept(&mut configuration, filter);
     transmit_signal(controller).connect_to(&tx);
     let twai = configuration.start();
     let on_error = params.on_error;
@@ -228,71 +232,34 @@ pub(super) fn claim(
     }))
 }
 
-/// The bit timing of `bitrate` on the C6's TWAI: a time quantum of `quantum` cycles of its 40 MHz
-/// clock, and a bit of 1 + `tseg_1` + `tseg_2` quanta sampled after 1 + `tseg_1` of them, with a
-/// resynchronization jump of 3 quanta. These are ESP-IDF's timings for the C6: 20 quanta sampled at
-/// 80 %, and at 800,000 bit/s, where a bit is 50 clock cycles, 25 quanta of 2 cycles sampled at
-/// 68 %. For example 10,000 bit/s: 200 cycles × 20 quanta = 4,000 cycles of 40 MHz, 100 µs.
-/// `None` for a rate the table does not hold.
-fn timing(bitrate: u32) -> Option<TimingConfig> {
-    let (quantum, tseg_1, tseg_2): (u16, u8, u8) = match bitrate {
-        10_000 => (200, 15, 4),
-        20_000 => (100, 15, 4),
-        50_000 => (40, 15, 4),
-        100_000 => (20, 15, 4),
-        125_000 => (16, 15, 4),
-        250_000 => (8, 15, 4),
-        500_000 => (4, 15, 4),
-        800_000 => (2, 16, 8),
-        1_000_000 => (2, 15, 4),
-        _ => return None,
-    };
-    Some(TimingConfig {
-        // esp-hal 1.2.2 halves the prescaler on the C6, whose clock is half the 80 MHz its timings
-        // assume, so it is given twice the quantum.
-        baud_rate_prescaler: quantum * 2,
-        sync_jump_width: 3,
-        tseg_1,
-        tseg_2,
-        triple_sample: false,
-    })
-}
-
-/// Sets the acceptance filter of `configuration` to the data frames of the `receives`'
-/// identifiers when they are all standard or all extended: the identifier bits on which they agree
-/// must match, and the others may be anything. The filter lets more frames through than the
-/// receives name, and the exchange drops those. With no receive, or with both formats, every frame
-/// passes, as the controller's default filter lets them.
-fn accept(configuration: &mut TwaiConfiguration<'static, Blocking>, receives: &[CanReceive]) {
-    let Some(first) = receives.first() else {
-        return;
-    };
-    let differ = receives
-        .iter()
-        .fold(0, |differ, receive| differ | (receive.id.id ^ first.id.id));
-    if receives.iter().all(|receive| !receive.id.extended) {
-        let code = u16::try_from(first.id.id).ok().and_then(StandardId::new);
-        let mask = u16::try_from(!differ & 0x7FF)
-            .ok()
-            .and_then(StandardId::new);
-        if let (Some(code), Some(mask)) = (code, mask) {
-            configuration.set_filter(SingleStandardFilter::new_from_code_mask(
-                code,
-                mask,
-                false,
-                true,
-                [0, 0],
-                [0, 0],
-            ));
+/// Sets the acceptance filter of `configuration` to `filter` (`driver_plans::acceptance_filter`):
+/// data frames whose identifier matches the code on every bit of the mask. Without a filter every
+/// frame passes, as the controller's default filter lets them.
+fn accept(
+    configuration: &mut TwaiConfiguration<'static, Blocking>,
+    filter: Option<AcceptanceFilter>,
+) {
+    match filter {
+        Some(AcceptanceFilter::Standard { code, mask }) => {
+            if let (Some(code), Some(mask)) = (StandardId::new(code), StandardId::new(mask)) {
+                configuration.set_filter(SingleStandardFilter::new_from_code_mask(
+                    code,
+                    mask,
+                    false,
+                    true,
+                    [0, 0],
+                    [0, 0],
+                ));
+            }
         }
-    } else if receives.iter().all(|receive| receive.id.extended) {
-        let code = ExtendedId::new(first.id.id);
-        let mask = ExtendedId::new(!differ & 0x1FFF_FFFF);
-        if let (Some(code), Some(mask)) = (code, mask) {
-            configuration.set_filter(SingleExtendedFilter::new_from_code_mask(
-                code, mask, false, true,
-            ));
+        Some(AcceptanceFilter::Extended { code, mask }) => {
+            if let (Some(code), Some(mask)) = (ExtendedId::new(code), ExtendedId::new(mask)) {
+                configuration.set_filter(SingleExtendedFilter::new_from_code_mask(
+                    code, mask, false, true,
+                ));
+            }
         }
+        None => {}
     }
 }
 
@@ -375,21 +342,9 @@ fn transmit(twai: &mut Twai<'static, Blocking>, pending: &mut VecDeque<CanFrame>
     }
 }
 
-/// Puts `frame` among the pending frames: it replaces the pending frame of its identifier, whose
-/// data it brings up to date, or is added after the others.
-fn queue(pending: &mut VecDeque<CanFrame>, frame: CanFrame) {
-    match pending.iter_mut().find(|queued| queued.id == frame.id) {
-        Some(queued) => *queued = frame,
-        None => pending.push_back(frame),
-    }
-}
-
-/// The data frame `frame` the controller received, for the exchange; `None` for a remote frame,
-/// which carries no data.
+/// The data frame `frame` the controller received, for the exchange
+/// (`driver_plans::received_frame`); `None` for a remote frame, which carries no data.
 fn can_frame(frame: &EspTwaiFrame) -> Option<CanFrame> {
-    if frame.is_remote_request() {
-        return None;
-    }
     let id = match frame.identifier() {
         Id::Standard(id) => CanId {
             id: u32::from(id.as_raw()),
@@ -401,25 +356,30 @@ fn can_frame(frame: &EspTwaiFrame) -> Option<CanFrame> {
         },
     };
     // The controller gives at most 8 data bytes, also for a data length code above 8.
-    let payload = frame.data();
-    let len = payload.len().min(8);
-    let mut data = [0; 8];
-    data.get_mut(..len)?.copy_from_slice(payload.get(..len)?);
-    Some(CanFrame {
-        id,
-        len: u8::try_from(len).ok()?,
-        data,
-    })
+    received_frame(id, frame.is_remote_request(), frame.data())
 }
 
 /// The controller's data frame of `frame`; `None` for an identifier its format cannot hold.
 fn esp_frame(frame: &CanFrame) -> Option<EspTwaiFrame> {
     let data = frame.data.get(..usize::from(frame.len.min(8)))?;
     if frame.id.extended {
-        EspTwaiFrame::new(ExtendedId::new(frame.id.id)?, data)
+        data_frame(ExtendedId::new(frame.id.id)?, data)
     } else {
-        EspTwaiFrame::new(StandardId::new(u16::try_from(frame.id.id).ok()?)?, data)
+        data_frame(StandardId::new(u16::try_from(frame.id.id).ok()?)?, data)
     }
+}
+
+/// The data frame of `id` and `data`, which the controller sends with a transmission request.
+#[cfg(not(feature = "bench-loopback"))]
+fn data_frame(id: impl Into<Id>, data: &[u8]) -> Option<EspTwaiFrame> {
+    EspTwaiFrame::new(id, data)
+}
+
+/// Bench only, with the `bench-loopback` feature: the data frame of `id` and `data`, which the
+/// controller sends with a self-reception request, so that it also receives the frame it sends.
+#[cfg(feature = "bench-loopback")]
+fn data_frame(id: impl Into<Id>, data: &[u8]) -> Option<EspTwaiFrame> {
+    EspTwaiFrame::new_self_reception(id, data)
 }
 
 /// The health of one path faulted with `error`.
@@ -433,21 +393,6 @@ fn faulted(error: &str) -> IoDriverHealth {
 fn degraded(error: &'static str) -> IoDriverHealth {
     IoDriverHealth::Degraded {
         error: SmolStr::new_static(error),
-    }
-}
-
-/// The driver's health: the worse of its two paths, faulted before degraded before ok, and the
-/// inputs' path when both are as bad.
-fn worse(inputs: &IoDriverHealth, outputs: &IoDriverHealth) -> IoDriverHealth {
-    let rank = |health: &IoDriverHealth| match health {
-        IoDriverHealth::Ok => 0,
-        IoDriverHealth::Degraded { .. } => 1,
-        IoDriverHealth::Faulted { .. } => 2,
-    };
-    if rank(outputs) > rank(inputs) {
-        outputs.clone()
-    } else {
-        inputs.clone()
     }
 }
 
@@ -492,7 +437,7 @@ impl ChipDriver for CanDriver {
         let now = now_ms();
         let pending = &mut self.pending;
         self.exchange
-            .send_due(image, now, |frame| queue(pending, frame));
+            .send_due(image, now, |frame| queue_frame(pending, frame));
         let Some(twai) = self.twai.as_mut() else {
             self.outputs = faulted(STOPPED);
             return Err(STOPPED.into());
@@ -513,7 +458,7 @@ impl ChipDriver for CanDriver {
     }
 
     fn health(&self) -> IoDriverHealth {
-        worse(&self.inputs, &self.outputs)
+        worse_health(&self.inputs, &self.outputs)
     }
 
     fn on_error(&self) -> OnError {

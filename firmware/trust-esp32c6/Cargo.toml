@@ -31,6 +31,10 @@ bench-trial-reset = []
 # The bench's firmware that hangs on trial before it confirms itself, which the watchdog must reset
 # so that the boot loader rolls it back (checklist T4).
 bench-trial-hang = []
+# Bench only, never in a release: the I/O drivers' loopback hooks, so that the C6 bench proves
+# `pwm`, `counter`, `can` and `analog` on a board without wires (checklist T1; the
+# `bench-loopback` feature of trust-platform-esp32).
+bench-loopback = ["trust-platform-esp32/bench-loopback"]
 
 [profile.release]
 opt-level = "z"

@@ -5,6 +5,7 @@
 | `simulated` | deterministic fake process I/O without hardware | [Simulated And Loopback](simulated-and-loopback.md) |
 | `loopback` | fast `%Q -> %I` local sanity checks | [Simulated And Loopback](simulated-and-loopback.md) |
 | `gpio` | local edge/device pin mapping | [GPIO](gpio.md) |
+| `analog`, `pwm`, `counter`, `can` | analog values, PWM outputs, counters and CAN frames on a chip or Linux | [Analog, PWM, Counters And CAN](analog-pwm-counter-can.md) |
 | `ethercat` | deterministic fieldbus I/O | [EtherCAT](ethercat.md) |
 | `modbus-tcp` | register-mapped external systems | [Modbus TCP](../external-systems/modbus-tcp.md) |
 | `mqtt` | broker-backed event/message exchange | [MQTT](../external-systems/mqtt.md) |
