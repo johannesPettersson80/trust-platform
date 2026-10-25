@@ -1,0 +1,24 @@
+[package]
+name = "trust-platform-net"
+description = "The network of a truST chip without an operating system: an IPv4 interface, DHCP and the control connection over TCP"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# The TCP/IP stack, without std: Ethernet frames (Wi-Fi stations carry them too), IPv4 with DHCP and
+# the multicast groups of discovery, and TCP and UDP sockets. Pinned, as the chips' firmware is.
+smoltcp = { version = "=0.14.0", default-features = false, features = ["alloc", "medium-ethernet", "proto-ipv4", "proto-dhcpv4", "multicast", "socket-tcp", "socket-udp", "socket-dhcpv4"] }
+# The `id` of a second client's request, which the busy reply answers; without std.
+serde = { version = "1.0.229", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
+# The control link's frames and peers, and the monotonic clock reading the link's stall rule takes.
+trust-runtime-core.workspace = true
+# The line framing every control link over a byte stream shares (specification 34 PORT-05), and the
+# device settings the network is built from.
+trust-runtime-services.workspace = true
+
+[lints]
+workspace = true

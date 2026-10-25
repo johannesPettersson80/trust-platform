@@ -149,19 +149,12 @@ fn install(chip: &str, port: Option<String>, folder: &Path) -> anyhow::Result<()
         .iter()
         .map(|part| Segment::new(part.address, &part.bytes))
         .collect();
-    println!(
-        "writing {} to {name}",
-        parts
-            .iter()
-            .map(|part| format!("{} at 0x{:x}", part.name, part.address))
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    println!("installing truST on {chip} at {name}");
     flasher
         .erase_region(select.start, select.kib * 1024)
         .map_err(|error| anyhow!("erase the firmware selection: {error}"))?;
     flasher
-        .write_bins_to_flash(&segments, &mut Progress)
+        .write_bins_to_flash(&segments, &mut Progress { parts: &parts })
         .map_err(|error| anyhow!("write the firmware: {error}"))?;
     flasher
         .connection()
@@ -171,12 +164,22 @@ fn install(chip: &str, port: Option<String>, folder: &Path) -> anyhow::Result<()
     Ok(())
 }
 
-/// The progress of a write, as lines.
-struct Progress;
+/// The progress of a write, a line for each part. espflash counts a part in compressed blocks, so
+/// the line names the part's own length.
+struct Progress<'a> {
+    parts: &'a [Part],
+}
 
-impl ProgressCallbacks for Progress {
-    fn init(&mut self, addr: u32, total: usize) {
-        println!("writing 0x{addr:x}: {total} bytes");
+impl ProgressCallbacks for Progress<'_> {
+    fn init(&mut self, addr: u32, _blocks: usize) {
+        match self.parts.iter().find(|part| part.address == addr) {
+            Some(part) => println!(
+                "writing {} ({} bytes) at 0x{addr:x}",
+                part.name,
+                part.bytes.len()
+            ),
+            None => println!("writing at 0x{addr:x}"),
+        }
     }
 
     fn update(&mut self, _current: usize) {}

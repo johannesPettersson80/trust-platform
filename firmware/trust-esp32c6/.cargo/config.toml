@@ -10,3 +10,8 @@ rustflags = ["-C", "link-arg=-Tlinkall.x", "-C", "link-arg=--defsym=memcpy=trust
 [env]
 # Scan-time code executes from HP SRAM through esp-hal's RAM-code linker hook (spec 34 D.2).
 ESP_HAL_CONFIG_USE_RWTEXT_LD_HOOK = "true"
+# The radio (checklist L3). esp-phy keeps the USB-Serial/JTAG clock while Wi-Fi runs, since the USB
+# control link is that port; it is the default, set so that nobody turns it off.
+ESP_PHY_CONFIG_PHY_ENABLE_USB = "true"
+# Room for the driver's events while the loop is busy (the default is 2).
+ESP_RADIO_CONFIG_EVENT_CHANNEL_CAPACITY = "8"

@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.27 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.28 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -25,7 +25,9 @@
   program connections of IEC 61131-3 Table 62, which the owner chose on 25 October 2026; 0.25 gives
   the ESP32-C6 a wall clock that the computer sets, the time source the owner chose on 25 October
   2026; 0.26 compiles the directly represented variables that bodies name, which IEC permits;
-  0.27 overlaps structures and arrays as IEC's own example does),
+  0.27 overlaps structures and arrays as IEC's own example does; 0.28 gives 80 KiB of the C6's
+  program region to the Wi-Fi radio's RAM code, §10.3, for the network the owner had decided on 25
+  October 2026, "do whats professional"),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -1241,7 +1243,7 @@ The C6 executes its external flash through a 32 KiB cache that the firmware shar
 hold a scan's code next to the firmware's: run in place through the image window, the reference
 workload's control task took 0.243 ms on average and 1.05 ms at worst; copied into RAM, 0.063 ms and
 0.178 ms over an hour at 1x (22 October 2026, ESP32-C6-DevKitC-1). The C6 therefore runs a module
-from its program region: 192 KiB of RAM (`PROGRAM_CODE_BYTES`), the linker section `.trust_code`
+from its program region: 112 KiB of RAM (`PROGRAM_CODE_BYTES`), the linker section `.trust_code`
 between the firmware's static data and its main stack, where neither of esp-hal's no-execute ranges
 reaches. The firmware gives the region to its heap as the heap's program region, which holds the
 blocks of programs and nothing else: a block asked with the module alignment (64 bytes), a module
@@ -1250,12 +1252,15 @@ a 64-byte boundary; the other blocks come from the heap's data regions. The inst
 module is copied into a block there, followed by `fence.i`; a module the region has no room for runs
 where it lies in the mapped slot, slower, and is not refused. An online change's image, which the
 transfer uploads into a block at the bottom, runs its module where it lies, beside the running
-program's (§12.3). The 192 KiB hold the reference workload's installed module (43,810 bytes with
-debug hooks) and its changed image (90,200 bytes), and after the change two changed images at once,
-as the next change needs; the region's placement keeps the two alternating between the bottom and
-above the image that runs (C6 bench, 24 October 2026: with the 128 KiB region of 0.14 and uploads in
-the data heap, the largest block a running C6 had for an upload was about 74 KB, so the debug image
-could not be changed online and no change could follow a change). The region and the heap's data
+program's (§12.3). The 112 KiB hold the reference workload's installed module (43,810 bytes) and its
+changed release image (67,848 bytes) at once; a changed image the region has no room for, such as
+the debug image (90,200 bytes) beside the running module, is held in the heap's data regions and its
+module copied into the region beside the running one, so its change needs that much heap. The
+region's placement keeps two images alternating between the bottom and above the image that runs.
+The region was 192 KiB from 0.16 until 0.28, when the Wi-Fi radio's driver took 80 KiB of it for the
+code and data it keeps in RAM (specification 34 PORT-06, D.2); before 0.16 it was 128 KiB beside a
+data heap in which the largest block a running C6 had for an upload was about 74 KB (C6 bench, 24
+October 2026), so the debug image could not be changed online and no change could follow a change. The region and the heap's data
 regions share the RAM the interpreter's firmware gave to its RAM code: the firmware keeps its own
 RAM code list (`ld/rwtext_hook.x`: the kernel's scan path and the loop around it, 42,668 bytes on
 25 October 2026 instead of the interpreter's 105 KB; building a program and its cold and warm
@@ -1430,8 +1435,9 @@ Values' instance identities and the debugger's handles of the running program ar
 references inside the program are repointed by §12.2 and keep generation 1 (§7.3).
 
 On the ESP32-C6 the program region holds the changed program's image for as long as it runs, so a
-change of a changed program needs room for both images at once; the region's 192 KiB hold two of the
-reference workload's debug images (§10.3).
+change of a changed program needs room for both images at once; the region's 112 KiB hold the
+reference workload's running module and its changed release image, and a changed image beyond the
+region's room is held in the heap with its module copied into the region (§10.3).
 
 ## 13. Debugging and monitoring
 
@@ -1722,6 +1728,7 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
 | 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner approved on 25 October 2026 (§14.4: "if its professional and according to iec then i trust you"): each records an IEC 61131-3 construct whose representation IEC leaves to the implementer (the resource of §6.8.1, the direct and hierarchical addresses of §6.5.5 and Table 16, `STRUCT OVERLAP` of §6.4.4.6, the variable-length arrays of §6.5.3) or the truST function `CURRENT_DT` (specification 07). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
+| 0.28 | 25 October 2026 | The ESP32-C6's program region shrinks from 192 KiB to 112 KiB (specification 34 PORT-06, D.2; the portability checklist's L3; the owner, 25 October 2026, "do whats professional"): the Wi-Fi radio's driver keeps about 81 KB of code and data in RAM, which the link places there whether or not the chip uses Wi-Fi, and the program region gave 80 KiB, so that the main stack keeps its 82 KiB and the heap its 180,160 bytes. 112 KiB still hold the reference workload's running module and its changed release image at once; a changed image beyond the region's room is held in the heap and its module copied into the region (§10.3, §12.3). |
 | 0.27 | 25 October 2026 | `STRUCT OVERLAP` with members that are structures or arrays (the one list's N17; IEC 61131-3 §6.4.4.7.1 and its example `Com_data`; the owner, 25 October 2026: "we mist follow the iec standard"). §6.2: such a member lies in the overlap's backing as the bytes of its region type, an overlap of a structure's members at their relative addresses (or offsets) and an array of those, which the type table lists, so that the debugger and Live Values read the bytes the program writes; the generated code reaches its members and elements through `ov::Region` views and checks a variable index; a whole member is copied member by member between its type and its region type. A string member is refused (§6.4.4.7.1). The image format is unchanged. |
 | 0.26 | 25 October 2026 | Directly represented variables in bodies (the one list's N16; IEC 61131-3 §6.5.5.1 permits them in the bodies of functions, function blocks, programs and methods; the owner, 25 October 2026: "we mist follow the iec standard"). §5.6: each address a body names is a global of the address's own name, `%IX0.1`, with one `IOBIND` record as a global declared `AT` it has, so the scan samples, publishes and keeps it as it does a located variable; a generated name maps `%` to `__`, which no IEC identifier starts with. The build refused them before. The image format is unchanged. |
 | 0.25 | 25 October 2026 | A wall clock on the ESP32-C6 (the one list's N15; the owner, 25 October 2026: "add a time source"). §8.2: the C6's kernel reads its calendar clock, which the computer at the other end of its control connection sets with `clock.set` (specification 11, the runtime clock contract; specification 34 TARGET-06, D.2), and its descriptor offers the wall clock, so a program that calls `CURRENT_DT` installs there. The interface and the image format are unchanged. |

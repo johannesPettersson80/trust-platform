@@ -23,6 +23,9 @@ const CONTROL_CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
 const CONTROL_IO_TIMEOUT: Duration = Duration::from_millis(750);
 /// How long a chip's serial port may take to answer one request (specification 11, 6.8.1).
 const SERIAL_IO_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a chip on the network may take to accept the connection and to answer one request: as
+/// long as its serial port (specification 11, 6.8.1).
+const NETWORK_IO_TIMEOUT: Duration = SERIAL_IO_TIMEOUT;
 const MAX_CONTROL_RESPONSE_BYTES: usize = 1024 * 1024;
 
 /// Where `ctl` sends its requests (specification 11, 6.8.1).
@@ -33,11 +36,15 @@ pub(crate) enum CtlEndpoint {
     /// A chip's USB serial port, reached through the shared control client (specification 34,
     /// PORT-05).
     Serial(ClientEndpoint),
+    /// A runtime on another host, a chip's control connection over its network, reached through
+    /// the shared control client as the serial port is (specification 34 ARCH-12).
+    Network(ClientEndpoint),
 }
 
 impl CtlEndpoint {
     /// Reads `--endpoint`, or the endpoint a project's `runtime.toml` names. A `serial://` endpoint
-    /// is read by the shared client; the others are the runtime's own endpoints.
+    /// and a `tcp://` endpoint on another host are read by the shared client; the others are a
+    /// runtime's own endpoints on this computer.
     fn parse(text: &str) -> anyhow::Result<Self> {
         if text.starts_with("serial://") {
             let serial = ClientEndpoint::parse(text).with_context(|| {
@@ -48,7 +55,15 @@ impl CtlEndpoint {
             })?;
             return Ok(Self::Serial(serial));
         }
-        Ok(Self::Socket(ControlEndpoint::parse(text)?))
+        match ControlEndpoint::parse(text) {
+            Ok(socket) => Ok(Self::Socket(socket)),
+            Err(local) => match text.strip_prefix("tcp://").map(str::trim) {
+                Some(host) if !host.is_empty() => {
+                    Ok(Self::Network(ClientEndpoint::Tcp(host.to_string())))
+                }
+                _ => Err(local.into()),
+            },
+        }
     }
 }
 
@@ -148,19 +163,22 @@ pub(crate) fn send_request(
 ) -> anyhow::Result<JsonValue> {
     match endpoint {
         CtlEndpoint::Socket(socket) => send_control_request_value(socket, request),
-        CtlEndpoint::Serial(serial) => send_serial_request(serial, request),
+        CtlEndpoint::Serial(serial) => send_client_request(serial, request, SERIAL_IO_TIMEOUT),
+        CtlEndpoint::Network(host) => send_client_request(host, request, NETWORK_IO_TIMEOUT),
     }
 }
 
-/// Sends one request over a chip's serial port, through the shared control client: it opens the
-/// port without resetting the chip, keeps the request within the link's frame, and reads a reply
-/// that is longer than the frame whole (specification 34, PORT-05).
-fn send_serial_request(
+/// Sends one request to a chip, over its serial port or its network, through the shared control
+/// client, which waits at most `wait` for the connection and for the reply: it opens a port without
+/// resetting the chip, keeps the request within the link's frame, and reads a reply that is longer
+/// than the frame whole (specification 34, PORT-05).
+fn send_client_request(
     endpoint: &ClientEndpoint,
     request: &JsonValue,
+    wait: Duration,
 ) -> anyhow::Result<JsonValue> {
     let auth = request.get("auth").and_then(JsonValue::as_str);
-    let mut client = ControlClient::connect(endpoint, auth, SERIAL_IO_TIMEOUT)?
+    let mut client = ControlClient::connect(endpoint, auth, wait)?
         .with_response_limit(MAX_CONTROL_RESPONSE_BYTES);
     exchange_with(&mut client, request)
 }

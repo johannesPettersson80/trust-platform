@@ -78,8 +78,8 @@ firmware = { start = 0x1_0000, kib = 1984 }
 firmware_b = { start = 0x20_0000, kib = 1984 }
 # The installed application: from after the second firmware slot to the two checkpoint slots at the
 # very end of the 8 MB module (owner, 25 October 2026: the second firmware slot takes 1,984 KiB of
-# what O7 gave the application; a program runs from at most 192 KiB of RAM, so no program loses
-# room).
+# what O7 gave the application; the reference workload's image is 67,848 bytes, so no program
+# loses room).
 application = { start = 0x3F_0000, kib = 4128 }
 # The two program slots of the program store (specification 34 §5.1): the two halves of `application`,
 # of equal size, which an install writes in turn. Their offsets and size are SLOT_A_OFFSET,

@@ -365,7 +365,7 @@ Important control subcommands:
 - `install <container> [--restart cold|warm]` (any `--endpoint`, also `serial:///dev/ttyACM0`)
 - `firmware <image> [--wait <seconds>]` (a chip's truST firmware, while its program is stopped)
 - `device-get`, `device-set <device.toml>`, `device-reset` (a chip's own settings: name, network,
-  time server, trusted keys; they apply at the chip's next boot)
+  control token, time server, trusted keys; they apply at the chip's next boot)
 - `shutdown [--exit]`
 - `config-get`
 - `config-set`
@@ -386,6 +386,26 @@ through the chip's own boot loader:
 trust-runtime firmware install --chip esp32c6 ./trust-firmware-esp32c6
 trust-runtime ctl --endpoint serial:///dev/ttyACM0 shutdown
 trust-runtime ctl --endpoint serial:///dev/ttyACM0 firmware ./trust-firmware-esp32c6/firmware.bin
+```
+
+A chip whose `device.toml` names a Wi-Fi network and sets a control token serves its control
+connection on that network, by default on TCP port 9901, and `ctl` reaches it there with the token,
+which the chip then also asks for on its USB port. `capabilities` reports the chip's address:
+
+```text
+# device.toml
+[network.wifi]
+ssid = "plant-net"
+password = "the network's passphrase"
+
+[control]
+token = "a token of 16 to 128 characters"
+```
+
+```text
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-set device.toml
+trust-runtime ctl --endpoint serial:///dev/ttyACM0 device-reset
+trust-runtime ctl --endpoint tcp://192.168.1.50:9901 --token <token> status
 ```
 
 ![`trust-runtime ctl --help`](../../assets/images/terminal/ctl-help.gif)

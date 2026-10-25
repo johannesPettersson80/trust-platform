@@ -102,6 +102,7 @@ fn settings_are_stored_while_stopped_and_reported_without_the_password() {
         read["result"],
         json!({"settings": {"device": {"name": "line-3"},
             "network": {"wifi": {"ssid": "Plant", "password_set": true}},
+            "control": {"token_set": false},
             "time": {}, "signing": {}, "hardware": {}},
             "sequence": 1}),
         "{read}"

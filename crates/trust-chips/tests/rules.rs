@@ -614,17 +614,18 @@ fn the_program_slots_are_named_in_pairs_of_one_size_inside_application() {
             region: "application_a"
         })
     );
-    // 3,000 KiB is 3,072,000 bytes: slot B then ends at 0x7E_A000, inside application.
+    // 2,000 KiB is 2,048,000 bytes: slot B, from 0x5F_4000, then ends at 0x7E_8000, inside
+    // application, which ends at 0x7F_8000.
     assert_eq!(
-        c6(|file| set(file, "layout.application_b", "kib", 3000_i64)),
+        c6(|file| set(file, "layout.application_b", "kib", 2000_i64)),
         Err(Problem::UnequalSlots {
             first: "application_a",
             second: "application_b"
         })
     );
-    // Slot A starts 0x1_0000 below application, which begins at 0x20_0000.
+    // Slot A starts 0x1_0000 below application, which begins at 0x3F_0000.
     assert_eq!(
-        c6(|file| set(file, "layout.application_a", "start", 0x1F_0000_i64)),
+        c6(|file| set(file, "layout.application_a", "start", 0x3E_0000_i64)),
         Err(Problem::OutsideApplication {
             slot: "application_a"
         })
@@ -635,9 +636,9 @@ fn the_program_slots_are_named_in_pairs_of_one_size_inside_application() {
             what: "layout.application_b".to_owned()
         })
     );
-    // 0x20_0800 is 2 KiB into an erase unit.
+    // 0x3F_0800 is 2 KiB into an erase unit.
     assert_eq!(
-        c6(|file| set(file, "layout.application_a", "start", 0x20_0800_i64)),
+        c6(|file| set(file, "layout.application_a", "start", 0x3F_0800_i64)),
         Err(Problem::RegionNotAligned {
             region: "application_a"
         })

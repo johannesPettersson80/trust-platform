@@ -32,8 +32,12 @@ mod memcmp;
 mod memcpy;
 mod memory;
 mod memset;
+mod radio_memory;
 
 use alloc::boxed::Box;
+use alloc::format;
+use alloc::rc::Rc;
+use core::cell::RefCell;
 use core::fmt::Write;
 
 use smol_str::SmolStr;
@@ -43,12 +47,17 @@ use trust_platform_esp32::compiled_loader::{
 use trust_platform_esp32::loader::{default_event_capacity, program_memory_bytes};
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES};
-use trust_platform_esp32::{emergency_halt, Board, Monotonic, UsbLink, Wait, Watchdog};
+use trust_platform_esp32::{
+    bring_up, emergency_halt, start_scheduler, Board, C6Net, Monotonic, NetLink, RadioParts,
+    UsbLink, Wait, Watchdog,
+};
 use trust_platform_esp32::{C6Code, Platform, ProgramCode};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
+use trust_runtime_services::chip::network::{ChipNetwork, NetworkFacts};
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::firmware::{FirmwareFacts, FirmwareStore};
+use trust_runtime_services::link::LinkPair;
 use trust_runtime_services::runner::{DeviceLiveValues, Runner};
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -63,9 +72,13 @@ type ChipPlatform = Platform<Watchdog>;
 /// where its image lies when the region has no room for it.
 type ChipCycle = CompiledProgramCycle<ChipClock, GpioIo, C6Code>;
 
-/// The C6's resource loop: the USB link, the wait, the program the loader builds, the platform and
-/// the clock.
-type ChipRunner = Runner<UsbLink, Wait, ChipCycle, ChipPlatform, ChipClock>;
+/// The C6's two control links: its USB link and the control connection over its Wi-Fi network
+/// (specification 34 ARCH-12).
+type ChipLink = LinkPair<UsbLink, NetLink>;
+
+/// The C6's resource loop: its links, the wait, the program the loader builds, the platform and the
+/// clock.
+type ChipRunner = Runner<ChipLink, Wait, ChipCycle, ChipPlatform, ChipClock>;
 
 /// The bytes of the heap that a container can take now (specification 34 §5.1).
 fn heap_room() -> usize {
@@ -146,6 +159,11 @@ fn main() -> ! {
     )
     .with_device_settings(settings_flash);
     platform.set_firmware(firmware_facts.clone());
+    // The network (specification 34 ARCH-12, checklist L3): the Wi-Fi network the device settings
+    // name, joined before the program starts, so that its blocks are taken from the heap before the
+    // memory for programs is measured. A radio that does not start leaves the chip on its USB link
+    // and is reported in `capabilities`.
+    let (platform, net) = start_network(parts.radio.take(), platform);
     // The loader builds the program of the installed container at the boot and again at every
     // `restart` that finds a newer one (specification 34 STATE-08): the same steps in the same order.
     // It also builds the candidate of an online change (specification 34 §11.3).
@@ -162,7 +180,7 @@ fn main() -> ! {
     // The loop is built before any program (specification 34 STATE-08, Appendix D.2): its receive
     // buffer, its event store and its boxes are taken from the heap first, so that no program's blocks
     // leave it without one. The reason it is built with is replaced when it loads the program.
-    let link = UsbLink::bind();
+    let link = LinkPair::new(UsbLink::bind(), NetLink::new(net));
     let wait = Wait::new(alarm);
     let mut runner: Box<ChipRunner> = Box::new(
         ChipRunner::stopped(
@@ -208,6 +226,40 @@ fn main() -> ! {
     let _ = runner.with_platform(|platform| platform.watchdog_mut().start());
     let _ = runner.run();
     emergency_halt("runner")
+}
+
+/// Starts the Wi-Fi network that the stored device settings name: the radio's arena from the heap,
+/// the radio's scheduler, the station and the first attempt to join. Without Wi-Fi settings the radio
+/// stays off and nothing is taken.
+fn start_network(
+    radio: Option<RadioParts>,
+    mut platform: ChipPlatform,
+) -> (ChipPlatform, Option<Rc<RefCell<C6Net>>>) {
+    let (Some(radio), Some(settings)) = (radio, platform.stored_settings()) else {
+        return (platform, None);
+    };
+    let Some(wifi) = settings.network.wifi.clone() else {
+        return (platform, None);
+    };
+    radio_memory::initialize();
+    start_scheduler(radio.scheduler_alarm, radio.scheduler_interrupt);
+    match bring_up(radio.wifi, &settings, &wifi, &radio_memory::RADIO_HEAP) {
+        Ok(net) => {
+            let network: Rc<RefCell<dyn ChipNetwork>> = net.clone();
+            (platform.with_network(network), Some(net))
+        }
+        Err(failure) => {
+            platform.set_network_failure(NetworkFacts {
+                interface: "wifi",
+                link_up: false,
+                address: None,
+                control_port: None,
+                error: Some(format!("the Wi-Fi radio did not start: {failure:?}")),
+                driver_memory: None,
+            });
+            (platform, None)
+        }
+    }
 }
 
 /// The resource loop's clock: the C6's SYSTIMER through the adapter's [`Monotonic`]. The adapter

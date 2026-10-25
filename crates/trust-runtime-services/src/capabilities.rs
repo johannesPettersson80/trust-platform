@@ -1,7 +1,7 @@
 //! The `capabilities` operation (specification 11, the runtime device capabilities contract;
 //! decision D-C4-1): the device descriptor admission reads (specification 34 §5.1.1, COMPAT-02)
 //! and, on a device without an operating system, the reset its boot read (specification 34, the
-//! fixed-size reset record).
+//! fixed-size reset record), its firmware slots and its network.
 //!
 //! The reply is rendered in exactly one place, here, so a computer and a device without an
 //! operating system answer the same shape: the platform supplies the descriptor through
@@ -29,6 +29,10 @@ pub fn capabilities<H: StatusPort>(id: u64, host: &H) -> ControlResponse {
         object.insert(
             "firmware".into(),
             host.firmware().map_or(Value::Null, |facts| facts.to_json()),
+        );
+        object.insert(
+            "network".into(),
+            host.network().map_or(Value::Null, |facts| facts.to_json()),
         );
     }
     ControlResponse::ok(id, result)

@@ -13,6 +13,7 @@ use trust_runtime_core::retain::checkpoint::Slot;
 
 use super::{LastReset, ResetCauseName};
 use crate::access::AccessRole;
+use crate::chip::network::NetworkFacts;
 use crate::dispatch::dispatch_value;
 use crate::firmware::FirmwareFacts;
 use crate::tests::fake_host::FakeHost;
@@ -62,12 +63,14 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
     // boot read a watchdog reset with the text "scan" and boot count 3, the chip's counter for the
     // boot that reads it (specification 34, the fixed-size reset record), and the chip runs truST
     // 0.24.76 from slot b, confirmed, while slot a holds 0.24.77, which the boot loader rolled back
-    // (specification 34 TARGET-04). The request goes through the device runner,
+    // (specification 34 TARGET-04), and its Wi-Fi network is up at 10.42.0.23/24 with the control
+    // connection on port 9901 (PORT-06). The request goes through the device runner,
     // the path a chip's requests take. The wrong behaviours it catches: the runner answers the
     // computer's descriptor instead of the platform's; the last reset is dropped or read as null
     // on a chip; a cause is renamed on the way (a watchdog reported as `panic`); the text or the
     // boot count is lost; a limit is rendered under another name or in another field (the bounded
-    // maxima are distinct); and an unbounded limit is written as a number instead of `null`.
+    // maxima are distinct); an unbounded limit is written as a number instead of `null`; and the
+    // firmware or the network that the platform reports lost on the runner's way to the reply.
     let platform = TestPlatform {
         device_descriptor: chip_descriptor(),
         last_reset: Some(LastReset {
@@ -80,6 +83,14 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
             version: "0.24.76".into(),
             confirmed: true,
             rolled_back: Some("0.24.77".into()),
+        }),
+        network: Some(NetworkFacts {
+            interface: "wifi",
+            link_up: true,
+            address: Some("10.42.0.23/24".into()),
+            control_port: Some(9901),
+            error: None,
+            driver_memory: None,
         }),
         ..TestPlatform::default()
     };
@@ -120,6 +131,14 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
                 "version": "0.24.76",
                 "confirmed": true,
                 "rolled_back": "0.24.77",
+            },
+            "network": {
+                "interface": "wifi",
+                "link": "up",
+                "address": "10.42.0.23/24",
+                "control_port": 9901,
+                "error": null,
+                "driver_memory": null,
             },
         }),
         "the chip's reply names the device's descriptor fields and its watchdog reset"
@@ -164,6 +183,11 @@ fn capabilities_is_read_only_for_a_viewer() {
         result["firmware"],
         json!(null),
         "a computer keeps no firmware slots"
+    );
+    assert_eq!(
+        result["network"],
+        json!(null),
+        "a computer reports no network of its own"
     );
     assert!(
         result.get("access").is_none(),

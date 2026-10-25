@@ -104,6 +104,44 @@ fn a_setting_the_device_cannot_take_is_refused_with_its_reason() {
         "hardware.crystal_hz: the ESP32-C6 takes a crystal of 40000000 to 40000000 Hz"
     );
     assert!(refusal(&json!({"device": {"colour": "blue"}})).contains("unknown field `colour`"));
+    let token = "control.token must be 16 to 128 printable ASCII characters without spaces";
+    assert_eq!(
+        refusal(&json!({"control": {"token": "fifteen-chars-x"}})),
+        token
+    );
+    assert_eq!(
+        refusal(&json!({"control": {"token": "sixteen chars ab"}})),
+        token
+    );
+    assert_eq!(
+        refusal(&json!({"control": {"token": "x".repeat(129)}})),
+        token
+    );
+    assert_eq!(
+        refusal(&json!({"control": {"port": 0}})),
+        "control.port must be 1 to 65535"
+    );
+}
+
+/// A control token of 16 and of 128 printable characters is taken, and the port defaults to 9901.
+/// Catches a token check off by one at either end, and a network control connection on no port.
+#[test]
+fn a_control_token_and_port_are_taken() {
+    let settings = DeviceSettings::from_value(&json!({
+        "network": {"wifi": {"ssid": "Plant"}},
+        "control": {"token": "sixteen-chars-ab"},
+    }))
+    .expect("the settings read");
+    assert_eq!(settings.check(&C6), Ok(()));
+    assert_eq!(settings.control.port(), 9901);
+    assert!(settings.network.names_one());
+    let long = DeviceSettings::from_value(&json!({
+        "control": {"token": "y".repeat(128), "port": 5050},
+    }))
+    .expect("the settings read");
+    assert_eq!(long.check(&C6), Ok(()));
+    assert_eq!(long.control.port(), 5050);
+    assert!(!long.network.names_one());
 }
 
 /// `device.get` reports every key but the Wi-Fi password, and whether one is set. Catches a password
@@ -122,6 +160,26 @@ fn the_report_leaves_the_password_out() {
     assert_eq!(
         open.reported()["network"]["wifi"]["password_set"],
         json!(false)
+    );
+}
+
+/// `device.get` reports the control port and whether a token is set, never the token. Catches the
+/// token that guards the chip's network sent back to any client that reads the settings.
+#[test]
+fn the_report_leaves_the_control_token_out() {
+    let settings = DeviceSettings::from_value(&json!({
+        "control": {"token": "a-token-of-twenty-chars", "port": 9902},
+    }))
+    .expect("the settings read");
+    let reported = settings.reported();
+    assert_eq!(
+        reported["control"],
+        json!({"port": 9902, "token_set": true})
+    );
+    assert!(!reported.to_string().contains("a-token-of-twenty-chars"));
+    assert_eq!(
+        DeviceSettings::default().reported()["control"],
+        json!({"token_set": false})
     );
 }
 

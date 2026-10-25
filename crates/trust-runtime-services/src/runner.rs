@@ -499,6 +499,10 @@ where
             // not a boundary comes (specification 34 §11.3).
             deadline = deadline.min(expiry);
         }
+        if let Some(due) = self.shell.idle_due(self.clock.now()) {
+            // The platform's idle work is due then, a network's timer (specification 34 ARCH-12).
+            deadline = deadline.min(due);
+        }
         self.shell.wait_until(deadline, token)
     }
 

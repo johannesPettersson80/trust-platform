@@ -10,6 +10,12 @@ rust-version.workspace = true
 esp-hal = { version = "=1.2.2", features = ["esp32c6", "unstable"] }
 esp-storage = { version = "=0.10.0", features = ["esp32c6"] }
 critical-section = "1.2.0"
+# Wi-Fi (checklist L3; specification 34 ARCH-12): the radio driver without esp-alloc (the firmware
+# exports the C allocator over an arena of its own), the scheduler the driver needs, and the driver
+# trait its station implements. Pinned: esp-radio is a beta.
+esp-radio = { version = "=1.0.0-beta.1", default-features = false, features = ["esp32c6", "wifi", "unstable"] }
+esp-rtos = { version = "=0.4.0", features = ["esp32c6", "esp-radio"] }
+embassy-net-driver = "=0.2.0"
 
 [dependencies]
 # The engine's platform contracts (`MonotonicClock`, `RunnerWait`, `WakeSignal`,
@@ -26,6 +32,9 @@ trust-plc-abi = { workspace = true }
 # store the same record.
 trust-platform-memory.workspace = true
 
+# The chip's network (checklist L3): the interface, DHCP and the control connection over TCP that
+# every chip with a network shares, and the smoltcp it re-exports for the radio's frames.
+trust-platform-net.workspace = true
 # The SHA-256 a firmware image carries, which `firmware.install` checks before it selects the image
 # (specification 34 TARGET-04); the version the core already takes, without std.
 sha2 = { version = "0.11.0", default-features = false }

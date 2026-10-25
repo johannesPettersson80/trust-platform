@@ -6,8 +6,10 @@
 //! chip.
 //!
 //! A USB client is local (specification 11 §6.9.5), so the link carries no transport label; a local
-//! client acts as `Admin` until `config.set` gives the chip a control token, after which a request
-//! must carry it, exactly as on trust-runtime's local socket. The platform keeps the settings of the
+//! client acts as `Admin` until the chip has a control token, from its device settings or from
+//! `config.set`, after which a request must carry it, exactly as on trust-runtime's local socket. A
+//! client on the chip's network is labelled with its address, and the chip serves its network only
+//! with a token, which grants `Admin` (specification 34 ARCH-12). The platform keeps the settings of the
 //! installed program's record as `config.get` reports them and `config.set` changes them
 //! (specification 11, the runtime configuration contract). A chip has no audit store and no
 //! platform operation yet, so those ports answer as an absent value does, not with an invented one. The chip answers the `io.*`, `set` and `var.*` operations from its own Live
@@ -15,6 +17,7 @@
 //! Values"; specification 34 §4.3.1).
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::RefCell;
@@ -26,12 +29,13 @@ use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{
-    CheckpointStorage, CheckpointStore, HardwareWatchdog, TimeSpan, WallClock,
+    CheckpointStorage, CheckpointStore, HardwareWatchdog, MonotonicInstant, TimeSpan, WallClock,
 };
 use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::value::Value;
 use trust_runtime_core::watchdog::RetainMode;
 
+use super::network::{ChipNetwork, NetworkFacts};
 use super::watchdog::{cycle_timeout_ms, CycleWatchdog};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::{LastReset, ResetCauseName};
@@ -126,10 +130,14 @@ pub struct ChipPlatform<C, W> {
     /// `resume` take. None while the chip has no program, which then reports `production` without a
     /// debug surface, the record's defaults.
     runtime: Option<RuntimeSettings>,
-    /// The control token `config.set` gave the chip, which a request then must carry; none until
-    /// then. It is kept in memory, so a reset forgets it, as a computer's process forgets one set
-    /// over its control connection.
+    /// The control token a request must carry: the device settings' (`[control] token`), read at
+    /// boot, or the one `config.set` gave the chip since, which a reset forgets, as a computer's
+    /// process forgets one set over its control connection; none without either.
     token: Option<SmolStr>,
+    /// Whether the chip serves its control connection over a network, which then requires the
+    /// token, so that `config.set` cannot clear it (specification 11, the runtime configuration
+    /// contract).
+    token_required: bool,
     /// The Live Values the runner applies at its cycle phases and the `io.*`, `set` and `var.*`
     /// operations answer from (specification 11, "Live Values"; specification 34 §4.3.1).
     live: DeviceLiveValues,
@@ -150,6 +158,11 @@ pub struct ChipPlatform<C, W> {
     /// The chip's device settings and their two sectors (specification 34 TARGET-02); `None` for a
     /// chip that keeps none.
     device: Option<RefCell<SettingsStore>>,
+    /// The chip's network, which the idle work keeps (specification 34 ARCH-12); `None` for a chip
+    /// without one, and for one whose device settings name no network.
+    network: Option<Rc<RefCell<dyn ChipNetwork>>>,
+    /// The network that the device settings name and that did not start, with its reason.
+    network_failure: Option<NetworkFacts>,
 }
 
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
@@ -173,6 +186,7 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             settings,
             runtime: None,
             token: None,
+            token_required: false,
             live,
             last_reset,
             runtime_id,
@@ -180,15 +194,38 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             program_memory: None,
             firmware: None,
             device: None,
+            network: None,
+            network_failure: None,
         }
     }
 
     /// Keeps the chip's device settings in `flash`, its two sectors, and reads the newest record
-    /// (specification 34 TARGET-02). A chip without device settings keeps none.
+    /// (specification 34 TARGET-02): its control token is the one a request must carry, and a
+    /// network that it names with a token serves the control connection, which then requires one.
+    /// A chip without device settings keeps none.
     #[must_use]
     pub fn with_device_settings(mut self, flash: Box<dyn SettingsFlash>) -> Self {
-        self.device = Some(RefCell::new(SettingsStore::open(flash)));
+        let store = SettingsStore::open(flash);
+        if let Some((_, settings)) = store.settings() {
+            self.token = settings.control.token.as_deref().map(SmolStr::new);
+            self.token_required = self.token.is_some() && settings.network.names_one();
+        }
+        self.device = Some(RefCell::new(store));
         self
+    }
+
+    /// Drives `network` in the idle work between scans, and ends the loop's wait when its work is
+    /// due (specification 34 ARCH-12).
+    #[must_use]
+    pub fn with_network(mut self, network: Rc<RefCell<dyn ChipNetwork>>) -> Self {
+        self.network = Some(network);
+        self
+    }
+
+    /// Reports a network that the device settings name and that did not start, with its reason in
+    /// `facts.error`.
+    pub fn set_network_failure(&mut self, facts: NetworkFacts) {
+        self.network_failure = Some(facts);
     }
 
     /// The stored device settings, which the boot reads before the network and the program start.
@@ -293,8 +330,9 @@ pub fn status_settings() -> StatusSettings {
 }
 
 impl<C, W> AccessPort for ChipPlatform<C, W> {
-    /// A chip has no configured control token yet, so a local client (no transport label) acts as
-    /// `Admin`; a network label would be a `Viewer`, as on trust-runtime.
+    /// The control token grants `Admin`, from any link. Without a token a local client (no
+    /// transport label) acts as `Admin` and a client with a network label as `Viewer`, as on
+    /// trust-runtime.
     fn request_role(
         &self,
         request: &ControlRequest,
@@ -392,6 +430,13 @@ impl<C: ChipProfile, W> StatusPort for ChipPlatform<C, W> {
     fn firmware(&self) -> Option<FirmwareFacts> {
         self.firmware.clone()
     }
+
+    fn network(&self) -> Option<NetworkFacts> {
+        match &self.network {
+            Some(network) => network.try_borrow().ok().map(|network| network.facts()),
+            None => self.network_failure.clone(),
+        }
+    }
 }
 
 /// The wire name of the reset record's cause (specification 11, the runtime device capabilities
@@ -487,9 +532,25 @@ impl<C: ChipProfile, W: HardwareWatchdog + CycleWatchdog> RunnerPlatform for Chi
         self.runtime = None;
     }
 
-    /// The chip's own work between scans, such as keeping its clock (specification 34 TARGET-06).
+    /// The chip's own work between scans, such as keeping its clock (specification 34 TARGET-06),
+    /// and its network's (ARCH-12).
     fn idle(&mut self) {
         C::idle();
+        if let Some(mut network) = self
+            .network
+            .as_ref()
+            .and_then(|network| network.try_borrow_mut().ok())
+        {
+            network.poll();
+        }
+    }
+
+    fn idle_due(&self) -> Option<MonotonicInstant> {
+        self.network.as_ref()?.try_borrow_mut().ok()?.poll_due()
+    }
+
+    fn control_token_required(&self) -> bool {
+        self.token_required
     }
 
     /// The chip resets after the reply to a `firmware.install` or a `device.reset`.

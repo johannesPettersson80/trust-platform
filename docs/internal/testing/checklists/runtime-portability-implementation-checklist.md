@@ -397,14 +397,41 @@ L — Links (ARCH-12): the same control protocol on every link:
 - [ ] L2 Ethernet on the STM32F407. The DISC1 has no Ethernet PHY, so Ethernet needs a board or
   add-on with one (owner's decision).
 - [ ] L3 Wi-Fi on the ESP32-C6.
+  - 25 Oct, written and checked (spec 34 0.64 PORT-06, TARGET-02 `[control]`, D.2; spec 11 network
+    in `capabilities`, ctl `tcp://host:port`; spec 44 0.28 program region 112 KiB): the shared crate
+    `trust-platform-net` (smoltcp interface, DHCP/fixed address, control connection over TCP with the
+    shared line link, one client and a busy reply with the request's id, 7 host tests over a
+    two-interface cable), `LinkPair` (USB + network in turn), `ChipNetwork` in the chip platform
+    (idle poll, `idle_due` ends the loop's wait), the C6 station (`hardware/wifi.rs`: esp-rtos on
+    SYSTIMER alarm 2, esp-radio station, retry 1/2/4/8/16/30 s, join failures reported), the radio's
+    C allocator over a 64 KiB arena from the heap (`trust-platform-memory::c_heap`, firmware
+    `radio_memory.rs`), the device's control token from `device.toml` (required on every link, not
+    clearable by `config.set` while the network serves), the chip's own resets reported `requested`.
+  - Bench 25 Oct (`~/projects/.artifacts/native/l3/run1..run5`): the Wi-Fi firmware (1,534,528 B
+    image) installs and confirms over USB; the radio starts, its arena peaks at 41,912 of 65,536 B
+    with no failure; with Wi-Fi settings the memory for programs is 23,248 B. The station finds the
+    Pi's hotspot iPadLink (-18 dBm), associates and sends 4-way message 2, which the hotspot accepts
+    (password right), then leaves at message 3 (`Unspecified`, the hotspot's debug log: AKM
+    PSK-SHA256 with PMF optional, IGTK in message 3). Not yet joined: needs a standard WPA2 AP, or the
+    hotspot's PMF off (touches the iPad's link: owner's call). Open: the network control session,
+    the install over the network and the scan timing with Wi-Fi traffic; then the arena trimmed.
 - [ ] L4 Bluetooth on the ESP32-C6.
 
 T — Targets (spec 34 §11.4):
 - [ ] T1 The same project on a chip: `runtime.toml` and `io.toml` with the same keys and meaning;
   the `gpio` driver's `line` names a pin of the chip; analog, PWM, counters and CAN as `io.toml`
   drivers (TARGET-01).
-- [ ] T2 `device.toml` on the device: name, network interfaces, Wi-Fi, Bluetooth and time server;
+- [x] T2 `device.toml` on the device: name, network interfaces, Wi-Fi, Bluetooth and time server;
   the crystal frequency and the Ethernet PHY detected (TARGET-02).
+  Done 25 Oct, commit d6ec86deb (spec 34 0.63 TARGET-02, spec 11 device settings contract):
+  `trust-runtime-services::device_settings` (sections, checks against the chip's interfaces, the
+  password never reported, records `TRSTDS01` with a sequence and a CRC-32 in two sectors),
+  `device.get`/`device.set`/`device.reset` and `ctl device-get|device-set|device-reset`; a
+  computer refuses them. The crystal is the chip file's (C6: 40 MHz, `INTERFACES`). Bench run 25 Oct
+  on the C6 (`~/projects/.artifacts/native/t4t2-run1/steps.log`): none stored, `device-set` gave
+  sequence 1, kept across `device-reset` and a firmware update, `password_set = true` shown and the
+  password itself never printed. The Ethernet PHY detection belongs to L2: no chip with Ethernet is
+  on the bench until H1.
 - [x] (Closed 17 Oct. Validated 17 Oct by builder batches `s1a3-2` and `s1a3-3` on the c6 tree (logs in `~/projects/services-runs/` on the builder).
   - `chips/stm32f407.toml` and `chips/esp32c6.toml` follow spec 34 Appendix H, read by the `trust-chips` crate.
   - The adapters' tables are checked against the chip files, and `xtask portability build-firmware stm32f407|esp32c6` builds each firmware from its chip file; both built and passed inspection.
@@ -428,6 +455,16 @@ T — Targets (spec 34 §11.4):
       - CI building every firmware (D2).
 - [ ] T4 Installing truST on a chip and updating it, from `trust-runtime` and from the hardware
   canvas (TARGET-04).
+  - 25 Oct, from `trust-runtime`: done, commit d6ec86deb (spec 34 0.62 TARGET-04, D.2, H.2; spec 11
+    firmware update contract). Two firmware slots with ESP-IDF v5.5.1's boot loader built with
+    rollback (`firmware/trust-esp32c6/bootloader/`), `trust-runtime firmware install` through the
+    ROM boot loader, `transfer.begin {"for":"firmware"}` + `firmware.install` + `ctl firmware`.
+    Bench run 25 Oct on the C6 (`~/projects/.artifacts/native/t4t2-run1/steps.log`, Pi binary
+    linked against the Pi's libm, see the remote-builder notes): install → slot a confirmed;
+    `ctl firmware` → slot b confirmed, device settings kept; a firmware built with
+    `bench-trial-reset` (resets before it confirms) → the boot loader rolled it back, `capabilities`
+    `rolled_back: "0.24.75"`, `ctl firmware` exit 1 with "did not finish its boot".
+  - Open: the update from the hardware canvas (with the V items).
 - [x] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
   Done 25 Oct (spec 34 0.60 TARGET-05, spec 25 runtime inspector and USB tray): the rule in
   `trust-runtime-client::version::VersionAdvice` (release-version order, pre-releases before their

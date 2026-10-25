@@ -331,6 +331,9 @@ where
             if let Some(expiry) = self.change.expiry() {
                 deadline = deadline.min(expiry);
             }
+            if let Some(due) = self.idle_due(now) {
+                deadline = deadline.min(due);
+            }
             if let Err(failure) = self.wait_until(deadline, token) {
                 // The run ends with this failure at its next pass, as it ends when the wait fails
                 // between scans; the scan fails now, because it cannot be held without a wait.

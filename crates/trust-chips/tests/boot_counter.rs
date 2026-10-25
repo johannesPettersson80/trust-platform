@@ -78,20 +78,23 @@ fn the_boot_counter_is_named_in_pairs_of_exactly_one_erase_unit_each() {
         remove(file, "layout", "boot_counter_b");
     });
     assert_eq!(neither.err(), None);
-    // 8 KiB from 0x9000 end at 0xB000, two units. B moves to 0xC000 so that the two stay apart, and
-    // 8 KiB from 0xC000 end at 0xE000, below the firmware at 0x1_0000.
+    // 8 KiB from 0x9000 end at 0xB000, two units, where the firmware selection begins. B moves to
+    // 0xF000, the free unit below the firmware at 0x1_0000, so that the two stay apart.
     assert_eq!(
         c6(|file| {
             set(file, "layout.boot_counter_a", "kib", 8_i64);
-            set(file, "layout.boot_counter_b", "start", 0xC000_i64);
+            set(file, "layout.boot_counter_b", "start", 0xF000_i64);
         }),
         Err(Problem::NotOneEraseUnit {
             region: "boot_counter_a"
         })
     );
+    // With the device settings' two sectors left out, 8 KiB from 0xD000 end at 0xF000, two units.
     assert_eq!(
         c6(|file| {
-            set(file, "layout.boot_counter_b", "start", 0xC000_i64);
+            remove(file, "layout", "device_a");
+            remove(file, "layout", "device_b");
+            set(file, "layout.boot_counter_b", "start", 0xD000_i64);
             set(file, "layout.boot_counter_b", "kib", 8_i64);
         }),
         Err(Problem::NotOneEraseUnit {
@@ -133,7 +136,11 @@ fn a_boot_counter_sector_overlapping_another_region_is_refused() {
         ("bootloader", 0x7000_i64),
         ("partition_table", 0x8000),
         ("firmware", 0x1_0000),
-        ("application", 0x20_0000),
+        ("firmware_b", 0x20_0000),
+        ("firmware_select", 0xB000),
+        ("device_a", 0xD000),
+        ("device_b", 0xE000),
+        ("application", 0x3F_0000),
         ("checkpoint_a", 0x7F_8000),
         ("checkpoint_b", 0x7F_C000),
     ] {
@@ -162,8 +169,9 @@ fn a_boot_counter_sector_overlapping_another_region_is_refused() {
             second: "boot_counter_b"
         })
     );
-    // A later layout that grows the firmware down into the gap: from 0x9000 to where it ended, at
-    // 0x20_0000, is 0x1F_7000 bytes, 2,012 KiB.
+    // A later layout that grows the firmware down over the sectors below it: from 0x9000 to where
+    // it ended, at 0x20_0000, is 0x1F_7000 bytes, 2,012 KiB. The first overlap found is the firmware
+    // selection's, whose region comes before the boot counter's in the layout's order.
     assert_eq!(
         c6(|file| {
             set(file, "layout.firmware", "start", 0x9000_i64);
@@ -171,7 +179,7 @@ fn a_boot_counter_sector_overlapping_another_region_is_refused() {
         }),
         Err(Problem::RegionsOverlap {
             first: "firmware",
-            second: "boot_counter_a"
+            second: "firmware_select"
         })
     );
 }

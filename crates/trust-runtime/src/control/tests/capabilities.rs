@@ -7,11 +7,13 @@ fn capabilities_answers_the_hosted_descriptor() {
     // clock, has no maximum for any limit, since no bytecode is prepared (`null`, since a JSON
     // number that large is rounded), keeps 1,000 events by default and admits at most 1,000,000,
     // has no application slot and no maximum of memory for programs (specification 34 MEM-12), and
-    // starts as a new process, so its last reset is null. The wrong behaviours it catches: a
+    // starts as a new process, so its last reset is null; it keeps no firmware slots and reports no
+    // network, so both are null (specification 34 TARGET-04, ARCH-12). The wrong behaviours it catches: a
     // computer that answers a chip's descriptor (200 events, a slot, a memory for programs); a
     // computer of those CPUs that does not offer program images, or still offers bytecode; a
     // maximum left from the bytecode engine or a missing wall-clock capability; an unbounded limit
-    // written as a number; and a last reset reported on a computer.
+    // written as a number; a last reset, firmware slots or a network reported on a computer; and a
+    // reply that leaves a member out, which a client reading the one shape of every runtime needs.
     let state = hmi_test_state(
         r#"
 PROGRAM Main
@@ -55,6 +57,8 @@ END_PROGRAM
             "application_slot_bytes": null,
             "program_memory_bytes": null,
             "last_reset": null,
+            "firmware": null,
+            "network": null,
         })),
         "a computer answers the hosted descriptor with no last reset"
     );

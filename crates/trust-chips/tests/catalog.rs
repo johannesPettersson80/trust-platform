@@ -81,8 +81,14 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
         [
             ("bootloader", 0x0, 32),
             ("partition_table", 0x8000, 4),
+            // The two firmware slots, the boot loader's choice between them and the device
+            // settings' two sectors (Appendix D.2, TARGET-04, TARGET-02).
             ("firmware", 0x1_0000, 1984),
-            ("application", 0x20_0000, 6112),
+            ("firmware_b", 0x20_0000, 1984),
+            ("firmware_select", 0xB000, 8),
+            ("device_a", 0xD000, 4),
+            ("device_b", 0xE000, 4),
+            ("application", 0x3F_0000, 4128),
             ("checkpoint_a", 0x7F_8000, 16),
             ("checkpoint_b", 0x7F_C000, 16),
             // The boot counter's two sectors, one 4 KiB erase unit each, between the partition

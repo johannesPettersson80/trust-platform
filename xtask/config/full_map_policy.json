@@ -529,6 +529,30 @@
       "status": "allowed",
       "owner": "native execution (specification 44)",
       "rationale": "The compiled cycle's tests run stand-in modules written against the kernel interface; a dev edge only, so the shared services never depend on it."
+    },
+    {
+      "from": "trust-platform-esp32",
+      "to": "trust-platform-net",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+      "rationale": "The C6 adapter joins its Wi-Fi network and hands the radio's frames to the shared chip network (IPv4, DHCP, the control connection over TCP), which every chip with a network runs (specification 34 ARCH-11, ARCH-12)."
+    },
+    {
+      "from": "trust-platform-net",
+      "to": "trust-runtime-core",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+      "rationale": "The chip network hands the control loop frames with their peer (LinkFrame, PeerClass) and reads the loop's monotonic clock for the line link's stall rule; the core builds without std."
+    },
+    {
+      "from": "trust-platform-net",
+      "to": "trust-runtime-services",
+      "kind": "normal",
+      "status": "allowed",
+      "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+      "rationale": "The control connection over TCP frames its bytes with the shared line link of every byte-stream control link (specification 34 PORT-05), and the network is built from the shared device settings (TARGET-02)."
     }
   ],
   "forbidden_workspace_edges": [
@@ -2889,7 +2913,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 384,
+        "line": 400,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3526,6 +3550,70 @@
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-runtime --lib runtime_clock_source (CURRENT_DT reads the wall clock through the table).",
         "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 43,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "The layout has the header's eight bytes at least, so its size is not zero, as GlobalAlloc::alloc requires.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 49,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "The block is valid for the whole size, at least the eight-byte header, and aligned to eight, a usize's alignment; the caller's block begins after the header.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 65,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "calloc zeroes the count * size bytes of the block malloc gave for exactly that many, checked against overflow.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 75,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "free's contract: null or a live block of this allocator, freed once; the C callers of the radio keep it.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 81,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "A live block's header lies eight bytes before it and holds the whole size it was allocated with, at eight-byte alignment, so dealloc gets the allocation's own layout.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 96,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "realloc's contract: null or a live block of this allocator; the C callers of the radio keep it.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 101,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "A live block's header holds its whole size, so the bytes the caller may use are that size less the header.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-memory/src/c_heap.rs",
+        "line": 106,
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "The old and the new block are live and distinct; the copy takes the smaller of their sizes, and the old block is freed once, after the copy.",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -3569,6 +3657,13 @@
         "owner": "native execution (specification 44)",
         "invariant": "The Plain contract of the open-array reference (specification 44 §7.3): OpenRef is #[repr(C)] of a RefValue cell and i64 cells, every bit pattern of which is a value, and all zeros is NULL with no bounds.",
         "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --test var_vla --test pointer_to_open_array.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path_prefix": "firmware/trust-esp32c6/src/radio_memory.rs",
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "invariant": "The C allocator of the Wi-Fi radio (specification 34 D.2, checklist L3): malloc, calloc, realloc, free, their _internal forms and get_free_internal_heap_size, each exported with #[unsafe(no_mangle)] under the C name the radio's closed libraries and esp-rtos link against, which the AST scan sees as unsafe functions and the full map's token scan as unsafe attributes, so the file is owned whole. realloc and free take C's contract, null or a live block of this allocator freed once, and forward it to trust_platform_memory::c_heap; the one unsafe block gives the radio heap its arena, a 64 KiB block of the heap leaked for the boot and initialized once before the radio's first allocation. No other crate of the firmware defines these names: esp-alloc is not in the build graph (cargo tree -i esp-alloc --target riscv32imac-unknown-none-elf prints nothing).",
+        "test_evidence": "cargo test -p trust-platform-memory --test c_heap for the allocator's rules; the firmware links; the C6 Wi-Fi bench of checklist L3 (the radio's arena peak, connect, traffic).",
         "review_date": "2026-10-25"
       }
     ],
@@ -4125,6 +4220,15 @@
         "invariant": "One AtomicU32 keeps the window's first entry, found once from the MMU before the window is written and stored with a relaxed store; only the C6's main context maps program images, so it publishes nothing else and orders nothing.",
         "test_evidence": "C6 bench of batch s2a: the chip boots, installs and restarts its programs from the mapped slot (speed and figure runs), and trust-runtime-services' loading tests of the mapped boot and the install slot.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-platform-esp32/src/hardware/wifi.rs",
+        "primitive": "Arc<",
+        "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
+        "shared_state": "the loop's waker, which the radio driver's tasks wake",
+        "invariant": "The waker is an Arc of a unit type: waking it from a radio task or interrupt only advances the atomic wake counter of the loop's wait; the network itself is reached by the main task alone, through one Rc<RefCell<C6Net>> that the platform and the network link share.",
+        "test_evidence": "The C6 Wi-Fi bench of checklist L3: a request over the network ends the loop's wait at once.",
+        "review_date": "2026-10-25"
       }
     ],
     "tool_gates": [

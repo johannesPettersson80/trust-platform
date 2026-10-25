@@ -109,7 +109,10 @@ impl<P: RunnerPlatform, C> RunnerHost<'_, P, C> {
         };
         let mut staged = StagedSettings::new(settings);
         // A device runs none of a computer's own services, so it has no key of theirs.
-        if let Err(error) = settings::stage_request(params, &mut staged, false, |_, _, _| None) {
+        let token_required = self.platform.control_token_required();
+        if let Err(error) =
+            settings::stage_request(params, &mut staged, token_required, |_, _, _| None)
+        {
             return ControlResponse::error(id, error);
         }
         let timeout = cycle_timeout_ms(&staged.settings.watchdog);

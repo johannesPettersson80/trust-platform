@@ -65,7 +65,7 @@ use super::install::{InstallState, Step};
 use super::online_change::ChangeState;
 use super::state::{Records, ResourceCell};
 use super::stepping::StepState;
-use super::RunnerPlatform;
+use super::{RunnerPlatform, REPLY_SERVICE_INTERVAL};
 use crate::dispatch::{invalid_line, prepare_line_within, reply_within, PreparedLine};
 use crate::loading::reload::ReloadOutcome;
 use crate::ports::{AccessPort, StatusPort};
@@ -214,6 +214,14 @@ where
     /// hold waits, as trust-runtime's communication drivers keep running).
     pub(super) fn idle(&self) {
         self.update(&self.platform, RunnerPlatform::idle);
+    }
+
+    /// When the platform's idle work is next due, at the earliest a millisecond after `now`
+    /// (specification 34 ARCH-12).
+    pub(super) fn idle_due(&self, now: MonotonicInstant) -> Option<MonotonicInstant> {
+        self.read(&self.platform, RunnerPlatform::idle_due)
+            .flatten()
+            .map(|due| due.max(now.saturating_add(REPLY_SERVICE_INTERVAL)))
     }
 
     /// Feeds the platform's hardware watchdog (TIME-04).

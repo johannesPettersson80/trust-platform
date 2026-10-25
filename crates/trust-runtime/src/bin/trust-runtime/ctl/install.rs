@@ -18,7 +18,7 @@ use trust_runtime_client::{ControlClient, ControlEndpoint as ClientEndpoint, Con
 
 use super::{
     CtlEndpoint, ResolvedControlTarget, CONTROL_CONNECT_TIMEOUT, CONTROL_IO_TIMEOUT,
-    MAX_CONTROL_RESPONSE_BYTES, SERIAL_IO_TIMEOUT,
+    MAX_CONTROL_RESPONSE_BYTES, NETWORK_IO_TIMEOUT, SERIAL_IO_TIMEOUT,
 };
 
 /// The longest part of an upload (specification 34, PORT-05): every part but the last has the
@@ -122,23 +122,30 @@ pub(super) fn run(
     Ok(())
 }
 
-/// Connects the shared client to `endpoint`, with the wait for a reply that the endpoint has:
-/// 750 milliseconds on a socket, and the serial port's 5 seconds (specification 11, 6.8.1).
+/// Connects the shared client to `endpoint`, with the waits that the endpoint has: on a socket of
+/// this computer a connection of 500 milliseconds and a reply of 750, on a chip's serial port a
+/// reply of 5 seconds, and on a chip's network a connection and a reply of 5 seconds each
+/// (specification 11, 6.8.1).
 pub(super) fn connect(
     endpoint: &CtlEndpoint,
     token: Option<&str>,
 ) -> anyhow::Result<(ControlClient, Duration)> {
-    let (endpoint, reply_wait) = match endpoint {
-        CtlEndpoint::Socket(ControlEndpoint::Tcp(address)) => {
-            (ClientEndpoint::Tcp(address.to_string()), CONTROL_IO_TIMEOUT)
-        }
+    let (endpoint, connect_wait, reply_wait) = match endpoint {
+        CtlEndpoint::Socket(ControlEndpoint::Tcp(address)) => (
+            ClientEndpoint::Tcp(address.to_string()),
+            CONTROL_CONNECT_TIMEOUT,
+            CONTROL_IO_TIMEOUT,
+        ),
         #[cfg(unix)]
-        CtlEndpoint::Socket(ControlEndpoint::Unix(path)) => {
-            (ClientEndpoint::Unix(path.clone()), CONTROL_IO_TIMEOUT)
-        }
-        CtlEndpoint::Serial(serial) => (serial.clone(), SERIAL_IO_TIMEOUT),
+        CtlEndpoint::Socket(ControlEndpoint::Unix(path)) => (
+            ClientEndpoint::Unix(path.clone()),
+            CONTROL_CONNECT_TIMEOUT,
+            CONTROL_IO_TIMEOUT,
+        ),
+        CtlEndpoint::Serial(serial) => (serial.clone(), CONTROL_CONNECT_TIMEOUT, SERIAL_IO_TIMEOUT),
+        CtlEndpoint::Network(host) => (host.clone(), NETWORK_IO_TIMEOUT, NETWORK_IO_TIMEOUT),
     };
-    let client = ControlClient::connect(&endpoint, token, CONTROL_CONNECT_TIMEOUT)?
+    let client = ControlClient::connect(&endpoint, token, connect_wait)?
         .with_response_limit(MAX_CONTROL_RESPONSE_BYTES);
     client.set_timeout(reply_wait)?;
     Ok((client, reply_wait))

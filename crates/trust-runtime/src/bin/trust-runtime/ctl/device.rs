@@ -72,7 +72,8 @@ mod tests {
     use super::*;
 
     /// A `device.toml` file is sent as the JSON object of the same shape, and the stored settings are
-    /// printed back as TOML with their sequence. Catches a file sent with its sections renamed or as
+    /// printed back as TOML with their sequence, each section's keys in the order of the reply's
+    /// JSON object, which a chip writes sorted. Catches a file sent with its sections renamed or as
     /// text, which the chip would refuse, and settings printed as raw JSON.
     #[test]
     fn device_toml_goes_as_its_json_and_comes_back_as_toml() {
@@ -97,7 +98,7 @@ mod tests {
         .expect("rendered");
         assert_eq!(
             printed,
-            "# device settings, sequence 2\n[device]\nname = \"line-3\"\n\n[network.wifi]\nssid = \"Plant\"\npassword_set = true\n"
+            "# device settings, sequence 2\n[device]\nname = \"line-3\"\n\n[network.wifi]\npassword_set = true\nssid = \"Plant\"\n"
         );
         assert_eq!(
             render(

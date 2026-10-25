@@ -24,6 +24,7 @@ use trust_runtime_core::value::Value;
 use super::runner_ports::{ms, TestClock, TestWait};
 use crate::access::{resolve_role, AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::chip::network::NetworkFacts;
 use crate::chip::watchdog::watchdog_timeout_ms;
 use crate::device_settings::{DeviceInterfaces, DeviceSettings};
 use crate::firmware::FirmwareFacts;
@@ -84,6 +85,8 @@ pub(crate) struct TestPlatform {
     pub(crate) last_reset: Option<LastReset>,
     /// What a chip knows of its firmware slots; `None` for a computer.
     pub(crate) firmware: Option<FirmwareFacts>,
+    /// A chip's network as it stands; `None` for a computer.
+    pub(crate) network: Option<NetworkFacts>,
     /// A chip's device settings: its interfaces and the stored record; `None` for a computer.
     pub(crate) device: Option<(DeviceInterfaces, StoredSettings)>,
     /// How many times the loop reset the device; a test keeps a clone to read them.
@@ -121,6 +124,7 @@ impl Default for TestPlatform {
             device_descriptor: DeviceDescriptor::hosted(),
             last_reset: None,
             firmware: None,
+            network: None,
             device: None,
             resets: Rc::new(Cell::new(0)),
             unloads: Rc::new(Cell::new(0)),
@@ -216,6 +220,10 @@ impl StatusPort for TestPlatform {
 
     fn last_reset(&self) -> Option<LastReset> {
         self.last_reset.clone()
+    }
+
+    fn network(&self) -> Option<NetworkFacts> {
+        self.network.clone()
     }
 
     fn firmware(&self) -> Option<FirmwareFacts> {

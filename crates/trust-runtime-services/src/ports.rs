@@ -20,6 +20,7 @@ use trust_runtime_core::scheduler::ResourceState;
 
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
 use crate::device_settings::{DeviceInterfaces, DeviceSettings};
@@ -258,6 +259,13 @@ pub trait StatusPort {
     /// on a runtime that keeps no firmware slots, a computer among them (specification 34 TARGET-04).
     /// The default is none.
     fn firmware(&self) -> Option<FirmwareFacts> {
+        None
+    }
+
+    /// A chip's network as it stands, which `capabilities` reports as `network`, or `None` on a
+    /// runtime that reports none, a computer among them, and on a chip whose device settings name
+    /// no network (specification 34 ARCH-12). The default is none.
+    fn network(&self) -> Option<NetworkFacts> {
         None
     }
 }

@@ -19,7 +19,7 @@ use esp_hal::{
     Config,
 };
 use esp_storage::FlashStorage;
-use trust_platform_memory::reset::ResetStore;
+use trust_platform_memory::reset::{ResetCause, ResetStore};
 use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::ports::ProgramFlash;
 use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash, Slot};
@@ -36,6 +36,7 @@ mod image_window;
 mod reset;
 mod usb_link;
 mod wait;
+mod wifi;
 pub use calendar::KERNEL_FUNCTIONS;
 pub use clock::Monotonic;
 pub use code_region::{program_region, C6Code, Line, ProgramCode};
@@ -44,6 +45,7 @@ pub use emergency::emergency_halt;
 pub use reset::{ResetControl, Watchdog};
 pub use usb_link::UsbLink;
 pub use wait::Wait;
+pub use wifi::{bring_up, start_scheduler, C6Net, NetLink, RadioFailure, RadioParts};
 
 /// Set by the first `Board::take`. `esp_hal::init` panics when it runs twice, so this guard
 /// turns a second call into `PeripheralsTaken` before the HAL is touched.
@@ -113,6 +115,8 @@ pub struct Board {
     gpio: GpioBank,
     /// The SYSTIMER alarm the resource loop's wait arms at its deadline.
     wait_alarm: Option<Alarm<'static>>,
+    /// What the Wi-Fi station takes (checklist L3).
+    radio: Option<RadioParts>,
 }
 
 impl Board {
@@ -167,6 +171,11 @@ impl Board {
         // The wall clock reads SYSTIMER, so it starts after the clock (specification 34 TARGET-06).
         calendar::start(peripherals.RTC_TIMER);
         let wait_alarm = Some(systimer.alarm1);
+        let radio = Some(RadioParts {
+            scheduler_alarm: systimer.alarm2,
+            scheduler_interrupt: peripherals.FROM_CPU_INTR0,
+            wifi: peripherals.WIFI,
+        });
         let watchdog = Watchdog::new(peripherals.TIMG0);
         let reset = ResetControl::new();
         let mut flash = FlashStorage::new(peripherals.FLASH);
@@ -180,6 +189,7 @@ impl Board {
             flash: FlashOwner::new(flash),
             gpio,
             wait_alarm,
+            radio,
         })
     }
 
@@ -284,6 +294,7 @@ impl Board {
             clock: self.clock,
             identity: self.identity,
             wait_alarm: self.wait_alarm,
+            radio: self.radio,
             hardware: BoardHardware {
                 gpio: self.gpio,
                 flash: self.flash,
@@ -302,6 +313,8 @@ pub struct BoardParts {
     pub identity: Identity,
     /// The SYSTIMER alarm the resource loop's wait arms at its deadline.
     pub wait_alarm: Option<Alarm<'static>>,
+    /// What the Wi-Fi station takes (checklist L3).
+    pub radio: Option<RadioParts>,
     /// What each program claims its lines and its checkpoint flash from.
     pub hardware: BoardHardware,
 }
@@ -352,8 +365,11 @@ fn running_slot() -> Slot {
 }
 
 /// Resets the chip into the firmware the boot loader selects next (specification 34 TARGET-04,
-/// TARGET-02).
+/// TARGET-02). The reset record says that the reset was requested, so the next boot reports it as
+/// `requested` and not as a loss of power (specification 11, the runtime device capabilities
+/// contract).
 pub(crate) fn reset_chip() {
+    ResetControl::new().write_reset_record(ResetCause::Requested, "");
     esp_hal::system::software_reset();
 }
 

@@ -9,14 +9,19 @@
 //! [`ControlLink`](trust_runtime_core::ports::ControlLink) answers the control loop with
 //! [`LineLink::poll_frame`] and [`LineLink::send_frame`]. Everything here is fixed storage:
 //! nothing allocates.
+//!
+//! A chip with two links, its USB link and its network, serves both through one [`LinkPair`]
+//! (ARCH-12).
 
 mod assembler;
 mod line_link;
+mod pair;
 mod reply;
 mod ring;
 
 pub use assembler::{Line, LineAssembler};
 pub use line_link::{LineLink, LinkCounters};
+pub use pair::LinkPair;
 pub use reply::{ReplyBuffer, ReplyRefused, REPLY_STALL_LIMIT};
 pub use ring::ByteRing;
 

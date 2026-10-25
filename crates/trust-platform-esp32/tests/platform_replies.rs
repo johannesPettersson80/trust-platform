@@ -7,15 +7,20 @@
 //! fields are pinned through `StatusPort` here; `health` reads only `StatusPort` and the resource, and
 //! is pinned as a whole reply.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use serde_json::json;
 use smol_str::SmolStr;
 use trust_platform_esp32::profile::runtime_id;
 use trust_platform_esp32::Platform;
 use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::ports::MonotonicInstant;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_services::capabilities::{self, LastReset, ResetCauseName};
+use trust_runtime_services::chip::network::{ChipNetwork, DriverMemory, NetworkFacts};
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::live_values::io_requests::{io_list, io_read, IoQueuePort};
 use trust_runtime_services::ports::{ProgramControl, ResourcePort, StatusPort};
@@ -45,11 +50,12 @@ fn platform() -> Platform<()> {
 /// compiled program image (specification 44 §10.1), the cooperative resource profile, numeric contract 1, unqualified
 /// timing and the wall clock (specification 34 TARGET-06, D.2). Its maxima are the 64 MiB artifact
 /// and 1,024 call levels, and every other limit is `null`. Its event store holds 200 events by default and
-/// at most 200, and its application slot is one program slot, 3,056 KiB = 3,129,344 bytes
+/// at most 200, and its application slot is one program slot, 2,064 KiB = 2,113,536 bytes
 /// (`chips/esp32c6.toml`, `[events]` and `[layout] application_a`; specification 34 §5.1.1: an install
 /// writes one of the two slots). Its memory for programs is the number the firmware measured at boot
-/// (specification 34 MEM-12). Catches a field renamed, a maximum written as a number instead of `null`,
-/// a slot or event store of another chip, a slot that is the whole 6,112 KiB region, the wall clock left
+/// (specification 34 MEM-12). A platform that the boot gave no firmware facts and no network reports
+/// both as null (TARGET-04, ARCH-12). Catches a field renamed, a maximum written as a number instead of
+/// `null`, a slot or event store of another chip, a slot that is the whole 4,128 KiB region, the wall clock left
 /// out, so that a program that calls `CURRENT_DT` is refused at install, a program memory
 /// that the reply leaves out or does not take from the platform, and a reset that is not the power-on
 /// one.
@@ -86,11 +92,66 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
                 },
                 "event_store_default": 200,
                 "event_store_max": 200,
-                "application_slot_bytes": 3_129_344,
+                "application_slot_bytes": 2_113_536,
                 "program_memory_bytes": 98_304,
                 "last_reset": { "cause": "power_on", "text": "", "boot_count": 1 },
+                "firmware": null,
+                "network": null,
             },
         })
+    );
+}
+
+/// A network that joined reports its interface, its link, its address and its control port, and one
+/// that did not start reports why (specification 34 ARCH-12; specification 11, the runtime device
+/// capabilities contract). Catches a chip whose address cannot be read over its USB link, and a radio
+/// that failed silently.
+#[test]
+fn the_c6_capabilities_report_its_network() {
+    struct Joined;
+    impl ChipNetwork for Joined {
+        fn poll(&mut self) {}
+        fn poll_due(&mut self) -> Option<MonotonicInstant> {
+            None
+        }
+        fn facts(&self) -> NetworkFacts {
+            NetworkFacts {
+                interface: "wifi",
+                link_up: true,
+                address: Some("192.168.4.23/24".to_string()),
+                control_port: Some(9901),
+                error: None,
+                driver_memory: Some(DriverMemory {
+                    bytes: 65_536,
+                    peak_bytes: 51_200,
+                    failures: 0,
+                }),
+            }
+        }
+    }
+    let network: Rc<RefCell<dyn ChipNetwork>> = Rc::new(RefCell::new(Joined));
+    let joined = platform().with_network(network);
+    let reply = serde_json::to_value(capabilities::capabilities(8, &joined)).expect("a reply");
+    assert_eq!(
+        reply["result"]["network"],
+        json!({"interface": "wifi", "link": "up", "address": "192.168.4.23/24",
+            "control_port": 9901, "error": null,
+            "driver_memory": {"bytes": 65_536, "peak_bytes": 51_200, "failures": 0}})
+    );
+    let mut failed = platform();
+    failed.set_network_failure(NetworkFacts {
+        interface: "wifi",
+        link_up: false,
+        address: None,
+        control_port: None,
+        error: Some("the radio did not start".to_string()),
+        driver_memory: None,
+    });
+    let reply = serde_json::to_value(capabilities::capabilities(9, &failed)).expect("a reply");
+    assert_eq!(
+        reply["result"]["network"],
+        json!({"interface": "wifi", "link": "down", "address": null, "control_port": null,
+            "error": "the radio did not start", "driver_memory": null})
     );
 }
 

@@ -217,3 +217,27 @@ fn a_serial_endpoint_without_a_usable_port_is_refused_plainly() {
         );
     }
 }
+
+#[test]
+fn a_tcp_endpoint_on_another_host_is_reached_through_the_shared_client() {
+    // Specification 11 6.8.1 and specification 34 ARCH-12: `tcp://host:port` on another host, a
+    // chip's control connection over its network, goes through the shared control client with the
+    // serial endpoint's waits; a loopback `tcp://` endpoint stays a runtime's socket on this
+    // computer, and a `tcp://` without a host is refused.
+    // Wrong behaviour: a chip's address refused as `tcp endpoint must be loopback`, which leaves a
+    // chip on the network unreachable from `ctl`, or a computer's own loopback socket sent through
+    // the chip's client with its longer waits.
+    match CtlEndpoint::parse("tcp://192.168.4.23:9901").expect("a chip's endpoint parses") {
+        CtlEndpoint::Network(ClientEndpoint::Tcp(host)) => assert_eq!(host, "192.168.4.23:9901"),
+        other => panic!("a chip on the network is reached through the client: {other:?}"),
+    }
+    match CtlEndpoint::parse("tcp://bench-c6.local:9901").expect("a host name parses") {
+        CtlEndpoint::Network(ClientEndpoint::Tcp(host)) => assert_eq!(host, "bench-c6.local:9901"),
+        other => panic!("a host name is reached through the client: {other:?}"),
+    }
+    assert!(matches!(
+        CtlEndpoint::parse("tcp://127.0.0.1:9901").expect("a loopback endpoint parses"),
+        CtlEndpoint::Socket(ControlEndpoint::Tcp(_))
+    ));
+    assert!(CtlEndpoint::parse("tcp://").is_err());
+}

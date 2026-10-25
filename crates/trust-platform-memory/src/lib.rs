@@ -36,6 +36,7 @@ pub mod board {
     }
 }
 
+pub mod c_heap;
 pub mod memory;
 pub mod program_region;
 pub mod reset;

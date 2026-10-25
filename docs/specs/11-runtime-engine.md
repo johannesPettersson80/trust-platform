@@ -2720,7 +2720,12 @@ printed as a successful scripted result. A TCP connection attempt is bounded to
 after a TCP or Unix connection is established, reads and writes are bounded to
 750 milliseconds, and a response line may not exceed 1 MiB.
 
-`--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. The
+`--endpoint` takes `tcp://host:port`, `unix:///absolute/path` or `serial://<port>`. A `tcp://`
+endpoint on another host, such as a chip's control connection over its network (specification 34
+ARCH-12), `tcp://192.168.1.50:9901`, is reached through the shared control client as a serial
+endpoint is, with the serial endpoint's frame, long replies and waits below, and a connection
+attempt of at most 5 seconds; a loopback `tcp://` endpoint and `unix://` are a runtime's sockets on
+this computer, with the waits above. The
 last reaches a chip over its USB serial port: `serial:///dev/ttyACM0` on Linux,
 `serial:///dev/cu.usbmodem1101` on macOS and `serial://COM5` on Windows. The text after
 `serial://`, trimmed, is the port name; it is not empty, and on Linux and macOS it is an
@@ -3135,9 +3140,13 @@ interval follows `watchdog.timeout_ms` (specification 34 TIME-04), so a
 timeout whose interval that watchdog does not take is rejected with `invalid
 config value for 'watchdog.timeout_ms': the device's hardware watchdog does not
 take the interval this timeout needs`. A control token that `config.set` gives
-it is kept in memory, as a computer keeps one, and required from then on. A
-device without an installed program rejects both requests with `no installed
-program: <reason>`, as it rejects `restart`.
+it is kept in memory, as a computer keeps one, and required from then on, until
+the next reset, when the device settings' token (`[control] token`, specification
+34 TARGET-02) holds again. A device that serves its control connection over a
+network requires a token, as a computer's TCP endpoint does, so `config.set`
+rejects a null `control.auth_token` there with `auth token required for tcp
+endpoints`. A device without an installed program rejects both requests with
+`no installed program: <reason>`, as it rejects `restart`.
 
 ###### Runtime execution-backend report contract
 
@@ -3319,6 +3328,7 @@ Its result is the same shape on every runtime, a computer or a device without an
 | `program_memory_bytes` | integer or null | The bytes of memory the device has for a program, which admission compares a program's memory figure with (specification 34 MEM-12, §5.1.1): a chip's measurement at boot, or null where there is no maximum, as on a computer |
 | `last_reset` | object or null | The reset the device's boot read (below), or null |
 | `firmware` | object or null | A chip's firmware slots (specification 34 TARGET-04; the firmware update contract below), or null on a runtime that keeps none, a computer among them |
+| `network` | object or null | A chip's network as it stands (specification 34 ARCH-12; below), or null on a runtime that reports none, a computer among them, and on a chip whose device settings name no network |
 
 | `firmware` field | Type | Value |
 |---|---|---|
@@ -3327,12 +3337,22 @@ Its result is the same shape on every runtime, a computer or a device without an
 | `confirmed` | boolean | False while the firmware runs on trial after an update, until its boot is done; true otherwise |
 | `rolled_back` | string or null | The version of a newer firmware in the other slot that the boot loader stopped booting because it did not confirm itself, or null |
 
+| `network` field | Type | Value |
+|---|---|---|
+| `interface` | string | `wifi` or `ethernet` |
+| `link` | string | `up` while the chip has joined its Wi-Fi network or its cable is plugged in, `down` otherwise |
+| `address` | string or null | The interface's IPv4 address with its prefix length, `192.168.1.50/24`, while it has one |
+| `control_port` | integer or null | The TCP port of the control connection over the network, or null while the chip serves none (its device settings set no control token) |
+| `error` | string or null | Why the interface did not start, for example `the Wi-Fi radio did not start: ...`, or, until the chip joins its network, why its last attempt to join failed, for example `joining the Wi-Fi network failed: ...` or `the Wi-Fi network did not answer within 20 seconds`; null otherwise |
+| `driver_memory` | object or null | The memory the network's driver has of its own, where it has some (the ESP32-C6's radio arena, specification 34 D.2): `bytes`, `peak_bytes`, the most it has held at once since boot, and `failures`, the allocations it refused since boot; null otherwise |
+
 ###### Device settings contract
 
 A chip keeps its own settings, `device.toml` (specification 34 TARGET-02, which defines the keys and
 their checks). `device.get` (Engineer) answers `{"settings": <object>, "sequence": <n>}`, the settings
 as `device.toml`'s sections with `network.wifi.password` replaced by `password_set` (true when a
-password is set), or `{"settings": null, "sequence": null}` when none are stored. `device.set
+password is set) and `control.token` by `token_set`, or `{"settings": null, "sequence": null}` when
+none are stored. `device.set
 {settings}` (Admin) refuses, in this order: missing params; `invalid params: settings must be an
 object`; a settings object that does not read as `device.toml` (an unknown section or key, a value
 of the wrong type), as `invalid params: <reason>`; a hung resource; a resource that is not Stopped, as
@@ -3371,8 +3391,10 @@ A computer reports `last_reset` as null: it starts as a new process. A device wi
 system reports the reset its boot read once: the record the previous boot left (specification 34,
 the fixed-size reset record) or, when it left none, the boot's hardware reset reason. A hardware
 watchdog reset runs no code and so leaves no record; its reason (0x07 on the C6, specification 34)
-reports `watchdog` with empty text. Any other boot with no record, a power-on, a host (USB) reset or
-a reason the hardware cannot name, reports `power_on`:
+reports `watchdog` with empty text. A reset the chip makes itself once it has sent the reply to
+`device.reset` or `firmware.install` leaves a record with the cause `requested` and empty text. Any
+other boot with no record, a power-on, a host (USB) reset or a reason the hardware cannot name,
+reports `power_on`:
 
 | `last_reset` field | Type | Value |
 |---|---|---|

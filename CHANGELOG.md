@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: a chip joins its network and serves its control connection over it (specification 34
+  PORT-06). An ESP32-C6 whose `device.toml` names a Wi-Fi network joins it at boot, takes its
+  address from DHCP or the settings, and joins again after a loss; with a control token in the new
+  `[control]` section it serves the control protocol on TCP port 9901 (`[control] port`), so
+  `trust-runtime ctl --endpoint tcp://<address>:9901 --token <token>` reaches it as it reaches a
+  computer, installs included. The token is then required on every link. One client holds the
+  network connection at a time; a second is told that the device is busy. `capabilities` reports
+  the chip's network, its address and the reason a radio did not start. The radio's code takes 80
+  KiB of the C6's program region, now 112 KiB; a chip without Wi-Fi settings starts no radio and
+  keeps its heap whole.
 - Added: a chip keeps its own settings, `device.toml` (specification 34 TARGET-02): its name, its
   Wi-Fi network and address, Bluetooth, its time server, the keys whose signed programs it trusts
   and the wiring values it cannot detect. `trust-runtime ctl device-set <device.toml>` stores them

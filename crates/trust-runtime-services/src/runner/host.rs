@@ -10,7 +10,7 @@ use trust_runtime_core::deployment::{ControlMode, DeviceDescriptor};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{Generation, InstanceId};
-use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, WallClock};
+use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, MonotonicInstant, WallClock};
 use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
@@ -25,6 +25,7 @@ use super::state::{Records, ResourceCell};
 use super::stepping::StepState;
 use crate::access::{AccessRole, AuthFailure};
 use crate::capabilities::LastReset;
+use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::Debugger;
 use crate::device_settings::{DeviceInterfaces, DeviceSettings};
@@ -85,6 +86,13 @@ pub trait RunnerPlatform:
     /// must not wait. The default does nothing.
     fn idle(&mut self) {}
 
+    /// When the idle work is next due, for example a network's retransmission or address lease
+    /// (specification 34 ARCH-12): the loop's wait ends then at the latest, and no sooner than a
+    /// millisecond after it starts. The default has none.
+    fn idle_due(&self) -> Option<MonotonicInstant> {
+        None
+    }
+
     /// The control mode the platform's deployment record carries (specification 34 §5.1.1,
     /// section 7; specification 11 §6.9): `runtime.control.mode` from the record's configuration.
     /// A platform without a deployment record reports `production`, the record's default.
@@ -104,6 +112,13 @@ pub trait RunnerPlatform:
     /// never reported.
     fn control_token_length(&self) -> Option<usize> {
         None
+    }
+
+    /// Whether the control connection requires a token, so that `config.set` cannot clear it
+    /// (specification 11, the runtime configuration contract): a device that serves its control
+    /// connection over a network requires one. The default does not.
+    fn control_token_required(&self) -> bool {
+        false
     }
 
     /// Whether the platform's hardware watchdog takes the interval for a cycle watchdog timeout of
@@ -385,6 +400,10 @@ impl<P: RunnerPlatform, C> StatusPort for RunnerHost<'_, P, C> {
 
     fn firmware(&self) -> Option<FirmwareFacts> {
         self.platform.firmware()
+    }
+
+    fn network(&self) -> Option<NetworkFacts> {
+        self.platform.network()
     }
 }
 

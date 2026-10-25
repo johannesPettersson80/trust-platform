@@ -1,15 +1,16 @@
 //! A device's own settings, `device.toml` (specification 34 TARGET-02; specification 11, the device
 //! settings contract): the settings that the operating system holds on a computer, kept on a chip that
 //! has none. The device name, its network interfaces with DHCP or a fixed address, the Wi-Fi network
-//! and its password, Bluetooth, the time server, the keys whose signed programs it trusts, and the few
-//! wiring values the firmware cannot detect.
+//! and its password, the control connection over the network with its token, Bluetooth, the time
+//! server, the keys whose signed programs it trusts, and the few wiring values the firmware cannot
+//! detect.
 //!
 //! The tools read `device.toml` on the computer and send it as a JSON object of the same shape
 //! (`device.set`); the chip checks it against its own interfaces ([`DeviceInterfaces`]) and keeps it
 //! in the two sectors of its chip file's `device_a` and `device_b`, the newer record winning, so that
 //! a write that power ends leaves the settings before it ([`encode`], [`newest`]). `device.get` reports
-//! them without the Wi-Fi password ([`DeviceSettings::reported`]). Nothing here reads a flash or a
-//! link.
+//! them without the Wi-Fi password and the control token ([`DeviceSettings::reported`]). Nothing here
+//! reads a flash or a link.
 
 use alloc::format;
 use alloc::string::{String, ToString};
@@ -25,6 +26,13 @@ pub const MAGIC: [u8; 8] = *b"TRSTDS01";
 pub const RECORD_HEADER_BYTES: usize = 20;
 /// The most trusted keys a device keeps.
 pub const MAX_TRUSTED_KEYS: usize = 8;
+/// The TCP port of the control connection over a device's network, without `[control] port`: the
+/// port of trust-runtime's control endpoint in the tools' defaults.
+pub const DEFAULT_CONTROL_PORT: u16 = 9901;
+/// The fewest characters of a control token: a token guards a control connection on a network.
+pub const MIN_TOKEN_LEN: usize = 16;
+/// The most characters of a control token.
+pub const MAX_TOKEN_LEN: usize = 128;
 
 /// A device's settings, as `device.toml` holds them. Every section and key may be left out.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,6 +44,9 @@ pub struct DeviceSettings {
     /// `[network]`.
     #[serde(default)]
     pub network: NetworkSection,
+    /// `[control]`.
+    #[serde(default)]
+    pub control: ControlSection,
     /// `[bluetooth]`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bluetooth: Option<BluetoothSection>,
@@ -69,6 +80,37 @@ pub struct NetworkSection {
     /// `[network.ethernet]`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ethernet: Option<AddressSettings>,
+}
+
+impl NetworkSection {
+    /// Whether the device has a network interface to join: Wi-Fi or Ethernet.
+    #[must_use]
+    pub fn names_one(&self) -> bool {
+        self.wifi.is_some() || self.ethernet.is_some()
+    }
+}
+
+/// `[control]`: the control connection over the device's network (specification 34 ARCH-12).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ControlSection {
+    /// The control token every request must carry once it is set, which grants `Admin`
+    /// (specification 11 §6.9.6): 16 to 128 printable ASCII characters without spaces. Without one
+    /// the device serves no control connection over its network.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+    /// The TCP port of the control connection over the network, [`DEFAULT_CONTROL_PORT`] without
+    /// one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+}
+
+impl ControlSection {
+    /// The TCP port of the control connection over the network.
+    #[must_use]
+    pub fn port(&self) -> u16 {
+        self.port.unwrap_or(DEFAULT_CONTROL_PORT)
+    }
 }
 
 /// `[network.wifi]`: the network the device joins as a station, and its address.
@@ -228,6 +270,18 @@ impl DeviceSettings {
             }
             check_address("network.ethernet", ethernet)?;
         }
+        if let Some(token) = &self.control.token
+            && !((MIN_TOKEN_LEN..=MAX_TOKEN_LEN).contains(&token.len())
+                && token.bytes().all(|byte| byte.is_ascii_graphic()))
+        {
+            return Err(format!(
+                "control.token must be {MIN_TOKEN_LEN} to {MAX_TOKEN_LEN} printable ASCII characters \
+                 without spaces"
+            ));
+        }
+        if self.control.port == Some(0) {
+            return Err("control.port must be 1 to 65535".into());
+        }
         if self
             .bluetooth
             .as_ref()
@@ -274,8 +328,8 @@ impl DeviceSettings {
         Ok(())
     }
 
-    /// The settings as `device.get` reports them: every key but the Wi-Fi password, whose place
-    /// says only whether one is set.
+    /// The settings as `device.get` reports them: every key but the Wi-Fi password and the control
+    /// token, whose places say only whether one is set.
     #[must_use]
     pub fn reported(&self) -> Value {
         let mut value = serde_json::to_value(self).unwrap_or(Value::Null);
@@ -288,6 +342,10 @@ impl DeviceSettings {
                 .and_then(|password| password.as_str().map(|text| !text.is_empty()))
                 .unwrap_or(false);
             wifi.insert("password_set".into(), json!(set));
+        }
+        if let Some(control) = value.pointer_mut("/control").and_then(Value::as_object_mut) {
+            let set = control.remove("token").is_some();
+            control.insert("token_set".into(), json!(set));
         }
         value
     }
