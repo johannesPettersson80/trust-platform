@@ -42,6 +42,7 @@ use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicInstant, PortError, WakeSignal, WallClock,
 };
 use trust_runtime_services::chip::network::{ChipNetwork, DriverMemory, NetworkFacts, TimeFacts};
+use trust_runtime_services::chip::pairing::RandomSource;
 use trust_runtime_services::device_settings::{DeviceSettings, WifiSettings};
 use trust_runtime_services::link::{ReplyRefused, DEVICE_FRAME_LEN};
 
@@ -89,6 +90,21 @@ pub enum RadioFailure {
 /// becomes esp-rtos's main task on the main stack, and the scheduler takes SYSTIMER alarm 2.
 pub fn start_scheduler(alarm: Alarm<'static>, interrupt: FROM_CPU_INTR0<'static>) {
     esp_rtos::start(alarm, interrupt);
+}
+
+/// The generator a chip's pairings draw their codes and tokens from (specification 11 §6.9.6): the
+/// C6's hardware random number generator, which is random while the radio runs (ESP32-C6 Technical
+/// Reference Manual, Random Number Generator). Give it to the pairings only once [`bring_up`] has
+/// started the radio.
+#[must_use]
+pub fn pairing_random() -> RandomSource {
+    let rng = Rng::new();
+    Box::new(move |bytes: &mut [u8]| {
+        for chunk in bytes.chunks_mut(4) {
+            let word = rng.random().to_le_bytes();
+            chunk.copy_from_slice(&word[..chunk.len()]);
+        }
+    })
 }
 
 /// Starts the radio as a station of the network that `settings` name, builds the network over it

@@ -2881,7 +2881,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 37,
+        "line": 43,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Clears only mstatus.MIE in the terminal single-core fault boundary; no suspended handler ever resumes.",
         "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the reset record it writes is proven by cargo test -p trust-platform-memory.",
@@ -2889,7 +2889,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 48,
+        "line": 55,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "`out_w1ts` is write-one-to-set: writing only the configured outputs whose safe level is high sets their output latch and no other pin.",
         "test_evidence": "The masks come from SafeLevels, whose rule cargo test -p trust-platform-esp32 --test pin_lines proves (the_terminal_fault_path_drives_each_output_to_its_safe_level); the register write runs only on the chip.",
@@ -2897,7 +2897,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 51,
+        "line": 58,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "`out_w1tc` is write-one-to-clear: writing only the configured outputs whose safe level is low clears their output latch and no other pin.",
         "test_evidence": "The masks come from SafeLevels, whose rule cargo test -p trust-platform-esp32 --test pin_lines proves (the_terminal_fault_path_drives_each_output_to_its_safe_level); the register write runs only on the chip.",
@@ -2905,7 +2905,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
-        "line": 54,
+        "line": 74,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "`enable_w1ts` is write-one-to-set: writing only the configured output pins enables their output driver, which is already latched at its safe level, and no other pin.",
         "test_evidence": "The terminal fault path is exercised only by the chip build and the planned C6 bench run; the registered pins are the record's claimed outputs.",
@@ -2913,7 +2913,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 400,
+        "line": 438,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3613,6 +3613,30 @@
         "owner": "runtime portability L3 (Wi-Fi on the ESP32-C6)",
         "invariant": "The old and the new block are live and distinct; the copy takes the smaller of their sizes, and the old block is freed once, after the copy.",
         "test_evidence": "cargo test -p trust-platform-memory --test c_heap (malloc_gives_aligned_distinct_blocks, calloc_zeroes_and_refuses_an_overflowing_product, realloc_keeps_the_smaller_prefix, every_freed_block_returns_its_bytes); the C6 Wi-Fi bench of checklist L3.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/emergency.rs",
+        "line": 69,
+        "owner": "runtime portability T1 (C6 I/O drivers)",
+        "invariant": "Writes FUNCn_OUT_SEL_CFG of a configured output pin (n below the chip's 31 GPIOs) to the GPIO selection (128) with its other fields at their reset values, so that the pin's latch, set to its safe level just before, drives it instead of a LEDC channel; the write touches no other pin.",
+        "test_evidence": "The emergency path's latch writes are bench-proven (S1b-5); the PWM pin's handover to the latch is part of bench T1 (a panic with a PWM output at its safe level, on a scope).",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/drivers/analog.rs",
+        "line": 158,
+        "owner": "runtime portability T1 (C6 I/O drivers)",
+        "invariant": "Copies ADC1 out of its PeripheralSlot while the driver holds the slot's Lease, which refuses ADC1 to every other driver; the converter built from the copy is a field declared before the lease, so it is dropped first and at most one instance of ADC1 is in use at a time, as clone_unchecked requires.",
+        "test_evidence": "Bench T1: an analog driver claimed, dropped by a restart and claimed again; a second analog driver in one record is refused.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-platform-esp32/src/hardware/drivers/can.rs",
+        "line": 198,
+        "owner": "runtime portability T1 (C6 I/O drivers)",
+        "invariant": "Copies a TWAI controller out of its PeripheralSlot while the driver holds the slot's Lease, which refuses the controller to every other driver; the driver stops and drops the controller built from the copy in Drop, before its lease field is dropped, so at most one instance of the controller is in use at a time, as clone_unchecked requires.",
+        "test_evidence": "Bench T1: a can driver claimed, dropped by a restart and claimed again; a second can driver on the same controller is refused.",
         "review_date": "2026-10-25"
       }
     ],

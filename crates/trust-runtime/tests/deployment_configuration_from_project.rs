@@ -215,12 +215,21 @@ fn the_configuration_section_carries_runtime_and_io_settings() {
                     invert: false,
                     initial: true,
                 }],
+                // Section 8 (specification 34 §5.1.1): the `params` table as JSON, every table's
+                // keys in byte order: `inputs` before `outputs`, and in each entry `address`,
+                // `debounce_ms`, `initial`, `invert`, `line` as they occur.
+                params: Some(String::from(concat!(
+                    r#"{"inputs":[{"address":"%IX0.0","debounce_ms":20,"invert":true,"line":"GPIO9"}],"#,
+                    r#""outputs":[{"address":"%QX0.0","initial":true,"line":"GPIO18"}]}"#
+                ))),
             },
             IoDriver {
                 name: SmolStr::new("modbus-tcp"),
                 enabled: false,
                 inputs: Vec::new(),
                 outputs: Vec::new(),
+                // A driver without `params` has none: `{}`.
+                params: Some(String::from("{}")),
             },
         ],
         safe_state: vec![SafeStateEntry {
@@ -351,6 +360,10 @@ drivers = [
                 debounce_ms: 0,
             }],
             outputs: Vec::new(),
+            // The number stays a JSON number in section 8.
+            params: Some(String::from(
+                r#"{"inputs":[{"address":"%IX0.0","line":17}]}"#
+            )),
         }]
     );
     let _ = std::fs::remove_dir_all(root);

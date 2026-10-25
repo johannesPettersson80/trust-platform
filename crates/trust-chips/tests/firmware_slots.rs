@@ -1,5 +1,6 @@
-//! The firmware slots, the boot loader's selection and the device settings sectors in a chip file
-//! (specification 34 TARGET-04, TARGET-02 and Appendix H.2). Each test edits a real chip file and
+//! The firmware slots, the boot loader's selection, the device settings sectors and the pairing
+//! sectors in a chip file (specification 34 TARGET-04, TARGET-02 and Appendix H.2; specification 11
+//! §6.9.6). Each test edits a real chip file and
 //! checks that the edit is refused with the problem of the broken rule, or that an edit within the
 //! rules is accepted.
 
@@ -99,5 +100,30 @@ fn the_device_settings_are_named_in_pairs_of_one_erase_unit() {
             set(file, "layout.device_a", "kib", 8_i64);
         }),
         Err(Problem::NotOneEraseUnit { region: "device_a" })
+    );
+}
+
+/// The pairing sectors are named both or neither, each exactly one erase unit, as the device settings
+/// are: a write of the pairings erases one whole sector. 8 KiB from 0x7F6000 runs into `pairing_b`
+/// at 0x7F7000, and is refused as two units once `pairing_b` moves out of its way to the free sector
+/// at 0xF000 (8 KiB from 0x7F6000 then ends at 0x7F8000, where `checkpoint_a` begins, and overlaps
+/// nothing). Catches a pairing write that would erase a neighbouring region, and a file that names one
+/// pairing sector, which a power cut during a write would leave without its previous tokens.
+#[test]
+fn the_pairings_are_named_in_pairs_of_one_erase_unit() {
+    assert_eq!(
+        c6(|file| remove(file, "layout", "pairing_a")),
+        Err(Problem::MissingRegion {
+            region: "pairing_a"
+        })
+    );
+    assert_eq!(
+        c6(|file| {
+            set(file, "layout.pairing_b", "start", 0xF000_i64);
+            set(file, "layout.pairing_a", "kib", 8_i64);
+        }),
+        Err(Problem::NotOneEraseUnit {
+            region: "pairing_a"
+        })
     );
 }

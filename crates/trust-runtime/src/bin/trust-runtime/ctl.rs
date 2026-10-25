@@ -360,6 +360,12 @@ fn print_control_response(action: &ControlAction, response: &JsonValue) -> anyho
             };
             println!("state={state} fault={fault} rt_profile={rt_profile} rt_active={rt_active}");
         }
+        ControlAction::Capabilities => {
+            let result = response
+                .get("result")
+                .context("capabilities reply missing 'result'")?;
+            println!("{}", serde_json::to_string_pretty(result)?);
+        }
         ControlAction::Health => {
             let ok = response
                 .get("result")
@@ -491,6 +497,7 @@ fn build_request(action: &ControlAction, auth_token: Option<&str>) -> serde_json
             request
         }
         ControlAction::ConfigGet => json!({"id": 1, "type": "config.get", "auth": auth}),
+        ControlAction::Capabilities => json!({"id": 1, "type": "capabilities", "auth": auth}),
         ControlAction::ConfigSet { key, value } => {
             let mut params = serde_json::Map::new();
             params.insert(key.clone(), parse_config_value(value));
@@ -699,6 +706,10 @@ mod tests {
             (
                 ControlAction::ConfigGet,
                 json!({"id": 1, "type": "config.get", "auth": "token"}),
+            ),
+            (
+                ControlAction::Capabilities,
+                json!({"id": 1, "type": "capabilities", "auth": "token"}),
             ),
             (
                 ControlAction::ConfigSet {

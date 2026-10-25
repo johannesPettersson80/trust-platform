@@ -6,6 +6,34 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: `trust-runtime build` also writes `build/install.<target>.bin`, the container that
+  `trust-runtime ctl install` installs on a device, so a chip's program no longer needs a developer
+  tool to pack it (specification 44 §4.1).
+- Added: `trust-runtime ctl capabilities` prints what a runtime reports of its device: a chip's
+  network and address, its firmware slots, its memory for programs and its last reset.
+- Added: `trust-runtime firmware install --reset-settings` also erases a chip's device settings and
+  pairings through its boot loader on USB, so a chip whose control token is lost boots without a
+  token, without pairing tokens and without a network.
+- Added: a chip pairs clients as a computer does, with `pair.start`, `pair.claim`, `pair.list` and
+  `pair.revoke` (specification 11 §6.9.6). The ESP32-C6 keeps its pairings in two flash sectors at
+  `0x7F6000` and `0x7F7000`, taken from its program store, whose slots are now 2,060 KiB at
+  `0x3F0000` and `0x5F3000`: install the firmware again with `trust-runtime firmware install`, then
+  the program. A chip pairs only while it serves a network and its clock is set.
+- Changed: pairing is the same code on every runtime. A claim at the limit of enabled tokens replies
+  `at most 256 pairing tokens may be enabled; revoke one first`, and a claim or revoke whose write
+  fails replies with the write's error and changes no token, where both replied `invalid or expired
+  code` or claimed success before. A pairing file that cannot be read grants nothing and is no
+  longer overwritten by the next claim. A runtime without random numbers refuses to pair instead of
+  using predictable ones. The computer writes `pairings.json` to a new file and renames it over the
+  old one.
+- Changed: the deployment record is version 2: section 8 carries each I/O driver's `params` table
+  (specification 34 §5.1.1), from which a chip runs its drivers with the keys, defaults and checks of
+  a computer. Version 1 records still read; a chip refuses their drivers other than `gpio` with
+  `rebuild the project`.
+- Fixed: a project's `io.toml` can no longer claim the ESP32-C6's flash pins, GPIO24 to GPIO30; a
+  line there would have taken the flash the chip runs from.
+- Fixed: `status` on a chip reported `signature: none` while the chip checked signatures against the
+  keys of its device settings.
 - Changed: a program image is signed with Ed25519ph (RFC 8032), over the SHA-512 of the image with
   the context `truST program image`, where it was pure Ed25519 (specification 44 §5.11). A chip
   hashes an online change's image as its parts arrive, so that checking the signature no longer

@@ -50,12 +50,12 @@ fn platform() -> Platform<()> {
 /// compiled program image (specification 44 §10.1), the cooperative resource profile, numeric contract 1, unqualified
 /// timing and the wall clock (specification 34 TARGET-06, D.2). Its maxima are the 64 MiB artifact
 /// and 1,024 call levels, and every other limit is `null`. Its event store holds 200 events by default and
-/// at most 200, and its application slot is one program slot, 2,064 KiB = 2,113,536 bytes
+/// at most 200, and its application slot is one program slot, 2,060 KiB = 2,109,440 bytes
 /// (`chips/esp32c6.toml`, `[events]` and `[layout] application_a`; specification 34 §5.1.1: an install
 /// writes one of the two slots). Its memory for programs is the number the firmware measured at boot
 /// (specification 34 MEM-12). A platform that the boot gave no firmware facts and no network reports
 /// both as null (TARGET-04, ARCH-12). Catches a field renamed, a maximum written as a number instead of
-/// `null`, a slot or event store of another chip, a slot that is the whole 4,128 KiB region, the wall clock left
+/// `null`, a slot or event store of another chip, a slot that is the whole 4,120 KiB region, the wall clock left
 /// out, so that a program that calls `CURRENT_DT` is refused at install, a program memory
 /// that the reply leaves out or does not take from the platform, and a reset that is not the power-on
 /// one.
@@ -92,7 +92,7 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
                 },
                 "event_store_default": 200,
                 "event_store_max": 200,
-                "application_slot_bytes": 2_113_536,
+                "application_slot_bytes": 2_109_440,
                 "program_memory_bytes": 98_304,
                 "last_reset": { "cause": "power_on", "text": "", "boot_count": 1 },
                 "firmware": null,

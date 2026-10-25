@@ -28,6 +28,9 @@ esp-bootloader-esp-idf = { version = "=0.6.0", features = ["esp32c6"] }
 # confirms, as one that hangs or panics in its boot does, so that the C6 bench proves the boot
 # loader's rollback (specification 34 TARGET-04).
 bench-trial-reset = []
+# The bench's firmware that hangs on trial before it confirms itself, which the watchdog must reset
+# so that the boot loader rolls it back (checklist T4).
+bench-trial-hang = []
 
 [profile.release]
 opt-level = "z"

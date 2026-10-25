@@ -41,8 +41,8 @@
     "targets": {
       "type": "array",
       "items": { "$ref": "#/$defs/target" },
-      "minItems": 19,
-      "maxItems": 19
+      "minItems": 16,
+      "maxItems": 16
     }
   },
   "additionalProperties": false,
@@ -52,7 +52,7 @@
         "st_lexer_parser",
         "hir_lowering_input",
         "plcopen_xml",
-        "bytecode_container_instructions",
+        "program_images",
         "protocol_payloads",
         "config_files",
         "lsp_incremental_edits",
@@ -185,7 +185,7 @@
         "artifact_path": { "type": "string", "pattern": "^(?:fuzz|crates/[A-Za-z0-9_-]+/fuzz)/artifacts/[A-Za-z0-9_-]+$" },
         "corpus_storage": { "const": "machine_local_ignored" },
         "artifact_storage": { "const": "machine_local_ignored" },
-        "last_reviewed": { "enum": ["2026-07-11", "2026-07-17", "2026-10-15"] },
+        "last_reviewed": { "enum": ["2026-07-11", "2026-07-17", "2026-10-25"] },
         "surface_associations": {
           "type": "array",
           "items": { "$ref": "#/$defs/surface_association" },

@@ -11,7 +11,10 @@ device_b,  0x43, 0x01,    0xE000,   0x1000
 # The two firmware slots (firmware and firmware_b): an update is written into the one that does not run.
 ota_0,     app,  ota_0,   0x10000,  0x1F0000
 ota_1,     app,  ota_1,   0x200000, 0x1F0000
-# The program store's two slots (application_a and application_b) and the two checkpoint slots.
-stbc,      0x40, 0x00,    0x3F0000, 0x408000
+# The program store's two slots (application_a and application_b), the two sectors of the pairings
+# (pairing_a and pairing_b; specification 11 §6.9.6) and the two checkpoint slots.
+stbc,      0x40, 0x00,    0x3F0000, 0x406000
+pair_a,    0x44, 0x00,    0x7F6000, 0x1000
+pair_b,    0x44, 0x01,    0x7F7000, 0x1000
 ckpt_a,    0x41, 0x00,    0x7F8000, 0x4000
 ckpt_b,    0x41, 0x01,    0x7FC000, 0x4000

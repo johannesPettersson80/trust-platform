@@ -9,11 +9,13 @@ use smol_str::SmolStr;
 use trust_runtime_core::deployment::{GpioInput, GpioOutput};
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::PreparedIoBinding;
+use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::image::Target;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::{admit, Device};
 
 use super::{address_text, covers, unwired_binding, ChangeMemory};
+use crate::io_drivers::EntryBytes;
 use crate::tests::runner_ports::board_probe_image;
 
 fn address(text: &str) -> IoAddress {
@@ -109,15 +111,15 @@ fn a_binding_without_a_line_is_found() {
     found.sort();
     assert_eq!(found, ["%IX0.0", "%QX0.0"], "the probe's two bindings");
 
-    let both = unwired_binding(&bindings, &[input("%IX0.0")], &[output("%QX0.0")]);
+    let both = unwired_binding(&bindings, &[input("%IX0.0")], &[output("%QX0.0")], &[]);
     assert_eq!(both, None);
-    let no_output = unwired_binding(&bindings, &[input("%IX0.0")], &[]);
+    let no_output = unwired_binding(&bindings, &[input("%IX0.0")], &[], &[]);
     assert_eq!(no_output, Some(address("%QX0.0")));
-    let no_input = unwired_binding(&bindings, &[], &[output("%QX0.0")]);
+    let no_input = unwired_binding(&bindings, &[], &[output("%QX0.0")], &[]);
     assert_eq!(no_input, Some(address("%IX0.0")));
-    let other_bit = unwired_binding(&bindings, &[input("%IX0.1")], &[output("%QX0.0")]);
+    let other_bit = unwired_binding(&bindings, &[input("%IX0.1")], &[output("%QX0.0")], &[]);
     assert_eq!(other_bit, Some(address("%IX0.0")));
-    let other_byte = unwired_binding(&bindings, &[input("%IX0.0")], &[output("%QX1.0")]);
+    let other_byte = unwired_binding(&bindings, &[input("%IX0.0")], &[output("%QX1.0")], &[]);
     assert_eq!(other_byte, Some(address("%QX0.0")));
 }
 
@@ -149,4 +151,45 @@ fn an_address_is_named_as_the_standard_writes_it() {
     assert_eq!(address_text(&address("%IB1")), "%IB1");
     assert_eq!(address_text(&address("%QL8")), "%QL8");
     assert_eq!(address_text(&address("%IX0.1.2")), "%IX0.1.2");
+}
+
+#[test]
+fn a_driver_entry_wires_the_bindings_that_share_its_bytes() {
+    // Specification 34 §11.3: a driver's entry covers a binding that shares one of its bytes. The
+    // probe binds `%IX0.0` and `%QX0.0`. A CAN receive at `%IB0` of 2 bytes takes input bytes 0 and
+    // 1, so it wires `%IX0.0`; a PWM output at `%QW0` takes output bytes 0 and 1, so it wires
+    // `%QX0.0`: with both, and no line, nothing is unwired. An input entry at byte 1 (`%IB1`, one
+    // byte) shares no byte with `%IX0.0`, and an output entry does not wire an input binding.
+    // Wrong behaviour caught: a change refused although a driver feeds its binding; a binding
+    // taken as wired by an entry of the other area or of another byte.
+    let bindings = probe_bindings();
+    let input_bytes = EntryBytes {
+        area: IoArea::Input,
+        bytes: 0..2,
+    };
+    let output_bytes = EntryBytes {
+        area: IoArea::Output,
+        bytes: 0..2,
+    };
+    assert_eq!(
+        unwired_binding(
+            &bindings,
+            &[],
+            &[],
+            &[input_bytes.clone(), output_bytes.clone()]
+        ),
+        None
+    );
+    let next_byte = EntryBytes {
+        area: IoArea::Input,
+        bytes: 1..2,
+    };
+    assert_eq!(
+        unwired_binding(&bindings, &[], &[output("%QX0.0")], &[next_byte]),
+        Some(address("%IX0.0"))
+    );
+    assert_eq!(
+        unwired_binding(&bindings, &[], &[], &[output_bytes]),
+        Some(address("%IX0.0"))
+    );
 }

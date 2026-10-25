@@ -23,7 +23,7 @@ use super::live::DeviceLiveValues;
 use super::online_change::ChangeState;
 use super::state::{Records, ResourceCell};
 use super::stepping::StepState;
-use crate::access::{AccessRole, AuthFailure};
+use crate::access::{AccessRole, AuthFailure, PairingService};
 use crate::capabilities::LastReset;
 use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
@@ -223,6 +223,10 @@ impl<P: RunnerPlatform, C> AccessPort for RunnerHost<'_, P, C> {
 
     fn debug_enabled(&self) -> bool {
         self.platform.debug_enabled()
+    }
+
+    fn pairing(&self) -> Option<&dyn PairingService> {
+        self.platform.pairing()
     }
 }
 

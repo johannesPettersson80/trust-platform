@@ -53,11 +53,18 @@ pub fn build_program_image(
     };
     fs::create_dir_all(&build_folder)?;
     fs::write(&image, &built.image).with_context(|| format!("write {}", image.display()))?;
-    fs::write(
-        &record,
-        crate::deployment::image_record(bundle_root, &built.image)?,
+    let record_bytes = crate::deployment::image_record(bundle_root, &built.image)?;
+    fs::write(&record, &record_bytes).with_context(|| format!("write {}", record.display()))?;
+    // The container `trust-runtime ctl install` installs, the image with its record, packed as every
+    // image container is (specification 34 §5.1 and §11.2; specification 44 §4.1).
+    let install = build_folder.join(format!("install.{}.bin", triple(target)));
+    let container = trust_runtime_services::installation::encode_image(
+        trust_runtime_services::installation::FIRST_SEQUENCE,
+        &built.image,
+        &record_bytes,
     )
-    .with_context(|| format!("write {}", record.display()))?;
+    .map_err(|error| anyhow::anyhow!("pack {}: {error}", install.display()))?;
+    fs::write(&install, container).with_context(|| format!("write {}", install.display()))?;
     if !emit_source {
         let _ = fs::remove_file(work.join("module.rs"));
     }
@@ -84,6 +91,7 @@ pub fn build_program_image(
         "image_bytes": built.image.len(),
         "signer": signer,
         "record": record.display().to_string(),
+        "install": install.display().to_string(),
         "memory_figure": {
             "areas": figure.areas,
             "stack": figure.stack,
@@ -105,6 +113,7 @@ pub fn build_program_image(
     Ok(BundleBuildReport {
         image,
         record,
+        install,
         debug,
         image_bytes: built.image.len(),
         figure,

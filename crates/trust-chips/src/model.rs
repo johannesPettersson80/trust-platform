@@ -231,6 +231,11 @@ pub struct Layout {
     pub device_a: Option<Region>,
     /// The second device settings sector, also exactly one erase unit.
     pub device_b: Option<Region>,
+    /// The first of the two sectors that hold the pairings (specification 11 §6.9.6), exactly one
+    /// erase unit. A file names both sectors or neither.
+    pub pairing_a: Option<Region>,
+    /// The second pairing sector, also exactly one erase unit.
+    pub pairing_b: Option<Region>,
     /// The separately installed application.
     pub application: Region,
     /// The first of the program store's two slots, inside `application` (specification 34 §5.1).
@@ -263,6 +268,8 @@ impl Layout {
             ("firmware_select", self.firmware_select),
             ("device_a", self.device_a),
             ("device_b", self.device_b),
+            ("pairing_a", self.pairing_a),
+            ("pairing_b", self.pairing_b),
             ("application", Some(self.application)),
             ("checkpoint_a", Some(self.checkpoint_a)),
             ("checkpoint_b", Some(self.checkpoint_b)),
@@ -395,6 +402,8 @@ pub enum PinReason {
     Oscillator,
     /// The chip's USB port.
     Usb,
+    /// The flash the firmware and the program run from.
+    Flash,
 }
 
 /// `[firmware]`: the truST firmware of the chip.

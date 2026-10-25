@@ -36,8 +36,9 @@ pub const RESET_POWER_ON: u8 = 0x01;
 /// Separately installable application bundle partition (`stbc`).
 pub const STBC_OFFSET: u32 = 0x3F_0000;
 /// Size of the `stbc` partition in bytes: the installed application's flash, from [`STBC_OFFSET`],
-/// after the second firmware slot, to the two checkpoint slots at the end of the 8 MB module.
-pub const STBC_BYTES: usize = 4128 * 1024;
+/// after the second firmware slot, to the two pairing sectors before the checkpoint slots at the end
+/// of the 8 MB module.
+pub const STBC_BYTES: usize = 4120 * 1024;
 
 /// Checkpoint slot `checkpoint_a`: its flash address, the chip file's `[layout] checkpoint_a`
 /// (specification 34 D.2 and §10.1). The slot follows the installed application.
@@ -341,7 +342,7 @@ mod tests {
             (0x07, 0x15, 0x01)
         );
         assert_eq!(STBC_OFFSET, 0x3F_0000);
-        assert_eq!(STBC_BYTES, 4128 * 1024);
+        assert_eq!(STBC_BYTES, 4120 * 1024);
         assert_eq!((BUTTON_GPIO, OUTPUT_GPIO), (9, 18));
     }
 }

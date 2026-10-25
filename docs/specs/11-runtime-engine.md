@@ -493,9 +493,9 @@ layout. An unresolved `%I*`, `%Q*`, or `%M*` binding must be resolved by a
 matching-area `VAR_CONFIG` entry before runtime construction and is rejected
 in disallowed declaration sections or on an area mismatch.
 
-The built-in driver registry exposes the stable canonical names `ethercat`,
-`gpio`, `loopback`, `modbus-rtu`, `modbus-tcp`, `mqtt`, and `simulated` in
-sorted unique order. Accepted aliases resolve to the canonical name before
+The built-in driver registry exposes the stable canonical names `analog`, `can`,
+`counter`, `ethercat`, `gpio`, `loopback`, `modbus-rtu`, `modbus-tcp`, `mqtt`, `pwm`,
+and `simulated` in sorted unique order. Accepted aliases resolve to the canonical name before
 validation or construction; this includes `sim`/`noop`, `modbus_rtu`,
 `modbus_tcp`, `mqtt-tcp`, and `ether-cat`/`ecat`. The explicit driver name `none` selects no driver.
 Driver lookup trims surrounding whitespace and is ASCII-case-insensitive.
@@ -574,6 +574,103 @@ being interpreted as energized. Synthetic filesystem tests prove parsing and
 sysfs file semantics only. They do not prove pin ownership, voltage, wiring,
 kernel driver operation, or device-in-the-loop behavior; those claims require
 the separately reviewed real-hardware case and artifact.
+
+##### Analog, PWM, counter and CAN drivers
+
+The drivers `analog`, `pwm`, `counter` and `can` give a project the other I/O
+of a chip with the same keys and meaning on every runtime (specification 34
+TARGET-01; the owner's decision of 16 October 2026 that chips work exactly as
+trust-runtime). A `line` names the runtime's own hardware: on a chip a pin or
+a peripheral that its chip file lists (`GPIO2`, `TWAI0`); on Linux a kernel
+device and channel, as below. A runtime without such hardware, macOS and
+Windows among them, refuses the driver when it starts, with the driver's name
+and the reason (specification 34 ARCH-13). Their parameters are checked
+fail-closed, with the key and the reason: the root is a table, an absent list is
+empty, an unknown key is refused, every address is concrete, flat and of the area
+and size the driver names, a line is used once across the driver's entries, and
+the entries of one list use bytes of their own, so no entry's bytes overlap
+another's (`%IW0` takes bytes 0 and 1, so `%IW1` beside it is refused, and `%IW2`
+is not). Numbers are JSON integers and words are exact, except `on_error`, which
+reads as the Modbus driver's does. Each input is read once at the start of each
+cycle, and each output is written after the tasks ran, as for every driver. An
+output's safe value is its `[[io.safe_state]]` value, otherwise 0.
+
+`analog`:
+
+- `inputs = [{ address, line }]`: `address` is a `%IW` word, and the input is
+  the voltage at the line in millivolts as an `INT`. A chip converts with its
+  own calibration at the attenuation that measures its whole range
+  (specification 34 Appendix D names each chip's range). On Linux the line is an
+  IIO input channel, `iio:device0/in_voltage1`, and the value is
+  `(raw + offset) × scale` from the channel's `_raw`, `_offset` (0 when absent)
+  and `_scale` files (`_scale` in millivolts per count, or the device's shared
+  `in_voltage_scale`), rounded to the nearest millivolt.
+- `outputs = [{ address, line, initial }]`: `address` is a `%QW` word, the
+  millivolts the line is driven to as an `INT`, from `initial` (default 0)
+  until the program writes it. On Linux the line is an IIO output channel,
+  `iio:device0/out_voltage0`, written as `round(mV / scale) − offset`. A chip
+  without a digital-to-analog converter refuses an output, with the reason.
+- A value outside what the hardware converts is limited to its range.
+
+`pwm`:
+
+- `outputs = [{ address, line, frequency_hz, initial }]`: `address` is a `%QW`
+  word, the duty cycle in hundredths of a percent as a `UINT` from 0 to 10,000,
+  where a larger value drives 100 %; `frequency_hz` is required, an integer from
+  1 to 1,000,000; `initial` is the duty cycle before the program writes it,
+  default 0. The driver makes the frequency with the finest duty resolution the
+  hardware has at it and refuses a frequency the hardware cannot make, with both
+  numbers. On a chip, outputs of one frequency share a timer, and the chip file
+  names how many timers and outputs it has. On Linux the line is a sysfs PWM
+  channel, `pwmchip0/pwm1`, which the driver exports and sets through `period`
+  (1,000,000,000 / `frequency_hz` nanoseconds, rounded down), `duty_cycle` and
+  `enable`.
+
+`counter`:
+
+- `inputs = [{ address, line, mode, edge, line_b }]`, with `mode` `pulse` (the
+  default) or `quadrature`.
+- `pulse`: `address` is a `%ID` double word, the number of `edge`s at `line`
+  (`rising`, the default, `falling` or `both`) since the driver started, as a
+  `UDINT` that wraps from 4,294,967,295 to 0. `line_b` is refused.
+- `quadrature`: `line` and `line_b` are an encoder's A and B; the count rises by
+  one at each edge of either line while A leads B and falls by one while B leads
+  A (four counts per cycle of A), as a `DINT` that wraps. `edge` is refused.
+- A chip counts in hardware with a 16-bit counter and adds the change since its
+  last read at each cycle start, so at most 32,767 counts may arrive between two
+  cycles; the chip file names how many counters it has. On Linux the line is a
+  counter device's count, `counter0/count0`, whose `function` the driver sets to
+  `increase` (with the synapse action of `edge`) or `quadrature x4` and whose
+  `count` it reads as the change since its last read; `line_b` is refused there,
+  as the device's own signals are the encoder's lines.
+
+`can` (CAN 2.0, ISO 11898-1):
+
+- `line` is the CAN controller: on a chip one of its chip file's controllers,
+  such as `TWAI0`, with `tx` and `rx` naming the pins that go to the
+  transceiver; on Linux a SocketCAN interface such as `can0`, where `tx` and
+  `rx` are refused.
+- `bitrate` is required: 10,000, 20,000, 50,000, 100,000, 125,000, 250,000,
+  500,000, 800,000 or 1,000,000 bit/s, the rates of CiA 301. A chip refuses a
+  rate its clock cannot make. On Linux the interface's rate belongs to the
+  operating system (`ip link`): the driver reads it, refuses another rate with
+  both numbers, and refuses an interface that is down.
+- `receive = [{ id, extended, address, length, timeout_ms }]`: each data frame
+  with `id` (11 bits, or 29 bits with `extended = true`) writes its data bytes to
+  the `length` bytes (0 to 8) of the input image from `address`, a `%IB` byte,
+  and zeros where its data length code does not reach; the newest frame before a
+  cycle start is the one read. With `timeout_ms` (1 to 60,000), no such frame
+  for that long makes the driver's health faulted with `no frame <id> for
+  <timeout_ms> ms`, and its `on_error` applies; the next frame ends it.
+- `transmit = [{ id, extended, address, length, period_ms }]`: every
+  `period_ms` (1 to 60,000) the driver sends a data frame with `id` and the
+  `length` bytes of the output image from `address`, a `%QB` byte; the safe
+  state's values are sent the same way.
+- `on_error` is `fault` (the default), `warn` or `ignore`, as for Modbus.
+- A controller that goes bus-off makes the driver's health faulted with `bus
+  off` and rejoins after the bus recovery of ISO 11898-1, without a restart.
+- Two receives, or two transmits, with one `id` and `extended` are refused; a
+  receive and a transmit may share one.
 
 Process-image drivers must keep scan-cycle methods bounded. Drivers with
 blocking wire protocols may own background workers, but the `IoDriver` boundary
@@ -765,6 +862,25 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
   little-endian bytes after scaling so `%IW`/`%ID` bindings read the same value
   that the map produced.
 - Register quantity is derived from the process image size (`ceil(bytes / 2)`).
+- The protocol is one implementation on every runtime, the `trust-modbus` crate
+  (Modbus Application Protocol V1.1b3, Modbus Messaging on TCP/IP V1.0b and
+  Modbus over Serial Line V1.02; checklist S7 and S9). A request keeps the
+  specification's quantity limits: 2,000 bits for FC01 and FC02, 125 registers
+  for FC03 and FC04, 1,968 bits for FC15 and 123 registers for FC16. A process
+  image larger than one request is exchanged in several requests of at most
+  that many, in address order, within the one exchange of a cycle, as a
+  professional client does; a range that reaches past address 65,535 is refused
+  at configuration.
+- Every response is checked before its data is taken: the function is the
+  request's; the byte count is the one the requested quantity makes; a write
+  echoes its address and its value or quantity. A Modbus TCP response has
+  protocol 0, a length from 2 to 254 that its bytes match, and the request's
+  transaction id; a response with another transaction id is discarded and the
+  client reads on until its own or its timeout (V1.0b §4.4.1.3). The unit id of
+  a TCP response is not compared, as V1.0b lets a client ignore it for a server
+  directly on TCP/IP. An exception response is the typed exception error with
+  its code and the specification's name for it. A response that fails a check is
+  a transport error under `on_error`, and no byte of it reaches the image.
 - Runtime exchange is worker-backed: scan-cycle reads/writes use bounded
   snapshot/handoff state while Modbus TCP connect/read/write round trips happen
   on the Modbus worker.
@@ -2822,8 +2938,9 @@ each 4 KiB unit the container takes, at the up to 0.4 seconds of Appendix D.2.
 The third is the programming and the read-back of each 256-byte step of the
 commit, two steps at the few milliseconds that specification 34 §11.2 gives,
 counted as 5 milliseconds each. A container of 100 KiB (102,400 bytes) gives
-4 + 10 + 4 = 18 seconds, and one that fills a whole 3,056 KiB slot (3,129,344
-bytes) gives 4 + 305.6 + 122.24, about 432 seconds. The bound is the same on
+4 + 10 + 4 = 18 seconds, and one that fills a whole 2,060 KiB slot of the
+ESP32-C6 (2,109,440 bytes: 515 units and 8,240 steps) gives 4 + 206 + 82.4,
+about 292 seconds. The bound is the same on
 every runtime, because a client sends the same request to each: a computer
 commits with no erase or program step and replies sooner, and the bound is then
 only a limit. A chip whose resource is Stopped writes an upload into its program store as its
@@ -3312,7 +3429,8 @@ of a firmware that has no clock, changes nothing and does not stop the tool.
 §5.1.1) and, on a device without an operating system, the reset its boot read. It takes no
 parameters and changes nothing; its minimum role is Viewer. Like every control operation it
 carries one audit record and, being a read of the device's own descriptor, no operation details.
-Its result is the same shape on every runtime, a computer or a device without an operating system:
+`trust-runtime ctl capabilities` prints its result as indented JSON. Its result is the same shape
+on every runtime, a computer or a device without an operating system:
 
 | Result field | Type | Value |
 |---|---|---|
@@ -6049,16 +6167,21 @@ A pairing session owns at most one pending code. Starting again replaces the
 previous pending code. A code is exactly six ASCII decimal digits, expires
 300 seconds after creation, and remains valid at its exact `expires_at`
 second. Claim input trims surrounding whitespace. A wrong code does not
-consume the pending session; an expired or successful claim does. A successful
-claim returns one URL-safe, unpadded 32-byte random token, stores it enabled,
-and assigns a unique stable ID even when multiple claims occur in one clock
-second.
+consume the pending session; an expired or successful claim does, and so does a
+claim with the right code that is then refused. A claim without a pending code,
+with a wrong code or with an expired one is refused with `invalid or expired
+code`. A successful claim returns one URL-safe, unpadded 32-byte random token,
+stores it enabled, and assigns a unique stable ID even when multiple claims
+occur in one clock second. Codes and tokens come from a cryptographically
+secure random source; a runtime whose source gives none refuses `pair.start`
+and the claim with the source's error rather than use predictable numbers.
 
 The default pairing role is Operator. Viewer, Operator, and Engineer requests
 retain their requested role; an Admin request is reduced to Engineer so the
 pairing flow cannot mint an Admin credential. At most 256 enabled pairing
 tokens may exist. Reaching that bound rejects the claim without creating a
-token, and a later claim is possible after a token is revoked. Tokens expire
+token, with `at most 256 pairing tokens may be enabled; revoke one first`, and
+a later claim is possible after a token is revoked. Tokens expire
 30 days after creation and remain valid through their exact `expires_at`
 second. Validation accepts only an enabled, unexpired, byte-exact token and
 returns its stored role.
@@ -6071,14 +6194,43 @@ tokens remain visible until expiry but never validate and are not counted
 toward the enabled-token limit.
 
 The pairing file is a JSON object with a `tokens` array. An absent file loads
-an empty store. Unreadable or malformed content grants no token authority.
+an empty store. Unreadable or malformed content grants no token authority and
+is never replaced: each later claim, and each revocation that would change a
+token, is refused with the read error (`read pairing file …` or `parse pairing
+file …`) until the file is repaired or removed and the runtime starts again.
 Legacy rows with `expires_at = 0` derive
 `created_at + 30 days` with saturating arithmetic; already expired legacy rows
 are pruned rather than temporarily revived. Expired rows are removed on load
 and before every pairing, claim, validation, list, or revoke operation.
 Successful token creation and revocation become externally successful only
-after the resulting file is durably written. On Unix the credential file mode
-is `0600`; replacement must not expose a partial JSON credential set.
+after the resulting file is durably written; a write that fails is refused
+with its error and leaves every token as it was. On Unix the credential file
+mode is `0600`; replacement must not expose a partial JSON credential set: the
+runtime writes a new file beside it and renames it over the old one. A runtime
+that holds no pairings answers the `pair.*` requests with `pairing
+unavailable`.
+
+A chip pairs by the same rules and the same requests, `pair.start`,
+`pair.claim`, `pair.list` and `pair.revoke`, with the same replies
+(specification 34 S5; the shared rules are one implementation that both
+runtimes call). It keeps the same JSON object, without spaces, in a record of
+two flash sectors, its chip file's `pairing_a` and `pairing_b`, written as its
+device settings are (specification 34 TARGET-02), so that a power cut during a
+write keeps the previous tokens. The ESP32-C6's sectors are 4,096 bytes, of
+which the record's header takes 20 (specification 34 Appendix D.2): room for
+24 tokens of 169 bytes each. A claim that the record cannot take first removes
+disabled tokens, the oldest first, since they grant nothing; a claim that the
+record cannot take even then is refused with `the device has no room for
+another pairing`, and a revoked or expired token makes room. The times are the
+chip's wall clock: a chip whose clock is not set refuses `pair.start` and
+`pair.claim` with `pairing needs the device's clock: set it with a time server
+or clock.set`, and takes no pairing token until its clock is set, so a token
+can never outlive its 30 days; `pair.list` and `pair.revoke` still answer, and
+no token expires before the clock is set. A chip
+draws its codes and tokens from its hardware random number generator, which
+is random only while the radio runs, so it pairs only while it serves a
+network and refuses `pair.start` otherwise with `pairing is for clients on
+the network, and the device serves none`.
 
 TLS material loading is inert when TLS mode is disabled: paths may be absent
 and no file is read. Every enabled mode requires certificate and private-key

@@ -13,6 +13,7 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 use core::sync::atomic::{AtomicBool, Ordering};
 use esp_hal::{
     clock::CpuClock, efuse, gpio::Pin, timer::systimer::Alarm, usb::usb_serial_jtag::UsbSerialJtag,
@@ -23,14 +24,16 @@ use trust_platform_memory::reset::{ResetCause, ResetStore};
 use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::ports::ProgramFlash;
 use trust_runtime_core::retain::checkpoint::{CheckpointError, CheckpointFlash, Slot};
-use trust_runtime_services::chip::process_io::record_lines;
+use trust_runtime_services::chip::process_io::{record_drivers, record_lines};
 use trust_runtime_services::device_settings::SettingsFlash;
+use trust_runtime_services::flash_record::SectorFlash;
 
 pub(crate) mod calendar;
 mod checkpoint_flash;
 mod clock;
 mod code_region;
 mod console;
+mod drivers;
 pub(crate) mod emergency;
 mod image_window;
 mod reset;
@@ -45,7 +48,11 @@ pub use emergency::emergency_halt;
 pub use reset::{end_program_load, mark_program_load, ResetControl, Watchdog};
 pub use usb_link::UsbLink;
 pub use wait::Wait;
-pub use wifi::{bring_up, start_scheduler, C6Net, NetLink, RadioFailure, RadioParts};
+pub use wifi::{
+    bring_up, pairing_random, start_scheduler, C6Net, NetLink, RadioFailure, RadioParts,
+};
+
+use drivers::{claim_driver, DriverPeripherals};
 
 /// Set by the first `Board::take`. `esp_hal::init` panics when it runs twice, so this guard
 /// turns a second call into `PeripheralsTaken` before the HAL is touched.
@@ -113,6 +120,9 @@ pub struct Board {
     flash: FlashOwner<FlashStorage<'static>>,
     /// The chip's GPIO bank, from which the record's lines are claimed by pin name.
     gpio: GpioBank,
+    /// ADC1, the LEDC, the PCNT and the two TWAI controllers, which the record's other drivers
+    /// claim.
+    drivers: DriverPeripherals,
     /// The SYSTIMER alarm the resource loop's wait arms at its deadline.
     wait_alarm: Option<Alarm<'static>>,
     /// What the Wi-Fi station takes (checklist L3).
@@ -122,8 +132,8 @@ pub struct Board {
 impl Board {
     /// Take the board once and configure the stock DevKitC-1 connection: the console and the
     /// resource loop's clock and deadline alarm, the watchdog (configured, not enabled), the
-    /// reset control and record, the flash and the identity, and the GPIO bank. A second call
-    /// returns `PeripheralsTaken`.
+    /// reset control and record, the flash and the identity, the GPIO bank and the peripherals of
+    /// the I/O drivers. A second call returns `PeripheralsTaken`.
     #[inline(never)]
     pub fn take() -> Result<Self, BoardError> {
         if TAKEN.swap(true, Ordering::AcqRel) {
@@ -176,6 +186,15 @@ impl Board {
             scheduler_interrupt: peripherals.FROM_CPU_INTR0,
             wifi: peripherals.WIFI,
         });
+        // The peripherals of the `analog`, `pwm`, `counter` and `can` drivers (specification 11
+        // §6.5), which each program claims from the board as it claims its pins.
+        let drivers = DriverPeripherals::new(
+            peripherals.ADC1,
+            peripherals.LEDC,
+            peripherals.PCNT,
+            peripherals.TWAI0,
+            peripherals.TWAI1,
+        );
         let watchdog = Watchdog::new(peripherals.TIMG0);
         let reset = ResetControl::new();
         let mut flash = FlashStorage::new(peripherals.FLASH);
@@ -188,6 +207,7 @@ impl Board {
             identity,
             flash: FlashOwner::new(flash),
             gpio,
+            drivers,
             wait_alarm,
             radio,
         })
@@ -245,6 +265,12 @@ impl Board {
         Box::new(DeviceSectors::new(self.flash.raw()))
     }
 
+    /// The flash of the C6's two pairing sectors (specification 11 §6.9.6).
+    #[must_use]
+    pub fn pairing_flash(&self) -> Box<dyn SectorFlash> {
+        Box::new(DeviceSectors::pairings(self.flash.raw()))
+    }
+
     /// The SYSTIMER alarm the resource loop's wait arms; taken once, so the wait owns it.
     pub fn take_wait_alarm(&mut self) -> Option<Alarm<'static>> {
         self.wait_alarm.take()
@@ -298,6 +324,7 @@ impl Board {
             hardware: BoardHardware {
                 gpio: self.gpio,
                 flash: self.flash,
+                drivers: self.drivers,
             },
         }
     }
@@ -320,12 +347,14 @@ pub struct BoardParts {
 }
 
 /// The hardware that each program claims from, kept for the life of the boot so that a program loaded in
-/// place claims the pins and the checkpoint flash that the program before it released (specification 34
-/// STATE-08): the GPIO bank, which lends a pin to one line at a time, and the flash owner, which hands
-/// the checkpoint slots to one writer at a time.
+/// place claims the pins, the peripherals and the checkpoint flash that the program before it released
+/// (specification 34 STATE-08): the GPIO bank, which lends a pin to one line of one driver at a time,
+/// the peripherals of the other I/O drivers, each lent to one driver at a time, and the flash owner,
+/// which hands the checkpoint slots to one writer at a time.
 pub struct BoardHardware {
     gpio: GpioBank,
     flash: FlashOwner<FlashStorage<'static>>,
+    drivers: DriverPeripherals,
 }
 
 impl ProgramHardware for BoardHardware {
@@ -333,15 +362,24 @@ impl ProgramHardware for BoardHardware {
 
     /// Claims the record's GPIO lines by pin name, in `io.toml` order, and drives each output to its
     /// initial level before it becomes an output (design §1.1, specification 34 STATE-01 and
-    /// TARGET-01), recording its `[[io.safe_state]]` level for the terminal fault path (TARGET-08). A
-    /// pin the chip lacks or keeps, or one named by two lines, is refused.
+    /// TARGET-01), recording its `[[io.safe_state]]` level for the terminal fault path (TARGET-08).
+    /// Then it builds the record's other drivers in `io.toml` order, `analog`, `pwm`, `counter` and
+    /// `can` (specification 11 §6.5), each over the pins and the peripheral it claims, and refuses
+    /// any other driver with its name (ARCH-13). A pin the chip lacks or keeps, or one named by two
+    /// lines, is refused, and so is a peripheral that another driver holds; on a refusal everything
+    /// claimed before it is free again.
     fn claim_lines(&mut self, config: &Configuration) -> Result<GpioIo, String> {
-        let (inputs, outputs) = record_lines(config, "C6")?;
+        let requests = record_drivers(config)?;
+        let (inputs, outputs) = record_lines(config);
         let (inputs, outputs) =
             claim_lines(&self.gpio, &inputs, &outputs, config).map_err(|error| {
                 format!("the installed application's GPIO lines cannot be claimed: {error}")
             })?;
-        Ok(bind_lines(inputs, outputs))
+        let mut drivers = Vec::with_capacity(requests.len());
+        for request in &requests {
+            drivers.push(claim_driver(request, &self.gpio, &self.drivers, config)?);
+        }
+        Ok(bind_lines(inputs, outputs).with_drivers(drivers))
     }
 
     /// The chip's checkpoint flash (specification 34 §10.1), for one program at a time: it is free again

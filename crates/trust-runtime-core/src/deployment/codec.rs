@@ -1,8 +1,9 @@
 //! The bytes of a deployment record (specification 34 §5.1.1): a header, sections in ascending
 //! order of their identifiers, and a CRC-32.
 //!
-//! Version 1 has exactly the sections 1 to 7. A later version adds sections with new
-//! identifiers after them and decodes the sections of version 1 with the functions below.
+//! Version 1 has exactly the sections 1 to 7, and version 2 adds section 8, the drivers'
+//! parameters. A later version adds sections with new identifiers after them and decodes the
+//! sections before them with the functions below.
 
 mod configuration;
 
@@ -27,7 +28,9 @@ const CRC_BYTES: usize = 4;
 /// Identifier, reserved bytes and payload length.
 const SECTION_HEADER_BYTES: usize = 8;
 /// The sections of version 1, in their order.
-const SECTION_COUNT: u16 = 7;
+const VERSION_1_SECTIONS: u16 = 7;
+/// The sections of version 2, the version this runtime writes: version 1's and section 8.
+const SECTION_COUNT: u16 = 8;
 
 const APPLICATION: u16 = 1;
 const CONTRACTS: u16 = 2;
@@ -36,6 +39,7 @@ const PROCESS_IMAGE: u16 = 4;
 const TASKS: u16 = 5;
 const IMPORTS: u16 = 6;
 const CONFIGURATION: u16 = 7;
+const DRIVER_PARAMETERS: u16 = 8;
 
 const APPLICATION_BYTES: usize = 32 + 4 + 2 + 2 + 4 + 32 + 32;
 const CONTRACTS_BYTES: usize = 2 + 2 + 1 + 1 + 2;
@@ -144,6 +148,14 @@ impl DeploymentRecord {
         section(&mut out, CONFIGURATION, configuration_bytes.len(), |out| {
             out.extend_from_slice(&configuration_bytes);
         });
+        let mut parameter_bytes = Vec::new();
+        parameter_bytes
+            .try_reserve_exact(configuration::parameters_len(&self.configuration))
+            .map_err(|_| Error::Memory)?;
+        configuration::encode_parameters(&self.configuration, &mut parameter_bytes)?;
+        section(&mut out, DRIVER_PARAMETERS, parameter_bytes.len(), |out| {
+            out.extend_from_slice(&parameter_bytes);
+        });
         let crc = crc32::checksum(&out);
         out.extend_from_slice(&crc.to_le_bytes());
         debug_assert_eq!(out.len(), length);
@@ -162,6 +174,7 @@ impl DeploymentRecord {
             + self.tasks_bytes()
             + self.imports_bytes()
             + self.configuration.encoded_len()
+            + configuration::parameters_len(&self.configuration)
             + CRC_BYTES
     }
 
@@ -189,9 +202,11 @@ impl DeploymentRecord {
             return Err(Error::Magic);
         }
         let version = header.u16()?;
-        if version != RECORD_VERSION {
-            return Err(Error::Version(version));
-        }
+        let section_count = match version {
+            1 => VERSION_1_SECTIONS,
+            RECORD_VERSION => SECTION_COUNT,
+            other => return Err(Error::Version(other)),
+        };
         let count = header.u16()?;
         let length = header.u32()? as usize;
         if length > RECORD_MAX_BYTES {
@@ -218,7 +233,7 @@ impl DeploymentRecord {
             }
             let payload_length = sections.u32()? as usize;
             let payload = sections.take(payload_length)?;
-            if !(1..=SECTION_COUNT).contains(&id) {
+            if !(1..=section_count).contains(&id) {
                 return Err(Error::UnknownSection(id));
             }
             if id <= previous {
@@ -231,8 +246,15 @@ impl DeploymentRecord {
             return Err(Error::Field("the section count"));
         }
         let payload = |id: u16| payloads[usize::from(id - 1)].ok_or(Error::MissingSection(id));
-        for id in 1..=SECTION_COUNT {
+        for id in 1..=section_count {
             payload(id)?;
+        }
+        let mut configuration =
+            read_section(CONFIGURATION, payload(CONFIGURATION)?, configuration::read)?;
+        if section_count >= DRIVER_PARAMETERS {
+            read_section(DRIVER_PARAMETERS, payload(DRIVER_PARAMETERS)?, |reader| {
+                configuration::read_parameters(reader, &mut configuration.io_drivers)
+            })?;
         }
         Ok(Self {
             application: read_section(APPLICATION, payload(APPLICATION)?, read_application)?,
@@ -245,11 +267,7 @@ impl DeploymentRecord {
             )?,
             tasks: read_section(TASKS, payload(TASKS)?, read_tasks)?,
             imports: read_section(IMPORTS, payload(IMPORTS)?, read_imports)?,
-            configuration: read_section(
-                CONFIGURATION,
-                payload(CONFIGURATION)?,
-                configuration::read,
-            )?,
+            configuration,
         })
     }
 }

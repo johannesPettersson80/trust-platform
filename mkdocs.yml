@@ -219,6 +219,10 @@ nav:
       - Runbooks: examples/runbooks.md
   - Hardware:
       - Overview: hardware/index.md
+      - ESP32-C6 Getting Started: hardware/esp32c6-getting-started.md
+      - Install And Update truST On A Chip: hardware/chip-install-and-update.md
+      - device.toml: hardware/device-toml.md
+      - Supported Chips: hardware/supported-chips.md
       - Supported Platforms And Compatibility: reference/hardware-compatibility.md
       - Raspberry Pi / Target Install Notes: operate/install-on-target.md
       - Linux / PREEMPT_RT: operate/preempt-rt.md
@@ -235,6 +239,7 @@ nav:
           - Overview: reference/config/index.md
           - runtime.toml: reference/config/runtime-toml.md
           - io.toml: reference/config/io-toml.md
+          - device.toml: hardware/device-toml.md
           - ads.toml: reference/config/ads-toml.md
           - simulation.toml: reference/config/simulation-toml.md
           - trust-lsp.toml: reference/config/trust-lsp-toml.md

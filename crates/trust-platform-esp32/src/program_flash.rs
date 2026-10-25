@@ -22,16 +22,16 @@ use trust_runtime_core::retain::checkpoint::{
 use crate::checkpoint::{RawFlash, SlotFlash};
 use crate::profile::{FLASH_ERASE_BYTES, FLASH_PROGRAM_BYTES};
 
-/// The bytes of one program slot: 2,064 KiB, which is 516 erase units (`application_a` of
+/// The bytes of one program slot: 2,060 KiB, which is 515 erase units (`application_a` of
 /// `chips/esp32c6.toml`).
-pub const SLOT_BYTES: u32 = 2_064 * 1024;
+pub const SLOT_BYTES: u32 = 2_060 * 1024;
 
 /// The flash offset of slot A, the chip file's `application_a`. The installed application begins
 /// here, so the boot reads slot A until it selects the newest committed slot itself.
 pub const SLOT_A_OFFSET: u32 = 0x3F_0000;
 
 /// The flash offset of slot B, the chip file's `application_b`, which follows slot A.
-pub const SLOT_B_OFFSET: u32 = 0x5F_4000;
+pub const SLOT_B_OFFSET: u32 = 0x5F_3000;
 
 /// The flash offset of a program slot.
 const fn slot_base(slot: Slot) -> u32 {

@@ -14,5 +14,10 @@ pub enum FirmwareAction {
         /// The firmware folder of the release for this chip: `bootloader.bin`, `partitions.bin` and
         /// `firmware.bin`.
         folder: PathBuf,
+        /// Also erase the chip's device settings, `device.toml`, and its pairings, so that it boots
+        /// without a control token, without pairing tokens and without a network: the way back to a
+        /// chip whose control token is lost. It needs the chip on USB, as every first install does.
+        #[arg(long)]
+        reset_settings: bool,
     },
 }

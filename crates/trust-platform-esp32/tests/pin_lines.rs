@@ -30,7 +30,8 @@ fn chip_pins() -> (u32, Vec<GpioPin>) {
 #[test]
 fn pin_names_are_checked_against_the_chip_file() {
     let (pins, reserved) = chip_pins();
-    // `chips/esp32c6.toml` has 31 pins (GPIO0 to GPIO30) and reserves GPIO12 and GPIO13 for USB.
+    // `chips/esp32c6.toml` has 31 pins (GPIO0 to GPIO30) and reserves GPIO12 and GPIO13 for USB and
+    // GPIO24 to GPIO30 for the SPI flash.
     assert_eq!(pins, 31);
     assert_eq!(
         check_pin("GPIO18", pins, &reserved).map(GpioPin::number),
@@ -43,6 +44,10 @@ fn pin_names_are_checked_against_the_chip_file() {
         reserved_pin.to_string(),
         "GPIO12 is reserved by the firmware"
     );
+    // A flash pin: a line there would take the flash the chip runs from. Catches a firmware that
+    // lets a project drive the SPI flash's clock.
+    let flash_pin = check_pin("GPIO29", pins, &reserved).expect_err("GPIO29 is the flash clock");
+    assert_eq!(flash_pin.to_string(), "GPIO29 is reserved by the firmware");
     // The firmware cannot read the chip file, so its compiled-in count and reserved list are the
     // chip file's `[gpio]`. Catches a firmware that counts the wrong number of pins or forgets a
     // reserved pin.

@@ -182,7 +182,7 @@ mod tests {
         assert_eq!(c6.stack_window_bytes, 78 * 1024);
         assert_eq!(c6.stack_headroom_bytes, 2 * 1024);
         assert_eq!(c6.image_capacity_bytes, 0x1F0000);
-        assert_eq!(c6.application_bytes, 4128 * 1024);
+        assert_eq!(c6.application_bytes, 4120 * 1024);
     }
 
     #[test]
@@ -227,6 +227,9 @@ mod tests {
             ("ota_0", "app", "ota_0", span(layout.firmware)),
             ("ota_1", "app", "ota_1", span(layout.firmware_b.unwrap())),
             ("stbc", "0x40", "0x00", span(layout.application)),
+            // The pairings' two sectors (specification 11 §6.9.6).
+            ("pair_a", "0x44", "0x00", span(layout.pairing_a.unwrap())),
+            ("pair_b", "0x44", "0x01", span(layout.pairing_b.unwrap())),
             ("ckpt_a", "0x41", "0x00", span(layout.checkpoint_a)),
             ("ckpt_b", "0x41", "0x01", span(layout.checkpoint_b)),
         ];

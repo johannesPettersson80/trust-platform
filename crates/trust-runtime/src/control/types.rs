@@ -64,17 +64,6 @@ pub(super) struct EvalParams {
     pub(super) expr: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub(super) struct PairClaimParams {
-    pub(super) code: String,
-    pub(super) role: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct PairRevokeParams {
-    pub(super) id: String,
-}
-
 #[cfg(test)]
 mod tests {
     use crate::io::{IoAddress, IoInterface, IoSnapshot, IoSnapshotEntry, IoSnapshotValue};

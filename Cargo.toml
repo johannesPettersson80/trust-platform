@@ -22,6 +22,7 @@ members = [
     "crates/trust-platform-esp32",
     "crates/trust-platform-memory",
     "crates/trust-platform-net",
+    "crates/trust-modbus",
     "crates/trust-chips",
     "crates/trust-runtime",
     "crates/trust-runtime-client",
@@ -134,6 +135,7 @@ trust-plc-lib = { path = "crates/trust-plc-lib" }
 trust-runtime-services = { path = "crates/trust-runtime-services" }
 trust-platform-memory = { path = "crates/trust-platform-memory" }
 trust-platform-net = { path = "crates/trust-platform-net" }
+trust-modbus = { path = "crates/trust-modbus" }
 trust-platform-stm32 = { path = "crates/trust-platform-stm32" }
 trust-chips = { path = "crates/trust-chips" }
 trust-runtime = { path = "crates/trust-runtime" }

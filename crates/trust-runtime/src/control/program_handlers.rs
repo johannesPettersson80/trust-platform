@@ -1,17 +1,15 @@
 use crate::error::RuntimeError;
 use crate::scheduler::{ReloadClaim, ResourceCommand};
-use crate::security::AccessRole;
-use serde_json::json;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
 use trust_runtime_services::loading::reload as reload_rules;
 
 use super::resource_queue::queue_refusal;
-use super::types::{PairClaimParams, PairRevokeParams};
 use super::{ControlResponse, ControlState};
 
 // `pause`, `resume`, `restart` and `shutdown` follow the shared resource rules
-// (`trust_runtime_services::resource::operations`), which the shared request pipeline answers.
+// (`trust_runtime_services::resource::operations`), which the shared request pipeline answers. It
+// answers the pairing requests `pair.*` too (`trust_runtime_services::access::pairing`).
 
 /// The shared `shutdown` reply, for the in-crate tests that call it directly.
 #[cfg(test)]
@@ -125,77 +123,4 @@ fn reload_reply(id: u64, outcome: ReloadOutcome, state: &ControlState) -> Contro
     reload_rules::reply(id, outcome, |()| {
         super::ads_handlers::refresh_ads_server_runtime_after_online_change(state)
     })
-}
-
-pub(super) fn handle_pair_start(id: u64, state: &ControlState) -> ControlResponse {
-    let Some(store) = state.pairing.as_ref() else {
-        return ControlResponse::error(id, "pairing unavailable".into());
-    };
-    let code = store.start_pairing();
-    ControlResponse::ok(
-        id,
-        json!({ "code": code.code, "expires_at": code.expires_at }),
-    )
-}
-
-pub(super) fn handle_pair_claim(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    let params: PairClaimParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
-    };
-    let Some(store) = state.pairing.as_ref() else {
-        return ControlResponse::error(id, "pairing unavailable".into());
-    };
-    let requested_role = match params.role.as_deref() {
-        Some(text) => match AccessRole::parse(text) {
-            Some(role) => Some(role),
-            None => return ControlResponse::error(id, "invalid role".into()),
-        },
-        None => None,
-    };
-    match store.claim(&params.code, requested_role) {
-        Some(token) => ControlResponse::ok(id, json!({ "token": token })),
-        None => ControlResponse::error(id, "invalid or expired code".into()),
-    }
-}
-
-pub(super) fn handle_pair_list(id: u64, state: &ControlState) -> ControlResponse {
-    let Some(store) = state.pairing.as_ref() else {
-        return ControlResponse::error(id, "pairing unavailable".into());
-    };
-    let tokens = store.list();
-    ControlResponse::ok(id, json!({ "tokens": tokens }))
-}
-
-pub(super) fn handle_pair_revoke(
-    id: u64,
-    params: Option<serde_json::Value>,
-    state: &ControlState,
-) -> ControlResponse {
-    let params: PairRevokeParams = match params {
-        Some(value) => match serde_json::from_value(value) {
-            Ok(parsed) => parsed,
-            Err(err) => return ControlResponse::error(id, format!("invalid params: {err}")),
-        },
-        None => return ControlResponse::error(id, "missing params".into()),
-    };
-    let Some(store) = state.pairing.as_ref() else {
-        return ControlResponse::error(id, "pairing unavailable".into());
-    };
-    if params.id == "all" {
-        let count = store.revoke_all();
-        return ControlResponse::ok(id, json!({ "status": "revoked", "count": count }));
-    }
-    if store.revoke(&params.id) {
-        ControlResponse::ok(id, json!({ "status": "revoked", "id": params.id }))
-    } else {
-        ControlResponse::error(id, "unknown token id".into())
-    }
 }

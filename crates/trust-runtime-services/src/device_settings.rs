@@ -18,12 +18,13 @@ use alloc::vec::Vec;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use trust_runtime_core::retain::checkpoint::FlashError;
+
+use crate::flash_record;
 
 /// The magic word of a settings record.
 pub const MAGIC: [u8; 8] = *b"TRSTDS01";
 /// The bytes before a record's text: the magic, the sequence, the length and the CRC-32 of the text.
-pub const RECORD_HEADER_BYTES: usize = 20;
+pub const RECORD_HEADER_BYTES: usize = flash_record::HEADER_BYTES;
 /// The most trusted keys a device keeps.
 pub const MAX_TRUSTED_KEYS: usize = 8;
 /// The TCP port of the control connection over a device's network, without `[control] port`: the
@@ -465,41 +466,20 @@ pub fn ipv4(text: &str) -> Option<[u8; 4]> {
 }
 
 /// The record that holds `settings` as sequence `sequence`: the magic, the sequence, the text's length
-/// and CRC-32, and the JSON text. `None` when it does not fit `capacity` bytes, a sector.
+/// and CRC-32, and the JSON text ([`crate::flash_record`]). `None` when it does not fit `capacity`
+/// bytes, a sector.
 #[must_use]
 pub fn encode(settings: &DeviceSettings, sequence: u32, capacity: usize) -> Option<Vec<u8>> {
     let text = serde_json::to_vec(settings).ok()?;
-    let length = u32::try_from(text.len()).ok()?;
-    if RECORD_HEADER_BYTES + text.len() > capacity {
-        return None;
-    }
-    let mut record = Vec::with_capacity(RECORD_HEADER_BYTES + text.len());
-    record.extend_from_slice(&MAGIC);
-    record.extend_from_slice(&sequence.to_le_bytes());
-    record.extend_from_slice(&length.to_le_bytes());
-    record.extend_from_slice(&trust_runtime_core::crc32::checksum(&text).to_le_bytes());
-    record.extend_from_slice(&text);
-    Some(record)
+    flash_record::encode(&MAGIC, sequence, &text, capacity)
 }
 
-/// The settings and sequence of the record at the start of `sector`, `None` for an erased sector or
-/// a record that a write did not finish (its CRC-32 is wrong).
+/// The settings and sequence of the record at the start of `sector`, `None` for an erased sector, a
+/// record that a write did not finish (its CRC-32 is wrong) and one whose text is not settings.
 #[must_use]
 pub fn decode(sector: &[u8]) -> Option<(u32, DeviceSettings)> {
-    let header = sector.get(..RECORD_HEADER_BYTES)?;
-    if header[..8] != MAGIC {
-        return None;
-    }
-    let word = |at: usize| {
-        u32::from_le_bytes([header[at], header[at + 1], header[at + 2], header[at + 3]])
-    };
-    let length = usize::try_from(word(12)).ok()?;
-    let text = sector.get(RECORD_HEADER_BYTES..RECORD_HEADER_BYTES.checked_add(length)?)?;
-    if trust_runtime_core::crc32::checksum(text) != word(16) {
-        return None;
-    }
-    let settings = serde_json::from_slice(text).ok()?;
-    Some((word(8), settings))
+    let (sequence, text) = flash_record::decode(&MAGIC, sector)?;
+    Some((sequence, serde_json::from_slice(text).ok()?))
 }
 
 /// The newer of the two sectors' records, by its index (0 or 1) and with its sequence; `None` when
@@ -524,32 +504,9 @@ pub fn too_long(capacity: usize) -> String {
     )
 }
 
-/// The flash of a device's two settings sectors (`device_a` and `device_b` of its chip file).
-pub trait SettingsFlash {
-    /// The bytes of each sector, one erase unit.
-    fn sector_bytes(&self) -> usize;
-
-    /// Reads `bytes.len()` bytes from the start of `sector` (0 or 1).
-    ///
-    /// # Errors
-    ///
-    /// The flash's failure.
-    fn read(&mut self, sector: usize, bytes: &mut [u8]) -> Result<(), FlashError>;
-
-    /// Erases `sector`: every byte becomes 0xFF.
-    ///
-    /// # Errors
-    ///
-    /// The flash's failure.
-    fn erase(&mut self, sector: usize) -> Result<(), FlashError>;
-
-    /// Programs `bytes`, whole 4-byte units, from the start of `sector`.
-    ///
-    /// # Errors
-    ///
-    /// The flash's failure.
-    fn program(&mut self, sector: usize, bytes: &[u8]) -> Result<(), FlashError>;
-}
+/// The flash of a device's two settings sectors (`device_a` and `device_b` of its chip file): the
+/// two sectors of a record ([`crate::flash_record`]).
+pub use crate::flash_record::SectorFlash as SettingsFlash;
 
 /// A device's settings store: its two sectors and the newest record they hold.
 pub struct SettingsStore {

@@ -47,7 +47,7 @@ use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::chip::platform::ProgramValues;
-use trust_runtime_services::chip::process_io::record_lines;
+use trust_runtime_services::chip::process_io::{record_entry_bytes, record_lines};
 use trust_runtime_services::chip::watchdog::{cycle_timeout_ms, CycleWatchdog};
 use trust_runtime_services::installation::{Admitted, ProgramFormat};
 use trust_runtime_services::loading::reload::ReloadImage;
@@ -316,10 +316,12 @@ where
         }
         let (bindings, names) = io_bindings(&admitted)
             .map_err(|error| format!("the change's Live Values cannot be bound: {error}"))?;
-        let (inputs, outputs) = record_lines(&config, "C6")?;
-        if let Some(address) = unwired_binding(&bindings, &inputs, &outputs) {
+        let (inputs, outputs) = record_lines(&config);
+        let entries = record_entry_bytes(&config)?;
+        if let Some(address) = unwired_binding(&bindings, &inputs, &outputs, &entries) {
             return Err(format!(
-                "the candidate binds {}, which the running program's record gives no line",
+                "the candidate binds {}, which the running program's record gives no line or \
+                 driver entry",
                 address_text(&address)
             ));
         }

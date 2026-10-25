@@ -131,9 +131,9 @@ pub fn check_pin(name: &str, pins: u32, reserved: &[GpioPin]) -> Result<GpioPin,
 pub const CHIP_GPIO_PINS: u32 = 31;
 
 /// The pins the C6's firmware keeps, from `chips/esp32c6.toml` `[gpio] reserved`: GPIO12 and
-/// GPIO13 carry the USB-Serial/JTAG data lines. The host test `pin_lines.rs` keeps this equal to
-/// the chip file.
-pub const CHIP_GPIO_RESERVED: [u8; 2] = [12, 13];
+/// GPIO13 carry the USB-Serial/JTAG data lines, and GPIO24 to GPIO30 the SPI flash that the firmware
+/// and the program run from. The host test `pin_lines.rs` keeps this equal to the chip file.
+pub const CHIP_GPIO_RESERVED: [u8; 9] = [12, 13, 24, 25, 26, 27, 28, 29, 30];
 
 /// One input line: the bit of the flat input image it fills, and the pin it samples.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -354,6 +354,26 @@ mod gpio {
             // `clone_unchecked` asks of its caller.
             let copy = unsafe { owned.clone_unchecked() };
             Ok((copy, claim))
+        }
+
+        /// The pin `name` for a line of one of the chip's other drivers (`analog`, `pwm`, `counter`,
+        /// `can`; specification 11 §6.5), checked against the chip's file as a GPIO line's pin is, and
+        /// the claim that holds it: a pin serves one line of one driver, GPIO lines included
+        /// (specification 34 TARGET-01). The driver keeps the claim next to what it builds from the
+        /// pin, so the pin is free again when the driver is dropped (STATE-08).
+        ///
+        /// # Errors
+        ///
+        /// The [`PinError`] of a text that is not a pin name, of a pin the chip lacks or keeps, or
+        /// of a pin that another line holds.
+        pub(crate) fn claim_pin(
+            &self,
+            name: &str,
+        ) -> Result<(GpioPin, AnyPin<'static>, PinClaim), PinError> {
+            let reserved = CHIP_GPIO_RESERVED.map(GpioPin::from_number);
+            let pin = check_pin(name, CHIP_GPIO_PINS, &reserved)?;
+            let (copy, claim) = self.claim(pin)?;
+            Ok((pin, copy, claim))
         }
     }
 

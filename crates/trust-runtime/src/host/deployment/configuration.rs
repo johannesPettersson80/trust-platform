@@ -190,6 +190,7 @@ fn drivers(drivers: &[IoDriverConfig]) -> Result<Vec<IoDriver>, RuntimeError> {
                 )?;
             }
             Ok(IoDriver {
+                params: Some(parameters_json(&driver.params, &name)?),
                 name,
                 enabled: driver.enabled,
                 inputs,
@@ -197,6 +198,61 @@ fn drivers(drivers: &[IoDriverConfig]) -> Result<Vec<IoDriver>, RuntimeError> {
             })
         })
         .collect()
+}
+
+/// A driver's `params` table as the JSON text of the record's section 8 (specification 34 §5.1.1):
+/// the keys of every table in the byte order of their UTF-8, so that the same file gives the same
+/// bytes; a float in its shortest form that reads back as the same value; a date or a time as its
+/// RFC 3339 text. A float that is not a number or is infinite has no JSON form and is refused with
+/// the driver's name and the key.
+fn parameters_json(params: &toml::Value, driver: &str) -> Result<String, RuntimeError> {
+    fn convert(
+        value: &toml::Value,
+        driver: &str,
+        key: &str,
+    ) -> Result<serde_json::Value, RuntimeError> {
+        Ok(match value {
+            toml::Value::String(text) => serde_json::Value::String(text.clone()),
+            toml::Value::Integer(number) => serde_json::Value::from(*number),
+            toml::Value::Boolean(flag) => serde_json::Value::Bool(*flag),
+            toml::Value::Datetime(when) => serde_json::Value::String(when.to_string()),
+            toml::Value::Float(number) => serde_json::Number::from_f64(*number)
+                .map(serde_json::Value::Number)
+                .ok_or_else(|| {
+                    invalid(format!(
+                        "io.toml: the {driver} driver's {key} is {number}, which the deployment \
+                         record's driver parameters cannot hold"
+                    ))
+                })?,
+            toml::Value::Array(items) => serde_json::Value::Array(
+                items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| convert(item, driver, &format!("{key}[{index}]")))
+                    .collect::<Result<_, _>>()?,
+            ),
+            toml::Value::Table(table) => {
+                let mut keys: Vec<&String> = table.keys().collect();
+                keys.sort_unstable();
+                let mut object = serde_json::Map::new();
+                for name in keys {
+                    let path = if key.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{key}.{name}")
+                    };
+                    object.insert(name.clone(), convert(&table[name], driver, &path)?);
+                }
+                serde_json::Value::Object(object)
+            }
+        })
+    }
+    let value = convert(params, driver, "")?;
+    serde_json::to_string(&value).map_err(|error| {
+        invalid(format!(
+            "io.toml: the {driver} driver's parameters: {error}"
+        ))
+    })
 }
 
 /// The safe state, each address and value checked against what section 7 holds.

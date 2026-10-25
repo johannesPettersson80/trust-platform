@@ -291,6 +291,10 @@ fn route<H: ControlHost>(request: &ControlRequest, host: &H) -> Option<ControlRe
         "transfer.begin" | "transfer.part" | "transfer.status" | "transfer.get"
         | "transfer.abort" => transfers::answer_transfer(request, host),
         "program.active" => transfers::program_active(id, host),
+        "pair.start" => pairing::start(id, host),
+        "pair.claim" => pairing::claim(id, request.params.clone(), host),
+        "pair.list" => pairing::list(id, host),
+        "pair.revoke" => pairing::revoke(id, request.params.clone(), host),
         // The debug operations are answered from the platform's debugger when it has one
         // (specification 11 §6.13); otherwise the platform answers them itself.
         kind if is_debug_operation(kind) => match host.debugger() {
@@ -324,6 +328,7 @@ fn audited<H: ControlHost>(
 
 mod device;
 mod link_reply;
+mod pairing;
 pub(crate) mod transfers;
 
 #[cfg(test)]

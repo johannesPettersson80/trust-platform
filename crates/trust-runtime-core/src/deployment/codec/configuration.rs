@@ -11,6 +11,7 @@ use crate::io_address::{IoAddress, IoSize};
 use crate::memory::IoArea;
 use crate::value::{Duration, Value};
 use crate::watchdog::{FaultPolicy, RetainMode, WatchdogAction, WatchdogPolicy};
+use alloc::string::String;
 use alloc::vec::Vec;
 use smol_str::SmolStr;
 
@@ -519,6 +520,7 @@ fn read_drivers(reader: &mut Reader<'_>) -> Result<Vec<IoDriver>, Error> {
             enabled,
             inputs,
             outputs,
+            params: None,
         });
     }
     Ok(drivers)
@@ -643,3 +645,52 @@ fn first_two(bytes: &[u8; 8]) -> [u8; 2] {
 fn first_four(bytes: &[u8; 8]) -> [u8; 4] {
     [bytes[0], bytes[1], bytes[2], bytes[3]]
 }
+
+/// Section 8 (version 2): the parameters of the I/O drivers of `configuration`, in section 7's
+/// order: their count, then each driver's text with its four-byte length (specification 34 §5.1.1).
+/// A driver without parameters writes `{}`.
+pub(super) fn encode_parameters(
+    configuration: &Configuration,
+    out: &mut Vec<u8>,
+) -> Result<(), Error> {
+    write_count(out, configuration.io_drivers.len(), "the I/O driver count")?;
+    for driver in &configuration.io_drivers {
+        let text = driver.params.as_deref().unwrap_or(NO_PARAMETERS);
+        let length =
+            u32::try_from(text.len()).map_err(|_| Error::Field("a driver's parameters"))?;
+        out.extend_from_slice(&length.to_le_bytes());
+        out.extend_from_slice(text.as_bytes());
+    }
+    Ok(())
+}
+
+/// The length of section 8's payload in bytes, exactly what [`encode_parameters`] writes.
+pub(super) fn parameters_len(configuration: &Configuration) -> usize {
+    configuration
+        .io_drivers
+        .iter()
+        .fold(2usize, |bytes, driver| {
+            bytes.saturating_add(4 + driver.params.as_deref().unwrap_or(NO_PARAMETERS).len())
+        })
+}
+
+/// Reads section 8 into `drivers`, the drivers section 7 read: the count must be theirs, and each
+/// text UTF-8. Whether a text is a JSON object of the driver's keys is the driver's to judge.
+pub(super) fn read_parameters(
+    reader: &mut Reader<'_>,
+    drivers: &mut [IoDriver],
+) -> Result<(), Error> {
+    if usize::from(reader.u16()?) != drivers.len() {
+        return Err(Error::Field("the driver parameters' count"));
+    }
+    for driver in drivers {
+        let length = reader.u32()? as usize;
+        let text = core::str::from_utf8(reader.take(length)?)
+            .map_err(|_| Error::Field("a driver's parameters"))?;
+        driver.params = Some(String::from(text));
+    }
+    Ok(())
+}
+
+/// The parameters of a driver that has none.
+const NO_PARAMETERS: &str = "{}";

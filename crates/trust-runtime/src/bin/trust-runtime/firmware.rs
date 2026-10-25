@@ -6,7 +6,8 @@
 //! image. The command writes each where the chip file's layout puts it, through the ROM's download
 //! mode, and erases the boot loader's selection so that the chip boots the first firmware slot. The
 //! program store, the checkpoints and the device settings are left as they are, so a chip keeps its
-//! program, its retained values and its settings across a new install.
+//! program, its retained values and its settings across a new install; `--reset-settings` also
+//! erases the device settings, the way back to a chip whose control token is lost.
 
 use std::path::Path;
 
@@ -26,7 +27,12 @@ const FILES: [&str; 3] = ["bootloader.bin", "partitions.bin", "firmware.bin"];
 /// Runs `trust-runtime firmware`.
 pub fn run_firmware(action: FirmwareAction) -> anyhow::Result<()> {
     match action {
-        FirmwareAction::Install { chip, port, folder } => install(&chip, port, &folder),
+        FirmwareAction::Install {
+            chip,
+            port,
+            folder,
+            reset_settings,
+        } => install(&chip, port, &folder, reset_settings),
     }
 }
 
@@ -98,8 +104,14 @@ fn find_port(
     Ok(first)
 }
 
-/// Installs the firmware in `folder` on the chip `chip` on USB.
-fn install(chip: &str, port: Option<String>, folder: &Path) -> anyhow::Result<()> {
+/// Installs the firmware in `folder` on the chip `chip` on USB, and erases its device settings and
+/// its pairings when `reset_settings` asks for it.
+fn install(
+    chip: &str,
+    port: Option<String>,
+    folder: &Path,
+    reset_settings: bool,
+) -> anyhow::Result<()> {
     let catalog = Catalog::embedded().map_err(|error| anyhow!("the chip files: {error}"))?;
     let file = catalog
         .chip(chip)
@@ -109,6 +121,19 @@ fn install(chip: &str, port: Option<String>, folder: &Path) -> anyhow::Result<()
         .layout
         .firmware_select
         .ok_or_else(|| anyhow!("the chip file of {chip} names no firmware selection"))?;
+    let settings = if reset_settings {
+        let device = |region: Option<trust_chips::Region>| {
+            region.ok_or_else(|| anyhow!("the chip file of {chip} names no device settings"))
+        };
+        // The pairings are credentials too (specification 11 §6.9.6): a chip whose control token
+        // is lost may have lost a pairing token with it.
+        let mut regions = vec![device(file.layout.device_a)?, device(file.layout.device_b)?];
+        regions.extend(file.layout.pairing_a);
+        regions.extend(file.layout.pairing_b);
+        regions
+    } else {
+        Vec::new()
+    };
     let usb = file.identity.usb_bootloader;
     let ports = serialport::available_ports().context("list the serial ports")?;
     let (name, info) = match port {
@@ -153,6 +178,14 @@ fn install(chip: &str, port: Option<String>, folder: &Path) -> anyhow::Result<()
     flasher
         .erase_region(select.start, select.kib * 1024)
         .map_err(|error| anyhow!("erase the firmware selection: {error}"))?;
+    for region in &settings {
+        flasher
+            .erase_region(region.start, region.kib * 1024)
+            .map_err(|error| anyhow!("erase the device settings: {error}"))?;
+    }
+    if !settings.is_empty() {
+        println!("erased the device settings: the chip boots without a control token or a network");
+    }
     flasher
         .write_bins_to_flash(&segments, &mut Progress { parts: &parts })
         .map_err(|error| anyhow!("write the firmware: {error}"))?;

@@ -1,9 +1,12 @@
-//! The GPIO process image of the installed program over a chip's pins (specification 34, §7.2,
-//! TARGET-01, STATE-01 and STATE-04). A chip claims the record's lines by pin name, latches each
-//! output to its level, and gives the claimed pins to [`ProcessImage`] behind [`GpioPins`]. The image
-//! reads the inputs into the flat input image and drives the outputs from the flat output image, each
-//! line with its `io.toml` inversion. The claim stays with each chip, because the chips check their
-//! pins and latch their outputs differently.
+//! The process image of the installed program over a chip's pins and peripherals (specification 34,
+//! §7.2, TARGET-01, STATE-01 and STATE-04). A chip claims the record's GPIO lines by pin name,
+//! latches each output to its level, and gives the claimed pins to [`ProcessImage`] behind
+//! [`GpioPins`]; it claims the peripherals of the record's other drivers (`analog`, `pwm`,
+//! `counter`, `can`; specification 11 §6.5) and gives each to the image as a [`ChipDriver`]. The
+//! image reads the inputs into the flat input image and drives the outputs from the flat output
+//! image: the GPIO lines first, each with its `io.toml` inversion, then the drivers in `io.toml`
+//! order. The claims stay with each chip, because the chips check their pins and peripherals and
+//! latch their outputs differently.
 
 use alloc::format;
 use alloc::string::String;
@@ -15,6 +18,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::value::Value;
 
+use crate::io_drivers::{entry_bytes, EntryBytes, OnError};
 use crate::runner::ProcessIo;
 use crate::status::{IoDriverHealth, IoDriverStatus};
 
@@ -58,12 +62,47 @@ pub trait GpioPins {
     fn drive(&mut self, output: &mut Self::Output, high: bool);
 }
 
+/// One I/O driver of a chip beside its GPIO lines, `analog`, `pwm`, `counter` or `can`
+/// (specification 11 §6.5), over the peripherals and pins the chip claimed for it. The process image
+/// calls it at each cycle after the GPIO lines, and drops it, which frees what it claimed, when the
+/// program that holds it ends.
+pub trait ChipDriver {
+    /// The driver's name, as `io.toml` names it.
+    fn name(&self) -> &str;
+
+    /// Reads the driver's inputs into `image`, the flat input image, at the start of a cycle.
+    ///
+    /// # Errors
+    ///
+    /// What failed; the driver's `on_error` decides what the error does to the resource.
+    fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), String>;
+
+    /// Writes the driver's outputs from `image`, the flat output image, after the tasks ran; also the
+    /// safe state's image when the resource goes to its safe state.
+    ///
+    /// # Errors
+    ///
+    /// What failed; the driver's `on_error` decides what the error does to the resource.
+    fn write_outputs(&mut self, image: &[u8]) -> Result<(), String>;
+
+    /// The driver's health now: degraded or faulted with the reason of its last failure, and ok again
+    /// after an exchange that succeeds.
+    fn health(&self) -> IoDriverHealth;
+
+    /// What an error of the driver does to the resource; `fault` unless its parameters say
+    /// otherwise.
+    fn on_error(&self) -> OnError {
+        OnError::Fault
+    }
+}
+
 /// The installed program's process image over a chip's claimed pins: one entry per `io.toml` line,
-/// in `io.toml` order, each with its bit of the flat image.
+/// in `io.toml` order, each with its bit of the flat image, and then the chip's other drivers.
 pub struct ProcessImage<P: GpioPins> {
     pins: P,
     inputs: Vec<(P::Input, ImageBit)>,
     outputs: Vec<(P::Output, ImageBit)>,
+    drivers: Vec<alloc::boxed::Box<dyn ChipDriver>>,
 }
 
 impl<P: GpioPins> ProcessImage<P> {
@@ -78,7 +117,27 @@ impl<P: GpioPins> ProcessImage<P> {
             pins,
             inputs,
             outputs,
+            drivers: Vec::new(),
         }
+    }
+
+    /// The image with `drivers`, the chip's other drivers in `io.toml` order, after its GPIO lines.
+    #[must_use]
+    pub fn with_drivers(mut self, drivers: Vec<alloc::boxed::Box<dyn ChipDriver>>) -> Self {
+        self.drivers = drivers;
+        self
+    }
+}
+
+/// What a driver's error does at a cycle boundary: with `fault` it is the boundary's error, so the
+/// resource faults; with `warn` or `ignore` the resource runs on, and the driver's own health says
+/// what happened (specification 11 §6.5).
+fn driver_result(driver: &dyn ChipDriver, result: Result<(), String>) -> Result<(), RuntimeError> {
+    match (result, driver.on_error()) {
+        (Ok(()), _) | (Err(_), OnError::Warn | OnError::Ignore) => Ok(()),
+        (Err(error), OnError::Fault) => Err(RuntimeError::IoDriver(
+            format!("{}: {error}", driver.name()).into(),
+        )),
     }
 }
 
@@ -88,6 +147,10 @@ impl<P: GpioPins> ProcessIo for ProcessImage<P> {
             let high = self.pins.is_high(pin);
             write_bit(image, *bit, bit.value(high))?;
         }
+        for driver in &mut self.drivers {
+            let result = driver.read_inputs(image);
+            driver_result(driver.as_ref(), result)?;
+        }
         Ok(())
     }
 
@@ -95,6 +158,10 @@ impl<P: GpioPins> ProcessIo for ProcessImage<P> {
         for (pin, bit) in &mut self.outputs {
             let value = read_bit(image, *bit)?;
             self.pins.drive(pin, bit.level(value));
+        }
+        for driver in &mut self.drivers {
+            let result = driver.write_outputs(image);
+            driver_result(driver.as_ref(), result)?;
         }
         Ok(())
     }
@@ -113,44 +180,105 @@ impl<P: GpioPins> ProcessIo for ProcessImage<P> {
                 }
             }
         }
+        // Every driver is attempted too, whatever its `on_error`: the safe state is not a scan.
+        for driver in &mut self.drivers {
+            if let Err(error) = driver.write_outputs(image)
+                && first.is_none()
+            {
+                first = Some(RuntimeError::IoDriver(
+                    format!("{}: {error}", driver.name()).into(),
+                ));
+            }
+        }
         first.map_or(Ok(()), Err)
     }
 
     fn driver_health(&self) -> Vec<IoDriverStatus> {
-        vec![IoDriverStatus {
+        let mut statuses = vec![IoDriverStatus {
             name: "gpio".into(),
             health: IoDriverHealth::Ok,
-        }]
+        }];
+        statuses.extend(self.drivers.iter().map(|driver| IoDriverStatus {
+            name: driver.name().into(),
+            health: driver.health(),
+        }));
+        statuses
     }
 }
 
-/// The record's `gpio` driver lines, in `io.toml` order (specification 34, TARGET-01). An enabled
-/// driver of another name is refused with its name; `chip` names the chip in the refusal, because a
-/// chip carries out only GPIO until its other drivers exist. A disabled driver is skipped.
+/// The record's `gpio` driver lines, in `io.toml` order (specification 34, TARGET-01). A disabled
+/// driver and a driver of another name are skipped: [`record_drivers`] gives the others.
+#[must_use]
+pub fn record_lines(config: &Configuration) -> (Vec<GpioInput>, Vec<GpioOutput>) {
+    let mut inputs = Vec::new();
+    let mut outputs = Vec::new();
+    for driver in config.io_drivers.iter().filter(|driver| driver.enabled) {
+        if driver.name.as_str() == "gpio" {
+            inputs.extend(driver.inputs.iter().cloned());
+            outputs.extend(driver.outputs.iter().cloned());
+        }
+    }
+    (inputs, outputs)
+}
+
+/// An enabled driver of the record other than `gpio`, with the JSON text of its parameters, for the
+/// chip to claim (specification 34 §5.1.1, section 8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DriverRequest<'a> {
+    /// The driver's name, as `io.toml` names it.
+    pub name: &'a str,
+    /// Its `params` table as JSON.
+    pub params: &'a str,
+}
+
+/// The record's enabled drivers other than `gpio`, in `io.toml` order, for the chip to claim; a
+/// disabled driver is skipped.
 ///
 /// # Errors
 ///
-/// The refusal's text, for an enabled driver whose name is not `gpio`.
-pub fn record_lines(
-    config: &Configuration,
-    chip: &str,
-) -> Result<(Vec<GpioInput>, Vec<GpioOutput>), String> {
-    let mut inputs = Vec::new();
-    let mut outputs = Vec::new();
-    for driver in &config.io_drivers {
-        if !driver.enabled {
-            continue;
-        }
-        if driver.name.as_str() != "gpio" {
-            return Err(format!(
-                "the installed application uses the {} driver, which the {chip} does not carry out yet",
+/// For a driver of a version-1 record, which carries no driver parameters, so that no driver but
+/// `gpio` can run from it (specification 34 §5.1.1, section 8): `the installed application uses the
+/// <name> driver: rebuild the project: its record holds no driver parameters`.
+pub fn record_drivers(config: &Configuration) -> Result<Vec<DriverRequest<'_>>, String> {
+    config
+        .io_drivers
+        .iter()
+        .filter(|driver| driver.enabled && driver.name.as_str() != "gpio")
+        .map(|driver| match &driver.params {
+            Some(params) => Ok(DriverRequest {
+                name: driver.name.as_str(),
+                params,
+            }),
+            None => Err(format!(
+                "the installed application uses the {} driver: rebuild the project: its record \
+                 holds no driver parameters",
                 driver.name
-            ));
+            )),
+        })
+        .collect()
+}
+
+/// The process-image bytes that the entries of the record's drivers other than `gpio` take
+/// (specification 34 §11.3), which an online change counts as wired as it counts the lines.
+///
+/// # Errors
+///
+/// The refusal of [`record_drivers`], and `<name>: <key>: <reason>` for parameters a driver refuses.
+pub fn record_entry_bytes(config: &Configuration) -> Result<Vec<EntryBytes>, String> {
+    let mut entries = Vec::new();
+    for request in record_drivers(config)? {
+        if let Some(bytes) = entry_bytes(request.name, request.params) {
+            entries.extend(bytes.map_err(|error| format!("{}: {error}", request.name))?);
         }
-        inputs.extend(driver.inputs.iter().cloned());
-        outputs.extend(driver.outputs.iter().cloned());
     }
-    Ok((inputs, outputs))
+    Ok(entries)
+}
+
+/// The refusal of a driver that `chip` does not carry out (specification 34 ARCH-13): `the installed
+/// application uses the <name> driver, which the <chip> does not carry out`.
+#[must_use]
+pub fn unsupported_driver(name: &str, chip: &str) -> String {
+    format!("the installed application uses the {name} driver, which the {chip} does not carry out")
 }
 
 /// The logical safe value of the output at `address` (specification 34, TARGET-08): its
@@ -229,6 +357,124 @@ mod tests {
         fn drive(&mut self, output: &mut usize, high: bool) {
             self.driven.borrow_mut()[*output] = Some(high);
         }
+    }
+
+    /// A chip driver of the tests: it writes its byte of the input image and copies its byte of the
+    /// output image to `written`, or fails each exchange with `failure`, and its errors do what
+    /// `on_error` says.
+    struct FakeDriver {
+        name: &'static str,
+        byte: usize,
+        value: u8,
+        written: Rc<RefCell<Vec<u8>>>,
+        failure: Option<&'static str>,
+        on_error: OnError,
+    }
+
+    impl ChipDriver for FakeDriver {
+        fn name(&self) -> &str {
+            self.name
+        }
+
+        fn read_inputs(&mut self, image: &mut [u8]) -> Result<(), String> {
+            if let Some(failure) = self.failure {
+                return Err(failure.into());
+            }
+            image[self.byte] = self.value;
+            Ok(())
+        }
+
+        fn write_outputs(&mut self, image: &[u8]) -> Result<(), String> {
+            if let Some(failure) = self.failure {
+                return Err(failure.into());
+            }
+            self.written.borrow_mut().push(image[self.byte]);
+            Ok(())
+        }
+
+        fn health(&self) -> IoDriverHealth {
+            match self.failure {
+                Some(failure) => IoDriverHealth::Degraded {
+                    error: failure.into(),
+                },
+                None => IoDriverHealth::Ok,
+            }
+        }
+
+        fn on_error(&self) -> OnError {
+            self.on_error
+        }
+    }
+
+    /// The image runs its other drivers after the GPIO lines, in order, and lists their health after
+    /// `gpio` (specification 11 §6.5). A failing driver whose `on_error` is `warn` lets the boundary
+    /// succeed and the next driver run; one whose `on_error` is `fault` makes the boundary fail with
+    /// `IoDriver("<name>: <reason>")`. The safe state tries every driver, whatever its `on_error`, and
+    /// reports the first failure. Catches drivers that are never called, a warning that stops the
+    /// resource, and a fault that is swallowed.
+    #[test]
+    fn the_image_runs_its_other_drivers_after_the_gpio_lines() {
+        let (gpio, _) = pins(Vec::new(), 0);
+        let written = Rc::new(RefCell::new(Vec::new()));
+        let driver = |name, byte, value, failure, on_error| -> alloc::boxed::Box<dyn ChipDriver> {
+            alloc::boxed::Box::new(FakeDriver {
+                name,
+                byte,
+                value,
+                written: Rc::clone(&written),
+                failure,
+                on_error,
+            })
+        };
+        let mut image = ProcessImage::new(gpio, Vec::new(), Vec::new()).with_drivers(vec![
+            driver("analog", 0, 7, None, OnError::Fault),
+            driver("can", 1, 0, Some("bus off"), OnError::Warn),
+            driver("counter", 2, 9, None, OnError::Fault),
+        ]);
+        let mut inputs = [0u8; 3];
+        assert_eq!(image.read_inputs(&mut inputs), Ok(()));
+        assert_eq!(inputs, [7, 0, 9], "the drivers after the warned one ran");
+        assert_eq!(image.write_outputs(&[4, 5, 6]), Ok(()));
+        assert_eq!(*written.borrow(), vec![4, 6]);
+        let names: Vec<_> = image
+            .driver_health()
+            .into_iter()
+            .map(|status| (status.name, status.health))
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                (SmolStr::new("gpio"), IoDriverHealth::Ok),
+                (SmolStr::new("analog"), IoDriverHealth::Ok),
+                (
+                    SmolStr::new("can"),
+                    IoDriverHealth::Degraded {
+                        error: "bus off".into()
+                    }
+                ),
+                (SmolStr::new("counter"), IoDriverHealth::Ok),
+            ]
+        );
+
+        let (gpio, _) = pins(Vec::new(), 0);
+        written.borrow_mut().clear();
+        let mut faulting = ProcessImage::new(gpio, Vec::new(), Vec::new()).with_drivers(vec![
+            driver("can", 0, 0, Some("bus off"), OnError::Fault),
+            driver("pwm", 1, 0, None, OnError::Fault),
+        ]);
+        assert_eq!(
+            faulting.read_inputs(&mut [0u8; 2]),
+            Err(RuntimeError::IoDriver("can: bus off".into()))
+        );
+        assert_eq!(
+            faulting.write_safe_outputs(&[0, 3]),
+            Err(RuntimeError::IoDriver("can: bus off".into()))
+        );
+        assert_eq!(
+            *written.borrow(),
+            vec![3],
+            "the safe state reached the next driver"
+        );
     }
 
     /// The message of the invalid-configuration refusal `result` holds; any other result fails the test.
@@ -465,6 +711,7 @@ mod tests {
             enabled: false,
             inputs: Vec::new(),
             outputs: Vec::new(),
+            params: Some("{}".into()),
         });
         config.io_drivers.push(IoDriver {
             name: "gpio".into(),
@@ -476,29 +723,58 @@ mod tests {
                 debounce_ms: 0,
             }],
             outputs: Vec::new(),
+            params: Some("{}".into()),
         });
-        let (inputs, outputs) = record_lines(&config, "test-chip").expect("gpio is carried out");
+        let (inputs, outputs) = record_lines(&config);
         assert_eq!(inputs.len(), 1, "the enabled gpio driver's one input line");
         assert_eq!(inputs[0].line.as_str(), "GPIO18");
         assert_eq!(outputs, Vec::new());
     }
 
-    /// An enabled driver that is not `gpio` is refused with its name and the chip's name, which is the
-    /// text `status` reports (specification 34, TARGET-01). Catches a refusal that names the wrong
-    /// driver or chip, and one that lets the driver through.
+    /// An enabled driver that is not `gpio` is given to the chip to claim with its parameters' text,
+    /// and a chip that does not carry it out refuses it with its name and the chip's name, the text
+    /// `status` reports (specification 34, TARGET-01 and ARCH-13). Catches a driver dropped on the
+    /// way to the chip, and a refusal that names the wrong driver or chip.
     #[test]
-    fn an_enabled_driver_of_another_name_is_refused_with_its_name_and_the_chip() {
+    fn an_enabled_driver_of_another_name_goes_to_the_chip_with_its_parameters() {
         let mut config = Configuration::default();
         config.io_drivers.push(IoDriver {
             name: "modbus".into(),
             enabled: true,
             inputs: Vec::new(),
             outputs: Vec::new(),
+            params: Some(r#"{"unit_id":1}"#.into()),
         });
-        let refusal = record_lines(&config, "test-chip").expect_err("modbus is not carried out");
         assert_eq!(
-            refusal,
-            "the installed application uses the modbus driver, which the test-chip does not carry out yet"
+            record_drivers(&config),
+            Ok(vec![DriverRequest {
+                name: "modbus",
+                params: r#"{"unit_id":1}"#,
+            }])
+        );
+        assert_eq!(
+            unsupported_driver("modbus", "test-chip"),
+            "the installed application uses the modbus driver, which the test-chip does not carry out"
+        );
+    }
+
+    /// A driver other than `gpio` from a version-1 record, which carries no driver parameters, is
+    /// refused with the advice to rebuild (specification 34 §5.1.1, section 8). Catches a chip that
+    /// runs a driver without its parameters, with defaults the project never chose.
+    #[test]
+    fn a_driver_of_a_version_1_record_asks_for_a_rebuild() {
+        let mut config = Configuration::default();
+        config.io_drivers.push(IoDriver {
+            name: "modbus-tcp".into(),
+            enabled: true,
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            params: None,
+        });
+        assert_eq!(
+            record_drivers(&config).expect_err("no parameters"),
+            "the installed application uses the modbus-tcp driver: rebuild the project: its record \
+             holds no driver parameters"
         );
     }
 }

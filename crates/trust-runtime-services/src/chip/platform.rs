@@ -36,11 +36,14 @@ use trust_runtime_core::value::Value;
 use trust_runtime_core::watchdog::RetainMode;
 
 use super::network::{ChipNetwork, NetworkFacts};
+use super::pairing::{ChipPairingPort, RandomSource};
 use super::watchdog::{cycle_timeout_ms, CycleWatchdog};
-use crate::access::{resolve_role, AccessRole, AuthFailure};
+use crate::access::pairing::Pairings;
+use crate::access::{resolve_role, AccessRole, AuthFailure, PairingService};
 use crate::capabilities::{LastReset, ResetCauseName};
 use crate::device_settings::{DeviceInterfaces, DeviceSettings, SettingsFlash, SettingsStore};
 use crate::firmware::FirmwareFacts;
+use crate::flash_record::SectorFlash;
 use crate::live_values::io_requests::{IoQueuePort, IoSnapshotRead};
 use crate::live_values::queues::{ForcedSnapshot, ForcedVarTarget, PendingVarTarget};
 use crate::live_values::var_requests::VariableQueuePort;
@@ -166,6 +169,9 @@ pub struct ChipPlatform<C, W> {
     network: Option<Rc<RefCell<dyn ChipNetwork>>>,
     /// The network that the device settings name and that did not start, with its reason.
     network_failure: Option<NetworkFacts>,
+    /// The pairings in the chip's two pairing sectors (specification 11 §6.9.6), none on a chip
+    /// that keeps none.
+    pairings: Option<RefCell<Pairings<ChipPairingPort>>>,
 }
 
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
@@ -200,6 +206,7 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             trusted_keys: &[],
             network: None,
             network_failure: None,
+            pairings: None,
         }
     }
 
@@ -219,6 +226,22 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
             self.trusted_keys = Box::leak(settings.trusted_keys().into_boxed_slice());
         }
         self.device = Some(RefCell::new(store));
+        self
+    }
+
+    /// Keeps the chip's pairings in `flash`, its two pairing sectors, and reads the newest record
+    /// (specification 11 §6.9.6): its tokens grant their roles while the wall clock is set. `random`
+    /// is the chip's generator while it serves a network, and `None` otherwise, when the chip
+    /// refuses to pair.
+    #[must_use]
+    pub fn with_pairings(
+        mut self,
+        flash: Box<dyn SectorFlash>,
+        random: Option<RandomSource>,
+    ) -> Self {
+        let now = C::utc_ms().map_or(0, |utc_ms| utc_ms / 1_000);
+        let port = ChipPairingPort::open(flash, random);
+        self.pairings = Some(RefCell::new(Pairings::open(port, now)));
         self
     }
 
@@ -337,10 +360,11 @@ pub fn status_settings() -> StatusSettings {
     }
 }
 
-impl<C, W> AccessPort for ChipPlatform<C, W> {
-    /// The control token grants `Admin`, from any link. Without a token a local client (no
-    /// transport label) acts as `Admin` and a client with a network label as `Viewer`, as on
-    /// trust-runtime.
+impl<C: ChipProfile, W> AccessPort for ChipPlatform<C, W> {
+    /// The control token grants `Admin`, from any link, and a pairing token its role while the wall
+    /// clock is set, so that no token outlives its 30 days (specification 11 §6.9.6). Without a
+    /// token a local client (no transport label) acts as `Admin` and a client with a network label
+    /// as `Viewer`, as on trust-runtime.
     fn request_role(
         &self,
         request: &ControlRequest,
@@ -351,12 +375,21 @@ impl<C, W> AccessPort for ChipPlatform<C, W> {
             self.token.as_deref(),
             false,
             client,
-            |_| None,
+            |token| {
+                let now = C::utc_ms()? / 1_000;
+                self.pairings.as_ref()?.validate(token, now)
+            },
         )
     }
 
     fn debug_enabled(&self) -> bool {
         self.runtime.is_some_and(|settings| settings.debug_enabled)
+    }
+
+    fn pairing(&self) -> Option<&dyn PairingService> {
+        self.pairings
+            .as_ref()
+            .map(|pairings| pairings as &dyn PairingService)
     }
 }
 
@@ -670,6 +703,7 @@ impl<C, W> VariableQueuePort for ChipPlatform<C, W> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use core::time::Duration;
 
     use trust_runtime_core::retain::checkpoint::FlashError;
@@ -872,5 +906,104 @@ mod tests {
         HardwareWatchdog::feed(&mut platform);
         HardwareWatchdog::feed(&mut platform);
         assert_eq!(platform.into_watchdog().feeds, 2);
+    }
+
+    /// The wall clock of [`ClockedChip`] in milliseconds, 0 while it is not set.
+    static CLOCK_MS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+    /// A chip of the tests whose wall clock is [`CLOCK_MS`].
+    struct ClockedChip;
+
+    impl ChipProfile for ClockedChip {
+        type Reason = u8;
+
+        fn watchdog_reset() -> u8 {
+            7
+        }
+
+        fn platform_name() -> &'static str {
+            "test-chip"
+        }
+
+        fn device_descriptor() -> DeviceDescriptor {
+            DeviceDescriptor::hosted()
+        }
+
+        fn checkpoint_step_bytes() -> Option<usize> {
+            None
+        }
+
+        fn utc_ms() -> Option<u64> {
+            let utc_ms = CLOCK_MS.load(core::sync::atomic::Ordering::SeqCst);
+            (utc_ms != 0).then_some(utc_ms)
+        }
+    }
+
+    /// Two erased sectors of 4,096 bytes in memory.
+    struct MemorySectors([Vec<u8>; 2]);
+
+    impl SectorFlash for MemorySectors {
+        fn sector_bytes(&self) -> usize {
+            4_096
+        }
+
+        fn read(&mut self, sector: usize, bytes: &mut [u8]) -> Result<(), FlashError> {
+            bytes.copy_from_slice(&self.0[sector][..bytes.len()]);
+            Ok(())
+        }
+
+        fn erase(&mut self, sector: usize) -> Result<(), FlashError> {
+            self.0[sector].fill(0xFF);
+            Ok(())
+        }
+
+        fn program(&mut self, sector: usize, bytes: &[u8]) -> Result<(), FlashError> {
+            self.0[sector][..bytes.len()].copy_from_slice(bytes);
+            Ok(())
+        }
+    }
+
+    /// Specification 11 §6.9.6: a chip's pairing token grants its role while the wall clock is set.
+    /// At 2026-10-16 00:00:00 UTC (1,792,108,800 s) a client claims an Operator token, and a request
+    /// from the network with it acts as Operator; with the clock not set the token grants nothing,
+    /// and the request acts as any network client without a token does, as Viewer. Catches a chip
+    /// that takes no pairing token, and one that takes a token it cannot know to be unexpired.
+    #[test]
+    fn a_pairing_token_grants_its_role_while_the_clock_is_set() {
+        CLOCK_MS.store(1_792_108_800_000, core::sync::atomic::Ordering::SeqCst);
+        let random: RandomSource = Box::new(|bytes: &mut [u8]| bytes.fill(0x5A));
+        let platform = ChipPlatform::<ClockedChip, CountingWatchdog>::new(
+            CountingWatchdog::default(),
+            SmolStr::new_static("Controller"),
+            status_settings(),
+            DeviceLiveValues::empty(),
+            reset_of(ResetCauseName::PowerOn, "", 1),
+            SmolStr::new_static("test-chip-01"),
+        )
+        .with_pairings(
+            Box::new(MemorySectors([vec![0xFF; 4_096], vec![0xFF; 4_096]])),
+            Some(random),
+        );
+        let pairings = platform.pairing().expect("the chip keeps pairings");
+        let now = 1_792_108_800;
+        let code = pairings.start(now).expect("a code").code;
+        let token = pairings.claim(&code, None, now).expect("a token");
+        let request = ControlRequest {
+            id: 1,
+            r#type: String::from("status"),
+            params: None,
+            auth: Some(token),
+            request_id: None,
+        };
+        let client = Some("192.168.1.20:50000");
+        assert_eq!(
+            platform.request_role(&request, client),
+            Ok(AccessRole::Operator)
+        );
+        CLOCK_MS.store(0, core::sync::atomic::Ordering::SeqCst);
+        assert_eq!(
+            platform.request_role(&request, client),
+            Ok(AccessRole::Viewer)
+        );
     }
 }

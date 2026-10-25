@@ -10,6 +10,9 @@ pub struct BundleBuildReport {
     pub image: PathBuf,
     /// Its deployment record (specification 44 §10.1).
     pub record: PathBuf,
+    /// The container of the image and its record that `trust-runtime ctl install` installs
+    /// (specification 34 §5.1, §11.2).
+    pub install: PathBuf,
     /// Whether the image is a debug image (specification 44 §13.2).
     pub debug: bool,
     /// The image's size in bytes.

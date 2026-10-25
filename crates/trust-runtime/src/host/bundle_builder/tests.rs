@@ -90,6 +90,43 @@ END_PROGRAM
     );
 }
 
+/// The build writes `build/install.<triple>.bin`, the container `trust-runtime ctl install` takes
+/// (specification 34 §5.1, §11.2; specification 44 §4.1): a `TRSTA002` container of the first
+/// install sequence that holds exactly the image and the record the build wrote, the image at the
+/// first 64-byte boundary after the header. Catches a container a user would have to pack with a
+/// developer tool, and one that pairs the image with another record.
+#[test]
+fn build_writes_the_container_ctl_install_takes() {
+    let root = temp_dir("trust-runtime-build-install");
+    write_file(
+        &root.join("src/main.st"),
+        "PROGRAM Main\nVAR\n    y : INT;\nEND_VAR\ny := y + 1;\nEND_PROGRAM\n",
+    );
+    let report = build(&root).expect("the project builds");
+    let triple = report.json["target"]
+        .as_str()
+        .expect("the target")
+        .to_string();
+    assert_eq!(
+        report.install,
+        root.join("build").join(format!("install.{triple}.bin"))
+    );
+    assert_eq!(report.json["install"], report.install.display().to_string());
+    let container = fs::read(&report.install).expect("the container is written");
+    let image = fs::read(&report.image).expect("the image");
+    let record = fs::read(&report.record).expect("the record");
+    assert_eq!(&container[..8], b"TRSTA002");
+    let decoded = trust_runtime_services::installation::decode_sequenced(&container)
+        .expect("the container reads");
+    assert_eq!(
+        decoded.sequence,
+        trust_runtime_services::installation::FIRST_SEQUENCE
+    );
+    assert_eq!(decoded.installed.program, image.as_slice());
+    assert_eq!(decoded.installed.record, record.as_slice());
+    let _ = fs::remove_dir_all(root);
+}
+
 #[test]
 fn build_includes_transitive_dependency_sources() {
     let root = temp_dir("trust-runtime-build-deps");

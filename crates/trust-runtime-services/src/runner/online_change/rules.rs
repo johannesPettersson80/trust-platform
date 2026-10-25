@@ -14,6 +14,8 @@ use trust_runtime_core::io_address::{IoAddress, IoSize};
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::memory::IoArea;
 
+use crate::io_drivers::EntryBytes;
+
 /// The memory an online change may use, and the numbers its refusal names (specification 34 §11.3,
 /// UPDATE-06): the length of the program, the bytes of heap that were free when it was taken, and
 /// the reserve the device keeps for the machine. The program may use the room less the reserve
@@ -83,24 +85,44 @@ impl ChangeMemory {
     }
 }
 
-/// The first input or output binding of `bindings` whose address none of the record's lines covers
-/// (specification 34 §11.3). A change keeps the running program's lines and brings no record, so a
-/// binding at an address where the record gives no line cannot be wired and is refused. A marker (`%M`)
-/// binding needs no line. A line covers a bit binding when it is that bit, and a binding of a byte or
-/// more when the line lies in one of its bytes. A hierarchical address has no line.
+/// The first input or output binding of `bindings` whose address neither one of the record's lines
+/// nor one of its other drivers' entries covers (specification 34 §11.3). A change keeps the running
+/// program's lines and drivers and brings no record, so a binding at an address where the record
+/// gives neither cannot be wired and is refused. A marker (`%M`) binding needs neither. A line covers
+/// a bit binding when it is that bit, and a binding of a byte or more when the line lies in one of
+/// its bytes; a driver's entry covers a binding that shares one of its bytes (`entries`, from
+/// [`crate::io_drivers::entry_bytes`]). A hierarchical address has neither.
 #[must_use]
 pub fn unwired_binding(
     bindings: &[PreparedIoBinding],
     inputs: &[GpioInput],
     outputs: &[GpioOutput],
+    entries: &[EntryBytes],
 ) -> Option<IoAddress> {
+    let driven = |address: &IoAddress| {
+        if address.path.len() > 1 {
+            return false;
+        }
+        let Ok(Some(end)) = address.flat_byte_end() else {
+            return false;
+        };
+        entries.iter().any(|entry| {
+            entry.area == address.area && entry.bytes.start < end && address.byte < entry.bytes.end
+        })
+    };
     let wired = |binding: &PreparedIoBinding| match binding.address.area {
-        IoArea::Input => inputs
-            .iter()
-            .any(|line| covers(&binding.address, &line.address)),
-        IoArea::Output => outputs
-            .iter()
-            .any(|line| covers(&binding.address, &line.address)),
+        IoArea::Input => {
+            inputs
+                .iter()
+                .any(|line| covers(&binding.address, &line.address))
+                || driven(&binding.address)
+        }
+        IoArea::Output => {
+            outputs
+                .iter()
+                .any(|line| covers(&binding.address, &line.address))
+                || driven(&binding.address)
+        }
         IoArea::Memory => true,
     };
     bindings

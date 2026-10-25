@@ -614,8 +614,8 @@ fn the_program_slots_are_named_in_pairs_of_one_size_inside_application() {
             region: "application_a"
         })
     );
-    // 2,000 KiB is 2,048,000 bytes: slot B, from 0x5F_4000, then ends at 0x7E_8000, inside
-    // application, which ends at 0x7F_8000.
+    // 2,000 KiB is 2,048,000 bytes: slot B, from 0x5F_3000, then ends at 0x7E_7000, inside
+    // application, which ends at 0x7F_6000.
     assert_eq!(
         c6(|file| set(file, "layout.application_b", "kib", 2000_i64)),
         Err(Problem::UnequalSlots {

@@ -1,4 +1,4 @@
-//! The deployment record (spec 34 §5.1.1): its version-1 layout, its identities, and that a reader
+//! The deployment record (spec 34 §5.1.1): its version-2 layout, its identities, and that a reader
 //! refuses every malformed record with the reason.
 
 use trust_runtime_core::crc32;
@@ -133,20 +133,20 @@ fn refused(bytes: &[u8]) -> DeploymentRecordError {
 }
 
 #[test]
-fn a_record_round_trips_through_the_version_1_layout() {
+fn a_record_round_trips_through_the_version_2_layout() {
     let record = sample();
     let bytes = record.encode().unwrap();
     assert_eq!(bytes.len(), record.encoded_len());
     assert_eq!(&bytes[0..4], b"TRDR");
-    assert_eq!(u16_at(&bytes, 4), 1);
-    assert_eq!(u16_at(&bytes, 6), 7, "seven sections");
+    assert_eq!(u16_at(&bytes, 4), 2, "version 2 (specification 34 §5.1.1)");
+    assert_eq!(u16_at(&bytes, 6), 8, "eight sections");
     assert_eq!(u32_at(&bytes, 8) as usize, bytes.len());
     let end = bytes.len() - 4;
     assert_eq!(u32_at(&bytes, end), crc32::checksum(&bytes[..end]));
 
     let parts = sections(&bytes);
     let ids: Vec<u16> = parts.iter().map(|part| part.0).collect();
-    assert_eq!(ids, [1, 2, 3, 4, 5, 6, 7]);
+    assert_eq!(ids, [1, 2, 3, 4, 5, 6, 7, 8]);
     assert!(
         parts.iter().all(|part| part.1 == 0),
         "reserved fields are 0"
@@ -154,8 +154,12 @@ fn a_record_round_trips_through_the_version_1_layout() {
     let lengths: Vec<usize> = parts.iter().map(|part| part.2.len()).collect();
     let names: usize = record.imports.iter().map(|import| import.name.len()).sum();
     // Section 7 is the empty configuration: its 42 bytes, the resource name's length byte
-    // included. Its layout is pinned byte by byte in `deployment_configuration.rs`.
-    assert_eq!(lengths, [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42]);
+    // included. Its layout is pinned byte by byte in `deployment_configuration.rs`. Section 8 holds
+    // the parameters of no driver: its two-byte count, 0.
+    assert_eq!(
+        lengths,
+        [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42, 2]
+    );
 
     // Section 1: program SHA-256 and length, program version (44.1) and flags, the two
     // identities.
@@ -265,11 +269,11 @@ fn the_header_names_what_is_wrong_with_it() {
     magic[0] = b'X';
     assert_eq!(refused(&magic), DeploymentRecordError::Magic);
     let mut version = bytes.clone();
-    version[4] = 2;
-    assert_eq!(refused(&version), DeploymentRecordError::Version(2));
+    version[4] = 3;
+    assert_eq!(refused(&version), DeploymentRecordError::Version(3));
     assert_eq!(
-        DeploymentRecordError::Version(2).to_string(),
-        "record version 2 is unknown; this runtime reads version 1"
+        DeploymentRecordError::Version(3).to_string(),
+        "record version 3 is unknown; this runtime reads versions 1 and 2"
     );
     let mut longer = bytes.clone();
     longer.push(0);
@@ -287,10 +291,10 @@ fn the_header_names_what_is_wrong_with_it() {
 }
 
 #[test]
-fn the_sections_of_version_1_are_exactly_1_to_7_in_order() {
+fn the_sections_of_version_2_are_exactly_1_to_8_in_order() {
     assert_eq!(
-        refused(&edited(|parts| parts[6].0 = 8)),
-        DeploymentRecordError::UnknownSection(8)
+        refused(&edited(|parts| parts[7].0 = 9)),
+        DeploymentRecordError::UnknownSection(9)
     );
     assert_eq!(
         refused(&edited(|parts| parts[0].0 = 0)),
@@ -335,8 +339,8 @@ fn the_sections_of_version_1_are_exactly_1_to_7_in_order() {
     );
     // A later version is refused as a whole, whatever its sections.
     assert_eq!(
-        refused(&raw(2, 6, &parts)),
-        DeploymentRecordError::Version(2)
+        refused(&raw(3, 6, &parts)),
+        DeploymentRecordError::Version(3)
     );
 }
 

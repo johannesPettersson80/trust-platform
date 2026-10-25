@@ -7,6 +7,7 @@
 use crate::io_address::IoAddress;
 use crate::value::{Duration, Value};
 use crate::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
+use alloc::string::String;
 use alloc::vec::Vec;
 use smol_str::SmolStr;
 
@@ -209,6 +210,9 @@ pub struct IoDriver {
     pub inputs: Vec<GpioInput>,
     /// The driver's output lines; empty for every driver but `gpio`.
     pub outputs: Vec<GpioOutput>,
+    /// `params`, the driver's parameter table as JSON text (specification 34 §5.1.1, section 8),
+    /// from which a chip runs the driver; `None` in a version-1 record, which carries none.
+    pub params: Option<String>,
 }
 
 /// One input line of the `gpio` driver.

@@ -48,11 +48,11 @@ use trust_platform_esp32::loader::{default_event_capacity, program_memory_bytes}
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES};
 use trust_platform_esp32::{
-    bring_up, emergency_halt, end_program_load, mark_program_load, start_scheduler, Board, C6Net,
-    Monotonic, NetLink, RadioParts, UsbLink, Wait, Watchdog,
+    bring_up, emergency_halt, end_program_load, mark_program_load, pairing_random, start_scheduler,
+    Board, C6Net, Monotonic, NetLink, RadioParts, UsbLink, Wait, Watchdog,
 };
 use trust_platform_esp32::{C6Code, Platform, ProgramCode};
-use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
+use trust_runtime_core::ports::{HardwareWatchdog, MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::network::{ChipNetwork, NetworkFacts};
 use trust_runtime_services::chip::platform::status_settings;
@@ -131,8 +131,10 @@ fn main() -> ! {
     let Ok(firmware_flash) = board.firmware_slots() else {
         emergency_halt("firmware-slots");
     };
-    // The device settings, device.toml (specification 34 TARGET-02), in their two sectors.
+    // The device settings, device.toml (specification 34 TARGET-02), in their two sectors, and the
+    // pairings (specification 11 §6.9.6) in theirs.
     let settings_flash = board.settings_flash();
+    let pairing_flash = board.pairing_flash();
     let firmware_store = FirmwareStore {
         slots: ProgramStore {
             flash: firmware_flash,
@@ -163,11 +165,21 @@ fn main() -> ! {
     )
     .with_device_settings(settings_flash);
     platform.set_firmware(firmware_facts.clone());
+    // The watchdog runs from here, through every step of the boot: a firmware on trial that hangs
+    // before it confirms itself below is reset by it, and the boot loader then boots the firmware
+    // before it (specification 34 TARGET-04). The boot's steps feed it: the network's start once
+    // it is done, and the program's load between its steps.
+    platform.watchdog_mut().start();
     // The network (specification 34 ARCH-12, checklist L3): the Wi-Fi network the device settings
     // name, joined before the program starts, so that its blocks are taken from the heap before the
     // memory for programs is measured. A radio that does not start leaves the chip on its USB link
     // and is reported in `capabilities`.
     let (platform, net) = start_network(parts.radio.take(), platform);
+    // The pairings (specification 11 §6.9.6): codes and tokens come from the C6's generator, which
+    // is random only while the radio runs, so the chip pairs only while it serves a network.
+    let mut platform =
+        platform.with_pairings(pairing_flash, net.as_ref().map(|_| pairing_random()));
+    HardwareWatchdog::feed(&mut platform);
     // The loader builds the program of the installed container at the boot and again at every
     // `restart` that finds a newer one (specification 34 STATE-08): the same steps in the same order.
     // It also builds the candidate of an online change (specification 34 §11.3).
@@ -220,11 +232,18 @@ fn main() -> ! {
         }
     }
     // The boot is done: a firmware on trial after an update confirms itself now, so the boot loader
-    // keeps booting it (specification 34 TARGET-04). One that panicked or hung before this point was
-    // reset by the watchdog, and the boot loader booted the firmware before it.
+    // keeps booting it (specification 34 TARGET-04). One that panicked before this point reset the
+    // chip, and one that hung was reset by the watchdog, and the boot loader then booted the
+    // firmware before it.
     #[cfg(feature = "bench-trial-reset")]
     if !firmware_facts.confirmed {
         esp_hal::system::software_reset();
+    }
+    // The bench's firmware that hangs on trial: the watchdog must reset it (checklist T4).
+    #[cfg(feature = "bench-trial-hang")]
+    if !firmware_facts.confirmed {
+        #[allow(clippy::empty_loop)]
+        loop {}
     }
     if !firmware_facts.confirmed && firmware.confirm(&trial).is_ok() {
         let _ = runner.with_platform(|platform| {
@@ -235,9 +254,7 @@ fn main() -> ! {
         });
     }
 
-    // The watchdog runs from here: building the program took far more time than any pass of the loop,
-    // and the loop feeds it in every pass.
-    let _ = runner.with_platform(|platform| platform.watchdog_mut().start());
+    // The loop feeds the watchdog in every pass.
     let _ = runner.run();
     emergency_halt("runner")
 }

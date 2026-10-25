@@ -173,6 +173,8 @@ The build's steps and their outputs:
 
 `trust-runtime build --project <dir> --target <device or triple>` reads the project and writes into
 the project's build directory: `program.<target>.tpi` (the image), `deployment-record.bin`,
+`install.<target>.bin` (the `TRSTA002` container of the image and its record, of the first install
+sequence, which `trust-runtime ctl install` installs on a device, specification 34 §5.1 and §11.2),
 `symbols.json` (the symbol, type and statement tables as JSON, for tools that do not read the
 image), `build.json` (the memory figure and the numbers of §10.4) and, when `--emit-source` is
 given, the generated Rust crate for inspection. The target is a device from Devices & Connections

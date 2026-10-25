@@ -77,6 +77,10 @@ pub enum ControlAction {
         exit: bool,
     },
     ConfigGet,
+    /// Print what the runtime reports of its device (specification 11, the runtime device
+    /// capabilities contract): a chip's network and address, its firmware slots, its memory for
+    /// programs and its last reset.
+    Capabilities,
     ConfigSet {
         key: String,
         value: String,

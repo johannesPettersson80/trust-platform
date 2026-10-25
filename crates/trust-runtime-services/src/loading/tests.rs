@@ -4,9 +4,9 @@
 //! The flash is the C6's: 4-byte program units, 4 KiB erase units and two slots of 3,056 KiB, the
 //! halves of the 6,112 KiB `application` region of `chips/esp32c6.toml`. The installed program is
 //! the board probe's compiled image padded to 6,412 bytes (`tests/program_store.rs`), which the
-//! kernel's checks before a commit admit and the store reads only as bytes. Its record is 342 bytes,
+//! kernel's checks before a commit admit and the store reads only as bytes. Its record is 352 bytes,
 //! and the image starts at the first multiple of 64 after the 60-byte header (specification 44
-//! §10.1), so the container is 6,818 bytes (64 + 6,412 + 342) and takes two 4 KiB erase units.
+//! §10.1), so the container is 6,828 bytes (64 + 6,412 + 352) and takes two 4 KiB erase units.
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -480,7 +480,7 @@ fn an_erased_store_selects_no_program() {
 #[test]
 fn an_install_refused_by_admission_writes_no_byte() {
     // Specification 34 §5.1.1 and DEPLOY-04: a program the device's application slot cannot hold is
-    // refused before any write. The program and its record need 6,754 bytes (6,412 + 342) and the
+    // refused before any write. The program and its record need 6,764 bytes (6,412 + 352) and the
     // device has 100. Catches a write that starts before admission.
     let (flash, mut store) = erased_store();
     let small = DeviceDescriptor {
@@ -492,7 +492,7 @@ fn an_install_refused_by_admission_writes_no_byte() {
         refused.err(),
         Some(InstallError::Admission(AdmissionError::Deployment(
             RuntimeError::DeploymentRefused(AdmissionRefusal::ApplicationSlot {
-                needed: 6754,
+                needed: 6764,
                 available: 100,
             })
         )))

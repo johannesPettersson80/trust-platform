@@ -1,0 +1,14 @@
+[package]
+name = "trust-modbus"
+description = "The Modbus protocol of truST's Modbus drivers without std or a heap: the PDUs of function codes 1 to 6, 15 and 16, the MBAP header of Modbus TCP, and the frame, CRC and silent intervals of Modbus RTU"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+# No dependencies: the crate writes into and reads from the caller's buffers, so the computer
+# runtime and the chips' firmware build it alike.
+
+[lints]
+workspace = true

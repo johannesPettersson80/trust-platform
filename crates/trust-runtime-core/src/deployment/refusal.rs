@@ -42,7 +42,7 @@ impl fmt::Display for DeploymentRecordError {
             Self::Magic => formatter.write_str("the record does not start with TRDR"),
             Self::Version(version) => write!(
                 formatter,
-                "record version {version} is unknown; this runtime reads version {}",
+                "record version {version} is unknown; this runtime reads versions 1 and {}",
                 super::RECORD_VERSION
             ),
             Self::Length => formatter.write_str("the record length differs from its bytes"),

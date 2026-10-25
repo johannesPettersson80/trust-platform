@@ -12,7 +12,7 @@ use smol_str::SmolStr;
 use trust_runtime_core::deployment::DeviceDescriptor;
 use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::WallClock;
-use trust_runtime_services::access::{AccessRole, AuthFailure};
+use trust_runtime_services::access::{AccessRole, AuthFailure, PairingService};
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use trust_runtime_services::events::{store_event, RuntimeEvent};
@@ -57,6 +57,14 @@ impl AccessPort for ControlState {
 
     fn debug_enabled(&self) -> bool {
         self.debug_enabled.load(Ordering::Relaxed)
+    }
+
+    /// The bundle's pairing store, `<bundle root>/pairings.json`, which the shared `pair.*`
+    /// requests use; a runtime without a bundle has none and answers `pairing unavailable`.
+    fn pairing(&self) -> Option<&dyn PairingService> {
+        self.pairing
+            .as_deref()
+            .map(|store| store as &dyn PairingService)
     }
 }
 

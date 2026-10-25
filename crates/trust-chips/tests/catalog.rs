@@ -88,7 +88,10 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
             ("firmware_select", 0xB000, 8),
             ("device_a", 0xD000, 4),
             ("device_b", 0xE000, 4),
-            ("application", 0x3F_0000, 4128),
+            // The pairings' two sectors, after the program store (specification 11 §6.9.6).
+            ("pairing_a", 0x7F_6000, 4),
+            ("pairing_b", 0x7F_7000, 4),
+            ("application", 0x3F_0000, 4120),
             ("checkpoint_a", 0x7F_8000, 16),
             ("checkpoint_b", 0x7F_C000, 16),
             // The boot counter's two sectors, one 4 KiB erase unit each, between the partition
@@ -113,7 +116,13 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
     // Appendix H.3: the components the C6 bench measured; the U5A9 holds the engine alone.
     assert_eq!(
         chip.firmware.components,
-        [Component::Engine, Component::Control, Component::LiveValues]
+        [
+            Component::Engine,
+            Component::Control,
+            Component::LiveValues,
+            Component::Debug,
+            Component::Deploy
+        ]
     );
 }
 
@@ -201,16 +210,19 @@ fn the_files_record_what_was_measured_on_the_owners_chips() {
 #[test]
 fn a_component_names_the_chips_whose_firmware_holds_it() {
     let catalog = catalog();
-    // Appendix H.3: every chip in the catalog holds the engine; the C6's bench measured the control requests
-    // and Live Values, which the U5 firmware does not serve yet. Catches a chip offered for a
-    // component its firmware lacks, or one left out for a component it holds.
+    // Appendix H.3: every chip in the catalog holds the engine; the C6's bench measured the control
+    // requests and Live Values (18 October 2026), and debugging and program loading with online
+    // change (24 October 2026), which the U5 firmware does not serve yet. Catches a chip offered for
+    // a component its firmware lacks, or one left out for a component it holds.
     assert_eq!(
         catalog.chips_with(Component::Engine),
         ["esp32c6", "stm32u5a9"]
     );
     assert_eq!(catalog.chips_with(Component::Control), ["esp32c6"]);
     assert_eq!(catalog.chips_with(Component::LiveValues), ["esp32c6"]);
-    for component in Component::ALL.into_iter().skip(3) {
+    assert_eq!(catalog.chips_with(Component::Debug), ["esp32c6"]);
+    assert_eq!(catalog.chips_with(Component::Deploy), ["esp32c6"]);
+    for component in Component::ALL.into_iter().skip(5) {
         assert!(
             catalog.chips_with(component).is_empty(),
             "{}",

@@ -690,7 +690,7 @@ A writer writes the container in one order: the payloads, then the header fields
 
 **The program store.** A chip's program store holds two containers, one in each of two application slots of equal size, which the chip file names. An install writes the complete container to the slot that does not hold the program the runtime holds, running or stopped, whose image the runtime reads in place (MEM-14); when the runtime holds no program, to the slot that does not hold the newest committed container, or to slot A when neither slot holds one. A container installed after the program that runs, and not run yet, is therefore replaced by the next install, or by the next upload written into the store from its `transfer.begin` on (below), and the running program's slot is never written. The writes run in steps of at most one erase unit, or at most one step budget of programmed or read-back bytes, so that a loop pass serves the link between them (STATE-08). The order is: erase the units the container needs, starting with the unit that holds the magic; program the payloads, then the header fields after the magic, then the first four bytes of the magic; read back every byte that was programmed; and program the last four bytes of the magic. That last program is the commit point: a container is committed only when its magic reads `TRSTA002` in full, and it then holds the sequence the device gave it. An install that stops at any step, or whose read-back fails, leaves the newest committed container as it was, so the previous program stays selected (DEPLOY-03). At boot the store reads the header of each slot, and only the header. A slot is committed when its magic reads `TRSTA002`, its header CRC-32 is good and its total length lies between the header and the end of the slot; any other slot holds no committed container. A slot whose first eight bytes read `TRSTA001` holds a version-1 container, which is not committed: it takes no part in the order, and the next install overwrites it as it overwrites an erased slot. When neither slot holds a committed container the boot is refused with `no installed program: <reason>`, whose reason is `slot A holds a TRSTA001 container, which is not committed (only TRSTA002 is read)` for the first slot that holds a version-1 container (`slot B` when only slot B does), and `no TRSTA002 container in either slot` when neither slot holds a container at all. An erase stopped part-way through a slot's first unit can leave the magic over a damaged header, whose sequence cannot then be read, so such a slot is not committed; a damaged payload or a refused admission under a good header is a damaged committed container. The committed container with the highest sequence is selected, and its payloads are checked and its admission is granted (§5.1.1). If either check fails, the boot is refused with `no installed program: <reason>`, and the other slot is not selected in its place. Two committed containers with the same sequence also refuse the boot, and the reason names the sequence. A device that is refused serves its control link in the Stopped state with that reason (STATE-08) and takes an install (§11.2). The boot checks the selected container where it lies in its slot and prepares the program from it there: the program's image is the slot's bytes (MEM-14), and the device copies no part of the container to the heap but the decoded record. A device that cannot read its flash in place reads the container into memory instead, and refuses one longer than that memory, before anything is read, with `the installed container needs <n> bytes, more than the heap's <m> bytes`. A `restart` that loads a newer container (STATE-08) drops the program it held before it reads the newer one in the same way. A rollback needs an explicit activation with its own check (DEPLOY-06); none is defined here.
 
-**An upload written into the store** (the owner, 23 October 2026: stream uploads into the inactive slot, the header last, the SHA-256 worked out as the parts arrive). A chip whose resource is Stopped writes an upload into its program store as its parts arrive, rather than holding it in its heap, so that it installs a program as large as a slot: the ESP32-C6's slot holds 2,064 KiB, its heap 112 KiB. The upload goes into the slot that an install would write when the upload begins (above), and the install of the upload commits it there. `transfer.begin` erases the slot's first erase unit, which holds the magic, so the container that the slot held is no longer committed before any of its bytes is replaced: no boot, `restart` or stepped scan selects it from then on. Each part is then written at its offset in the steps of an install: the erase of each erase unit that the part reaches into and no earlier part reached into, the program of its bytes in steps of at most the step budget, and their read-back. The first 60 bytes of the upload, the container's header, are not written: the session keeps them with its part buffer, and nothing else of the upload is held in memory. The slot therefore holds no committed container until the install's commit point. `program.install` checks the container where it lies in the slot (MEM-14), with the header that the session kept (§11.2), and its commit programs the header after the magic with the sequence the device gives it, then the first four bytes of the magic, reads both back, and programs the last four bytes of the magic, the commit point. A reset, a loss of power, an abort, a refused install and an upload whose SHA-256 does not match leave the slot without a committed container and the other slot as it was (DEPLOY-03). An upload begun while the resource runs is held in the heap, because no flash is written or erased while a program runs (Appendix D.2): it serves an online change (§11.3), and an install after a stop when the heap holds it. A `restart` that starts the resource ends an upload written into the store (PORT-05).
+**An upload written into the store** (the owner, 23 October 2026: stream uploads into the inactive slot, the header last, the SHA-256 worked out as the parts arrive). A chip whose resource is Stopped writes an upload into its program store as its parts arrive, rather than holding it in its heap, so that it installs a program as large as a slot: the ESP32-C6's slot holds 2,060 KiB, its heap 112 KiB. The upload goes into the slot that an install would write when the upload begins (above), and the install of the upload commits it there. `transfer.begin` erases the slot's first erase unit, which holds the magic, so the container that the slot held is no longer committed before any of its bytes is replaced: no boot, `restart` or stepped scan selects it from then on. Each part is then written at its offset in the steps of an install: the erase of each erase unit that the part reaches into and no earlier part reached into, the program of its bytes in steps of at most the step budget, and their read-back. The first 60 bytes of the upload, the container's header, are not written: the session keeps them with its part buffer, and nothing else of the upload is held in memory. The slot therefore holds no committed container until the install's commit point. `program.install` checks the container where it lies in the slot (MEM-14), with the header that the session kept (§11.2), and its commit programs the header after the magic with the sequence the device gives it, then the first four bytes of the magic, reads both back, and programs the last four bytes of the magic, the commit point. A reset, a loss of power, an abort, a refused install and an upload whose SHA-256 does not match leave the slot without a committed container and the other slot as it was (DEPLOY-03). An upload begun while the resource runs is held in the heap, because no flash is written or erased while a program runs (Appendix D.2): it serves an online change (§11.3), and an install after a stop when the heap holds it. A `restart` that starts the resource ends an upload written into the store (PORT-05).
 
 **A first flash.** The container that the bench packer writes holds install sequence 1, the sequence that the first commit into an empty store gives, and is otherwise the container `program.install` commits for the same program and record: for them the two are the same bytes. Written into slot A by a flasher (`application_a` of the chip file), it is therefore a committed container, and the first `program.install` after it writes slot B with sequence 2. A flasher does not write in the order of a commit, with the magic last, so a flash that stops part-way can leave a good header over missing payload bytes; the boot then refuses the container as damaged (above), and it is flashed again. A first flash is a bring-up path (DEPLOY-02), not the interruption-safe install of §11.2.
 
@@ -706,14 +706,14 @@ new program, and `trust-runtime deploy` copies it with the program.
 | Offset | Bytes | Field |
 |---|---|---|
 | 0 | 4 | Magic `TRDR` |
-| 4 | 2 | Record version, 1 |
+| 4 | 2 | Record version, 1 or 2 |
 | 6 | 2 | Section count |
 | 8 | 4 | Record length L in bytes, header and CRC included, at most 65,536 |
 | 12 | L − 16 | The sections, in ascending order of their identifiers |
 | L − 4 | 4 | CRC-32 of bytes 0 to L − 5 |
 
 A section is a 2-byte identifier, 2 reserved bytes (0), a 4-byte payload length and the payload.
-Version 1 has these seven sections, each once:
+Version 1 has these seven sections, each once; version 2 has them and section 8:
 
 | Section | Payload |
 |---|---|
@@ -724,6 +724,7 @@ Version 1 has these seven sections, each once:
 | 5 Tasks | The task count (2) and 2 reserved bytes, then for each task in declaration order: its interval in nanoseconds (8, signed), its priority (4) and its flags (4), of which bit 0 marks an event task (`SINGLE`) and the others are 0 |
 | 6 Imports | The import count (2) and 2 reserved bytes, then each built-in import of the program once, ordered by kind and then by name: the kind (1), 1 for a function and 2 for a function block; the name's length (1); the contract version (2, §5.2.1); the canonical uppercase name |
 | 7 Configuration | The settings a device without an operating system needs from `runtime.toml` and `io.toml` (below): the resource name, the cycle interval, control, the log level, retain, the watchdog, the fault policy, the event-store capacity, the task overrides, the I/O drivers and the safe state |
+| 8 Driver parameters (version 2) | The driver count (2), which is section 7's, then for each I/O driver in section 7's order: the length (4) and the UTF-8 text of the driver's `params` table as JSON (below) |
 
 Section 7 carries what a device without an operating system needs from the project's `runtime.toml`
 and `io.toml`: a computer reads those two files themselves at each start, and a chip never parses
@@ -760,6 +761,20 @@ name is not `gpio` carries no lines. `trust-runtime build` fills this section fr
 meaning and the defaults it has on a computer, and refuses a value the section cannot hold with the
 reason and without writing a record.
 
+Section 8 carries each driver's parameters, so that a chip runs every `io.toml` driver it carries
+out with the keys, the defaults and the checks of a computer (TARGET-01), which the GPIO lines of
+section 7 cannot express for the other drivers. A driver's text is its `params` table as the
+runtime's parser read it, written as JSON: a TOML table is a JSON object whose keys are in the byte
+order of their UTF-8, so the same file gives the same bytes; a string, an integer, a boolean and an
+array are the same JSON value; a float is a JSON number in its shortest form that reads back as the
+same value; and a TOML date or time is the JSON string of its RFC 3339 text. A float that is not a
+number or is infinite has no JSON form, and the build refuses it with the driver's name and key. A
+driver without parameters has `{}`. `trust-runtime build` writes version 2 (decision of 25 October
+2026: a section added after those of version 1, as the rule below has a later version do). A chip
+runs a driver it carries out from its text, and refuses one it does not carry out by name with the
+reason, and a driver other than `gpio` of a version-1 record with `rebuild the project: its record
+holds no driver parameters`.
+
 The identities:
 
 - **Program identity.** The SHA-256 and the length of the exact bytes of `program.stbc`.
@@ -779,7 +794,10 @@ admitted program with exactly the requested limits, so the program meets the sam
 target (ARCH-01).
 
 **Reading a record.** A runtime reads every record version it knows. A version-1 record has
-exactly sections 1 to 7, in that order, each payload exactly as long as its content. A runtime
+exactly sections 1 to 7, and a version-2 record exactly sections 1 to 8, in that order, each
+payload exactly as long as its content. Section 8 refuses a driver count other than section 7's and
+a text that is not UTF-8; the driver that reads a text refuses one that is not a JSON object of its
+keys, as a computer refuses its `params`. A runtime
 refuses with `RuntimeError::DeploymentRecordInvalid` and the stable code
 `runtime_deployment_record_invalid`, stating the reason, a record that is shorter than its
 lengths; that has another magic, an unknown version, a length other than the file's or above
@@ -2481,7 +2499,7 @@ The boundary is the existing semantic transition point, not a claim that warm in
 
 **Online change on a chip: the memory check (UPDATE-06).** The candidate is prepared while the running program stays installed, so the heap holds the running program, the upload and the candidate at once. The candidate's preparation limits are those of §5.1.1 for a heap of the bytes that are free when the change is taken, less a reserve that the chip keeps for the machine (the limits of `device_limits`: the preparation bytes and the validation scratch scale with the heap, the counts are trust-runtime's and the call levels the main stack's, MEM-03; and an artifact no longer than those bytes, because an artifact longer than the heap that remains cannot be prepared in it). The reserve is the working memory that preparing and constructing a candidate takes beyond the two programs. The change reads no checkpoint (decision OC-1, below), so it keeps nothing for one. On the ESP32-C6 the working memory is 8,192 bytes (`ONLINE_CHANGE_WORKING_MEMORY_BYTES`); Appendix D.2 gives its measurement. A candidate that needs more than those limits, whichever limit refuses it (the artifact's length, the memory or the work of the decoder, the preparation budget, or the storage or the work of the validator, each of which the core reports as a limit and not as a damaged program), is refused with `insufficient memory: a change of <n> bytes needs more than the <m> bytes of heap that remain for it (<r> bytes are free, <k> are kept in reserve)`, and a candidate whose construction exceeds its construction allowance, the constructed values or the allocation bytes, with `insufficient memory: building a change of <n> bytes needs <x> more <allowance> after <u>, above the limit of <l> that the <m> bytes of heap that remain for it allow (<r> bytes are free, <k> are kept in reserve)`. A heap with no byte remaining is refused with the first text, since no program can be prepared in it, and a candidate whose static call depth is more than the call levels the chip's main stack holds is refused with `insufficient stack` and its numbers (MEM-03). The running program runs on unchanged. The upload is freed as soon as the candidate's module is prepared, whether or not the candidate is then refused. A candidate that passes these limits is then compared by its memory figure (MEM-12), with the capture of its retained values when the record keeps them, with the heap that remains for it once its upload is freed: the free bytes less the reserve, with the upload's bytes. A figure that is more is refused with `insufficient memory: a change of <n> bytes needs <f> bytes of memory, more than the <m> bytes of heap that remain for it once it is prepared (<r> bytes are free, <k> are kept in reserve)`. The same limits apply to the dry run of a chip's `program.install` (§11.2), whose texts name `a program` instead of `a change`. Its reserve is the working memory and, only when the new program's record keeps retained values (`[runtime.retain] mode = "file"`), the length of the payload of the newest committed checkpoint as well, because its warm start reads that checkpoint whole into the heap. The length is read from the checkpoint's record header, so the reserve holds the bytes that the dry run will really read and not the largest payload that a slot takes; it holds that largest payload when the header cannot be read, and nothing when the log holds no committed checkpoint. On the ESP32-C6, whose largest payload is 16,300 bytes, the install's reserve is 8,192 bytes for a record that keeps no retained values, and 8,192 bytes plus the newest payload (at most 24,492 bytes) for a record that keeps them.
 
-**Online change on a chip: the lines.** The change keeps the running program's lines claimed, with the levels their outputs hold. The candidate is constructed with an empty process I/O, which drives nothing and claims no pin, and with the running program's settings, since the change brings no record: the cycle interval, the watchdog and fault policies, the safe state, the retain settings, the lines, the event capacity and the hardware watchdog interval stay as the installed container's record set them. Before the commit the candidate is checked against the running program's record, and a candidate that fails a check is dropped and the running program is as it was. (1) A binding of the candidate to an input or output address at which the record's `gpio` driver gives no line is refused with `the candidate binds <address>, which the running program's record gives no line`; an address is covered by a line when the line is that bit, for a bit binding, or lies in one of the bytes, for a binding of a byte or more, and a marker (`%M`) binding needs no line. (2) As a computer's `validate_replacement_policy` refuses a replacement whose process image cannot take a `[[io.safe_state]]` entry of the running configuration, because a stop or a fault would write that value into the image, the change is refused with the error of that write when an entry of the running record is not a valid write of the candidate's process image. Before the commit the checkpoint store gets room for the capture of the candidate's retained values, keeping the room it has, so that the candidate's first capture grows nothing (MEM-09); a heap without that room refuses the change with `insufficient memory`. The commit then hands the lines to the candidate in one step that cannot fail: the running program's process I/O, which owns the claimed pins with the levels their outputs hold, and its checkpoint store, which owns the checkpoint flash and the log, change places with the candidate's empty ones, and the running program is dropped with the empty ones. No pin is released or claimed, no output is written and no safe state is applied between the commit and the candidate's first output commit; the lines hold their levels until the candidate's first scan publishes its outputs. That scan runs the tasks that are due, because the candidate's tasks continue the running program's schedule (decision OC-2, below), so the outputs that the program assigns are computed by the candidate's tasks and never take initial values for a cycle.
+**Online change on a chip: the lines.** The change keeps the running program's lines claimed, with the levels their outputs hold. The candidate is constructed with an empty process I/O, which drives nothing and claims no pin, and with the running program's settings, since the change brings no record: the cycle interval, the watchdog and fault policies, the safe state, the retain settings, the lines, the event capacity and the hardware watchdog interval stay as the installed container's record set them. Before the commit the candidate is checked against the running program's record, and a candidate that fails a check is dropped and the running program is as it was. (1) A binding of the candidate to an input or output address at which neither the record's `gpio` driver gives a line nor its other drivers an entry is refused with `the candidate binds <address>, which the running program's record gives no line or driver entry`; an address is covered by a line when the line is that bit, for a bit binding, or lies in one of the bytes, for a binding of a byte or more, by a driver's entry when they share a byte (an analog or PWM entry takes a word, a counter a double word, a CAN frame its `length` bytes; specification 11 §6.5), and a marker (`%M`) binding needs neither. The running program's drivers stay claimed with its lines. (2) As a computer's `validate_replacement_policy` refuses a replacement whose process image cannot take a `[[io.safe_state]]` entry of the running configuration, because a stop or a fault would write that value into the image, the change is refused with the error of that write when an entry of the running record is not a valid write of the candidate's process image. Before the commit the checkpoint store gets room for the capture of the candidate's retained values, keeping the room it has, so that the candidate's first capture grows nothing (MEM-09); a heap without that room refuses the change with `insufficient memory`. The commit then hands the lines to the candidate in one step that cannot fail: the running program's process I/O, which owns the claimed pins with the levels their outputs hold, and its checkpoint store, which owns the checkpoint flash and the log, change places with the candidate's empty ones, and the running program is dropped with the empty ones. No pin is released or claimed, no output is written and no safe state is applied between the commit and the candidate's first output commit; the lines hold their levels until the candidate's first scan publishes its outputs. That scan runs the tasks that are due, because the candidate's tasks continue the running program's schedule (decision OC-2, below), so the outputs that the program assigns are computed by the candidate's tasks and never take initial values for a cycle.
 
 **Online change keeps the program's values** (owner, 19 October 2026, decisions OC-1 and OC-2: "do whats most professional and what beckhoff and codesys does"; "flickering outputs is shit"). On every runtime an online change carries the running program's state into the candidate, as CODESYS and TwinCAT do (checklist C1-23, C1-24): every variable of the candidate that the running program declares at the same place and by the same name takes that variable's current value, retained or not, function-block instances and their members included; a variable whose declaration changed keeps what fits (owner, 20 October 2026, "keep what fits": a simple value converted when the new type holds it, structure and function-block members by name, array elements by index), and anything else, like a new variable, takes its declared initial value, the change recording it as an event; a change never fails because of a value; and the retain file or checkpoint is not applied at an online change, because it holds older values (it stays the source of a restart after a stop or a power loss). The candidate's tasks continue the running program's schedule, so the first cycle after the change runs the tasks that are due, and outputs are written only from the candidate's values, never from initial values that no task has computed. Specification 11 §6.7.1 gives the rules and the events.
 
@@ -2554,7 +2572,8 @@ every control request must then carry and which grants Admin, as a computer's
 connection over the network, 9901 by default, ARCH-12), `[bluetooth]`
 (`enabled`), `[time]` (`server`, a host name or an IPv4 address, TARGET-06), `[signing]`
 (`trusted_keys`, at most 8 Ed25519 public keys of 64 hexadecimal digits, specification 44 §5.11) and
-`[hardware]` (`crystal_hz`, `ethernet_phy`). Every section and key may be left out; an unknown one
+`[hardware]` (`crystal_hz`, `ethernet_phy`). Every section and key may be left out, except `ssid`
+in a `[network.wifi]` that is given, which names the network; an unknown one
 is refused. A key the chip has no hardware for is refused with the reason, for example
 `network.ethernet: the ESP32-C6 has no Ethernet` (ARCH-13), and so is a crystal outside the chip
 file's range.
@@ -2578,8 +2597,9 @@ network and the program start. A computer answers the three requests with `unsup
 processor and instruction set, flash and RAM sizes and layout, clock limits, its interfaces, and the
 runtime components its firmware holds (ARCH-14).
 truST builds one firmware per chip from it; there is no firmware, and no file, per board. Any board
-with a supported chip runs that firmware: its pins are named in `io.toml` and its other wiring is
-detected or named in `device.toml` (TARGET-02). A chip of a supported family needs only its chip
+with a supported chip and at least the flash the chip file's layout places (8 MB for the ESP32-C6)
+runs that firmware: its pins are named in `io.toml` and its other wiring is detected or named in
+`device.toml` (TARGET-02). A chip of a supported family needs only its chip
 file. A new chip family
 needs a platform adapter, written once: the drivers for its timer, watchdog, flash, pins, USB and
 network links. Everything above the adapter is shared (ARCH-11). Appendix H defines the file.
@@ -2602,7 +2622,14 @@ slot. The port is the one USB serial port with the chip file's `usb_bootloader` 
 `--port` names it; none or two such ports are refused with the ports named. A file that does not
 begin with its magic (0xE9 for an ESP image, 0xAA 0x50 for a partition table) is refused before
 anything is written. The program store, the checkpoints and the device settings are not written,
-so a chip keeps its program, its retained values and its settings across an install.
+so a chip keeps its program, its retained values and its settings across an install. With
+`--reset-settings` the install also erases the two sectors of the device settings (`device_a` and
+`device_b`) and those of the pairings (`pairing_a` and `pairing_b`, where the chip file names them;
+specification 11 §6.9.6), so the chip boots without a control token, without pairing tokens and
+without a network, and its USB link is Admin again: the way back to a chip whose control token is
+lost. It needs the chip on USB, as the
+first install does; whoever holds the chip can read its flash as well, since the chips have no
+read-out protection (TARGET-10), so it opens nothing a thief could not.
 
 Updates over the control connection (the owner, 25 October 2026, "do whats professional, compare to
 twin at and codesys": two firmware slots with a rollback, as ESP-IDF and the update of an embedded
@@ -3669,6 +3696,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.68 | 25 October 2026 | Drivers, pairings and installs on the chips (the portability checklist's T1, S5, D1 and the documentation review; the owner, 25 October 2026: "do whats professional, compare to twin at and codesys and it must follow iec standard. so you deside. please finish the complete checklist"). §5.1.1: record version 2 adds section 8, each I/O driver's `params` as JSON, so that a chip runs every driver it carries out with a computer's keys, defaults and checks; a reader takes versions 1 and 2. D.2: the `analog`, `pwm`, `counter` and `can` drivers on the C6's ADC1, LEDC, PCNT and TWAI; the heap figures corrected to 180,160 bytes; GPIO24 to GPIO30 reserved for the SPI flash (H.2 reason `flash`); the pairings in `pair_a` at 0x7F6000 and `pair_b` at 0x7F7000, 4 KiB each, taken from the program store, whose slots are now 2,060 KiB at 0x3F0000 and 0x5F3000; a pairing write is the second flash write a running resource allows, measured on the bench. H.2: the layout keys `pairing_a` and `pairing_b`; H.5 rule 7 names the device settings and the pairings with the boot counter. TARGET-02: `ssid` is required in a given `[network.wifi]`. TARGET-03: the C6 needs 8 MB of flash. TARGET-04: `firmware install --reset-settings` erases the device settings and the pairings, the way back to a chip whose control token is lost. H.3: pairing is part of `access`, not `cloud`; the C6 holds `debug` and `deploy`, as benched on 24 October 2026. §11.3: an online change on a chip keeps the running program's drivers with its lines, and counts a binding that shares a byte with a driver's entry as wired. |
 | 0.67 | 25 October 2026 | A load in the running loop (the portability checklist's L3). D.2, MEM-12: a `restart` that loads a newer program, or an install with a restart, measures the memory for programs again before it reads the program and refuses one that no longer fits; on the router, the bench's install with a restart panicked in the running loop, where the same program loaded at the next boot. The reset record keeps the end of a panic location longer than it, after `...`; it kept `panic`, which hid where that panic was. |
 | 0.66 | 25 October 2026 | The memory a program has on a chip with Wi-Fi, and a boot that a program's load ended (the portability checklist's L3). D.2: the radio's arena is 56 KiB, the bench's peak of 47,864 bytes under load with a fifth more; it was 64 KiB. The network takes 38,588 bytes of the heap besides the arena, measured at boot; the text said about 26 KiB. PORT-06: the busy reply carries the `error_code` `server_busy`, and a client whose first request on a connection gets it connects again after 50, 100, 200, 400 and 800 ms; the bench's `install` right after a `shutdown` found the chip still closing the connection while it saved its retained values. PORT-06: the chip derives a WPA2 passphrase's key at boot, before its program starts; the radio's driver derived it at the first join and stalled the reference program's scans for about 0.85 seconds at every boot (ControlTask missed 86 activations of 10 ms; none with the 64-digit key). TARGET-08: a boot that a reset ended while it loaded the installed program does not load it again; the next boot leaves the program unloaded and the resource faulted as the reset leaves a program, and a `restart` loads it again. The bench installed a debug image whose figure (specification 44 §10.4, which 0.29 there makes count what a load keeps) let a chip with Wi-Fi admit it: its load ran out of heap, panicked, and the chip reset at every boot, about 470 times, until its device settings were erased. |
 | 0.65 | 25 October 2026 | The chip on a Wi-Fi network at the bench (the portability checklist's L3). D.2: the firmware's `memcpy` copies from the first byte to the last, as the ROM's does, so a copy to a lower address that overlaps its source gives what `memmove` gives; its word table ran from the last word to the first, and the C6 then failed every WPA2 handshake at its third message, on the Pi's hotspot and on a router alike, while a build on the ROM's routines joined. The firmware's `tests/memory_routines/run.sh` checks the three routines under qemu-riscv32. PORT-06: the chip answers ping on its address, as networked PLCs do; its Wi-Fi stack did not. PORT-06, joining the network: 90 seconds after an attempt that its access point did not answer, with the radio asleep between attempts, so that an access point that kept the chip's association after a reset without leaving drops it (the Pi's access point did after about 45 seconds without an answer to its checks; attempts every 30 seconds, and the awake radio's answers to its checks, kept it for good); before a reset it makes itself the chip leaves its Wi-Fi network; the Pi's access point, which still held the chip's association after a reset without one, ignored the chip's next attempts to join ("AuthenticationExpired" at -19 dBm) until its own timeout. PORT-06, the client: `ctl` asks for the version and sends its request over one connection; it opened a second for the request, which the chip, still closing the first, answered `server busy`. PORT-06, the loop: while the link is down only the next attempt to join is due; before, the stack's timers, which cannot run without a link, woke the loop every millisecond. |
@@ -4048,6 +4076,17 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   GPIO18, a plain pin with no board load, read back through its own pad input; the probe read back
   1, 0, 1, 0 as commanded. The RGB LED on GPIO8 is a WS2812, not a plain LED, so optical output
   stays unverified, as on F401.
+- **Analog, PWM, counters and CAN (TARGET-01, the portability checklist's T1).** The drivers of
+  specification 11 §6.5 run on the C6's peripherals that `chips/esp32c6.toml` lists: `analog`
+  inputs on ADC1, whose channels 0 to 6 are GPIO0 to GPIO6, converted once per input at each cycle
+  start with the chip's eFuse calibration at the attenuation of its whole range; the C6 has no
+  digital-to-analog converter, so an `analog` output is refused. `pwm` outputs on the LEDC's six
+  channels, outputs of one frequency sharing one of its four timers, with the finest duty
+  resolution its 80 MHz clock allows at the frequency, at most 14 bits. `counter` inputs on the
+  PCNT's four units, a `quadrature` counter using both channels of its unit. `can` on the two TWAI
+  controllers, `TWAI0` and `TWAI1`, whose `tx` and `rx` the GPIO matrix routes to any pins but those
+  the firmware keeps. A pin serves one line of one driver. The numbers the drivers depend on, the
+  ADC's range among them, are measured on the bench and written here with their source.
 - **Memory.** The main heap is 32,832 bytes: F401's 72 KiB allocator arena less the 24 KiB that
   RAM-resident code takes, so that the scan's code runs from RAM (the owner, 21 October 2026, "Give
   code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1), and less
@@ -4184,8 +4223,8 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   programs, the figure each reports in `status` with the heap the C6 holds (see that checklist
   entry).
 - **Long replies.** The C6's transfer session holds a reply of up to the capacity of its heap,
-  114,688 bytes: the 32,832-byte main heap, the 64 KiB of the boot loader's reclaimed RAM and the
-  16,320 bytes of LP SRAM that the firmware's `memory.rs` gives the allocator. `profile::transfer_session` names the figure
+  180,160 bytes: the 98,368-byte main heap, the 64 KiB of the boot loader's reclaimed RAM and the
+  16,320 bytes of LP SRAM that the firmware's `memory.rs` gives the allocator (Memory, above). `profile::transfer_session` names the figure
   `HEAP_CAPACITY_BYTES`, so a chip answers a read of its event store as a computer does (PORT-05):
   an `events.tail` of its full store of 200 events, at least 43 bytes each, is a reply of more than
   8,800 bytes, longer than the 8,192-byte frame, which the session holds and the client reads with
@@ -4203,7 +4242,7 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   `trust-runtime`'s test `a_long_reply_takes_no_heap_block_longer_than_a_part` checks with a
   counting allocator that a read of 200 events allocates no block longer than 4,096 bytes.
 - **Online change.** The C6 applies `bytecode.reload` at the program's next boundary and writes no
-  flash (§11.3). While it prepares the candidate, its 114,688-byte heap holds the running program,
+  flash (§11.3). While it prepares the candidate, its 180,160-byte heap holds the running program,
   the upload and the candidate at once. The upload is freed as soon as the candidate's module is
   prepared, and the running program is dropped last, after the commit has moved its lines and its
   checkpoint store to the candidate, so the heap holds one program again. The candidate is built
@@ -4268,21 +4307,27 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   (8 KiB), the bootloader's choice between the two firmware slots; `device_a` at 0xD000 and
   `device_b` at 0xE000 (4 KiB each), the device settings of TARGET-02; the two firmware slots
   `ota_0` at 0x10000 and `ota_1` at 0x200000 (1,984 KiB each, TARGET-04); `stbc` at 0x3F0000
-  (4,128 KiB), the separately installable application bundle, up to the checkpoint slots at the
-  end of the 8 MB flash; and `ckpt_a` at 0x7F8000 and `ckpt_b` at 0x7FC000 (16 KiB each), the
+  (4,120 KiB), the separately installable application bundle, up to the pairings; `pair_a` at
+  0x7F6000 and `pair_b` at 0x7F7000 (4 KiB each), the pairings of specification 11 §6.9.6; and
+  `ckpt_a` at 0x7F8000 and `ckpt_b` at 0x7FC000 (16 KiB each) at the end of the 8 MB flash, the
   checkpoint slots (below). `stbc` uses the custom partition type 0x40, the checkpoint slots type
-  0x41, the boot counter's sectors type 0x42 and the device settings type 0x43 (subtypes 0 and 1 in
-  each pair), so the bootloader ignores them. `stbc` holds the two program slots of the program
-  store (§5.1), `application_a` at 0x3F0000 and `application_b` at 0x5F4000, 2,064 KiB each. The
-  second firmware slot took 1,984 KiB of the 6,112 KiB that `stbc` had (the owner, 25 October 2026:
-  "do whats professional"; it supersedes decision O7, the application taking all the flash the
-  chip allows): the reference workload's image is 67,848 bytes, and a program larger than the
-  112 KiB program region of RAM runs from its slot (specification 44 §10.3), so a slot of 2,064 KiB
-  still holds every program the chip can run. The firmware reads
+  0x41, the boot counter's sectors type 0x42, the device settings type 0x43 and the pairings type
+  0x44 (subtypes 0 and 1 in each pair), so the bootloader ignores them. `stbc` holds the two
+  program slots of the program store (§5.1), `application_a` at 0x3F0000 and `application_b` at
+  0x5F3000, 2,060 KiB each. The second firmware slot took 1,984 KiB of the 6,112 KiB that `stbc`
+  had (the owner, 25 October 2026: "do whats professional"; it supersedes decision O7, the
+  application taking all the flash the chip allows), and the pairings took 8 KiB more: the
+  reference workload's image is 67,848 bytes, and a program larger than the 112 KiB program region
+  of RAM runs from its slot (specification 44 §10.3), so a slot of 2,060 KiB still holds every
+  program the chip can run. The firmware reads
   the header of each slot at boot, and the newest committed container once, into RAM through
   `esp-storage`, within the room the heap has; the RAM buffer is the container's length, never the
-  slot's size. Apart from the checkpoint slots below, and an install and an upload written into the
-  store, both in the Stopped state (§5.1, §11.2), no flash write or erase happens during RUN. A `restart` that loads a newer container (STATE-08)
+  slot's size. Apart from the checkpoint slots below, an install and an upload written into the
+  store, both in the Stopped state (§5.1, §11.2), and the pairings, no flash write or erase happens
+  during RUN. A `pair.claim` or `pair.revoke` that changes the pairings writes their record between
+  scans, in whatever state the resource is, as a computer writes its pairing file: the erase of one
+  sector, then the program and the read-back of the record. The next scan can then start late by
+  the erase, up to about 0.4 s, as after a checkpoint's erase step (below); the bench measures it. A `restart` that loads a newer container (STATE-08)
   reads that flash and writes none.
 - **Boot counter.** The boot number of the transfer ids (PORT-05) is a counter in two 4 KiB sectors
   of the flash, at 0x9000 and 0xA000, in the gap between the partition table and the first
@@ -4474,6 +4519,7 @@ KiB.
 | | `firmware` | The truST firmware: its first slot when the file names `firmware_b`. |
 | | `firmware_b`, `firmware_select` | The second firmware slot, of the size of `firmware`, and where the boot loader keeps which slot it boots (TARGET-04): optional, and a file names both or neither. |
 | | `device_a`, `device_b` | The two sectors of the device settings, `device.toml` (TARGET-02): optional, and a file names both or neither. Each is `{ start, kib }` of exactly one erase unit, apart from every other region. |
+| | `pairing_a`, `pairing_b` | The two sectors of the pairings (specification 11 §6.9.6): optional, and a file names both or neither. Each is `{ start, kib }` of exactly one erase unit, apart from every other region. |
 | | `application` | The separately installed application (DEPLOY-01). |
 | | `application_a`, `application_b` | The two program slots of the program store (§5.1): optional, and a file names both or neither. Each is `{ start, kib }` of the same size, inside `application`, on erase-unit boundaries and apart from the other slot and the checkpoint slots. |
 | | `checkpoint_a`, `checkpoint_b` | The two checkpoint slots of the retain store, so that an interrupted write keeps the last good checkpoint (RETAIN-02); §10.1 defines their contents. |
@@ -4481,7 +4527,7 @@ KiB.
 | `[interfaces]` | `usb`, `ethernet`, `wifi`, `bluetooth`, `uart`, `can`, `spi`, `i2c`, `adc`, `dac`, `timers`, `pwm` | The chip's peripherals of each kind, by the manufacturer's names. An empty list means the chip has none. An Ethernet PHY and other wiring belong to the board. |
 | `[gpio]` | `ports` | `stm32f4` and `stm32u5` only: `{ port, pins }` for each GPIO port, its pins counted from 0; a pin is named like `PD12`. |
 | | `pins` | `esp32` only: the number of GPIOs, `GPIO0` upwards; a pin is named like `GPIO18`. |
-| | `reserved` | `{ pin, reason }` for each pin the firmware keeps for itself, which `io.toml` cannot use; `reason` is `console`, `debug`, `oscillator` or `usb`. |
+| | `reserved` | `{ pin, reason }` for each pin the firmware keeps for itself, which `io.toml` cannot use; `reason` is `console`, `debug`, `flash`, `oscillator` or `usb`. |
 | `[firmware]` | `crate` | The firmware crate's directory, under `firmware/`. |
 | | `bin` | Its binary. |
 | | `components` | The runtime components the firmware holds (H.3). |
@@ -4503,7 +4549,7 @@ every target (ARCH-14):
 | `live-values` | Live Values: read, write, force and release. |
 | `debug` | Debugging (specification 13). |
 | `deploy` | Program loading, including online change. |
-| `access` | Access rights: tokens and roles, TLS and signed deployment. |
+| `access` | Access rights: tokens, roles and pairing, TLS and signed deployment. |
 | `discovery` | Discovery and the mesh (ARCH-12). |
 | `communication` | The communication services: the `io.toml` drivers, and Bluetooth devices where the chip has Bluetooth. |
 | `web-hmi` | The web pages and the HMI. |
@@ -4511,15 +4557,16 @@ every target (ARCH-14):
 | `ethercat` | The `ethercat` driver on a chip with an Ethernet controller. |
 | `opcua` | The OPC UA server and client (SERVICE-03). |
 | `ads` | The Beckhoff ADS client and server. |
-| `cloud` | The runtime cloud, the fleet and pairing. |
+| `cloud` | The runtime cloud and the fleet. |
 | `observability` | The historian with its alerts, and the Prometheus metrics. |
 | `openot` | OpenOT telemetry (SERVICE-04). |
 | `simulation` | Simulation (SERVICE-05). |
 
 A firmware holds `engine` and lists each further component once it holds it, as measured. The
 ESP32-C6 firmware holds `engine`, `control` and `live-values`, as its bench measured them on
-18 October 2026 (the control requests of S1b-5 and Live Values at the pins); the STM32F407
-firmware holds `engine` alone. Several resources in one configuration,
+18 October 2026 (the control requests of S1b-5 and Live Values at the pins), and `debug` and
+`deploy`, as its bench measured breakpoints, stepping and Live Values writes of a compiled program,
+and its online change, on 24 October 2026; the STM32F407 firmware holds `engine` alone. Several resources in one configuration,
 and several runtimes on one chip (ARCH-15), are not components: every firmware runs them, and how
 many runtimes fit a chip is measured and reported (ARCH-13). Linux, macOS and Windows run every
 component and have no chip file. The tools offer what the device's chip file lists and refuse a
@@ -4560,8 +4607,8 @@ The reader refuses a file that breaks one of these rules:
    starts and ends on a sector boundary, or, in SPI flash, on a multiple of `erase_kib`. No two
    regions overlap. `vectors` starts at the first byte of the flash, where the processor starts,
    and `bootloader` at offset 0, where the ROM loads it. A file names `boot_counter_a` and
-   `boot_counter_b` both or neither, and each is exactly one erase unit: one sector, or in SPI
-   flash `erase_kib`.
+   `boot_counter_b`, `device_a` and `device_b`, and `pairing_a` and `pairing_b` each both or
+   neither, and each is exactly one erase unit: one sector, or in SPI flash `erase_kib`.
 8. Each name is listed once in each list of `interfaces`, in the ports, the reserved pins, the
    components and the documents. `stm32f4` and `stm32u5` have `ports`, with letters A to K and
    1 to 16 pins each, and no `pins`; `esp32` has `pins` and no `ports`. A reserved pin is named in

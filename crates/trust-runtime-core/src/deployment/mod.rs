@@ -26,8 +26,9 @@ use alloc::vec::Vec;
 use core::fmt;
 use smol_str::SmolStr;
 
-/// The record version this runtime writes, and the only version it reads.
-pub const RECORD_VERSION: u16 = 1;
+/// The record version this runtime writes; it reads this version and version 1 (specification 34
+/// §5.1.1).
+pub const RECORD_VERSION: u16 = 2;
 /// The largest record a runtime reads or writes, in bytes.
 pub const RECORD_MAX_BYTES: usize = 65_536;
 

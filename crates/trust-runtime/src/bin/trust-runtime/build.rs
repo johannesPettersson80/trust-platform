@@ -68,6 +68,10 @@ pub fn run_native_build(
         style::success(format!("Wrote {}", built.image.display()))
     );
     println!(
+        "Wrote {} for trust-runtime ctl install",
+        built.install.display()
+    );
+    println!(
         "{} {} bytes: code {}, read-only data {}, starting memory {}",
         if built.debug {
             "Debug image"

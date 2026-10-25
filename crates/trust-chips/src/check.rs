@@ -439,6 +439,11 @@ fn layout(family: Family, layout: &Layout, flash: &FlashSpace<'_>) -> Result<(),
         ("device_b", layout.device_b),
         flash,
     )?;
+    one_unit_pair(
+        ("pairing_a", layout.pairing_a),
+        ("pairing_b", layout.pairing_b),
+        flash,
+    )?;
     boot_counter(layout, flash)
 }
 
@@ -464,7 +469,7 @@ fn firmware_slots(layout: &Layout) -> Result<(), Problem> {
 }
 
 /// Two sectors that a file names both or neither, each exactly one erase unit: the device settings
-/// (TARGET-02), which a write erases one whole sector of.
+/// (TARGET-02) and the pairings (specification 11 §6.9.6), whose writes erase one whole sector.
 fn one_unit_pair(
     (first_key, first): (&'static str, Option<Region>),
     (second_key, second): (&'static str, Option<Region>),

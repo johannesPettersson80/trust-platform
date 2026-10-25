@@ -18,7 +18,7 @@ use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 
-use crate::access::{AccessRole, AuthFailure};
+use crate::access::{AccessRole, AuthFailure, PairingService};
 use crate::capabilities::LastReset;
 use crate::chip::network::NetworkFacts;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
@@ -52,6 +52,13 @@ pub trait AccessPort {
 
     /// Whether the debug surface is enabled; its operations are refused otherwise.
     fn debug_enabled(&self) -> bool;
+
+    /// The runtime's pairings (specification 11 §6.9.6), which `pair.start`, `pair.claim`,
+    /// `pair.list` and `pair.revoke` use, or `None` on a runtime that keeps none: those requests
+    /// then answer `pairing unavailable`. The default is none.
+    fn pairing(&self) -> Option<&dyn PairingService> {
+        None
+    }
 }
 
 /// The audit record of one control request.

@@ -27,8 +27,8 @@ const ORIGIN: u32 = 0x4200_0000;
 /// `addr` (`esp32c6.rom.ld` of esp-rom-sys).
 const CACHE_INVALIDATE_ADDR: usize = 0x4000_0648;
 
-/// The entries of one window: the pages a program slot of 2,064 KiB spans, 33 when it starts on a
-/// page and 34 when it does not (slot B starts at 0x5F_4000).
+/// The entries of one window: the pages a program slot of 2,060 KiB spans, 33 when it starts on a
+/// page and at most 34 when it does not (slot B starts at 0x5F_3000, 12 KiB into a page).
 pub(super) const WINDOW_PAGES: u32 = (crate::program_flash::SLOT_BYTES).div_ceil(PAGE_BYTES) + 1;
 
 /// The first windows' first entry, 0 until it is found (entry 0 is always the firmware's).

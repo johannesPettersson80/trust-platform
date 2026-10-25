@@ -12,7 +12,7 @@ use trust_platform_stm32u5::pins::Pull;
 use trust_runtime_core::deployment::Configuration;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_services::chip::process_io::{
-    record_lines, safe_value, GpioPins, ImageBit, ProcessImage,
+    record_drivers, record_lines, safe_value, unsupported_driver, GpioPins, ImageBit, ProcessImage,
 };
 
 /// The STM32U5A9's claimed pins behind the shared process image: an input is read, and an output is
@@ -46,7 +46,10 @@ pub type GpioIo = ProcessImage<Pins>;
 /// The refusal's text: a driver other than `gpio` (the chip carries out only GPIO), or a line the chip
 /// cannot use, with the reason the adapter gives.
 pub fn claim(mut io: DigitalIo, config: &Configuration) -> Result<GpioIo, String> {
-    let (inputs, outputs) = record_lines(config, "STM32U5A9")?;
+    let (inputs, outputs) = record_lines(config);
+    if let Some(request) = record_drivers(config)?.first() {
+        return Err(unsupported_driver(request.name, "STM32U5A9"));
+    }
     let mut claimed_inputs = Vec::with_capacity(inputs.len());
     for input in &inputs {
         let handle = io

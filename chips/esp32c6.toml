@@ -76,16 +76,21 @@ device_b = { start = 0xE000, kib = 4 }
 # confirm itself. FIRMWARE_A_OFFSET, FIRMWARE_B_OFFSET and FIRMWARE_SLOT_BYTES of firmware_slots.rs.
 firmware = { start = 0x1_0000, kib = 1984 }
 firmware_b = { start = 0x20_0000, kib = 1984 }
-# The installed application: from after the second firmware slot to the two checkpoint slots at the
-# very end of the 8 MB module (owner, 25 October 2026: the second firmware slot takes 1,984 KiB of
-# what O7 gave the application; the reference workload's image is 67,848 bytes, so no program
-# loses room).
-application = { start = 0x3F_0000, kib = 4128 }
+# The installed application: from after the second firmware slot to the two pairing sectors before
+# the checkpoint slots at the very end of the 8 MB module (owner, 25 October 2026: the second
+# firmware slot takes 1,984 KiB of what O7 gave the application; the reference workload's image is
+# 67,848 bytes, so no program loses room).
+application = { start = 0x3F_0000, kib = 4120 }
 # The two program slots of the program store (specification 34 §5.1): the two halves of `application`,
 # of equal size, which an install writes in turn. Their offsets and size are SLOT_A_OFFSET,
 # SLOT_B_OFFSET and SLOT_BYTES of program_flash.rs, and the host test chip_file.rs checks them.
-application_a = { start = 0x3F_0000, kib = 2064 }
-application_b = { start = 0x5F_4000, kib = 2064 }
+application_a = { start = 0x3F_0000, kib = 2060 }
+application_b = { start = 0x5F_3000, kib = 2060 }
+# The two sectors of the pairings (specification 11 §6.9.6), one erase unit each, after the program
+# store. They are PAIRING_A_OFFSET and PAIRING_B_OFFSET of device_flash.rs, which the host test
+# chip_file.rs checks, and the data partitions pair_a and pair_b of partitions.csv.
+pairing_a = { start = 0x7F_6000, kib = 4 }
+pairing_b = { start = 0x7F_7000, kib = 4 }
 checkpoint_a = { start = 0x7F_8000, kib = 16 }
 checkpoint_b = { start = 0x7F_C000, kib = 16 }
 
@@ -106,17 +111,29 @@ pwm = ["LEDC", "MCPWM0"]
 # GPIO0 to GPIO30.
 [gpio]
 pins = 31
+# GPIO24 to GPIO30 are the SPI flash interface (SPICS0, SPIQ, SPIWP, VDD_SPI, SPIHD, SPICLK,
+# SPID; ESP32-C6 datasheet, pin overview): the firmware and the program run from that flash, so a
+# line there would stop the chip.
 reserved = [
     { pin = "GPIO12", reason = "usb" },
     { pin = "GPIO13", reason = "usb" },
+    { pin = "GPIO24", reason = "flash" },
+    { pin = "GPIO25", reason = "flash" },
+    { pin = "GPIO26", reason = "flash" },
+    { pin = "GPIO27", reason = "flash" },
+    { pin = "GPIO28", reason = "flash" },
+    { pin = "GPIO29", reason = "flash" },
+    { pin = "GPIO30", reason = "flash" },
 ]
 
 [firmware]
 crate = "firmware/trust-esp32c6"
 bin = "trust-esp32c6"
-# Measured on the C6 bench, 18 October 2026: the control requests (status, start and stop, states,
-# faults and events) and Live Values at the pins (read, write, force and release).
-components = ["engine", "control", "live-values"]
+# Measured on the C6 bench: the control requests (status, start and stop, states, faults and
+# events) and Live Values at the pins (read, write, force and release), 18 October 2026; debugging
+# compiled programs from VS Code and installs with online change, 24 October 2026 (the native
+# list's N3 and N4).
+components = ["engine", "control", "live-values", "debug", "deploy"]
 
 [sources]
 documents = [

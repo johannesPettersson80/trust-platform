@@ -66,21 +66,21 @@ fn transfer_ids_differ_after_a_reset() {
 }
 
 /// Specification 34, PORT-05: an upload larger than the device's maximum is refused before anything is
-/// allocated, and the C6's maximum is one program slot, 2,064 KiB = 2,113,536 bytes, since a larger
+/// allocated, and the C6's maximum is one program slot, 2,060 KiB = 2,109,440 bytes, since a larger
 /// container can never be installed (§5.1, D.2). One byte more is refused with the numbers; a
 /// container as large as the slot would be taken if the heap could hold it, which a host cannot say,
-/// so the test stops at the refusal. Catches a maximum that is the whole 4,128 KiB region, the slot of
+/// so the test stops at the refusal. Catches a maximum that is the whole 4,120 KiB region, the slot of
 /// the layout before the second firmware slot, and an off-by-one bound.
 #[test]
 fn the_c6_session_takes_an_upload_of_one_slot_at_most() {
-    assert_eq!(SLOT_BYTES, 2_113_536);
+    assert_eq!(SLOT_BYTES, 2_109_440);
     let mut session = transfer_session(1);
     let refused = session
-        .begin(2_113_537, sha256(b"hello"))
+        .begin(2_109_441, sha256(b"hello"))
         .expect_err("an upload longer than a slot is refused");
     assert_eq!(
         refused.to_string(),
-        "transfer too large: 2113537, the device takes at most 2113536"
+        "transfer too large: 2109441, the device takes at most 2109440"
     );
 }
 
