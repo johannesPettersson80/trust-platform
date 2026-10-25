@@ -351,8 +351,9 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     announcements a second apart at a new address, link-local queries only, one multicast a
     second, goodbye before the chip's own reset via `ChipNetwork::leave`). TXT `id`, `name`,
     `version`, `platform`, `auth=token`, `control=tcp://<address>:<port>`. Host test over the cable:
-    the announcement and a browse's answer name the control endpoint. Open: the bench (needs the
-    network of L3), the computer's browse finding the chip, and the mesh part.
+    the announcement and a browse's answer name the control endpoint. Bench 25 Oct (runs 12, 14):
+    the chip answers an mDNS browse from the Pi, and `trust-runtime discover` on the Pi finds it
+    ("Found 10.42.0.209: truST runtimes"). Open: the mesh part.
 - [ ] S7 Communication services: the `io.toml` drivers (Modbus TCP, MQTT and the others) and
   Bluetooth devices where the chip has Bluetooth.
 - [ ] S8 Web pages and HMI.
@@ -404,7 +405,8 @@ L — Links (ARCH-12): the same control protocol on every link:
   to reach a runtime in `trust-runtime`, `trust-debug` and VS Code.
 - [ ] L2 Ethernet on the STM32F407. The DISC1 has no Ethernet PHY, so Ethernet needs a board or
   add-on with one (owner's decision).
-- [ ] L3 Wi-Fi on the ESP32-C6.
+- [x] L3 Wi-Fi on the ESP32-C6 (bench passed 25 Oct, run 14; commits 6057b9ee1, bc468e732,
+  8feef90f3).
   - 25 Oct, written and checked (spec 34 0.64 PORT-06, TARGET-02 `[control]`, D.2; spec 11 network
     in `capabilities`, ctl `tcp://host:port`; spec 44 0.28 program region 112 KiB): the shared crate
     `trust-platform-net` (smoltcp interface, DHCP/fixed address, control connection over TCP with the
@@ -447,7 +449,30 @@ L — Links (ARCH-12): the same control protocol on every link:
     erased. Fixed (spec 34 0.66, spec 44 0.29): the radio arena 56 KiB (peak with a fifth more);
     the figure counts the cycle's process-image copies and a debug image's line table, built with
     exactly its entries; a boot that a reset ended while it loaded the program does not load it
-    again (TARGET-08, the reset cookie's program-load phase).
+    again (TARGET-08, the reset cookie's program-load phase); on the chip the oversized load
+    panicked twice and the chip then stayed up, faulted with `resource panic`, and `shutdown`
+    stopped it.
+  - Found 25 Oct by runs 12-13 and fixed (8feef90f3): every boot stalled the scans about 0.85 s
+    (ControlTask missed 86 of 10 ms) while the radio derived the WPA2 passphrase's key at the
+    first join; the chip now derives it at boot before the program (`trust-platform-net::wpa`,
+    IEEE vectors, checked on the chip). `install` right after `shutdown` got `server busy` (the
+    chip still closing while it saved retained values): the busy reply carries `server_busy` and
+    the shared client connects again after 50/100/200/400/800 ms.
+  - Run 14 (`trust-bench`, final firmware, reference program rebuilt with figure 18,978 bytes):
+    every step passes: join with the passphrase and no boot overrun, SNTP offset 8 ms, ping 5/5,
+    token rules, busy second client (`server_busy`), `ctl` over `tcp://`, `install --restart warm`
+    over the network, 30 s of control traffic (2,245 requests, median 12.6 ms) with ping 150/150
+    and no overrun (ControlTask worst 0.934 ms against 10 ms, 0.237 ms without traffic), arena
+    peak 46,260 of 57,344 bytes, and the computer's discovery finding the chip.
+  - Router 25 Oct (MartinRouterKing, the owner's network; runs 15-16; 10b3e9752): the chip joins
+    at once and every control step passes, `install --restart warm` over the network included
+    (run 16). Run 15's install panicked in the running loop where the same program loaded at the
+    next boot; the reset record said only `panic`: now a load in the running loop measures the
+    memory again (MEM-12) and the record keeps a location's end. Open on the router path, from the
+    Pi's side: the Pi joins the router's 5 GHz band at -81 to -83 dBm (9-19 % ping loss under load,
+    so step 8 timed out there), and `discover` found no chip through the router (multicast between
+    its bands), while both work on `trust-bench`. Arena peak there 51,644 of 57,344 bytes, no
+    failure.
 - [ ] L4 Bluetooth on the ESP32-C6.
 
 T — Targets (spec 34 §11.4):
@@ -510,12 +535,14 @@ T — Targets (spec 34 §11.4):
   `a_newer_runtime_is_not_offered_an_older_trust`. Found with it: the devices tests and golden
   views still expected the STM32F407 that N11 deleted (6 tests failing since then); moved to the
   STM32U5A9, fixtures rewritten by their own command (246 passed).
-- [ ] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
+- [x] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
   - 25 Oct, written (spec 34 TARGET-06): SNTP v4 client in `trust-platform-net` (`sntp.rs` RFC 4330
     codec with era handling, `time.rs` schedule: at an address, hourly, a minute after a failure;
     host names looked up at the address's name servers), sets the C6's calendar. Host tests: a
     server's reply sets the clock to its time; a named server without a name server is reported.
-    Open: the bench against a real time server (needs the network of L3).
+    Bench 25 Oct: the C6 set its clock from pool.ntp.org through the router (offsets 80 and -65
+    ms) and through the Pi's access point (runs 11-14: 9, -5, 8 ms), the name looked up at the
+    DHCP name server.
 - [x] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
   Gap analysis 25 Oct (read-only, against spec 34 and the code): `faults` and `events.tail` done on
   the C6 (the U5A9 refused replies over the frame until its transfer session, 25 Oct); missing:
