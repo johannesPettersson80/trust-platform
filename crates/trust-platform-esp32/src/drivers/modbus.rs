@@ -14,11 +14,11 @@ use alloc::boxed::Box;
 use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::String;
-use alloc::vec::Vec;
 use core::cell::RefCell;
+use core::net::SocketAddr;
 
 use trust_platform_net::smoltcp::wire::Ipv4Address;
-use trust_platform_net::{ClientLink, LinkStatus};
+use trust_platform_net::{ClientLink, LinkStatus, Server};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_services::chip::network::ChipNetwork;
 use trust_runtime_services::chip::process_io::ChipDriver;
@@ -42,8 +42,6 @@ struct ModbusDriver {
     network: Rc<RefCell<C6Net>>,
     /// The send buffer the exchange writes its requests into.
     frame: Box<[u8; FRAME_BYTES]>,
-    /// The bytes the link received, handed to the exchange.
-    received: Vec<u8>,
     /// Whether the exchange has been told the connection is open.
     open: bool,
 }
@@ -52,8 +50,10 @@ struct ModbusDriver {
 ///
 /// # Errors
 ///
-/// `modbus-tcp: <key>: <reason>` for parameters the shared rules refuse, and
-/// `modbus-tcp: the device serves no network: name one in device.toml` without a network.
+/// `modbus-tcp: <key>: <reason>` for parameters the shared rules refuse,
+/// `modbus-tcp: address: the C6's network is IPv4, so a server is named by an IPv4 address, not
+/// <address>` for an IPv6 server, and `modbus-tcp: the device serves no network: name one in
+/// device.toml` without a network.
 pub(super) fn claim(
     params: &str,
     network: Option<&Rc<RefCell<C6Net>>>,
@@ -61,16 +61,25 @@ pub(super) fn claim(
     let params = ModbusTcpParams::from_json(params).map_err(|error| format!("{NAME}: {error}"))?;
     let network = network
         .ok_or_else(|| format!("{NAME}: the device serves no network: name one in device.toml"))?;
-    let [a, b, c, d] = params.address.ip;
-    let link = network
-        .borrow_mut()
-        .client((Ipv4Address::new(a, b, c, d), params.address.port));
+    let SocketAddr::V4(server) = params.address.socket else {
+        return Err(format!(
+            "{NAME}: address: the C6's network is IPv4, so a server is named by an IPv4 address, \
+             not {}",
+            params.address
+        ));
+    };
+    let [a, b, c, d] = server.ip().octets();
+    // One request and one response are on their way at a time; the queues hold two frames each.
+    let link = network.borrow_mut().client(
+        Server::Address(Ipv4Address::new(a, b, c, d)),
+        server.port(),
+        2 * FRAME_BYTES,
+    );
     Ok(Box::new(ModbusDriver {
         exchange: ModbusExchange::new(params, now_ms()),
         link,
         network: Rc::clone(network),
         frame: Box::new([0; FRAME_BYTES]),
-        received: Vec::new(),
         open: false,
     }))
 }
@@ -90,11 +99,9 @@ impl ModbusDriver {
             }
             _ => {}
         }
-        self.link.receive(&mut self.received);
-        if !self.received.is_empty() {
-            self.exchange.received(now, &self.received);
-            self.received.clear();
-        }
+        let exchange = &mut self.exchange;
+        self.link
+            .take_received(|bytes| exchange.received(now, bytes));
         loop {
             match self.exchange.poll(now, &mut self.frame) {
                 ModbusPoll::Connect(_) => {

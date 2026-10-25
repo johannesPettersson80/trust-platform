@@ -861,6 +861,13 @@ in-process IEC arithmetic, `IS_VALID`, subnormal, or signed-zero semantics.
 **Built-in drivers**
 
 1. **Modbus/TCP**
+- `params` keys: `address` (required: an IPv4 `a.b.c.d:port` or an IPv6
+  `[addr]:port` literal, port 1 to 65535; a chip whose network is IPv4 refuses
+  an IPv6 server), `unit_id` (default 1), `input_start` and `output_start`
+  (default 0), `timeout_ms` (default 500, at least 1), `on_error`,
+  `input_function`, `output_function`, `input_points` and `output_points`. An
+  unknown key is refused, as for every driver of §6.5, with the key and the
+  reason (`modbus-tcp: <key>: <reason>`).
 - Default profile uses **input registers** (FC04) for input image.
 - Default profile uses **multiple holding-register writes** (FC16) for output image.
 - Explicit `io.toml` options can select `read_coils` (FC01),

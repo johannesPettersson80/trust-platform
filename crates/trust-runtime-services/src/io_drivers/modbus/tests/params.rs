@@ -2,7 +2,9 @@
 //! (specification 11 §6.5; specification 34 §5.1.1, section 8).
 
 use alloc::format;
+use alloc::string::ToString;
 use alloc::vec;
+use core::net::{Ipv6Addr, SocketAddr, SocketAddrV6};
 
 use crate::io_drivers::modbus::{
     Endian, InputFunction, InputPoint, ModbusTcpAddress, ModbusTcpParams, OutputFunction,
@@ -33,8 +35,7 @@ fn an_address_alone_takes_the_computer_defaults() {
         ModbusTcpParams::from_json(r#"{"address":"192.168.1.10:502"}"#),
         Ok(ModbusTcpParams {
             address: ModbusTcpAddress {
-                ip: [192, 168, 1, 10],
-                port: 502,
+                socket: SocketAddr::from(([192, 168, 1, 10], 502)),
             },
             unit_id: 1,
             input_start: 0,
@@ -67,8 +68,7 @@ fn a_full_table_reads_into_its_values() {
         params,
         Ok(ModbusTcpParams {
             address: ModbusTcpAddress {
-                ip: [10, 1, 2, 3],
-                port: 1502,
+                socket: SocketAddr::from(([10, 1, 2, 3], 1502)),
             },
             unit_id: 17,
             input_start: 100,
@@ -169,10 +169,11 @@ fn function_aliases_select_the_computer_functions() {
 }
 
 /// The root's keys are checked fail-closed, with the key and the reason: the table and `address`
-/// are required, an unknown key is refused like the other shared drivers', the address is an IPv4
-/// address with a port other than 0, and each number is a JSON integer in its range. Catches a
-/// misspelt key ignored, a unit identifier or a start address cut to fit, a timeout of 0 that fails
-/// every request, and a misspelt policy taken as `fault`.
+/// are required, an unknown key is refused like the other shared drivers', an address that is not
+/// written as an IPv6 address must be an IPv4 address with a port other than 0, and each number is
+/// a JSON integer in its range. Catches a misspelt key ignored, a unit identifier or a start
+/// address cut to fit, a timeout of 0 that fails every request, and a misspelt policy taken as
+/// `fault`.
 #[test]
 fn a_root_key_that_breaks_its_rule_is_refused() {
     let address = "an IPv4 address with a port from 1 to 65535, such as \"192.168.1.10:502\"";
@@ -193,12 +194,13 @@ fn a_root_key_that_breaks_its_rule_is_refused() {
         ModbusTcpParams::from_json("{}"),
         refused("address", &format!("is required, {address}"))
     );
+    // `[::1]:502` was refused here while the shared parser took IPv4 only; the computer's driver
+    // took any socket address, so IPv6 in brackets is taken now (see the test below).
     for given in [
         r#""plc.local:502""#,
         r#""192.168.1.10""#,
         r#""192.168.1.10:0""#,
         r#""192.168.1.10:65536""#,
-        r#""[::1]:502""#,
         "502",
     ] {
         assert_eq!(
@@ -239,6 +241,72 @@ fn a_root_key_that_breaks_its_rule_is_refused() {
             r#"must be "fault", "warn" or "ignore", not "halt""#
         )
     );
+}
+
+/// `address` takes an IPv4 address with a port, and an IPv6 address in brackets with a port, the
+/// forms a computer's socket address reads (an IPv6 host is written in brackets, RFC 3986
+/// §3.2.2): `[fd00::10]:1502` is the IPv6 address whose first group is `fd00` and last `0010`, at
+/// port 1502; `[::1]:502` is the IPv6 loopback, `::1`; and `[fe80::10%3]:502` keeps its zone as
+/// scope id 3, which a link-local address needs to name its interface. Each is written back as
+/// `io.toml` writes it. A malformed IPv6 address is refused with the words of the IPv6 form: no
+/// port, port 0, port 65536, a group that is not hexadecimal, nine groups, no closing bracket, and
+/// no brackets at all, where the colons of `fd00::10:502` cannot tell the port from the address.
+/// Catches IPv6 refused although a computer took it, a zone dropped, port 0 taken, an IPv6 address
+/// whose port is read as its last group, and an IPv6 refusal that asks for an IPv4 address.
+#[test]
+fn an_address_is_ipv4_or_ipv6_in_brackets() {
+    let address = |text: &str| {
+        ModbusTcpParams::from_json(&format!(r#"{{"address":"{text}"}}"#))
+            .map(|params| params.address)
+    };
+    let ipv6 = |segments: [u16; 8], port: u16, scope_id: u32| ModbusTcpAddress {
+        socket: SocketAddr::V6(SocketAddrV6::new(
+            Ipv6Addr::from(segments),
+            port,
+            0,
+            scope_id,
+        )),
+    };
+    for (text, expected) in [
+        (
+            "192.168.1.10:502",
+            ModbusTcpAddress {
+                socket: SocketAddr::from(([192, 168, 1, 10], 502)),
+            },
+        ),
+        (
+            "[fd00::10]:1502",
+            ipv6([0xFD00, 0, 0, 0, 0, 0, 0, 0x10], 1502, 0),
+        ),
+        ("[::1]:502", ipv6([0, 0, 0, 0, 0, 0, 0, 1], 502, 0)),
+        (
+            "[fe80::10%3]:502",
+            ipv6([0xFE80, 0, 0, 0, 0, 0, 0, 0x10], 502, 3),
+        ),
+    ] {
+        assert_eq!(address(text), Ok(expected), "{text}");
+        assert_eq!(expected.to_string(), text);
+    }
+    let bracketed =
+        "an IPv6 address in brackets with a port from 1 to 65535, such as \"[fd00::10]:502\"";
+    for given in [
+        "[fd00::10]",
+        "[fd00::10]:0",
+        "[fd00::10]:65536",
+        "[fd00::g]:502",
+        "[1:2:3:4:5:6:7:8:9]:502",
+        "[fd00::10:502",
+        "fd00::10:502",
+    ] {
+        assert_eq!(
+            address(given),
+            Err(ParamsError {
+                key: "address".into(),
+                reason: format!("must be {bracketed}, not \"{given}\""),
+            }),
+            "{given}"
+        );
+    }
 }
 
 /// `on_error` reads as the `can` driver reads it: trimmed, in any case, with `warning` for `warn`

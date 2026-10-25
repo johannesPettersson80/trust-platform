@@ -22,7 +22,7 @@ mod stack;
 mod time;
 pub mod wpa;
 
-pub use client::{ClientLink, LinkFull, LinkStatus, LINK_BYTES};
+pub use client::{ClientLink, LinkFull, LinkStatus, Server, LINK_BYTES};
 pub use control::{BUSY_CODE, BUSY_ERROR};
 pub use discovery::Identity;
 pub use settings::{Addressing, NetworkSettings};

@@ -44,4 +44,12 @@ pub trait ProcessIo {
 
     /// The health of each driver, in `io.toml` order, as `status` and `health` report it.
     fn driver_health(&self) -> Vec<IoDriverStatus>;
+
+    /// The most heap the drivers may still take while they run, beside what claiming them took,
+    /// for an output image of `output_image_bytes`, which a chip leaves room for when it loads the
+    /// program (specification 34 MEM-12); none unless the drivers say otherwise.
+    fn reserved_bytes(&self, output_image_bytes: usize) -> usize {
+        let _ = output_image_bytes;
+        0
+    }
 }

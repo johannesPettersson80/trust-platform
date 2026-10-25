@@ -62,10 +62,10 @@ pub trait GpioPins {
     fn drive(&mut self, output: &mut Self::Output, high: bool);
 }
 
-/// One I/O driver of a chip beside its GPIO lines, `analog`, `pwm`, `counter` or `can`
-/// (specification 11 §6.5), over the peripherals and pins the chip claimed for it. The process image
-/// calls it at each cycle after the GPIO lines, and drops it, which frees what it claimed, when the
-/// program that holds it ends.
+/// One I/O driver of a chip beside its GPIO lines, such as `analog`, `pwm`, `counter`, `can`,
+/// `modbus-tcp` or `mqtt` (specification 11 §6.5), over the peripherals, pins and connections the
+/// chip claimed for it. The process image calls it at each cycle after the GPIO lines, and drops
+/// it, which frees what it claimed, when the program that holds it ends.
 pub trait ChipDriver {
     /// The driver's name, as `io.toml` names it.
     fn name(&self) -> &str;
@@ -102,6 +102,14 @@ pub trait ChipDriver {
     /// otherwise.
     fn on_error(&self) -> OnError {
         OnError::Fault
+    }
+
+    /// The most heap the driver may still take while it runs, beside what its claim took, for an
+    /// output image of `output_image_bytes`: the chip leaves room for it when it loads the program
+    /// (specification 34 MEM-12); none unless the driver says otherwise.
+    fn reserved_bytes(&self, output_image_bytes: usize) -> usize {
+        let _ = output_image_bytes;
+        0
     }
 }
 
@@ -228,6 +236,13 @@ impl<P: GpioPins> ProcessIo for ProcessImage<P> {
             health: driver.health(),
         }));
         statuses
+    }
+
+    /// The sum of the drivers' [`ChipDriver::reserved_bytes`].
+    fn reserved_bytes(&self, output_image_bytes: usize) -> usize {
+        self.drivers.iter().fold(0, |sum: usize, driver| {
+            sum.saturating_add(driver.reserved_bytes(output_image_bytes))
+        })
     }
 }
 

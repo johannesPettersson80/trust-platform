@@ -15,10 +15,11 @@
 
 use alloc::boxed::Box;
 use alloc::format;
-use alloc::rc::Rc;
+use alloc::rc::{Rc, Weak};
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::task::Wake;
+use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::future::Future;
 use core::pin::Pin;
@@ -37,8 +38,9 @@ use esp_radio::wifi::{
 use trust_platform_memory::memory::MeasuredHeap;
 use trust_platform_net::smoltcp::phy::{self, DeviceCapabilities, Medium};
 use trust_platform_net::smoltcp::time::Instant;
-use trust_platform_net::smoltcp::wire::Ipv4Address;
-use trust_platform_net::{retry, ClientLink, Identity, Network, NetworkSettings, TimeResult};
+use trust_platform_net::{
+    retry, ClientLink, Identity, Network, NetworkSettings, Server, TimeResult,
+};
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicInstant, PortError, WakeSignal, WallClock,
 };
@@ -182,6 +184,7 @@ pub fn bring_up(
         failure: None,
         arena,
         waker,
+        sessions: Vec::new(),
     };
     net.poll();
     Ok(Rc::new(RefCell::new(net)))
@@ -222,6 +225,17 @@ enum Phase {
     Joined,
 }
 
+/// A driver's exchange that the network's idle work steps between the scans, as a computer's
+/// worker thread carries it: a session that keeps its connection alive and takes what its server
+/// sends while no scan runs (specification 11 §6.5).
+pub(crate) trait IdleSession {
+    /// Steps the exchange at `now_ms` of the chip's clock.
+    fn step(&mut self, now_ms: u64);
+
+    /// When the exchange next has work that no event brings, in milliseconds of the chip's clock.
+    fn due_ms(&self) -> Option<u64>;
+}
+
 /// The C6's Wi-Fi station and its network, which the platform's idle work and the network link
 /// share.
 pub struct C6Net {
@@ -235,14 +249,34 @@ pub struct C6Net {
     arena: &'static MeasuredHeap,
     /// The waker the driver's tasks wake the loop with.
     waker: Waker,
+    /// The drivers' sessions that the idle work steps; one whose driver is gone is dropped.
+    sessions: Vec<Weak<RefCell<dyn IdleSession>>>,
 }
 
 impl C6Net {
-    /// A connection for an I/O driver to the server at `remote`, idle until the driver opens it
-    /// (specification 11 §6.5); the network carries it between the scans and while a driver waits
-    /// for its exchange.
-    pub(crate) fn client(&mut self, remote: (Ipv4Address, u16)) -> ClientLink {
-        self.network.client(remote)
+    /// Steps `session` at each pass of the idle work while its driver holds it.
+    pub(crate) fn add_session(&mut self, session: Weak<RefCell<dyn IdleSession>>) {
+        self.sessions.push(session);
+    }
+
+    /// Steps each session that is not in use by its driver at `now_ms`.
+    fn step_sessions(&mut self, now_ms: u64) {
+        self.sessions.retain(|session| {
+            let Some(session) = session.upgrade() else {
+                return false;
+            };
+            if let Ok(mut session) = session.try_borrow_mut() {
+                session.step(now_ms);
+            }
+            true
+        });
+    }
+
+    /// A connection for an I/O driver to `server` on `port` whose queues hold `queue_bytes` each,
+    /// idle until the driver opens it (specification 11 §6.5); the network carries it between the
+    /// scans and while a driver waits for its exchange.
+    pub(crate) fn client(&mut self, server: Server, port: u16, queue_bytes: usize) -> ClientLink {
+        self.network.client(server, port, queue_bytes)
     }
 
     /// Joins the network, and joins it again after a loss: at once at boot, then after the waits of
@@ -353,11 +387,15 @@ impl ChipNetwork for C6Net {
         let up = <Station as Driver>::link_state(&mut self.station, &mut cx) == LinkState::Up;
         self.network.set_link(up);
         self.drive_station(now, &mut cx, up);
+        // The sessions queue what is due before the network moves the bytes, and take what came
+        // after.
+        self.step_sessions(now / 1_000);
         let mut device = WifiDevice {
             station: &mut self.station,
             cx: &mut cx,
         };
         self.network.poll(now, &mut device);
+        self.step_sessions(now_us() / 1_000);
     }
 
     fn facts(&self) -> NetworkFacts {
@@ -426,7 +464,19 @@ impl ChipNetwork for C6Net {
             Phase::Joined => None,
         };
         let network_due = self.network.poll_due(now_us());
-        [station_due, network_due]
+        let session_due = self
+            .sessions
+            .iter()
+            .filter_map(Weak::upgrade)
+            .filter_map(|session| {
+                session
+                    .try_borrow()
+                    .ok()
+                    .and_then(|session| session.due_ms())
+            })
+            .min()
+            .map(|due_ms| due_ms.saturating_mul(1_000));
+        [station_due, network_due, session_due]
             .into_iter()
             .flatten()
             .min()

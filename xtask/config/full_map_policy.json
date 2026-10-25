@@ -3474,7 +3474,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
-        "line": 320,
+        "line": 322,
         "owner": "native execution (specification 44)",
         "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
@@ -3641,7 +3641,7 @@
         "review_date": "2026-10-25"
       },
       {
-        "path": "crates/trust-platform-esp32/src/hardware/drivers/analog.rs",
+        "path": "crates/trust-platform-esp32/src/drivers/analog.rs",
         "line": 161,
         "owner": "runtime portability T1 (C6 I/O drivers)",
         "invariant": "Copies ADC1 out of its PeripheralSlot while the driver holds the slot's Lease, which refuses ADC1 to every other driver; the converter built from the copy is a field declared before the lease, so it is dropped first and at most one instance of ADC1 is in use at a time, as clone_unchecked requires.",
@@ -3649,7 +3649,7 @@
         "review_date": "2026-10-25"
       },
       {
-        "path": "crates/trust-platform-esp32/src/hardware/drivers/can.rs",
+        "path": "crates/trust-platform-esp32/src/drivers/can.rs",
         "line": 197,
         "owner": "runtime portability T1 (C6 I/O drivers)",
         "invariant": "Copies a TWAI controller out of its PeripheralSlot while the driver holds the slot's Lease, which refuses the controller to every other driver; the driver stops and drops the controller built from the copy in Drop, before its lease field is dropped, so at most one instance of the controller is in use at a time, as clone_unchecked requires.",

@@ -41,6 +41,8 @@ pub mod usb_service;
 pub mod watchdog_rule;
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
+mod drivers;
+#[cfg(all(target_arch = "riscv32", target_os = "none"))]
 mod hardware;
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
 pub use hardware::{

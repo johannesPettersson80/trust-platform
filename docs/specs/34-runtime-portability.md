@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.69 — drivers, pairings and installs on the chips (0.68: record version 2 with each driver's parameters, the C6's analog, PWM, counter and CAN drivers, the pairing sectors, `--reset-settings`); a panic for want of heap names the request and the free bytes (TARGET-08).
+- **Version:** 0.70 — the `mqtt` driver on the C6 with a chip's bounds on its queue and outgoing bytes (§11.1, D.2), and the drivers' run-time buffers counted at the load (MEM-12) (0.69: drivers, pairings and installs on the chips; a panic for want of heap names the request and the free bytes, TARGET-08).
 - **Date:** 25 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -870,9 +870,12 @@ logpoint messages as its event store keeps events (specification 11 §6.13.3): i
 load compare the figure with the memory for programs less that buffer's bytes, which the chip works
 out with its own sizes. The I/O drivers' blocks come out of the heap when the load claims them: a
 chip then checks that what remains still holds the working memory, the checkpoint buffer of a
-program that keeps retained values and the debugger's buffer, and refuses the program with
-`insufficient memory: the I/O drivers took <n> bytes, and <m> remain where the program's working
-memory, checkpoint buffer and debugger need <k>` otherwise, its drivers released. The checkpoint
+program that keeps retained values, the debugger's buffer and what the drivers may still take while
+they run (an `mqtt` driver's received payloads and its copies of the images, Appendix D), and
+refuses the program with `insufficient memory: the I/O drivers took <n> bytes, and <m> remain where
+the program's working memory, checkpoint buffer, debugger and the drivers' buffers need <k>`
+otherwise, its drivers released. A driver takes its fixed buffers when it is claimed, so that they
+are counted then. The checkpoint
 buffer is taken as one block when the program starts; a heap that has the bytes but no block that
 large, as a chip's heap can be after several programs were loaded and dropped, refuses the start
 with `insufficient memory: no block of <n> bytes for the checkpoint buffer` (a reset of the chip
@@ -2394,7 +2397,7 @@ retained values are matched by name, as for the retain file (specification 11 §
 
 Hosted and MCU networking and management are adapters/services, not runtime-core dependencies. They may run on the same device without belonging in the VM. The full hosted product shall retain its supported services; a future MCU Modbus, CAN, or MQTT implementation shall use the same ownership boundary.
 
-Workers shall exchange bounded messages or process-image snapshots with the control path. Polling budgets, queue overflow, stale-data limits, and critical versus noncritical failures shall be explicit. A network outage shall not make PLC execution wait indefinitely. The MQTT driver keeps at most 256 received messages for the control path; when a new message arrives at that bound it drops the oldest, counts every dropped message, and reports the driver as `degraded` with the stable detail `incoming queue overflow: <n> messages dropped` (the count since the driver started) from the first drop until the driver restarts. A degraded driver does not by itself fault the PLC or make aggregate health false, and because the overflow concerns received messages only, it does not unconfirm a safe-state handoff, which depends on the driver's output path (specification 11, safe-state handoff confirmation).
+Workers shall exchange bounded messages or process-image snapshots with the control path. Polling budgets, queue overflow, stale-data limits, and critical versus noncritical failures shall be explicit. A network outage shall not make PLC execution wait indefinitely. The MQTT driver keeps at most 256 received messages for the control path; when a new message arrives at that bound it drops the oldest, counts every dropped message, and reports the driver as `degraded` with the stable detail `incoming queue overflow: <n> messages dropped` (the count since the driver started) from the first drop until the driver restarts. A chip keeps the smaller bounds its appendix names: fewer messages, at most so many payload bytes (a message larger than the whole queue is dropped and counted as well), smaller packets, and at most so many bytes waiting to be sent, where a handoff that does not fit waits as `mqtt output handoff pending` until the connection has taken enough, a handoff larger than the bound is not published (`the handoff of <n> bytes exceeds the <m>-byte outgoing buffer`), a session whose first packets do not fit fails to connect, and a keep alive's PINGREQ that does not fit is not sent. A degraded driver does not by itself fault the PLC or make aggregate health false, and because the overflow concerns received messages only, it does not unconfirm a safe-state handoff, which depends on the driver's output path (specification 11, safe-state handoff confirmation).
 
 Compilation stays on the development computer. The runtime services of ARCH-11 run on every target as shared code, and the development tools present them the same way for every runtime.
 
@@ -3712,6 +3715,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 | Version | Date | Change |
 |---|---|---|
 | 0.69 | 25 October 2026 | A chip's panic for want of heap says so, and a chip counts what a program keeps beside its figure (the portability checklist's T1 bench). §5.1.1: the debugger's buffer of stops of a program whose record enables debugging is counted with its figure at the install and the load (200 stops took 17,860 bytes of the C6's heap; the bench's debug program passed the check with Wi-Fi and ran out of heap at its start), and after its I/O drivers are claimed the heap must still hold the working memory, the checkpoint buffer and the debugger's buffer; the checkpoint buffer is taken without a panic when the heap has no block for it; `capabilities.heap` reports the chip's heap as it stands. TARGET-08: the reset record of a panic of an allocation that found no room holds `no heap for <bytes> B, <free> free`, the request and the free bytes, instead of the allocator's location, which named only `alloc.rs`: the bench's debug program with four drivers ran out of heap on a chip with Wi-Fi, and the record did not say how much it asked for. D.2: the drivers' bench numbers (ADC1, LEDC into PCNT, TWAI self-test), ADC1's readings disturbed while Wi-Fi runs (open), and the `modbus-tcp` driver on the C6 over a client link of the chip's network with the computer's scan-side deadline, benched against a server on the Pi. |
+| 0.70 | 25 October 2026 | The `mqtt` driver on the chips (the portability checklist's S7). §11.1: a chip keeps smaller bounds on the MQTT driver's queue, by messages and payload bytes, on its packets and on its outgoing bytes, with what a handoff, a session's start and a keep alive do when the bytes do not fit. MEM-12: after the drivers are claimed the heap must also hold what they may still take while they run, and a driver takes its fixed buffers at its claim. D.2: the C6's `mqtt` driver, stepped by the idle work between the scans, its bounds, a broker named by a host name looked up with the chip's name servers, its orderly stop, and TLS and symbolic `mappings` refused as not yet on the C6; the `modbus-tcp` link's queues of two frames. |
 | 0.68 | 25 October 2026 | Drivers, pairings and installs on the chips (the portability checklist's T1, S5, D1 and the documentation review; the owner, 25 October 2026: "do whats professional, compare to twin at and codesys and it must follow iec standard. so you deside. please finish the complete checklist"). §5.1.1: record version 2 adds section 8, each I/O driver's `params` as JSON, so that a chip runs every driver it carries out with a computer's keys, defaults and checks; a reader takes versions 1 and 2. D.2: the `analog`, `pwm`, `counter` and `can` drivers on the C6's ADC1, LEDC, PCNT and TWAI; the heap figures corrected to 180,160 bytes; GPIO24 to GPIO30 reserved for the SPI flash (H.2 reason `flash`); the pairings in `pair_a` at 0x7F6000 and `pair_b` at 0x7F7000, 4 KiB each, taken from the program store, whose slots are now 2,060 KiB at 0x3F0000 and 0x5F3000; a pairing write is the second flash write a running resource allows, measured on the bench. H.2: the layout keys `pairing_a` and `pairing_b`; H.5 rule 7 names the device settings and the pairings with the boot counter. TARGET-02: `ssid` is required in a given `[network.wifi]`. TARGET-03: the C6 needs 8 MB of flash. TARGET-04: `firmware install --reset-settings` erases the device settings and the pairings, the way back to a chip whose control token is lost. H.3: pairing is part of `access`, not `cloud`; the C6 holds `debug` and `deploy`, as benched on 24 October 2026. §11.3: an online change on a chip keeps the running program's drivers with its lines, and counts a binding that shares a byte with a driver's entry as wired. |
 | 0.67 | 25 October 2026 | A load in the running loop (the portability checklist's L3). D.2, MEM-12: a `restart` that loads a newer program, or an install with a restart, measures the memory for programs again before it reads the program and refuses one that no longer fits; on the router, the bench's install with a restart panicked in the running loop, where the same program loaded at the next boot. The reset record keeps the end of a panic location longer than it, after `...`; it kept `panic`, which hid where that panic was. |
 | 0.66 | 25 October 2026 | The memory a program has on a chip with Wi-Fi, and a boot that a program's load ended (the portability checklist's L3). D.2: the radio's arena is 56 KiB, the bench's peak of 47,864 bytes under load with a fifth more; it was 64 KiB. The network takes 38,588 bytes of the heap besides the arena, measured at boot; the text said about 26 KiB. PORT-06: the busy reply carries the `error_code` `server_busy`, and a client whose first request on a connection gets it connects again after 50, 100, 200, 400 and 800 ms; the bench's `install` right after a `shutdown` found the chip still closing the connection while it saved its retained values. PORT-06: the chip derives a WPA2 passphrase's key at boot, before its program starts; the radio's driver derived it at the first join and stalled the reference program's scans for about 0.85 seconds at every boot (ControlTask missed 86 activations of 10 ms; none with the 64-digit key). TARGET-08: a boot that a reset ended while it loaded the installed program does not load it again; the next boot leaves the program unloaded and the resource faulted as the reset leaves a program, and a `restart` loads it again. The bench installed a debug image whose figure (specification 44 §10.4, which 0.29 there makes count what a load keeps) let a chip with Wi-Fi admit it: its load ran out of heap, panicked, and the chip reset at every boot, about 470 times, until its device settings were erased. |
@@ -4117,7 +4121,31 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   network: name one in device.toml`. Bench `s7/run1`, 25 October 2026: the C6 read two input
   registers and wrote two holding registers of a server on the bench Pi every 100 ms cycle over
   Wi-Fi, with no overrun; with the server stopped the driver's health degraded under `warn` and the
-  program ran on, and it recovered when the server came back.
+  program ran on, and it recovered when the server came back. A link's two queues hold two Modbus
+  frames each (520 bytes), taken with the link.
+- **MQTT (S7).** The `mqtt` driver runs the shared exchange of specification 32 over a TCP connection
+  of the chip's network. A computer's worker thread carries the session between the scans; the C6's
+  idle work steps it, so the keep alive goes out and what the broker sends reaches the exchange's
+  queue, where the newest messages are kept, while no scan runs; the network wakes for the
+  exchange's next timer. The scan reads the queue at the cycle start without waiting, and after the
+  tasks waits up to 40 ms, polling its network, while an earlier handoff is on its way or a session
+  is about to start, as a computer's scan waits for its worker. The C6's bounds (§11.1): packets of
+  at most 1,024 bytes either way, 16 received messages and 1,024 payload bytes kept for the scan,
+  2,048 bytes waiting to be sent, and the link's queues of 1,024 bytes each; the exchange's buffers
+  and the link's queues are taken when the driver is claimed, and the received payloads (1,024
+  bytes), the newest raw input payload (a packet) and the waiting copy of the output image are
+  counted then as what the driver may still take (MEM-12). A session without a `client_id` is
+  `trust-runtime-c6`. A broker named by a host name is looked up with the name servers of the chip's
+  address (DHCP's or `device.toml`'s) at each connection, as the time server is; an IPv6 broker is
+  refused, as the chip's network is IPv4. When the driver is dropped it ends the session in order
+  (with Sparkplug B its NDEATH, then DISCONNECT) for at most 200 ms, and the link sends what it
+  queued before its FIN. Two parts of the computer's driver are not on the C6 yet: TLS (`mqtts://`,
+  `tls_*`), refused with `mqtt: tls: the C6 has no room for a TLS session beside a program ...`, as
+  a TLS session needs a record buffer of up to 16 KiB each way (RFC 8446 §5.1), about 33 KiB,
+  where a program with Wi-Fi has about 22 KiB; and
+  symbolic `mappings`, refused with `mqtt: mappings: the C6 does not yet bind tags to the program's
+  variables ...`, as their tags are bound to the program's variables by the runtime that holds its
+  symbols, which a chip's record does not carry yet (the portability checklist's S7 records both).
 - **Memory.** The main heap is 32,832 bytes: F401's 72 KiB allocator arena less the 24 KiB that
   RAM-resident code takes, so that the scan's code runs from RAM (the owner, 21 October 2026, "Give
   code about 24 KiB of the 136 KiB program heap, leaving programs 112 KiB"; checklist P1), and less

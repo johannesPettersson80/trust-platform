@@ -9,6 +9,7 @@ pub mod analog;
 pub mod can;
 pub mod counter;
 pub mod modbus;
+pub mod mqtt;
 pub mod pwm;
 
 use alloc::format;
@@ -63,8 +64,9 @@ pub struct EntryBytes {
 
 /// The bytes that the entries of the driver `name` with the parameters `params` take: a word for
 /// each analog input and output and each PWM output, a double word for each counter, its `length`
-/// bytes for each CAN frame, and for `modbus-tcp` each point's bytes, or the whole image of a
-/// direction that has no points (its raw image); `None` for any other driver.
+/// bytes for each CAN frame, and for `modbus-tcp` and `mqtt` each point's bytes, or the whole
+/// image of a direction that has no points (its raw image), none for a direction an `mqtt` driver
+/// does not exchange; `None` for any other driver.
 ///
 /// # Errors
 ///
@@ -122,6 +124,36 @@ pub fn entry_bytes(name: &str, params: &str) -> Option<Result<Vec<EntryBytes>, P
                 entries.push(whole(IoArea::Input));
             }
             if driver.output_points.is_empty() {
+                entries.push(whole(IoArea::Output));
+            }
+            entries.extend(
+                driver
+                    .input_points
+                    .iter()
+                    .map(|entry| point(IoArea::Input, entry.image_offset, entry.data_type)),
+            );
+            entries.extend(
+                driver
+                    .output_points
+                    .iter()
+                    .map(|entry| point(IoArea::Output, entry.image_offset, entry.data_type)),
+            );
+            entries
+        }),
+        "mqtt" => mqtt::MqttParams::from_json(params).map(|driver| {
+            let whole = |area| EntryBytes {
+                area,
+                bytes: 0..u32::MAX,
+            };
+            let point = |area, offset: u32, kind: mqtt::PointType| EntryBytes {
+                area,
+                bytes: offset..offset.saturating_add(kind.image_bytes()),
+            };
+            let mut entries = Vec::new();
+            if driver.input_enabled() && driver.input_points.is_empty() {
+                entries.push(whole(IoArea::Input));
+            }
+            if driver.output_enabled() && driver.output_points.is_empty() {
                 entries.push(whole(IoArea::Output));
             }
             entries.extend(

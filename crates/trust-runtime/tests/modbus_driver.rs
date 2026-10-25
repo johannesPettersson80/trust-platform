@@ -1,11 +1,14 @@
 //! The Modbus TCP I/O driver against a test server: register functions, point maps, error policies
-//! and the safe-state handoff.
+//! and the safe-state handoff. The computer's driver runs the shared exchange of
+//! `trust_runtime_services::io_drivers::modbus` (specification 11 §6.5), whose rules its own tests
+//! prove; these tests prove the computer's transport and scan side over real connections,
+//! `modbus_driver/bounds.rs` the scan side's deadlines, and `modbus_driver/wiring.rs` the wiring
+//! that the shared exchange added.
 //!
 //! The safe-state tests run a program and need the toolchain of specification 44 §4.6 at
 //! `TRUST_TOOLCHAIN`.
 
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration as StdDuration, Instant};
@@ -13,9 +16,13 @@ use std::time::{Duration as StdDuration, Instant};
 #[path = "support/modbus.rs"]
 mod modbus_support;
 
-use modbus_support::{
-    start_closing_modbus_server, start_delayed_modbus_server, start_modbus_server, ModbusTestState,
-};
+#[path = "modbus_driver/wiring.rs"]
+mod wiring;
+
+#[path = "modbus_driver/bounds.rs"]
+mod bounds;
+
+use modbus_support::{start_delayed_modbus_server, start_modbus_server, ModbusTestState};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
@@ -395,6 +402,11 @@ scale = 2.0
     assert_eq!(inputs, [0xA5; 4]);
 }
 
+/// "A finite `f64` result that becomes non-finite at `f32` width is rejected before process-image
+/// mutation or Modbus wire encoding": `f32::MAX` scaled back by 0.5 is beyond an `f32`. An infinity
+/// in the output image is refused the same way, before any request: a non-finite `REAL` never
+/// becomes a register payload (the case of the computer's former point-map unit test, moved onto
+/// the shared exchange).
 #[test]
 fn modbus_inverse_scaled_f32_write_rejects_declared_width_overflow_before_send() {
     let state = Arc::new(Mutex::new(ModbusTestState {
@@ -417,10 +429,21 @@ scale = 0.5
     .expect("params");
     let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
 
-    let error = driver
-        .write_outputs(&f32::MAX.to_le_bytes())
-        .expect_err("inverse-scaled F32 overflow must fail");
-    assert!(error.to_string().contains("finite"));
+    for (image, refusal) in [
+        (
+            f32::MAX.to_le_bytes(),
+            "modbus mapped F32 wire value must remain finite after narrowing",
+        ),
+        (
+            f32::INFINITY.to_le_bytes(),
+            "modbus mapped F32 process-image value must be finite",
+        ),
+    ] {
+        let error = driver
+            .write_outputs(&image)
+            .expect_err("a non-finite F32 output must fail");
+        assert_eq!(error, RuntimeError::IoDriver(refusal.into()));
+    }
     let guard = state.lock().expect("modbus state lock");
     assert!(
         guard.functions.is_empty(),
@@ -547,15 +570,25 @@ scale = 0.0
     assert!(err.to_string().contains("scale"), "unexpected error: {err}");
 }
 
+/// "An unknown or direction-incompatible function is rejected during configuration", naming the
+/// key. The refusal was the computer's own `io.params.input_function: unsupported Modbus function`;
+/// it is now the shared rules' `modbus-tcp: <key>: <reason>`, as the driver's parameters are read by
+/// the one implementation on every runtime (specification 11 §6.5, "The protocol is one
+/// implementation on every runtime"; specification 34 §5.1.1, section 8: a chip and a computer
+/// take a driver's keys with the same checks).
 #[test]
 fn modbus_rejects_unknown_function_config() {
     let params: toml::Value =
         toml::from_str("address = \"127.0.0.1:65000\"\ninput_function = \"read_magic\"\n")
             .expect("params");
     let err = ModbusTcpDriver::from_params(&params).expect_err("invalid function must fail");
-    assert!(
-        err.to_string().contains("io.params.input_function"),
-        "unexpected error: {err}"
+    assert_eq!(
+        err,
+        RuntimeError::InvalidConfig(
+            "modbus-tcp: input_function: must be read_coils, read_discrete_inputs, \
+             read_holding_registers or read_input_registers, not \"read_magic\""
+                .into()
+        )
     );
 }
 
@@ -659,227 +692,6 @@ fn wait_for_modbus_health(
 }
 
 #[test]
-fn modbus_read_inputs_returns_within_scan_bound_while_response_delayed() {
-    let delay = StdDuration::from_millis(120);
-    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
-        vec![0x1122],
-        vec![0u16; 1],
-    )));
-    let addr = start_delayed_modbus_server(state, delay);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
-    let mut inputs = vec![0u8; 2];
-
-    let started = Instant::now();
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn policy should not fault the scan while worker waits");
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MODBUS_CI_SCAN_BOUND,
-        "Modbus read_inputs must return within the scan-thread bound while the worker waits on the delayed response, elapsed={elapsed:?}"
-    );
-}
-
-#[test]
-fn modbus_write_outputs_returns_within_scan_bound_while_response_delayed() {
-    let delay = StdDuration::from_millis(120);
-    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
-        vec![0u16; 1],
-        vec![0u16; 1],
-    )));
-    let addr = start_delayed_modbus_server(state, delay);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
-
-    let started = Instant::now();
-    driver
-        .write_outputs(&[0x12, 0x34])
-        .expect("warn policy should not fault the scan while worker writes");
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MODBUS_CI_SCAN_BOUND,
-        "Modbus write_outputs must return within the scan-thread bound while the worker waits on the delayed response, elapsed={elapsed:?}"
-    );
-}
-
-#[test]
-fn modbus_stale_snapshot_is_returned_when_worker_reconnects() {
-    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
-        vec![0x1122],
-        vec![0u16; 1],
-    )));
-    let addr = start_modbus_server(state, 1);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 50\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
-    let mut first = vec![0u8; 2];
-    driver.read_inputs(&mut first).expect("initial read");
-    assert_eq!(first, vec![0x11, 0x22]);
-
-    let mut stale = vec![0u8; 2];
-    driver
-        .read_inputs(&mut stale)
-        .expect("warn policy should return stale snapshot while reconnecting");
-
-    assert_eq!(
-        stale,
-        vec![0x11, 0x22],
-        "worker snapshot should preserve the last known input image while reconnecting"
-    );
-    assert!(matches!(
-        driver.health(),
-        trust_runtime::io::IoDriverHealth::Degraded { .. }
-    ));
-}
-
-#[test]
-fn modbus_cold_start_before_first_response_returns_bounded_no_data() {
-    let delay = StdDuration::from_millis(120);
-    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
-        vec![0x1122],
-        vec![0u16; 1],
-    )));
-    let addr = start_delayed_modbus_server(state, delay);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
-    let mut inputs = vec![0xAA, 0xBB];
-
-    let started = Instant::now();
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn policy should not fault cold-start no-data");
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MODBUS_CI_SCAN_BOUND,
-        "cold-start read_inputs must return before the worker's first response, elapsed={elapsed:?}"
-    );
-    assert_eq!(
-        inputs,
-        vec![0xAA, 0xBB],
-        "cold-start no-data must not invent a fresh input image"
-    );
-    assert!(matches!(
-        driver.health(),
-        trust_runtime::io::IoDriverHealth::Degraded { .. }
-    ));
-}
-
-#[test]
-fn modbus_cold_start_no_data_follows_on_error_policy() {
-    for (policy, should_error) in [("fault", true), ("warn", false), ("ignore", false)] {
-        let delay = StdDuration::from_millis(120);
-        let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
-            vec![0x1122],
-            vec![0u16; 1],
-        )));
-        let addr = start_delayed_modbus_server(state, delay);
-        let params: toml::Value = toml::from_str(&format!(
-            "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"{policy}\"\n"
-        ))
-        .expect("params");
-        let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
-        let mut inputs = vec![0u8; 2];
-
-        let started = Instant::now();
-        let result = driver.read_inputs(&mut inputs);
-        let elapsed = started.elapsed();
-
-        assert!(
-            elapsed < MODBUS_CI_SCAN_BOUND,
-            "{policy} cold-start no-data handling must be scan-bounded, elapsed={elapsed:?}"
-        );
-        assert_eq!(
-            result.is_err(),
-            should_error,
-            "{policy} result should match on_error policy for cold-start no-data"
-        );
-        match (policy, driver.health()) {
-            ("fault", trust_runtime::io::IoDriverHealth::Faulted { .. }) => {}
-            ("warn" | "ignore", trust_runtime::io::IoDriverHealth::Degraded { .. }) => {}
-            (_, other) => panic!("unexpected {policy} health for cold-start no-data: {other:?}"),
-        }
-    }
-}
-
-#[test]
-fn modbus_reconnect_backoff_is_bounded_and_non_spinning() {
-    let connection_count = Arc::new(AtomicUsize::new(0));
-    let addr = start_closing_modbus_server(Arc::clone(&connection_count));
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 50\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
-    let mut inputs = vec![0u8; 2];
-
-    for _ in 0..20 {
-        driver
-            .read_inputs(&mut inputs)
-            .expect("warn policy should degrade without faulting");
-    }
-    thread::sleep(StdDuration::from_millis(20));
-    let attempts = connection_count.load(Ordering::SeqCst);
-
-    assert!(
-        attempts <= 4,
-        "worker reconnect backoff must avoid scan-thread driven reconnect spinning, attempts={attempts}"
-    );
-
-    thread::sleep(StdDuration::from_millis(120));
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn policy should retry without faulting");
-    let retry_attempts = connection_count.load(Ordering::SeqCst);
-    assert!(
-        retry_attempts >= 2,
-        "an unavailable endpoint must produce a reconnect attempt, attempts={retry_attempts}"
-    );
-}
-
-#[test]
-fn modbus_output_handoff_is_bounded_when_scan_outpaces_worker() {
-    let delay = StdDuration::from_millis(120);
-    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
-        vec![0u16; 1],
-        vec![0u16; 1],
-    )));
-    let addr = start_delayed_modbus_server(state, delay);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut driver = ModbusTcpDriver::from_params(&params).expect("driver");
-
-    let started = Instant::now();
-    for value in 0..32u8 {
-        driver
-            .write_outputs(&[value, value.wrapping_add(1)])
-            .expect("warn policy should not fault when worker handoff is backpressured");
-    }
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MODBUS_CI_SCAN_BOUND,
-        "output command handoff must stay bounded when the scan thread outpaces the Modbus worker, elapsed={elapsed:?}"
-    );
-}
-
-#[test]
 fn modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery() {
     let delay = StdDuration::ZERO;
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
@@ -938,30 +750,11 @@ fn modbus_safe_state_handoff_reports_unconfirmed_worker_delivery() {
     );
 }
 
-#[test]
-fn modbus_driver_drop_is_bounded_while_worker_waits_for_first_response() {
-    let delay = StdDuration::from_millis(120);
-    let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
-        vec![0x1122],
-        vec![0u16; 1],
-    )));
-    let addr = start_delayed_modbus_server(state, delay);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-
-    let started = Instant::now();
-    let driver = ModbusTcpDriver::from_params(&params).expect("driver");
-    drop(driver);
-    let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MODBUS_CI_SCAN_BOUND,
-        "dropping the Modbus driver must not wait for a worker blocked on first response, elapsed={elapsed:?}"
-    );
-}
-
+/// "A Modbus exception remains an `IoAddress` error", and "An exception response is the typed
+/// exception error with its code and the specification's name for it": the server has one input
+/// register, so the read of register 7 is refused with exception 2, ILLEGAL DATA ADDRESS (V1.1b3
+/// §7). The text was the computer's `modbus exception code 2`; the shared exchange adds the name,
+/// the function and the address, as the specification asks.
 #[test]
 fn modbus_exception_is_not_reported_as_generic_transport() {
     let state = Arc::new(Mutex::new(ModbusTestState::with_registers(
@@ -979,11 +772,12 @@ fn modbus_exception_is_not_reported_as_generic_transport() {
     let err = driver
         .read_inputs(&mut inputs)
         .expect_err("Modbus exception must be observable");
-    match err {
-        RuntimeError::IoAddress(message) => assert!(
-            message.contains("modbus exception"),
-            "expected Modbus exception context, got {message}"
-        ),
-        other => panic!("expected Modbus address/exception error, got {other}"),
-    }
+    assert_eq!(
+        err,
+        RuntimeError::IoAddress(
+            "modbus exception code 2 (ILLEGAL DATA ADDRESS): 0x04 Read Input Registers at \
+             address 7"
+                .into()
+        )
+    );
 }

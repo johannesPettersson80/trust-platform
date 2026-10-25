@@ -398,13 +398,30 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
   - 25 Oct night, Modbus TCP on the C6: `trust-modbus` (no_std protocol crate); the shared
     exchange `io_drivers::modbus` (38 tests: parameters, typed points, request splitting, response
     checks, deadlines, safe-state confirmation, backoff); chip TCP links in `trust-platform-net`
-    (4 tests); the C6 driver `hardware/drivers/modbus.rs`; `ChipDriver` errors keep their kind and a
+    (4 tests); the C6 driver `drivers/modbus.rs`; `ChipDriver` errors keep their kind and a
     chip's safe state is confirmed only by a healthy output path. Bench `s7/run1`: two input
     registers read and two holding registers written every 100 ms over Wi-Fi from the Pi's server,
     health degraded under `warn` while the server was away and recovered after. Open: the computer's
     driver onto the shared exchange (the agent listed 14 deviations of today's computer driver from
     spec 11, among them its own frame code without the response checks, no request splitting and an
     FC16 byte count that wraps above 254 bytes), MQTT (agent), Bluetooth devices (L4).
+  - 25 Oct late: the computer's `modbus-tcp` driver runs the shared exchange (agent; the
+    deviations went, spec 11 updated, changelog entry); its tests split (`modbus_driver/bounds.rs`)
+    and the mapped-points test waits for an accepted refresh, as a cold refresh may miss the 40 ms
+    deadline on a loaded computer. MQTT: the shared `io_drivers::mqtt` (parameters, MQTT 3.1.1
+    codec, typed points, payloads, Sparkplug B, the session as a state machine, with chip bounds
+    `MqttLimits`: queue by messages and bytes, packets, outgoing bytes; `due_ms` for the next timer;
+    `reserve_buffers`); `trust-platform-net` client links with bounded queues taken with the link,
+    `send_some`, `take_received`, an orderly close that sends what was queued before the FIN, and
+    servers named by host name looked up with the chip's name servers; the C6 driver
+    `drivers/mqtt.rs`, stepped by the network's idle work between the scans
+    (`IdleSession`), its buffers counted at the load (`ChipDriver::reserved_bytes`, MEM-12). Spec
+    34 0.70. The computer's driver onto the shared exchange: agent running. Bench: `s7m/` (a stdlib
+    MQTT broker on the Pi, the project, `s7m-bench.sh`), to run after the check.
+  - Open on the C6, recorded in spec 34 D.2: TLS (a session needs about 33 KiB, a program with
+    Wi-Fi has about 22 KiB: a bigger board, or the owner's decision) and symbolic `mappings` (the
+    build must lower the tags to typed points, and an unbound variable needs the MQTT tag links of
+    spec 44 §13.3 in the chip's cycle).
 - [ ] S8 Web pages and HMI.
 - [ ] S9 Modbus RTU (owner, 16 October 2026): the `modbus-rtu` driver of specification 11, built-in
   driver 6, on Linux, macOS and Windows serial ports and on the chips' UARTs, sharing the Modbus
@@ -548,7 +565,7 @@ T — Targets (spec 34 §11.4):
     take the drivers' addresses too (`unwired_binding`).
   - 25 Oct night, in code: the shared rules and logic (`io_drivers::{analog,pwm,counter,can}`,
     35 tests; entries of a list may not overlap in bytes, `on_error` read as Modbus reads it); the
-    C6 drivers (`hardware/drivers/*`: ADC1 one-shot with the eFuse curve calibration, LEDC with one
+    C6 drivers (`drivers/*`, until 25 October in `hardware/drivers/`: ADC1 one-shot with the eFuse curve calibration, LEDC with one
     timer per frequency and the divider from the 80 MHz clock, PCNT pulse and quadrature with the
     32-bit count, TWAI0/1 at the nine CiA 301 rates with a code/mask filter; peripherals leased so
     a restart frees them; a PWM pin handed to its latch on the emergency path); the online change
@@ -576,7 +593,11 @@ T — Targets (spec 34 §11.4):
     loads the heap had 41,112 bytes free but no block of 16,300 for the checkpoint buffer
     (fragmentation); it is now a refusal, and a reset recovers. Open: keep the checkpoint buffer
     and the capture's buffers for the life of the loop, taken once at boot, so loads cannot
-    fragment the heap; ADC1 with Wi-Fi.
+    fragment the heap; ADC1 with Wi-Fi (4,057 mV against 3,259 mV on the same pulled-up pad).
+    esp-hal 1.2.2 writes ADC1's calibration (`SAR1_DREF`, the initial code) before every one-shot
+    read, so a lost calibration is not the cause; next: whether the radio's PHY task and the ADC
+    driver contend for the analog I2C bus (`regi2c`) without one lock, and the readings with the
+    radio idle against busy.
   - Found by the D1 review (25 Oct): the C6's flash pins GPIO24-GPIO30 were claimable (fixed,
     reason `flash`); the C6's chip file listed only engine, control and live-values (debug and
     deploy added); a trial firmware that hangs before it confirms has no watchdog yet, so it would
@@ -625,6 +646,12 @@ T — Targets (spec 34 §11.4):
     `ctl firmware` → slot b confirmed, device settings kept; a firmware built with
     `bench-trial-reset` (resets before it confirms) → the boot loader rolled it back, `capabilities`
     `rolled_back: "0.24.75"`, `ctl firmware` exit 1 with "did not finish its boot".
+  - 25 Oct night, the hang case benched (`~/projects/.artifacts/native/t4-hang-run1/`): a firmware
+    built with `bench-trial-hang` (TRUST_FIRMWARE_FEATURES, recorded in build.json) installed with
+    `ctl firmware` into slot b hung before it confirmed; the hardware watchdog, now started before
+    the boot's steps, reset the chip (`last_reset` `watchdog`, boot 8159), the boot loader rolled
+    back to slot a (`rolled_back: "0.24.75"`), and `ctl firmware` exited 1 with "did not finish its
+    boot, and the runtime runs truST 0.24.75 from slot a again".
   - Open: the update from the hardware canvas (with the V items).
 - [x] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
   Done 25 Oct (spec 34 0.60 TARGET-05, spec 25 runtime inspector and USB tray): the rule in
@@ -928,15 +955,18 @@ Open, to be fixed:
   (`64adfb9e2`, from this branch's `276b16a9f`): `oscat_core_suite_passes_every_case` runs the
   whole OSCAT core project (126 passed) and `pointer_to_open_array` pins the rule; focused check
   green. Open: merge into this branch after C5-2b.
-- [ ] C6: supervision during a debug halt is not evaluated (spec 11 §6.6 and §6.9, spec 34
+- [x] (Closed 25 Oct night: bench t1/run4, below.) C6: supervision during a debug halt is not evaluated (spec 11 §6.6 and §6.9, spec 34
   STATE-07; the earlier STATE-06 citation was wrong). S3d-6 makes the chip's deadline and overrun
   check leave out held time, S3d-7 feeds the watchdog on every hold pass, S3d-9 measures it on the
   C6 (`~/projects/.artifacts/s3/chip-debugger.md` §3.5).
   - 25 Oct night, bench t1/run2: a breakpoint held the scan 10 s, more than twice the 4 s hardware
     watchdog; the chip did not reset (boot 8132 before and after), the resource was not faulted,
     and `resume` went on running; the task then reported its 133 missed activations, as the host
-    does (`a_pause_holds_the_scans_..._reports_the_missed_activations`). Open: the same with the
-    program's own watchdog on (1 s) to show the scan's deadline leaving out the hold on the chip.
+    does (`a_pause_holds_the_scans_..._reports_the_missed_activations`).
+  - Bench t1/run4 (project t1 with `[runtime.watchdog] enabled = true, timeout_ms = 1000, action =
+    "halt"`, debug image, no Wi-Fi): a breakpoint held the scan 10 s, ten times the program's
+    watchdog; after `resume` the resource ran on, unfaulted, so the scan's deadline left the hold
+    out; boot 8160 before and after, no reset. Closed.
 - [x] Hardware canvas: both boards selectable in Devices & Connections, found by a passive USB scan
   in Rust (never resetting a board); specifications 25 and 34 first, then its own PR. (Merged 16 Oct into V1 and V7: specified in spec 25 §5.12 and spec 34 TARGET-04 (V7a, done);
   the passive USB scan is V7c and the panel V7d.)

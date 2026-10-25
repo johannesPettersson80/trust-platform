@@ -55,7 +55,7 @@ use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::ports::StatusPort;
 use trust_runtime_services::runner::{
     address_text, check_image_retained_values, debug_reserve_bytes, unwired_binding, Candidate,
-    ChangeMemory, CompiledCycle, DeviceLiveValues, Loaded, ProgramLoader, ResourceCycle,
+    ChangeMemory, CompiledCycle, DeviceLiveValues, Loaded, ProcessIo, ProgramLoader, ResourceCycle,
     RetainSource,
 };
 use trust_runtime_services::settings::RuntimeSettings;
@@ -250,11 +250,13 @@ where
         let after = (self.room)();
         let needed = ONLINE_CHANGE_WORKING_MEMORY_BYTES
             .saturating_add(if retains { self.largest_payload } else { 0 })
-            .saturating_add(usize::try_from(debug).unwrap_or(usize::MAX));
+            .saturating_add(usize::try_from(debug).unwrap_or(usize::MAX))
+            .saturating_add(io.reserved_bytes(program.outputs.len()));
         if after < needed {
             return Err(format!(
                 "insufficient memory: the I/O drivers took {} bytes, and {after} remain where the \
-                 program's working memory, checkpoint buffer and debugger need {needed}",
+                 program's working memory, checkpoint buffer, debugger and the drivers' buffers \
+                 need {needed}",
                 before.saturating_sub(after)
             ));
         }
@@ -403,7 +405,7 @@ fn build_candidate<C, I, K>(
 ) -> Result<Changed<C, I, K>, String>
 where
     C: MonotonicClock + Copy + 'static,
-    I: trust_runtime_services::runner::ProcessIo,
+    I: ProcessIo,
     K: ModuleCode,
 {
     let program = NativeProgram::new(admitted, code, device, &KERNEL_FUNCTIONS)

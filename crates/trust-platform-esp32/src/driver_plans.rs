@@ -3,7 +3,7 @@
 //! the TWAI controllers, the refusals they give before any hardware is touched, and the rules they
 //! apply at each cycle. Everything here is plain data and arithmetic, built for the host as for the
 //! chip, so `driver_plans/tests.rs` proves it without a board; the chip-only drivers
-//! (`hardware/drivers`) turn the plans into esp-hal calls.
+//! (`drivers`) turn the plans into esp-hal calls.
 //!
 //! The parameters themselves are read by the rules every runtime shares
 //! (`trust_runtime_services::io_drivers`); this module holds only what the C6's peripherals decide.

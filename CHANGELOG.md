@@ -6,12 +6,35 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: the `mqtt` driver on a chip with a network: the ESP32-C6 runs the computer's MQTT 3.1.1
+  session, typed points, raw mode and Sparkplug B from one shared implementation, keeps the session
+  alive between the scans and while the program is stopped, and ends it in order when the program is
+  replaced. A broker can be named by a host name, looked up with the chip's name servers. The C6
+  keeps 16 received messages (1,024 payload bytes), packets of up to 1,024 bytes and 2,048 bytes
+  waiting to be sent, and counts the driver's buffers when it loads the program. TLS and symbolic
+  `mappings` are refused on the C6 for now, with the reason.
+- Changed: a chip's `modbus-tcp` and `mqtt` connections send what their driver queued before they
+  close, so a program's last bytes reach the server when the program is replaced, and a chip's
+  refusal for want of memory after claiming the drivers also counts the drivers' buffers
+  (`... checkpoint buffer, debugger and the drivers' buffers need <k>`).
 - Fixed: a chip counts what a program keeps beside its memory figure: a debug program's buffer of
   debugger stops at its install and load, and its I/O drivers' blocks when they are claimed, so a
   program the heap cannot hold is refused with the numbers instead of running out of heap at its
   start; a chip whose heap has no block for the checkpoint buffer refuses the start instead of
   panicking. `capabilities` reports a chip's heap (`capacity_bytes`, `used_bytes`, `peak_bytes`),
   and a panic for want of heap names the request and the free bytes.
+- Changed: the computer's `modbus-tcp` driver runs on the shared exchange of the chips, so both apply
+  spec 11's rules alike. Every response is checked (function, byte count, write echo, MBAP
+  protocol and length) and a failed check gives the connection up as a transport error; a response
+  of another transaction is discarded and reading goes on; images larger than one request are
+  split at the quantity limits; FC16's byte count no longer wraps above 254 bytes; an exception
+  keeps the connection and stays an `IoAddress` error naming the function and address; the
+  reconnect backoff follows transport failures only and covers outputs too; health shows the
+  failure's own text; input failures no longer leave a safe state unconfirmed; mapped reads leave
+  unmapped bytes and the other bits of a byte alone. Refusals read `modbus-tcp: <key>: <reason>`,
+  unknown keys, port 0 and `timeout_ms = 0` are refused, FC05 and FC15 (or FC06 and FC16) on one
+  coil or register are refused as one table, and a validation no longer starts a worker. IPv6
+  servers (`[addr]:port`) stay supported.
 - Added: the `modbus-tcp` driver on a chip with a network: the ESP32-C6 reads and writes a Modbus TCP
   server over Wi-Fi with the computer's keys, checks and deadlines, from one shared implementation
   of the driver's exchange that builds every frame with the `trust-modbus` crate.

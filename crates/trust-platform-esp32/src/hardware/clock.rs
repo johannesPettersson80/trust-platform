@@ -111,7 +111,7 @@ const REBASE_CYCLES: u32 = CPU_HZ;
 
 /// SYSTIMER microseconds since boot, extended by the CPU cycle counter while the CPU runs
 /// (checklist P1-6; `crate::cycle_clock`).
-pub(super) fn now_us() -> u64 {
+pub(crate) fn now_us() -> u64 {
     if !CYCLES_COUNT.load(Ordering::Relaxed) {
         return systimer_us();
     }

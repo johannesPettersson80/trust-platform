@@ -186,9 +186,10 @@ fn create_gpio(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> 
     Ok(Box::new(driver))
 }
 
+/// Reads the parameters by the shared rules without constructing the driver, so that validation
+/// opens no connection and starts no worker (specification 11 §6.5).
 fn validate_modbus_tcp(params: &toml::Value) -> Result<(), RuntimeError> {
-    let _ = ModbusTcpDriver::from_params(params)?;
-    Ok(())
+    ModbusTcpDriver::validate_params(params)
 }
 
 fn create_modbus_tcp(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
@@ -196,9 +197,11 @@ fn create_modbus_tcp(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeE
     Ok(Box::new(driver))
 }
 
+/// Reads the parameters by the shared rules and the TLS files that they name, without constructing
+/// the driver, so that validation opens no connection and starts no worker (specification 11
+/// §6.5).
 fn validate_mqtt(params: &toml::Value) -> Result<(), RuntimeError> {
-    MqttIoDriver::validate_params(params)?;
-    Ok(())
+    MqttIoDriver::validate_params(params)
 }
 
 fn create_mqtt(params: &toml::Value) -> Result<Box<dyn IoDriver>, RuntimeError> {
@@ -301,8 +304,8 @@ fn unavailable(driver: &str, reason: &str) -> RuntimeError {
 /// (specification 11 §6.5). The table is passed as the JSON text that a chip reads from its
 /// deployment record (specification 34 §5.1.1, section 8), so that a computer and a chip accept
 /// and refuse the same `io.toml`. Reading opens no device. A refusal is `<driver>: <key>:
-/// <reason>`.
-fn shared_params<P>(
+/// <reason>`. The `modbus-tcp` driver reads its parameters with it too.
+pub(super) fn shared_params<P>(
     driver: &str,
     params: &toml::Value,
     parse: fn(&str) -> Result<P, ParamsError>,

@@ -1,6 +1,6 @@
 //! The C6's I/O drivers beside its GPIO lines (specification 11 §6.5; specification 34 TARGET-01 and
 //! Appendix D.2): `analog` on ADC1, `pwm` on the LEDC, `counter` on the PCNT and `can` on TWAI0 and
-//! TWAI1. Each driver reads its parameters with the rules every runtime shares
+//! TWAI1, and `modbus-tcp` and `mqtt` over connections of the chip's network. Each driver reads its parameters with the rules every runtime shares
 //! (`trust_runtime_services::io_drivers`), plans what they ask of the C6 before it touches any
 //! hardware (`crate::driver_plans`, which the host tests prove), claims its pins from the GPIO
 //! bank, where a pin serves one line of one driver, GPIO lines included, and its peripheral from
@@ -18,6 +18,7 @@ mod analog;
 mod can;
 mod counter;
 mod modbus;
+mod mqtt;
 mod pwm;
 
 use alloc::boxed::Box;
@@ -38,7 +39,7 @@ use crate::driver_plans::LoopbackPads;
 use crate::driver_plans::PeripheralSlot;
 use crate::process_io::GpioBank;
 
-use super::C6Net;
+use crate::hardware::C6Net;
 
 /// The peripherals the drivers claim, taken from `esp_hal::init` with the board and kept for the life
 /// of the boot. Each serves one driver at a time and is free again when that driver is dropped.
@@ -83,8 +84,8 @@ impl DriverPeripherals {
 }
 
 /// The driver that `request` names, built over its pins from `bank` and its peripheral from
-/// `peripherals` (specification 11 §6.5): `analog`, `pwm`, `counter` or `can`, or `modbus-tcp` over a
-/// connection of `network`, the chip's network when it serves one. `config` gives a `pwm` output
+/// `peripherals` (specification 11 §6.5): `analog`, `pwm`, `counter` or `can`, or `modbus-tcp` or
+/// `mqtt` over a connection of `network`, the chip's network when it serves one. `config` gives a `pwm` output
 /// its safe state.
 ///
 /// # Errors
@@ -106,6 +107,7 @@ pub(crate) fn claim_driver(
         counter::NAME => counter::claim(request.params, bank, peripherals),
         can::NAME => can::claim(request.params, bank, &peripherals.twai),
         modbus::NAME => modbus::claim(request.params, network),
+        mqtt::NAME => mqtt::claim(request.params, network),
         other => Err(unsupported_driver(other, "C6")),
     }
 }

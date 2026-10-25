@@ -5,7 +5,7 @@
 use alloc::format;
 use alloc::vec::Vec;
 use core::fmt;
-use core::net::SocketAddrV4;
+use core::net::SocketAddr;
 
 use trust_modbus::FunctionCode;
 
@@ -28,8 +28,14 @@ const KEYS: [&str; 10] = [
     "unit_id",
 ];
 
-/// What `address` must be.
+/// What `address` must be: the words of a refusal of an IPv4 address, and of a value that is not
+/// written as an IPv6 address.
 const ADDRESS: &str = "an IPv4 address with a port from 1 to 65535, such as \"192.168.1.10:502\"";
+
+/// What `address` must be when it is written as an IPv6 address: in brackets, so that the colons
+/// of the address are not read as the port's (RFC 3986 §3.2.2).
+const ADDRESS_V6: &str =
+    "an IPv6 address in brackets with a port from 1 to 65535, such as \"[fd00::10]:502\"";
 
 /// `unit_id` when the table has none.
 const DEFAULT_UNIT_ID: u8 = 1;
@@ -101,23 +107,19 @@ pub(super) const OUTPUT_WORDS: [(&str, OutputFunction); 22] = [
 pub(super) const OUTPUT_WHAT: &str =
     "write_single_coil, write_single_register, write_multiple_coils or write_multiple_registers";
 
-/// The address of a Modbus TCP server: an IPv4 address and a port.
+/// The address of a Modbus TCP server: an IPv4 or an IPv6 address, and a port.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModbusTcpAddress {
-    /// The IPv4 address, its first number first: `192.168.1.10` is `[192, 168, 1, 10]`.
-    pub ip: [u8; 4],
-    /// The TCP port, 1 to 65535; 502 is the port of Modbus.
-    pub port: u16,
+    /// The address and the TCP port, 1 to 65535; 502 is the port of Modbus. An IPv6 address keeps
+    /// the zone that `io.toml` writes after `%` as its scope id, such as the 2 of
+    /// `[fe80::10%2]:502`, and has no flow label.
+    pub socket: SocketAddr,
 }
 
 impl fmt::Display for ModbusTcpAddress {
-    /// The address as `io.toml` writes it, such as `192.168.1.10:502`.
+    /// The address as `io.toml` writes it, such as `192.168.1.10:502` or `[fd00::10]:502`.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "{}",
-            SocketAddrV4::new(self.ip.into(), self.port)
-        )
+        write!(formatter, "{}", self.socket)
     }
 }
 
@@ -188,7 +190,7 @@ impl OutputFunction {
 /// The `modbus-tcp` driver's parameters.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModbusTcpParams {
-    /// `address`: the server's IPv4 address and port; required.
+    /// `address`: the server's IPv4 or IPv6 address and its port; required.
     pub address: ModbusTcpAddress,
     /// `unit_id`: the unit identifier of every request, 0 to 255; default 1.
     pub unit_id: u8,
@@ -283,21 +285,27 @@ impl ModbusTcpParams {
     }
 }
 
-/// `address`: an IPv4 address and a port other than 0, as the computer's socket address reads it;
-/// required.
+/// `address`: an IPv4 address and a port, such as `192.168.1.10:502`, or an IPv6 address in
+/// brackets and a port, such as `[fd00::10]:502` or, with a zone, `[fe80::10%2]:502`, as the
+/// computer's socket address reads them; the port is not 0. Required. A refusal of a text written
+/// as an IPv6 address, with a bracket or more than one colon, says how IPv6 is written; any other
+/// refusal says how IPv4 is.
 fn address(root: &Table<'_>) -> Result<ModbusTcpAddress, ParamsError> {
     let Some(value) = root.get("address") else {
         return Err(root.refuse("address", format!("is required, {ADDRESS}")));
     };
-    value
-        .as_str()
-        .and_then(|text| text.parse::<SocketAddrV4>().ok())
+    let text = value.as_str();
+    if let Some(socket) = text
+        .and_then(|given| given.parse::<SocketAddr>().ok())
         .filter(|socket| socket.port() != 0)
-        .map(|socket| ModbusTcpAddress {
-            ip: socket.ip().octets(),
-            port: socket.port(),
-        })
-        .ok_or_else(|| root.refuse("address", format!("must be {ADDRESS}, not {value}")))
+    {
+        return Ok(ModbusTcpAddress { socket });
+    }
+    let what = match text {
+        Some(given) if given.starts_with('[') || given.matches(':').count() > 1 => ADDRESS_V6,
+        _ => ADDRESS,
+    };
+    Err(root.refuse("address", format!("must be {what}, not {value}")))
 }
 
 /// `on_error`, read as the computer's driver reads it: trimmed, in any case, with `warning` for

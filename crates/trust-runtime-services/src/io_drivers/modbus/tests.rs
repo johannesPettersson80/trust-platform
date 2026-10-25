@@ -12,6 +12,7 @@ mod wire;
 
 use alloc::format;
 use alloc::vec::Vec;
+use core::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 use smol_str::SmolStr;
 use trust_modbus::tcp::MAX_ADU_LEN;
@@ -20,10 +21,9 @@ use trust_runtime_core::error::RuntimeError;
 use super::{ModbusExchange, ModbusPoll, ModbusTcpAddress, ModbusTcpParams};
 use crate::status::IoDriverHealth;
 
-/// The server of every exchange test.
+/// The server of every exchange test, `10.0.0.5:502`.
 const SERVER: ModbusTcpAddress = ModbusTcpAddress {
-    ip: [10, 0, 0, 5],
-    port: 502,
+    socket: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 0, 0, 5), 502)),
 };
 
 /// The error and the health of an input refresh that is not complete at its deadline

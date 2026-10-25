@@ -32,10 +32,9 @@ use trust_runtime_services::flash_record::SectorFlash;
 
 pub(crate) mod calendar;
 mod checkpoint_flash;
-mod clock;
+pub(crate) mod clock;
 mod code_region;
 mod console;
-mod drivers;
 pub(crate) mod emergency;
 mod image_window;
 mod reset;
@@ -50,11 +49,12 @@ pub use emergency::emergency_halt;
 pub use reset::{end_program_load, mark_program_load, ResetControl, Watchdog};
 pub use usb_link::UsbLink;
 pub use wait::Wait;
+pub(crate) use wifi::IdleSession;
 pub use wifi::{
     bring_up, pairing_random, start_scheduler, C6Net, NetLink, RadioFailure, RadioParts,
 };
 
-use drivers::{claim_driver, DriverPeripherals};
+use crate::drivers::{claim_driver, DriverPeripherals};
 
 /// Set by the first `Board::take`. `esp_hal::init` panics when it runs twice, so this guard
 /// turns a second call into `PeripheralsTaken` before the HAL is touched.

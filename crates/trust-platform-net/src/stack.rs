@@ -11,7 +11,7 @@ use smoltcp::wire::{DhcpOption, EthernetAddress, HardwareAddress, IpCidr, Ipv4Ad
 use trust_runtime_core::ports::{LinkFrame, MonotonicInstant, WallClock};
 use trust_runtime_services::link::ReplyRefused;
 
-use crate::client::{ClientLink, Clients};
+use crate::client::{ClientLink, Clients, Server};
 use crate::control::ControlServer;
 use crate::discovery::Discovery;
 use crate::settings::{Addressing, NetworkSettings};
@@ -218,21 +218,33 @@ impl Network {
         if let Some(control) = &mut self.control {
             control.pump(&mut self.sockets);
         }
-        self.clients
-            .pump(self.iface.context(), &mut self.sockets, address.is_some());
+        self.clients.pump(
+            self.iface.context(),
+            &mut self.sockets,
+            address.is_some(),
+            &self.dns,
+            now_us,
+        );
         let _ = self.iface.poll_egress(now, device, &mut self.sockets);
         if let Some(control) = &mut self.control {
             // What the egress made room for.
             control.pump(&mut self.sockets);
         }
-        self.clients
-            .pump(self.iface.context(), &mut self.sockets, address.is_some());
+        self.clients.pump(
+            self.iface.context(),
+            &mut self.sockets,
+            address.is_some(),
+            &self.dns,
+            now_us,
+        );
     }
 
-    /// A connection for an I/O driver to the server at `remote` (specification 11 §6.5), idle
-    /// until the driver opens it; the network then carries its bytes in [`Self::poll`].
-    pub fn client(&mut self, remote: (Ipv4Address, u16)) -> ClientLink {
-        self.clients.add(&mut self.sockets, remote)
+    /// A connection for an I/O driver to `server` on `port` (specification 11 §6.5) whose queues
+    /// hold `queue_bytes` each, idle until the driver opens it; the network then looks a name up
+    /// and carries the bytes in [`Self::poll`].
+    pub fn client(&mut self, server: Server, port: u16, queue_bytes: usize) -> ClientLink {
+        self.clients
+            .add(&mut self.sockets, server, port, queue_bytes)
     }
 
     /// When the stack's work is next due, a retransmission or a lease, in microseconds on the
@@ -252,7 +264,11 @@ impl Network {
             .as_ref()
             .filter(|_| self.clock.is_some() && self.address().is_some())
             .map(TimeService::due_us);
-        [stack, announcing, time].into_iter().flatten().min()
+        let clients = self.clients.due_us(&self.sockets, now_us);
+        [stack, announcing, time, clients]
+            .into_iter()
+            .flatten()
+            .min()
     }
 
     /// The next request of the control connection, with its frame at the start of `buffer`.
