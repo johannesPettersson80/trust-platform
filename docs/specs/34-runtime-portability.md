@@ -1,6 +1,6 @@
 # truST Runtime Portability Specification
 
-- **Version:** 0.65 — the chip on a Wi-Fi network at the bench (L3): the firmware's `memcpy` copies from the first byte to the last, as the ROM's does, which the Wi-Fi driver's overlapping copies need (D.2); no network timer is due while the link is down (PORT-06).
+- **Version:** 0.66 — the memory a program has on a chip with Wi-Fi (L3): the radio's arena trimmed to its measured peak under load with a fifth more (D.2); a boot that a reset ended while it loaded the program does not load it again (TARGET-08).
 - **Date:** 25 October 2026
 - **Repository:** `johannesPettersson80/trust-platform`
 - **Reviewed baseline:** `main` at `be8d81a4a7ab16ca7554b8be0f4723161ec1a47b`
@@ -2704,6 +2704,13 @@ record's location, and the safe outputs follow `[runtime.fault]` as after a scan
 trust-runtime (`safe_halt` drives them); a panic is never restarted automatically, under `restart`
 either. The fault is logged at the program's time zero, `status` reports it, and a `restart` starts
 the program. A power-on, a host reset and a requested restart end no program, so the program runs.
+A boot that a reset ended while it loaded the installed program does not load it again: the boot
+marks its load where a panic or watchdog reset keeps the mark and a power-on clears it, and the
+next boot that finds the mark leaves the program unloaded, the resource faulted as the reset leaves
+a program (`ResourcePanic` with the panic's location, or `WatchdogTimeout`), logged and reported by
+`status`, with no output driven, since no program drove one; a `restart` loads the program again. A program whose load panics, for
+example one whose memory the chip lacks, would otherwise reset the chip at every boot. A load that a
+`restart` or an install starts is caught at the boot after its reset, whose own load is marked.
 
 **TARGET-09 — Releases.** Each truST release includes the firmware for every supported chip, built
 from the same version as trust-runtime, with SHA-256 sums (owner, 16 October 2026:
@@ -3662,6 +3669,7 @@ Additional modernization and Rust design sources consulted on 9 October 2026:
 
 | Version | Date | Change |
 |---|---|---|
+| 0.66 | 25 October 2026 | The memory a program has on a chip with Wi-Fi, and a boot that a program's load ended (the portability checklist's L3). D.2: the radio's arena is 56 KiB, the bench's peak of 47,864 bytes under load with a fifth more; it was 64 KiB. The network takes 38,588 bytes of the heap besides the arena, measured at boot; the text said about 26 KiB. TARGET-08: a boot that a reset ended while it loaded the installed program does not load it again; the next boot leaves the program unloaded and the resource faulted as the reset leaves a program, and a `restart` loads it again. The bench installed a debug image whose figure (specification 44 §10.4, which 0.29 there makes count what a load keeps) let a chip with Wi-Fi admit it: its load ran out of heap, panicked, and the chip reset at every boot, about 470 times, until its device settings were erased. |
 | 0.65 | 25 October 2026 | The chip on a Wi-Fi network at the bench (the portability checklist's L3). D.2: the firmware's `memcpy` copies from the first byte to the last, as the ROM's does, so a copy to a lower address that overlaps its source gives what `memmove` gives; its word table ran from the last word to the first, and the C6 then failed every WPA2 handshake at its third message, on the Pi's hotspot and on a router alike, while a build on the ROM's routines joined. The firmware's `tests/memory_routines/run.sh` checks the three routines under qemu-riscv32. PORT-06: the chip answers ping on its address, as networked PLCs do; its Wi-Fi stack did not. PORT-06, joining the network: 90 seconds after an attempt that its access point did not answer, with the radio asleep between attempts, so that an access point that kept the chip's association after a reset without leaving drops it (the Pi's access point did after about 45 seconds without an answer to its checks; attempts every 30 seconds, and the awake radio's answers to its checks, kept it for good); before a reset it makes itself the chip leaves its Wi-Fi network; the Pi's access point, which still held the chip's association after a reset without one, ignored the chip's next attempts to join ("AuthenticationExpired" at -19 dBm) until its own timeout. PORT-06, the client: `ctl` asks for the version and sends its request over one connection; it opened a second for the request, which the chip, still closing the first, answered `server busy`. PORT-06, the loop: while the link is down only the next attempt to join is due; before, the stack's timers, which cannot run without a link, woke the loop every millisecond. |
 | 0.64 | 25 October 2026 | A chip on a network (the portability checklist's L3; ARCH-12; the owner, 25 October 2026, on the five open questions: "do whats professional, compare to twin at and codesys and it must follow iec standard. so you deside"). PORT-06: a chip whose device settings name a network interface starts it at boot and makes the first attempt to join then, without the program waiting; it joins again after a loss after 1, 2, 4, 8 and 16 seconds and then every 30; Wi-Fi as a WPA2-Personal or open station in the radio rules of the settings' country or of every country; the address from DHCP with the device name or from the settings; the control connection over TCP on `[control] port` (9901) only with a control token, which is then required on every link as on a computer and which `config.set` cannot clear; one client at a time, a second told `server busy` with its request's id; idle probes every 10 seconds and a silent client dropped after 30; the USB link and the network read in turn; at most 4 frames a pass, and the loop's wait ending at the network's next timer; the network in `capabilities`; `ctl --endpoint tcp://host:port` through the shared client. TARGET-02: `[control]` with `token` and `port`, `device.get` reporting `token_set`. D.2: the radio's code and data in RAM take 80 KiB of the program region, now 112 KiB (specification 44 0.28); with Wi-Fi settings the radio's arena of 64 KiB and the network's 26 KiB come from the heap at boot, the arena never shared with the PLC heap's free lists or counted among the scan's allocator operations, and the scheduler esp-rtos starts only then. Like a CODESYS or TwinCAT device, the chip keeps its credential in its own settings, not in the project. |
 | 0.63 | 25 October 2026 | The device settings on a chip (the portability checklist's T2; the owner's TARGET-02, 16 October 2026, and "do whats professional", 25 October 2026). TARGET-02: `device.toml`'s sections and keys with their checks, a key for hardware the chip lacks refused with the reason (ARCH-13); a chip keeps the file in two sectors with a sequence and a CRC-32, the newer whole record winning; `device.get` (Engineer) without the Wi-Fi password, `device.set` (Admin) while Stopped, applying at the next boot, and `device.reset` (Admin) after its reply; a computer refuses the three. |
@@ -4130,10 +4138,13 @@ board by two M0 probes on 15 October 2026 before any firmware was written.
   2026. The program region gave them 80 KiB: it was 192 KiB, and its 112 KiB still hold the
   reference workload's installed module (43,810 bytes) and its changed release image (67,848 bytes)
   at once (specification 44 §12.3). A chip whose device settings name a Wi-Fi network also takes,
-  at boot and before the memory for programs is measured (MEM-12), the radio's arena, 64 KiB of the
+  at boot and before the memory for programs is measured (MEM-12), the radio's arena, 56 KiB of the
   heap aligned past the program region's blocks so that it lies in the main heap's HP SRAM, which
-  the radio's DMA reaches, and the network's sockets and line link, about 26 KiB of the heap: the
-  driver's C allocations (`malloc`, `calloc`, `realloc`, `free` and their `_internal` forms, which
+  the radio's DMA reaches, and the network's sockets, line link and the scheduler's tasks, 38,588
+  bytes of the heap (measured 25 October 2026). The arena is the bench's peak with a fifth more: it
+  peaked at 47,864 bytes while a client polled the control connection 95 times a second for a minute
+  beside ping, and while a 90 KB program was installed over the network; `capabilities` reports its
+  peak and its failures (`driver_memory`). The driver's C allocations (`malloc`, `calloc`, `realloc`, `free` and their `_internal` forms, which
   the firmware exports over the arena, `src/radio_memory.rs`) never share the PLC heap's free lists
   and never count among the scan thread's allocator operations ("The allocation count"). A chip
   without Wi-Fi settings starts no radio and keeps the heap whole. The radio's scheduler, `esp-rtos`,

@@ -70,14 +70,17 @@ impl LineSources {
     #[must_use]
     pub fn from_image(image: &trust_runtime_core::native::image::Image<'_>) -> Self {
         use trust_runtime_core::native::image::{FileRecord, StmtRecord};
+        // Each list holds exactly its entries: the memory figure counts them (specification 44 §10.4).
         let mut labels = Vec::new();
         if let Ok(records) = image.table::<FileRecord>() {
+            labels.reserve_exact(usize::try_from(records.len()).unwrap_or(0));
             for file in records.iter() {
                 labels.push(SmolStr::new(image.string(file.label).unwrap_or("")));
             }
         }
         let mut statements = Vec::new();
         if let Ok(records) = image.table::<StmtRecord>() {
+            statements.reserve_exact(usize::try_from(records.len()).unwrap_or(0));
             for (id, statement) in (0u32..).zip(records.iter()) {
                 statements.push(LineStatement {
                     pou_id: u32::from(statement.pou),

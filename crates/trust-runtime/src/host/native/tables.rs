@@ -750,17 +750,24 @@ pub(super) fn write(
 
     writer.section(SectionId::Strings, pool.into_bytes());
     let area_bytes: u64 = area_records.iter().map(|area| area.length).sum();
-    // The kernel's tasks, its breakpoint bits, and an 8-byte slot of the hierarchical image for each
-    // binding at a hierarchical address (§5.6).
     let hierarchical = model
         .bindings
         .iter()
         .filter(|binding| binding.address.path.len() > 1)
         .count() as u64;
-    let bookkeeping = 64 * (model.tasks.len() as u64)
-        + (inputs.ids.order.len() as u64).div_ceil(8)
-        + 8 * hierarchical
-        + 256;
+    let labels: Vec<&str> = inputs
+        .front
+        .sources
+        .iter()
+        .map(|source| source.label.as_str())
+        .collect();
+    let bookkeeping = bookkeeping(
+        model.tasks.len() as u64,
+        inputs.ids.order.len() as u64,
+        hierarchical,
+        model.images,
+        (!writer.release).then_some(labels.as_slice()),
+    );
     let mut figure = MemoryFigure {
         areas: area_bytes,
         stack: inputs.stack.bound,
@@ -783,6 +790,38 @@ pub(super) fn write(
     Ok(figure)
 }
 
+/// The kernel's per-program memory beside the areas, the stack bound and the retain capture
+/// (specification 44 §10.4), in bytes: 64 per task, a breakpoint bit per statement, an 8-byte slot of
+/// the hierarchical image per binding at a hierarchical address (§5.6) and 256 for the program's
+/// own record; the cycle's copies of the process images, the last scan's inputs, outputs and markers
+/// (`images`, in that order) and the outputs the drivers last took; and, for a debug image, whose
+/// file `labels` are given, the debugger's line table: 28 bytes per statement and, per file, its
+/// label of 24 bytes and the label's text with 16 bytes beside it.
+fn bookkeeping(
+    tasks: u64,
+    statements: u64,
+    hierarchical: u64,
+    images: [u32; 3],
+    labels: Option<&[&str]>,
+) -> u64 {
+    let [inputs, outputs, markers] = images.map(u64::from);
+    let line_table = labels.map_or(0, |labels| {
+        28 * statements
+            + labels
+                .iter()
+                .map(|label| 24 + align8(16 + label.len()) as u64)
+                .sum::<u64>()
+    });
+    64 * tasks
+        + statements.div_ceil(8)
+        + 8 * hierarchical
+        + 256
+        + inputs
+        + 2 * outputs
+        + markers
+        + line_table
+}
+
 /// The largest checkpoint payload of the image `writer` holds, by the kernel's bound
 /// (specification 44 §11).
 fn retain_capture(writer: &ImageWriter) -> Result<u64, NativeError> {
@@ -793,4 +832,28 @@ fn retain_capture(writer: &ImageWriter) -> Result<u64, NativeError> {
     let parsed = Image::parse(&image).map_err(|error| NativeError::Image(error.to_string()))?;
     let bound = payload_bound(&parsed).map_err(|error| NativeError::Image(error.to_string()))?;
     Ok(u64::try_from(bound).unwrap_or(u64::MAX))
+}
+
+#[cfg(test)]
+mod bookkeeping_tests {
+    use super::bookkeeping;
+
+    /// The kernel's per-program memory of specification 44 §10.4, worked out by hand for 2 tasks, 168
+    /// statements, 10 bindings at hierarchical addresses and process images of 16 input, 8 output and
+    /// 32 marker bytes: 128 + 21 + 80 + 256 = 485 for the record, the tasks and the breakpoint bits
+    /// (the reference workload's figure), 16 + 2 * 8 + 32 = 64 for the cycle's copies of the images,
+    /// and for a debug image with the files `src/main.st` (11 bytes) and
+    /// `src/vat/pasteurizer_control.st` (30 bytes) the line table: 28 * 168 = 4,704 and
+    /// (24 + 32) + (24 + 48) = 128 for the labels. Catches a figure that leaves out the copies a
+    /// cycle keeps or a debug image's line table, which a chip then lacks the memory for at the load.
+    #[test]
+    fn the_bookkeeping_counts_the_image_copies_and_a_debug_images_line_table() {
+        let images = [16, 8, 32];
+        assert_eq!(bookkeeping(2, 168, 10, images, None), 485 + 64);
+        let labels = ["src/main.st", "src/vat/pasteurizer_control.st"];
+        assert_eq!(
+            bookkeeping(2, 168, 10, images, Some(&labels)),
+            485 + 64 + 4_704 + 128
+        );
+    }
 }

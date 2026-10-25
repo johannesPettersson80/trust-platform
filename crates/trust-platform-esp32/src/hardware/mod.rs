@@ -42,7 +42,7 @@ pub use clock::Monotonic;
 pub use code_region::{program_region, C6Code, Line, ProgramCode};
 pub use console::Console;
 pub use emergency::emergency_halt;
-pub use reset::{ResetControl, Watchdog};
+pub use reset::{end_program_load, mark_program_load, ResetControl, Watchdog};
 pub use usb_link::UsbLink;
 pub use wait::Wait;
 pub use wifi::{bring_up, start_scheduler, C6Net, NetLink, RadioFailure, RadioParts};

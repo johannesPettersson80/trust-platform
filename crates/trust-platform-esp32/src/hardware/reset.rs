@@ -215,3 +215,32 @@ impl CycleWatchdog for Watchdog {
         true
     }
 }
+
+/// The mark of the boot's program load in the reset cookie, which a panic or watchdog reset keeps and
+/// a power-on clears (specification 34 TARGET-08).
+impl ResetControl {
+    /// Whether a reset ended the last boot while it loaded the installed program. The mark is
+    /// cleared, so a boot reads it once.
+    pub fn take_program_load(&mut self) -> bool {
+        let marked = self.cookie()
+            == Some(ResetCookie {
+                phase: crate::cookie::PROGRAM_LOAD_PHASE,
+            });
+        if marked {
+            let _ = self.clear_cookie();
+        }
+        marked
+    }
+}
+
+/// Marks that the boot begins loading the installed program (specification 34 TARGET-08).
+pub fn mark_program_load() {
+    let _ = ResetControl::new().set_cookie(ResetCookie {
+        phase: crate::cookie::PROGRAM_LOAD_PHASE,
+    });
+}
+
+/// Ends the mark of the boot's program load, which finished.
+pub fn end_program_load() {
+    let _ = ResetControl::new().clear_cookie();
+}

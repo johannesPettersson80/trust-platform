@@ -110,6 +110,7 @@ pub use retain::CycleRetain;
 pub use retain::{RetainConfig, RetainStore};
 pub use stack::DeviceStack;
 pub use state::event_store_bytes;
+pub use supervision::unfinished_load_reason;
 
 use crate::firmware::FirmwareStore;
 use crate::installation::Admitted;

@@ -423,6 +423,31 @@ L — Links (ARCH-12): the same control protocol on every link:
     PSK-SHA256 with PMF optional, IGTK in message 3). Not yet joined: needs a standard WPA2 AP, or the
     hotspot's PMF off (touches the iPad's link: owner's call). Open: the network control session,
     the install over the network and the scan timing with Wi-Fi traffic; then the arena trimmed.
+  - Bench 25 Oct, second part (`l3/run6..run11`, commit 6057b9ee1, spec 34 0.65): the drop at
+    message 3 was the firmware's `trust_memcpy`, whose word table copied from the last word to the
+    first and broke the radio driver's overlapping copies (a build on the ROM's routines joined);
+    fixed with a forward table and `firmware/trust-esp32c6/tests/memory_routines/run.sh` (qemu,
+    fails the old routine on case 6). The router MartinRouterKing's failures were stale
+    associations, not range: an access point that still holds the chip's association after a reset
+    without leaving ignores its attempts to join, and attempts every 30 s with an awake radio kept it
+    for good. Fixed: the chip leaves its network before its own resets, sleeps its radio while it
+    has no network and waits 90 s after an unanswered attempt (the Pi's access point then drops the
+    old association; rejoin 95 s after a hard reset, 3.5 s after a device reset). Also fixed: ping
+    answered; no network timer while the link is down; `ctl` sends the version check and its request
+    over one connection (its second connection met "server busy"). The bench uses the Pi's own
+    access point `trust-bench` (NetworkManager profile, WPA2, channel 6, key `l3/bench-ap.psk`);
+    the Pi goes back to MartinRouterKing afterwards. Run 11 on `trust-bench`: joined at once, SNTP
+    offset 9 ms, ping 5/5 at 4.3 ms, token rules (missing and invalid refused), a second client told
+    busy while the first is served, `ctl` over `tcp://` status and events. A minute of 95 requests a
+    second over one connection: median reply 9.4 ms, max 30.8 ms, ping 300/300; a 90 KB install
+    over the network in 1.1 s; the radio arena's peak 47,864 bytes.
+  - Found 25 Oct by run 11's install: the reference debug image (figure 10,300 bytes) was admitted
+    with Wi-Fi (15,064 bytes for programs) but its load kept 19,772 bytes beside the checkpoint
+    buffer, ran out of heap and panicked at every boot (about 470 resets) until the settings were
+    erased. Fixed (spec 34 0.66, spec 44 0.29): the radio arena 56 KiB (peak with a fifth more);
+    the figure counts the cycle's process-image copies and a debug image's line table, built with
+    exactly its entries; a boot that a reset ended while it loaded the program does not load it
+    again (TARGET-08, the reset cookie's program-load phase).
 - [ ] L4 Bluetooth on the ESP32-C6.
 
 T — Targets (spec 34 §11.4):

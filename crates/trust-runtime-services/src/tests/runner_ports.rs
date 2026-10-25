@@ -1158,6 +1158,23 @@ impl Fixture {
         )
     }
 
+    /// A loop built Stopped on `platform` before its boot loads a program, as a device builds it, with
+    /// `reason` until the boot.
+    pub(crate) fn stopped_on(
+        &self,
+        platform: TestPlatform,
+        reason: &'static str,
+    ) -> TestRunner<'_> {
+        Runner::stopped(
+            self.link.clone(),
+            self.wait.clone(),
+            platform,
+            self.clock.clone(),
+            SmolStr::new_static(reason),
+            EVENT_STORE_CAPACITY,
+        )
+    }
+
     /// Moves the clock to `at` milliseconds and runs one pass.
     pub(crate) fn pass_at(&self, runner: &mut TestRunner<'_>, at: u64) {
         self.clock.set(ms(at));

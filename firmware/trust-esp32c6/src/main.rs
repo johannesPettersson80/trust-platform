@@ -48,8 +48,8 @@ use trust_platform_esp32::loader::{default_event_capacity, program_memory_bytes}
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES};
 use trust_platform_esp32::{
-    bring_up, emergency_halt, start_scheduler, Board, C6Net, Monotonic, NetLink, RadioParts,
-    UsbLink, Wait, Watchdog,
+    bring_up, emergency_halt, end_program_load, mark_program_load, start_scheduler, Board, C6Net,
+    Monotonic, NetLink, RadioParts, UsbLink, Wait, Watchdog,
 };
 use trust_platform_esp32::{C6Code, Platform, ProgramCode};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
@@ -58,7 +58,7 @@ use trust_runtime_services::chip::network::{ChipNetwork, NetworkFacts};
 use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::firmware::{FirmwareFacts, FirmwareStore};
 use trust_runtime_services::link::LinkPair;
-use trust_runtime_services::runner::{DeviceLiveValues, Runner};
+use trust_runtime_services::runner::{unfinished_load_reason, DeviceLiveValues, Runner};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -102,6 +102,9 @@ fn main() -> ! {
     // boot counted in the flash, where the count survives a loss of power (specification 34 PORT-05).
     let reset_reason = board.reset.reason();
     let previous_record = board.reset.take_reset_record();
+    // A reset that ended the last boot while it loaded the installed program left that load's mark:
+    // this boot does not load the program again (specification 34 TARGET-08).
+    let unfinished_load = board.reset.take_program_load();
     let Ok(boot_count) = board.count_boot() else {
         emergency_halt("boot-counter");
     };
@@ -109,6 +112,7 @@ fn main() -> ! {
     // 11, the runtime device capabilities contract; specification 34, the fixed-size reset record):
     // its record, or its hardware reason when it left none, with this boot's counter.
     let last_reset = ChipPlatform::boot_last_reset(reset_reason, previous_record, boot_count);
+    let unloaded = unfinished_load.then(|| unfinished_load_reason(Some(&last_reset)));
 
     // The program store: the flash of the two program slots, which the boot reads and an install
     // writes (specification 34 §5.1), and a second handle on the checkpoint slots for the install's
@@ -204,7 +208,16 @@ fn main() -> ! {
     let _ = runner.with_platform(|platform| platform.set_program_memory(program_memory));
     // The installed application: the committed container with the highest install sequence, admitted,
     // loaded and started warm. One that cannot start leaves the loop Stopped with the reason.
-    runner.boot(RestartMode::Warm);
+    // A load the reset of the last boot ended is not made again; this one is marked where a reset
+    // keeps the mark until it is done (specification 34 TARGET-08).
+    match &unloaded {
+        Some(reason) => runner.boot_unloaded(reason),
+        None => {
+            mark_program_load();
+            runner.boot(RestartMode::Warm);
+            end_program_load();
+        }
+    }
     // The boot is done: a firmware on trial after an update confirms itself now, so the boot loader
     // keeps booting it (specification 34 TARGET-04). One that panicked or hung before this point was
     // reset by the watchdog, and the boot loader booted the firmware before it.

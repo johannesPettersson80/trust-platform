@@ -3,7 +3,8 @@
 //! scheduler follows (`scheduler/runner_loop.rs`, `scheduler/faulted.rs` and the fault handling of
 //! `runtime/installed_cycle.rs`).
 
-use alloc::string::ToString;
+use alloc::format;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
@@ -17,12 +18,13 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
-use trust_runtime_core::watchdog::FaultDecision;
+use trust_runtime_core::watchdog::{FaultAction, FaultDecision};
 
 use super::live::LiveValuesHooks;
 use super::observer::ScanObserver;
+use super::program::Program;
 use super::{span, ResourceCycle, RetainSource, Runner, RunnerPlatform};
-use crate::capabilities::ResetCauseName;
+use crate::capabilities::{LastReset, ResetCauseName};
 use crate::events::{retain_apply_event, RuntimeEvent};
 use crate::loading::reload::ReloadOutcome;
 use crate::metrics::RuntimeMetrics;
@@ -415,6 +417,41 @@ where
         self.halt(reported);
     }
 
+    /// Leaves the installed program unloaded at the device's boot, with `reason`, because the reset
+    /// that ended the last boot came while that boot loaded it (specification 34 TARGET-08): loading
+    /// it again would end this boot the same way, at every boot. The reset ended the program as a
+    /// scan's panic or a hang ends it ([`Self::fault_after_reset`]): after a panic the resource is
+    /// faulted with `ResourcePanic` and the panic's location, after the hardware watchdog's reset
+    /// with `WatchdogTimeout`, the fault logged and reported by `status`; no output is driven, since
+    /// no program drove one. After any other reset it is Stopped. As after a start that failed, the
+    /// program has no boundary: a `shutdown` leaves the resource Stopped at once, keeping the fault
+    /// in `last_error`, and a `restart` loads the program again.
+    pub fn boot_unloaded(&mut self, reason: &str) {
+        self.cycle = Program::Missing(SmolStr::new(reason));
+        self.shell.install.set_loaded(None);
+        let error = self
+            .shell
+            .with_platform(|platform| platform.last_reset())
+            .flatten()
+            .and_then(|reset| match reset.cause {
+                ResetCauseName::Panic => Some(RuntimeError::ResourcePanic(reset.text)),
+                ResetCauseName::Watchdog => Some(RuntimeError::WatchdogTimeout),
+                _ => None,
+            });
+        match error {
+            Some(error) => {
+                let decision = FaultDecision {
+                    action: FaultAction::Halt,
+                    apply_safe_state: false,
+                };
+                let reported = self.apply_fault(error, decision);
+                self.shell.resource.set_last_error(Some(reported));
+                self.shell.resource.set_state(ResourceState::Faulted);
+            }
+            None => self.shell.resource.set_state(ResourceState::Stopped),
+        }
+    }
+
     /// The resource faults with `error` and runs no scan until a restart; the faulted wait polls
     /// for a restart or a stop from now on.
     fn halt(&mut self, error: RuntimeError) {
@@ -502,4 +539,30 @@ fn next_on_grid(
     } else {
         next
     }
+}
+
+/// Why a boot leaves the installed program unloaded after `last_reset` ended the last boot while it
+/// loaded the program (specification 34 TARGET-08), which [`Runner::boot_unloaded`] keeps.
+#[must_use]
+pub fn unfinished_load_reason(last_reset: Option<&LastReset>) -> String {
+    let reset = match last_reset {
+        Some(reset) => {
+            let cause = match reset.cause {
+                ResetCauseName::Panic => "a panic",
+                ResetCauseName::Watchdog => "a watchdog reset",
+                ResetCauseName::Requested => "a requested reset",
+                ResetCauseName::PowerOn => "a reset",
+            };
+            if reset.text.is_empty() {
+                String::from(cause)
+            } else {
+                format!("{cause} at {}", reset.text)
+            }
+        }
+        None => String::from("a reset"),
+    };
+    format!(
+        "the installed application was not loaded: the last boot ended with {reset} while it \
+         loaded it; `restart` loads it again"
+    )
 }

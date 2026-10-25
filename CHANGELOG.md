@@ -80,7 +80,14 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   runs again with `abort`; after a panic it is Faulted with `resource panic '<location>'`. The fault
   is logged, the safe outputs follow the watchdog's action or the fault policy, and a `restart`
   runs the program. The chip ran the program again after either reset, so a program that hung or
-  panicked did so again in a loop of resets without saying so.
+  panicked did so again in a loop of resets without saying so. A program whose load ended the boot
+  is not loaded again at the next boot, which comes back faulted in the same way; a `restart` loads
+  it again.
+- Fixed: a program's memory figure counts what its load keeps on a chip, the cycle's copies of the
+  process images and a debug image's line table (specification 44 §10.4), so a chip refuses at its
+  install a program it could not load. With Wi-Fi, the ESP32-C6 had admitted the reference debug
+  image, whose load then ran out of memory. The C6's Wi-Fi driver takes 56 KiB of its heap, its
+  measured peak with a fifth more, instead of 64 KiB.
 - Added: a `STRUCT OVERLAP` may hold structures, other overlaps and arrays, as IEC 61131-3
   §6.4.4.7.1's own example `Com_data` does (specification 02 §3.6): each lies over the shared
   bytes in its own layout, its members and elements read and write those bytes, and a whole member
@@ -132,7 +139,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   for that device, in a program image (`build/program.<target>.tpi`) with its memory figure in
   `build.json` and, with `--emit-source`, the generated Rust (specification 44). The reference plant
   program `examples/vat_pasteurizer` (batch control with a PID loop, twelve alarms, status texts, a
-  plant simulation) needs 4,546 bytes of RAM on the ESP32-C6 instead of about 160 KB, and on a
+  plant simulation) needs 18,978 bytes of RAM on the ESP32-C6 as a debug image (its memory figure)
+  instead of about 160 KB, and on a
   computer it computes the same values as the runtime, bit for bit, scan after scan. Building needs
   the toolchain folder at `TRUST_TOOLCHAIN`. The build also writes the image's deployment record,
   and `cargo xtask portability pack-project` packs an image like `program.stbc`. The ESP32-C6

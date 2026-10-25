@@ -43,9 +43,9 @@ pub mod watchdog_rule;
 mod hardware;
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]
 pub use hardware::{
-    bring_up, emergency_halt, start_scheduler, Board, BoardError, BoardHardware, BoardParts, C6Net,
-    Console, Identity, Monotonic, NetLink, RadioFailure, RadioParts, ResetControl, UsbLink, Wait,
-    Watchdog,
+    bring_up, emergency_halt, end_program_load, mark_program_load, start_scheduler, Board,
+    BoardError, BoardHardware, BoardParts, C6Net, Console, Identity, Monotonic, NetLink,
+    RadioFailure, RadioParts, ResetControl, UsbLink, Wait, Watchdog,
 };
 
 #[cfg(all(target_arch = "riscv32", target_os = "none"))]

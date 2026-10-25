@@ -13,9 +13,11 @@ use alloc::vec;
 use trust_platform_memory::c_heap::CHeap;
 use trust_platform_memory::memory::MeasuredHeap;
 
-/// Bytes of the radio's arena: esp-radio's measured 47 to 57 KiB of a station with its default
-/// buffers, with room; the bench's peak (`RADIO_HEAP`) trims it (specification 34 D.2).
-const ARENA_BYTES: usize = 64 * 1024;
+/// Bytes of the radio's arena: the bench's peak of 47,864 bytes, while a client polled the control
+/// connection 95 times a second for a minute beside ping and while a program was installed over the
+/// network (25 October 2026), with a fifth more (specification 34 D.2). `capabilities` reports the
+/// peak and the failures as `driver_memory`.
+const ARENA_BYTES: usize = 56 * 1024;
 
 /// The arena's allocator. It is not the global allocator: its operations are not the scan thread's.
 pub static RADIO_HEAP: MeasuredHeap = MeasuredHeap::empty();

@@ -227,3 +227,73 @@ fn a_boot_after_a_power_on_or_a_requested_reset_runs_the_program() {
         assert_eq!(fixture.take_scan_times(), [0], "{cause:?}");
     }
 }
+
+/// A boot after a reset that ended the last boot while it loaded the program leaves the program
+/// unloaded (specification 34 TARGET-08), as the reset ended it: after a panic the resource is
+/// faulted with `ResourcePanic` and the panic's location, which `status` reports and the fault log
+/// keeps at time zero, and no scan runs; after a reset that is neither a panic nor the watchdog's it
+/// is Stopped without a fault. A `shutdown` stops the faulted resource. The reason names the reset;
+/// on a chip, whose loop has a loader, a `restart` loads the program again. Catches a chip that
+/// loads the program, panics and resets at every boot, one that does not say why its program does
+/// not run, and one that no `shutdown` stops, whose firmware and settings then cannot change.
+#[test]
+fn a_boot_after_a_reset_during_the_load_leaves_the_program_unloaded() {
+    let reason = super::unfinished_load_reason(Some(&LastReset {
+        cause: ResetCauseName::Panic,
+        text: SmolStr::new_static(PANIC_AT),
+        boot_count: 7,
+    }));
+    assert_eq!(
+        reason,
+        "the installed application was not loaded: the last boot ended with a panic at \
+         src/main.rs:42 while it loaded it; `restart` loads it again"
+    );
+    assert_eq!(
+        super::unfinished_load_reason(Some(&LastReset {
+            cause: ResetCauseName::Watchdog,
+            text: SmolStr::default(),
+            boot_count: 7,
+        })),
+        "the installed application was not loaded: the last boot ended with a watchdog reset \
+         while it loaded it; `restart` loads it again"
+    );
+    let fixture = Fixture::board_probe();
+    let mut runner = fixture.stopped_on(
+        after(ResetCauseName::Panic, PANIC_AT),
+        "the installed program is being loaded",
+    );
+    runner.boot_unloaded(&reason);
+    assert_eq!(runner.resource_state(), ResourceState::Faulted);
+    assert_eq!(runner.last_error(), Some(panic_error()));
+    fixture.clock.set(ms(1));
+    let status = fixture.call(&mut runner, &request(1, "status"));
+    assert_eq!(status["result"]["state"], json!("faulted"));
+    assert_eq!(
+        status["result"]["fault"],
+        json!("resource panic 'src/main.rs:42'")
+    );
+    let faults = fixture.call(&mut runner, &request(2, "faults"));
+    assert_eq!(
+        faults["result"]["faults"],
+        json!([{"type": "fault", "error": "resource panic 'src/main.rs:42'", "time_ns": 0}])
+    );
+    fixture.pass_at(&mut runner, 10);
+    assert_eq!(fixture.take_calls(), [] as [CycleCall; 0], "no scan runs");
+    // A `shutdown` stops it, so that the firmware and the device settings, which a stopped
+    // resource takes, can be changed; the root fault stays in `last_error` until the next start.
+    let shutdown = fixture.call_at(&mut runner, 11, &request(3, "shutdown"));
+    assert_eq!(shutdown["result"], json!({"status": "stopping"}));
+    fixture.pass_at(&mut runner, 30);
+    assert_eq!(runner.resource_state(), ResourceState::Stopped);
+    assert_eq!(runner.last_error(), Some(panic_error()));
+    assert_eq!(fixture.take_calls(), [] as [CycleCall; 0], "no scan runs");
+
+    let other = Fixture::board_probe();
+    let mut stopped = other.stopped_on(
+        after(ResetCauseName::PowerOn, ""),
+        "the installed program is being loaded",
+    );
+    stopped.boot_unloaded("the installed application was not loaded");
+    assert_eq!(stopped.resource_state(), ResourceState::Stopped);
+    assert_eq!(stopped.last_error(), None);
+}
