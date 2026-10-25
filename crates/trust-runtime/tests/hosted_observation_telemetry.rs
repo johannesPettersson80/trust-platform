@@ -1,5 +1,7 @@
 #![cfg(unix)]
 //! A late observation (telemetry) failure after driver submission keeps the committed outputs.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -9,11 +11,40 @@ use trust_runtime::config::{
     OpenOtTelemetryConfig, OpenOtTelemetryFenceMode, OpenOtTelemetrySource,
 };
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
-const GPIO: &[u8] = include_bytes!("fixtures/portability/f401/gpio.stbc");
+/// A program that copies the button at `%IX0.0` to the lamp at `%QX0.0` every 10 ms.
+const GPIO: &str = r#"
+PROGRAM Gpio
+VAR
+    button AT %IX0.0 : BOOL;
+    led AT %QX0.0 : BOOL;
+END_VAR
+led := button;
+END_PROGRAM
+
+CONFIGURATION BoardProbe
+RESOURCE Controller ON PLC
+TASK Scan (INTERVAL := T#10ms, PRIORITY := 0);
+PROGRAM Plant WITH Scan : Gpio;
+END_RESOURCE
+END_CONFIGURATION
+"#;
+
+/// The program of [`GPIO`], loaded.
+fn gpio() -> CompiledRuntime {
+    TestHarness::from_source(GPIO)
+        .expect("the GPIO program compiles")
+        .into_runtime()
+}
+
+/// The output image's byte.
+fn output_byte(runtime: &CompiledRuntime) -> Result<Value, RuntimeError> {
+    runtime.read_io(&IoAddress::parse("%QB0").expect("output byte address"))
+}
 
 struct RecordingDriver {
     attempts: Arc<Mutex<Vec<Vec<u8>>>>,
@@ -59,7 +90,7 @@ fn one_record_telemetry(path: PathBuf) -> OpenOtTelemetryConfig {
 #[test]
 fn hosted_observation_late_telemetry_failure_keeps_the_committed_outputs() {
     let path = temp_shm_path("late-telemetry");
-    let mut runtime = Runtime::from_bytes(GPIO, Default::default()).unwrap();
+    let mut runtime = gpio();
     let attempts = Arc::new(Mutex::new(Vec::new()));
     runtime
         .write_io(&IoAddress::parse("%IX0.0").unwrap(), Value::Bool(true))
@@ -83,8 +114,8 @@ fn hosted_observation_late_telemetry_failure_keeps_the_committed_outputs() {
         .contains("OpenOT telemetry publish heartbeat"));
     assert_eq!(attempts.lock().unwrap().as_slice(), &[vec![1]]);
     assert_eq!(
-        runtime.io().outputs(),
-        &[1],
+        output_byte(&runtime),
+        Ok(Value::Byte(1)),
         "the driver-accepted image stays committed after the late failure"
     );
     assert!(runtime.faulted());

@@ -12,7 +12,7 @@
 //! reply waits in the loop and not in the link, because the link holds a reply only once it is whole.
 //!
 //! The retained-value check of the install (decision G13) is the device's own: it gives the loop the
-//! check with its program store, built from [`check_retained_values`], which reads the newest
+//! check with its program store, built from [`check_image_retained_values`], which reads the newest
 //! checkpoint through a handle on the checkpoint slots.
 //!
 //! While the resource is Stopped, an upload is written into the store as its parts arrive (§5.1): the
@@ -27,11 +27,7 @@
 
 mod retained;
 
-#[cfg(feature = "native")]
-pub use retained::check_image_retained_values;
-pub use retained::{
-    check_install, check_retained_values, newest_checkpoint, newest_checkpoint_payload_len,
-};
+pub use retained::{check_image_retained_values, newest_checkpoint, newest_checkpoint_payload_len};
 
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};

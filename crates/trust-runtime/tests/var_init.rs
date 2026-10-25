@@ -1,3 +1,8 @@
+//! Variable initializers of programs, function blocks and globals, and the constant expressions an
+//! initializer may use.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
 
@@ -21,7 +26,7 @@ END_VAR
 END_PROGRAM
 "#;
     let error = CompileSession::from_source(invalid_source)
-        .build_runtime()
+        .declarations()
         .expect_err("a mutable variable reference is not a constant initializer");
     assert!(
         error

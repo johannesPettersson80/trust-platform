@@ -80,30 +80,24 @@ fn build_test_image(
         &work,
     );
     let _ = std::fs::remove_dir_all(&work);
-    built.map_err(|error| match error {
-        trust_runtime::native::NativeError::Unsupported { .. } => {
-            anyhow::Error::new(NotCompiledYet(error.to_string()))
-        }
-        error => anyhow::anyhow!("the project does not compile: {error}"),
-    })
+    built.map_err(|error| anyhow::anyhow!("the project does not compile: {error}"))
 }
 
-/// A construct of the project that the generator does not compile yet (specification 44 NX-09).
-#[derive(Debug)]
-struct NotCompiledYet(String);
+/// Compiles the project at `project_root` for this computer as a run of its tests compiles it, for a
+/// project without tests: a project that does not compile fails the run however many tests it has.
+fn check_project(project_root: &Path) -> anyhow::Result<()> {
+    use trust_runtime::native::{Target, Toolchain};
 
-impl std::fmt::Display for NotCompiledYet {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "the project does not compile: {}", self.0)
-    }
+    let toolchain = Toolchain::find()
+        .map_err(|error| anyhow::anyhow!("the tests need the toolchain: {error}"))?;
+    let host = Target::this_cpu().context("this computer's CPU has no native target")?;
+    build_test_image(project_root, &[], host, &toolchain).map(|_| ())
 }
-
-impl std::error::Error for NotCompiledYet {}
 
 /// Runs `tests` of `discovered` compiled into one program image for this computer (specification
 /// 44 §14.2): each test after a cold restart, its program's body once, or one call of a test
-/// function block's body through a test program that holds an instance of it, as the bytecode
-/// runner runs them, with the toolchain at `TRUST_TOOLCHAIN`.
+/// function block's body through a test program that holds an instance of it, with the toolchain of
+/// §4.6.
 fn execute_native_tests(
     project_root: &Path,
     discovered: &[DiscoveredTest],
@@ -114,7 +108,7 @@ fn execute_native_tests(
     use trust_runtime::value::Duration;
 
     let toolchain = Toolchain::find()
-        .map_err(|error| anyhow::anyhow!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
+        .map_err(|error| anyhow::anyhow!("the tests need the toolchain: {error}"))?;
     let host = Target::this_cpu().context("this computer's CPU has no native target")?;
     let built = build_test_image(project_root, discovered, host, &toolchain)?;
     let device = Device {
@@ -161,7 +155,7 @@ fn execute_native_tests_on_device(
     let target =
         target_named(target).ok_or_else(|| anyhow::anyhow!("unknown target '{target}'"))?;
     let toolchain = Toolchain::find()
-        .map_err(|error| anyhow::anyhow!("TRUST_TOOLCHAIN names no toolchain: {error}"))?;
+        .map_err(|error| anyhow::anyhow!("the tests need the toolchain: {error}"))?;
     let mut built = build_test_image(project_root, discovered, target, &toolchain)?;
     // The device admits what a key it trusts signed: the project's (specification 44 §5.11).
     trust_runtime::native::sign(

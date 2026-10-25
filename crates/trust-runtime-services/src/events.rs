@@ -15,8 +15,9 @@ use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::fault::{FaultMessage, FaultRecord, FaultSite, NO_TASK};
+use trust_runtime_core::native::change::CarriedValueEvent;
+use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_core::vm::{CarriedValueEvent, RetainApplyEvent};
 
 /// Runtime scheduling and diagnostic events.
 #[derive(Debug, Clone, PartialEq, Eq)]

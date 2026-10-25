@@ -475,7 +475,16 @@ pub(super) fn validate_st_sources(
         .map(|(path, text)| HarnessSourceFile::with_path(path.clone(), text.clone()))
         .collect::<Vec<_>>();
 
-    match CompileSession::from_sources(sources).build_bytecode_module() {
+    // The build's front and its generator check the sources for this computer's CPU, as a build for
+    // it would (specification 44 §4.1).
+    let target = crate::native::Target::this_cpu().ok_or_else(|| {
+        RuntimeError::InvalidConfig("this computer's CPU runs no program image".into())
+    })?;
+    let options = crate::native::Options {
+        target,
+        hooks: false,
+    };
+    match crate::native::generate_source(&sources, &options) {
         Ok(_) => Ok(Vec::new()),
         Err(error) => Err(RuntimeError::InvalidConfig(
             format!("ST validation failed: {error}").into(),

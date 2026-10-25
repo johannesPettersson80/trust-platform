@@ -233,5 +233,6 @@ pub const fn with_debugger(read_real: crate::ReadRealFn) -> crate::KernelApi {
         stop: stop_to_sink,
         debug_write: super::no_queued_write,
         read_real,
+        wall_clock: super::wall_clock::<super::NoWallClock>,
     }
 }

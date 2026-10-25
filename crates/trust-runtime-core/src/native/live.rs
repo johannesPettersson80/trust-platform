@@ -7,9 +7,7 @@ use alloc::vec::Vec;
 use smol_str::SmolStr;
 
 use super::image::{type_kind as kind, Image, ImageError, IoBindRecord, SymbolRecord, TypeRecord};
-use crate::io_address::{IoAddress, IoSize};
-use crate::io_image::{IoValueCodec, PreparedIoBinding};
-use crate::memory::IoArea;
+use crate::io_image::{IoEnumBinding, IoValueCodec, PreparedIoBinding};
 use crate::stdlib::conversions::ConversionType;
 
 /// The bindings of `image` in its table's order, with the declared name of each bound variable,
@@ -29,33 +27,17 @@ pub fn io_bindings(
     let mut bindings = Vec::with_capacity(records.len() as usize);
     let mut names = Vec::with_capacity(records.len() as usize);
     for record in records.iter() {
-        let area = match record.area {
-            1 => IoArea::Input,
-            2 => IoArea::Output,
-            _ => IoArea::Memory,
-        };
-        let size = match record.size {
-            0 => IoSize::Bit,
-            1 => IoSize::Byte,
-            2 => IoSize::Word,
-            3 => IoSize::DWord,
-            _ => IoSize::LWord,
+        let Some(address) = image.binding_address(&record) else {
+            return Err(ImageError::Table(super::image::SectionId::IoBind));
         };
         let symbol = symbols.get(record.symbol);
-        let wire_type = symbol.and_then(|symbol| type_wire(image, symbol.type_index));
+        let codec = symbol.map_or_else(IoValueCodec::default, |symbol| {
+            type_codec(image, symbol.type_index)
+        });
         bindings.push(PreparedIoBinding {
-            // A flat address keeps its byte as its one path component, as the parser makes it.
-            address: IoAddress {
-                area,
-                size,
-                byte: record.byte,
-                bit: record.bit,
-                path: alloc::vec![record.byte],
-                wildcard: false,
-            },
-            ref_idx: record.symbol,
-            type_id: None,
-            codec: codec(wire_type),
+            address,
+            symbol: record.symbol,
+            codec,
         });
         names.push(
             symbol
@@ -68,28 +50,52 @@ pub fn io_bindings(
 
 /// The codec of a process-image binding of the variable whose symbol is `symbol`, as
 /// [`io_bindings`] gives a binding of the image: its variable's elementary type, the base type of an
-/// alias or a subrange, or the integer of an enumeration's size; raw for any other variable.
+/// alias or a subrange, or the integer of an enumeration's size with the enumeration's name and
+/// values; raw for any other variable.
 #[must_use]
 pub fn symbol_codec(image: &Image<'_>, symbol: u32) -> IoValueCodec {
-    let wire_type = image
+    image
         .table::<SymbolRecord>()
         .ok()
         .and_then(|symbols| symbols.get(symbol))
-        .and_then(|symbol| type_wire(image, symbol.type_index));
-    codec(wire_type)
+        .map_or_else(IoValueCodec::default, |symbol| {
+            type_codec(image, symbol.type_index)
+        })
 }
 
-/// The codec of `wire_type`.
-fn codec(wire_type: Option<ConversionType>) -> IoValueCodec {
+/// The codec of a value of type `type_index`, through its aliases and subranges: its wire type,
+/// and for an enumeration its declared name and values, so that a value read from an image is the
+/// enumeration's and an undeclared number is refused (specification 32 §6).
+fn type_codec(image: &Image<'_>, type_index: u32) -> IoValueCodec {
+    let Some(ty) = base_type(image, type_index) else {
+        return IoValueCodec::default();
+    };
     IoValueCodec {
-        wire_type,
-        enum_type: None,
+        wire_type: wire_type(&ty),
+        enum_type: if ty.kind == kind::ENUM {
+            enum_binding(image, &ty)
+        } else {
+            None
+        },
         string_capacity: None,
     }
 }
 
-/// The wire type of a value of type `type_index`, through its aliases and subranges.
-fn type_wire(image: &Image<'_>, type_index: u32) -> Option<ConversionType> {
+/// The declared name and values of the enumeration `ty`.
+fn enum_binding(image: &Image<'_>, ty: &TypeRecord) -> Option<IoEnumBinding> {
+    let types = super::values::Types::of(image).ok()?;
+    let mut variants = Vec::new();
+    for (name, number) in types.variants(ty).ok()? {
+        variants.push((SmolStr::new(types.string(name).ok()?), number));
+    }
+    Some(IoEnumBinding {
+        type_name: SmolStr::new(types.string(ty.name).ok()?),
+        variants,
+    })
+}
+
+/// The type a value of type `type_index` is stored as, through its aliases and subranges.
+fn base_type(image: &Image<'_>, type_index: u32) -> Option<TypeRecord> {
     let types = image.table::<TypeRecord>().ok()?;
     let mut ty = types.get(type_index)?;
     // An alias or a subrange names its base type in its detail; the chain ends at an elementary
@@ -105,7 +111,7 @@ fn type_wire(image: &Image<'_>, type_index: u32) -> Option<ConversionType> {
             _ => break,
         }
     }
-    wire_type(&ty)
+    Some(ty)
 }
 
 /// The wire type of a value of `ty`: its elementary type, or the integer of an enumeration's size.

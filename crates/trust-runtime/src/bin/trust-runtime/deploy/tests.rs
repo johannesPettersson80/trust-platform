@@ -203,48 +203,64 @@ fn source_diff_propagates_invalid_source_directory_errors() {
     let _ = fs::remove_dir_all(root);
 }
 
+/// A project folder with `runtime.toml`, a simulated `io.toml` and the program image `image`.
+fn image_project(name: &str, image: &[u8]) -> PathBuf {
+    let root = temp_dir(name);
+    fs::write(
+        root.join("runtime.toml"),
+        trust_runtime::bundle_template::render_runtime_toml(&"RESOURCE".into(), 10),
+    )
+    .unwrap();
+    fs::write(
+        root.join("io.toml"),
+        "[io]\ndriver = \"simulated\"\nparams = {}\n",
+    )
+    .unwrap();
+    fs::write(root.join(trust_runtime::native::PROGRAM_IMAGE_FILE), image).unwrap();
+    root
+}
+
 #[test]
-fn deploy_validation_requires_legacy_context_and_accepts_source_free_artifacts() {
-    use trust_runtime::{bytecode::BytecodeVersion, harness::CompileSession};
+fn deploy_validation_admits_the_program_image_as_the_computer_does() {
+    // Specification 44 §10.2, §8.8: deploy admits the project's program image as the computer
+    // admits it at its start, whether or not the project carries its sources. Catches a deploy
+    // that copies an image the computer then refuses, or refuses a project without sources.
     let source =
         "VAR_GLOBAL marker : INT := 7; END_VAR PROGRAM Main marker := marker + 1; END_PROGRAM";
-    for (version, with_sources) in [
-        (BytecodeVersion::LEGACY, true),
-        (BytecodeVersion::LEGACY, false),
-        (BytecodeVersion::SOURCE_FREE_V2, true),
-        (BytecodeVersion::SOURCE_FREE_V2, false),
-        (BytecodeVersion::SOURCE_FREE, true),
-        (BytecodeVersion::SOURCE_FREE, false),
-    ] {
-        let root = temp_dir("artifact-context");
-        fs::write(
-            root.join("runtime.toml"),
-            trust_runtime::bundle_template::render_runtime_toml(&"RESOURCE".into(), 10),
-        )
-        .unwrap();
-        fs::write(
-            root.join("io.toml"),
-            "[io]\ndriver = \"simulated\"\nparams = {}\n",
-        )
-        .unwrap();
-        let module = CompileSession::from_source(source)
-            .build_bytecode_module_for_version(version)
-            .unwrap();
-        fs::write(root.join("program.stbc"), module.encode().unwrap()).unwrap();
+    let toolchain = trust_runtime::native::Toolchain::find().expect("the toolchain");
+    let target = trust_runtime::native::Target::this_cpu().expect("this computer's CPU");
+    let work = temp_dir("image-build");
+    let image = trust_runtime::native::build(
+        &[trust_runtime::harness::SourceFile::with_path(
+            "src/main.st",
+            source,
+        )],
+        &trust_runtime::native::Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("build the program image")
+    .image;
+    let _ = fs::remove_dir_all(work);
+    for with_sources in [true, false] {
+        let root = image_project("image-admission", &image);
         if with_sources {
             fs::create_dir(root.join("src")).unwrap();
             fs::write(root.join("src/main.st"), source).unwrap();
         }
         let bundle = RuntimeBundle::load(&root).unwrap();
-        let result = validate_bundle(&bundle);
-        if version == BytecodeVersion::LEGACY && !with_sources {
-            assert!(result
-                .unwrap_err()
-                .to_string()
-                .contains("construction context"));
-        } else {
-            result.unwrap();
-        }
+        validate_bundle(&bundle).unwrap();
         fs::remove_dir_all(root).unwrap();
     }
+
+    let root = image_project("image-refusal", b"not a program image");
+    let bundle = RuntimeBundle::load(&root).unwrap();
+    assert!(
+        validate_bundle(&bundle).is_err(),
+        "an image the computer refuses must not deploy"
+    );
+    fs::remove_dir_all(root).unwrap();
 }

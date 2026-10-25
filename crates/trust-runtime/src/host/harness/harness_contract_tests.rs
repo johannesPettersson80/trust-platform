@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use super::*;
 
 use std::cell::Cell;
@@ -103,8 +105,8 @@ fn harness_lifecycle_contract_compile_failure_publishes_no_harness() {
 #[test]
 fn harness_lifecycle_contract_runtime_accessors_share_one_runtime() {
     let mut harness = TestHarness::from_source(counter_source()).unwrap();
-    let before = harness.runtime() as *const Runtime;
-    let mutable = harness.runtime_mut() as *mut Runtime as *const Runtime;
+    let before = harness.runtime() as *const CompiledRuntime;
+    let mutable = harness.runtime_mut() as *mut CompiledRuntime as *const CompiledRuntime;
     assert_eq!(before, mutable);
     harness
         .runtime_mut()

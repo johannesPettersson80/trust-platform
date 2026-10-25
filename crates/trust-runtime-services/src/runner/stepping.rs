@@ -21,7 +21,7 @@ use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::Duration;
 
-use super::cycle::{DebugView, ResourceCycle};
+use super::cycle::ResourceCycle;
 use super::host::{ProgramView, RunnerPlatform};
 use super::program::Program;
 use super::{span, Runner};
@@ -161,13 +161,6 @@ impl<Y: ResourceCycle, C: MonotonicClock> ProgramView for LentProgram<'_, Y, C> 
         self.run(request, restart_time(request, last)?)
     }
 
-    /// The program's state for the debug read the request makes: the program is borrowed for the
-    /// rest of the request.
-    fn debug_state(&self) -> Option<DebugView<'_>> {
-        self.lend_shared()?.debug_view()
-    }
-
-    #[cfg(feature = "native")]
     fn compiled_state(&self) -> Option<super::cycle::CompiledView<'_>> {
         self.lend_shared()?.compiled_view()
     }

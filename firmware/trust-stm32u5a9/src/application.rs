@@ -1,8 +1,8 @@
 //! The installed `TRSTA002` application: the container in the application region of bank 2, read in
 //! place and admitted against the chip's descriptor before any state exists (specification 34, §5.1;
-//! design §4.4). The flash is memory-mapped, so nothing is copied into the heap: the prepared program
-//! reads its declarations and initializers in the region and keeps on the heap only what a scan
-//! reads of them (specification 34 MEM-14). The region holds one container
+//! design §4.4). The flash is memory-mapped, so nothing is copied into the heap: the compiled program's
+//! module runs where its image lies, and only its areas take the heap (specification 44 §10.3). The
+//! region holds one container
 //! until the U5A9's program slots exist; `cargo xtask portability pack-project` writes it as a first
 //! flash (spec 34 §5.1, "A first flash").
 use alloc::string::{String, ToString};

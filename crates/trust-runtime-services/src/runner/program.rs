@@ -6,15 +6,16 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::cycle::CycleHooks;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::{CycleHooks, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
-use super::cycle::{DebugView, ResourceCycle, RetainSource, TaskDescriptor};
+use super::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::HoldHandle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::metrics::ProgramMemory;
@@ -54,6 +55,13 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
     fn tasks(&self) -> Vec<TaskDescriptor> {
         match self {
             Self::Installed(cycle) => cycle.tasks(),
+            Self::Missing(_) => Vec::new(),
+        }
+    }
+
+    fn programs(&self) -> Vec<SmolStr> {
+        match self {
+            Self::Installed(cycle) => cycle.programs(),
             Self::Missing(_) => Vec::new(),
         }
     }
@@ -190,15 +198,6 @@ impl<Y: ResourceCycle> ResourceCycle for Program<Y> {
         }
     }
 
-    fn debug_view(&self) -> Option<DebugView<'_>> {
-        match self {
-            Self::Installed(cycle) => cycle.debug_view(),
-            // A missing program has no storage to read.
-            Self::Missing(_) => None,
-        }
-    }
-
-    #[cfg(feature = "native")]
     fn compiled_view(&self) -> Option<super::cycle::CompiledView<'_>> {
         match self {
             Self::Installed(cycle) => cycle.compiled_view(),

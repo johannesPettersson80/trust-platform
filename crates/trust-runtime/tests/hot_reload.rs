@@ -1,33 +1,47 @@
+//! Online change of a compiled program (specification 11 §6.7.1; specification 34 §11.3;
+//! specification 44 §12): the change commits at a cycle boundary, the new program keeps the values
+//! the running one holds, restarts its body and the scan counter, continues the task schedule, and
+//! a refused change leaves the running program as it was.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::{Duration as StdDuration, Instant};
 
+use trust_runtime::debug::{DebugControl, RuntimeEvent};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_bytes_from_source, CompileSession, TestHarness};
-use trust_runtime::io::IoDriver;
+use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::io::{IoAddress, IoDriver};
+use trust_runtime::native::{build, Options, Target, Toolchain};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{ResourceCommand, ResourceRunner, StdClock};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RetainSnapshot;
+use trust_runtime_core::native::change::CarriedValueEvent;
 
-fn vm_harness(source: &str) -> TestHarness {
-    let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let bytes = bytecode_bytes_from_source(source).expect("build bytecode");
-    harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("apply bytecode");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    harness
-        .runtime_mut()
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
-    harness
+/// The debug image of `source` for this computer.
+fn image(source: &str) -> Vec<u8> {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let work = std::env::temp_dir().join(format!(
+        "trust-hot-reload-{}-{}",
+        std::process::id(),
+        source.len()
+    ));
+    let built = build(
+        &[SourceFile::new(source)],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("the program compiles");
+    let _ = std::fs::remove_dir_all(&work);
+    built.image
 }
 
 fn assert_numeric_output(harness: &TestHarness, name: &str, expected: i64) {
@@ -43,23 +57,6 @@ fn numeric_output(harness: &TestHarness, name: &str) -> Option<i64> {
         Value::LInt(v) => v,
         other => panic!("unexpected numeric type for '{name}': {other:?}"),
     })
-}
-
-fn program_numeric_output(harness: &TestHarness, program: &str, name: &str) -> i64 {
-    let instance_id = match harness.runtime().storage().get_global(program) {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected program instance '{program}', got {other:?}"),
-    };
-    match harness
-        .runtime()
-        .storage()
-        .get_instance_var(instance_id, name)
-    {
-        Some(Value::Int(value)) => i64::from(*value),
-        Some(Value::DInt(value)) => i64::from(*value),
-        Some(Value::LInt(value)) => *value,
-        other => panic!("expected numeric '{program}.{name}', got {other:?}"),
-    }
 }
 
 #[derive(Debug)]
@@ -94,6 +91,10 @@ impl IoDriver for SleepOnReadDriver {
     }
 }
 
+/// Specification 11 §6.7.1: a change commits at a cycle boundary, never inside a cycle. The first
+/// cycle blocks in its input read; a change queued meanwhile is not answered while that cycle runs
+/// (no reply within 40 ms), and is answered with success once the read is released and the cycle
+/// ends. Wrong behaviour caught: a change applied in the middle of a running cycle.
 #[test]
 fn hot_reload_cycle_boundary_contract_holds_for_vm_reload() {
     let source_v1 = r#"
@@ -114,25 +115,10 @@ count := count + 10;
 END_PROGRAM
 "#;
 
-    let session_v1 = CompileSession::from_source(source_v1);
-    let session_v2 = CompileSession::from_source(source_v2);
-    let mut runtime = session_v1.build_runtime().expect("build runtime");
-    let initial_bytes = session_v1
-        .build_bytecode_bytes()
-        .expect("build bytecode v1");
-    let updated_bytes = session_v2
-        .build_bytecode_bytes()
-        .expect("build bytecode v2");
-
-    runtime
-        .apply_bytecode_bytes(&initial_bytes, None)
-        .expect("apply bytecode v1");
-    runtime
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    runtime
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
+    let mut runtime = TestHarness::from_source(source_v1)
+        .expect("build the program")
+        .into_runtime();
+    let updated_bytes = image(source_v2);
     let (read_entered_tx, read_entered_rx) = mpsc::channel();
     let (release_read_tx, release_read_rx) = mpsc::channel();
     runtime.add_io_driver(
@@ -188,7 +174,7 @@ fn hot_reload_keeps_retained_and_other_values_and_instances() {
     // to the same declarations: all five values are kept. Wrong behaviour caught: variables that are
     // not retained reset to their initial values (g_plain 2, p_plain 4) and an instance built anew
     // (count 0), which was the rule before decision OC-1.
-    let source_v1 = r#"
+    let source = r#"
 CONFIGURATION Conf
 VAR_GLOBAL RETAIN
     g_ret : INT := 1;
@@ -216,75 +202,31 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let source_v2 = r#"
-CONFIGURATION Conf
-VAR_GLOBAL RETAIN
-    g_ret : INT := 1;
-END_VAR
-VAR_GLOBAL
-    g_plain : INT := 2;
-    g_fb : CounterFb;
-END_VAR
-PROGRAM P1 : Main;
-END_CONFIGURATION
-
-FUNCTION_BLOCK CounterFb
-VAR
-    count : INT := 0;
-END_VAR
-END_FUNCTION_BLOCK
-
-PROGRAM Main
-VAR RETAIN
-    p_ret : INT := 3;
-END_VAR
-VAR
-    p_plain : INT := 4;
-END_VAR
-END_PROGRAM
-"#;
-
-    let mut harness = vm_harness(source_v1);
+    let mut harness = TestHarness::from_source(source).expect("build the program");
 
     harness.set_input("g_ret", Value::Int(30));
     harness.set_input("g_plain", Value::Int(40));
     harness.set_input("p_ret", Value::Int(50));
     harness.set_input("p_plain", Value::Int(60));
-    let g_fb_before = match harness.runtime().storage().get_global("g_fb") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected g_fb instance before reload, got {other:?}"),
-    };
-    harness
-        .runtime_mut()
-        .write_instance(g_fb_before, "count", Value::Int(7))
-        .unwrap();
+    harness.set_input("g_fb.count", Value::Int(7));
 
-    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
-    harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes_v2, None)
-        .expect("apply online change");
+    harness.reload_source(source).expect("apply online change");
 
     assert_numeric_output(&harness, "g_ret", 30);
     assert_numeric_output(&harness, "g_plain", 40);
     assert_numeric_output(&harness, "p_ret", 50);
     assert_numeric_output(&harness, "p_plain", 60);
-    let g_fb_after = match harness.runtime().storage().get_global("g_fb") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected g_fb instance after reload, got {other:?}"),
-    };
-    let count_after = harness
-        .runtime()
-        .storage()
-        .get_instance_var(g_fb_after, "count")
-        .cloned();
     assert_eq!(
-        count_after,
+        harness.get_output("g_fb.count"),
         Some(Value::Int(7)),
         "the instance keeps its member's value"
     );
 }
 
+/// Specification 11 §6.7.1: the commit rebinds I/O. A program that writes `FALSE` to its output
+/// `%QX0.0` is changed to one that writes `TRUE`; the output image shows `FALSE` after the first
+/// cycle and `TRUE` after the first cycle of the changed program. Wrong behaviour caught: a binding
+/// lost or left on the old program at the change.
 #[test]
 fn hot_reload_rebinds_instance_backed_io_after_warm_restart() {
     let source_v1 = r#"
@@ -305,55 +247,28 @@ q := TRUE;
 END_PROGRAM
 "#;
 
-    let session_v1 = CompileSession::from_source(source_v1);
-    let session_v2 = CompileSession::from_source(source_v2);
-    let mut runtime = session_v1.build_runtime().expect("build runtime");
-    let bytes_v1 = session_v1
-        .build_bytecode_bytes()
-        .expect("build bytecode v1");
-    let bytes_v2 = session_v2
-        .build_bytecode_bytes()
-        .expect("build bytecode v2");
-
-    runtime
-        .apply_bytecode_bytes(&bytes_v1, None)
-        .expect("apply bytecode v1");
-    runtime
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    runtime
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
-    runtime.execute_cycle().expect("execute initial cycle");
-
-    let before = runtime.io().snapshot();
-    assert_eq!(before.outputs.len(), 1, "expected one output binding");
+    let output = IoAddress::parse("%QX0.0").expect("an output address");
+    let mut harness = TestHarness::from_source(source_v1).expect("build the program");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "initial cycle: {:?}", cycle.errors);
     assert_eq!(
-        before.outputs[0].address.area,
-        trust_runtime::memory::IoArea::Output
+        harness.runtime().read_io(&output).expect("read %QX0.0"),
+        Value::Bool(false)
     );
-    assert_eq!(before.outputs[0].address.byte, 0);
-    assert_eq!(before.outputs[0].address.bit, 0);
-    assert!(matches!(
-        before.outputs[0].value,
-        trust_runtime::io::IoSnapshotValue::Value(Value::Bool(false))
-    ));
 
-    runtime
-        .apply_online_change_bytes(&bytes_v2, None)
+    harness
+        .reload_source(source_v2)
         .expect("apply online change");
-    runtime.execute_cycle().expect("execute post-reload cycle");
-
-    let after = runtime.io().snapshot();
-    assert_eq!(
-        after.outputs.len(),
-        1,
-        "expected one output binding after reload"
+    let cycle = harness.cycle();
+    assert!(
+        cycle.errors.is_empty(),
+        "post-reload cycle: {:?}",
+        cycle.errors
     );
-    assert!(matches!(
-        after.outputs[0].value,
-        trust_runtime::io::IoSnapshotValue::Value(Value::Bool(true))
-    ));
+    assert_eq!(
+        harness.runtime().read_io(&output).expect("read %QX0.0"),
+        Value::Bool(true)
+    );
 }
 
 /// Specification 11 §6.7.1: a changed body runs from its entry point on the cycle after the change,
@@ -381,17 +296,15 @@ count := count + 10;
 END_PROGRAM
 "#;
 
-    let mut harness = vm_harness(source_v1);
+    let mut harness = TestHarness::from_source(source_v1).expect("build the program");
     harness.cycle();
     harness.cycle();
     harness.cycle();
     assert_numeric_output(&harness, "count", 3);
     assert_eq!(harness.runtime().cycle_counter(), 3);
 
-    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
     harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes_v2, None)
+        .reload_source(source_v2)
         .expect("apply online change");
 
     assert_eq!(harness.runtime().cycle_counter(), 0);
@@ -446,30 +359,34 @@ VAR RETAIN
 END_VAR
 END_PROGRAM
 "#;
-    let mut harness = vm_harness(source);
+    let mut harness = TestHarness::from_source(source).expect("build the program");
     harness.set_input("g_ret", Value::Int(30));
     harness.set_input("p_ret", Value::Int(50));
     let mut stored = RetainSnapshot::default();
     stored.insert("g_ret", Value::Int(5));
     stored.insert("@program/P1/p_ret", Value::Int(6));
     let loads = Arc::new(AtomicUsize::new(0));
-    harness.runtime_mut().set_retain_store(
-        Some(Box::new(CountingRetainStore {
-            snapshot: stored,
-            loads: Arc::clone(&loads),
-        })),
-        None,
-    );
-
-    let bytes = bytecode_bytes_from_source(source).expect("build bytecode");
     harness
         .runtime_mut()
-        .apply_online_change_bytes(&bytes, None)
-        .expect("apply online change");
+        .set_retain_store(
+            Some(Box::new(CountingRetainStore {
+                snapshot: stored,
+                loads: Arc::clone(&loads),
+            })),
+            None,
+        )
+        .expect("the retain store is set");
+    let loads_before = loads.load(Ordering::SeqCst);
+
+    harness.reload_source(source).expect("apply online change");
 
     assert_numeric_output(&harness, "g_ret", 30);
     assert_numeric_output(&harness, "p_ret", 50);
-    assert_eq!(loads.load(Ordering::SeqCst), 0, "the store is not read");
+    assert_eq!(
+        loads.load(Ordering::SeqCst),
+        loads_before,
+        "the change does not read the store"
+    );
 }
 
 #[test]
@@ -521,26 +438,25 @@ marker := marker + DINT#10;
 END_PROGRAM
 "#;
 
-    let mut harness = vm_harness(source_v1);
+    let mut harness = TestHarness::from_source(source_v1).expect("build the program");
     harness.advance_time(Duration::from_millis(1));
     let first_cycle = harness.cycle();
     assert!(
         first_cycle.errors.is_empty(),
         "initial cycle failed: {first_cycle:?}"
     );
-    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 1);
+    assert_numeric_output(&harness, "P1.marker", 1);
     assert_eq!(harness.runtime().cycle_counter(), 1);
 
     harness.set_input("limited", Value::Int(100));
 
-    let debug = harness.runtime_mut().enable_debug();
-    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes_v2, None)
+        .reload_source(source_v2)
         .expect("a value that does not fit refuses no change");
     assert_numeric_output(&harness, "limited", 0);
-    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 1);
+    assert_numeric_output(&harness, "P1.marker", 1);
     assert_eq!(
         harness.runtime().cycle_counter(),
         0,
@@ -552,10 +468,10 @@ END_PROGRAM
         .filter(|event| {
             matches!(
                 event,
-                trust_runtime::debug::RuntimeEvent::OnlineChangeValue {
-                    event: trust_runtime::runtime_core::vm::CarriedValueEvent::NotKept { name },
+                RuntimeEvent::OnlineChangeValue {
+                    event: CarriedValueEvent::NotKept { name },
                     ..
-                } if name == "limited"
+                } if name.eq_ignore_ascii_case("limited")
             )
         })
         .count();
@@ -567,10 +483,13 @@ END_PROGRAM
         next_cycle.errors.is_empty(),
         "the new program runs: {next_cycle:?}"
     );
-    assert_eq!(program_numeric_output(&harness, "P1", "marker"), 11);
+    assert_numeric_output(&harness, "P1.marker", 11);
     assert_eq!(harness.runtime().cycle_counter(), 1);
 }
 
+/// Specification 11 §6.7.1: bytes that are no program image fail the preparation as
+/// `InvalidBundle`, with the admission's reason, and the running program stays. Wrong behaviour
+/// caught: a change that accepts any bytes, or reports another kind of failure.
 #[test]
 fn hot_reload_invalid_module_reports_deterministic_error() {
     let source = r#"
@@ -582,9 +501,11 @@ count := count + 1;
 END_PROGRAM
 "#;
 
-    let runtime = vm_harness(source).into_runtime();
+    let runtime = TestHarness::from_source(source)
+        .expect("build the program")
+        .into_runtime();
     let runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
-    let mut handle = runner.spawn("hot-reload-invalid-bytecode").expect("spawn");
+    let mut handle = runner.spawn("hot-reload-invalid-image").expect("spawn");
     let control = handle.control();
     let (tx, rx) = mpsc::channel();
 
@@ -601,8 +522,8 @@ END_PROGRAM
         .expect("reload response");
     let err = result.expect_err("reload should fail");
     assert!(
-        matches!(err, RuntimeError::Bytecode { .. }),
-        "expected coded bytecode error, got {err:?}"
+        matches!(err, RuntimeError::InvalidBundle(_)),
+        "expected the admission's refusal, got {err:?}"
     );
 
     handle.stop();
@@ -661,19 +582,17 @@ END_VAR
 runs := runs + 1;
 END_PROGRAM
 "#;
-    let mut harness = vm_harness(source_v1);
+    let mut harness = TestHarness::from_source(source_v1).expect("build the program");
     for _ in 0..3 {
         harness.advance_time(Duration::from_millis(10));
         let cycle = harness.cycle();
         assert!(cycle.errors.is_empty(), "the scan runs: {cycle:?}");
     }
-    assert_eq!(program_numeric_output(&harness, "P1", "runs"), 3);
+    assert_numeric_output(&harness, "P1.runs", 3);
     assert_eq!(harness.runtime().current_time(), Duration::from_millis(30));
 
-    let bytes_v2 = bytecode_bytes_from_source(source_v2).expect("build bytecode v2");
     harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes_v2, None)
+        .reload_source(source_v2)
         .expect("apply online change");
 
     // The cycles at 40, 50, 60, 70 and 80 ms.
@@ -682,12 +601,8 @@ END_PROGRAM
         harness.advance_time(Duration::from_millis(10));
         let cycle = harness.cycle();
         assert!(cycle.errors.is_empty(), "the scan runs: {cycle:?}");
-        slow_runs.push(program_numeric_output(&harness, "P2", "runs"));
+        slow_runs.push(numeric_output(&harness, "P2.runs").expect("P2.runs"));
     }
     assert_eq!(slow_runs, [0, 0, 1, 1, 2], "Slow's runs after each cycle");
-    assert_eq!(
-        program_numeric_output(&harness, "P1", "runs"),
-        8,
-        "Fast runs in every cycle"
-    );
+    assert_numeric_output(&harness, "P1.runs", 8);
 }

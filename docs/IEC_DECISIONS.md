@@ -129,6 +129,14 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     when `EN` is false. A skipped function-block or void-method call preserves
     its instance state and connected caller targets except for connected
     `ENO := FALSE`.
+  - Amended 24 October 2026 with the native execution the owner approved on 22
+    October 2026 (specification 44 §6.4): a `VAR_IN_OUT` is the caller's
+    variable itself, as IEC 61131-3 Ed.3 §6.6.1.2.2 passes it, not a snapshot
+    copied back. A runtime execution error transfers no result, output or
+    `ENO`, but what the body wrote before the error to an in-out, its instance
+    or receiver, or a global remains, as every completed statement's writes
+    do; outputs still commit in formal declaration order, and in-outs that
+    designate the same storage at run time are one variable.
 - Reason:
   - A source-order, evaluate-once rule makes side effects auditable. Early
     execution-control gating prevents disabled calls from faulting through

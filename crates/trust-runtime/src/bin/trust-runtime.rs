@@ -154,7 +154,6 @@ fn run() -> anyhow::Result<()> {
             restart,
             simulation,
             time_scale,
-            execution_backend,
         }) => run::run_runtime(
             project,
             config,
@@ -166,7 +165,6 @@ fn run() -> anyhow::Result<()> {
             false,
             simulation,
             time_scale,
-            execution_backend,
         ),
         Some(Command::Play {
             project,
@@ -176,7 +174,6 @@ fn run() -> anyhow::Result<()> {
             beginner,
             simulation,
             time_scale,
-            execution_backend,
         }) => {
             let console_mode = if no_console {
                 run::ConsoleMode::Disabled
@@ -194,7 +191,6 @@ fn run() -> anyhow::Result<()> {
                     beginner,
                     simulation,
                     time_scale,
-                    execution_backend,
                 },
             )
         }
@@ -225,10 +221,7 @@ fn run() -> anyhow::Result<()> {
             ci,
             target,
             emit_source,
-            execution_backend,
-        }) => {
-            build::run_build_command(project, sources, ci, target, emit_source, execution_backend)
-        }
+        }) => build::run_build_command(project, sources, ci, target, emit_source),
         Some(Command::Test {
             project,
             filter,

@@ -11,6 +11,15 @@ PROGRAM MainProgram
 END_PROGRAM
 "#;
 
+/// A program that binds `%MW0`, so a scan applies the queued `io.write`s to its image.
+const QUEUE_BOUNDS_IMAGE_SOURCE: &str = r#"
+VAR_GLOBAL
+    Word0 AT %MW0 : WORD;
+END_VAR
+PROGRAM MainProgram
+END_PROGRAM
+"#;
+
 fn queue_bounds_request(
     state: &ControlState,
     id: u64,
@@ -49,9 +58,16 @@ fn io_write_queue_refuses_the_request_past_1024_and_queues_nothing() {
     );
     assert!(!refused.ok, "the 1,025th io.write must be refused");
     assert_eq!(refused.error.as_deref(), Some("request queue full"));
+    // The scan applies the queue in order: the 1,024 queued writes of 1, and not the refused 2,
+    // which would have been applied last.
+    let mut runtime = TestHarness::from_source(QUEUE_BOUNDS_IMAGE_SOURCE)
+        .expect("image fixture compiles")
+        .into_runtime();
+    runtime.set_debug_control(state.debug.clone());
+    runtime.execute_cycle().expect("the scan applies the queue");
     assert_eq!(
-        state.debug.drain_io_writes().len(),
-        1_024,
+        runtime.read_io(&crate::io::IoAddress::parse("%MW0").expect("address")),
+        Ok(crate::value::Value::Word(1)),
         "the refused write must not be queued"
     );
 }

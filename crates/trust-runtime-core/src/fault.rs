@@ -30,32 +30,6 @@ use crate::value::Duration;
 /// Milliseconds in one whole second of the record's logical time.
 const MILLIS_PER_SECOND: i64 = 1_000;
 
-/// The prepared table a bounded [`FaultDetail::TableIndex`] names, which selects its text.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FaultTableIndex {
-    /// A reference-table index that does not exist.
-    Ref,
-    /// A constant-pool index that does not exist.
-    Const,
-    /// A string-table index used where the table does not reach.
-    String,
-    /// A POU identity that is absent.
-    MissingPou,
-    /// A native call kind that is not supported.
-    NativeCallKind,
-    /// A native symbol descriptor index that is invalid.
-    NativeSymbol,
-}
-
-/// The fixed wording a bounded [`FaultDetail::StaticName`] prefixes to its name.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FaultStaticName {
-    /// A known instruction that has no execution implementation.
-    UnsupportedOpcode,
-    /// A reference location that the execution composition does not provide.
-    UnsupportedRefLocation,
-}
-
 /// Bounded context of a fault, held without allocation (specification 34 MEM-05).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FaultDetail {
@@ -63,33 +37,6 @@ pub enum FaultDetail {
     None,
     /// A fixed diagnostic text.
     Text(&'static str),
-    /// A fixed diagnostic text followed by a static name.
-    StaticName {
-        /// The fixed wording that the name follows.
-        kind: FaultStaticName,
-        /// The static name that completes the text.
-        name: &'static str,
-    },
-    /// A rejected opcode byte.
-    Opcode(u8),
-    /// A rejected jump target.
-    JumpTarget(i64),
-    /// A rejected index into a prepared table.
-    TableIndex {
-        /// The prepared table whose index was rejected.
-        kind: FaultTableIndex,
-        /// The rejected index.
-        index: u32,
-    },
-    /// A reference outside the active frame's local range.
-    LocalRef {
-        /// Requested reference-table index.
-        index: u32,
-        /// First reference index owned by the frame.
-        start: u32,
-        /// Number of references owned by the frame.
-        count: u32,
-    },
     /// A value outside an inclusive `[lower, upper]` range.
     Index {
         /// Rejected value.
@@ -123,8 +70,6 @@ pub enum FaultDetail {
         /// Admitted maximum for this operation entry.
         limit: u64,
     },
-    /// A prepared string-table index naming a POU, program or function block.
-    PreparedName(u32),
 }
 
 impl FaultDetail {
@@ -146,37 +91,6 @@ impl fmt::Display for FaultDetail {
         match self {
             Self::None => formatter.write_str(""),
             Self::Text(text) => formatter.write_str(text),
-            Self::StaticName { kind, name } => match kind {
-                FaultStaticName::UnsupportedOpcode => {
-                    write!(formatter, "vm unsupported opcode {name}")
-                }
-                FaultStaticName::UnsupportedRefLocation => {
-                    write!(formatter, "vm unsupported ref location {name}")
-                }
-            },
-            Self::Opcode(opcode) => write!(formatter, "vm invalid opcode 0x{opcode:02X}"),
-            Self::JumpTarget(target) => write!(formatter, "vm invalid jump target {target}"),
-            Self::TableIndex { kind, index } => match kind {
-                FaultTableIndex::Ref => write!(formatter, "vm invalid ref index {index}"),
-                FaultTableIndex::Const => write!(formatter, "vm invalid const index {index}"),
-                FaultTableIndex::String => write!(formatter, "invalid index {index} for string"),
-                FaultTableIndex::MissingPou => write!(formatter, "vm missing pou id {index}"),
-                FaultTableIndex::NativeCallKind => {
-                    write!(formatter, "vm invalid CALL_NATIVE kind {index}")
-                }
-                FaultTableIndex::NativeSymbol => {
-                    write!(formatter, "vm invalid index {index} for native symbol")
-                }
-            },
-            Self::LocalRef {
-                index,
-                start,
-                count,
-            } => write!(
-                formatter,
-                "vm invalid local ref {index} (frame local range {start}..{})",
-                start.saturating_add(*count)
-            ),
             Self::Index {
                 index,
                 lower,
@@ -207,7 +121,6 @@ impl fmt::Display for FaultDetail {
                 formatter,
                 "execution timed out: {kind} limit {limit}, used {used}, requested {requested}"
             ),
-            Self::PreparedName(index) => write!(formatter, "prepared name #{index}"),
         }
     }
 }
@@ -318,7 +231,6 @@ impl FaultRecord {
                 "retain migration error 'invalid retained value for '{name}': {}'",
                 self.detail
             ),
-            Some(FaultMessage::Bytecode(detail)) => format!("invalid bytecode '{detail}'"),
         }
     }
 
@@ -406,8 +318,6 @@ pub enum FaultMessage {
     /// The retained variable of `retain migration error 'invalid retained value for '{0}': …'`;
     /// the record's bounded subrange detail supplies the range.
     RetainSubrange(SmolStr),
-    /// `invalid bytecode '{0}'`.
-    Bytecode(SmolStr),
 }
 
 impl FaultMessage {
@@ -430,7 +340,6 @@ impl FaultMessage {
             RuntimeError::RetainSubrangeViolation { name, .. } => {
                 Some(Self::RetainSubrange(name.clone()))
             }
-            RuntimeError::Bytecode { detail, .. } => Some(Self::Bytecode(detail.clone())),
             _ => None,
         }
     }
@@ -496,17 +405,10 @@ impl fmt::Display for FaultRecord {
 /// error carried a name or message the record does not hold (specification 34 MEM-05).
 fn fixed_message(code: StableErrorCode) -> &'static str {
     match code {
-        StableErrorCode::RuntimeConstantWrite => "write to a constant declaration",
-        StableErrorCode::RuntimeStagingViolation => "write outside initializer staging storage",
-        StableErrorCode::RuntimeVisibilityViolation => {
-            "read outside the initializer visibility frontier"
-        }
         StableErrorCode::RuntimeReferenceLifetime => {
             "reference outlived its activation or instance"
         }
-        StableErrorCode::RuntimeProgramRootReplacement => "program-root replacement is forbidden",
         StableErrorCode::RuntimeInvalidAlias => "invalid storage alias use",
-        StableErrorCode::RuntimePreparationLimit => "preparation resource limit exceeded",
         StableErrorCode::RuntimeInvalidExecutionState => {
             "admitted execution metadata is inconsistent"
         }
@@ -516,10 +418,7 @@ fn fixed_message(code: StableErrorCode) -> &'static str {
         StableErrorCode::RuntimeModuloByZero => "modulo by zero",
         StableErrorCode::RuntimeOverflow => "arithmetic overflow",
         StableErrorCode::RuntimeNullReference => "null reference dereference",
-        StableErrorCode::RuntimeInvalidControlFlow => "invalid control flow",
         StableErrorCode::RuntimeForStepZero => "FOR loop step cannot be zero",
-        StableErrorCode::RuntimeConditionNotBool => "condition is not BOOL",
-        StableErrorCode::RuntimeCaseSelectorType => "case selector type not supported",
         StableErrorCode::RuntimeDateTimeRange => "date/time out of range",
         StableErrorCode::RuntimeResourceFaulted => "resource faulted",
         StableErrorCode::RuntimeWatchdogTimeout => "watchdog timeout",

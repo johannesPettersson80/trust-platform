@@ -1,17 +1,46 @@
-use super::*;
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-use crate::harness::{CompileSession, SourceFile, TestHarness};
+use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
 use crate::value::{Duration, Value};
-use crate::{RestartMode, RetainPolicy};
+use crate::{RestartMode, RetainPolicy, RuntimeBuilder};
 
-fn compile_runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+/// The declarations of `source` as the front end constructs them.
+fn compile_runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("source must compile: {error}"))
 }
 
+/// Whether the declarations of `source` leave a program to the background, which no task runs.
+fn has_background_programs(source: &str) -> bool {
+    CompileSession::from_source(source)
+        .declarations()
+        .unwrap_or_else(|error| panic!("source must compile: {error}"))
+        .metadata()
+        .has_background_programs()
+}
+
+/// The retention policy the front end records for the configuration or resource global `name`.
+fn global_retain(source: &str, name: &str) -> RetainPolicy {
+    let lowered = lower_application(&[SourceFile::new(source)], false)
+        .unwrap_or_else(|error| panic!("source must compile: {error}"));
+    lowered
+        .globals
+        .iter()
+        .chain(
+            lowered
+                .configuration
+                .iter()
+                .flat_map(|configuration| configuration.globals.iter()),
+        )
+        .find(|global| global.name == name)
+        .unwrap_or_else(|| panic!("missing global {name}"))
+        .retain
+}
+
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("source must fail compilation"),
         Err(error) => error.to_string(),
     }
@@ -45,8 +74,7 @@ fn configuration_contract_requires_a_program_without_configuration() {
 
 #[test]
 fn configuration_contract_default_assembly_instantiates_every_program_once() {
-    let runtime = compile_runtime(
-        r#"
+    let source = r#"
 PROGRAM Alpha
 VAR
     a : INT;
@@ -58,8 +86,8 @@ VAR
     b : INT;
 END_VAR
 END_PROGRAM
-"#,
-    );
+"#;
+    let runtime = compile_runtime(source);
 
     assert_eq!(runtime.programs().len(), 2);
     assert!(matches!(
@@ -70,7 +98,7 @@ END_PROGRAM
         runtime.storage().get_global("Beta"),
         Some(Value::Instance(_))
     ));
-    assert!(runtime.has_background_programs());
+    assert!(has_background_programs(source));
 }
 
 #[test]
@@ -142,13 +170,14 @@ CONFIGURATION C
 END_CONFIGURATION
 "#,
     );
-    let runtime = CompileSession::from_sources(vec![source])
+    let declarations = CompileSession::from_sources(vec![source])
         .with_extra_program_instances(["main", "MAIN", "Main"])
-        .build_runtime()
+        .declarations()
         .expect("case variants must deduplicate");
 
-    assert_eq!(runtime.programs().len(), 1);
-    assert!(runtime
+    assert_eq!(declarations.metadata().programs().len(), 1);
+    assert!(declarations
+        .metadata()
         .programs()
         .values()
         .any(|program| program.name.eq_ignore_ascii_case("main")));
@@ -166,7 +195,7 @@ END_CONFIGURATION
     );
     let error = match CompileSession::from_sources(vec![source])
         .with_extra_program_instances(["Missing"])
-        .build_runtime()
+        .declarations()
     {
         Ok(_) => panic!("unknown extra instance must fail"),
         Err(error) => error.to_string(),
@@ -185,11 +214,11 @@ PROGRAM main : Main;
 END_CONFIGURATION
 "#,
     );
-    let runtime = CompileSession::from_sources(vec![source])
+    let declarations = CompileSession::from_sources(vec![source])
         .with_extra_program_instances(["MAIN"])
-        .build_runtime()
+        .declarations()
         .expect("configured name must suppress matching extra");
-    assert_eq!(runtime.programs().len(), 1);
+    assert_eq!(declarations.metadata().programs().len(), 1);
 }
 
 #[test]
@@ -347,8 +376,7 @@ END_CONFIGURATION
 
 #[test]
 fn configuration_contract_program_without_with_remains_background() {
-    let runtime = compile_runtime(
-        r#"
+    let source = r#"
 PROGRAM Main
 END_PROGRAM
 PROGRAM Background
@@ -358,10 +386,10 @@ TASK Fast (INTERVAL := T#1ms, PRIORITY := 0);
 PROGRAM Scheduled WITH Fast : Main;
 PROGRAM Loose : Background;
 END_CONFIGURATION
-"#,
-    );
+"#;
+    let runtime = compile_runtime(source);
     assert_eq!(runtime.tasks()[0].programs.as_slice(), ["Scheduled"]);
-    assert!(runtime.has_background_programs());
+    assert!(has_background_programs(source));
 }
 
 #[test]
@@ -1308,18 +1336,16 @@ END_RESOURCE
 END_CONFIGURATION
 "#,
     );
-    assert!(runtime.globals().contains_key("ConfigurationValue"));
-    assert!(runtime.globals().contains_key("ResourceValue"));
-    assert!(!runtime
-        .globals()
-        .contains_key("CellConfiguration.ConfigurationValue"));
-    assert!(!runtime.globals().contains_key("CellResource.ResourceValue"));
+    let globals = runtime.global_types();
+    assert!(globals.contains_key("ConfigurationValue"));
+    assert!(globals.contains_key("ResourceValue"));
+    assert!(!globals.contains_key("CellConfiguration.ConfigurationValue"));
+    assert!(!globals.contains_key("CellResource.ResourceValue"));
 }
 
 #[test]
 fn configuration_contract_resource_global_retain_policies_are_preserved() {
-    let runtime = compile_runtime(
-        r#"
+    let source = r#"
 PROGRAM Main
 END_PROGRAM
 CONFIGURATION C
@@ -1336,15 +1362,14 @@ END_VAR
 PROGRAM P : Main;
 END_RESOURCE
 END_CONFIGURATION
-"#,
-    );
-    assert_eq!(runtime.globals()["Retained"].retain, RetainPolicy::Retain);
+"#;
+    assert_eq!(global_retain(source, "Retained"), RetainPolicy::Retain);
     assert_eq!(
-        runtime.globals()["Reinitialized"].retain,
+        global_retain(source, "Reinitialized"),
         RetainPolicy::NonRetain
     );
     assert_eq!(
-        runtime.globals()["PersistentValue"].retain,
+        global_retain(source, "PersistentValue"),
         RetainPolicy::Persistent
     );
 }

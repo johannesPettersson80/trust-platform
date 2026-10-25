@@ -14,13 +14,8 @@ use trust_runtime::value::DateTimeProfile;
 use crate::protocol::SourceBreakpoint;
 use crate::session::{parse_hit_condition, split_log_message, LogText};
 
-use super::super::remote::{compiled_expression, RemoteSession};
+use super::super::remote::compiled_expression;
 use super::super::DebugAdapter;
-
-/// Why a breakpoint's options do not go to a runtime that runs its program on the bytecode engine,
-/// which evaluates no compiled expression and takes no options (specification 11 §6.13.2).
-const ENGINE_OPTIONS: &str = "this runtime runs its program on the bytecode engine, which takes \
-     no conditions, hit counts or logpoints while attached: build the project compiled";
 
 /// The shortest time after which an expression the loaded types do not compile loads them again:
 /// a type declared since they were loaded compiles after an online change, and a mistyped watch
@@ -41,9 +36,8 @@ impl DebugAdapter {
     ///
     /// # Errors
     ///
-    /// The reason the breakpoint cannot go to the runtime with its options: a runtime on the
-    /// bytecode engine, an expression that does not compile, a hit condition or a message
-    /// template that does not parse.
+    /// The reason the breakpoint cannot go to the runtime with its options: an expression that does
+    /// not compile, a hit condition or a message template that does not parse.
     pub(in crate::adapter) fn remote_options(
         &mut self,
         breakpoint: &SourceBreakpoint,
@@ -64,13 +58,6 @@ impl DebugAdapter {
             .filter(|text| !text.is_empty());
         if condition.is_none() && hit.is_none() && template.is_none() {
             return Ok(None);
-        }
-        if !self
-            .remote_session
-            .as_mut()
-            .is_some_and(RemoteSession::compiled)
-        {
-            return Err(String::from(ENGINE_OPTIONS));
         }
         let mut options = serde_json::Map::new();
         if let Some(condition) = condition {

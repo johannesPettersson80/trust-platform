@@ -54,7 +54,7 @@ fn print_usage() {
 }
 
 fn usage() -> &'static str {
-    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-external-safety\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask browser-command <probe|render> <executable> [browser arguments...]\n  cargo xtask portability pack <gpio.stbc> <application.bin>\n  cargo xtask portability build-firmware <chip> <report.json>\n  cargo xtask portability inspect <board> <firmware.elf> <report.json>\n  cargo xtask portability footprint <current.map> <baseline.map> <report.json>\n  cargo xtask portability verify <board> <uart.txt> <report.json>\n  chips: stm32f407, esp32c6, stm32u5a9 (chips/<chip>.toml)\n  boards: stm32f407g-disc1, esp32c6-devkitc-1"
+    "Usage:\n  cargo xtask architecture-map\n  cargo xtask architecture-external-safety\n  cargo xtask architecture-doctor --all\n  cargo xtask architecture-doctor --changed\n  cargo xtask architecture-doctor --full-map\n  cargo xtask browser-command <probe|render> <executable> [browser arguments...]\n  cargo xtask portability build-firmware <chip> <report.json>\n  cargo xtask portability pack-project <program.tpi> <deployment-record.bin> <application.bin>\n  cargo xtask portability inspect <board> <firmware.elf> <report.json>\n  chips: esp32c6, stm32u5a9 (chips/<chip>.toml)\n  boards: esp32c6-devkitc-1, riverdi-rvt50hqsnwc00-b"
 }
 
 fn workspace_root() -> Result<PathBuf> {

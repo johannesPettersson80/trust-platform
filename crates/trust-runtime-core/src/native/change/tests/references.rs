@@ -10,8 +10,8 @@ use trust_plc_abi::{RefValue, AREA_GLOBALS, AREA_INSTANCES, AREA_RETAIN};
 use super::super::carry;
 use super::{cleared, converted, ints, new_variable, reference, Field, Memory, Program, Row};
 use crate::error::RuntimeError;
+use crate::native::change::{CarriedValueEvent, MAX_CARRIED_VALUE_EVENTS};
 use crate::native::image::{type_kind as kind, SYMBOL_RETAINED};
-use crate::vm::{CarriedValueEvent, MAX_CARRIED_VALUE_EVENTS};
 
 /// A reference names the same variable in the new program when the new program has it with the
 /// type the new reference names, wherever it lies now, and is `NULL` otherwise, which records

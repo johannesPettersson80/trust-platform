@@ -10,7 +10,6 @@ use serde_json::json;
 
 use trust_runtime::bundle_builder::collect_project_source_files;
 use trust_runtime::config::RuntimeConfig;
-use trust_runtime::harness::CompileSession;
 use trust_runtime::value::Value;
 
 use trust_runtime::realtime::{
@@ -23,7 +22,7 @@ use trust_runtime::runtime_cloud::routing::{
 };
 use trust_runtime::security::AccessRole;
 
-use crate::cli::{BenchAction, BenchOutputFormat, ProgramBackend};
+use crate::cli::{BenchAction, BenchOutputFormat};
 
 include!("bench/models.rs");
 include!("bench/stats.rs");
@@ -31,7 +30,6 @@ include!("bench/t0_shm.rs");
 include!("bench/mesh_zenoh.rs");
 include!("bench/dispatch.rs");
 include!("bench/init.rs");
-include!("bench/project.rs");
 include!("bench/native.rs");
 include!("bench/output.rs");
 include!("bench/command.rs");

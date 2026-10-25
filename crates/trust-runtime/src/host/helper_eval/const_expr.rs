@@ -4,9 +4,7 @@ use super::storage_context::EvaluationTypes;
 use crate::error::RuntimeError;
 use crate::program_model::ops::{apply_binary, apply_unary};
 use crate::program_model::Expr;
-use crate::value::{
-    size_of_type_with_abi, ArrayValue, DateTimeProfile, SizeOfError, StorageAbi, Value,
-};
+use crate::value::{size_of_type, ArrayValue, DateTimeProfile, SizeOfError, Value};
 use trust_hir::types::TypeRegistry;
 
 #[derive(Debug)]
@@ -50,28 +48,13 @@ pub(crate) fn eval_const_expr_with_resolver(
     eval_const_expr_with_resolver_and_registry(expr, profile, &registry, resolve_name)
 }
 
-#[cfg(test)]
 pub(crate) fn eval_const_expr_with_resolver_and_registry(
     expr: &Expr,
     profile: &DateTimeProfile,
     registry: &TypeRegistry,
     resolve_name: &impl Fn(&str) -> Option<Value>,
 ) -> Result<Value, ConstExprError> {
-    eval_const_expr_with_abi(expr, profile, registry, StorageAbi::default(), resolve_name)
-}
-pub(crate) fn eval_const_expr_with_abi(
-    expr: &Expr,
-    profile: &DateTimeProfile,
-    registry: &TypeRegistry,
-    abi: StorageAbi,
-    resolve_name: &impl Fn(&str) -> Option<Value>,
-) -> Result<Value, ConstExprError> {
-    eval_const_expr_with_types(
-        expr,
-        profile,
-        &EvaluationTypes { registry, abi },
-        resolve_name,
-    )
+    eval_const_expr_with_types(expr, profile, &EvaluationTypes { registry }, resolve_name)
 }
 
 fn eval_const_expr_with_types(
@@ -106,8 +89,7 @@ fn eval_const_expr_with_types(
             Ok(apply_binary(*op, left, right, profile)?)
         }
         Expr::SizeOf(crate::program_model::SizeOfTarget::Type(type_id)) => {
-            let size = size_of_type_with_abi(*type_id, registry, registry.abi)
-                .map_err(size_error_to_const)?;
+            let size = size_of_type(*type_id, registry).map_err(size_error_to_const)?;
             let size =
                 i32::try_from(size).map_err(|_| ConstExprError::Runtime(RuntimeError::Overflow))?;
             Ok(Value::DInt(size))

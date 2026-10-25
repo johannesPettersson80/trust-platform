@@ -62,11 +62,11 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             "deny --locked check",
             "--manifest-path firmware/",
             "--manifest-path firmware/trust-esp32c6/",
-            "--manifest-path firmware/trust-stm32f407/",
+            "--manifest-path firmware/trust-stm32u5a9/",
             "audit --json --file Cargo.lock",
             "audit --json --file firmware/",
             "audit --json --file firmware/trust-esp32c6/",
-            "audit --json --file firmware/trust-stm32f407/",
+            "audit --json --file firmware/trust-stm32u5a9/",
         ] {
             let fixture = fixture();
             let log = fixture.0.join("commands.txt");
@@ -100,7 +100,7 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             ));
             assert!(commands[1].ends_with(" check advisories licenses bans sources"));
             assert!(commands[2].starts_with(
-                "deny --locked --manifest-path firmware/trust-stm32f407/Cargo.toml --config "
+                "deny --locked --manifest-path firmware/trust-stm32u5a9/Cargo.toml --config "
             ));
             assert!(commands[2].ends_with(" check advisories licenses bans sources"));
             let suffix = if exceptions {
@@ -118,7 +118,7 @@ fn every_lock_graph_is_audited_and_any_graph_failure_fails_the_gate() {
             );
             assert_eq!(
                 commands[5],
-                format!("audit --json --file firmware/trust-stm32f407/Cargo.lock{suffix}")
+                format!("audit --json --file firmware/trust-stm32u5a9/Cargo.lock{suffix}")
             );
         }
     }

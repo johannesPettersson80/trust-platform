@@ -1,3 +1,8 @@
+//! The watchdog output case: a deadline breach before the output commit leaves the physical
+//! outputs as they were.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -6,11 +11,11 @@ use std::time::{Duration as StdDuration, Instant};
 
 use serde_json::json;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::io::{IoAddress, IoDriver};
+use trust_runtime::harness::TestHarness;
+use trust_runtime::io::IoDriver;
 use trust_runtime::scheduler::{Clock, ResourceRunner, ResourceState};
-use trust_runtime::value::{Duration, Value};
+use trust_runtime::value::Duration;
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
-use trust_runtime::RuntimeBuilder;
 use verification_cases::{
     check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
     CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
@@ -127,28 +132,13 @@ fn run_watchdog_case(
     }
 
     let writes = Arc::new(Mutex::new(Vec::new()));
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(0, 1, 0);
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "out".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(
-                logical_output,
-            ))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
-    runtime.io_mut().bind(
-        "out",
-        IoAddress::parse("%QX0.0").map_err(|error| error.to_string())?,
+    let source = format!(
+        "VAR_GLOBAL out AT %QX0.0 : BOOL := {}; END_VAR PROGRAM Main END_PROGRAM",
+        if logical_output { "TRUE" } else { "FALSE" }
     );
-    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
+    let mut runtime = TestHarness::from_source(&source)
+        .map_err(|error| error.to_string())?
+        .into_runtime();
     runtime.add_io_driver(
         "watchdog-recorder",
         Box::new(RecordingDriver {

@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -167,24 +169,9 @@ fn run_restart_case(
                 "present".to_string()
             };
             (
-                runner
-                    .engine()
-                    .expect("a program on the bytecode engine")
-                    .storage()
-                    .get_global("retained_value")
-                    .cloned(),
-                runner
-                    .engine()
-                    .expect("a program on the bytecode engine")
-                    .storage()
-                    .get_global("transient_value")
-                    .cloned(),
-                runner
-                    .engine()
-                    .expect("a program on the bytecode engine")
-                    .storage()
-                    .get_global("ordinary_value")
-                    .cloned(),
+                runner.program().read_variable("retained_value").ok(),
+                runner.program().read_variable("transient_value").ok(),
+                runner.program().read_variable("ordinary_value").ok(),
                 state_before,
                 state,
                 last_error,
@@ -284,7 +271,7 @@ fn run_restart_case(
 /// The resource state of a runtime that no scheduler drives. The runner loop reports a
 /// latched fault as `Faulted` and a resource that runs as `Running`, so a harness runtime
 /// is observed through its fault latch with the same names.
-fn projected_resource_state(runtime: &crate::Runtime) -> String {
+fn projected_resource_state(runtime: &crate::CompiledRuntime) -> String {
     if runtime.faulted() {
         "faulted".to_string()
     } else {

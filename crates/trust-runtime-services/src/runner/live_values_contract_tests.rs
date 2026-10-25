@@ -1,27 +1,21 @@
 //! The device runner's Live Values (specification 11, "Live Values"; specification 34 §4.3.1):
 //! where a queued write and an active force reach the process image, how a refused write is
 //! reported, the boundaries that clear the queues and the forces, and the generation the Live Values
-//! carry after a restart. The board probe (`led := button` every 10 ms) runs on the real engine behind
-//! the cycle port; a force by instance identity runs the corpus program `retained_blocks`.
+//! carry after a restart. The board probe (`led := button` every 10 ms) runs compiled behind the
+//! cycle port.
 
-use alloc::format;
 use alloc::vec::Vec;
 
 use serde_json::{json, Value};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::scheduler::ResourceState;
-use trust_runtime_core::value::Value as Retained;
 use trust_runtime_core::watchdog::FaultPolicy;
 
 use super::program::Program;
+use super::ResourceCycle;
 use crate::live_values::var_requests::VariableQueuePort;
 use crate::tests::runner_ports::{Fixture, TestRunner};
-
-/// The corpus program `retained_blocks`: a 10 ms task calls the function-block instance `kept` with
-/// `delta := DINT#1`, so that its output `count` rises by one in each activation.
-const BLOCKS: &[u8] =
-    include_bytes!("../../../trust-runtime/tests/fixtures/bounded-c/retained_blocks/program.stbc");
 
 /// `io.write` of `value` to `address`.
 fn io_write(id: u64, address: &str, value: &str) -> Value {
@@ -53,11 +47,6 @@ fn shutdown(id: u64) -> Value {
     json!({"id": id, "type": "shutdown"})
 }
 
-/// `var.force` of `value` on `target`.
-fn var_force(id: u64, target: &str, value: &str) -> Value {
-    json!({"id": id, "type": "var.force", "params": {"target": target, "value": value}})
-}
-
 /// The `%QX0.0` entry of an `io.list` reply.
 fn output_led(reply: &Value) -> &Value {
     &reply["result"]["outputs"][0]
@@ -68,24 +57,7 @@ fn generations(runner: &TestRunner<'_>) -> (Generation, Generation) {
     let Program::Installed(cycle) = &runner.cycle else {
         panic!("a program is installed");
     };
-    (cycle.engine().generation(), runner.live.generation())
-}
-
-/// The identity of the function-block instance `kept` and the `count` it holds, in the program the
-/// loop runs now.
-fn kept(runner: &TestRunner<'_>) -> (u32, Retained) {
-    let Program::Installed(cycle) = &runner.cycle else {
-        panic!("a program is installed");
-    };
-    let storage = cycle.engine().storage();
-    let Some(Retained::Instance(kept)) = storage.get_global("kept") else {
-        panic!("kept is a function-block instance");
-    };
-    let count = storage
-        .get_instance_var(*kept, "count")
-        .cloned()
-        .expect("the instance has a count");
-    (kept.0, count)
+    (cycle.generation(), runner.live.generation())
 }
 
 /// Spec 11, "Live Values": a queued one-shot I/O write reaches the process image at
@@ -375,58 +347,4 @@ fn a_loop_takes_the_generation_of_a_program_the_composition_restarted_warm() {
     let fixture = Fixture::board_probe();
     let runner = fixture.power_on_restarted_warm();
     assert_eq!(generations(&runner), (Generation(1), Generation(1)));
-}
-
-/// Specification 34 STATE-08, UPDATE-04 and §4.3.1: a request that names an instance by a bare
-/// identity belongs to the generation the Live Values carry when it is accepted, and the scan that
-/// applies it refuses it when the program is in another generation. The program `retained_blocks`
-/// runs its task at 10 and 20 ms; a warm `restart` queued at 25 ms commits at the boundary at 30 ms,
-/// in generation 1. `var.force` of `instance:<id>:count` to 100 arrives after the restart and is
-/// accepted; the scan at 40 ms applies it before the program runs and again after the outputs are
-/// sampled, so `count` reads 100, the force is still active and no write is rejected. Wrong behaviour
-/// caught: Live Values that keep the generation of the program's first start, which tag the force with
-/// generation 0, so that the scan refuses it as stale, withdraws it and reports `write_rejected`, and
-/// `count` shows only what the program counted.
-#[test]
-fn a_force_by_identity_after_a_restart_in_place_is_applied() {
-    let fixture = Fixture::with_program(BLOCKS);
-    let mut runner = fixture.runner();
-    fixture.pass_at(&mut runner, 0);
-    fixture.pass_at(&mut runner, 10);
-    fixture.pass_at(&mut runner, 20);
-    assert_eq!(kept(&runner).1, Retained::DInt(2), "two activations");
-
-    let queued = fixture.call_at(&mut runner, 25, &restart(1, "warm"));
-    assert_eq!(queued["result"], json!({"status": "restart queued"}));
-    fixture.pass_at(&mut runner, 30);
-    assert_eq!(generations(&runner), (Generation(1), Generation(1)));
-
-    let (instance, _) = kept(&runner);
-    let target = format!("instance:{instance}:count");
-    let forced = fixture.call(&mut runner, &var_force(2, &target, "100"));
-    assert_eq!(forced["result"], json!({"status": "forced"}), "{forced}");
-    fixture.pass_at(&mut runner, 40);
-    assert_eq!(
-        kept(&runner).1,
-        Retained::DInt(100),
-        "the force by identity reached the variable"
-    );
-
-    let listed = fixture.call(&mut runner, &json!({"id": 3, "type": "var.forced"}));
-    let active = listed["result"]["vars"]
-        .as_array()
-        .expect("var.forced lists the active forces");
-    assert_eq!(
-        active.iter().map(|var| &var["target"]).collect::<Vec<_>>(),
-        [&json!(target)],
-        "the force is still active: a refused force is withdrawn"
-    );
-    let events = fixture.call(&mut runner, &json!({"id": 4, "type": "events.tail"}));
-    let rejected = events["result"]["events"]
-        .as_array()
-        .expect("events.tail lists the events")
-        .iter()
-        .filter(|event| event["type"] == json!("write_rejected"))
-        .count();
-    assert_eq!(rejected, 0, "{events}");
 }

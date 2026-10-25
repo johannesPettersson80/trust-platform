@@ -175,11 +175,15 @@ pub fn admit<'i>(bytes: &'i [u8], device: &Device) -> Result<Image<'i>, Refusal>
     Ok(image)
 }
 
-/// Every I/O binding inside its process image, the inputs, the outputs or the markers, as the area
-/// table sizes them (§10.2, step 5).
+/// Every I/O binding at a flat address inside its process image, the inputs, the outputs or the
+/// markers, as the area table sizes them (§10.2, step 5).
 fn check_bindings(image: &Image<'_>) -> Result<(), Refusal> {
     let bindings = image.table::<IoBindRecord>().map_err(Refusal::Image)?;
     for (index, binding) in (0u32..).zip(bindings.iter()) {
+        // A hierarchical address lies in the kernel's hierarchical image, no process image (§5.6).
+        if binding.is_hierarchical() {
+            continue;
+        }
         // A bit and a byte take one byte, a word two, a double word four, a long word eight.
         let width = match binding.size {
             0 | 1 => 1,

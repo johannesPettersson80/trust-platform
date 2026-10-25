@@ -23,66 +23,23 @@ fn bundle_hang_action(bundle: Option<&RuntimeBundle>) -> trust_runtime::watchdog
 }
 
 /// Attaches a freshly loaded `program` to the control surfaces, applies the runtime-level services
-/// of its bundle, and starts it in `restart_mode`, as a new process starts its program: a compiled
-/// program as specification 44 §8.8 says, a program on the bytecode engine as before.
+/// of its bundle, and starts it in `restart_mode`, as a new process starts its program
+/// (specification 44 §8.8).
 fn start_program(
-    program: &mut trust_runtime::scheduler::HostProgram,
+    program: &mut trust_runtime::CompiledRuntime,
     bundle: Option<&RuntimeBundle>,
-    backend: trust_runtime::execution_backend::ExecutionBackend,
     wiring: &ProgramWiring,
     restart_mode: RestartMode,
 ) -> anyhow::Result<()> {
-    match program {
-        trust_runtime::scheduler::HostProgram::Engine(runtime) => {
-            start_runtime_program(runtime, bundle, backend, wiring, restart_mode)
-        }
-        trust_runtime::scheduler::HostProgram::Compiled(program) => {
-            program.set_debug_control(wiring.debug.clone());
-            program.set_metrics_sink(wiring.metrics.clone());
-            program.set_io_health_sink(Some(wiring.io_health.clone()));
-            if let Some(bundle) = bundle {
-                apply_bundle_compiled_services(program, bundle)?;
-            }
-            // A warm start takes the retained values of the retain file (specification 44 §11).
-            program.restart_with_retain_store(restart_mode)?;
-            Ok(())
-        }
-    }
-}
-
-/// Attaches a freshly loaded `runtime` to the control surfaces, applies the runtime-level services
-/// of its bundle, and starts it in `restart_mode`, as a new process starts its program.
-fn start_runtime_program(
-    runtime: &mut Runtime,
-    bundle: Option<&RuntimeBundle>,
-    backend: trust_runtime::execution_backend::ExecutionBackend,
-    wiring: &ProgramWiring,
-    restart_mode: RestartMode,
-) -> anyhow::Result<()> {
-    runtime.set_debug_control(wiring.debug.clone());
-    runtime.set_metrics_sink(wiring.metrics.clone());
-    runtime.set_io_health_sink(Some(wiring.io_health.clone()));
+    program.set_debug_control(wiring.debug.clone());
+    program.set_metrics_sink(wiring.metrics.clone());
+    program.set_io_health_sink(Some(wiring.io_health.clone()));
     if let Some(bundle) = bundle {
-        apply_bundle_runtime_services(runtime, bundle)?;
+        apply_bundle_services(program, bundle)?;
     }
-    runtime
-        .set_execution_backend(backend)
-        .map_err(|err| anyhow::anyhow!("{err}"))?;
-
-    runtime.restart(restart_mode)?;
-    load_startup_retain(runtime, restart_mode)?;
+    // A warm start takes the retained values of the retain file (specification 44 §11).
+    program.restart_with_retain_store(restart_mode)?;
     Ok(())
-}
-
-/// The metadata the control surfaces read of `program`: a compiled program has none of the bytecode
-/// engine's program model (specification 44 §8.8).
-fn program_metadata(
-    program: &trust_runtime::scheduler::HostProgram,
-) -> trust_runtime::RuntimeMetadata {
-    program
-        .engine()
-        .map(Runtime::metadata_snapshot)
-        .unwrap_or_default()
 }
 
 /// What a `restart` that finds the resource Stopped needs to load the installed program again: where
@@ -91,11 +48,9 @@ fn program_metadata(
 struct ProgramReload {
     /// The project folder, configuration file and runtime root of the launch.
     source: (Option<PathBuf>, Option<PathBuf>, Option<PathBuf>),
-    execution_backend: Option<crate::cli::ExecutionBackendArg>,
     simulation: bool,
     time_scale: u32,
     wiring: ProgramWiring,
-    metadata: Arc<Mutex<trust_runtime::RuntimeMetadata>>,
     events: Arc<Mutex<VecDeque<trust_runtime::debug::RuntimeEvent>>>,
     settings: Arc<Mutex<RuntimeSettings>>,
 }
@@ -119,7 +74,7 @@ impl ProgramReload {
     /// settings that the program's configuration gives the scan are read again.
     fn load(
         &self,
-        slot: &mut trust_runtime::scheduler::HostProgram,
+        slot: &mut trust_runtime::CompiledRuntime,
         restart_mode: RestartMode,
     ) -> anyhow::Result<trust_runtime::scheduler::StartedProgram> {
         let (project, config, runtime_root) = self.source.clone();
@@ -129,17 +84,12 @@ impl ProgramReload {
             ide_shell_mode,
             ..
         } = load_runtime(project, config, runtime_root)?;
-        let (backend, backend_source) =
-            select_execution_backend(bundle.as_ref(), &runtime, self.execution_backend)?;
         let plan = build_simulation_plan(bundle.as_ref(), self.simulation, self.time_scale)?;
 
         *slot = runtime;
-        self.restart_records(backend);
-        start_program(slot, bundle.as_ref(), backend, &self.wiring, restart_mode)?;
+        self.restart_records();
+        start_program(slot, bundle.as_ref(), &self.wiring, restart_mode)?;
 
-        if let Ok(mut metadata) = self.metadata.lock() {
-            *metadata = program_metadata(slot);
-        }
         if let Ok(mut settings) = self.settings.lock() {
             let fresh = build_runtime_settings(
                 bundle.as_ref(),
@@ -152,8 +102,7 @@ impl ProgramReload {
                     warning: plan.warning.clone(),
                     controller: None,
                 },
-                backend,
-                backend_source,
+                execution_backend_source(bundle.as_ref()),
             );
             refresh_resource_settings(&mut settings, fresh);
         }
@@ -167,10 +116,9 @@ impl ProgramReload {
 
     /// Starts the records of the process again, as a new process starts them: empty metrics whose
     /// uptime counts from now, an empty event store and no I/O driver health.
-    fn restart_records(&self, backend: trust_runtime::execution_backend::ExecutionBackend) {
+    fn restart_records(&self) {
         if let Ok(mut metrics) = self.wiring.metrics.lock() {
             metrics.restart(trust_runtime::metrics::HostMonotonicClock::default());
-            metrics.set_execution_backend(backend);
         }
         if let Ok(mut events) = self.events.lock() {
             events.clear();

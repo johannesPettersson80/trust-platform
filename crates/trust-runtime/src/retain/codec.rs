@@ -20,8 +20,6 @@ const RETAIN_V1_VERSION: u16 = 1;
 #[cfg(test)]
 const RETAIN_V2_VERSION: u16 = 2;
 #[cfg(test)]
-const RETAIN_VERSION: u16 = 3;
-#[cfg(test)]
 const RETAIN_TRAILER: &[u8; 4] = b"ENDR";
 
 #[cfg(test)]

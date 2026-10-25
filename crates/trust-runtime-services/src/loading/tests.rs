@@ -3,9 +3,10 @@
 //!
 //! The flash is the C6's: 4-byte program units, 4 KiB erase units and two slots of 3,056 KiB, the
 //! halves of the 6,112 KiB `application` region of `chips/esp32c6.toml`. The installed program is
-//! the fixture `program-v2.stbc`, 6,412 bytes with its line table, which prepares with the default
-//! limits. Its record is 342 bytes, so the container is 6,814 bytes (60 + 6,412 + 342) and takes
-//! two 4 KiB erase units.
+//! the board probe's compiled image padded to 6,412 bytes (`tests/program_store.rs`), which the
+//! kernel's checks before a commit admit and the store reads only as bytes. Its record is 342 bytes,
+//! and the image starts at the first multiple of 64 after the 60-byte header (specification 44
+//! §10.1), so the container is 6,818 bytes (64 + 6,412 + 342) and takes two 4 KiB erase units.
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -14,24 +15,20 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
     sha256, AdmissionRefusal, ApplicationIdentity, Capabilities, Configuration, Contracts,
-    DeploymentRecord, DeviceDescriptor, NumericContract, ProcessImageSummary, RequestedLimits,
-    SchedulingProfile, TimingEvidence,
+    DeploymentRecord, DeviceDescriptor, NumericContract, ProcessImageSummary, ProgramVersion,
+    RequestedLimits, SchedulingProfile, TimingEvidence,
 };
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{ProgramFlash, ProgramStore};
 use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
-use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
 
 use super::install::{begin, check, start, Committed, Install, InstallError, Progress};
 use super::select::{active, order, previous, ScanError, SelectError};
-use crate::installation::{encode_sequenced, AdmissionError, InstallationError};
+use crate::installation::{encode_image, AdmissionError, InstallationError};
+pub(super) use crate::tests::program_store::program;
 
-/// The installed program: the fixture `program-v2.stbc`, which prepares with the default limits.
-pub(super) const PROGRAM: &[u8] =
-    include_bytes!("../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
 /// The C6's application slot: 3,056 KiB, half of the 6,112 KiB `application` region.
 const SLOT_BYTES: u32 = 3056 * 1024;
 /// The C6's program unit, in bytes (`chips/esp32c6.toml` programs a word at a time).
@@ -173,16 +170,16 @@ fn erased_store() -> (Shared, ProgramStore) {
     store_from([erased(), erased()])
 }
 
-/// The deployment record of `program`: the default limits, the program's SHA-256 and length, and no
-/// capability, import or task (specification 34 §5.1.1). `bytecode_flags` is the CRC-32 flag of the
-/// fixture's STBC 2.0 header.
+/// The deployment record of `program` as an image's record (specification 44 §10.1): the program's
+/// SHA-256 and length, the version 44.1, no limit, and no capability, import or task
+/// (specification 34 §5.1.1).
 fn record_of(program: &[u8]) -> DeploymentRecord {
     DeploymentRecord {
         application: ApplicationIdentity {
             program_sha256: sha256(program),
             program_bytes: u32::try_from(program.len()).expect("a short program"),
-            bytecode_version: BytecodeVersion::SOURCE_FREE_V2,
-            bytecode_flags: 1,
+            program_version: ProgramVersion::NATIVE_IMAGE,
+            program_flags: 0,
             configuration_sha256: [0; 32],
             retain_schema_sha256: [0; 32],
         },
@@ -192,7 +189,19 @@ fn record_of(program: &[u8]) -> DeploymentRecord {
             timing_evidence: TimingEvidence::UNQUALIFIED,
             capabilities: Capabilities::NONE,
         },
-        limits: RequestedLimits::from_preparation(&PreparationLimits::default()),
+        limits: RequestedLimits {
+            max_artifact_bytes: 0,
+            max_preparation_bytes: 0,
+            max_preparation_work: 0,
+            max_validation_scratch_bytes: 0,
+            max_validation_work: 0,
+            max_construction_values: 0,
+            max_construction_bytes: 0,
+            max_process_image_bytes: 0,
+            max_work: 0,
+            max_construction_work: 0,
+            max_call_depth: 0,
+        },
         process_image: ProcessImageSummary::default(),
         tasks: Vec::new(),
         imports: Vec::new(),
@@ -204,12 +213,14 @@ fn record_of(program: &[u8]) -> DeploymentRecord {
 /// device writes its own sequence before the commit.
 pub(super) fn transfer_of(program: &[u8]) -> Vec<u8> {
     let record = record_of(program).encode().expect("the record encodes");
-    encode_sequenced(0, program, &record).expect("the container encodes")
+    encode_image(0, program, &record).expect("the container encodes")
 }
 
-/// The device of these tests: a computer's maxima, with the C6's application slot.
+/// The device of these tests: a computer's maxima, with the C6's application slot, running compiled
+/// program images.
 fn device() -> DeviceDescriptor {
     DeviceDescriptor {
+        program_versions: &[ProgramVersion::NATIVE_IMAGE],
         application_slot_bytes: Some(u64::from(SLOT_BYTES)),
         ..DeviceDescriptor::hosted()
     }
@@ -245,19 +256,19 @@ fn a_write_stopped_at_any_step_keeps_the_previous_program_selected() {
     // commit point selects the new one. Catches a commit point written before the payloads, and a
     // write into the newest slot.
     let (flash, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("the first install commits");
-    install_program(&mut store, PROGRAM).expect("the second install commits");
+    install_program(&mut store, program()).expect("the first install commits");
+    install_program(&mut store, program()).expect("the second install commits");
     let committed_bytes = flash.borrow().bytes.clone();
 
     let (_, mut counting) = store_from(committed_bytes.clone());
-    let third = begin(&mut counting, transfer_of(PROGRAM), &device(), |_| Ok(()))
+    let third = begin(&mut counting, transfer_of(program()), &device(), |_| Ok(()))
         .expect("the third install begins");
     let total = steps_to_commit(&mut counting, third);
     assert!(total > 4, "the commit takes several steps, not {total}");
 
     for stopped_after in 0..=total {
         let (_, mut store) = store_from(committed_bytes.clone());
-        let mut pending = begin(&mut store, transfer_of(PROGRAM), &device(), |_| Ok(()))
+        let mut pending = begin(&mut store, transfer_of(program()), &device(), |_| Ok(()))
             .expect("the third install begins");
         let mut committed = None;
         for _ in 0..stopped_after {
@@ -286,7 +297,7 @@ fn a_write_stopped_at_any_step_keeps_the_previous_program_selected() {
                 "after the commit point the new program is selected"
             );
         }
-        assert_eq!(selected.bytes, PROGRAM);
+        assert_eq!(selected.bytes, program());
     }
 }
 
@@ -296,21 +307,21 @@ fn the_write_target_is_never_the_newest_committed_slot() {
     // newest committed container, and slot A when none does. The newest container's bytes stay as
     // they were. Catches an install that overwrites the running program.
     let (flash, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("the first install commits");
+    install_program(&mut store, program()).expect("the first install commits");
     assert!(
         flash.borrow().bytes[1].iter().all(|byte| *byte == 0xff),
         "the first install writes slot A, and slot B stays erased"
     );
     let first_slot = flash.borrow().bytes[0].clone();
 
-    install_program(&mut store, PROGRAM).expect("the second install commits");
+    install_program(&mut store, program()).expect("the second install commits");
     assert!(
         flash.borrow().bytes[0] == first_slot,
         "the second install writes slot B, and the newest committed slot A keeps its bytes"
     );
     let second_slot = flash.borrow().bytes[1].clone();
 
-    install_program(&mut store, PROGRAM).expect("the third install commits");
+    install_program(&mut store, program()).expect("the third install commits");
     assert!(
         flash.borrow().bytes[1] == second_slot,
         "the third install writes slot A, and the newest committed slot B keeps its bytes"
@@ -354,12 +365,12 @@ fn an_install_never_writes_the_slot_of_the_program_the_runtime_holds() {
     // slot B, the next install, sequence 4, writes slot A. Catches the rule without the held program,
     // which writes sequence 3 to slot A, over the program the runtime reads.
     let (flash, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("sequence 1 commits to slot A");
+    install_program(&mut store, program()).expect("sequence 1 commits to slot A");
     let held = flash.borrow().bytes[0].clone();
 
-    let second = install_held(&mut store, PROGRAM, Some(1)).expect("sequence 2 commits");
+    let second = install_held(&mut store, program(), Some(1)).expect("sequence 2 commits");
     assert_eq!((second.sequence, newest_slot(&mut store)), (2, Slot::B));
-    let third = install_held(&mut store, PROGRAM, Some(1)).expect("sequence 3 commits");
+    let third = install_held(&mut store, program(), Some(1)).expect("sequence 3 commits");
     assert_eq!(
         (third.sequence, newest_slot(&mut store)),
         (3, Slot::B),
@@ -370,7 +381,7 @@ fn an_install_never_writes_the_slot_of_the_program_the_runtime_holds() {
         "the held program's slot A keeps its bytes"
     );
 
-    let fourth = install_held(&mut store, PROGRAM, Some(3)).expect("sequence 4 commits");
+    let fourth = install_held(&mut store, program(), Some(3)).expect("sequence 4 commits");
     assert_eq!(
         (fourth.sequence, newest_slot(&mut store)),
         (4, Slot::A),
@@ -384,14 +395,14 @@ fn the_highest_committed_sequence_is_selected() {
     // is the installed program, whichever slot holds it, and the other one is the previous program.
     // Catches a boot that takes the first slot, or the slot written last.
     let (_, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("commit 1 is written to slot A");
-    install_program(&mut store, PROGRAM).expect("commit 2 is written to slot B");
+    install_program(&mut store, program()).expect("commit 1 is written to slot A");
+    install_program(&mut store, program()).expect("commit 2 is written to slot B");
     let selected = active(&mut store, &device()).expect("a program is selected");
     assert_eq!(selected.sequence, 2);
-    assert_eq!(selected.program_sha256, sha256(PROGRAM));
-    assert_eq!(selected.bytes, PROGRAM);
+    assert_eq!(selected.program_sha256, sha256(program()));
+    assert_eq!(selected.bytes, program());
 
-    install_program(&mut store, PROGRAM).expect("commit 3 is written to slot A");
+    install_program(&mut store, program()).expect("commit 3 is written to slot A");
     assert_eq!(
         active(&mut store, &device())
             .expect("a program is selected")
@@ -410,7 +421,7 @@ fn the_sequence_rises_by_one_per_commit() {
     let (_, mut store) = erased_store();
     let sequences: Vec<u64> = (0..3)
         .map(|_| {
-            install_program(&mut store, PROGRAM)
+            install_program(&mut store, program())
                 .expect("the install commits")
                 .sequence
         })
@@ -424,14 +435,14 @@ fn a_damaged_newest_committed_container_refuses_the_boot() {
     // refuses the boot, and the older container is not selected in its place. Catches a boot that
     // falls back to the other slot.
     let (flash, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("commit 1 is written to slot A");
-    install_program(&mut store, PROGRAM).expect("commit 2 is written to slot B");
-    // The program payload of slot B starts at byte 60, so this flips a byte of the program.
-    flash.borrow_mut().bytes[1][60] ^= 0x01;
+    install_program(&mut store, program()).expect("commit 1 is written to slot A");
+    install_program(&mut store, program()).expect("commit 2 is written to slot B");
+    // The image of slot B starts at byte 64, so this flips a byte of the program, entry kind 3.
+    flash.borrow_mut().bytes[1][64] ^= 0x01;
     assert_eq!(
         active(&mut store, &device()),
         Err(SelectError::Refused(AdmissionError::Container(
-            InstallationError::PayloadChecksum(1)
+            InstallationError::PayloadChecksum(3)
         )))
     );
     let older = previous(&mut store, &device()).expect("the slots are ordered");
@@ -444,7 +455,7 @@ fn two_committed_containers_of_one_sequence_refuse_the_boot_and_name_it() {
     // sequence is the newest, so the boot refuses, and the reason names the sequence. Catches a boot
     // that picks one of them.
     let (flash, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("commit 1 is written to slot A");
+    install_program(&mut store, program()).expect("commit 1 is written to slot A");
     let copy = flash.borrow().bytes[0].clone();
     flash.borrow_mut().bytes[1] = copy;
     let error = active(&mut store, &device()).expect_err("the boot refuses");
@@ -472,9 +483,9 @@ fn an_install_refused_by_admission_writes_no_byte() {
     let (flash, mut store) = erased_store();
     let small = DeviceDescriptor {
         application_slot_bytes: Some(100),
-        ..DeviceDescriptor::hosted()
+        ..device()
     };
-    let refused = begin(&mut store, transfer_of(PROGRAM), &small, |_| Ok(()));
+    let refused = begin(&mut store, transfer_of(program()), &small, |_| Ok(()));
     assert_eq!(
         refused.err(),
         Some(InstallError::Admission(AdmissionError::Deployment(
@@ -488,47 +499,11 @@ fn an_install_refused_by_admission_writes_no_byte() {
 }
 
 #[test]
-fn an_install_whose_memory_figure_exceeds_the_devices_program_memory_writes_no_byte() {
-    // Specification 34 MEM-12 and §5.1.1: the device refuses a program whose memory figure is more
-    // than the memory it has for programs, naming both numbers, before any write; a figure equal to
-    // that memory is admitted. The record keeps no retained values, so the capture of them does not
-    // count. The figure is the one preparation computes with the limits that admission gives this
-    // record, the default limits. Catches an install that skips the check, a refusal after the first
-    // write, and a figure equal to the memory refused.
-    let needed = PreparedModule::from_bytes(PROGRAM, PreparationLimits::default())
-        .expect("the program prepares")
-        .memory_figure()
-        .total(false);
-    let needed = u64::try_from(needed).expect("a short figure");
-    let (flash, mut store) = erased_store();
-    let tight = DeviceDescriptor {
-        program_memory_bytes: Some(needed - 1),
-        ..device()
-    };
-    let refused = begin(&mut store, transfer_of(PROGRAM), &tight, |_| Ok(()));
-    assert_eq!(
-        refused.err(),
-        Some(InstallError::Admission(AdmissionError::Deployment(
-            RuntimeError::DeploymentRefused(AdmissionRefusal::Memory {
-                needed,
-                available: needed - 1,
-            })
-        )))
-    );
-    assert_eq!(flash.borrow().writes, 0);
-    let exact = DeviceDescriptor {
-        program_memory_bytes: Some(needed),
-        ..device()
-    };
-    assert!(begin(&mut store, transfer_of(PROGRAM), &exact, |_| Ok(())).is_ok());
-}
-
-#[test]
 fn an_install_that_cannot_restore_its_retained_values_is_refused_before_any_write() {
     // Specification 11 §6.7.1 (decision G13): the retained-value check runs before any write, and
     // its refusal ends the install. Catches a commit that starts before the check.
     let (flash, mut store) = erased_store();
-    let refused = begin(&mut store, transfer_of(PROGRAM), &device(), |_| {
+    let refused = begin(&mut store, transfer_of(program()), &device(), |_| {
         Err(RuntimeError::RetainCorruption(
             "the retained values differ".into(),
         ))
@@ -548,11 +523,11 @@ fn a_flash_error_ends_the_install_and_keeps_the_previous_program() {
     // previous program stays selected. The container takes two erase units, so the second write of
     // the install is an erase. Catches a failed write that is ignored, or one that is selected.
     let (flash, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("commit 1 is written to slot A");
-    install_program(&mut store, PROGRAM).expect("commit 2 is written to slot B");
+    install_program(&mut store, program()).expect("commit 1 is written to slot A");
+    install_program(&mut store, program()).expect("commit 2 is written to slot B");
     let writes = flash.borrow().writes;
     flash.borrow_mut().fail_write = Some(writes + 1);
-    let mut pending = begin(&mut store, transfer_of(PROGRAM), &device(), |_| Ok(()))
+    let mut pending = begin(&mut store, transfer_of(program()), &device(), |_| Ok(()))
         .expect("the third install begins");
     let error = loop {
         match pending.step(&mut store) {
@@ -576,11 +551,11 @@ fn a_read_back_that_differs_from_the_container_ends_the_install() {
     // commit point. The first program write follows the two erase units, so it is write number two
     // of the install. Catches a commit point written over payload bytes the flash did not keep.
     let (flash, mut store) = erased_store();
-    install_program(&mut store, PROGRAM).expect("commit 1 is written to slot A");
-    install_program(&mut store, PROGRAM).expect("commit 2 is written to slot B");
+    install_program(&mut store, program()).expect("commit 1 is written to slot A");
+    install_program(&mut store, program()).expect("commit 2 is written to slot B");
     let writes = flash.borrow().writes;
     flash.borrow_mut().corrupt_write = Some(writes + 2);
-    let mut pending = begin(&mut store, transfer_of(PROGRAM), &device(), |_| Ok(()))
+    let mut pending = begin(&mut store, transfer_of(program()), &device(), |_| Ok(()))
         .expect("the third install begins");
     let error = loop {
         match pending.step(&mut store) {

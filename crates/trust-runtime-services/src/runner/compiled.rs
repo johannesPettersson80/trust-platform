@@ -26,6 +26,7 @@ use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::cycle::{CycleHooks, CyclePhase};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_image::{write_flat_image, FlatImages};
 use trust_runtime_core::memory::Generation;
@@ -34,17 +35,17 @@ use trust_runtime_core::native::program::{ModuleCode, NativeProgram, NoHooks, Sc
 use trust_runtime_core::native::stop::Stop;
 use trust_runtime_core::native::variables::CompiledAccessPoint;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
+use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::{CycleHooks, CyclePhase, MemoryFigure, RetainApplyEvent};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
-use super::cycle::{CompiledView, ResourceCycle, RetainSource, TaskDescriptor};
-use super::engine::{CycleSettings, ProcessIo};
+use super::cycle::{CompiledView, CycleSettings, ResourceCycle, RetainSource, TaskDescriptor};
 use super::hold::{CompiledHold, HoldHandle};
+use super::process_io::ProcessIo;
 use super::retain::{CycleRetain, RetainConfig, RetainStore};
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
-use crate::metrics::ProgramMemory;
+use crate::metrics::{MemoryFigure, ProgramMemory};
 use crate::status::IoDriverStatus;
 
 /// The installed compiled program of a device: the kernel's program of an admitted image, with the
@@ -79,6 +80,9 @@ pub struct CompiledCycle<'i, C, I, K, H = HoldHandle, R = RetainStore> {
     /// The debugger: the loop's hold, the statement table's sources and the armed statements
     /// (specification 44 §13.2).
     debug: debug::CompiledDebug<H>,
+    /// The output image the drivers last took, which a commit that fails restores, so that a safe
+    /// state starts from it (specification 10 §4.7).
+    committed: Vec<u8>,
 }
 
 impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode> CompiledCycle<'i, C, I, K> {
@@ -146,6 +150,7 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: Cyc
             .collect();
         let mut images = FlatImages::default();
         program.copy_images(&mut images);
+        let committed = program.outputs.clone();
         Self {
             program,
             io,
@@ -161,6 +166,7 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: Cyc
             retain: None,
             now: Duration::ZERO,
             debug,
+            committed,
         }
     }
 
@@ -267,6 +273,39 @@ impl<'i, C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: Cyc
             });
         }
     }
+
+    /// The commit of a scan's outputs: the deadline, the output Live Values, the retained values'
+    /// capture and the drivers, in that order (specification 10 §4.7, steps 5 and 6).
+    fn commit(
+        &mut self,
+        now: Duration,
+        deadline: Option<MonotonicInstant>,
+        held_before: TimeSpan,
+        observer: &mut dyn CycleHooks,
+    ) -> Result<(), RuntimeError> {
+        // The scan's deadline is checked before anything is published, as the engine checks it
+        // before it publishes its outputs (specification 34 TIME-04); the debugger's holds in the
+        // scan are no active time and move it (specification 11 §6.6).
+        let held = self
+            .debug
+            .holds
+            .held_at(|| self.clock.now())
+            .saturating_sub(held_before);
+        if deadline.is_some_and(|deadline| self.clock.now() > deadline.saturating_add(held)) {
+            return Err(RuntimeError::ExecutionTimeout);
+        }
+        observer.on_compiled_access(CompiledAccessPoint::BeforeOutputs, now, &mut self.program)?;
+        self.program.copy_images(&mut self.images);
+        observer.on_compiled_phase(CyclePhase::BeforeOutputSample, now, &self.images)?;
+        // The retained values are captured and offered where an engine cycle captures them; a
+        // retain failure fails the scan before its outputs are driven (specification 11 §6.7).
+        if let Some(retain) = self.retain.as_mut() {
+            let program = &self.program;
+            retain.capture_with(now, &mut |capture| program.capture_retain(capture))?;
+        }
+        observer.on_compiled_phase(CyclePhase::AfterOutputSample, now, &self.images)?;
+        self.io.write_outputs(&self.program.outputs)
+    }
 }
 
 impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRetain> ResourceCycle
@@ -274,6 +313,10 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
 {
     fn tasks(&self) -> Vec<TaskDescriptor> {
         self.tasks.clone()
+    }
+
+    fn programs(&self) -> Vec<SmolStr> {
+        self.program.program_names()
     }
 
     fn cycle_interval(&self) -> Duration {
@@ -361,33 +404,22 @@ impl<C: MonotonicClock, I: ProcessIo, K: ModuleCode, H: CompiledHold, R: CycleRe
             .map(|(before, after)| {
                 u64::from(after.wrapping_sub(before).wrapping_sub(observer_operations))
             });
-        if let Some(error) = phases.error {
-            return Err(error);
+        // The program's outputs are published, not yet committed: a failure from here on restores
+        // the image the drivers last took, so a safe state starts from it (specification 10 §4.7).
+        let outcome = phases
+            .error
+            .map_or(result, Err)
+            .and_then(|()| self.commit(now, deadline, held_before, observer));
+        match outcome {
+            Ok(()) => {
+                self.committed.clone_from(&self.program.outputs);
+                observer.on_compiled_phase(CyclePhase::CycleEnd, now, &self.images)
+            }
+            Err(error) => {
+                self.program.outputs.clone_from(&self.committed);
+                Err(error)
+            }
         }
-        result?;
-        // The scan's deadline is checked before anything is published, as the engine checks it
-        // before it publishes its outputs (specification 34 TIME-04); the debugger's holds in the
-        // scan are no active time and move it (specification 11 §6.6).
-        let held = self
-            .debug
-            .holds
-            .held_at(|| self.clock.now())
-            .saturating_sub(held_before);
-        if deadline.is_some_and(|deadline| self.clock.now() > deadline.saturating_add(held)) {
-            return Err(RuntimeError::ExecutionTimeout);
-        }
-        observer.on_compiled_access(CompiledAccessPoint::BeforeOutputs, now, &mut self.program)?;
-        self.program.copy_images(&mut self.images);
-        observer.on_compiled_phase(CyclePhase::BeforeOutputSample, now, &self.images)?;
-        // The retained values are captured and offered where an engine cycle captures them; a
-        // retain failure fails the scan before its outputs are driven (specification 11 §6.7).
-        if let Some(retain) = self.retain.as_mut() {
-            let program = &self.program;
-            retain.capture_with(now, &mut |capture| program.capture_retain(capture))?;
-        }
-        observer.on_compiled_phase(CyclePhase::AfterOutputSample, now, &self.images)?;
-        self.io.write_outputs(&self.program.outputs)?;
-        observer.on_compiled_phase(CyclePhase::CycleEnd, now, &self.images)
     }
 
     fn latch_fault(&mut self, fault: RuntimeError) {
@@ -605,17 +637,35 @@ struct TaskPhases<'h, 'o, H> {
 }
 
 impl<H> TaskPhases<'_, '_, H> {
-    fn forward(&mut self, task: usize, phase: impl FnOnce(usize) -> CyclePhase) {
+    /// Forwards the phase of image task `task`: `phase` of its index among the cycle's tasks, or
+    /// `background` for the image's background task, which runs the programs outside every task.
+    fn forward(
+        &mut self,
+        task: usize,
+        phase: impl FnOnce(usize) -> CyclePhase,
+        background: Option<CyclePhase>,
+    ) {
+        let phase = match self.task_index.get(task) {
+            Some(Some(index)) => phase(*index),
+            Some(None) => match background {
+                Some(phase) => phase,
+                None => return,
+            },
+            None => return,
+        };
+        self.report(phase);
+    }
+
+    /// Reports `phase` to the observer, unless an earlier phase failed the scan; the observer's
+    /// allocations are counted apart from the program's.
+    fn report(&mut self, phase: CyclePhase) {
         if self.error.is_some() {
             return;
         }
-        let Some(Some(index)) = self.task_index.get(task) else {
-            return;
-        };
         let before = self.operations.map(|operations| operations());
         let result = self
             .observer
-            .on_compiled_phase(phase(*index), self.now, self.images);
+            .on_compiled_phase(phase, self.now, self.images);
         if let Some((before, after)) = before.zip(self.operations.map(|operations| operations())) {
             self.observer_operations = self
                 .observer_operations
@@ -629,15 +679,31 @@ impl<H> TaskPhases<'_, '_, H> {
 
 impl<H: CompiledHold> ScanHooks for TaskPhases<'_, '_, H> {
     fn task_overrun(&mut self, task: usize, missed: u64) {
-        self.forward(task, |index| CyclePhase::TaskOverrun { index, missed });
+        self.forward(
+            task,
+            |index| CyclePhase::TaskOverrun { index, missed },
+            None,
+        );
     }
 
     fn task_started(&mut self, task: usize) {
-        self.forward(task, CyclePhase::TaskStart);
+        self.forward(
+            task,
+            CyclePhase::TaskStart,
+            Some(CyclePhase::BackgroundStart),
+        );
     }
 
     fn task_finished(&mut self, task: usize) {
-        self.forward(task, CyclePhase::TaskEnd);
+        self.forward(task, CyclePhase::TaskEnd, Some(CyclePhase::BackgroundEnd));
+    }
+
+    fn program_started(&mut self, entry: usize) {
+        self.report(CyclePhase::ProgramStart(entry));
+    }
+
+    fn program_finished(&mut self, entry: usize) {
+        self.report(CyclePhase::ProgramEnd(entry));
     }
 
     /// A statement whose bit is set stops (specification 44 §13.2): the debugger decides there,

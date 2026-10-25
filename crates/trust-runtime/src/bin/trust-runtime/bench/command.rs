@@ -12,17 +12,10 @@ fn execute_bench(action: BenchAction) -> anyhow::Result<(BenchReport, BenchOutpu
             samples,
             warmup_cycles,
             watch,
-            tier1,
-            execution_backend,
             output,
         } => {
-            let workload =
-                ProjectBenchWorkload::normalize(project, samples, warmup_cycles, watch, tier1)?;
-            let report = match execution_backend {
-                ProgramBackend::Vm => run_project_bench(workload)?,
-                ProgramBackend::Native => run_native_project_bench(workload)?,
-            };
-            Ok((report, output))
+            let workload = ProjectBenchWorkload::normalize(project, samples, warmup_cycles, watch)?;
+            Ok((run_project_bench(workload)?, output))
         }
         BenchAction::Init {
             project,

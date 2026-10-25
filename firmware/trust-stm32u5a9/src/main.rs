@@ -4,8 +4,9 @@
 //! Boot order (the C6's, specification 34 R2): the clock first; then the monotonic clock and its wait;
 //! the identity (DEV_ID, flash size and TZEN) and the reset record, read once, this boot counted; the
 //! installed application admitted before any state exists; the watchdog timeout the record needs; the
-//! record's pins claimed by name, each output at its safe level; the program prepared, instantiated and
-//! started; then the runner serves the control link over USB. A refusal serves the link Stopped with
+//! record's pins claimed by name, each output at its safe level; the compiled program image checked as
+//! the kernel checks it, its module run where it lies in the internal flash (specification 44 §10.2,
+//! §10.3), and the program started; then the runner serves the control link over USB. A refusal serves the link Stopped with
 //! its reason (specification 34, STATE-08). A panic or a fault ends in `halt::emergency_halt`: the
 //! outputs to their safe levels, the cause in the reset record, then a reset (R3). It never writes to
 //! the link.
@@ -25,8 +26,7 @@ mod watchdog;
 
 use alloc::boxed::Box;
 use alloc::format;
-use alloc::string::String;
-use alloc::vec::Vec;
+use alloc::string::{String, ToString};
 
 use cortex_m_rt::{entry, exception};
 use smol_str::SmolStr;
@@ -36,26 +36,22 @@ use trust_platform_stm32u5::gpio::{DigitalIo, Ports};
 use trust_platform_stm32u5::reset::ResetControl;
 use trust_platform_stm32u5::usb_link;
 use trust_platform_stm32u5::wait::{Monotonic, Wait};
-use trust_runtime_core::deployment::{admit_memory, Configuration, ControlMode, DeviceDescriptor};
-use trust_runtime_core::error::RuntimeError;
+use trust_plc_abi::kernel::InPlace;
+use trust_runtime_core::deployment::{Configuration, ControlMode};
+use trust_runtime_core::native::live::io_bindings;
+use trust_runtime_core::native::program::{self as native, NativeProgram};
+use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::LastReset;
 use trust_runtime_services::chip::platform::status_settings;
-use trust_runtime_services::debug::LineSources;
 use trust_runtime_services::link::DeviceLineLink;
-use trust_runtime_services::runner::engine::{
-    device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle,
-};
-use trust_runtime_services::runner::{stack_shortage, too_deep, EngineLiveValues, Runner};
+use trust_runtime_services::runner::{CompiledCycle, CycleSettings, DeviceLiveValues, Runner};
 
 use crate::platform::Platform;
 use crate::process_io::{claim, GpioIo};
-use crate::profile::{
-    APPLICATION_BYTES, DEVICE_DESCRIPTOR, MAIN_STACK, PROGRAM_MEMORY_RESERVE_BYTES,
-};
+use crate::profile::{DEVICE_DESCRIPTOR, NATIVE_TARGET, PROGRAM_MEMORY_RESERVE_BYTES};
 use crate::watchdog::{timeout_for, Watchdog, STOPPED_TIMEOUT_MS};
 
 /// The resource loop's clock: the chip's TIM2 microsecond counter through the adapter's [`Monotonic`].
@@ -74,7 +70,7 @@ impl MonotonicClock for ChipClock {
 type ChipRunner = Runner<
     usb_link::UsbLink<ChipClock>,
     Wait,
-    EngineCycle<'static, ChipClock, GpioIo>,
+    CompiledCycle<'static, ChipClock, GpioIo, InPlace>,
     Platform,
     ChipClock,
 >;
@@ -165,10 +161,10 @@ fn main() -> ! {
         Err(reason) => serve_stopped(parts, reason),
     };
 
-    // The memory the STM32U5A9 has for a program (specification 34 MEM-12, Appendix D.5): the heap's
-    // free bytes before the program is prepared, its container being in the flash, less what the chip
-    // keeps beside any program: its resource loop, with its event store at its maximum of events, and
-    // the reserve for its replies and the program's Live Values and services.
+    // The memory the STM32U5A9 has for a program (specification 34 MEM-12, Appendix D.5; specification
+    // 44 §10.4): the heap's free bytes before the program is loaded, its container being in the flash,
+    // less what the chip keeps beside any program: its resource loop, with its event store at its
+    // maximum of events, and the reserve for its replies and the program's Live Values.
     let events = usize::try_from(DEVICE_DESCRIPTOR.event_store_max).unwrap_or(usize::MAX);
     let program_memory = memory::HEAP
         .remaining()
@@ -178,69 +174,44 @@ fn main() -> ! {
         ))
         .saturating_sub(PROGRAM_MEMORY_RESERVE_BYTES);
 
-    // Prepare the program with the limits its region and the heap allow (design §1.1).
-    let call_depth = MAIN_STACK.call_depth();
-    let limits = device_limits(DeviceMemory {
-        region_bytes: APPLICATION_BYTES,
-        heap_bytes: memory::HEAP.capacity(),
-        call_depth,
-    });
-    // The program's line table and file labels, which place breakpoints and name the files of a stop
-    // (specification 13, "Source Mapping"). They are read before the program is prepared, because
-    // the heap is as free now as it is for preparation.
-    let sources: Option<&'static LineSources> = match LineSources::read(program, &limits) {
-        Ok(sources) => sources.map(|sources| &*Box::leak(Box::new(sources))),
-        Err(error) => serve_stopped(
+    // The image is checked where it lies, against the chip's CPU, its memory for programs and its
+    // task stack (specification 44 §10.2), and its module runs there: the internal flash is executable
+    // memory with no cache that the program shares (§10.3).
+    let device = NATIVE_TARGET.device(u64::try_from(program_memory).ok());
+    let admitted = match native::admit(program, &device) {
+        Ok(admitted) => admitted,
+        Err(refusal) => serve_stopped(
             parts,
-            format!("the installed application's line table cannot be read: {error}"),
+            format!("the installed application cannot be loaded: {refusal}"),
         ),
     };
-    // The program lies in the application region, where the prepared program reads its
-    // declarations and initializers (specification 34 MEM-14).
-    let prepared = match PreparedModule::from_mapped(program, limits) {
-        Ok(prepared) => prepared,
-        Err(error) => serve_stopped(
+    let (_, module) = admitted.module();
+    // SAFETY: `module` is the module of the image the kernel admitted, in the application region of
+    // the internal flash, which the CPU executes; the firmware never writes or erases the region, so
+    // it stays mapped and unchanged for the whole boot (`application.rs`).
+    let code = unsafe { InPlace::new(module) };
+    let program = match NativeProgram::new(admitted, code, &device, &KERNEL_FUNCTIONS) {
+        Ok(program) => program,
+        Err(refusal) => serve_stopped(
             parts,
-            format!("the installed application cannot be prepared: {error}"),
+            format!("the installed application cannot be loaded: {refusal}"),
         ),
     };
-    // It calls no deeper than the main stack holds, before anything of it is constructed
-    // (specification 34 MEM-03).
-    if let Some(depth) = too_deep(&prepared, call_depth) {
-        serve_stopped(
-            parts,
-            format!(
-                "the installed application cannot be loaded: {}",
-                stack_shortage("a program", program.len(), depth, call_depth)
-            ),
-        );
-    }
-    // Its memory figure fits the memory the chip has for programs, before anything of it is
-    // constructed (specification 34 MEM-12). Retain mode `none` keeps no capture.
-    let descriptor = DeviceDescriptor {
-        program_memory_bytes: u64::try_from(program_memory).ok(),
-        ..DEVICE_DESCRIPTOR
-    };
-    if let Err(error) = admit_memory(&prepared.memory_figure(), false, &descriptor) {
-        serve_stopped(
-            parts,
-            format!("the installed application cannot be loaded: {error}"),
-        );
-    }
-    let prepared: &'static PreparedModule = Box::leak(Box::new(prepared));
 
-    // The Live Values of the installed program (specification 11, "Live Values"; specification 34 §4.3.1).
-    let live = match live_values(prepared) {
+    // The Live Values of the installed program (specification 11, "Live Values"; specification 44
+    // §13.3): its process-image bindings, each named by its variable.
+    let live = match io_bindings(&program.image())
+        .map_err(|error| error.to_string())
+        .and_then(|(bindings, names)| {
+            DeviceLiveValues::for_compiled(bindings, names).map_err(|error| error.to_string())
+        }) {
         Ok(live) => live,
         Err(error) => serve_stopped(
             parts,
-            format!("the installed application's Live Values cannot be prepared: {error}"),
+            format!("the installed application's Live Values cannot be bound: {error}"),
         ),
     };
 
-    let services = Box::leak(Box::new(
-        DeviceServices::new(parts.clock).with_allocator_operations(Some(allocator_operations)),
-    ));
     let settings = CycleSettings {
         cycle_interval: Duration::from_nanos(
             i64::try_from(config.cycle_interval_nanos).unwrap_or(i64::MAX),
@@ -253,8 +224,8 @@ fn main() -> ! {
             .map(|entry| (entry.address.clone(), entry.value.clone()))
             .collect(),
     };
-    let cycle = match EngineCycle::start(prepared, services, gpio, settings) {
-        Ok(cycle) => cycle.with_debugger(sources),
+    let cycle = match CompiledCycle::start(program, gpio, settings, parts.clock) {
+        Ok(cycle) => cycle.with_allocator_operations(allocator_operations),
         Err(error) => serve_stopped(
             parts,
             format!("the installed application cannot be started: {error}"),
@@ -311,7 +282,7 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
         // A device that has not admitted an application has no record: it reports `production`, the
         // record's default (specification 11 §6.9).
         ControlMode::Production,
-        EngineLiveValues::empty(),
+        DeviceLiveValues::empty(),
         last_reset,
         platform::device_runtime_id(),
     );
@@ -330,22 +301,6 @@ fn serve_stopped(parts: Parts, reason: String) -> ! {
     ));
     let _ = runner.run();
     halt::emergency_halt("runner-stopped")
-}
-
-/// The Live Values of the installed program `prepared`: its process-image bindings, each named by its
-/// declared root and member path, and its retained declarations (specification 11, "Live Values";
-/// specification 34 §4.3.1).
-fn live_values(prepared: &PreparedModule) -> Result<EngineLiveValues, RuntimeError> {
-    let names = prepared
-        .io_bindings()
-        .iter()
-        .map(|binding| {
-            prepared
-                .persistent_reference_name(binding.ref_idx)
-                .map(Some)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    EngineLiveValues::for_prepared(prepared, names)
 }
 
 /// The cycle watchdog timeout the record configures, in whole milliseconds; a disabled watchdog is zero.

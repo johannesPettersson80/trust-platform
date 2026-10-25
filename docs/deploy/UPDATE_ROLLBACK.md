@@ -19,8 +19,8 @@ This document describes a production‑safe update strategy for truST.
 
 ## Update Procedure (Warm)
 
-1. Build a new project folder:
-   - `program.stbc`
+1. Build a new project folder with `trust-runtime build --project /path/to/project`:
+   - `program.tpi` and `deployment-record.bin`
    - `runtime.toml`
    - `io.toml`
 2. Deploy with versioning (keeps last two known‑good projects):

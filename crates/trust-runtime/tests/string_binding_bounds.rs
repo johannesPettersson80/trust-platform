@@ -1,3 +1,8 @@
+//! Bounded STRING and WSTRING bindings: copy-back into the receiving capacity, and the in-out and
+//! literal bindings the front refuses.
+//!
+//! The tests that run a program need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::{CompileSession, TestHarness};
 use trust_runtime::value::Value;
 
@@ -170,7 +175,7 @@ END_PROGRAM
 "#;
 
     let error = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("STRING[20] must not bind implicitly to STRING[5] VAR_IN_OUT");
     assert!(
         error.to_string().contains("error[E205]:"),
@@ -230,7 +235,7 @@ END_PROGRAM
 "#;
 
     let error = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("WSTRING[6] must not bind implicitly to WSTRING[3] VAR_IN_OUT");
     assert!(
         error.to_string().contains("error[E205]:"),
@@ -261,7 +266,7 @@ END_PROGRAM
     let error = CompileSession::from_source(
         "PROGRAM Main\nVAR\n    narrow : STRING[1] := 'Å';\nEND_VAR\nEND_PROGRAM\n",
     )
-    .build_runtime()
+    .declarations()
     .expect_err("two bytes do not fit STRING[1]");
     let rendered = error.to_string();
     assert!(
@@ -451,7 +456,7 @@ END_PROGRAM
 "#;
 
     let error = CompileSession::from_source(source)
-        .build_runtime()
+        .declarations()
         .expect_err("STRING[20] must not bind implicitly to function STRING[5] VAR_IN_OUT");
     assert!(
         error.to_string().contains("error[E205]:"),

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Report caller-supplied gate artifacts, including each portable-core target.
 
-The CI matrix supplies separate required STM32F407 and C6 markers so a successful
+The CI matrix supplies separate required STM32U5A9 and C6 markers so a successful
 aggregate job or one target cannot stand in for the missing other target.
 """
 from __future__ import annotations

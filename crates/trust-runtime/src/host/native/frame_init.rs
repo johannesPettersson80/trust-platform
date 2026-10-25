@@ -19,8 +19,8 @@ use crate::program_model::Expr;
 ///
 /// # Errors
 ///
-/// [`NativeError`] for a starting value the generator does not compile: one that holds a
-/// function block instance, or an initial value that names a variable.
+/// [`NativeError`] for a starting value the generator does not compile: an initial value that
+/// names a variable.
 pub(super) fn start(
     lowerer: &mut Lowerer<'_, '_>,
     place: &Place,
@@ -64,12 +64,13 @@ pub(super) fn omitted_scalar(
 }
 
 /// The bytes, at the program's layout, of the value a variable of `ty` starts at:
-/// `initializer` evaluated by the build, when it names no variable, else its type's default.
+/// `initializer` evaluated by the build, when it names no variable, else its type's default; a
+/// function block instance as the starting memory lays one out.
 ///
 /// # Errors
 ///
-/// [`NativeError`] for a value that holds a function block instance, an initializer that names a
-/// variable, or a value the runtime cannot construct.
+/// [`NativeError`] for an initializer that names a variable, or a value the runtime cannot
+/// construct.
 pub(super) fn starting_bytes(
     model: &mut Model<'_>,
     ty: Ty,
@@ -78,35 +79,28 @@ pub(super) fn starting_bytes(
     name: &str,
 ) -> Result<Vec<u8>, NativeError> {
     if holds_instance(model, ty, initializer.is_some()) {
-        return Err(NativeError::unsupported(format!(
-            "the starting value of {name}, which holds a function block instance"
-        )));
+        return super::init::instance_bytes(model, ty, type_id, initializer, name);
     }
     let builder = model.builder;
-    let abi = crate::value::StorageAbi::default();
     let value = match initializer {
-        Some(expr) if names_nothing(expr) => {
-            crate::harness::initializer::evaluate_initializer_with_abi(
-                builder.storage(),
-                builder.registry(),
-                abi,
-                builder.initializer_catalog(),
-                &builder.profile(),
-                None,
-                builder.stdlib(),
-                expr,
-                type_id,
-            )
-        }
+        Some(expr) if names_nothing(expr) => crate::harness::initializer::evaluate_initializer(
+            builder.storage(),
+            builder.registry(),
+            builder.initializer_catalog(),
+            &builder.profile(),
+            None,
+            builder.stdlib(),
+            expr,
+            type_id,
+        ),
         Some(_) => {
             return Err(NativeError::unsupported(format!(
                 "the initial value of {name}, which names a variable"
             )));
         }
-        None => crate::harness::initializer::default_value_for_type_id_with_abi(
+        None => crate::harness::initializer::default_value_for_type_id(
             builder.storage(),
             builder.registry(),
-            abi,
             builder.initializer_catalog(),
             &builder.profile(),
             None,
@@ -188,9 +182,17 @@ pub(super) fn statements(
             ));
         }
         Kind::WStr(_) => {
-            return Err(NativeError::unsupported(format!(
-                "a WSTRING frame variable {place} that starts with a text"
-            )));
+            let length = usize::from(u16::from_le_bytes([bytes[0], bytes[1]]));
+            let units: Vec<u16> = bytes[2..2 + 2 * length]
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|unit| u16::from_le_bytes(*unit))
+                .collect();
+            out.push(format!(
+                "lib::assign_units(({place}).view(), {});",
+                super::lower::unit_string(&units)
+            ));
         }
         Kind::Array { elem, dims } => {
             array(model, place, *elem, dims, bytes, depth, out)?;
@@ -222,7 +224,15 @@ pub(super) fn statements(
                 }
             }
         }
-        Kind::Interface | Kind::Ref { .. } => {
+        // A `STRUCT OVERLAP` starts at zero (specification 02 §3.6); its bytes as they are.
+        Kind::Overlap { .. } => {
+            for (index, byte) in bytes.iter().enumerate() {
+                if *byte != 0 {
+                    out.push(format!("{place}.B[{index}].set({byte});"));
+                }
+            }
+        }
+        Kind::Interface | Kind::Ref { .. } | Kind::Bit(_) | Kind::Open { .. } => {
             return Err(NativeError::unsupported(format!(
                 "a frame variable {place} that starts at a reference"
             )));

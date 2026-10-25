@@ -18,8 +18,8 @@ use trust_runtime_core::ports::CheckpointStorage;
 use trust_runtime_core::retain::checkpoint::{CheckpointFlash, FlashError, Slot};
 use trust_runtime_core::watchdog::RetainMode;
 use trust_runtime_services::capabilities::{LastReset, ResetCauseName};
-use trust_runtime_services::runner::EngineLiveValues;
-use trust_runtime_services::status::StatusSettings;
+use trust_runtime_services::chip::platform::status_settings;
+use trust_runtime_services::runner::DeviceLiveValues;
 
 /// One flash operation that reached the recording fake: a read or a program of `len` bytes at
 /// `address`, or the erase of the unit at `address`.
@@ -88,17 +88,10 @@ fn platform_with(retain: RetainMode, flash: Box<dyn CheckpointFlash>) -> Platfor
     Platform::new(
         (),
         SmolStr::new_static("Controller"),
-        StatusSettings {
-            execution_backend: "vm",
-            execution_backend_source: "default",
-            simulation_enabled: false,
-            simulation_time_scale: 1,
-            simulation_mode: SmolStr::new_static("production"),
-            simulation_warning: SmolStr::default(),
-        },
+        status_settings(),
         false,
         ControlMode::Production,
-        EngineLiveValues::empty(),
+        DeviceLiveValues::empty(),
         LastReset {
             cause: ResetCauseName::PowerOn,
             text: SmolStr::default(),

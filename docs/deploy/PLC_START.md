@@ -17,16 +17,21 @@ Required project layout:
 
 ```
 project/
-  program.stbc
+  program.tpi
+  deployment-record.bin
   runtime.toml
   io.toml
 ```
 
-If you keep ST sources in `src/`, generate `program.stbc`:
+Build the program image `program.tpi` and its deployment record from the ST sources in `src/`:
 
 ```
 trust-runtime build --project /path/to/project
 ```
+
+The first build installs the compiler toolchain when none is installed. The image is for the CPU of
+the computer that builds it, and a computer refuses an image of another CPU, so build the project
+on the computer that runs it.
 
 ## 3) Start the Runtime
 

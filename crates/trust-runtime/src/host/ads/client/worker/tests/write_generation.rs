@@ -1,7 +1,8 @@
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use super::*;
-use crate::runtime::BoundGlobal;
+use crate::runtime::NamedGlobals;
 
 #[test]
 fn write_response_cardinality_and_failure_quality_fail_closed() {
@@ -73,10 +74,11 @@ fn write_response_cardinality_and_failure_quality_fail_closed() {
         "a correlated failed generation must be terminal"
     );
 
-    let mut storage = crate::memory::VariableStorage::new();
-    storage.set_global("in_flight", Value::Real(4.0));
-    storage.set_global("rejected", Value::Real(3.0));
-    let mut bindings = vec![
+    let mut storage = NamedGlobals(BTreeMap::from([
+        ("in_flight", Value::Real(4.0)),
+        ("rejected", Value::Real(3.0)),
+    ]));
+    let bindings = vec![
         binding(point(
             "in_flight",
             "MAIN.InFlight",
@@ -90,13 +92,6 @@ fn write_response_cardinality_and_failure_quality_fail_closed() {
             UpdateMode::Poll,
         )),
     ];
-    for binding in &mut bindings {
-        binding.target = BoundGlobal::Engine(
-            storage
-                .ref_for_global(binding.point.point_name.as_str())
-                .expect("multi-output reference"),
-        );
-    }
     let transport = ScriptedAdsTransport::for_bindings(&bindings);
     let (mut bridge, mut worker) =
         AdsConnectionBridge::with_transport(transport, bindings).expect("multi-output bridge");
@@ -104,7 +99,7 @@ fn write_response_cardinality_and_failure_quality_fail_closed() {
         .connect(0)
         .expect("connect malformed generation worker");
     bridge
-        .capture_outputs(&mut storage, 0)
+        .capture_outputs_compiled(&mut storage, 0)
         .expect("prime both output generations");
     worker.tick(1).expect("acknowledge priming generations");
     bridge
@@ -117,10 +112,9 @@ fn write_response_cardinality_and_failure_quality_fail_closed() {
             .lock()
             .expect("different-output rejection fixture lock");
         let (storage, bridge) = &mut *guard;
-        let rejected_ref = storage.ref_for_global("rejected").unwrap();
-        assert!(storage.write_by_ref(rejected_ref, Value::Real(f32::NAN)));
+        storage.0.insert("rejected", Value::Real(f32::NAN));
         bridge
-            .capture_outputs(storage, 2)
+            .capture_outputs_compiled(storage, 2)
             .expect("reject different output while write is in flight");
     });
     worker.transport_mut().script_writes(Vec::new());
@@ -185,7 +179,7 @@ fn write_ack_does_not_drop_newer_queued_value() {
         .connect(0)
         .expect("connect non-finite generation worker");
     bridge
-        .capture_outputs(&mut storage, 1)
+        .capture_outputs_compiled(&mut storage, 1)
         .expect("queue in-flight finite output");
     let rejection_state = Arc::new(Mutex::new((storage, bridge)));
     let rejection_during_write = Arc::clone(&rejection_state);
@@ -194,10 +188,9 @@ fn write_ack_does_not_drop_newer_queued_value() {
             .lock()
             .expect("non-finite rejection fixture lock");
         let (storage, bridge) = &mut *guard;
-        let output_ref = storage.ref_for_global("out").unwrap();
-        assert!(storage.write_by_ref(output_ref, Value::Real(f32::NAN)));
+        storage.0.insert("out", Value::Real(f32::NAN));
         bridge
-            .capture_outputs(storage, 2)
+            .capture_outputs_compiled(storage, 2)
             .expect("reject output while older generation is in flight");
     });
 

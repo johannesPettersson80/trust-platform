@@ -9,7 +9,7 @@ use crate::kernel::{read_real, without_debugger, RealReader, WITHOUT_DEBUGGER};
 use crate::module::{recurse, run, stmt, tick};
 use crate::{
     plain_struct, Cx, Fault, FaultCode, KernelApi, RefValue, Str, WStr, AREA_GLOBALS,
-    AREA_INSTANCES,
+    AREA_INSTANCES, INTERFACE_VERSION,
 };
 
 /// A reference is 16 bytes on every target (§7.3): a layout of 24 or 12 would put the next
@@ -211,12 +211,14 @@ static COUNTING: KernelApi = KernelApi {
     stop: counting_stop,
     debug_write: WITHOUT_DEBUGGER.debug_write,
     read_real: WITHOUT_DEBUGGER.read_real,
+    wall_clock: WITHOUT_DEBUGGER.wall_clock,
 };
 
 static ABORTING: KernelApi = KernelApi {
     stop: aborting_stop,
     debug_write: WITHOUT_DEBUGGER.debug_write,
     read_real: WITHOUT_DEBUGGER.read_real,
+    wall_clock: WITHOUT_DEBUGGER.wall_clock,
 };
 
 /// A reader that reads `2.5` and nothing else.
@@ -308,7 +310,7 @@ fn another_interface_version_is_refused() {
     });
     assert_eq!(result, FaultCode::ModuleInternal as u32);
     assert!(!ran.get());
-    assert_eq!(cx.fault.detail[..2], [3, 4]);
+    assert_eq!(cx.fault.detail[..2], [3, i64::from(INTERFACE_VERSION)]);
 }
 
 /// The other areas are untouched: an area id outside 1 to 7 is refused.

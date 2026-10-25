@@ -1,20 +1,40 @@
-use crate::harness::CompileSession;
+use crate::harness::{lower_application, CompileSession, SourceFile};
 use crate::io::IoSize;
 use crate::memory::IoArea;
 use crate::program_model::{Expr, VarDef};
 use crate::value::Value;
-use crate::{RetainPolicy, Runtime};
+use crate::{RetainPolicy, RuntimeBuilder};
 use trust_hir::symbols::ParamDirection;
 use trust_hir::{Type, TypeId};
 
-fn runtime(source: &str) -> Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+fn runtime(source: &str) -> RuntimeBuilder {
+    lower_application(&[SourceFile::new(source)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .map(|(builder, _)| builder)
         .unwrap_or_else(|error| panic!("variable fixture must compile: {error}"))
 }
 
+/// The retention policy the front end records for the global `name`: a root global's, or a
+/// configuration's or resource's.
+fn global_retain(source: &str, name: &str) -> RetainPolicy {
+    let lowered = lower_application(&[SourceFile::new(source)], false)
+        .unwrap_or_else(|error| panic!("variable fixture must compile: {error}"));
+    lowered
+        .globals
+        .iter()
+        .chain(
+            lowered
+                .configuration
+                .iter()
+                .flat_map(|configuration| configuration.globals.iter()),
+        )
+        .find(|global| global.name == name)
+        .unwrap_or_else(|| panic!("missing global {name}"))
+        .retain
+}
+
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("variable fixture must fail"),
         Err(error) => error.to_string(),
     }
@@ -181,7 +201,7 @@ END_PROGRAM
         .expect("ReadShared");
     assert!(function.locals.is_empty());
     assert!(function.static_locals.is_empty());
-    assert!(runtime.globals().contains_key("Shared"));
+    assert!(runtime.global_types().contains_key("Shared"));
 }
 
 #[test]
@@ -548,7 +568,7 @@ END_PROGRAM
     let program = runtime.programs().values().next().expect("Main program");
     assert!(program.vars.is_empty());
     assert!(program.temps.is_empty());
-    assert!(runtime.globals().contains_key("Shared"));
+    assert!(runtime.global_types().contains_key("Shared"));
 }
 
 #[test]
@@ -596,12 +616,12 @@ END_PROGRAM
 END_NAMESPACE
 "#,
     );
-    assert!(runtime.globals().contains_key("Cell.Shared"));
+    assert!(runtime.global_types().contains_key("Cell.Shared"));
     assert_eq!(
         runtime.storage().get_global("Cell.Shared"),
         Some(&Value::Int(3))
     );
-    assert!(!runtime.globals().contains_key("Shared"));
+    assert!(!runtime.global_types().contains_key("Shared"));
 }
 
 #[test]
@@ -663,7 +683,7 @@ END_PROGRAM
         .find(|class| class.name == "Device")
         .expect("Device");
     assert!(class.vars.is_empty());
-    assert!(runtime.globals().contains_key("Shared"));
+    assert!(runtime.global_types().contains_key("Shared"));
 }
 
 #[test]
@@ -689,8 +709,7 @@ END_PROGRAM
 
 #[test]
 fn variable_contract_root_global_retain_policies_are_preserved() {
-    let runtime = runtime(
-        r#"
+    let source = r#"
 VAR_GLOBAL RETAIN
     Retained : INT := INT#1;
 END_VAR
@@ -702,15 +721,14 @@ VAR_GLOBAL PERSISTENT
 END_VAR
 PROGRAM Main
 END_PROGRAM
-"#,
-    );
-    assert_eq!(runtime.globals()["Retained"].retain, RetainPolicy::Retain);
+"#;
+    assert_eq!(global_retain(source, "Retained"), RetainPolicy::Retain);
     assert_eq!(
-        runtime.globals()["Reinitialized"].retain,
+        global_retain(source, "Reinitialized"),
         RetainPolicy::NonRetain
     );
     assert_eq!(
-        runtime.globals()["PersistentValue"].retain,
+        global_retain(source, "PersistentValue"),
         RetainPolicy::Persistent
     );
 }
@@ -728,7 +746,7 @@ END_PROGRAM
     );
     for name in ["First", "Second", "Third"] {
         assert_eq!(runtime.storage().get_global(name), Some(&Value::Int(7)));
-        assert_eq!(runtime.globals()[name].type_id, TypeId::INT);
+        assert_eq!(runtime.global_types()[name], TypeId::INT);
     }
 }
 
@@ -764,7 +782,7 @@ PROGRAM Main
 END_PROGRAM
 "#,
     );
-    assert!(runtime.globals().contains_key("Cell.Counter"));
+    assert!(runtime.global_types().contains_key("Cell.Counter"));
     assert_eq!(
         runtime.storage().get_global("Cell.Counter"),
         Some(&Value::DInt(9))

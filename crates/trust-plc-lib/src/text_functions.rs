@@ -33,7 +33,7 @@ fn offset(text: StrView<'_>, index: usize) -> usize {
 }
 
 /// The characters a count or a length argument stands for: none below one.
-fn span(count: i64) -> usize {
+pub(crate) fn span(count: i64) -> usize {
     if count <= 0 {
         0
     } else {
@@ -43,7 +43,7 @@ fn span(count: i64) -> usize {
 
 /// The 0-based index of the character at 1-based `position` of a text of `count` characters, a
 /// position below one the first character; `None` past the end.
-fn first(position: i64, count: usize) -> Option<usize> {
+pub(crate) fn first(position: i64, count: usize) -> Option<usize> {
     let start = if position <= 1 { 0 } else { position - 1 };
     usize::try_from(start).ok().filter(|start| *start < count)
 }
@@ -73,7 +73,7 @@ fn result(cx: &mut Cx, dst: StrView<'_>, parts: &[Piece<'_>]) -> Result<(), Faul
 /// # Errors
 ///
 /// `Overflow` for a count above 32,767.
-fn int(cx: &mut Cx, count: usize) -> Result<i16, Fault> {
+pub(crate) fn int(cx: &mut Cx, count: usize) -> Result<i16, Fault> {
     i16::try_from(count).map_err(|_| {
         fault(
             cx,
@@ -260,7 +260,7 @@ pub fn find(cx: &mut Cx, text: StrView<'_>, wanted: StrView<'_>) -> Result<i16, 
 ///
 /// `IndexOutOfBounds` with the index and the valid range, 1 to the count, or to `i64::MAX` for an
 /// index below one, as the runtime names them.
-fn element(cx: &mut Cx, index: i64, count: usize) -> Result<usize, Fault> {
+pub(crate) fn element(cx: &mut Cx, index: i64, count: usize) -> Result<usize, Fault> {
     if index < 1 {
         return Err(fault(cx, FaultCode::IndexOutOfBounds, index, 1, i64::MAX));
     }

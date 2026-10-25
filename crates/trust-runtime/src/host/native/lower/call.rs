@@ -7,8 +7,8 @@ use trust_hir::symbols::ParamDirection;
 use trust_hir::SymbolKind;
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
-use super::expr::Text;
 use super::object::Receiver;
+use super::text::Text;
 use super::{Lowerer, Place};
 use crate::native::types::{mangle, rust_field, Kind, Ty};
 use crate::native::NativeError;
@@ -248,25 +248,28 @@ impl<'a> Lowerer<'_, 'a> {
         params: &'p [Param],
         args: Vec<Arg>,
     ) -> Result<Vec<(&'p Param, Option<Arg>)>, NativeError> {
+        // `EN` is the call's own (`enabled`); `ENO` is an output the callee sets.
         let mut bound: Vec<(&'p Param, Option<Arg>)> = params
             .iter()
-            .filter(|param| !is_execution(param))
+            .filter(|param| !param.name.eq_ignore_ascii_case("EN"))
             .map(|param| (param, None))
+            .collect();
+        // Positional arguments skip `EN` and `ENO` (IEC §6.6.1.4).
+        let positional: Vec<usize> = (0..bound.len())
+            .filter(|slot| !is_execution(bound[*slot].0))
             .collect();
         let mut next = 0;
         for arg in args {
             let slot = match &arg.name {
-                Some(name)
-                    if name.eq_ignore_ascii_case("EN") || name.eq_ignore_ascii_case("ENO") =>
-                {
-                    return Err(self.unsupported(node, "EN and ENO"));
+                Some(name) if name.eq_ignore_ascii_case("EN") => {
+                    return Err(self.unsupported(node, "EN on this call"));
                 }
                 Some(name) => bound
                     .iter()
                     .position(|(param, _)| param.name.eq_ignore_ascii_case(name)),
                 None => {
                     next += 1;
-                    Some(next - 1).filter(|slot| *slot < bound.len())
+                    positional.get(next - 1).copied()
                 }
             };
             let Some(slot) = slot else {
@@ -278,17 +281,39 @@ impl<'a> Lowerer<'_, 'a> {
     }
 
     /// The Rust arguments of a function's or a method's parameters, and the outputs to copy to
-    /// their variables after the call: each output's place in the caller and its variable.
+    /// their variables after the call: each output's place in the caller and its variable, in the
+    /// order of the parameters. The actuals are evaluated once each, left to right in source order,
+    /// whatever parameters they name (specification 10 §7.5, step 4).
     pub(super) fn inputs(
         &mut self,
         node: &SyntaxNode,
         bound: &[(&Param, Option<Arg>)],
     ) -> Result<(Vec<String>, Outputs), NativeError> {
-        let mut values = Vec::with_capacity(bound.len());
-        let mut outputs = Vec::new();
-        for (param, arg) in bound {
+        let mut order: Vec<usize> = (0..bound.len()).collect();
+        order.sort_by_key(|slot| {
+            bound[*slot]
+                .1
+                .as_ref()
+                .map_or(u32::MAX, |arg| u32::from(arg.value.text_range().start()))
+        });
+        let mut values: Vec<Option<String>> = vec![None; bound.len()];
+        let mut outputs: Vec<(usize, Place, SyntaxNode)> = Vec::new();
+        for slot in order {
+            let (param, arg) = &bound[slot];
             let ty = self.model.ty(param.type_id)?;
             let info = self.info(ty).clone();
+            // An open array is the caller's array, whatever the direction: a view of its elements
+            // with their bounds (specification 03 §6; specification 44 §6.2).
+            if matches!(info.kind, Kind::Open { .. }) {
+                let Some(arg) = arg else {
+                    return Err(self.unsupported(
+                        node,
+                        format!("the open array {} without its array", param.name),
+                    ));
+                };
+                values[slot] = Some(self.open_view(&arg.value, ty)?);
+                continue;
+            }
             if param.direction == ParamDirection::InOut
                 || (param.direction == ParamDirection::In && info.kind.is_instance())
             {
@@ -303,7 +328,7 @@ impl<'a> Lowerer<'_, 'a> {
                     ));
                 };
                 let place = self.place(&arg.value)?;
-                values.push(self.as_type(&arg.value, &place, ty)?);
+                values[slot] = Some(self.as_type(&arg.value, &place, ty)?);
                 continue;
             }
             if param.direction == ParamDirection::Out {
@@ -313,15 +338,18 @@ impl<'a> Lowerer<'_, 'a> {
                 self.line(&format!(
                     "let {temp}: {storage} = <{storage} as Plain>::ZEROED;"
                 ));
-                values.push(format!("&{temp}"));
+                values[slot] = Some(format!("&{temp}"));
+                // A positional actual at an output is its target, as `=>` names it (specification
+                // 06, "A complete non-formal call").
                 if let Some(arg) = arg {
-                    if !arg.output {
+                    if !arg.output && arg.name.is_some() {
                         return Err(self.unsupported(
                             &arg.value,
-                            format!("the output {} given without =>", param.name),
+                            format!("the output {} given with :=", param.name),
                         ));
                     }
                     outputs.push((
+                        slot,
                         Place {
                             expr: temp,
                             ty,
@@ -333,7 +361,8 @@ impl<'a> Lowerer<'_, 'a> {
                 continue;
             }
             let value = match (&info.kind, arg) {
-                (Kind::Str(capacity), Some(arg)) => {
+                // A text input is copied in, cut at the parameter's capacity (specification 02 §6).
+                (Kind::Str(capacity) | Kind::WStr(capacity), Some(arg)) => {
                     let parts = self.text(&arg.value)?;
                     self.text_temp(&parts, *capacity)
                 }
@@ -342,12 +371,21 @@ impl<'a> Lowerer<'_, 'a> {
                     let temp = self.bind(&format!("Cell::new({reference})"));
                     format!("&{temp}")
                 }
-                (Kind::Ref { target }, Some(arg)) => {
+                (Kind::Ref { target, .. }, Some(arg))
+                    if matches!(self.info(*target).kind, Kind::Open { .. }) =>
+                {
+                    self.open_source(&arg.value, *target)?
+                }
+                (Kind::Ref { target, .. }, Some(arg)) => {
                     let reference = self.reference_to(&arg.value, Some(*target))?;
                     let temp = self.bind(&format!("Cell::new({reference})"));
                     format!("&{temp}")
                 }
-                (kind, Some(arg)) if super::is_scalar(kind) => self.scalar_to(&arg.value, ty)?,
+                // Read now, so that a later actual's call does not change what this one passed.
+                (kind, Some(arg)) if super::is_scalar(kind) => {
+                    let value = self.scalar_to(&arg.value, ty)?;
+                    self.bind(&value)
+                }
                 (_, Some(arg)) => self.aggregate(&arg.value, ty)?.reference(),
                 // An input the call leaves out takes its default (IEC §6.6.1.2.2).
                 (kind, None) if super::is_scalar(kind) => super::super::frame_init::omitted_scalar(
@@ -380,9 +418,16 @@ impl<'a> Lowerer<'_, 'a> {
                     format!("&{temp}")
                 }
             };
-            values.push(value);
+            values[slot] = Some(value);
         }
-        Ok((values, outputs))
+        outputs.sort_by_key(|(slot, _, _)| *slot);
+        Ok((
+            values.into_iter().flatten().collect(),
+            outputs
+                .into_iter()
+                .map(|(_, place, target)| (place, target))
+                .collect(),
+        ))
     }
 
     /// Copies each output's place to its variable, after the call (IEC §6.6.1.4).
@@ -398,6 +443,11 @@ impl<'a> Lowerer<'_, 'a> {
                 }
                 Kind::Str(_) => self.line(&format!(
                     "lib::assign(({}).view(), ({}).view());",
+                    destination.reference(),
+                    place.reference()
+                )),
+                Kind::WStr(_) => self.line(&format!(
+                    "lib::assign_wide(({}).view(), ({}).view());",
                     destination.reference(),
                     place.reference()
                 )),
@@ -493,20 +543,28 @@ impl<'a> Lowerer<'_, 'a> {
         args: Vec<Arg>,
         want: Want,
     ) -> Result<Called, NativeError> {
-        let bound = self.bind_arguments(node, &def.params, args)?;
-        let (arguments, outputs) = self.inputs(node, &bound)?;
-        super::Need::Function(def.name.clone()).add_to(&mut self.needs);
-        let function = format!("f_{}", mangle(&def.name));
-        let called = self.emit_call(
+        self.enabled(
             node,
-            &function,
-            None,
-            arguments,
+            args,
             Some(def.return_type),
-            &want,
-        )?;
-        self.copy_outputs(outputs)?;
-        Ok(called)
+            want,
+            |this, args, want| {
+                let bound = this.bind_arguments(node, &def.params, args)?;
+                let (arguments, outputs) = this.inputs(node, &bound)?;
+                super::Need::Function(def.name.clone()).add_to(&mut this.needs);
+                let function = format!("f_{}", mangle(&def.name));
+                let called = this.emit_call(
+                    node,
+                    &function,
+                    None,
+                    arguments,
+                    Some(def.return_type),
+                    &want,
+                )?;
+                this.copy_outputs(outputs)?;
+                Ok(called)
+            },
+        )
     }
 
     /// `instance(inputs, outputs)`: the given inputs written, the body run, the outputs read
@@ -544,17 +602,62 @@ impl<'a> Lowerer<'_, 'a> {
                 )
             }
         };
-        use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_IN_OUT};
+        use trust_runtime_core::native::image::{SYMBOL_INPUT, SYMBOL_IN_OUT, SYMBOL_OUTPUT};
+        let member_place = |name: &str| {
+            members
+                .iter()
+                .find(|member| member.name.eq_ignore_ascii_case(name))
+                .map(|member| Place {
+                    expr: format!("{}.{}", instance.expr, member.field()),
+                    ty: member.ty,
+                    is_ref: false,
+                })
+        };
+        let (en_member, eno_member) = (member_place("EN"), member_place("ENO"));
+        // `EN`, when the call names it, is evaluated before every other actual, and a call it
+        // disables writes no input, runs no body and keeps the instance; a connected `ENO` gets
+        // FALSE (specification 10 §7.5).
+        let (en, args) = super::enable::split_en(args);
+        let eno_target = args
+            .iter()
+            .find(|arg| {
+                arg.output
+                    && arg
+                        .name
+                        .as_deref()
+                        .is_some_and(|name| name.eq_ignore_ascii_case("ENO"))
+            })
+            .map(|arg| arg.value.clone());
+        if let Some(en) = &en {
+            let enabled = self.condition(&en.value)?;
+            self.line(&format!("if {enabled} {{"));
+            self.indent += 1;
+            if let Some(member) = &en_member {
+                self.store_scalar(member, "true");
+            }
+        }
         let mut outputs = Vec::new();
+        // A positional actual takes the next input, output or in-out in declaration order, `EN`
+        // and `ENO` left out (specification 06, "A complete non-formal call").
+        let positional: Vec<&super::super::types::Member> = members
+            .iter()
+            .filter(|member| member.flags & (SYMBOL_INPUT | SYMBOL_OUTPUT | SYMBOL_IN_OUT) != 0)
+            .filter(|member| {
+                !member.name.eq_ignore_ascii_case("EN") && !member.name.eq_ignore_ascii_case("ENO")
+            })
+            .collect();
         for (position, arg) in args.into_iter().enumerate() {
             let member = match &arg.name {
-                Some(name) => members
-                    .iter()
-                    .find(|member| member.name.eq_ignore_ascii_case(name)),
-                None => members
-                    .iter()
-                    .filter(|member| member.flags & (SYMBOL_INPUT | SYMBOL_IN_OUT) != 0)
-                    .nth(position),
+                Some(name) => {
+                    let name = match &info.kind {
+                        Kind::StdFb(fb) => fb.member_named(name),
+                        _ => name.as_str(),
+                    };
+                    members
+                        .iter()
+                        .find(|member| member.name.eq_ignore_ascii_case(name))
+                }
+                None => positional.get(position).copied(),
             };
             let Some(member) = member else {
                 return Err(self.unsupported(
@@ -570,20 +673,34 @@ impl<'a> Lowerer<'_, 'a> {
             if member.flags & SYMBOL_IN_OUT != 0 {
                 // The instance keeps a reference to the variable it was called with (§6.4), an
                 // instance of a derived type as its base (IEC §6.6.8.3).
-                let variable = self.place(&arg.value)?;
-                let Kind::Ref { target } = self.info(member.ty).kind else {
+                let Kind::Ref { target, .. } = self.info(member.ty).kind else {
                     return Err(self.unsupported(&arg.value, "a VAR_IN_OUT without its type"));
                 };
+                if matches!(self.info(target).kind, Kind::Open { .. }) {
+                    // An open array in-out keeps the array's bounds beside the reference.
+                    let view = self.open_view(&arg.value, target)?;
+                    let view = self.bind(&view);
+                    self.line(&format!(
+                        "{}.set(w.areas.refer_elements(cx, {view}.elements(), abi::RefValue::VARIABLE)?, {view}.bounds());",
+                        place.expr
+                    ));
+                    continue;
+                }
+                let variable = self.place(&arg.value)?;
                 let variable = self.as_type(&arg.value, &variable, target)?;
                 self.line(&format!(
                     "{}.set(w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?);",
                     place.expr
                 ));
-            } else if arg.output {
+            } else if arg.output || member.flags & SYMBOL_OUTPUT != 0 {
                 outputs.push((place, arg.value));
             } else {
                 self.store(&place, &arg.value)?;
             }
+        }
+        // `ENO` starts TRUE, and the body may set it FALSE (specification 10 §7.5).
+        if let Some(member) = &eno_member {
+            self.store_scalar(member, "true");
         }
         match body {
             Body::User(function) => {
@@ -594,11 +711,18 @@ impl<'a> Lowerer<'_, 'a> {
                 self.line(&format!("{function}({}{time});", instance.reference()));
             }
         }
-        for (member, target) in outputs {
-            let destination = self.place(&target)?;
-            let value = self.load(&member);
-            let value = self.convert(&target, &value, member.ty, destination.ty)?;
-            self.store_scalar(&destination, &value);
+        // The outputs reach their variables as a function's do: a scalar converted, a text cut at
+        // the variable's capacity (specification 02 §6).
+        self.copy_outputs(outputs)?;
+        if en.is_some() {
+            self.indent -= 1;
+            self.line("} else {");
+            self.indent += 1;
+            if let Some(target) = eno_target {
+                self.store_false(&target)?;
+            }
+            self.indent -= 1;
+            self.line("}");
         }
         Ok(())
     }

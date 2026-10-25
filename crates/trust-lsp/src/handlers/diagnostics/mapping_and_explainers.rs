@@ -216,15 +216,15 @@ fn collect_hmi_toml_semantic_diagnostics(
             )
         })
         .collect::<Vec<_>>();
-    let runtime = match CompileSession::from_sources(compile_sources).build_runtime() {
-        Ok(runtime) => runtime,
+    // The project's declarations in their starting state (specification 44 §6.7).
+    let declarations = match CompileSession::from_sources(compile_sources).declarations() {
+        Ok(declarations) => declarations,
         Err(_error) => return Vec::new(),
     };
-    let metadata = runtime.metadata_snapshot();
+    let metadata = declarations.metadata().clone();
     let snapshot = DebugSnapshot {
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-        storage_abi: metadata.storage_abi(),
+        storage: declarations.storage().clone(),
+        now: trust_runtime::value::Duration::ZERO,
         compiled: None,
     };
     let source_refs = loaded_sources

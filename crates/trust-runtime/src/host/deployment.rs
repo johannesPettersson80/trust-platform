@@ -1,20 +1,19 @@
-//! The deployment record next to `program.stbc` (specification 34 §5.1.1, HOST-02).
+//! The deployment record next to the project's program image (specification 34 §5.1.1, HOST-02;
+//! specification 44 §10.1).
 //!
-//! Every tool that writes a program into a project writes its record too, and a project's
-//! record is admitted against the computer's descriptor when the project is loaded. The record
-//! itself, its identities and its admission are the shared core's (`runtime_core::deployment`).
+//! Every tool that writes a program into a project writes its record too. A computer admits the
+//! project's image by the record beside it when it loads the project, as a device admits a
+//! container (specification 44 §10.2, step 1; specification 34 HOST-02), and reads its
+//! `runtime.toml` and `io.toml` at each start, which the record does not bind on a computer. The
+//! record itself, its identities and its admission are the shared core's
+//! (`runtime_core::deployment`).
 
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use trust_runtime_core::deployment::{
-    admit, configuration_identity, DeploymentRecord, DeviceDescriptor,
-};
-use trust_runtime_core::vm::{PreparationLimits, PreparedModule};
-use trust_runtime_core::watchdog::RetainMode;
+use trust_runtime_core::deployment::{configuration_identity, DeploymentRecord};
 
 use crate::error::RuntimeError;
-use crate::metrics::ProgramMemory;
 
 #[path = "deployment/configuration.rs"]
 mod configuration;
@@ -22,18 +21,8 @@ mod configuration;
 #[path = "program_store.rs"]
 pub mod program_store;
 
-/// The record's file name, next to `program.stbc`.
+/// The record's file name, next to the project's program image.
 pub const DEPLOYMENT_RECORD_FILE: &str = "deployment-record.bin";
-
-/// What writing a program's record did.
-#[derive(Debug, Clone)]
-pub enum RecordWrite {
-    /// The record was written to this path.
-    Written(PathBuf),
-    /// The runtime cannot prepare the program, or a value section 7 cannot carry was found, so
-    /// it has no record; an older record was removed.
-    Skipped(RuntimeError),
-}
 
 /// The configuration identity of a project: its `runtime.toml` and `io.toml`.
 ///
@@ -46,46 +35,32 @@ pub fn project_configuration_identity(project: &Path) -> io::Result<[u8; 32]> {
     Ok(configuration_identity(runtime.as_deref(), io.as_deref()))
 }
 
-/// Write the record of `program`, the bytes of the project's `program.stbc`, requesting the
-/// hosted default limits and filling the configuration section from the project's `runtime.toml`
-/// and `io.toml` (specification 34 §5.1.1). When the runtime cannot prepare the program, or a
-/// value the record cannot carry is found, an older record is removed instead, so that a project
-/// never pairs a program with another program's record.
+/// Admits the program image `image` of `project` by the deployment record beside it, when the build
+/// wrote one: the record must read, name this image and ask for nothing this computer does not run
+/// (specification 44 §10.2, step 1; specification 34 HOST-02). A project without a record is
+/// admitted by the image's own checks.
 ///
 /// # Errors
 ///
-/// The configuration files cannot be read, or the record cannot be written or removed.
-pub fn write_record(project: &Path, program: &[u8]) -> io::Result<RecordWrite> {
-    let identity = project_configuration_identity(project)?;
-    let path = project.join(DEPLOYMENT_RECORD_FILE);
-    let encoded = configuration::from_project(project)
-        .and_then(|section| {
-            DeploymentRecord::for_program(program, PreparationLimits::default(), identity).map(
-                |mut record| {
-                    record.configuration = section;
-                    record
-                },
-            )
-        })
-        .and_then(|record| {
-            record
-                .encode()
-                .map_err(RuntimeError::DeploymentRecordInvalid)
-        });
-    match encoded {
-        Ok(bytes) => {
-            program_store::write_atomic(&path, &bytes)?;
-            Ok(RecordWrite::Written(path))
+/// [`RuntimeError::DeploymentRecordInvalid`] for a record that does not read,
+/// [`RuntimeError::DeploymentRefused`] for one that names another program or asks for more, and
+/// [`RuntimeError::InvalidBundle`] for one that cannot be read.
+pub fn admit_project_image(project: &Path, image: &[u8]) -> Result<(), RuntimeError> {
+    let bytes = match std::fs::read(project.join(DEPLOYMENT_RECORD_FILE)) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(RuntimeError::InvalidBundle(
+                format!("failed to read {DEPLOYMENT_RECORD_FILE}: {error}").into(),
+            ));
         }
-        Err(reason) => {
-            match std::fs::remove_file(&path) {
-                Ok(()) => {}
-                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-                Err(error) => return Err(error),
-            }
-            Ok(RecordWrite::Skipped(reason))
-        }
-    }
+    };
+    let record = DeploymentRecord::decode(&bytes).map_err(RuntimeError::DeploymentRecordInvalid)?;
+    trust_runtime_core::deployment::admit(
+        &record,
+        image,
+        &trust_runtime_core::deployment::DeviceDescriptor::hosted(),
+    )
 }
 
 /// The deployment record of the compiled program image `image` of `project` (specification 44
@@ -105,46 +80,6 @@ pub fn image_record(project: &Path, image: &[u8]) -> Result<Vec<u8>, RuntimeErro
     record
         .encode()
         .map_err(RuntimeError::DeploymentRecordInvalid)
-}
-
-/// The memory figure of `program` on this computer (specification 34 MEM-12): the figure that
-/// preparation computes with the limits that the program's record requests, the hosted defaults,
-/// with the capture of the retained values when the project's `runtime.toml` keeps them. A device
-/// computes its own figure, with its own sizes, when it prepares the program.
-///
-/// # Errors
-///
-/// The project's configuration cannot be read, or the program does not prepare.
-pub fn program_memory(project: &Path, program: &[u8]) -> Result<ProgramMemory, RuntimeError> {
-    let retains = configuration::from_project(project)?.retain_mode == RetainMode::File;
-    let prepared = PreparedModule::from_bytes(program, PreparationLimits::default())?;
-    Ok(ProgramMemory {
-        figure: prepared.memory_figure(),
-        retains,
-    })
-}
-
-/// The limits to prepare a project's program with: those of its record, admitted against the
-/// computer's descriptor, or the hosted defaults when the project has no record (HOST-02).
-///
-/// # Errors
-///
-/// The record cannot be read (`InvalidBundle`), is malformed (`DeploymentRecordInvalid`), or
-/// the computer refuses it (`DeploymentRefused`, `ImportUnsupported`).
-pub fn admitted_limits(project: &Path, program: &[u8]) -> Result<PreparationLimits, RuntimeError> {
-    let bytes = match std::fs::read(project.join(DEPLOYMENT_RECORD_FILE)) {
-        Ok(bytes) => bytes,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Ok(PreparationLimits::default());
-        }
-        Err(error) => {
-            return Err(RuntimeError::InvalidBundle(
-                format!("failed to read {DEPLOYMENT_RECORD_FILE}: {error}").into(),
-            ));
-        }
-    };
-    let record = DeploymentRecord::decode(&bytes).map_err(RuntimeError::DeploymentRecordInvalid)?;
-    admit(&record, program, &DeviceDescriptor::hosted())
 }
 
 fn read_optional(path: &Path) -> io::Result<Option<Vec<u8>>> {

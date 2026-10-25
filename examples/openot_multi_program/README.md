@@ -72,7 +72,7 @@ sqlite3 examples/openot_multi_program/history/trust-logging.sqlite3 \
   'SELECT event_name, COUNT(*) FROM event_log GROUP BY 1 ORDER BY 1;'
 ```
 
-The build emits `openot-definition.json` beside the bytecode. Persistence uses
+The build emits `openot-definition.json` beside the program image. Persistence uses
 that exact definition to resolve the ring records into canonical OpenOT event,
 loss, and placeholder documents. The database checkpoint advances in the same
 durable transaction as its documents. See the public OpenOT database

@@ -1,6 +1,6 @@
 [package]
 name = "trust-runtime-core"
-description = "Portable bytecode execution core for the truST runtime"
+description = "The portable kernel of the truST runtime: program images, values, retain and scheduling"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,13 +10,10 @@ rust-version.workspace = true
 [features]
 default = ["std"]
 std = ["dep:crc32fast", "crc32fast/std", "indexmap/std", "rustc-hash/std", "smol_str/std", "thiserror/std"]
-register-ir = []
-# Raw optimization fixtures are not part of the production execution API.
-test-support = ["register-ir"]
-# The measurement of where a prepared module's heap goes (`PreparedModule::drop_in_parts`), for the
-# chips' memory figures (spec 34 MEM-12). It changes nothing else.
-footprint = []
 hir = ["std", "dep:trust-hir"]
+# Helpers that only tests of other crates use: an instance created without its fallible path, and
+# the next instance identity moved so that the exhaustion path is reachable.
+test-support = []
 
 [dependencies]
 crc32fast = { workspace = true, optional = true }

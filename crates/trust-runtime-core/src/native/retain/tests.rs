@@ -45,9 +45,9 @@ use crate::native::image::{
 use crate::native::program::{admit, Device, ModuleCode, NativeProgram};
 use crate::retain::capture::RetainCapture;
 use crate::retain::codec::decode_snapshot_payload_v3;
+use crate::retain::RetainApplyEvent;
 use crate::retain::RetainSnapshot;
 use crate::value::{ArrayValue, Duration, EnumValue, StructValue, Value};
-use crate::vm::RetainApplyEvent;
 
 #[cfg(target_arch = "x86_64")]
 extern "sysv64" fn nothing(cx: *mut Cx) -> u32 {

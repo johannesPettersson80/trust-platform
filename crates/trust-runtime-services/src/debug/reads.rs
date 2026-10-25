@@ -1,53 +1,16 @@
-//! What the read operations list: the frames of the stack, the scopes of a frame and the variables
-//! of a scope (specification 13, "Stack Trace and Navigation", "Variables / Evaluate" and
-//! "Variable Visibility"; specification 11 §6.13.1).
-//!
-//! A read works on a [`ReadState`]: the storage as the published debug state holds it and the call
-//! stack with its variables named. The runtime that serves the request builds the state from what
-//! it owns, without copying the storage, and these functions only list it.
+//! What the read operations list that every runtime lists alike: the position of a frame, the one
+//! `Main` frame between scans, and the rows of the I/O scope (specification 13, "Stack Trace and
+//! Navigation" and "Variables / Evaluate"; specification 11 §6.13.1).
 
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
-use smol_str::SmolStr;
-use trust_runtime_core::collections::OrderedMap;
-use trust_runtime_core::memory::{FrameId, InstanceId, VariableStorage};
-use trust_runtime_core::value::Value;
-
 use super::paging::{ChildKind, Page};
-use super::projection::{
-    array_elements, instance_display_metadata, struct_fields, variable_for,
-    variables_from_instances, variables_from_io_rows, DebugScope, DebugSource, DebugVariable,
-    DebugVariableHandles, IoRow, IoRowValue, VariableHandle,
-};
+use super::projection::{variables_from_io_rows, DebugSource, DebugVariable, IoRow, IoRowValue};
 use super::replies;
 use crate::live_values::io_snapshot::{IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
-
-/// One frame of the call stack as a read sees it.
-#[derive(Debug, Clone)]
-pub struct NamedFrame<'a> {
-    /// The frame's identity.
-    pub id: FrameId,
-    /// The name of the POU the frame runs.
-    pub owner: &'a str,
-    /// The instance that receives the invocation, when it has one.
-    pub instance: Option<InstanceId>,
-    /// The frame's locals in declaration order. The compiler's scratch slots are not listed
-    /// (specification 13, "Variables / Evaluate").
-    pub variables: Vec<(&'a str, &'a Value)>,
-}
-
-/// The state a read answers from: the storage and the call stack, outermost frame first.
-#[derive(Debug)]
-pub struct ReadState<'a> {
-    /// The storage of the published debug state.
-    pub storage: &'a VariableStorage,
-    /// The call stack. It is empty when no scan is held, because the published state of a scan
-    /// that ended has no call stack (specification 11 §6.13.1).
-    pub frames: Vec<NamedFrame<'a>>,
-}
 
 /// A position in a source file, as a frame or a scope reply carries it: zero-based.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,230 +23,21 @@ pub struct Located {
     pub column: u32,
 }
 
-/// The frames of a stack reply, innermost first. `place_of` gives the position a frame was last
-/// seen at, and `fallback` the position of the latest stop. With no frame, the stop's position is
-/// the one synthetic `Main` frame, and without a position the stack is empty.
+/// The frames of a stack reply when no scan is held: the latest stop's position as the one
+/// synthetic `Main` frame, and no frame without a position.
 #[must_use]
-pub fn stack_frames(
-    frames: &[NamedFrame<'_>],
-    place_of: impl Fn(FrameId) -> Option<Located>,
-    fallback: Option<&Located>,
-) -> Vec<serde_json::Value> {
-    let frame_json = |id: u32, name: &str, place: &Located| {
-        replies::stack_frame(id, name, &place.source, place.line, place.column)
-    };
-    if frames.is_empty() {
-        return fallback
-            .map(|place| vec![frame_json(0, "Main", place)])
-            .unwrap_or_default();
-    }
-    frames
-        .iter()
-        .rev()
-        .filter_map(|frame| {
-            let place = place_of(frame.id).or_else(|| fallback.cloned())?;
-            Some(frame_json(frame.id.0, frame.owner, &place))
+pub fn main_frame(fallback: Option<&Located>) -> Vec<serde_json::Value> {
+    fallback
+        .map(|place| {
+            vec![replies::stack_frame(
+                0,
+                "Main",
+                &place.source,
+                place.line,
+                place.column,
+            )]
         })
-        .collect()
-}
-
-/// The scopes of frame `frame`: its locals, then the globals, the retained variables, the I/O and
-/// the instances, each only when it has something to show. Handles restart at `1`, so the
-/// handles of an earlier stop are invalid from here (specification 13, "Runtime debug state,
-/// mutation, and projection invariants").
-#[must_use]
-pub fn scopes(
-    handles: &mut DebugVariableHandles,
-    storage: &VariableStorage,
-    frame: FrameId,
-    place: Option<&Located>,
-    has_io: bool,
-) -> Vec<DebugScope> {
-    handles.clear();
-    let mut scopes = vec![DebugScope {
-        name: "Locals".to_string(),
-        variables_reference: handles.alloc(VariableHandle::Locals(frame)),
-        expensive: false,
-        source: place.map(|place| place.source.clone()),
-        line: place.map(|place| place.line),
-        column: place.map(|place| place.column),
-        end_line: None,
-        end_column: None,
-    }];
-    let mut push = |name: &str, handle: VariableHandle| {
-        scopes.push(DebugScope {
-            name: name.to_string(),
-            variables_reference: handles.alloc(handle),
-            expensive: false,
-            source: None,
-            line: None,
-            column: None,
-            end_line: None,
-            end_column: None,
-        });
-    };
-    if !storage.globals().is_empty() {
-        push("Globals", VariableHandle::Globals);
-    }
-    if !storage.retain().is_empty() {
-        push("Retain", VariableHandle::Retain);
-    }
-    if has_io {
-        push("I/O", VariableHandle::IoRoot);
-    }
-    if !storage.instances().is_empty() {
-        push("Instances", VariableHandle::Instances);
-    }
-    scopes
-}
-
-/// The variables a handle lists: the children that `page` keeps, which only an array has indexed and
-/// every other handle has named (specification 11 §6.13.3, "Variable pages"). Only the children of
-/// the page take handles.
-///
-/// # Errors
-///
-/// The error text of a handle whose frame or instance is no longer there, of a reference whose
-/// target is gone, and of an I/O handle while no I/O snapshot is published.
-pub fn variables(
-    state: &ReadState<'_>,
-    handle: &VariableHandle,
-    io: Option<&IoSnapshot>,
-    handles: &mut DebugVariableHandles,
-    page: Page,
-) -> Result<Vec<DebugVariable>, String> {
-    let storage = state.storage;
-    Ok(match handle {
-        VariableHandle::Locals(frame_id) => locals(state, *frame_id, handles, page)?,
-        VariableHandle::Globals => named_values(handles, storage.globals(), storage, page),
-        VariableHandle::Retain => named_values(handles, storage.retain(), storage, page),
-        VariableHandle::Instances => {
-            let mut instances = Vec::with_capacity(storage.instances().len());
-            for (id, data) in storage.instances() {
-                instances.push((*id, data.type_name.to_string()));
-            }
-            // The order is the instances' identity on every runtime; the storage's map is a hash
-            // map on a computer (specification 11 §6.13.3).
-            instances.sort_by_key(|(id, _)| *id);
-            let listed = page
-                .select(ChildKind::Named, instances.into_iter())
-                .collect();
-            variables_from_instances(handles, listed)
-        }
-        VariableHandle::Instance(instance_id) => instance(storage, *instance_id, handles, page)?,
-        VariableHandle::Struct(value) => struct_fields(handles, value, page),
-        VariableHandle::Array(value) => array_elements(handles, value, page),
-        VariableHandle::Reference(value_ref) => {
-            let Some(value) = storage.read_by_ref_ref(value_ref) else {
-                return Err(String::from("reference target unavailable"));
-            };
-            let (display, type_name) = instance_display_metadata(value, storage);
-            page.select(ChildKind::Named, core::iter::once(value))
-                .next()
-                .map(|value| variable_for(handles, "*", value, None, display, type_name))
-                .into_iter()
-                .collect()
-        }
-        VariableHandle::IoRoot => {
-            let io = io.ok_or_else(|| String::from("I/O snapshot unavailable"))?;
-            let areas = [
-                ("Inputs", io.inputs.len(), VariableHandle::IoInputs),
-                ("Outputs", io.outputs.len(), VariableHandle::IoOutputs),
-                ("Memory", io.memory.len(), VariableHandle::IoMemory),
-            ];
-            page.select(ChildKind::Named, areas.into_iter())
-                .map(|(name, items, area)| io_area(name, items, handles.alloc(area)))
-                .collect()
-        }
-        VariableHandle::IoInputs => io_rows(io, |io| io.inputs.as_slice(), page)?,
-        VariableHandle::IoOutputs => io_rows(io, |io| io.outputs.as_slice(), page)?,
-        VariableHandle::IoMemory => io_rows(io, |io| io.memory.as_slice(), page)?,
-        // A compiled program's handles are listed through its memory (`compiled`).
-        VariableHandle::CompiledLocals(_)
-        | VariableHandle::CompiledGlobals
-        | VariableHandle::CompiledRetain
-        | VariableHandle::CompiledInstances
-        | VariableHandle::CompiledInstance { .. }
-        | VariableHandle::CompiledInstanceArray { .. } => {
-            return Err(String::from("the handle names no variable of this program"));
-        }
-    })
-}
-
-/// The variables of a table of named values that `page` lists, in the table's order.
-fn named_values(
-    handles: &mut DebugVariableHandles,
-    values: &OrderedMap<SmolStr, Value>,
-    storage: &VariableStorage,
-    page: Page,
-) -> Vec<DebugVariable> {
-    page.select(ChildKind::Named, values.iter())
-        .map(|(name, value)| entry(handles, name, value, storage))
-        .collect()
-}
-
-/// The locals of a frame that `page` lists: the variables of the instance that receives the
-/// invocation, then the frame's own.
-fn locals(
-    state: &ReadState<'_>,
-    frame_id: FrameId,
-    handles: &mut DebugVariableHandles,
-    page: Page,
-) -> Result<Vec<DebugVariable>, String> {
-    let storage = state.storage;
-    let Some(frame) = state.frames.iter().find(|frame| frame.id == frame_id) else {
-        return Err(replies::unknown_frame(frame_id.0));
-    };
-    let instance_variables = match frame.instance {
-        Some(instance_id) => {
-            let Some(instance) = storage.get_instance(instance_id) else {
-                return Err(format!("unknown instance id {}", instance_id.0));
-            };
-            Some(&instance.variables)
-        }
-        None => None,
-    };
-    let of_instance = instance_variables
-        .into_iter()
-        .flat_map(|variables| variables.iter().map(|(name, value)| (name.as_str(), value)));
-    let own = frame.variables.iter().copied();
-    Ok(page
-        .select(ChildKind::Named, of_instance.chain(own))
-        .map(|(name, value)| entry(handles, name, value, storage))
-        .collect())
-}
-
-/// The variables of one instance that `page` lists, then its parent as an instance entry.
-fn instance(
-    storage: &VariableStorage,
-    instance_id: InstanceId,
-    handles: &mut DebugVariableHandles,
-    page: Page,
-) -> Result<Vec<DebugVariable>, String> {
-    let Some(instance) = storage.get_instance(instance_id) else {
-        return Err(format!("unknown instance id {}", instance_id.0));
-    };
-    let parent = instance.parent.map(Value::Instance);
-    let members = instance
-        .variables
-        .iter()
-        .map(|(name, value)| (name.as_str(), value))
-        .chain(parent.as_ref().map(|value| ("parent", value)));
-    Ok(page
-        .select(ChildKind::Named, members)
-        .map(|(name, value)| entry(handles, name, value, storage))
-        .collect())
-}
-
-/// One variable of a scope: the value with the display text and type name of an instance.
-fn entry(
-    handles: &mut DebugVariableHandles,
-    name: &str,
-    value: &Value,
-    storage: &VariableStorage,
-) -> DebugVariable {
-    let (display, type_name) = instance_display_metadata(value, storage);
-    variable_for(handles, name, value, Some(name), display, type_name)
+        .unwrap_or_default()
 }
 
 /// The entry of one area in the I/O root.
@@ -318,51 +72,4 @@ pub(super) fn io_rows(
                 },
             }),
     ))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn instances_list_in_one_order_on_every_runtime() {
-        // Specification 11 §6.13.3: the Instances scope lists its instances in ascending instance
-        // identifier on every runtime, whatever order the storage's map iterates in. Twelve instances
-        // take the identifiers 0 to 11 in creation order, and each is named `<type>#<identifier>`.
-        // Wrong behaviour caught: a listing in the map's own iteration order (a hash map on a computer
-        // does not list twelve identifiers in ascending order), an instance that is dropped, and a
-        // name without its identifier.
-        let mut storage = VariableStorage::default();
-        for _ in 0..12 {
-            storage
-                .try_create_instance("Fb")
-                .expect("an instance identity");
-        }
-        let state = ReadState {
-            storage: &storage,
-            frames: Vec::new(),
-        };
-        let mut handles = DebugVariableHandles::new();
-
-        let listed = variables(
-            &state,
-            &VariableHandle::Instances,
-            None,
-            &mut handles,
-            Page::default(),
-        )
-        .expect("the instances list");
-
-        let names = listed
-            .iter()
-            .map(|variable| variable.name.as_str())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            names,
-            [
-                "Fb#0", "Fb#1", "Fb#2", "Fb#3", "Fb#4", "Fb#5", "Fb#6", "Fb#7", "Fb#8", "Fb#9",
-                "Fb#10", "Fb#11",
-            ]
-        );
-    }
 }

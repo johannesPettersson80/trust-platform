@@ -405,7 +405,7 @@ action = \"halt\"
 policy = \"halt\"
 ";
 
-/// The report of `trust-runtime bench project --execution-backend native` on the counter project in
+/// The report of `trust-runtime bench project` on the counter project in
 /// folder `name`, with `settings` as its `trust-lsp.toml` when given: one warmup and four measured
 /// cycles, watching `Main.Count`.
 fn bench_counter(name: &str, settings: Option<&str>) -> serde_json::Value {
@@ -427,8 +427,6 @@ fn bench_counter(name: &str, settings: Option<&str>) -> serde_json::Value {
             "1",
             "--watch",
             "Main.Count",
-            "--execution-backend",
-            "native",
             "--output",
             "json",
         ])
@@ -447,7 +445,7 @@ fn bench_counter(name: &str, settings: Option<&str>) -> serde_json::Value {
 
 #[test]
 fn bench_project_runs_the_project_compiled_on_the_kernel() {
-    // Specification 44 §14.3: `bench project --execution-backend native` runs the project compiled
+    // Specification 44 §14.3: `bench project` runs the project compiled
     // for this computer, each cycle one scan of the kernel at the next 10 ms of logical time. One
     // warmup and four measured cycles at 10 to 50 ms each run the task `Fast`, due first 10 ms after
     // the start (specification 10 §4.3), so `Main.Count` is 5, and the task's four measured

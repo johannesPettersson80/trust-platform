@@ -18,7 +18,7 @@ struct BundleChangeSummary {
     runtime_changes: Vec<String>,
     io_changed: bool,
     io_changes: Vec<String>,
-    bytecode_changed: bool,
+    program_changed: bool,
     source_diff: SourceDiff,
 }
 
@@ -33,9 +33,7 @@ impl BundleChangeSummary {
         let io_changed =
             optional_file_content_changed(previous_root, next.root.as_path(), "io.toml")?;
         let io_changes = diff_io(previous.map(|b| &b.io), &next.io);
-        let bytecode_changed = previous
-            .map(|b| b.bytecode != next.bytecode)
-            .unwrap_or(true);
+        let program_changed = previous.map(|b| b.image != next.image).unwrap_or(true);
         let source_diff = diff_sources(previous_root, next.root.as_path())?;
         Ok(Self {
             current_path,
@@ -44,7 +42,7 @@ impl BundleChangeSummary {
             runtime_changes,
             io_changed,
             io_changes,
-            bytecode_changed,
+            program_changed,
             source_diff,
         })
     }
@@ -90,8 +88,8 @@ impl BundleChangeSummary {
             }
         }
         lines.push(format!(
-            "program.stbc: {}",
-            if self.bytecode_changed {
+            "program.tpi: {}",
+            if self.program_changed {
                 "updated"
             } else {
                 "unchanged"

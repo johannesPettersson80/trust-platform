@@ -277,9 +277,13 @@ fn safe_state_after_stale_input_is_confirmed_when_the_safe_output_publishes() {
         "stale input must fault under the fault policy"
     );
 
-    let mut builder = crate::RuntimeBuilder::new();
-    builder.io_mut().resize(0, 1, 0);
-    let mut runtime = builder.build().expect("install MQTT output image");
+    // A program with a one-byte output image; the build needs the toolchain of specification 44
+    // §4.6 at `TRUST_TOOLCHAIN`.
+    let mut runtime = crate::harness::TestHarness::from_source(
+        "VAR_GLOBAL out AT %QB0 : BYTE; END_VAR PROGRAM Main END_PROGRAM",
+    )
+    .expect("build the MQTT output program")
+    .into_runtime();
     let mut safe_state = crate::io::IoSafeState::default();
     safe_state.outputs.push((
         crate::io::IoAddress::parse("%QB0").expect("safe-state output byte"),

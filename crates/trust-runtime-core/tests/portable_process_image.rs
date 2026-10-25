@@ -1,9 +1,7 @@
-use trust_runtime_core::bytecode::{IoBinding, TypeData, TypeEntry, TypeKind, TypeTable};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::{IoAddress, IoSize};
 use trust_runtime_core::io_image::{
     coerce_from_io, coerce_to_io, read_flat_image, write_flat_image, IoEnumBinding, IoValueCodec,
-    PreparedIoBinding,
 };
 use trust_runtime_core::stdlib::conversions::ConversionType;
 use trust_runtime_core::value::{Duration, EnumValue, Value};
@@ -65,73 +63,22 @@ fn typed_time_image_rejects_negative_durations_before_truncating_to_millis() {
     );
 }
 
+/// A `STRING[8]` bound at `%QB20` occupies the eight bytes from byte 20: a shorter text is
+/// zero-filled to the window, and a text longer than the window is an overflow that leaves the
+/// image as it was.
 #[test]
-fn preparation_restores_declared_string_window_and_overflow_is_nonmutating() {
-    let strings: trust_runtime_core::vm::Names = ["%QB20"].into_iter().collect();
-    let types = TypeTable {
-        offsets: vec![],
-        entries: vec![TypeEntry {
-            kind: TypeKind::Primitive,
-            name_idx: None,
-            data: TypeData::Primitive {
-                prim_id: 24,
-                max_length: 8,
-            },
-        }],
-    };
-    let binding = PreparedIoBinding::from_tables(
-        &IoBinding {
-            address_str_idx: 0,
-            ref_idx: 3,
-            type_id: Some(0),
-        },
-        &types,
-        &strings,
-    )
-    .unwrap();
-    assert_eq!(binding.address.size, IoSize::Bytes(8));
-    assert_eq!(binding.ref_idx, 3);
+fn a_string_window_is_zero_filled_and_overflow_is_nonmutating() {
+    let mut address = IoAddress::parse("%QB20").unwrap();
+    address.size = IoSize::Bytes(8);
     let mut image = vec![0x55; 28];
-    write_flat_image(&mut image, &binding.address, Value::String("abc".into())).unwrap();
+    write_flat_image(&mut image, &address, Value::String("abc".into())).unwrap();
     assert_eq!(&image[20..], b"abc\0\0\0\0\0");
     let before = image.clone();
     assert_eq!(
-        write_flat_image(
-            &mut image,
-            &binding.address,
-            Value::String("123456789".into())
-        ),
+        write_flat_image(&mut image, &address, Value::String("123456789".into())),
         Err(RuntimeError::Overflow)
     );
     assert_eq!(image, before);
-}
-#[test]
-fn a_string_without_a_length_binds_its_default_80_byte_window() {
-    // docs/IEC_DECISIONS.md 2026-10-17: an earlier producer wrote capacity 0 for STRING without a
-    // length, which is STRING[80].
-    let strings: trust_runtime_core::vm::Names = ["%IB4"].into_iter().collect();
-    let types = TypeTable {
-        offsets: vec![],
-        entries: vec![TypeEntry {
-            kind: TypeKind::Primitive,
-            name_idx: None,
-            data: TypeData::Primitive {
-                prim_id: 24,
-                max_length: 0,
-            },
-        }],
-    };
-    let binding = PreparedIoBinding::from_tables(
-        &IoBinding {
-            address_str_idx: 0,
-            ref_idx: 0,
-            type_id: Some(0),
-        },
-        &types,
-        &strings,
-    )
-    .unwrap();
-    assert_eq!(binding.address.size, IoSize::Bytes(80));
 }
 
 #[test]

@@ -1,12 +1,16 @@
 #![cfg(unix)]
+//! OpenOT telemetry of compiled ST programs: the producer records each scan publishes into the
+//! shared ring, the authored event families, and their persistence.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod openot_support;
-#[path = "openot_telemetry/work_capture.rs"]
-mod work_capture;
-use openot_support::{build_st_runtime, with_work_charge_log};
+#[path = "openot_telemetry/parameter_change.rs"]
+mod parameter_change;
+use openot_support::build_st_runtime;
 
 use open_ot_carriage::concurrent::{ConcurrentRawConsumer, ConcurrentStore};
 use open_ot_carriage::consumer::LossAccountingConsumer;
@@ -45,7 +49,6 @@ use trust_runtime::config::{
     OpenOtTelemetryConfig, OpenOtTelemetryFenceMode, OpenOtTelemetrySource,
 };
 use trust_runtime::harness::{SourceFile, TestHarness};
-use trust_runtime::memory::InstanceId;
 use trust_runtime::openot_authoring;
 #[cfg(feature = "openot-real-database-tests")]
 use trust_runtime::openot_persistence::{
@@ -57,7 +60,7 @@ use trust_runtime::openot_persistence::{
     PersistenceCheckpoint, PersistenceError, SharedMemoryOpenOtSource, SqliteDocumentSink,
 };
 use trust_runtime::value::Value;
-use trust_runtime::Runtime;
+use trust_runtime::CompiledRuntime;
 
 const DETERMINISTIC_SOURCE_TIME_BASE: u64 = 1_780_000_000_000_000_000;
 
@@ -67,6 +70,13 @@ fn temp_shm_path(name: &str) -> PathBuf {
         .expect("clock")
         .as_nanos();
     std::env::temp_dir().join(format!("trust-runtime-openot-{name}-{stamp}.shm"))
+}
+
+/// A program with no body, whose scans only publish the telemetry's heartbeats.
+fn empty_runtime() -> CompiledRuntime {
+    TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("admit empty telemetry application")
+        .into_runtime()
 }
 
 fn telemetry_config(path: PathBuf, capacity: usize) -> OpenOtTelemetryConfig {
@@ -580,9 +590,7 @@ END_PROGRAM
 #[test]
 fn openot_telemetry_publishes_crc_valid_heartbeats() {
     let path = temp_shm_path("heartbeat");
-    let mut runtime = trust_runtime::RuntimeBuilder::new()
-        .build()
-        .expect("admit empty telemetry application");
+    let mut runtime = empty_runtime();
     runtime
         .configure_openot_telemetry(&telemetry_config(path.clone(), 4096), None)
         .expect("configure OpenOT telemetry");
@@ -613,9 +621,7 @@ fn openot_telemetry_publishes_crc_valid_heartbeats() {
 #[test]
 fn openot_telemetry_publish_failure_is_fail_closed() {
     let path = temp_shm_path("too-small");
-    let mut runtime = trust_runtime::RuntimeBuilder::new()
-        .build()
-        .expect("admit empty telemetry application");
+    let mut runtime = empty_runtime();
     runtime
         .configure_openot_telemetry(&telemetry_config(path.clone(), 1), None)
         .expect("configure tiny OpenOT telemetry ring");
@@ -1880,9 +1886,9 @@ END_PROGRAM
 #[test]
 fn openot_telemetry_authoring_parameter_change_round_trip() {
     let path = temp_shm_path("authoring-parameter-change");
-    let program = work_capture::parameter_change_program();
+    let program = parameter_change::parameter_change_program();
     let mut runtime = build_st_runtime(program);
-    work_capture::assert_parameter_change_round_trip(&mut runtime, path, program, false);
+    parameter_change::assert_parameter_change_round_trip(&mut runtime, path, program);
 }
 
 #[test]
@@ -1895,8 +1901,6 @@ VAR
     Phase : UINT;
     ActorLong : STRING[96] := 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     ReasonLong : STRING[96] := 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-    ActorShort : STRING[8] := 'operator';
-    ReasonShort : STRING[8] := 'reason';
     OldText : STRING[96] := 'old-state';
     NewText : STRING[96] := 'new-state';
 END_VAR
@@ -1907,9 +1911,6 @@ CASE Phase OF
         Producer(Execute := FALSE);
     UINT#1:
         Producer(Execute := TRUE, Op := UINT#15, SourceId := UDINT#88, ValueId := UDINT#2301, ValueTypeTag := BYTE#16#0C, ValuePayloadLength := UINT#96, ValueString := NewText, AuditActor := ActorLong, AuditReason := ReasonLong);
-        Producer(Execute := FALSE);
-    UINT#2:
-        Producer(Execute := TRUE, Op := UINT#15, SourceId := UDINT#88, ValueId := UDINT#2301, ValueTypeTag := BYTE#16#0C, ValuePayloadLength := UINT#96, ValueString := NewText, AuditActor := ActorShort, AuditReason := ReasonShort);
         Producer(Execute := FALSE);
 END_CASE;
 Phase := Phase + UINT#1;
@@ -1937,17 +1938,6 @@ END_PROGRAM
     assert!(err.contains("LastCommandError 3"), "{err}");
     let batch = consumer.poll().expect("poll after oversize audited string");
     assert!(batch.records.is_empty(), "{batch:#?}");
-    runtime.clear_fault();
-
-    runtime
-        .execute_cycle()
-        .expect("short audit strings retry publishes original previous value");
-    let batch = consumer.poll().expect("poll retried audited string");
-    assert_eq!(batch.records.len(), 1);
-    assert_eq!(
-        render_record(&batch.records[0].record),
-        "ParameterChange source=88 seq=0 valueId=2301 previous=STRING(old-state) new=STRING(new-state) actor=operator reason=reason"
-    );
 
     drop(std::fs::remove_file(path));
 }
@@ -3465,7 +3455,7 @@ fn unix_epoch_ns() -> u64 {
         .expect("Unix nanoseconds fit u64")
 }
 
-fn enable_host_source_time(runtime: &mut Runtime) {
+fn enable_host_source_time(runtime: &mut CompiledRuntime) {
     write_main_program_var(
         runtime,
         openot_authoring::GENERATED_USE_SOURCE_TIME_NAME,
@@ -3473,7 +3463,7 @@ fn enable_host_source_time(runtime: &mut Runtime) {
     );
 }
 
-fn set_host_source_time(runtime: &mut Runtime, source_time_ns: u64) {
+fn set_host_source_time(runtime: &mut CompiledRuntime, source_time_ns: u64) {
     write_main_program_var(
         runtime,
         openot_authoring::GENERATED_SOURCE_TIME_NAME,
@@ -3481,23 +3471,10 @@ fn set_host_source_time(runtime: &mut Runtime, source_time_ns: u64) {
     );
 }
 
-fn write_main_program_var(runtime: &mut Runtime, name: &str, value: Value) {
-    let main_id = main_instance_id(runtime);
-    let reference = runtime
-        .storage()
-        .ref_for_instance_recursive(main_id, name)
-        .unwrap_or_else(|| panic!("missing generated Main.{name}"));
-    assert!(
-        runtime.write_reference(&reference, value).is_ok(),
-        "write generated Main.{name}"
-    );
-}
-
-fn main_instance_id(runtime: &Runtime) -> InstanceId {
-    match runtime.storage().get_global("Main") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected Main program instance, got {other:?}"),
-    }
+fn write_main_program_var(runtime: &mut CompiledRuntime, name: &str, value: Value) {
+    runtime
+        .write_variable(&format!("Main.{name}"), &value)
+        .unwrap_or_else(|error| panic!("write generated Main.{name}: {error}"));
 }
 
 fn render_value_changed(record: &Record) -> String {

@@ -8,14 +8,14 @@ use alloc::vec::Vec;
 
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_image::write_flat_image;
+use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::native::program::{ModuleCode, NativeProgram};
 use trust_runtime_core::ports::MonotonicClock;
-use trust_runtime_core::vm::CarriedValueEvent;
 
 use super::CompiledCycle;
-use crate::runner::engine::ProcessIo;
 use crate::runner::hold::CompiledHold;
 use crate::runner::retain::CycleRetain;
+use crate::runner::ProcessIo;
 
 impl<'i, C, I, K, H, R> CompiledCycle<'i, C, I, K, H, R>
 where

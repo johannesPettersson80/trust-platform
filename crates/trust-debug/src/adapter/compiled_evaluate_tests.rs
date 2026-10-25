@@ -1,8 +1,7 @@
 //! `evaluate` and `setBreakpoints` while attached (specification 11 §6.13.2): to a runtime that runs
 //! a compiled program the adapter sends expressions compiled with the types of the project the
-//! attach names, a breakpoint's condition, hit condition and logpoint message among them; from
-//! either runtime it reads the control protocol's answers, whose fields are in snake case; and a
-//! runtime on the bytecode engine gets no breakpoint whose options it cannot honor.
+//! attach names, a breakpoint's condition, hit condition and logpoint message among them, and it
+//! reads the control protocol's answers, whose fields are in snake case.
 
 use super::*;
 use crate::protocol::AttachArguments;
@@ -14,10 +13,11 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-/// A runtime's control endpoint whose `status` names `backend`, which answers `debug.evaluate`
-/// with `TRUE` of type `BOOL`, resolves each zero-based line of a `breakpoints.set` up to 20 to
-/// itself at column 0, answers `debug.stops` with one logpoint message, and records every request.
-fn spawn_runtime(backend: &'static str) -> (SocketAddr, Arc<Mutex<Vec<Value>>>) {
+/// A runtime's control endpoint whose `status` names the native backend, which answers
+/// `debug.evaluate` with `TRUE` of type `BOOL`, resolves each zero-based line of a `breakpoints.set`
+/// up to 20 to itself at column 0, answers `debug.stops` with one logpoint message, and records
+/// every request.
+fn spawn_runtime() -> (SocketAddr, Arc<Mutex<Vec<Value>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
     let addr = listener.local_addr().expect("address");
     let requests = Arc::new(Mutex::new(Vec::new()));
@@ -33,7 +33,7 @@ fn spawn_runtime(backend: &'static str) -> (SocketAddr, Arc<Mutex<Vec<Value>>>) 
                     let request: Value = serde_json::from_str(&line).expect("request json");
                     seen.lock().expect("requests").push(request.clone());
                     let result = match request["type"].as_str() {
-                        Some("status") => json!({"execution_backend": backend}),
+                        Some("status") => json!({"execution_backend": "native"}),
                         Some("debug.state") => json!({"paused": false, "last_stop": null}),
                         Some("debug.evaluate") => {
                             json!({"result": "TRUE", "type": "BOOL", "variables_reference": 0})
@@ -112,9 +112,7 @@ impl Drop for Project {
 
 /// An adapter attached to the runtime at `addr`, with `extra` attach arguments.
 fn attached(addr: SocketAddr, extra: &[(&str, Value)]) -> DebugAdapter {
-    let mut adapter = DebugAdapter::new(crate::DebugSession::new(
-        trust_runtime::RuntimeBuilder::new().build().unwrap(),
-    ));
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
     adapter.dispatch_request(request(1, "initialize", json!({})));
     let mut additional: std::collections::BTreeMap<String, Value> =
         [("endpoint".to_string(), json!(format!("tcp://{addr}")))]
@@ -161,7 +159,7 @@ fn evaluations(requests: &Arc<Mutex<Vec<Value>>>) -> Vec<Value> {
 #[test]
 fn a_compiled_runtime_receives_the_compiled_expression() {
     let project = Project::new("compiled");
-    let (addr, requests) = spawn_runtime("native");
+    let (addr, requests) = spawn_runtime();
     let mut adapter = attached(addr, &[("runtimeRoot", json!(project.0.to_string_lossy()))]);
     let answer = adapter.dispatch_request(request(
         4,
@@ -199,7 +197,7 @@ fn a_compiled_runtime_receives_the_compiled_expression() {
 #[test]
 fn an_expression_version_1_cannot_say_never_reaches_the_runtime() {
     let project = Project::new("refused");
-    let (addr, requests) = spawn_runtime("native");
+    let (addr, requests) = spawn_runtime();
     let mut adapter = attached(addr, &[("runtimeRoot", json!(project.0.to_string_lossy()))]);
     let answer =
         adapter.dispatch_request(request(4, "evaluate", json!({"expression": "ABS(speed)"})));
@@ -213,24 +211,6 @@ fn an_expression_version_1_cannot_say_never_reaches_the_runtime() {
         "{response}"
     );
     assert_eq!(evaluations(&requests), Vec::<Value>::new());
-}
-
-/// Specification 11 §6.13.2: a runtime that runs its program on the bytecode engine receives the
-/// text, and its answer, `variables_reference` in snake case, reaches the client. Catches the
-/// answer read as the DAP body, which failed every attached evaluate before 24 October 2026.
-#[test]
-fn an_engine_runtime_receives_the_text_and_its_answer_is_read() {
-    let (addr, requests) = spawn_runtime("vm");
-    let mut adapter = attached(addr, &[]);
-    let answer =
-        adapter.dispatch_request(request(4, "evaluate", json!({"expression": "speed > 10"})));
-    let response = &answer.responses[0];
-    assert!(response["success"].as_bool().unwrap_or(false), "{response}");
-    assert_eq!(response["body"]["result"], "TRUE");
-    assert_eq!(
-        evaluations(&requests),
-        [json!({"expression": "speed > 10", "frame_id": null})]
-    );
 }
 
 /// The parameters of every `breakpoints.set` the runtime received.
@@ -262,7 +242,7 @@ fn base64_of(bytes: &[u8]) -> String {
 #[test]
 fn a_compiled_runtime_receives_each_breakpoints_options() {
     let project = Project::new("options");
-    let (addr, requests) = spawn_runtime("native");
+    let (addr, requests) = spawn_runtime();
     let mut adapter = attached(addr, &[("runtimeRoot", json!(project.0.to_string_lossy()))]);
     let answer = adapter.dispatch_request(request(
         4,
@@ -312,53 +292,13 @@ fn a_compiled_runtime_receives_each_breakpoints_options() {
     );
 }
 
-/// Specification 11 §6.13.2: a runtime on the bytecode engine takes no options, so a breakpoint
-/// with a condition is answered unverified with the reason and never sent, and a plain one goes as
-/// before, with no `options`; each is answered in the request's order. Catches the condition
-/// dropped and the breakpoint sent plain, which would stop unconditionally, as attached sessions
-/// did before 24 October 2026.
-#[test]
-fn an_engine_runtime_gets_no_breakpoint_whose_options_it_cannot_honor() {
-    let (addr, requests) = spawn_runtime("vm");
-    let mut adapter = attached(addr, &[]);
-    let answer = adapter.dispatch_request(request(
-        4,
-        "setBreakpoints",
-        json!({
-            "source": {"path": PATH},
-            "breakpoints": [{"line": 6, "condition": "speed > INT#10"}, {"line": 7}],
-        }),
-    ));
-    assert_eq!(
-        breakpoint_sets(&requests),
-        [json!({"source": PATH, "lines": [6]})]
-    );
-    let answered = answer.responses[0]["body"]["breakpoints"]
-        .as_array()
-        .expect("breakpoints")
-        .clone();
-    assert_eq!(answered.len(), 2);
-    assert_eq!(answered[0]["line"], 6);
-    assert_eq!(answered[0]["verified"], false);
-    assert!(
-        answered[0]["message"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("bytecode engine"),
-        "{}",
-        answered[0]
-    );
-    assert_eq!(answered[1]["line"], 7);
-    assert_eq!(answered[1]["verified"], true);
-}
-
 /// Specification 11 §6.13.2: a condition the adapter cannot compile, a call, answers its breakpoint
 /// unverified with the reason, and no breakpoint of the file reaches the runtime. Catches a
 /// breakpoint sent without the condition the client asked for.
 #[test]
 fn a_condition_that_does_not_compile_leaves_its_breakpoint_unverified() {
     let project = Project::new("uncompiled");
-    let (addr, requests) = spawn_runtime("native");
+    let (addr, requests) = spawn_runtime();
     let mut adapter = attached(addr, &[("runtimeRoot", json!(project.0.to_string_lossy()))]);
     let answer = adapter.dispatch_request(request(
         4,
@@ -385,7 +325,7 @@ fn a_condition_that_does_not_compile_leaves_its_breakpoint_unverified() {
 /// without its source.
 #[test]
 fn debug_stops_returns_the_logpoint_messages() {
-    let (addr, _) = spawn_runtime("native");
+    let (addr, _) = spawn_runtime();
     let mut session =
         super::remote::RemoteSession::connect(super::remote::RemoteEndpoint::Tcp(addr), None)
             .expect("connect");

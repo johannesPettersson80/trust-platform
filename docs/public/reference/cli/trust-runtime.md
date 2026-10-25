@@ -18,9 +18,9 @@ binary reports them.
 | `run` / `play` | start a runtime instance |
 | `ui` | interactive terminal UI |
 | `ctl` | send control requests to a running runtime |
-| `check` | validate sources/config without writing `program.stbc` |
-| `build` | generate `program.stbc` |
-| `validate` | validate project config + bundle |
+| `check` | validate sources/config without writing a program image |
+| `build` | compile the project into the program image `program.tpi` |
+| `validate` | validate project config + program image |
 | `test` | deprecated alias for `trust-dev test` |
 | `docs` | deprecated alias for `trust-dev docs` |
 | `hmi` | scaffold/update/reset `hmi/` |
@@ -36,6 +36,7 @@ binary reports them.
 | `deploy` / `rollback` | versioned deployment and rollback |
 | `bench` | communication/runtime benchmark surfaces |
 | `conformance` | deterministic conformance suite runner |
+| `toolchain` | the compiler toolchain that builds programs: `status`, `install`, `bundle` |
 
 ## Entry-point and Error Contract
 
@@ -63,14 +64,15 @@ Usage: trust-runtime check [OPTIONS]
 
 `check` validates required `runtime.toml` and `io.toml`, optional `ads.toml`
 and `opcua_client.toml`, the source/dependency layout, and compilation without
-writing `program.stbc`. It aggregates independent configuration and compile
-issues in one response instead of stopping at the first failure.
+writing a program image. It runs the build's checks and code generation for
+this computer's CPU and needs no compiler toolchain. It aggregates independent
+configuration and compile issues in one response instead of stopping at the
+first failure.
 
 `--json` and `--ci` emit response version 1 with `ok`, `status`, issue counts,
-stable issue codes, source/dependency lists, and the in-memory bytecode size
-when compilation succeeded. Configuration or source-layout errors exit 10;
-compile errors exit 11. A successful check exits 0 and never writes the
-compiled bytecode artifact.
+stable issue codes, and source/dependency lists. Configuration or source-layout
+errors exit 10; compile errors exit 11. A successful check exits 0 and never
+writes a program image.
 
 ### Build
 
@@ -83,12 +85,22 @@ Primary options:
 - `--project`
 - `--sources`
 - `--ci`
+- `--target`
+- `--emit-source`
 
 The default source root is `<project>/src`; relative `--sources` values are
-resolved from the project. A successful build writes `program.stbc`. A failed
-source, dependency, or compile step preserves any existing artifact. `--ci`
-emits response version 1 with the output path and complete source/dependency
-identity; build failures exit 11.
+resolved from the project. A successful build writes the program image
+`program.tpi` and its deployment record `deployment-record.bin` into the
+project, and its report to `build/build.json`. `--target` builds for a device
+(`esp32c6`, `stm32u5a9`), a CPU (`x86_64`, `aarch64`, `riscv32imac`,
+`thumbv8m`) or a Rust target triple instead, and writes
+`build/program.<triple>.tpi` and `build/deployment-record.<triple>.bin`;
+`--emit-source` keeps the generated Rust crate in the build folder. The first
+build that needs the compiler toolchain installs it. A failed source,
+dependency, or compile step preserves any existing artifact. `--ci` prints the
+build report: response version 1 with the target, whether the image is a debug
+image, the image and record paths, the image's size, the signing key, and the
+memory figure; build failures exit 11.
 
 ### Validate
 

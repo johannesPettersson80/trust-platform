@@ -1,8 +1,14 @@
+//! The reviewed force lifecycle trace cases of `RT_SAFE_FORCE_001`: a warm restart, and a safe-state
+//! stop, with forces and queued writes active (specification 11 §6.9.2).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
+use trust_runtime::debug::DebugControl;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoSafeState};
 use trust_runtime::value::Value;
@@ -139,9 +145,13 @@ fn run_restart_case(harness: &mut TestHarness, step: &TraceStep) -> Result<Trans
     }
     let force_value = trace_i32(&step.stimulus, "force_value")?;
     let queued_write_value = trace_i32(&step.stimulus, "queued_write_value")?;
-    let debug = harness.runtime_mut().enable_debug();
-    debug.force_global("forced_value", Value::DInt(force_value));
-    debug.enqueue_global_write("queued_value", Value::DInt(queued_write_value));
+    let debug = attach(harness);
+    debug
+        .try_force_global("forced_value", Value::DInt(force_value))
+        .map_err(|error| format!("force refused: {error:?}"))?;
+    debug
+        .try_enqueue_global_write("queued_value", Value::DInt(queued_write_value))
+        .map_err(|error| format!("queued write refused: {error:?}"))?;
     let before = BTreeMap::from([
         (
             "forced_value".to_string(),
@@ -181,8 +191,10 @@ fn run_safe_state_case(harness: &mut TestHarness, step: &TraceStep) -> Result<Tr
     let forced_output = trace_bool(&step.stimulus, "forced_output")?;
     let safe_output = trace_bool(&step.stimulus, "safe_output")?;
     let address = IoAddress::parse("%QX0.0").map_err(|error| error.to_string())?;
-    let debug = harness.runtime_mut().enable_debug();
-    debug.force_io(address.clone(), Value::Bool(forced_output));
+    let debug = attach(harness);
+    debug
+        .try_force_io(address.clone(), Value::Bool(forced_output))
+        .map_err(|error| format!("output force refused: {error:?}"))?;
     let forced_cycle = harness.cycle();
     if !forced_cycle.errors.is_empty() {
         return Err(format!("forced cycle failed: {forced_cycle:?}"));
@@ -229,8 +241,15 @@ fn values_snapshot(values: &BTreeMap<String, serde_json::Value>) -> StateSnapsho
     }
 }
 
+/// A debug control for the harness's program.
+fn attach(harness: &mut TestHarness) -> DebugControl {
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    debug
+}
+
 fn read_output_bit(harness: &TestHarness, address: &IoAddress) -> Result<bool, String> {
-    match harness.runtime().io().read(address) {
+    match harness.runtime().read_io(address) {
         Ok(Value::Bool(value)) => Ok(value),
         Ok(value) => Err(format!("output_bit has wrong type: {value:?}")),
         Err(error) => Err(format!("output_bit read failed: {error}")),

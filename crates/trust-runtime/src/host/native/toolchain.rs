@@ -272,6 +272,9 @@ impl Toolchain {
             .arg("-C")
             .arg(format!("target-feature={features}"))
             .args(["-C", "remark=prolog-epilog"])
+            // Each build has a folder of its own, whose path reaches no module, so that the same
+            // project builds the same bytes (NX-07).
+            .arg(format!("--remap-path-prefix={}=.", work.display()))
             .args(["--cfg", "trust_module"])
             .arg("-C")
             .arg(format!("linker={}", self.linker.display()))

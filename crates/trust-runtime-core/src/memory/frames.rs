@@ -110,4 +110,27 @@ impl VariableStorage {
         self.activations.frames.insert(idx, frame);
         Some(result)
     }
+
+    /// The local at `offset` in the frame `id`, in its declaration order.
+    pub(super) fn local_slot(&self, id: FrameId, offset: usize) -> Option<&Value> {
+        self.activations
+            .frames
+            .iter()
+            .find(|frame| frame.id == id)
+            .and_then(|frame| frame.variables.get_index(offset).map(|(_, value)| value))
+    }
+
+    /// The local at `offset` in the frame `id`, to write.
+    pub(super) fn local_slot_mut(&mut self, id: FrameId, offset: usize) -> Option<&mut Value> {
+        self.activations
+            .frames
+            .iter_mut()
+            .find(|frame| frame.id == id)
+            .and_then(|frame| {
+                frame
+                    .variables
+                    .get_index_mut(offset)
+                    .map(|(_, value)| value)
+            })
+    }
 }

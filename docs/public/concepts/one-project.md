@@ -90,7 +90,7 @@ generated, and scripted:
 - `runtime.toml`
 - `io.toml`
 - `hmi/` descriptor files
-- generated bundle artifacts such as `program.stbc`
+- generated build artifacts such as the program image `program.tpi`
 - PLCopen XML when exchanging with other ecosystems
 
 Visual editors still feed the same project model. Ladder, SFC, Blockly,

@@ -6,6 +6,7 @@
 //! of the instance area, starting from 5, and copies the count's lowest bit to byte 1, which is
 //! bound to `%QX0.1`. A second image's body divides by zero.
 
+use alloc::collections::VecDeque;
 use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -16,6 +17,7 @@ use core::cell::{Cell, RefCell};
 use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
 use trust_plc_abi::module::{fault, run, stmt};
 use trust_plc_abi::{Cx, FaultCode, Frame, KernelApi, AREA_INSTANCES};
+use trust_runtime_core::cycle::{CycleHooks, CyclePhase};
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::io_image::FlatImages;
@@ -32,16 +34,15 @@ use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_core::vm::{CycleHooks, CyclePhase};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::CompiledCycle;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::expression::Names;
-use crate::runner::cycle::{ResourceCycle, RetainSource, TaskDescriptor};
+use crate::runner::cycle::{CycleSettings, ResourceCycle, RetainSource, TaskDescriptor};
 use crate::runner::debugger::{Boundary, StatementStart, StopPoints};
-use crate::runner::engine::{CycleSettings, ProcessIo};
-use crate::runner::hold::{CompiledHeld, HeldView, HoldHandle, HoldPass};
+use crate::runner::hold::{CompiledHeld, HoldHandle, HoldPass};
+use crate::runner::process_io::ProcessIo;
 use crate::status::IoDriverStatus;
 
 const MS: i64 = 1_000_000;
@@ -211,6 +212,7 @@ fn name_tables(writer: &mut ImageWriter, strings: &mut StringPool, debug: bool) 
             size: 0,
             byte: 0,
             bit: 1,
+            kind: 0,
             flags: 0,
         }],
         &[],
@@ -435,7 +437,7 @@ fn the_observer_sees_the_phases_of_an_engine_scan_in_order() {
             .run_scan(Duration::from_millis(time), None, &mut phases)
             .expect("the scan runs");
     }
-    let second: Vec<_> = phases.0[7..]
+    let second: Vec<_> = phases.0[9..]
         .iter()
         .map(|(phase, now, outputs)| (*phase, now.as_nanos() / MS, outputs.clone()))
         .collect();
@@ -445,6 +447,8 @@ fn the_observer_sees_the_phases_of_an_engine_scan_in_order() {
             (CyclePhase::CycleStart, 20, vec![0]),
             (CyclePhase::BeforeInputSample, 20, vec![0]),
             (CyclePhase::TaskStart(0), 20, vec![0]),
+            (CyclePhase::ProgramStart(0), 20, vec![0]),
+            (CyclePhase::ProgramEnd(0), 20, vec![0]),
             (CyclePhase::TaskEnd(0), 20, vec![0]),
             (CyclePhase::BeforeOutputSample, 20, vec![0b10]),
             (CyclePhase::AfterOutputSample, 20, vec![0b10]),
@@ -517,7 +521,7 @@ fn live_values_reach_a_compiled_scan_at_the_cycle_start_after_the_inputs_and_bef
     assert_eq!(driven.borrow().outputs, [vec![0], vec![0b10], vec![0b10]]);
     assert_eq!(live.1, [vec![0], vec![0b10], vec![0b10]]);
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(42)));
-    let last = &live.0[live.0.len() - 10..];
+    let last = &live.0[live.0.len() - 12..];
     assert_eq!(
         last,
         [
@@ -526,6 +530,8 @@ fn live_values_reach_a_compiled_scan_at_the_cycle_start_after_the_inputs_and_bef
             "BeforeInputSample",
             "access AfterInputs",
             "TaskStart(0)",
+            "ProgramStart(0)",
+            "ProgramEnd(0)",
             "TaskEnd(0)",
             "access BeforeOutputs",
             "BeforeOutputSample",
@@ -704,9 +710,10 @@ impl CycleHooks for Allocating {
 fn the_observers_operations_are_not_the_programs() {
     // Specification 34, "The allocation count": a scan's count is the program's and the kernel's;
     // what the loop's observer allocates inside the scan, at the task phases, is the services'.
-    // Each of the observer's seven phases here counts one operation and the program makes none:
-    // the scan reports 0, while the platform's count rose by 7. Catches the observer's operations
-    // at the task's start and end counted as the program's.
+    // Each of the observer's nine phases here (the cycle's, the task's and its program's start
+    // and end among them) counts one operation and the program makes none: the scan reports 0,
+    // while the platform's count rose by 9. Catches the observer's operations at the task's or the
+    // program's start and end counted as the program's.
     let bytes = image(0);
     let (cycle, _, _) = cycle(&bytes, Vec::new());
     let mut cycle = cycle.with_allocator_operations(observed_operations);
@@ -715,7 +722,7 @@ fn the_observers_operations_are_not_the_programs() {
         .run_scan(Duration::from_millis(10), None, &mut Allocating)
         .expect("the scan runs");
     assert_eq!(cycle.last_scan_allocations(), Some(0));
-    assert_eq!(observed_operations() - start, 7);
+    assert_eq!(observed_operations() - start, 9);
 }
 
 /// A step of the fixture's program at `time` milliseconds, with `restart`, writing `inputs` and
@@ -811,7 +818,7 @@ fn a_name_that_names_nothing_refuses_the_step_before_anything_changes() {
         refused,
         Err(StepRefusal::name(
             "NOPE",
-            "names no variable of the compiled program"
+            "names no variable of the program"
         ))
     );
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(6)));
@@ -917,10 +924,6 @@ impl HoldPass for FakeHold {
             .borrow_mut()
             .push(names.and_then(|names| names.read("count")));
         Ok(Boundary::Hold)
-    }
-
-    fn hold(&self, _at: &StatementStart<'_>, _view: &HeldView<'_>) -> Result<(), RuntimeError> {
-        Err(RuntimeError::InvalidExecutionState)
     }
 
     fn hold_compiled(
@@ -1076,4 +1079,150 @@ fn the_sources_of_a_debug_image_place_a_breakpoint_by_its_statement_table() {
         .expect("line 2 has a statement");
     assert_eq!((resolved.line, resolved.column), (2, 1));
     assert_eq!(resolved.code_offset, 1);
+}
+
+/// One step of a held scan, in milliseconds on the cycle's clock: time the scan's own work takes,
+/// or a hold that lasts its time.
+#[derive(Clone, Copy)]
+enum HeldStep {
+    Work(u64),
+    Hold(u64),
+}
+
+/// The steps a held scan has still to take, and the clock they move.
+struct HeldSteps {
+    left: RefCell<VecDeque<HeldStep>>,
+    time: Rc<Cell<u64>>,
+}
+
+impl HeldSteps {
+    /// Takes the work steps up to the next hold.
+    fn work(&self) {
+        let mut left = self.left.borrow_mut();
+        while let Some(&HeldStep::Work(ms)) = left.front() {
+            left.pop_front();
+            self.time.set(self.time.get() + ms * 1_000);
+        }
+    }
+}
+
+/// A hold that holds at a statement when the next step is a hold, for that step's time, with every
+/// statement armed.
+struct TimedHold(Rc<HeldSteps>);
+
+impl HoldPass for TimedHold {
+    fn scan_begins(&self) -> bool {
+        true
+    }
+
+    fn at_statement(
+        &self,
+        _at: &StatementStart<'_>,
+        _names: Option<&dyn Names>,
+    ) -> Result<Boundary, RuntimeError> {
+        Ok(match self.0.left.borrow().front() {
+            Some(HeldStep::Hold(_)) => Boundary::Hold,
+            _ => Boundary::Run,
+        })
+    }
+
+    fn hold_compiled(
+        &self,
+        _at: &StatementStart<'_>,
+        _view: &CompiledHeld<'_>,
+    ) -> Result<(), RuntimeError> {
+        if let Some(HeldStep::Hold(ms)) = self.0.left.borrow_mut().pop_front() {
+            self.0.time.set(self.0.time.get() + ms * 1_000);
+        }
+        Ok(())
+    }
+
+    fn stop_points(&self) -> StopPoints {
+        StopPoints {
+            every: true,
+            starts: Vec::new(),
+        }
+    }
+
+    fn cells_free(&self) -> bool {
+        true
+    }
+}
+
+/// An observer that takes the work steps before the program runs and after each hold, as work of
+/// the scan that the deadline counts.
+struct Working(Rc<HeldSteps>);
+
+impl CycleHooks for Working {
+    fn on_compiled_phase(
+        &mut self,
+        phase: CyclePhase,
+        _now: Duration,
+        _images: &FlatImages,
+    ) -> Result<(), RuntimeError> {
+        if phase == CyclePhase::CycleStart {
+            self.0.work();
+        }
+        Ok(())
+    }
+
+    fn on_compiled_access(
+        &mut self,
+        point: CompiledAccessPoint,
+        _now: Duration,
+        _variables: &mut dyn CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        if point == CompiledAccessPoint::HoldEnd {
+            self.0.work();
+        }
+        Ok(())
+    }
+}
+
+/// Runs the scan at 10 ms of the debug body, the first scan that runs its task, from 0 ms on the
+/// cycle's clock with its deadline at 5 ms, taking `steps`, and returns the scan's result.
+fn run_held_scan(steps: &[HeldStep]) -> Result<(), RuntimeError> {
+    let bytes = image_of(48, true);
+    let (mut cycle, _, time) = cycle_with(&bytes, Vec::new(), &KERNEL_FUNCTIONS);
+    let held = Rc::new(HeldSteps {
+        left: RefCell::new(VecDeque::new()),
+        time,
+    });
+    let pass: Rc<dyn HoldPass> = Rc::new(TimedHold(Rc::clone(&held)));
+    cycle.attach_hold(HoldHandle(pass));
+    cycle
+        .run_scan(Duration::ZERO, None, &mut Phases::default())
+        .expect("the scan at 0 ms runs no task");
+    held.left.borrow_mut().extend(steps.iter().copied());
+    cycle.run_scan(
+        Duration::from_millis(10),
+        Some(MonotonicInstant::from_micros(5_000)),
+        &mut Working(Rc::clone(&held)),
+    )
+}
+
+#[test]
+fn two_holds_in_one_scan_add_up() {
+    // Specification 11 §6.6 with specification 44 §13.2: the deadline moves by each completed
+    // hold. The 5 ms timeout and holds of 3 ms at statement 0 and 3 ms at statement 1 make a
+    // deadline of 11 ms, and the scan ends at 10 ms with 4 ms of its own work between them. Wrong
+    // behaviour caught: a total that keeps only one hold moves the deadline to 8 ms, so the scan
+    // faults at 10 ms.
+    let result = run_held_scan(&[HeldStep::Hold(3), HeldStep::Work(4), HeldStep::Hold(3)]);
+    assert_eq!(result, Ok(()), "the two holds add up to 6 ms of held time");
+}
+
+#[test]
+fn a_scan_faults_when_its_active_time_exceeds_the_timeout() {
+    // Specification 11 §6.6 and §6.9: a hold excuses its own time and no more. The scan does 3 ms
+    // of work, holds for 10 ms at statement 0 and does 3 ms more: 6 ms of active time against a
+    // 5 ms timeout. Its deadline is 5 ms plus the hold, 15 ms, and the scan reaches 16 ms. Wrong
+    // behaviour caught: a deadline reset at the end of the hold, due at 18 ms, lets the scan
+    // finish.
+    let result = run_held_scan(&[HeldStep::Work(3), HeldStep::Hold(10), HeldStep::Work(3)]);
+    assert_eq!(
+        result,
+        Err(RuntimeError::ExecutionTimeout),
+        "6 ms of active time exceed the 5 ms timeout"
+    );
 }

@@ -1,18 +1,8 @@
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::TestHarness;
+//! Function locals written by SPLIT_DATE and set by their initializers on each call.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-fn vm_harness(source: &str) -> TestHarness {
-    let mut harness = TestHarness::from_source(source).expect("compile harness");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select vm backend");
-    harness
-        .runtime_mut()
-        .restart(trust_runtime::RestartMode::Cold)
-        .expect("restart runtime");
-    harness
-}
+use trust_runtime::harness::TestHarness;
 
 #[test]
 fn split_date_writes_function_local_outputs_in_runtime_and_vm() {
@@ -48,15 +38,6 @@ fn split_date_writes_function_local_outputs_in_runtime_and_vm() {
         cycle.errors
     );
     harness.assert_eq("out_year", 2024i16);
-
-    let mut vm = vm_harness(source);
-    let cycle = vm.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "vm execution failed: {:?}",
-        cycle.errors
-    );
-    vm.assert_eq("out_year", 2024i16);
 }
 
 #[test]
@@ -87,13 +68,4 @@ fn function_local_initializer_runs_in_runtime_and_vm() {
         cycle.errors
     );
     harness.assert_eq("out_value", 5i16);
-
-    let mut vm = vm_harness(source);
-    let cycle = vm.cycle();
-    assert!(
-        cycle.errors.is_empty(),
-        "vm execution failed: {:?}",
-        cycle.errors
-    );
-    vm.assert_eq("out_value", 5i16);
 }

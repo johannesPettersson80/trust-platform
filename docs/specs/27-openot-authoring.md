@@ -314,8 +314,12 @@ equal the canonical OpenOT schema for that event type.
 
 ### 10.3 Deterministic ST instrumentation
 
-Successful translation MUST instrument each attributed program before
-bytecode generation. The generated declarations MUST include one hidden
+Successful translation MUST instrument each attributed program before code
+generation (specification 44 §3); every build of a program image does so. The
+generated declarations stand on the line of the program's first `END_VAR` and
+the generated calls on the line of its `END_PROGRAM`, so that every source line
+keeps its number for diagnostics, breakpoints and stepping, and the image's
+source hash is of the sources as written. The generated declarations MUST include one hidden
 `OotProducer : OPENOT_Producer`, a disabled-by-default host source-time input,
 and the previous-value or edge state needed by the declaration kinds in
 sections 2 through 8.
@@ -346,7 +350,7 @@ same scan.
 
 Runtime authoring validation MUST agree with the HIR OpenOT validation contract
 for shared identity and type rules. If validation or definition generation
-fails, compilation MUST return the error and MUST NOT build bytecode from the
+fails, compilation MUST return the error and MUST NOT build a program image from the
 uninstrumented source. Unsupported value types, duplicate pinned identities,
 or an unrepresentable record shape MUST therefore fail the complete
 compilation.

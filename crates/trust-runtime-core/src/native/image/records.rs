@@ -208,9 +208,28 @@ pub struct IoBindRecord {
     pub byte: u32,
     /// The bit of a bit address.
     pub bit: u8,
-    /// Reserved, 0.
+    /// [`BIND_FLAT`], or [`BIND_HIERARCHICAL`] for a hierarchical address, whose `byte` is the
+    /// offset of its text in `STRINGS`.
+    pub kind: u8,
+    /// The codec in the low byte, [`BIND_RAW`] or [`BIND_TIME_MILLIS`], and above it, from bit
+    /// [`BIND_OFFSET_SHIFT`], the offset of the bound leaf within the variable: an element or a
+    /// member of a located array or structure (specification 10 §2.5).
     pub flags: u32,
 }
+
+/// An I/O binding's codec: the variable's bytes as they are, little-endian.
+pub const BIND_RAW: u32 = 0;
+/// An I/O binding's codec: a `TIME` in a double word as unsigned whole milliseconds, a negative
+/// value or one of 2^32 ms or more refused (specification 10 §2.5).
+pub const BIND_TIME_MILLIS: u32 = 1;
+/// The shift of the bound leaf's offset within its variable in an I/O binding's flags.
+pub const BIND_OFFSET_SHIFT: u32 = 8;
+/// An I/O binding's kind: an address of a process image.
+pub const BIND_FLAT: u8 = 0;
+/// An I/O binding's kind: a hierarchical address (`%IX1.2.3`, IEC §6.5.5.2), whose value lies in
+/// the kernel's hierarchical image, one slot per binding, and in no process image; the record's
+/// `byte` is the offset of the address's text in `STRINGS` (specification 44 §5.6).
+pub const BIND_HIERARCHICAL: u8 = 1;
 
 impl Record for IoBindRecord {
     const SECTION: SectionId = SectionId::IoBind;
@@ -222,6 +241,7 @@ impl Record for IoBindRecord {
             size: field::<1>(bytes, 5)[0],
             byte: u32_at(bytes, 6),
             bit: field::<1>(bytes, 10)[0],
+            kind: field::<1>(bytes, 11)[0],
             flags: u32_at(bytes, 12),
         }
     }
@@ -229,12 +249,18 @@ impl Record for IoBindRecord {
         put(out, 0, &self.symbol.to_le_bytes());
         put(out, 4, &[self.area, self.size]);
         put(out, 6, &self.byte.to_le_bytes());
-        put(out, 10, &[self.bit, 0]);
+        put(out, 10, &[self.bit, self.kind]);
         put(out, 12, &self.flags.to_le_bytes());
     }
 }
 
 impl IoBindRecord {
+    /// Whether the binding's address is hierarchical ([`BIND_HIERARCHICAL`]).
+    #[must_use]
+    pub const fn is_hierarchical(&self) -> bool {
+        self.kind == BIND_HIERARCHICAL
+    }
+
     /// The bytes the binding spans in its image: 1 for a bit or a byte.
     #[must_use]
     pub fn width(&self) -> u32 {

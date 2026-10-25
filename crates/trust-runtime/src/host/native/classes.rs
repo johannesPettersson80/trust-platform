@@ -15,7 +15,8 @@ use smol_str::SmolStr;
 use super::types::{lay_out, mangle, Elem, Kind, Member, Ty, TypeInfo, Types};
 use super::NativeError;
 use crate::program_model::{
-    ClassDef, FunctionBlockBase, FunctionBlockDef, InterfaceDef, MethodDef, Param, VarDef,
+    ClassDef, EdgeInput, FunctionBlockBase, FunctionBlockDef, InterfaceDef, MethodDef, Param,
+    VarDef,
 };
 
 /// The project's function blocks, classes and interfaces, by their names in capitals.
@@ -24,6 +25,7 @@ pub(in crate::native) struct Defs<'a> {
     function_blocks: &'a IndexMap<SmolStr, FunctionBlockDef>,
     classes: &'a IndexMap<SmolStr, ClassDef>,
     interfaces: &'a IndexMap<SmolStr, InterfaceDef>,
+    edges: &'a IndexMap<SmolStr, Vec<EdgeInput>>,
 }
 
 impl<'a> Defs<'a> {
@@ -31,12 +33,22 @@ impl<'a> Defs<'a> {
         function_blocks: &'a IndexMap<SmolStr, FunctionBlockDef>,
         classes: &'a IndexMap<SmolStr, ClassDef>,
         interfaces: &'a IndexMap<SmolStr, InterfaceDef>,
+        edges: &'a IndexMap<SmolStr, Vec<EdgeInput>>,
     ) -> Self {
         Self {
             function_blocks,
             classes,
             interfaces,
+            edges,
         }
+    }
+
+    /// The edge-qualified inputs of the program or function block named `owner` (IEC §6.5.2.2).
+    pub(in crate::native) fn edge_inputs(&self, owner: &str) -> &'a [EdgeInput] {
+        self.edges
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(owner))
+            .map_or(&[], |(_, inputs)| inputs.as_slice())
     }
 
     /// The function block or class named `name`, compared without case.

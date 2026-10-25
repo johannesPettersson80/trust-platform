@@ -8,18 +8,9 @@ fn validate_bundle(bundle: &RuntimeBundle) -> anyhow::Result<()> {
             .validate(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?;
     }
-    let sources = if bundle.root.join("src").is_dir() {
-        trust_runtime::bundle_builder::collect_project_source_files(&bundle.root, None)?
-    } else {
-        Vec::new()
-    };
-    let module = trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode)?;
-    trust_runtime::harness::CompileSession::from_sources(sources)
-        .build_runtime_from_bytecode_with_limits(
-            &module,
-            Some(&bundle.runtime.resource_name),
-            bundle.preparation_limits,
-        )?;
+    // The program image is admitted as the computer admits it at its start (specification 44
+    // §10.2, §8.8).
+    trust_runtime::native::admit_on_this_computer(&bundle.image)?;
     Ok(())
 }
 

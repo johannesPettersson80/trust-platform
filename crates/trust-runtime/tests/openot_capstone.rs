@@ -1,4 +1,8 @@
 #![cfg(unix)]
+//! The OpenOT capstone: a producer process runs a compiled ST program that publishes into the
+//! shared ring while a consumer process reconciles every record.
+//!
+//! The producer needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 #[allow(dead_code)]
 mod openot_support;

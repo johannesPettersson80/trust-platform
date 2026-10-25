@@ -99,8 +99,8 @@ fn a_compiled_programs_point_reaches_its_global_by_name() {
             notification_mode: AdsNotificationMode::OnChange,
             allow_retain_read: false,
         },
-        target: BoundGlobal::Compiled("Speed".into()),
-        quality_target: Some(BoundGlobal::Compiled("Speed_quality".into())),
+        target: BoundGlobal("Speed".into()),
+        quality_target: Some(BoundGlobal("Speed_quality".into())),
         retain: false,
     };
     let mut bridge = AdsConnectionBridge::new(vec![binding]).unwrap();

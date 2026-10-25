@@ -1,22 +1,11 @@
-//! ADS cache application through the authoritative checked cycle owner: the bytecode engine's
-//! cycle access, or a compiled program's variables at the boundaries of its scan (specification 44
-//! §13.3).
+//! ADS cache application at a compiled program's variables at the boundaries of its scan
+//! (specification 44 §13.3).
 use super::*;
 use trust_runtime_core::native::variables::CompiledVariables;
-use trust_runtime_core::vm::CycleAccess;
 
 impl AdsConnectionBridge {
-    /// Apply cached samples at the protocol-input boundary. Rejected destinations
-    /// update point quality and leave the PLC owner executable, as legacy bridges do.
-    pub fn apply_inputs_with_cycle(
-        &mut self,
-        access: &mut CycleAccess<'_, '_>,
-        now_ms: u64,
-    ) -> Result<(), AdsBridgeError> {
-        self.apply_inputs_with(now_ms, access)
-    }
-
-    /// [`Self::apply_inputs_with_cycle`] for a compiled program, after its drivers read the inputs.
+    /// Applies the cached samples at the protocol-input boundary, after the drivers read the inputs.
+    /// A rejected destination updates the point's quality and leaves the program executable.
     pub fn apply_inputs_compiled(
         &mut self,
         variables: &mut dyn CompiledVariables,
@@ -25,17 +14,8 @@ impl AdsConnectionBridge {
         self.apply_inputs_with(now_ms, variables)
     }
 
-    /// Capture PLC values after force application, preserving unchanged-value
-    /// suppression and the worker's generation-bound write acknowledgements.
-    pub fn capture_outputs_with_cycle(
-        &mut self,
-        access: &mut CycleAccess<'_, '_>,
-        now_ms: u64,
-    ) -> Result<(), AdsBridgeError> {
-        self.capture_outputs_through(access, now_ms)
-    }
-
-    /// [`Self::capture_outputs_with_cycle`] for a compiled program, after its scan.
+    /// Captures the program's values after its scan, keeping the unchanged-value suppression and
+    /// the worker's generation-bound write acknowledgements.
     pub fn capture_outputs_compiled(
         &mut self,
         variables: &mut dyn CompiledVariables,
@@ -131,44 +111,21 @@ pub(super) fn queue_output(
 
 #[cfg(test)]
 mod tests {
-    fn member_value(
-        access: &CycleAccess<'_, '_>,
-        instance: trust_runtime_core::memory::InstanceId,
-        name: &str,
-    ) -> Option<Value> {
-        let store = access.store();
-        let view = store.read_instance_var(instance, name)?;
-        store.materialize(&view).ok()
-    }
-
-    use trust_runtime_core::memory::view::StoreAccess;
-
     use super::*;
-    use crate::value::Duration;
     use trust_ads_core::{PointAccess, UpdateMode};
-    use trust_runtime_core::vm::{CycleHooks, CyclePhase, PreparationLimits, PreparedModule};
 
-    const GPIO: &[u8] = include_bytes!("../../../../tests/fixtures/portability/f401/gpio.stbc");
-
-    fn binding(reference: ValueRef, access: PointAccess, boolean: bool) -> AdsBinding {
+    fn binding(access: PointAccess) -> AdsBinding {
         AdsBinding {
             point: AdsPointConfig {
                 point_name: "point".into(),
                 address: crate::ads::AdsPointAddress::Symbol("Remote.Value".into()),
-                data_type: AdsDataTypeDescriptor::scalar(
-                    if boolean { "BOOL" } else { "INT" },
-                    if boolean {
-                        IecDataType::Bool
-                    } else {
-                        IecDataType::Int
-                    },
-                ),
+                data_type: AdsDataTypeDescriptor::scalar("INT", IecDataType::Int),
                 access,
                 mode: UpdateMode::Poll,
                 notification_mode: crate::ads::AdsNotificationMode::OnChange,
                 allow_retain_read: false,
             },
-            target: BoundGlobal::Engine(reference),
+            target: BoundGlobal("probe_depth".into()),
             quality_target: None,
             retain: false,
         }
@@ -187,16 +144,23 @@ mod tests {
         }
     }
 
+    /// A boundary over the program's one INT global, `probe_depth`.
+    struct OneGlobal(Value);
+
+    impl GlobalPort for OneGlobal {
+        fn read(&mut self, _target: &BoundGlobal) -> Result<Value, RuntimeError> {
+            Ok(self.0.clone())
+        }
+
+        fn write(&mut self, _target: &BoundGlobal, value: Value) -> Result<(), RuntimeError> {
+            self.0 = value;
+            Ok(())
+        }
+    }
+
     #[test]
     fn input_cycle_limit_keeps_its_structured_cause_and_point_diagnostic() {
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        let state = prepared.instantiate(0).unwrap();
-        let mut bridge = AdsConnectionBridge::new(vec![binding(
-            state.storage().ref_for_global("probe_depth").unwrap(),
-            PointAccess::Read,
-            false,
-        )])
-        .unwrap();
+        let mut bridge = AdsConnectionBridge::new(vec![binding(PointAccess::Read)]).unwrap();
         bridge.shared.set_value("point", Value::Int(2));
         bridge.shared.set_quality("point", PointQuality::good(10));
         let cause = RuntimeError::ExecutionLimit {
@@ -221,188 +185,25 @@ mod tests {
     }
 
     #[test]
-    fn physical_expiry_in_each_protocol_boundary_reaches_the_cycle_fault_owner() {
-        struct Deadline(std::cell::Cell<bool>);
-        impl trust_runtime_core::vm::ExecutionServices for Deadline {
-            fn deadline_exceeded(&self) -> bool {
-                self.0.get()
-            }
-            fn has_wall_clock(&self) -> bool {
-                false
-            }
-            fn current_dt(&self) -> Result<crate::value::DateTimeValue, RuntimeError> {
-                Err(RuntimeError::UndefinedFunction("CURRENT_DT".into()))
-            }
-        }
-        struct Hooks<'a> {
-            bridge: AdsConnectionBridge,
-            deadline: &'a Deadline,
-            phase: CyclePhase,
-        }
-        impl CycleHooks for Hooks<'_> {
-            fn on_phase(
-                &mut self,
-                phase: CyclePhase,
-                access: &mut CycleAccess<'_, '_>,
-            ) -> Result<(), RuntimeError> {
-                if phase != self.phase {
-                    return Ok(());
-                }
-                self.deadline.0.set(true);
-                let result = if phase == CyclePhase::AfterInputSample {
-                    self.bridge.apply_inputs_with_cycle(access, 10)
-                } else {
-                    self.bridge.capture_outputs_with_cycle(access, 10)
-                };
-                result.map_err(|error| {
-                    error
-                        .execution_cause()
-                        .cloned()
-                        .expect("typed execution cause")
-                })
-            }
-        }
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        for phase in [CyclePhase::AfterInputSample, CyclePhase::AfterOutputSample] {
-            let deadline = Deadline(std::cell::Cell::new(false));
-            let mut state = prepared.instantiate_with_services(0, &deadline).unwrap();
-            let bridge = AdsConnectionBridge::new(vec![binding(
-                state.storage().ref_for_global("probe_depth").unwrap(),
-                PointAccess::ReadWrite,
-                false,
-            )])
-            .unwrap();
-            bridge.shared.set_value("point", Value::Int(2));
-            bridge.shared.set_quality("point", PointQuality::good(10));
-            let mut hooks = Hooks {
-                bridge,
-                deadline: &deadline,
-                phase,
-            };
-            assert_eq!(
-                state.execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks),
-                Err(RuntimeError::ExecutionTimeout)
-            );
-            assert_eq!(state.fault(), Some(&RuntimeError::ExecutionTimeout));
-            assert!(hooks.bridge.pending_write("point").is_none());
-        }
-    }
-
-    #[test]
-    fn checked_ads_samples_follow_mapped_inputs_and_rejections_are_point_errors() {
-        struct Hooks {
-            bridge: AdsConnectionBridge,
-            rejects: bool,
-        }
-        impl CycleHooks for Hooks {
-            fn on_phase(
-                &mut self,
-                phase: CyclePhase,
-                access: &mut CycleAccess<'_, '_>,
-            ) -> Result<(), crate::error::RuntimeError> {
-                if phase == CyclePhase::BeforeInputSample {
-                    access.inputs_mut()?[0] = 1;
-                }
-                if phase == CyclePhase::AfterInputSample {
-                    if !self.rejects {
-                        let Some(plant) = access.global_instance("Plant") else {
-                            panic!("root")
-                        };
-                        assert_eq!(
-                            member_value(access, plant, "button"),
-                            Some(Value::Bool(true))
-                        );
-                    }
-                    self.bridge.apply_inputs_with_cycle(access, 10).unwrap();
-                }
-                Ok(())
-            }
-        }
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        for rejects in [false, true] {
-            let mut state = prepared.instantiate(0).unwrap();
-            let reference = if rejects {
-                state.storage().ref_for_global("probe_depth").unwrap()
-            } else {
-                let Some(Value::Instance(plant)) = state.storage().get_global("Plant") else {
-                    panic!("root")
-                };
-                state.storage().ref_for_instance(*plant, "button").unwrap()
-            };
-            let bridge =
-                AdsConnectionBridge::new(vec![binding(reference, PointAccess::Read, true)])
-                    .unwrap();
-            bridge.shared.set_value("point", Value::Bool(false));
-            bridge.shared.set_quality("point", PointQuality::good(10));
-            let mut hooks = Hooks { bridge, rejects };
-            state
-                .execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks)
-                .unwrap();
-            assert!(state.fault().is_none());
-            if rejects {
-                assert_eq!(
-                    state.storage().get_global("probe_depth"),
-                    Some(&Value::Int(1))
-                );
-                assert_eq!(
-                    hooks.bridge.status("point").unwrap().quality.state,
-                    QualityState::Error
-                );
-            } else {
-                assert_eq!(
-                    state.outputs()[0] & 1,
-                    0,
-                    "ADS inputs override mapped input values before PLC execution"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn checked_ads_capture_observes_forced_storage_and_preserves_write_generation_on_duplicates() {
-        struct Hooks(AdsConnectionBridge);
-        impl CycleHooks for Hooks {
-            fn on_phase(
-                &mut self,
-                phase: CyclePhase,
-                access: &mut CycleAccess<'_, '_>,
-            ) -> Result<(), crate::error::RuntimeError> {
-                if phase == CyclePhase::AfterInputSample {
-                    self.0.apply_inputs_with_cycle(access, 10).unwrap();
-                }
-                if phase == CyclePhase::AfterOutputSample {
-                    self.0.capture_outputs_with_cycle(access, 10).unwrap();
-                    assert!(
-                        self.0.pending_write("point").is_none(),
-                        "read/write input establishes the unchanged output baseline"
-                    );
-                    access.write_named_path("probe_depth", &[], Value::Int(4))?;
-                    self.0.capture_outputs_with_cycle(access, 10).unwrap();
-                    let first = self.0.shared.pending_write_batch().0["point"].generation;
-                    self.0.capture_outputs_with_cycle(access, 10).unwrap();
-                    assert_eq!(
-                        self.0.shared.pending_write_batch().0["point"].generation,
-                        first
-                    );
-                }
-                Ok(())
-            }
-        }
-        let prepared = PreparedModule::from_bytes(GPIO, PreparationLimits::default()).unwrap();
-        let mut state = prepared.instantiate(0).unwrap();
-        let bridge = AdsConnectionBridge::new(vec![binding(
-            state.storage().ref_for_global("probe_depth").unwrap(),
-            PointAccess::ReadWrite,
-            false,
-        )])
-        .unwrap();
+    fn capture_keeps_the_read_baseline_and_the_write_generation_of_a_duplicate() {
+        let mut bridge = AdsConnectionBridge::new(vec![binding(PointAccess::ReadWrite)]).unwrap();
         bridge.shared.set_value("point", Value::Int(2));
         bridge.shared.set_quality("point", PointQuality::good(10));
-        let mut hooks = Hooks(bridge);
-        state
-            .execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks)
-            .unwrap();
-        assert_eq!(hooks.0.pending_write("point"), Some(Value::Int(4)));
-        assert!(state.fault().is_none());
+        let mut port = OneGlobal(Value::Int(1));
+        bridge.apply_inputs_with(10, &mut port).unwrap();
+        bridge.capture_outputs_through(&mut port, 10).unwrap();
+        assert!(
+            bridge.pending_write("point").is_none(),
+            "read/write input establishes the unchanged output baseline"
+        );
+        port.0 = Value::Int(4);
+        bridge.capture_outputs_through(&mut port, 10).unwrap();
+        let first = bridge.shared.pending_write_batch().0["point"].generation;
+        bridge.capture_outputs_through(&mut port, 10).unwrap();
+        assert_eq!(
+            bridge.shared.pending_write_batch().0["point"].generation,
+            first
+        );
+        assert_eq!(bridge.pending_write("point"), Some(Value::Int(4)));
     }
 }

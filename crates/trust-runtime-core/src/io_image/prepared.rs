@@ -3,14 +3,11 @@ use super::{
     validate_process_image_address, IoEnumBinding,
 };
 use crate::{
-    bytecode::{IoBinding, TypeData, TypeTable},
     error::RuntimeError,
     io_address::{IoAddress, IoSize},
     stdlib::conversions::ConversionType,
     value::Value,
 };
-use alloc::vec::Vec;
-use smol_str::SmolStr;
 
 /// Reusable declared-type conversion for an image binding; not an execution admission token.
 #[derive(Debug, Clone, Default)]
@@ -23,94 +20,6 @@ pub struct IoValueCodec {
     pub string_capacity: Option<u16>,
 }
 impl IoValueCodec {
-    /// Resolve a codec through aliases and scalar/enum declarations.
-    pub fn from_type(
-        type_id: Option<u32>,
-        types: &TypeTable,
-        strings: &crate::vm::Names,
-    ) -> Result<Self, RuntimeError> {
-        let Some(mut ty) = type_id else {
-            return Ok(Self::default());
-        };
-        let mut result = Self::default();
-        for _ in 0..=crate::bytecode::BYTECODE_MAX_CONST_NESTING {
-            let entry = types
-                .entries
-                .get(ty as usize)
-                .ok_or(RuntimeError::TypeMismatch)?;
-            match &entry.data {
-                TypeData::Alias { target_type_id } => ty = *target_type_id,
-                TypeData::Subrange { base_type_id, .. } => ty = *base_type_id,
-                TypeData::Enum {
-                    base_type_id,
-                    variants,
-                } => {
-                    let name = entry
-                        .name_idx
-                        .and_then(|idx| strings.get(idx as usize))
-                        .map(SmolStr::new)
-                        .ok_or(RuntimeError::TypeMismatch)?;
-                    let mut names = Vec::with_capacity(variants.len());
-                    for variant in variants {
-                        names.push((
-                            strings
-                                .get(variant.name_idx as usize)
-                                .map(SmolStr::new)
-                                .ok_or(RuntimeError::TypeMismatch)?,
-                            variant.value,
-                        ));
-                    }
-                    result.enum_type = Some(IoEnumBinding {
-                        type_name: name,
-                        variants: names,
-                    });
-                    ty = *base_type_id;
-                }
-                TypeData::Primitive {
-                    prim_id,
-                    max_length,
-                } => {
-                    result.wire_type = Some(match prim_id {
-                        1 => ConversionType::Bool,
-                        2 => ConversionType::Byte,
-                        3 => ConversionType::Word,
-                        4 => ConversionType::DWord,
-                        5 => ConversionType::LWord,
-                        6 => ConversionType::SInt,
-                        7 => ConversionType::Int,
-                        8 => ConversionType::DInt,
-                        9 => ConversionType::LInt,
-                        10 => ConversionType::USInt,
-                        11 => ConversionType::UInt,
-                        12 => ConversionType::UDInt,
-                        13 => ConversionType::ULInt,
-                        14 => ConversionType::Real,
-                        15 => ConversionType::LReal,
-                        16 => ConversionType::Time,
-                        // Long temporal forms (IEC Table 10, 64-bit). DATE (18), TOD (20) and
-                        // DT (22) have no fixed direct-address width, so they stay unmapped and
-                        // preparation refuses them with TypeMismatch.
-                        17 => ConversionType::LTime,
-                        19 => ConversionType::LDate,
-                        21 => ConversionType::LTod,
-                        23 => ConversionType::Ldt,
-                        // A STRING occupies its capacity in bytes; 80 without a length.
-                        24 => {
-                            result.string_capacity =
-                                Some(crate::value::string_capacity(*max_length));
-                            ConversionType::String
-                        }
-                        26 => ConversionType::Char,
-                        27 => ConversionType::WChar,
-                        _ => return Err(RuntimeError::TypeMismatch),
-                    });
-                    return Ok(result);
-                }
-                _ => return Err(RuntimeError::TypeMismatch),
-            }
-        }
-        Err(RuntimeError::TypeMismatch)
-    }
     /// Validate the binding address and apply declared string capacity.
     pub fn address(&self, mut address: IoAddress) -> Result<IoAddress, RuntimeError> {
         if let Some(capacity) = self.string_capacity {
@@ -133,42 +42,14 @@ impl IoValueCodec {
     }
 }
 
-/// Resolved image address and codec from artifact tables; execution admission remains separate.
+/// One binding of a program image's process image (specification 44 §5.6): its address, the
+/// variable it binds and the codec of the variable's type.
 #[derive(Debug, Clone)]
 pub struct PreparedIoBinding {
     /// Validated physical or hierarchical image address.
     pub address: IoAddress,
-    /// Artifact reference identifying the bound storage location.
-    pub ref_idx: u32,
-    /// Declared artifact type, if the binding is typed.
-    pub type_id: Option<u32>,
+    /// The symbol of the bound variable in the image's symbol table.
+    pub symbol: u32,
     /// Prepared value conversion for this binding.
     pub codec: IoValueCodec,
-}
-impl PreparedIoBinding {
-    /// Resolve and validate the address, type and codec of one artifact binding.
-    pub fn from_tables(
-        binding: &IoBinding,
-        types: &TypeTable,
-        strings: &crate::vm::Names,
-    ) -> Result<Self, RuntimeError> {
-        let text = strings
-            .get(binding.address_str_idx as usize)
-            .ok_or(RuntimeError::TypeMismatch)?;
-        let codec = IoValueCodec::from_type(binding.type_id, types, strings)?;
-        let address = codec.address(IoAddress::parse(text)?)?;
-        Ok(Self {
-            address,
-            ref_idx: binding.ref_idx,
-            type_id: binding.type_id,
-            codec,
-        })
-    }
-}
-
-impl crate::memory::figure::HeapBytes for PreparedIoBinding {
-    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
-        count.of(&self.address);
-        count.of(&self.codec.enum_type);
-    }
 }

@@ -30,18 +30,15 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
+use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, RunnerWait, TimeSpan,
 };
-use trust_runtime_core::vm::CarriedValueEvent;
 
-pub use rules::{
-    address_text, is_call_depth_limit, is_memory_limit, prepare_candidate, stack_shortage,
-    too_deep, unwired_binding, ChangeMemory,
-};
+pub use rules::{address_text, unwired_binding, ChangeMemory};
 
 use super::program::Program;
-use super::{EngineLiveValues, ResourceCycle, Runner, RunnerPlatform};
+use super::{DeviceLiveValues, ResourceCycle, Runner, RunnerPlatform};
 use crate::loading::reload::{self, ReloadOutcome, TAKE_WAIT};
 use crate::protocol::ControlResponse;
 
@@ -54,7 +51,7 @@ pub struct Candidate<Y> {
     /// The candidate's Live Values, which the commit gives the platform and the loop in place of the
     /// running program's: they hold no queued write and no force, and carry the candidate's
     /// installation generation.
-    pub live: EngineLiveValues,
+    pub live: DeviceLiveValues,
     /// The variables of the candidate that did not keep the running program's values as they were,
     /// which the loop records at the moment of the commit (specification 34 §11.3).
     pub events: Vec<CarriedValueEvent>,
@@ -281,6 +278,7 @@ where
         self.cycle.attach_hold(self.hold.clone());
         self.record_program_memory();
         self.tasks = self.cycle.tasks();
+        self.programs = self.cycle.programs();
         self.live = live;
         // The program's time goes on from the clock, and its tasks continue the running program's
         // schedule, which the candidate took from it, so the first scan after the change runs the
@@ -300,6 +298,3 @@ where
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod contract_tests;

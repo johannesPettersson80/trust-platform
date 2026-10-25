@@ -132,26 +132,6 @@ name = "trust-bundle-gen"
 path = "src/bin/trust-bundle-gen.rs"
 required-features = ["full"]
 
-[[example]]
-name = "portability_fixture"
-path = "examples/portability_fixture.rs"
-required-features = ["full"]
-
-[[example]]
-name = "portability_gpio_fixture"
-path = "examples/portability_gpio_fixture.rs"
-required-features = ["full"]
-
-[[example]]
-name = "portability_temporal_fixture"
-path = "examples/portability_temporal_fixture.rs"
-required-features = ["full"]
-
-[[example]]
-name = "bounded_c_fixtures"
-path = "examples/bounded_c_fixtures.rs"
-required-features = ["full"]
-
 [features]
 default = [
     "development",
@@ -162,14 +142,8 @@ default = [
     "opcua-wire",
     "openot-database-all",
 ]
-# Runtime-only owns the std shared engine and host clocks; no product services.
-runtime-only = []
-# Optimization selection does not change the supported IEC function set.
-register-ir = ["trust-runtime-core/register-ir"]
 # Current full-controller tooling metadata uses HIR. It is not compiler-free.
 full = [
-    "runtime-only",
-    "register-ir",
     "trust-runtime-core/hir",
     "dep:trust-syntax",
     "dep:trust-hir",
@@ -177,9 +151,8 @@ full = [
     "dep:trust-plcopen",
     "dep:trust-ads-core",
     "dep:trust-tcads-native",
-    "dep:trust-runtime-services",
     # A computer runs compiled programs with the chips' compiled cycle (specification 44 §8.8).
-    "trust-runtime-services/native",
+    "dep:trust-runtime-services",
     "dep:trust-plc-abi",
     "dep:trust-plc-lib",
     "dep:object",
@@ -239,7 +212,7 @@ full = [
     "dep:gpio-cdev",
     "dep:rustix",
 ]
-development = ["full", "debug", "register-ir"]
+development = ["full", "debug"]
 debug = ["full"]
 opcua-wire = ["full", "dep:opcua"]
 ethercat-wire = ["full", "dep:ethercrab", "dep:tokio", "dep:pnet_datalink"]

@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration as StdDuration;
 
@@ -60,7 +62,7 @@ fn status_baseline_preserves_runtime_identity_and_modes() {
     assert_eq!(value.get("resource"), Some(&json!("RESOURCE")));
     assert_eq!(value.get("plc_name"), Some(&json!("RESOURCE")));
     assert_eq!(value.get("control_mode"), Some(&json!("debug")));
-    assert_eq!(value.get("execution_backend"), Some(&json!("vm")));
+    assert_eq!(value.get("execution_backend"), Some(&json!("native")));
     assert_eq!(
         value.get("execution_backend_source"),
         Some(&json!("default"))

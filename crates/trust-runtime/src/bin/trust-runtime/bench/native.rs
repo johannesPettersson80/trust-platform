@@ -1,9 +1,9 @@
 /// The project compiled for this computer and run by the kernel (specification 44 §14.3): cycle
-/// after cycle at the project's cycle interval in logical time, without waiting between cycles, as
-/// `bench project` runs the bytecode engine. The project's `[build] debug` chooses a debug or a
-/// release image (§13.2), as `trust-runtime build` does. Reports the time of each cycle, the time of
-/// each task's activations and the image's kind, code and memory, which the RuSTy comparison reads.
-fn run_native_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<BenchReport> {
+/// after cycle at the project's cycle interval in logical time, without waiting between cycles. The
+/// project's `[build] debug` chooses a debug or a release image (§13.2), as `trust-runtime build`
+/// does. Reports the time of each cycle, the time of each task's activations and the image's kind,
+/// code and memory, which the RuSTy comparison reads.
+fn run_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<BenchReport> {
     use trust_runtime::native::{self, NoHooks, Target, Toolchain};
 
     let runtime_config = RuntimeConfig::load(workload.project.join("runtime.toml"))
@@ -102,7 +102,6 @@ fn run_native_project_bench(workload: ProjectBenchWorkload) -> anyhow::Result<Be
         histogram: histogram_from_ns(&samples_ns),
         budget_overruns,
         watched_globals,
-        vm_profile: None,
         tasks: Some(
             task_names
                 .into_iter()
@@ -140,5 +139,55 @@ impl trust_runtime::native::ScanHooks for TaskTimer {
         if let (Some(started), Some(samples)) = (self.started.take(), self.samples.get_mut(task)) {
             samples.push(duration_ns(started));
         }
+    }
+}
+
+/// The JSON of a watched global's value.
+fn value_to_json(value: &Value) -> serde_json::Value {
+    match value {
+        Value::Bool(value) => serde_json::Value::Bool(*value),
+        Value::SInt(value) => json!(*value),
+        Value::Int(value) => json!(*value),
+        Value::DInt(value) => json!(*value),
+        Value::LInt(value) => json!(*value),
+        Value::USInt(value) => json!(*value),
+        Value::UInt(value) => json!(*value),
+        Value::UDInt(value) => json!(*value),
+        Value::ULInt(value) => json!(*value),
+        Value::Real(value) => json!(*value),
+        Value::LReal(value) => json!(*value),
+        Value::Byte(value) => json!(*value),
+        Value::Word(value) => json!(*value),
+        Value::DWord(value) => json!(*value),
+        Value::LWord(value) => json!(*value),
+        Value::Time(value) | Value::LTime(value) => json!(value.as_nanos()),
+        Value::Date(value) => json!(value.ticks()),
+        Value::LDate(value) => json!(value.nanos()),
+        Value::Tod(value) => json!(value.ticks()),
+        Value::LTod(value) => json!(value.nanos()),
+        Value::Dt(value) => json!(value.ticks()),
+        Value::Ldt(value) => json!(value.nanos()),
+        Value::String(value) => json!(value.as_str()),
+        Value::WString(value) => json!(value),
+        Value::Char(value) => json!(format!("CHAR#{}", value)),
+        Value::WChar(value) => json!(format!("WCHAR#{}", value)),
+        Value::Array(value) => {
+            serde_json::Value::Array(value.elements().iter().map(value_to_json).collect())
+        }
+        Value::Struct(value) => {
+            let mut object = serde_json::Map::new();
+            for (name, field) in value.fields() {
+                object.insert(name.to_string(), value_to_json(field));
+            }
+            serde_json::Value::Object(object)
+        }
+        Value::Enum(value) => json!({
+            "type": value.type_name().as_str(),
+            "variant": value.variant_name().as_str(),
+            "value": value.numeric_value(),
+        }),
+        Value::Reference(_) => serde_json::Value::Null,
+        Value::Instance(value) => json!({ "instance": value.0 }),
+        Value::Null => serde_json::Value::Null,
     }
 }

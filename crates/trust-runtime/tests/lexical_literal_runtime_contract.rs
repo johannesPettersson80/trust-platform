@@ -1,4 +1,9 @@
-use trust_runtime::harness::{CompileSession, TestHarness};
+//! Literals of every lexical form reach the running program with their exact value, and a malformed
+//! or out-of-range literal refuses the build.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
 fn run(source: &str) -> TestHarness {
@@ -10,7 +15,7 @@ fn run(source: &str) -> TestHarness {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match TestHarness::from_source(source) {
         Ok(_) => panic!("malformed or out-of-range literal must reject compilation"),
         Err(error) => error.to_string(),
     }

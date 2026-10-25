@@ -6,7 +6,7 @@
 use std::sync::{Arc, Mutex};
 
 use smol_str::SmolStr;
-use trust_runtime_services::runner::engine::ProcessIo;
+use trust_runtime_services::runner::ProcessIo;
 
 use super::super::io_subsystem::{publish_health, write_safe_outputs, IoDriverEntry};
 use super::tags::{lock, SharedExtraImages};

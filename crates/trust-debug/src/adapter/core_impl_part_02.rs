@@ -30,113 +30,6 @@ impl DebugAdapter {
         self.dap_logger = dap_log.clone();
         let dap_verbose = env_flag("ST_DEBUG_DAP_VERBOSE");
 
-        let (log_tx, log_rx) = mpsc::channel::<DebugLog>();
-        self.session.debug_control().set_log_sender(log_tx);
-        let (io_tx, io_rx) = mpsc::channel::<IoSnapshot>();
-        self.session.debug_control().set_io_sender(io_tx);
-        let (stop_tx, stop_rx) = mpsc::channel::<DebugStop>();
-        let stop_control = self.session.debug_control();
-        stop_control.set_stop_sender(stop_tx);
-        let log_writer = Arc::clone(&writer);
-        let log_logger = dap_log.clone();
-        let log_seq = Arc::clone(&self.next_seq);
-        let log_thread = thread::spawn(move || {
-            while let Ok(log) = log_rx.recv() {
-                let output = if log.message.ends_with('\n') {
-                    log.message
-                } else {
-                    format!("{}\n", log.message)
-                };
-                let body = OutputEventBody {
-                    output,
-                    category: Some("console".to_string()),
-                    source: None,
-                    line: None,
-                    column: None,
-                };
-                let event = Event {
-                    seq: log_seq.fetch_add(1, Ordering::Relaxed),
-                    message_type: MessageType::Event,
-                    event: "output".to_string(),
-                    body: Some(body),
-                };
-                let serialized = match serde_json::to_string(&event) {
-                    Ok(serialized) => serialized,
-                    Err(_) => continue,
-                };
-                if let Some(logger) = &log_logger {
-                    let _ = write_protocol_log(logger, "->", &serialized);
-                }
-                if write_message_locked(&log_writer, &serialized).is_err() {
-                    break;
-                }
-            }
-        });
-        let io_writer = Arc::clone(&writer);
-        let io_logger = dap_log.clone();
-        let io_seq = Arc::clone(&self.next_seq);
-        let io_state_cache = Arc::clone(&self.last_io_state);
-        let io_runtime = self.session.runtime_handle();
-        let io_thread = thread::spawn(move || {
-            let mut last_sent = Instant::now() - IO_EVENT_MIN_INTERVAL;
-            while let Ok(snapshot) = io_rx.recv() {
-                let mut latest = snapshot;
-                while let Ok(next) = io_rx.try_recv() {
-                    latest = next;
-                }
-                let mut body = io_state_from_snapshot(latest);
-                let ads_values = match io_runtime.lock() {
-                    Ok(runtime) => runtime.ads_live_values(),
-                    Err(poisoned) => poisoned.into_inner().ads_live_values(),
-                };
-                append_ads_live_values(&mut body, ads_values);
-                let mut should_emit = true;
-                if let Ok(mut cache) = io_state_cache.lock() {
-                    if let Some(previous) = cache.as_ref()
-                        && previous == &body
-                    {
-                        should_emit = false;
-                    }
-                    if should_emit {
-                        *cache = Some(body.clone());
-                    }
-                }
-                if !should_emit {
-                    continue;
-                }
-                let elapsed = last_sent.elapsed();
-                if elapsed < IO_EVENT_MIN_INTERVAL {
-                    thread::sleep(IO_EVENT_MIN_INTERVAL - elapsed);
-                }
-                let event = Event {
-                    seq: io_seq.fetch_add(1, Ordering::Relaxed),
-                    message_type: MessageType::Event,
-                    event: "stIoState".to_string(),
-                    body: Some(body),
-                };
-                let serialized = match serde_json::to_string(&event) {
-                    Ok(serialized) => serialized,
-                    Err(_) => continue,
-                };
-                if let Some(logger) = &io_logger {
-                    let _ = write_protocol_log(logger, "->", &serialized);
-                }
-                if write_message_locked(&io_writer, &serialized).is_err() {
-                    break;
-                }
-                last_sent = Instant::now();
-            }
-        });
-        let stop_thread = StopCoordinator::new(
-            self.stop_gate.clone(),
-            Arc::clone(&self.pause_expected),
-            self.session.debug_control(),
-            Arc::clone(&writer),
-            dap_log.clone(),
-            Arc::clone(&self.next_seq),
-        )
-        .spawn(stop_rx);
-
         let mut announced_verbose = false;
 
         loop {
@@ -193,18 +86,16 @@ impl DebugAdapter {
             };
 
             if dap_verbose {
-                let actions = self.launch_state.pending_actions();
                 emit_verbose(
                     self,
                     &writer,
                     &dap_log,
                     format!(
-                        "[trust-debug][dap] dispatch: seq={} command={} configured={} pending_launch={} post_launch_actions={:?}",
+                        "[trust-debug][dap] dispatch: seq={} command={} configured={} pending_launch={}",
                         request.seq,
                         request.command,
                         self.launch_state.is_configured(),
                         self.launch_state.has_pending_launch(),
-                        actions
                     ),
                 )?;
             }
@@ -217,19 +108,17 @@ impl DebugAdapter {
             }
             let _stop_gate = outcome.stop_gate.as_ref();
             if dap_verbose {
-                let actions = self.launch_state.pending_actions();
                 emit_verbose(
                     self,
                     &writer,
                     &dap_log,
                     format!(
-                        "[trust-debug][dap] outcome: responses={} events={} should_exit={} configured={} pending_launch={} post_launch_actions={:?}",
+                        "[trust-debug][dap] outcome: responses={} events={} should_exit={} configured={} pending_launch={}",
                         outcome.responses.len(),
                         outcome.events.len(),
                         outcome.should_exit,
                         self.launch_state.is_configured(),
                         self.launch_state.has_pending_launch(),
-                        actions
                     ),
                 )?;
             }
@@ -265,34 +154,13 @@ impl DebugAdapter {
                 }
                 write_message_locked(&writer, &serialized)?;
             }
-            let actions = self.launch_state.take_actions();
-            if actions.pause_after_launch {
-                self.pause_expected.store(true, Ordering::SeqCst);
-                self.session.debug_control().pause_entry();
-            }
-            if actions.start_runner_after_launch && self.runner.is_none() {
-                self.start_runner();
-                let event = self.debug_output_message("[trust-debug] runner started (post-launch)");
-                let serialized = serde_json::to_string(&event)
-                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
-                if let Some(logger) = &dap_log {
-                    let _ = write_protocol_log(logger, "->", &serialized);
-                }
-                write_message_locked(&writer, &serialized)?;
-            }
             if outcome.should_exit {
                 break;
             }
         }
 
-        self.stop_runner();
         self.stop_remote_polling();
-        self.session.debug_control().clear_log_sender();
-        self.session.debug_control().clear_io_sender();
-        self.session.debug_control().clear_stop_sender();
-        let _ = log_thread.join();
-        let _ = io_thread.join();
-        let _ = stop_thread.join();
+        self.stop_simulator();
         Ok(())
     }
 }

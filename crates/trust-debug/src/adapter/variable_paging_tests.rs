@@ -94,8 +94,7 @@ fn the_adapter_passes_vs_codes_paging_through() {
     // page for every chunk; a zero `start` dropped; an absent argument sent as `null`; counts lost
     // from the reply, so that VS Code shows no chunks; and an unsupported `filter` forwarded.
     let (addr, requests, server) = spawn_paging_runtime();
-    let runtime = trust_runtime::RuntimeBuilder::new();
-    let mut adapter = DebugAdapter::new(DebugSession::new(runtime.build().expect("a runtime")));
+    let mut adapter = DebugAdapter::new(DebugSession::new());
     adapter.remote_session = Some(
         super::super::remote::RemoteSession::connect(
             super::super::remote::RemoteEndpoint::Tcp(addr),

@@ -2,17 +2,15 @@
 //! operating system needs from `runtime.toml` and `io.toml`, its bytes, and every field a reader
 //! refuses.
 
-use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{
     ApplicationIdentity, Capabilities, Configuration, Contracts, ControlMode, DeploymentRecord,
     DeploymentRecordError as Error, GpioInput, GpioOutput, HangAction, IoDriver, LogLevel,
-    NumericContract, ProcessImageSummary, RequestedLimits, SafeStateEntry, SchedulingProfile,
-    TaskOverride, TimingEvidence, RECORD_VERSION,
+    NumericContract, ProcessImageSummary, ProgramVersion, RequestedLimits, SafeStateEntry,
+    SchedulingProfile, TaskOverride, TimingEvidence, RECORD_VERSION,
 };
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_core::vm::PreparationLimits;
 use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogAction, WatchdogPolicy};
 
 /// Section 7's identifier.
@@ -52,8 +50,8 @@ fn record_with(configuration: Configuration) -> DeploymentRecord {
         application: ApplicationIdentity {
             program_sha256: [0; 32],
             program_bytes: 0,
-            bytecode_version: BytecodeVersion::SOURCE_FREE,
-            bytecode_flags: 0,
+            program_version: ProgramVersion::NATIVE_IMAGE,
+            program_flags: 0,
             configuration_sha256: [0; 32],
             retain_schema_sha256: [0; 32],
         },
@@ -63,7 +61,19 @@ fn record_with(configuration: Configuration) -> DeploymentRecord {
             timing_evidence: TimingEvidence::UNQUALIFIED,
             capabilities: Capabilities::NONE,
         },
-        limits: RequestedLimits::from_preparation(&PreparationLimits::default()),
+        limits: RequestedLimits {
+            max_artifact_bytes: 0,
+            max_preparation_bytes: 0,
+            max_preparation_work: 0,
+            max_validation_scratch_bytes: 0,
+            max_validation_work: 0,
+            max_construction_values: 0,
+            max_construction_bytes: 0,
+            max_process_image_bytes: 0,
+            max_work: 0,
+            max_construction_work: 0,
+            max_call_depth: 0,
+        },
         process_image: ProcessImageSummary::default(),
         tasks: Vec::new(),
         imports: Vec::new(),

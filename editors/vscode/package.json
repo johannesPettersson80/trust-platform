@@ -2490,14 +2490,6 @@
                 "default": false,
                 "description": "Pause immediately after launch"
               },
-              "executionBackend": {
-                "type": "string",
-                "enum": [
-                  "native",
-                  "vm"
-                ],
-                "description": "How the simulator runs the program: compiled for this computer where the truST toolchain is installed (the default), or `vm` on the bytecode engine"
-              },
               "args": {
                 "type": "array",
                 "items": {

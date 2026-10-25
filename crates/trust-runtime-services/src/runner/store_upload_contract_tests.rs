@@ -24,12 +24,12 @@ use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::watchdog::RetainMode;
 
-use super::{check_retained_values, Runner};
+use super::{check_image_retained_values, Runner};
 use crate::events::EVENT_STORE_CAPACITY;
 use crate::installation::set_sequence;
 use crate::loading::select::boot;
 use crate::tests::program_store::{
-    device, transfer_of, CheckpointProbe, FlashOp, FlashProbe, PROGRAM,
+    device, program, transfer_of, CheckpointProbe, FlashOp, FlashProbe,
 };
 use crate::tests::runner_ports::{Fixture, TestPlatform, TestRunner};
 use crate::transfer::{TransferSession, PART_BYTES};
@@ -165,7 +165,7 @@ impl Rig {
         )
         .with_transfers(TransferSession::new(BOOT, 65_536, 8_192))
         .with_program_store(self.flash.store(), move |admitted| {
-            check_retained_values(&mut checkpoints, admitted)
+            check_image_retained_values(&mut checkpoints, admitted)
         })
     }
 
@@ -176,7 +176,7 @@ impl Rig {
             .runner_with(TestPlatform::default())
             .with_transfers(TransferSession::new(BOOT, 65_536, 8_192))
             .with_program_store(self.flash.store(), move |admitted| {
-                check_retained_values(&mut checkpoints, admitted)
+                check_image_retained_values(&mut checkpoints, admitted)
             })
     }
 
@@ -299,8 +299,8 @@ fn an_upload_into_the_store_is_written_as_it_arrives_and_its_install_commits_the
             "result": {
                 "status": "installed",
                 "sequence": 1,
-                "program_sha256": hex(&sha256(PROGRAM)),
-                "bytes": PROGRAM.len(),
+                "program_sha256": hex(&sha256(program())),
+                "bytes": program().len(),
             },
             "audit_id": "audit-4",
         }),

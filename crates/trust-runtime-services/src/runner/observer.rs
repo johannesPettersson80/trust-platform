@@ -1,15 +1,14 @@
-//! What the resource loop records of a scan at the engine's cycle phases: the overrun events, and
-//! the task, program and overrun metrics, as trust-runtime's hosted cycle records them
-//! (`runtime/installed_cycle.rs`). The events that every scan makes, its cycle's and its task's
-//! start and end, are not recorded: the event store keeps none of them (specification 11, the event
-//! store), and no caller drains them from a chip.
+//! What the resource loop records of a scan at its boundaries (specification 44 §8.7): the overrun
+//! events, and the task and overrun metrics, as trust-runtime records them. The events that every
+//! scan makes, its cycle's and its task's start and end, are not recorded: the event store keeps
+//! none of them (specification 11, the event store), and no caller drains them from a chip.
 
+use smol_str::SmolStr;
+use trust_runtime_core::cycle::{CycleHooks, CyclePhase};
 use trust_runtime_core::error::RuntimeError;
-#[cfg(feature = "native")]
 use trust_runtime_core::io_image::FlatImages;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant};
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::{CycleAccess, CycleHooks, CyclePhase};
 
 use super::cycle::TaskDescriptor;
 use super::debugger::ChipDebug;
@@ -20,14 +19,10 @@ use crate::events::RuntimeEvent;
 /// The loop's [`CycleHooks`] for one scan. It also tells the debugger which thread runs: a task
 /// starts, or the programs that run outside any task do (specification 13, "Multi-Task Thread
 /// Model").
-///
-/// It keeps the engine's default `has_output_hooks`, true, as trust-runtime's hosted cycle does:
-/// the engine then checks the scan's deadline after the outputs are staged and before they are
-/// published, and restores the staged outputs after a failed publication, so a fault is recorded
-/// at the same point as on the host. The cost is the engine's journal of the staged outputs,
-/// which the device measurements of slice S1b include.
 pub(super) struct ScanObserver<'a, C> {
     tasks: &'a [TaskDescriptor],
+    /// The program instance of each entry of the image, by which a program call is recorded.
+    programs: &'a [SmolStr],
     records: &'a Records<C>,
     clock: &'a C,
     debug: &'a ChipDebug,
@@ -40,12 +35,14 @@ impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
     /// thread that runs.
     pub(super) fn new(
         tasks: &'a [TaskDescriptor],
+        programs: &'a [SmolStr],
         records: &'a Records<C>,
         clock: &'a C,
         debug: &'a ChipDebug,
     ) -> Self {
         Self {
             tasks,
+            programs,
             records,
             clock,
             debug,
@@ -89,13 +86,24 @@ impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
                         .record(|metrics| metrics.record_task(&task.name, duration));
                 }
             }
-            CyclePhase::BackgroundStart(_) => {
+            CyclePhase::BackgroundStart => {
                 self.debug.set_thread(background_thread(self.tasks));
+            }
+            CyclePhase::ProgramStart(_) => self.program_started = Some(self.clock.now()),
+            // Each invoked program is a call of its instance, a faulted one too (specification 11,
+            // runtime metrics).
+            CyclePhase::ProgramEnd(entry) => {
+                if let Some(started) = self.program_started.take()
+                    && let Some(name) = self.programs.get(entry).filter(|name| !name.is_empty())
+                {
+                    let duration = self.since(started);
+                    self.records
+                        .record(|metrics| metrics.record_call("program", name, duration));
+                }
             }
             CyclePhase::CycleStart
             | CyclePhase::BeforeInputSample
-            | CyclePhase::AfterInputSample
-            | CyclePhase::BackgroundEnd(_)
+            | CyclePhase::BackgroundEnd
             | CyclePhase::BeforeOutputSample
             | CyclePhase::AfterOutputSample
             | CyclePhase::CycleEnd => {}
@@ -105,43 +113,6 @@ impl<'a, C: MonotonicClock> ScanObserver<'a, C> {
 }
 
 impl<C: MonotonicClock> CycleHooks for ScanObserver<'_, C> {
-    fn has_program_hooks(&self) -> bool {
-        true
-    }
-
-    fn program_started(&mut self, _name: &str) {
-        self.program_started = Some(self.clock.now());
-    }
-
-    fn program_finished(&mut self, name: &str) {
-        if let Some(started) = self.program_started.take() {
-            let duration = self.since(started);
-            self.records
-                .record(|metrics| metrics.record_call("program", name, duration));
-        }
-    }
-
-    /// The phases whose events and metrics it records, and where a thread starts to run.
-    fn observes(&self, phase: CyclePhase) -> bool {
-        matches!(
-            phase,
-            CyclePhase::TaskOverrun { .. }
-                | CyclePhase::TaskStart(_)
-                | CyclePhase::TaskEnd(_)
-                | CyclePhase::BackgroundStart(_)
-        )
-    }
-
-    fn on_phase(
-        &mut self,
-        phase: CyclePhase,
-        access: &mut CycleAccess<'_, '_>,
-    ) -> Result<(), RuntimeError> {
-        self.record(phase, access.logical_time())
-    }
-
-    /// A compiled program's scan is recorded at the same phases (specification 44 §8.7).
-    #[cfg(feature = "native")]
     fn on_compiled_phase(
         &mut self,
         phase: CyclePhase,

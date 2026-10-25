@@ -1,11 +1,15 @@
+//! The online-change transaction cases of `RT_RELOAD_001`: an online change neither reads nor
+//! needs the retain store.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_bytes_from_source, TestHarness};
+use trust_runtime::harness::TestHarness;
 use trust_runtime::retain::RetainStore;
 use trust_runtime::value::Value;
 use trust_runtime::{RestartMode, RetainSnapshot};
@@ -112,14 +116,12 @@ fn run_reload_case(
         ));
     }
 
-    let mut harness = vm_harness()?;
-    let updated_bytes = bytecode_bytes_from_source(SOURCE_V2)
-        .map_err(|error| format!("build updated bytecode: {error}"))?;
+    let mut harness = installed()?;
     let mut mismatches = Vec::new();
     let mut observations = Vec::new();
     for step in trace {
         check_trace_fields(&step.expected, RELOAD_EXPECTED_FIELDS)?;
-        let observation = execute_step(&mut harness, &updated_bytes, step)?;
+        let observation = execute_step(&mut harness, step)?;
         compare_step(step, &observation, &mut mismatches)?;
         observations.push(observation.clone());
     }
@@ -199,19 +201,9 @@ fn reload_snapshot(observation: &BTreeMap<String, serde_json::Value>) -> StateSn
     }
 }
 
-fn vm_harness() -> Result<TestHarness, String> {
+fn installed() -> Result<TestHarness, String> {
     let mut harness = TestHarness::from_source(SOURCE_V1)
         .map_err(|error| format!("compile initial runtime: {error}"))?;
-    let bytes = bytecode_bytes_from_source(SOURCE_V1)
-        .map_err(|error| format!("build initial bytecode: {error}"))?;
-    harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
-        .map_err(|error| format!("apply initial bytecode: {error}"))?;
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .map_err(|error| format!("select VM backend: {error}"))?;
     harness
         .restart(RestartMode::Cold)
         .map_err(|error| format!("cold restart initial runtime: {error}"))?;
@@ -220,7 +212,6 @@ fn vm_harness() -> Result<TestHarness, String> {
 
 fn execute_step(
     harness: &mut TestHarness,
-    updated_bytes: &[u8],
     step: &TraceStep,
 ) -> Result<BTreeMap<String, serde_json::Value>, String> {
     let action = trace_string(&step.stimulus, "action")?;
@@ -235,11 +226,9 @@ fn execute_step(
         "reload_with_failing_retain_store" => {
             harness
                 .runtime_mut()
-                .set_retain_store(Some(Box::new(FailingLoadStore)), None);
-            match harness
-                .runtime_mut()
-                .apply_online_change_bytes(updated_bytes, None)
-            {
+                .set_retain_store(Some(Box::new(FailingLoadStore)), None)
+                .map_err(|error| format!("set the failing retain store: {error}"))?;
+            match harness.reload_source(SOURCE_V2) {
                 Ok(_) => {
                     observation.insert("reload_result".to_string(), json!("accepted"));
                 }

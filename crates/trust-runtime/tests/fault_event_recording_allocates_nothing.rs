@@ -9,7 +9,7 @@ use std::collections::VecDeque;
 
 use trust_runtime::debug::RuntimeEvent;
 use trust_runtime::value::Duration;
-use trust_runtime_core::error::{RuntimeError, StableErrorCode};
+use trust_runtime_core::error::RuntimeError;
 use trust_runtime_services::events::{store_event, EVENT_STORE_CAPACITY};
 
 thread_local! {
@@ -81,10 +81,6 @@ fn recording_a_fault_event_allocates_nothing() {
             value: 5_000,
             lower: 0,
             upper: 1_000,
-        },
-        RuntimeError::Bytecode {
-            code: StableErrorCode::VmStackUnderflow,
-            detail: "bytecode detail message longer than inline".into(),
         },
     ];
 

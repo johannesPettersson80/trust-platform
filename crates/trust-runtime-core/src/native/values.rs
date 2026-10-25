@@ -22,13 +22,17 @@ use smol_str::SmolStr;
 use super::image::{
     type_kind as kind, Image, MemberDetail, SectionId, Table, TypeRecord, MEMBER_BYTES,
 };
-use crate::bytecode::BYTECODE_MAX_TYPE_NESTING;
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
+use crate::memory::{FrameId, Generation, InstanceId, IoArea, MemoryLocation};
 use crate::value::{
     string_capacity_cut, ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue,
-    LDateValue, LTimeOfDayValue, StructValue, TimeOfDayValue, Value,
+    LDateValue, LTimeOfDayValue, StructValue, TimeOfDayValue, Value, ValueRef,
 };
+
+/// The deepest a type may nest, its root at depth zero: 64 edges, 65 types. A type table deeper
+/// than this, or with a cycle, is damaged (specification 44 §5.8).
+pub const MAX_TYPE_NESTING: usize = 64;
 
 /// The bytes of one of a compiled program's areas, where the program holds them.
 pub(crate) trait AreaBytes {
@@ -167,6 +171,38 @@ impl<'i> Types<'i> {
             .iter()
             .map(|bounds| (i64_at(bounds, 0), i64_at(bounds, 8)));
         Ok((element, dimensions))
+    }
+
+    /// The bit of its byte that a `BOOL` of type `ty` takes: a member of a `STRUCT OVERLAP` at
+    /// `%Xn.b`, whose record's count is the bit plus one (specification 44 §5.8); `None` for a
+    /// `BOOL` that takes its byte, and for every other type.
+    pub(crate) fn bit(&self, ty: &TypeRecord) -> Result<Option<u8>, RuntimeError> {
+        if ty.kind != kind::BOOL || ty.count == 0 {
+            return Ok(None);
+        }
+        u8::try_from(ty.count - 1)
+            .ok()
+            .filter(|bit| *bit < 8)
+            .map(Some)
+            .ok_or_else(|| damaged("type table"))
+    }
+
+    /// Whether the members of the structure of type `index` share bytes, as the members of a
+    /// `STRUCT OVERLAP` do (specification 02 §3.6): a member starts before the one before it ends.
+    pub(crate) fn overlapping(&self, index: u32) -> Result<bool, RuntimeError> {
+        let ty = self.get(index)?;
+        if ty.kind != kind::STRUCT {
+            return Ok(false);
+        }
+        let mut end = 0u64;
+        for member in self.members(&ty)? {
+            let offset = u64::from(member.offset);
+            if offset < end {
+                return Ok(true);
+            }
+            end = offset + u64::from(self.get(member.type_index)?.size);
+        }
+        Ok(false)
     }
 
     /// The elements of an array of `dimensions` and the bytes between two of them.
@@ -406,7 +442,7 @@ impl Writer<'_, '_> {
         value: &Value,
         depth: usize,
     ) -> Result<(), RuntimeError> {
-        if depth > BYTECODE_MAX_TYPE_NESTING {
+        if depth > MAX_TYPE_NESTING {
             return Err(RuntimeError::TypeMismatch);
         }
         let ty = self.types.get(index)?;
@@ -498,12 +534,6 @@ impl Writer<'_, '_> {
                 let Value::Struct(structure) = value else {
                     return Err(RuntimeError::TypeMismatch);
                 };
-                if structure.physical_layout().is_some() {
-                    return Err(RuntimeError::RetainMigration(
-                        "retained physical backing requires a compatible physical destination"
-                            .into(),
-                    ));
-                }
                 for member in self.types.members(&ty)? {
                     let name = self.types.string(member.name)?;
                     let at = offset
@@ -519,21 +549,45 @@ impl Writer<'_, '_> {
                         Some((_, field)) => self.write(member.type_index, at, field, depth + 1)?,
                         // A member the saved value lacks takes its starting value: its declared
                         // initial value, or its type's.
-                        None => {
-                            let size = usize::try_from(self.types.get(member.type_index)?.size)
-                                .map_err(|_| RuntimeError::Overflow)?;
-                            let source = self.starting;
-                            let starting = at
-                                .checked_add(size)
-                                .and_then(|end| source.get(at..end))
-                                .ok_or_else(|| damaged("starting memory"))?;
-                            self.put(at, starting)?;
-                        }
+                        None => self.keep_starting(member.type_index, at)?,
                     }
                 }
                 Ok(())
             }
+            kind::BOOL => match self.types.bit(&ty)? {
+                Some(bit) => {
+                    let Value::Bool(flag) = value else {
+                        return Err(RuntimeError::TypeMismatch);
+                    };
+                    let byte = self.slot(offset, 1)?;
+                    byte[0] = (byte[0] & !(1 << bit)) | (u8::from(*flag) << bit);
+                    Ok(())
+                }
+                None => self.write_scalar(kind::BOOL, offset, value),
+            },
             other => self.write_scalar(other, offset, value),
+        }
+    }
+
+    /// Gives the value of type `index` at `offset` its starting bytes; a `BOOL` that takes one bit
+    /// of its byte only that bit.
+    fn keep_starting(&mut self, index: u32, offset: usize) -> Result<(), RuntimeError> {
+        let ty = self.types.get(index)?;
+        let size = usize::try_from(ty.size).map_err(|_| RuntimeError::Overflow)?;
+        let source = self.starting;
+        let starting = offset
+            .checked_add(size)
+            .and_then(|end| source.get(offset..end))
+            .ok_or_else(|| damaged("starting memory"))?;
+        match self.types.bit(&ty)? {
+            Some(bit) => {
+                let mask = 1u8 << bit;
+                let kept = starting.first().copied().unwrap_or(0) & mask;
+                let byte = self.slot(offset, 1)?;
+                byte[0] = (byte[0] & !mask) | kept;
+                Ok(())
+            }
+            None => self.put(offset, starting),
         }
     }
 
@@ -633,7 +687,7 @@ fn decode<A: AreaBytes + ?Sized>(
     index: u32,
     depth: usize,
 ) -> Result<Value, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
+    if depth > MAX_TYPE_NESTING {
         return Err(RuntimeError::TypeMismatch);
     }
     let ty = types.get(index)?;
@@ -697,8 +751,41 @@ fn decode<A: AreaBytes + ?Sized>(
                 fields,
             ))))
         }
+        kind::BOOL => match types.bit(&ty)? {
+            Some(bit) => Ok(Value::Bool(
+                (read_unsigned(area, offset, 1)? >> bit) & 1 != 0,
+            )),
+            None => decode_scalar(area, offset, kind::BOOL),
+        },
+        kind::REFERENCE | kind::POINTER | kind::INTERFACE => decode_reference(area, offset),
         other => decode_scalar(area, offset, other),
     }
+}
+
+/// The reference, pointer or interface value at `offset` of `area` (specification 44 §7.3):
+/// `NULL`, or the variable it names by its area, its offset and the generation it was taken in.
+fn decode_reference<A: AreaBytes + ?Sized>(area: &A, offset: usize) -> Result<Value, RuntimeError> {
+    let mut bytes = [0u8; 16];
+    read(area, offset, &mut bytes)?;
+    // The `RefValue`'s area and kind lead; its offset follows at 4 and its generation at 12.
+    if bytes[1] == 0 {
+        return Ok(Value::Reference(None));
+    }
+    let location = match bytes[0] {
+        1 => MemoryLocation::Io(IoArea::Input),
+        2 => MemoryLocation::Io(IoArea::Output),
+        3 => MemoryLocation::Io(IoArea::Memory),
+        4 => MemoryLocation::Global,
+        5 => MemoryLocation::Retain,
+        6 => MemoryLocation::Instance(InstanceId(0)),
+        _ => MemoryLocation::Local(FrameId(0)),
+    };
+    Ok(Value::Reference(Some(ValueRef {
+        location,
+        offset: u32_at(&bytes, 4),
+        generation: Generation(u32_at(&bytes, 12)),
+        path: Vec::new(),
+    })))
 }
 
 /// The elementary value of kind `kind` at `offset` of `area`.
@@ -739,4 +826,16 @@ fn decode_scalar<A: AreaBytes + ?Sized>(
         kind::WCHAR => Value::WChar(u16::try_from(unsigned).map_err(narrow)?),
         _ => return Err(RuntimeError::TypeMismatch),
     })
+}
+
+/// Whether `value` holds a `REAL` or `LREAL` NaN or infinity, at any depth of an array or a
+/// structure, which an engineering write may not leave in a variable (specification 34 §4.3.1).
+pub(crate) fn holds_non_finite(value: &Value) -> bool {
+    match value {
+        Value::Real(real) => !real.is_finite(),
+        Value::LReal(real) => !real.is_finite(),
+        Value::Array(array) => array.elements().iter().any(holds_non_finite),
+        Value::Struct(record) => record.fields().values().any(holds_non_finite),
+        _ => false,
+    }
 }

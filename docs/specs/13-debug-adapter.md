@@ -39,8 +39,8 @@ This document is implementation-agnostic but aligns with the DAP definitions in
    its syntax node. The location span covers the full statement text range.
 2) Each source file loaded in a debug session has a unique `file_id` and is registered in the
    adapter with its path and, when the tool has it, its full text. Every statement's position
-   comes from the module's `LINE_TABLE` section (specification 12 §6.13), which carries each
-   statement's file label, start and end line and column, and code span. The text serves
+   comes from the program image's statement table (specification 44 §5.9), which carries each
+   statement's file, POU, and start and end line and column. The text serves
    presentation only: a runtime that holds the text projects those positions to byte offsets, and
    a runtime without the text reports line and column.
 3) The adapter converts runtime locations to `(line, column)` for DAP using 1-based coordinates
@@ -50,9 +50,9 @@ This document is implementation-agnostic but aligns with the DAP definitions in
    must not resolve outside the project root.
 
 **One resolver on every runtime (owner, 18 October 2026).** Breakpoints and stepping resolve through
-the module's `LINE_TABLE` on trust-runtime and on a chip, and on any other runtime of the shared
-services. A runtime needs no ST source text, no compiler and no HIR to resolve them: the section
-carries the statement spans, the line tables and the file labels. The rules below ("Breakpoint
+the program image's statement table (specification 44 §5.9) on trust-runtime and on a chip, and on
+any other runtime of the shared services. A runtime needs no ST source text, no compiler and no HIR
+to resolve them: the image carries the statement spans and the file labels. The rules below ("Breakpoint
 evaluation, source resolution, and hook contract", "Stepping Semantics", "Safe Points") are
 unchanged; only their input changes, from recompiled sources to the artifact.
 
@@ -61,12 +61,10 @@ locations, stack-frame locations and breakpoint-location listings return exactly
 source-based resolver returned before, including the case where a breakpoint on an `IF` line
 resolves to the `IF` statement. The body statements of that `IF` start inside its span, so the
 start-inside rule of the hook contract matches them too, but the cycle guard allows one stop per
-breakpoint per scan, at the first matching statement, which is the `IF` statement. Native tests
-compare the two resolvers' answers over the existing debugger corpus, and a difference is a defect
-in the line table, not a new behaviour
-(owner, 18 October 2026: parity tests prove that trust-runtime's answers do not change). A module
-without `LINE_TABLE` keeps the statement-start resolution described below, so an older artifact
-still debugs as it did.
+breakpoint per scan, at the first matching statement, which is the `IF` statement. A difference
+from these answers is a defect in the statement table, not a new behaviour
+(owner, 18 October 2026). A release image has no statement hooks to hold at and is not
+debuggable (specification 44 §13.2).
 
 A file's identity in an answer is its label, the source path relative to the project root with `/`
 separators, or the fallback label `file_<file_id>` of specification 12 §7.5.1.4. The runtime's file
@@ -82,7 +80,7 @@ table changes nothing a user or tool sees.
 - Breakpoints are **statement-based** and resolved to the first statement whose location is at or
   after the requested `(line, column)`.
 - A request names its source by a path. A runtime without source text matches the path to the file
-  labels of the module's `LINE_TABLE` (specification 11 §6.13.3).
+  labels of the program image (specification 44 §5.3; specification 11 §6.13.3).
 - Column snapping:
   - If the client omits a column, the adapter snaps to the first non-whitespace column on that line.
   - If a column is provided but points before the first non-whitespace column, the adapter snaps
@@ -199,7 +197,9 @@ endpoint and is not covered by this managed-session rule.
   rejected with a `write_rejected` event; it shall not redirect to a newer frame
   or fault the PLC solely because the engineering request is stale. H implements
   this rule through specification 34 HOST-09. Continue does not copy a detached
-  debugger frame back into live VM locals or change next-scan write timing.
+  debugger frame back into a program's locals. A write or a force queued while a
+  scan is held is applied when the hold ends, before the held statement runs
+  (specification 44 §13.2).
 - A successful force remains active across scans, pause/resume, and a
   non-terminating detach until an authorized release or a runtime clearing
   boundary.
@@ -246,7 +246,7 @@ The following are required semantics for DAP step requests:
    - Resume execution and stop at the next statement **after returning** to the caller.
 
 Stepping is statement-granular, not instruction-granular. A step boundary is a statement start
-recorded in the module's `LINE_TABLE` (specification 12 §6.13), on every runtime.
+recorded in the program image's statement table (specification 44 §5.9), on every runtime.
 
 ### Stopped Events
 
@@ -278,8 +278,7 @@ the current and deeper frames and stops after returning to the caller. Each
 step resumes from a paused state and pauses again at exactly that boundary.
 
 The runtime updates the active frame location at each statement boundary.
-Watch-change state is recomputed for each stop from the current storage, and
-resuming a paused multi-task scan preserves the configured task execution
+Resuming a paused multi-task scan preserves the configured task execution
 order; a pause must not restart or reorder the remaining tasks.
 
 A conditional breakpoint whose expression is false does not pause; a true
@@ -292,9 +291,9 @@ runtime evaluates the compiled form it was sent and parses no text.
 
 Debug-control event delivery is loss-resistant at the local process boundary.
 If a registered runtime-event receiver has been dropped, the event is retained
-in the in-memory runtime-event buffer. If a registered log receiver has been
-dropped, the formatted logpoint record is retained in the in-memory debug log
-buffer. Receiver failure must not discard the first fault or log record.
+in the in-memory runtime-event buffer. A logpoint's formatted record is kept in
+the debugger's bounded log buffer until `debug.stops` drains it (specification
+11 §6.13.2). Receiver failure must not discard the first fault or log record.
 
 #### Breakpoint evaluation, source resolution, and hook contract
 
@@ -334,14 +333,14 @@ projection clamps an offset beyond the source to source end. Location
 projection uses the location start.
 
 **Hosted runtime mapping (owner, 18 October 2026).** A runtime that holds the
-source text resolves through the module's `LINE_TABLE` and projects each table
+source text resolves through the image's statement table and projects each table
 position to the byte offsets above through that text. Those offsets are the ones
 the statement index held before, so the answers are byte-identical and the text
 decides no answer. A runtime without the text reports line and column from the
 table, and a client maps them to bytes with its own copy of the sources.
-`LINE_TABLE` carries statement positions only (file label, start and end line and
-column, and code span); it stores no line starts and no line lengths (specification 12
-§6.13), so a runtime cannot compute byte offsets without the text.
+The statement table carries statement positions only (file, POU, start and end
+line and column); it stores no line starts and no line lengths (specification 44
+§5.9), so a runtime cannot compute byte offsets without the text.
 
 Breakpoint resolution first rejects an unavailable line, clamps the requested
 column to that line's byte end, and ignores statements from other file IDs. On
@@ -351,33 +350,23 @@ the request. If no statement starts on that line, it selects the narrowest
 statement containing the clamped offset, using inclusive runtime location
 ends for compatibility. Otherwise it selects the globally earliest later
 statement. An empty candidate set returns no location. Statements, their spans
-and the line extents come from the `LINE_TABLE` on every runtime, so these rules
-are one implementation, not one per platform (owner, 18 October 2026).
+and the line extents come from the statement table on every runtime, so these
+rules are one implementation, not one per platform (owner, 18 October 2026).
 
-Every debug hook call records the supplied location and call depth before
-making a stop decision. Context-bearing calls additionally discard frame
-locations for frames no longer present and bind the current frame to the
-statement. A pause, step, or breakpoint stop snapshots the exact storage and
-runtime time at that boundary and recomputes watches before publishing the
-stop. Stop publication always updates `last_stop` and the ordered local stop
-buffer; a configured live receiver also gets one owned copy, while receiver
-closure cannot discard the buffered stop. A non-target runtime thread never
-consumes or blocks on another thread's pause or step.
-
-`NoopDebugHook` has no runtime side effect, and the trait's default
-context-bearing callback delegates exactly once to the context-free callback.
-Debug tracing is disabled unless `ST_DEBUG_TRACE` is present, including when
-its value is empty. When enabled, each record is prefixed
-`[trust-runtime][debug]`. `ST_DEBUG_TRACE_LOG` selects the append-only log file
-and takes precedence over the compatibility variable `ST_DEBUG_DAP_LOG`.
-Opening, locking, writing, or flushing the optional trace file may report a
-diagnostic but must never change debugger control flow.
+At every statement start the debugger records the statement's location and
+call depth before it makes a stop decision, discards the locations of frames no
+longer present, and binds the current frame to the statement. A pause, step, or
+breakpoint stop holds the scan, and the reads answer from a copy of the held
+scan's memory and call stack until the scan is released (specification 44
+§13.2). Stop publication always updates `last_stop` and the ordered stop buffer
+that `debug.stops` drains. A non-target runtime thread never consumes or blocks
+on another thread's pause or step.
 
 #### Runtime debug state, mutation, and projection invariants
 
 A newly created runtime debug control starts running with current thread `1`,
-no target thread, breakpoint, stop, snapshot, watch, buffered event, queued
-mutation, or active force. An explicit pause transitions a running control to
+no target thread, breakpoint, stop, snapshot, buffered event, queued mutation,
+or active force. An explicit pause transitions a running control to
 paused, records one pending `pause` reason, clears step state and the captured
 snapshot (the halted state of the last stop: reads then answer from the last scan
 that ended, completed or faulted, if there is one, specification 11 section 6.13.1), and optionally
@@ -408,9 +397,7 @@ State-query snapshots are owned copies. Reading breakpoints, frame locations,
 the latest stop, the runtime snapshot, or the active forces cannot allow a
 caller to mutate debug-control state. Draining logs, stops, runtime events, or
 queued mutations returns the complete current sequence in arrival order and
-atomically leaves that sequence empty. Mutating a captured runtime snapshot is
-possible only when one exists; absence returns `None` and does not invoke the
-callback.
+atomically leaves that sequence empty.
 
 Runtime-event streaming is single-subscriber. With a live sender, each event
 is delivered once and is not also buffered. When no sender is configured, the
@@ -421,13 +408,8 @@ telemetry: a configured live sender receives a coherent owned snapshot, while
 no sender or a closed receiver produces no synthetic snapshot or runtime
 fault. Registering a new sender replaces the previous sender.
 
-Watch expressions retain their most recently evaluated value. Refresh marks a
-sticky change flag when any watch moves between a value, a different value,
-or evaluation failure. Reading that flag returns the accumulated edge and
-clears it. Clearing watches removes both expressions and the pending edge.
-Refreshing directly from storage replaces the stored snapshot with an owned
-storage copy and exact supplied runtime time; later source-storage mutation
-cannot rewrite that captured state.
+The runtime keeps no watch expressions: a client evaluates its watches with
+`debug.evaluate` (specification 11 §6.13.2).
 
 Queued I/O writes preserve every request in arrival order. Pending global,
 retained, instance, and local variable writes use their complete target as
@@ -485,7 +467,8 @@ including at `0` and `u64::MAX`.
 3) For multi-file projects, when execution enters a function in another file, the top frame’s
    `source.path` must reflect that file, and the editor should navigate there.
 4) A runtime without source text names a frame's file by its label in `source.path`, and reports the
-   frame's line and column from the `LINE_TABLE` (specification 11 §6.13.3).
+   frame's line and column from the statement table (specification 44 §5.9; specification 11
+   §6.13.3).
 
 ### Variables / Evaluate
 
@@ -561,12 +544,10 @@ Debugger safe points align with Structured Text statement boundaries. The
 runtime may pause only before executing a statement and never within
 expression evaluation. (IEC 61131-3 Ed.3, §7.3.3.1, Table 72)
 
-A runtime holds only at a statement's first instruction and at no instruction inside it, so a
-statement's code span in the `LINE_TABLE` is the boundary the runtime may hold at and the unit a
-step returns to. The engine calls the statement hook only at those first instructions when the
-module has a `LINE_TABLE` and the services declare that their hook acts nowhere else, as the hosted
-and the device runtime do (specification 34 PERF-05, checklist P1-10); otherwise it calls the hook
-at every instruction and the hook finds the statement starts itself.
+A runtime holds only at a statement's start and nowhere inside it: a compiled program begins each
+statement with the statement hook, before any of its work (specification 44 §6.6, §13.2), so a
+statement's start is the boundary the runtime may hold at and the unit a step returns to. A release
+image has no statement hook and never holds (specification 44 §13.2).
 
 ### Reload / Hot Reload
 
@@ -582,10 +563,10 @@ at every instruction and the hook finds the statement starts itself.
   reload preserves the previous watch set and cache. Ordinary same-schema restart
   does not require a watch-schema replacement.
 - If the session was paused before reload, it remains paused after reload.
-- Source compilation and runtime reload are fail-closed. A compile,
-  bytecode-validation, resource-validation, or retained-state preparation
-  error returns a failed response and preserves the previously running program
-  and its live state. The adapter must not emit a successful reload or replace
+- Source compilation and runtime reload are fail-closed. A build error, a
+  refused image or a refused online change (specification 44 §12) returns a
+  failed response and preserves the previously running program and its live
+  state. The adapter must not emit a successful reload or replace
   its current metadata on that path.
 - The runtime transaction and state-preservation boundary is normative in
   `docs/specs/11-runtime-engine.md#671-online-change-transaction`.

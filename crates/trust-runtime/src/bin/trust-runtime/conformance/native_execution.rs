@@ -1,11 +1,7 @@
 /// The runtime case `case` compiled into a program image for this computer and run by the kernel
-/// (specification 44 §14.2): each cycle's restarts, time, inputs, scan and watches as
-/// [`execute_runtime_case`] takes them from the bytecode engine, so that the two artifacts compare
-/// byte for byte with the same expected artifact.
-fn execute_runtime_case_native(
-    case: &CaseDefinition,
-    sources: &[String],
-) -> anyhow::Result<CaseArtifact> {
+/// (specification 44 §14.2): each cycle's restarts, time, inputs, scan and watches, in the expected
+/// artifact's form.
+fn execute_runtime_case(case: &CaseDefinition, sources: &[String]) -> anyhow::Result<CaseArtifact> {
     let cycles = case.manifest.cycles;
     if cycles == 0 {
         bail!("runtime case '{}' must declare cycles > 0", case.id);

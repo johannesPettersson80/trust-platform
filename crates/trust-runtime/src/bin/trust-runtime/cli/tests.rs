@@ -1191,47 +1191,55 @@ mod tests {
     }
 
     #[test]
-    fn parse_run_execution_backend_flag() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "run",
-            "--project",
-            "project",
-            "--execution-backend",
-            "vm",
-        ]);
-        match cli.command.expect("command") {
-            Command::Run {
-                execution_backend, ..
-            } => assert_eq!(execution_backend, Some(ExecutionBackendArg::Vm)),
-            other => panic!("expected run command, got {other:?}"),
+    fn no_command_takes_an_execution_backend() {
+        // Specification 44 §15: every runtime runs compiled programs, so no command selects an
+        // execution backend or the bytecode engine's tier-1 executor. Catches an option that is
+        // still accepted and then ignored, which would let a script believe it chose the bytecode
+        // engine.
+        let commands: [&[&str]; 6] = [
+            &[
+                "trust-runtime",
+                "run",
+                "--project",
+                "project",
+                "--execution-backend",
+                "vm",
+            ],
+            &["trust-runtime", "play", "--execution-backend", "vm"],
+            &["trust-runtime", "build", "--execution-backend", "vm"],
+            &[
+                "trust-runtime",
+                "conformance",
+                "--execution-backend",
+                "native",
+            ],
+            &[
+                "trust-runtime",
+                "bench",
+                "project",
+                "--project",
+                "project",
+                "--execution-backend",
+                "native",
+            ],
+            &[
+                "trust-runtime",
+                "bench",
+                "project",
+                "--project",
+                "project",
+                "--tier1",
+            ],
+        ];
+        for command in commands {
+            let err =
+                Cli::try_parse_from(command.iter().copied()).expect_err("the option is refused");
+            assert_eq!(
+                err.kind(),
+                clap::error::ErrorKind::UnknownArgument,
+                "{command:?}: {err}"
+            );
         }
-    }
-
-    #[test]
-    fn parse_run_execution_backend_rejects_interpreter_flag() {
-        let err = Cli::try_parse_from([
-            "trust-runtime",
-            "run",
-            "--project",
-            "project",
-            "--execution-backend",
-            "interpreter",
-        ])
-        .expect_err("interpreter backend should be rejected by CLI");
-        assert!(err.to_string().contains("invalid value 'interpreter'"));
-    }
-
-    #[test]
-    fn parse_play_execution_backend_rejects_interpreter_flag() {
-        let err = Cli::try_parse_from([
-            "trust-runtime",
-            "play",
-            "--execution-backend",
-            "interpreter",
-        ])
-        .expect_err("interpreter backend should be rejected by CLI");
-        assert!(err.to_string().contains("invalid value 'interpreter'"));
     }
 
     #[test]
@@ -1421,7 +1429,6 @@ mod tests {
                 output,
                 update_expected,
                 filter,
-                execution_backend,
                 device,
                 target,
             }) => {
@@ -1429,32 +1436,16 @@ mod tests {
                 assert_eq!(output, Some(PathBuf::from("summary.json")));
                 assert!(update_expected);
                 assert_eq!(filter.as_deref(), Some("timers"));
-                assert_eq!(execution_backend, ProgramBackend::Vm);
                 assert_eq!((device, target), (None, None));
             }
             other => panic!("expected conformance command, got {other:?}"),
         }
-        let native = Cli::parse_from([
-            "trust-runtime",
-            "conformance",
-            "--execution-backend",
-            "native",
-        ]);
-        assert!(matches!(
-            native.command,
-            Some(Command::Conformance(ConformanceArgs {
-                execution_backend: ProgramBackend::Native,
-                ..
-            }))
-        ));
         // A device names its target, and a target names its device (specification 44 §14.2): a
         // parser that took one alone would build the cases for no device, or step a device with
         // cases built for this computer.
         let on_device = Cli::parse_from([
             "trust-runtime",
             "conformance",
-            "--execution-backend",
-            "native",
             "--device",
             "/dev/ttyACM0",
             "--target",
@@ -1468,16 +1459,8 @@ mod tests {
             other => panic!("expected conformance command, got {other:?}"),
         }
         for alone in [["--device", "/dev/ttyACM0"], ["--target", "esp32c6"]] {
-            let parsed = Cli::try_parse_from(
-                [
-                    "trust-runtime",
-                    "conformance",
-                    "--execution-backend",
-                    "native",
-                ]
-                .into_iter()
-                .chain(alone),
-            );
+            let parsed =
+                Cli::try_parse_from(["trust-runtime", "conformance"].into_iter().chain(alone));
             assert!(parsed.is_err(), "{alone:?} alone must be refused");
         }
     }
@@ -1508,11 +1491,8 @@ mod tests {
                     samples,
                     warmup_cycles,
                     watch,
-                    tier1,
-                    execution_backend,
                     output,
                 } => {
-                    assert_eq!(execution_backend, ProgramBackend::Vm, "the default backend");
                     assert_eq!(
                         project,
                         PathBuf::from("examples/plcopen_motion_single_axis_demo")
@@ -1526,58 +1506,11 @@ mod tests {
                             "g_motion_demo_last_error"
                         ]
                     );
-                    assert!(!tier1);
                     assert_eq!(output, BenchOutputFormat::Json);
                 }
                 other => panic!("expected bench project action, got {other:?}"),
             },
             other => panic!("expected bench command, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_bench_project_command_with_tier1() {
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "bench",
-            "project",
-            "--project",
-            "examples/plcopen_motion_single_axis_demo",
-            "--tier1",
-        ]);
-        match cli.command.expect("command") {
-            Command::Bench { action } => match action {
-                BenchAction::Project { tier1, .. } => {
-                    assert!(tier1);
-                }
-                other => panic!("expected bench project action, got {other:?}"),
-            },
-            other => panic!("expected bench command, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_bench_project_command_on_the_kernel() {
-        // Specification 44 §14.3: `bench project` runs the project compiled for this computer when
-        // asked for the native backend. Catches a flag the parser drops, which would measure the
-        // bytecode engine under the native backend's name.
-        let cli = Cli::parse_from([
-            "trust-runtime",
-            "bench",
-            "project",
-            "--project",
-            "examples/vat_pasteurizer",
-            "--execution-backend",
-            "native",
-        ]);
-        match cli.command.expect("command") {
-            Command::Bench {
-                action:
-                    BenchAction::Project {
-                        execution_backend, ..
-                    },
-            } => assert_eq!(execution_backend, ProgramBackend::Native),
-            other => panic!("expected bench project action, got {other:?}"),
         }
     }
 

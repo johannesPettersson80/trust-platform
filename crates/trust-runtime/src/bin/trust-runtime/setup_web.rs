@@ -524,6 +524,8 @@ fn now_secs() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    //! Setup builds the project's program: the tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
     use super::*;
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
@@ -754,7 +756,9 @@ mod tests {
         assert!(message.contains("Setup complete"));
         assert!(root.join("runtime.toml").is_file());
         assert!(root.join("io.toml").is_file());
-        assert!(root.join("program.stbc").is_file());
+        assert!(root
+            .join(trust_runtime::native::PROGRAM_IMAGE_FILE)
+            .is_file());
         assert!(root.join("src").join("main.st").is_file());
         assert!(root.join("src").join("config.st").is_file());
         let runtime = trust_runtime::config::RuntimeConfig::load(root.join("runtime.toml"))
@@ -766,16 +770,11 @@ mod tests {
         assert!(config_source.contains("RESOURCE setup_web_plc ON PLC"));
         assert!(config_source.contains("INTERVAL := T#25ms"));
         let bundle = trust_runtime::config::RuntimeBundle::load(&root).expect("load setup bundle");
-        let module = trust_runtime::bytecode::BytecodeModule::decode(&bundle.bytecode)
-            .expect("decode setup bytecode");
-        module.validate().expect("validate setup bytecode");
-        let metadata = module.metadata().expect("load setup metadata");
-        let resource = metadata
-            .primary_resource()
-            .expect("setup bytecode resource metadata");
-        assert_eq!(resource.name, "setup_web_plc");
-        assert_eq!(resource.tasks.len(), 1);
-        assert_eq!(resource.tasks[0].interval.as_millis(), 25);
+        trust_runtime::native::admit_on_this_computer(&bundle.image)
+            .expect("admit the setup program");
+        let program = trust_runtime::CompiledRuntime::load(bundle.image, "setup_web_plc")
+            .expect("load the setup program");
+        assert_eq!(program.tasks().len(), 1, "the configuration's one task");
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -812,7 +811,9 @@ mod tests {
 
         assert!(message.contains("Setup complete"));
         assert!(root.join("runtime.toml").is_file());
-        assert!(root.join("program.stbc").is_file());
+        assert!(root
+            .join(trust_runtime::native::PROGRAM_IMAGE_FILE)
+            .is_file());
         assert!(
             !root.join("io.toml").exists(),
             "default use_system_io must remove project io.toml"

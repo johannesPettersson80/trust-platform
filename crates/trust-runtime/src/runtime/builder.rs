@@ -1,4 +1,4 @@
-//! Non-executable declaration ownership for the hosted authoring composition.
+//! The declarations the front of the build lowers a project to (specification 44 §3).
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;
@@ -6,7 +6,7 @@ use trust_hir::{types::TypeRegistry, Type};
 
 use crate::{
     debug::SourceLocation,
-    memory::{AccessMap, VariableStorage},
+    memory::VariableStorage,
     program_model::{
         ClassDef, EdgeInput, FunctionBlockDef, FunctionDef, InitializerCatalog, InterfaceDef,
     },
@@ -15,22 +15,16 @@ use crate::{
     value::DateTimeProfile,
 };
 
-use super::types::GlobalVarMeta;
-
-mod seeds;
-
-/// Mutable declarations before an executable controller is installed.
+/// The declarations of a project while the front of the build lowers them (specification 44 §3): its
+/// types, POUs, globals, program instances and tasks, with the starting values the build computes.
 ///
 /// This object has no cycle, execution, watchdog or debugger-control API.
-/// Original initialization expressions belong here, not in installed PLC state.
-/// Installation consumes the declarations through the STBC producer and admission.
 ///
 /// ```compile_fail,E0599
 /// let mut declarations = trust_runtime::RuntimeBuilder::new();
 /// declarations.execute_cycle().unwrap();
 /// ```
 pub struct RuntimeBuilder {
-    pub(crate) storage_abi: crate::value::StorageAbi,
     pub(super) resource_name: SmolStr,
     pub(super) profile: DateTimeProfile,
     pub(super) registry: TypeRegistry,
@@ -42,23 +36,19 @@ pub struct RuntimeBuilder {
     pub(super) interfaces: IndexMap<SmolStr, InterfaceDef>,
     pub(super) edge_inputs: IndexMap<SmolStr, Vec<EdgeInput>>,
     pub(super) programs: IndexMap<SmolStr, ProgramDef>,
-    pub(super) globals: IndexMap<SmolStr, GlobalVarMeta>,
-    global_declarations: Vec<crate::program_model::VarDef>,
-    pub(crate) manual_seed_mode: bool,
-    pub(crate) manual_task_bindings: Vec<(SmolStr, Vec<crate::harness::AccessPart>)>,
+    /// The declared globals, each with its declared type.
+    pub(super) globals: IndexMap<SmolStr, trust_hir::TypeId>,
     pub(super) tasks: Vec<TaskConfig>,
     pub(super) storage: VariableStorage,
-    pub(super) access: AccessMap,
+    /// The `VAR_ACCESS` declarations, by the names of the program's symbols.
+    pub(super) access: Vec<crate::harness::NamedAccess>,
     pub(super) io: crate::io::IoInterface,
     pub(super) statement_index: IndexMap<u32, Vec<SourceLocation>>,
-    pub(super) source_text_index: IndexMap<u32, String>,
-    pub(super) source_label_index: std::collections::HashMap<SmolStr, u32>,
 }
 
 impl Default for RuntimeBuilder {
     fn default() -> Self {
         let mut builder = Self {
-            storage_abi: Default::default(),
             resource_name: "RESOURCE".into(),
             profile: DateTimeProfile::default(),
             registry: TypeRegistry::new(),
@@ -71,16 +61,11 @@ impl Default for RuntimeBuilder {
             edge_inputs: IndexMap::new(),
             programs: IndexMap::new(),
             globals: IndexMap::new(),
-            global_declarations: Vec::new(),
-            manual_seed_mode: false,
-            manual_task_bindings: Vec::new(),
             tasks: Vec::new(),
             storage: VariableStorage::default(),
-            access: AccessMap::default(),
+            access: Vec::new(),
             io: crate::io::IoInterface::new(),
             statement_index: IndexMap::new(),
-            source_text_index: IndexMap::new(),
-            source_label_index: std::collections::HashMap::new(),
         };
         for fb in crate::stdlib::fbs::standard_function_blocks() {
             if builder.registry.lookup(fb.name.as_str()).is_none() {
@@ -102,12 +87,6 @@ impl RuntimeBuilder {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Consume declarations and validated construction seeds into the shared engine.
-    /// No mutable authoring borrow or raw seed identity survives installation.
-    pub fn build(self) -> Result<super::Runtime, crate::harness::CompileError> {
-        seeds::lower(self)?.materialize(&[])
     }
 
     /// Inspect the date/time interpretation used while lowering declarations.
@@ -141,15 +120,14 @@ impl RuntimeBuilder {
         &mut self.storage
     }
 
-    /// Inspect construction-time engineering aliases.
-    #[must_use]
-    pub fn access_map(&self) -> &AccessMap {
+    /// The `VAR_ACCESS` declarations, by the names of the program's symbols.
+    pub(crate) fn access_paths(&self) -> &[crate::harness::NamedAccess] {
         &self.access
     }
 
-    /// Define aliases before the artifact's access contract is admitted.
-    pub fn access_map_mut(&mut self) -> &mut AccessMap {
-        &mut self.access
+    /// Records the `VAR_ACCESS` declaration `access`.
+    pub(crate) fn register_access(&mut self, access: crate::harness::NamedAccess) {
+        self.access.push(access);
     }
 
     /// Inspect construction-time process-image bindings.
@@ -179,27 +157,6 @@ impl RuntimeBuilder {
     #[must_use]
     pub fn functions(&self) -> &IndexMap<SmolStr, FunctionDef> {
         &self.functions
-    }
-
-    /// Register a global declaration, including its initializer and optional I/O address.
-    /// This does not evaluate the initializer or create live PLC storage.
-    pub fn register_global(
-        &mut self,
-        declaration: crate::program_model::VarDef,
-    ) -> Result<(), crate::error::RuntimeError> {
-        if self
-            .global_declarations
-            .iter()
-            .any(|old| old.name.eq_ignore_ascii_case(&declaration.name))
-        {
-            return Err(crate::error::RuntimeError::TypeMismatch);
-        }
-        self.global_declarations.push(declaration);
-        Ok(())
-    }
-
-    pub(crate) fn take_global_declarations(&mut self) -> Vec<crate::program_model::VarDef> {
-        std::mem::take(&mut self.global_declarations)
     }
 
     /// Register a function declaration without executing its initializers.
@@ -250,6 +207,11 @@ impl RuntimeBuilder {
         (&mut self.registry, &mut self.initializer_catalog)
     }
 
+    /// The edge-qualified inputs of each program and function block, by its qualified name.
+    pub(crate) fn edge_inputs(&self) -> &IndexMap<SmolStr, Vec<EdgeInput>> {
+        &self.edge_inputs
+    }
+
     pub(crate) fn register_edge_inputs(
         &mut self,
         owner: impl Into<SmolStr>,
@@ -261,16 +223,6 @@ impl RuntimeBuilder {
     /// Attach statement locations to non-executable development declarations.
     pub fn register_statement_locations(&mut self, file_id: u32, locations: Vec<SourceLocation>) {
         self.statement_index.insert(file_id, locations);
-    }
-
-    /// Attach immutable source text before installing the application.
-    pub fn register_source_text(&mut self, file_id: u32, source: String) {
-        self.source_text_index.insert(file_id, source);
-    }
-
-    /// Name an authoring source file before producing its debugger map.
-    pub fn register_source_label(&mut self, file_id: u32, label: impl Into<SmolStr>) {
-        self.source_label_index.insert(label.into(), file_id);
     }
 
     /// Inspect function-block declarations before installation.
@@ -306,26 +258,19 @@ impl RuntimeBuilder {
         &self.resource_name
     }
 
-    pub(crate) fn register_global_meta(
-        &mut self,
-        name: SmolStr,
-        type_id: trust_hir::TypeId,
-        retain: crate::RetainPolicy,
-        init: crate::GlobalInitValue,
-    ) {
-        self.globals.insert(
-            name,
-            GlobalVarMeta {
-                type_id,
-                retain,
-                init,
-            },
-        );
+    /// The declared globals, each with its declared type, in declaration order.
+    pub(crate) fn global_types(&self) -> IndexMap<SmolStr, trust_hir::TypeId> {
+        self.globals.clone()
     }
 
-    // Explicit 1.1 production captures startup values on a non-executable owner.
-    // Ordinary source installation never invokes this compatibility-only method.
-    pub(crate) fn materialize_legacy_program(
+    /// Records the declared type of the global `name`.
+    pub(crate) fn register_global_type(&mut self, name: SmolStr, type_id: trust_hir::TypeId) {
+        self.globals.insert(name, type_id);
+    }
+
+    /// Creates the starting state of the program instance `program` in the declarations' storage
+    /// and records the instance.
+    pub(crate) fn instantiate_program(
         &mut self,
         program: ProgramDef,
     ) -> Result<(), crate::error::RuntimeError> {
@@ -372,15 +317,9 @@ impl RuntimeBuilder {
             })
         });
         Ok(super::RuntimeMetadata {
-            storage_abi: self.storage_abi,
             profile: self.profile,
             registry: self.registry.clone(),
             stdlib: self.stdlib.clone(),
-            artifact_types: Vec::new(),
-            io_display_names: Vec::new(),
-            retained_bindings: IndexMap::new(),
-            global_declarations: IndexMap::new(),
-            access: self.access.clone(),
             functions: self.functions.clone(),
             function_blocks: self.function_blocks.clone(),
             classes: self.classes.clone(),
@@ -391,9 +330,6 @@ impl RuntimeBuilder {
             task_thread_ids,
             background_thread_id: background.then_some(next_thread),
             statement_index: self.statement_index.clone(),
-            source_text_index: self.source_text_index.clone(),
-            source_label_index: self.source_label_index.clone(),
-            line_table: None,
         })
     }
 }

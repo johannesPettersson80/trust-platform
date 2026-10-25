@@ -70,11 +70,6 @@ use crate::loading::reload::ReloadOutcome;
 use crate::ports::{AccessPort, StatusPort};
 use crate::protocol::{ControlAfterResponse, ControlResponse};
 
-/// What a test does at each pass of a hold with the halted state that the statement hook lent: it
-/// reads the state as a debug request will.
-#[cfg(test)]
-pub(super) type HoldProbe = dyn for<'v> Fn(&super::hold::HeldView<'v>);
-
 /// The link, wait, platform and receive buffer of the loop, with the resource state, the records
 /// and the debugger, which the loop and a hold on a scan share.
 pub(super) struct Shell<L, W, P, C> {
@@ -104,8 +99,6 @@ pub(super) struct Shell<L, W, P, C> {
     /// The stepped scan whose cold restart loads a newer program, deferred to the loop.
     pub(super) step: StepState,
     pub(super) clock: C,
-    #[cfg(test)]
-    pub(super) probe: RefCell<Option<alloc::boxed::Box<HoldProbe>>>,
 }
 
 impl<L, W, P, C> Shell<L, W, P, C>
@@ -144,8 +137,6 @@ where
             change: ChangeState::default(),
             step: StepState::default(),
             clock,
-            #[cfg(test)]
-            probe: RefCell::new(None),
         }
     }
 
@@ -464,12 +455,6 @@ where
             // error until the next start (specification 34 STATE-08).
             self.resource.set_state(ResourceState::Stopped);
         }
-    }
-
-    /// Calls `probe` at each pass of a hold with the halted state that the hook lent to it.
-    #[cfg(test)]
-    pub(super) fn set_probe(&self, probe: impl for<'v> Fn(&super::hold::HeldView<'v>) + 'static) {
-        *self.probe.borrow_mut() = Some(alloc::boxed::Box::new(probe));
     }
 
     /// Whether no cell of the shell is borrowed, for the tests that prove no borrow outlives an

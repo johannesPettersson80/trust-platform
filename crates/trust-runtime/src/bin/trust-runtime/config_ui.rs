@@ -18,10 +18,9 @@ use trust_runtime::control::{
     AdsDoctorJobStore, ControlEndpoint, ControlState, HmiRuntimeDescriptor, SourceFile,
     SourceRegistry,
 };
-use trust_runtime::debug::{DebugSnapshot, DebugVariableHandles};
+use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::discovery::{start_discovery_with_state, DiscoveryState};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::TestHarness;
 use trust_runtime::linux_rt::LinuxRtRuntimeStatus;
 use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ResourceCommand, ResourceControl, StdClock};
@@ -196,15 +195,11 @@ fn build_config_mode_control_state(
     runtime_id: SmolStr,
     listen: &str,
 ) -> anyhow::Result<Arc<ControlState>> {
-    let mut harness = TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
-        .map_err(|error| anyhow::anyhow!(error.to_string()))
-        .context("create config-ui harness")?;
-    let debug = harness.runtime_mut().enable_debug();
-    harness.cycle();
+    // The config UI runs no program: its resource takes no command that needs one.
+    let debug = trust_runtime::debug::DebugControl::new();
     let snapshot = DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
-        now: harness.runtime().current_time(),
+        storage: trust_runtime::memory::VariableStorage::new(),
+        now: trust_runtime::value::Duration::ZERO,
         compiled: None,
     };
 
@@ -298,7 +293,7 @@ fn build_config_mode_control_state(
         transfers: trust_runtime::control::new_transfer_session(),
         debug,
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
+        metadata: Arc::new(Mutex::new(trust_runtime::RuntimeMetadata::default())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -322,7 +317,6 @@ fn build_config_mode_control_state(
         runtime_id,
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(false)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
         hmi_persistence: None,
         hmi_descriptor,

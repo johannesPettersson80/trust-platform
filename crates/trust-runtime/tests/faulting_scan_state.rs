@@ -7,6 +7,8 @@
 //! image keeps the value of the last completed scan, the cycle number does not advance, and the fault
 //! removes the force without writing a replacement value. The statement before the failing one is what
 //! the program of `stateful_lifecycle_sequences.rs` cannot show, because its first statement divides.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use trust_runtime::debug::{DebugControl, ForcedVarTarget};
 use trust_runtime::error::RuntimeError;
@@ -33,7 +35,8 @@ END_PROGRAM
 /// queued write to `queued_target` and a force on `forced_target`: the next scan faults.
 fn controller_about_to_fault() -> (TestHarness, DebugControl) {
     let mut harness = TestHarness::from_source(SOURCE).expect("fixture compiles");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness
         .runtime_mut()
         .execute_cycle()
@@ -43,10 +46,14 @@ fn controller_about_to_fault() -> (TestHarness, DebugControl) {
     assert_eq!(global(&harness, "quotient"), Value::DInt(100));
     harness
         .runtime_mut()
-        .write_global("divisor", Value::DInt(0))
+        .write_variable("divisor", &Value::DInt(0))
         .expect("a checked write between scans is accepted");
-    debug.enqueue_global_write("queued_target", Value::DInt(7));
-    debug.force_global("forced_target", Value::DInt(5));
+    debug
+        .try_enqueue_global_write("queued_target", Value::DInt(7))
+        .expect("a new target is inside the bound");
+    debug
+        .try_force_global("forced_target", Value::DInt(5))
+        .expect("a new force is inside the bound");
     (harness, debug)
 }
 
@@ -108,7 +115,7 @@ fn faulting_scan_keeps_what_it_completed_and_commits_no_output() {
         "the faulting scan does not advance the cycle number"
     );
     assert!(runtime.faulted());
-    assert_eq!(runtime.last_fault(), Some(&RuntimeError::DivisionByZero));
+    assert_eq!(runtime.last_fault(), Some(RuntimeError::DivisionByZero));
     assert_eq!(
         debug.forced_var_value(&ForcedVarTarget::Global("forced_target".into())),
         None,

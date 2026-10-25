@@ -6,7 +6,7 @@
 use trust_syntax::syntax::SyntaxNode;
 
 use super::call::Called;
-use super::expr::Text;
+use super::text::Text;
 use super::Lowerer;
 use crate::native::types::{Elem, Kind, Ty};
 use crate::native::NativeError;
@@ -25,13 +25,42 @@ impl Lowerer<'_, '_> {
         ty: Ty,
     ) -> Result<Called, NativeError> {
         let from = self.type_of(value)?;
+        if let Kind::WStr(_) = self.info(from).kind {
+            return self.read_wide(node, name, value, ty);
+        }
         if let Kind::Str(_) = self.info(from).kind {
+            if let Kind::WStr(_) = self.info(ty).kind {
+                let (text, capacity) = self.text_ref(value)?;
+                return Ok(self.widened(&text, capacity));
+            }
             return self.read_text(node, name, value, ty);
         }
         let source = self.scalar(value)?;
         let Some(src) = self.info(from).scalar() else {
             return Err(self.unsupported(node, format!("{name} of a value that is no scalar")));
         };
+        if let Kind::WStr(_) = self.info(ty).kind {
+            // A `WCHAR` is the one code unit of its code; any other value is spelled as its
+            // `STRING` is, then widened (specification 07 §2).
+            if src == Elem::WChar {
+                let temp = self.temp();
+                self.line(&format!("let {temp} = WStr::<1>::new();"));
+                self.line(&format!("lib::assign_wchar(cx, {temp}.view(), {source})?;"));
+                return Ok(Called::Text(vec![Text::WStr {
+                    reference: format!("&{temp}"),
+                    capacity: 1,
+                }]));
+            }
+            let Called::Text(parts) = self.spell(node, name, &source, src)? else {
+                return Err(self.unsupported(node, format!("{name}: a text")));
+            };
+            let capacity = parts
+                .iter()
+                .map(Text::capacity)
+                .fold(0u32, u32::saturating_add);
+            let text = self.text_temp(&parts, capacity);
+            return Ok(self.widened(&text, capacity));
+        }
         if let Kind::Str(_) = self.info(ty).kind {
             return self.spell(node, name, &source, src);
         }
@@ -157,6 +186,45 @@ impl Lowerer<'_, '_> {
         }]))
     }
 
+    /// The `STRING` `text` of `capacity` bytes as a `WSTRING`: at most as many code units as it
+    /// has bytes.
+    fn widened(&mut self, text: &str, capacity: u32) -> Called {
+        let temp = self.temp();
+        self.line(&format!("let {temp} = WStr::<{capacity}>::new();"));
+        self.line(&format!(
+            "lib::string_to_wstring({temp}.view(), ({text}).view());"
+        ));
+        Called::Text(vec![Text::WStr {
+            reference: format!("&{temp}"),
+            capacity,
+        }])
+    }
+
+    /// `WSTRING_TO_DST(value)`: the `WSTRING` itself, its text as a `STRING`, at most three bytes
+    /// of UTF-8 for each code unit, or what that `STRING` spells (specification 07 §2).
+    fn read_wide(
+        &mut self,
+        node: &SyntaxNode,
+        name: &str,
+        value: &SyntaxNode,
+        ty: Ty,
+    ) -> Result<Called, NativeError> {
+        let (text, capacity) = self.text_ref(value)?;
+        if let Kind::WStr(_) = self.info(ty).kind {
+            return Ok(Called::Text(vec![Text::WStr {
+                reference: text,
+                capacity,
+            }]));
+        }
+        let narrow = capacity.saturating_mul(3).min(65_535);
+        let temp = self.temp();
+        self.line(&format!("let {temp} = Str::<{narrow}>::new();"));
+        self.line(&format!(
+            "lib::wstring_to_string(cx, {temp}.view(), ({text}).view())?;"
+        ));
+        self.read_text_ref(node, name, format!("&{temp}"), narrow, ty)
+    }
+
     /// `STRING_TO_DST(value)`: the number or the character a text spells, read as the runtime
     /// reads it in a copy of the text the size of its capacity (specification 07 §2.8).
     fn read_text(
@@ -167,6 +235,18 @@ impl Lowerer<'_, '_> {
         ty: Ty,
     ) -> Result<Called, NativeError> {
         let (text, capacity) = self.text_ref(value)?;
+        self.read_text_ref(node, name, text, capacity, ty)
+    }
+
+    /// [`Self::read_text`] of the `STRING` `text` of `capacity` bytes.
+    fn read_text_ref(
+        &mut self,
+        node: &SyntaxNode,
+        name: &str,
+        text: String,
+        capacity: u32,
+        ty: Ty,
+    ) -> Result<Called, NativeError> {
         if let Kind::Str(_) = self.info(ty).kind {
             return Ok(Called::Text(vec![Text::Str {
                 reference: text,

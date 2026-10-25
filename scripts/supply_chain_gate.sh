@@ -41,14 +41,14 @@ status=0
 cargo deny --locked check advisories licenses bans sources || status=1
 cargo deny --locked --manifest-path firmware/trust-esp32c6/Cargo.toml \
   --config "$ROOT_DIR/deny.toml" check advisories licenses bans sources || status=1
-cargo deny --locked --manifest-path firmware/trust-stm32f407/Cargo.toml \
+cargo deny --locked --manifest-path firmware/trust-stm32u5a9/Cargo.toml \
   --config "$ROOT_DIR/deny.toml" check advisories licenses bans sources || status=1
 run_cargo_audit Cargo.lock "$@" | python3 scripts/check_cargo_audit_policy.py \
   --allowlist scripts/cargo-audit-yanked-allowlist.json || status=1
 run_cargo_audit firmware/trust-esp32c6/Cargo.lock "$@" | \
   python3 scripts/check_cargo_audit_policy.py \
     --allowlist scripts/firmware-cargo-audit-yanked-allowlist.json || status=1
-run_cargo_audit firmware/trust-stm32f407/Cargo.lock "$@" | \
+run_cargo_audit firmware/trust-stm32u5a9/Cargo.lock "$@" | \
   python3 scripts/check_cargo_audit_policy.py \
     --allowlist scripts/firmware-cargo-audit-yanked-allowlist.json || status=1
 exit "$status"

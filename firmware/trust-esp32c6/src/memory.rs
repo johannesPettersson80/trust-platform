@@ -9,18 +9,14 @@ use trust_platform_memory::memory::{MeasuredHeap, StackWindow, TargetMemory};
 /// 16,320 bytes the LP SRAM region takes over (the owner, 21 October 2026, "Use LP SRAM"), so the
 /// three regions hold the 112 KiB that the main heap and the reclaimed RAM held.
 const HEAP_BYTES: usize = 32 * 1024 + 64;
-/// Bytes the main heap of the firmware that runs compiled programs adds to [`HEAP_BYTES`]: 64 KiB of
-/// the RAM that the interpreter's RAM code took (specification 44 §10.3). A program's image, an
-/// install's or an online change's upload, goes to the heap's program region (`PROGRAM_CODE_BYTES`),
-/// which took the rest of that RAM; an install while the resource is stopped is written into the
-/// program store as it arrives (specification 34 §5.1).
-#[cfg(feature = "native")]
-const NATIVE_EXTRA_HEAP_BYTES: usize = 64 * 1024;
+/// Bytes the main heap adds to [`HEAP_BYTES`]: 64 KiB of the RAM that the bytecode engine's RAM code
+/// took (specification 44 §10.3). A program's image, an install's or an online change's upload, goes
+/// to the heap's program region (`PROGRAM_CODE_BYTES`), which took the rest of that RAM; an install
+/// while the resource is stopped is written into the program store as it arrives (specification 34
+/// §5.1).
+const PROGRAM_EXTRA_HEAP_BYTES: usize = 64 * 1024;
 /// Bytes of the main heap this firmware has.
-#[cfg(not(feature = "native"))]
-const MAIN_HEAP_BYTES: usize = HEAP_BYTES;
-#[cfg(feature = "native")]
-const MAIN_HEAP_BYTES: usize = HEAP_BYTES + NATIVE_EXTRA_HEAP_BYTES;
+const MAIN_HEAP_BYTES: usize = HEAP_BYTES + PROGRAM_EXTRA_HEAP_BYTES;
 /// Bytes the boot loader leaves free after boot, reclaimed as the second heap region: esp-hal
 /// 1.2.2's `dram2_seg` at 0x4086E610 to 0x4087E610, 64 KiB.
 const RECLAIMED_BYTES: usize = 64 * 1024;
@@ -29,14 +25,13 @@ const RECLAIMED_BYTES: usize = 64 * 1024;
 const LOW_POWER_BYTES: usize = 16 * 1024 - 64;
 
 /// Top of the esp-hal stack region (`_stack_start`): the end of HP SRAM below the second-stage
-/// bootloader in esp-hal 1.2.2's ESP32-C6 memory map. The stack grows down from it. A fixed window,
-/// as on the STM32F407, keeps linker symbols out of the composition; `xtask portability inspect`
+/// bootloader in esp-hal 1.2.2's ESP32-C6 memory map. The stack grows down from it. A fixed window
+/// keeps linker symbols out of the composition; `xtask portability inspect`
 /// fails if the linked image's `_stack_start` differs.
 const STACK_TOP: usize = 0x4086_E610;
-/// Bytes of the main-stack window: the 78 KiB of the C6's main stack, whose call levels are the C6's
-/// call depth (`MAIN_STACK`; specification 34 MEM-03, D.2). The window was 24 KiB until the C1-25
-/// bench found that installing any program fills it (21 October 2026). The STM32F407 keeps 16 KiB
-/// (D.4).
+/// Bytes of the main-stack window: the 78 KiB of the C6's main stack (`MAIN_STACK`; specification 34
+/// MEM-03, D.2). The window was 24 KiB until the C1-25 bench found that installing a program fills it
+/// (21 October 2026).
 const STACK_WINDOW_BYTES: usize = MAIN_STACK.window_bytes;
 /// The main-stack window: the top 78 KiB of the esp-hal stack region, measured from the bottom up.
 pub const STACK_WINDOW: StackWindow = StackWindow::new(STACK_TOP - STACK_WINDOW_BYTES, STACK_TOP);
@@ -86,7 +81,6 @@ pub fn initialize() {
         HEAP.init(main, Some(reclaimed), Some(low_power));
         // The program region, which the CPU executes, holds the programs' code (specification 44
         // §10.3, §12.3).
-        #[cfg(feature = "native")]
         HEAP.init_program_region(trust_platform_esp32::program_region());
     }
     TargetMemory::new(&HEAP, STACK_WINDOW).paint_inactive_stack();

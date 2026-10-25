@@ -23,9 +23,9 @@ use super::shape::{
     alike, base_of, find_member, holds_class, is_instance, is_structure, resolve, word, Array, Ty,
 };
 use super::{reserve, Carry, Kind, Node, Role, Tables, Walk};
-use crate::bytecode::BYTECODE_MAX_TYPE_NESTING;
 use crate::error::RuntimeError;
 use crate::native::image::type_kind as kind;
+use crate::native::values::MAX_TYPE_NESTING;
 use crate::native::values::{damaged, Types};
 
 /// The bytes of a reference (specification 44 §7.3).
@@ -150,7 +150,7 @@ impl Walk<'_, '_, '_> {
         let old_named = named_type(&running.types, old_ty)?;
         let new_named = named_type(&changed.types, new_ty)?;
         let (mut from, mut to) = (Node::of(&symbol), Node::of(&counterpart));
-        for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
+        for _ in 0..=MAX_TYPE_NESTING {
             let old_at = resolve(&running.types, from.ty)?;
             let new_at = resolve(&changed.types, to.ty)?;
             if from.offset == held.offset

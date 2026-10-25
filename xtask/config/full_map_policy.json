@@ -3,38 +3,6 @@
   "review_date": "2026-04-30",
   "allowed_workspace_edges": [
     {
-      "from": "trust-board-fixture",
-      "to": "trust-runtime-core",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability M2E (shared fixture and C6)",
-      "rationale": "The shared M2E fixture prepares and executes the source-free artifacts on the compiler-free core with default features disabled."
-    },
-    {
-      "from": "trust-board-fixture",
-      "to": "trust-platform-memory",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability M2E (shared fixture and C6)",
-      "rationale": "The shared M2E fixture re-exports the moved heap and stack measurement at its existing paths so a chip composition keeps using it unchanged; the bare-metal crate depends on no runtime or compiler."
-    },
-    {
-      "from": "trust-stm32f407",
-      "to": "trust-platform-stm32f4",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability STM32F407 (T3)",
-      "rationale": "Separate firmware workspace composes the STM32F4 chip adapter with its stm32f407 feature; the adapter has no runtime or compiler dependency."
-    },
-    {
-      "from": "trust-stm32f407",
-      "to": "trust-board-fixture",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability STM32F407 (T3)",
-      "rationale": "The F407 composition runs the same shared M2E fixture as the C6 until the services runner replaces it."
-    },
-    {
       "from": "xtask",
       "to": "trust-chips",
       "kind": "normal",
@@ -57,14 +25,6 @@
       "status": "allowed",
       "owner": "runtime portability S1b-3b (application container)",
       "rationale": "The bench packer reads the deployment record with the core's own DeploymentRecord decoder and its sha256, so the bench and a chip cannot disagree about the record it holds."
-    },
-    {
-      "from": "trust-platform-stm32f4",
-      "to": "trust-chips",
-      "kind": "dev",
-      "status": "allowed",
-      "owner": "runtime portability T3 (chip files)",
-      "rationale": "A host test compares the STM32F407 chip table and crystal range with chips/stm32f407.toml; a dev edge only, so no firmware build resolves the reader."
     },
     {
       "from": "trust-platform-esp32",
@@ -105,22 +65,6 @@
       "status": "allowed",
       "owner": "runtime portability S1b-4b2 (reset record)",
       "rationale": "The C6 adapter keeps the shared fixed-size reset record in persistent RTC fast memory and re-exports its cause and record types; the bare-metal memory crate holds the record codec and depends on no runtime or compiler."
-    },
-    {
-      "from": "trust-platform-stm32f4",
-      "to": "trust-platform-memory",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability S1b-4b2 (reset record)",
-      "rationale": "The F407 adapter keeps the same fixed-size reset record in the RTC backup registers, so both chips report the same cause; the memory crate holds the record codec and depends on no runtime or compiler."
-    },
-    {
-      "from": "trust-esp32c6",
-      "to": "trust-board-fixture",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability M2E (shared fixture and C6)",
-      "rationale": "The C6 composition runs the same shared M2E fixture as the F407."
     },
     {
       "from": "trust-esp32c6",
@@ -331,14 +275,6 @@
       "rationale": "The hosted runtime composes the shared no_std runtime services (spec 34 ARCH-11, ARCH-14) and re-exports the control envelope and access rights at their existing paths; transports, threads and host state stay in trust-runtime."
     },
     {
-      "from": "trust-runtime",
-      "to": "trust-board-fixture",
-      "kind": "dev",
-      "status": "allowed",
-      "owner": "runtime portability S1 (shared runtime services)",
-      "rationale": "The transcript parity test runs the shared single-thread resource loop on the board fixture's engine setup (the chips' preparation limits and execution services) beside trust-runtime's threaded composition (spec 34 STATE-08); production trust-runtime does not depend on the fixture."
-    },
-    {
       "from": "trust-runtime-services",
       "to": "trust-runtime-core",
       "kind": "normal",
@@ -499,14 +435,6 @@
       "rationale": "trust-runtime discover reaches the runtime that runs a search through the one shared control client; the client depends on no truST crate."
     },
     {
-      "from": "trust-platform-stm32f4",
-      "to": "trust-platform-stm32",
-      "kind": "normal",
-      "status": "allowed",
-      "owner": "runtime portability STM32 chips (S1b-8u-1)",
-      "rationale": "The STM32F4 adapter re-exports the pin grammar, the pin table lookup, the reset record and the unique ID from the shared STM32 crate, which depends on no runtime or compiler, so the STM32 adapters keep one copy of each rule."
-    },
-    {
       "from": "trust-platform-stm32u5",
       "to": "trust-platform-stm32",
       "kind": "normal",
@@ -598,42 +526,12 @@
   "forbidden_workspace_edges": [
     {
       "from": "trust-runtime-core",
-      "to": "trust-platform-stm32f4",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-platform-stm32f4",
-      "to": "trust-runtime",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-platform-stm32f4",
-      "to": "trust-hir",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-stm32f407",
-      "to": "trust-runtime",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-runtime-core",
       "to": "trust-platform-esp32",
       "kind": "normal"
     },
     {
-      "from": "trust-runtime-core",
-      "to": "trust-board-fixture",
-      "kind": "normal"
-    },
-    {
       "from": "trust-platform-esp32",
       "to": "trust-runtime",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-platform-stm32f4",
-      "to": "trust-chips",
       "kind": "normal"
     },
     {
@@ -643,16 +541,6 @@
     },
     {
       "from": "trust-platform-esp32",
-      "to": "trust-hir",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-board-fixture",
-      "to": "trust-runtime",
-      "kind": "normal"
-    },
-    {
-      "from": "trust-board-fixture",
       "to": "trust-hir",
       "kind": "normal"
     },
@@ -1415,14 +1303,6 @@
         "decision_note": "ARCHPROG-C-05 baseline freeze"
       },
       {
-        "name": "bytecode",
-        "subsystem": "portable_runtime_core",
-        "owner": "runtime/VM",
-        "rationale": "bytecode representation and decoding",
-        "review_date": "2026-04-30",
-        "decision_note": "ARCHPROG-C-05 baseline freeze"
-      },
-      {
         "name": "config",
         "subsystem": "runtime_configuration",
         "owner": "runtime/config",
@@ -1584,13 +1464,6 @@
         "split_plan": "After the backlog closes, split into openot_telemetry/{vectors,authoring,capstone,documents}.rs test modules without reducing byte-exact coverage."
       },
       {
-        "path": "crates/trust-runtime/tests/phase11_seam_contract.rs",
-        "owner": "runtime seam tests",
-        "rationale": "Phase 11 seam contract keeps cross-surface runtime invariants together while the connectivity remediation closeout remains under review",
-        "review_date": "2026-07-08",
-        "split_plan": "Split into phase11_seam_contract/{runtime,connectivity,hmi}.rs once release repair closes and per-surface evidence is accepted."
-      },
-      {
         "path": "crates/trust-runtime/src/config/tests.rs",
         "owner": "runtime/config tests",
         "rationale": "Configuration parser regression tests cover multiple historical runtime.toml migrations in one module",
@@ -1666,25 +1539,9 @@
         "rationale": "Harness configuration tests cover one atomic configuration contract across source forms",
         "review_date": "2026-08-21",
         "split_plan": "Split source, globals, and binding cases when configuration coverage changes."
-      },
-      {
-        "path": "crates/trust-runtime/src/runtime/vm/local_init/expr.rs",
-        "owner": "runtime historical initializer tests",
-        "rationale": "The cfg(test)-only historical VM initializer corpus retains its recursive expression compatibility owner; production construction executes admitted core initializer bodies.",
-        "review_date": "2026-10-11",
-        "split_plan": "Keep private historical assertions distinct from admitted production proof; split fixture expression families only with their existing compatibility assertions."
       }
     ],
     "module_size_allowlist": [
-      {
-        "crate_name": "trust-runtime-core",
-        "module_name": "memory",
-        "path": "crates/trust-runtime-core/src/memory",
-        "owner": "runtime portability",
-        "rationale": "Spec 34 §6.2 groups the bounded value store: the cell and the cell store, prepared cell layouts, reference records, activation frames, instance identities and live tests, and from C1-7 the text buffers and their sink. The aggregate is the sum of real child modules and the focused tests beside them, not one large implementation file or a mixed owner; no store responsibility is removed to satisfy a size gate.",
-        "review_date": "2026-10-18",
-        "split_plan": "Keep the cell store in memory/cells.rs and its value conversion in memory/cells/, prepared layouts in memory/layout.rs, text buffers in memory/text.rs, reference records in memory/references.rs, and activation and instance bookkeeping in their own modules. Split any individual file approaching 1000 lines by its existing responsibility rather than merging owners or adding an include fragment."
-      },
       {
         "crate_name": "trust-runtime-core",
         "module_name": "stdlib",
@@ -1693,24 +1550,6 @@
         "rationale": "Spec 34 shares the full standard library across platforms. Its aggregate includes separate function families, conversions, function blocks, immutable parameter metadata and registry tests; the 5000-line boundary is not a single implementation file or mixed owner. No function family is removed to satisfy a size gate.",
         "review_date": "2026-10-10",
         "split_plan": "Keep the registry and canonical parameters separate from numeric, bit, selection, comparison, string and date/time families. Conversions and function blocks keep their existing child modules. Split individual files approaching 1000 lines by the same semantic responsibility; retain one shared implementation and the complete platform-independent function set."
-      },
-      {
-        "crate_name": "trust-runtime-core",
-        "module_name": "vm",
-        "path": "crates/trust-runtime-core/src/vm",
-        "owner": "runtime portability",
-        "rationale": "Spec 34 A4 moves the existing stack engine into the shared VM namespace. The aggregate includes distinct real modules for dispatch, call binding, references, immutable preparation, typed construction and mutable resource lifecycle; its line count is not a single-file or single-owner implementation.",
-        "review_date": "2026-10-10",
-        "split_plan": "Keep dispatch and its context ports separate from prepared metadata and engine lifecycle children; keep assignment, initialization, restart, process images and allocation accounting in their own engine modules. Split oversized functions by their existing type/table responsibilities and individual files approaching 1000 lines; retain one shared execution implementation and public VM namespace."
-      },
-      {
-        "crate_name": "trust-runtime-core",
-        "module_name": "bytecode",
-        "path": "crates/trust-runtime-core/src/bytecode",
-        "owner": "runtime portability",
-        "rationale": "Spec 34 A2 keeps the full STBC protocol boundary shared by host and MCU. The expanded review adds budgeted semantic analysis and public record documentation; the aggregate crosses 5000 lines while each responsibility is a real child module, not an include fragment or a single large file.",
-        "review_date": "2026-10-09",
-        "split_plan": "Maintain decode, encode, format, metadata and validation child modules; keep analysis budget, shared instruction decoder and semantic passes separate. A3 versioned-format additions stay in those responsibilities; split any individual file approaching 1000 lines rather than creating a second validator or unrelated top-level namespace."
       },
       {
         "crate_name": "trust-runtime-core",
@@ -1848,15 +1687,6 @@
         "split_plan": "Split protocol families into io/{drivers,protocols,mapping}.rs only after protocol journey evidence is accepted."
       },
       {
-        "crate_name": "trust-runtime",
-        "module_name": "bytecode",
-        "path": "crates/trust-runtime/src/bytecode",
-        "owner": "runtime/VM",
-        "rationale": "Spec 34 A3 keeps source/HIR lowering and explicit 2.0 construction emission hosted; byte records, decoding, budgeted validation and disassembly are portable core responsibilities.",
-        "review_date": "2026-10-09",
-        "split_plan": "Keep construction, configuration, recipes and expression emission in focused modules; A4 executes their bytecode through the shared dispatcher."
-      },
-      {
         "crate_name": "xtask",
         "module_name": "full_map",
         "path": "xtask/src/full_map",
@@ -1864,15 +1694,6 @@
         "rationale": "full-map doctor owns the architecture-program policy checks and generated report logic",
         "review_date": "2026-05-02",
         "split_plan": "Split policy models, source scanners, and check evaluators into child modules if full-map doctor work continues after program closeout."
-      },
-      {
-        "crate_name": "xtask",
-        "module_name": "portability",
-        "path": "xtask/src/portability",
-        "owner": "runtime portability",
-        "rationale": "The portability evidence namespace holds one focused child module per concern: board profiles, the reviewed firmware build, the per-chip image inspections (STM32F407 in elf/stm32f407.rs, ESP32-C6 in elf.rs), trace verification and its profiles, benchmarks, the database runner, source identity, linker-map comparison and their tests. The aggregate is above 5000 lines; no single file or mixed owner.",
-        "review_date": "2026-10-17",
-        "split_plan": "Keep one image-inspection file per chip under elf/ and one trace profile per board; move the hosted benchmark and database runner into their own top-level xtask module if either grows; split any file approaching 1000 lines by its responsibility. Chip values come from chips/*.toml (T3) rather than being repeated here."
       },
       {
         "crate_name": "trust-runtime",
@@ -1947,14 +1768,6 @@
         "split_plan": "Split GET/POST workspace actions into child handlers if this route changes again."
       },
       {
-        "path": "crates/trust-runtime-core/src/vm/register_ir/interpreter.rs",
-        "name": "execute_register_block_interpreted_slice",
-        "owner": "runtime-core/register execution",
-        "rationale": "The resumable interpreter retains the existing shared instruction-family dispatch body and its cursor across user-call yields; hosted and portable owners use the same checked context.",
-        "review_date": "2026-10-13",
-        "split_plan": "Keep operation families in shared child helpers; preserve full stack/register parity and fault, fuel, deadline, resume-cursor and reference assertions."
-      },
-      {
         "path": "crates/trust-runtime/src/bin/trust-runtime/run/runtime/entry.rs",
         "name": "run_runtime",
         "owner": "runtime CLI",
@@ -1977,22 +1790,6 @@
         "rationale": "IDE language route aggregates analysis query cases behind the web adapter",
         "review_date": "2026-05-02",
         "split_plan": "Split request cases into typed child handlers if the IDE HTTP API changes."
-      },
-      {
-        "path": "crates/trust-runtime-core/src/vm/register_ir/tier1/execute.rs",
-        "name": "execute_tier1_compiled_block_slice",
-        "owner": "runtime-core/register specialization",
-        "rationale": "The resumable tier-1 slice retains the existing checked specialized instruction body and original bytecode costs while preserving executor and cursor state across user-call yields; no host Runtime is a production interpreter owner.",
-        "review_date": "2026-10-13",
-        "split_plan": "Extract instruction-family helpers only with canonical specialized/generic/stack parity, resume-cursor and lifecycle assertions."
-      },
-      {
-        "path": "crates/trust-runtime-core/src/vm/dispatch.rs",
-        "name": "execute_with_buffers",
-        "owner": "runtime/VM",
-        "rationale": "VM stack/local execution remains a core behavior-lock target",
-        "review_date": "2026-05-02",
-        "split_plan": "Split stack frame setup from instruction execution only with complete_program and VM mutation coverage."
       },
       {
         "path": "crates/trust-runtime/src/control/config_handlers_set.rs",
@@ -2019,36 +1816,12 @@
         "split_plan": "Split read/write/list operations if IDE file API changes."
       },
       {
-        "path": "crates/trust-runtime-core/src/vm/register_ir/lower.rs",
-        "name": "lower_pou_to_register_ir",
-        "owner": "runtime-core/register preparation",
-        "rationale": "Fallible source-free register lowering runs during PreparedModule construction, not first use in a hosted scan.",
-        "review_date": "2026-10-11",
-        "split_plan": "Keep decode, block analysis, fusion and verification in existing shared children; retain bounded preparation and supplied-bytecode assertions."
-      },
-      {
         "path": "crates/trust-runtime/src/web/runtime_cloud_routes/actions.rs",
         "name": "handle_post_dispatch",
         "owner": "runtime-cloud",
         "rationale": "runtime-cloud dispatch route owns one request/response transaction shape",
         "review_date": "2026-05-02",
         "split_plan": "Split action decoding and response projection if runtime-cloud action contracts grow."
-      },
-      {
-        "path": "crates/trust-runtime/src/bytecode/encoder/types.rs",
-        "name": "encode_type_entry",
-        "owner": "runtime/VM",
-        "rationale": "type encoding is compatibility-sensitive and tied to bytecode fixtures",
-        "review_date": "2026-05-02",
-        "split_plan": "Extract per-type encoders only with bytecode encode/decode parity tests."
-      },
-      {
-        "path": "crates/trust-runtime/src/bytecode/encoder/pou/build.rs",
-        "name": "build_pou_index_and_bodies",
-        "owner": "runtime/VM",
-        "rationale": "POU index and body encoding remains one compatibility-sensitive pass over shared declaration and lowering state",
-        "review_date": "2026-07-19",
-        "split_plan": "Extract declaration indexing from body emission when bytecode encoder work resumes, preserving bytecode fixture and validator parity."
       },
       {
         "path": "crates/trust-runtime/src/web/ops_routes.rs",
@@ -2067,36 +1840,12 @@
         "split_plan": "Split by runtime-cloud action category if this route grows."
       },
       {
-        "path": "crates/trust-runtime/src/runtime/vm/register_ir/tests/support.rs",
-        "name": "execute_register_subset",
-        "owner": "runtime/VM tests",
-        "rationale": "test support helper covers a broad register-IR setup/execution path",
-        "review_date": "2026-05-02",
-        "split_plan": "Split setup from execution helpers when register-IR tests are reorganized."
-      },
-      {
         "path": "crates/trust-runtime/src/host/harness/io/io_bindings.rs",
         "name": "collect_io_bindings",
         "owner": "runtime/harness",
         "rationale": "I/O binding collection owns one harness lowering pass",
         "review_date": "2026-05-02",
         "split_plan": "Split address parsing from binding projection if I/O harness logic grows."
-      },
-      {
-        "path": "crates/trust-runtime-core/src/vm/register_ir/lower/fuse.rs",
-        "name": "try_fuse_instruction_window",
-        "owner": "runtime-core/register preparation",
-        "rationale": "Shared preparation-time fusion preserves original instruction costs and supported operation semantics.",
-        "review_date": "2026-10-11",
-        "split_plan": "Split fusion families only with canonical fusion parity, malformed-input and instruction-cost assertions."
-      },
-      {
-        "path": "crates/trust-runtime/src/bytecode/encoder/codegen/expr.rs",
-        "name": "emit_expr",
-        "owner": "runtime/VM",
-        "rationale": "expression bytecode emission mirrors expression semantics and is parity-sensitive",
-        "review_date": "2026-05-02",
-        "split_plan": "Split expression families only with bytecode/runtime parity tests."
       },
       {
         "path": "crates/trust-runtime/src/host/harness/config/globals.rs",
@@ -2115,28 +1864,12 @@
         "split_plan": "Split source collection from descriptor writing if scaffold work resumes."
       },
       {
-        "path": "crates/trust-runtime/src/host/eval/stmt.rs",
-        "name": "exec_stmt",
-        "owner": "runtime/eval",
-        "rationale": "statement evaluator remains a compatibility path for runtime semantics",
-        "review_date": "2026-05-02",
-        "split_plan": "Extract statement-family helpers only with evaluator/VM parity tests."
-      },
-      {
         "path": "crates/trust-runtime/src/web/runtime_cloud_routes/control_proxy.rs",
         "name": "handle_post_control_proxy",
         "owner": "runtime-cloud",
         "rationale": "control proxy route owns a single runtime-cloud transport-to-control bridge",
         "review_date": "2026-05-02",
         "split_plan": "Split request translation from response projection if proxy contracts grow."
-      },
-      {
-        "path": "crates/trust-runtime/src/bin/trust-runtime/bench/output.rs",
-        "name": "render_table",
-        "owner": "runtime CLI",
-        "rationale": "benchmark table rendering is isolated presentation logic",
-        "review_date": "2026-05-02",
-        "split_plan": "Split formatting helpers if benchmark report output grows."
       },
       {
         "path": "crates/trust-runtime/src/web/server.rs",
@@ -2265,14 +1998,6 @@
         "rationale": "Status projection test covers a single complete public response contract",
         "review_date": "2026-08-21",
         "split_plan": "Split setup and field-family assertions only when the status API is versioned."
-      },
-      {
-        "path": "crates/trust-runtime-core/src/vm/module.rs",
-        "name": "materialize",
-        "owner": "runtime/VM",
-        "rationale": "Validated bytecode construction assembles one compatibility-sensitive VM boundary",
-        "review_date": "2026-08-21",
-        "split_plan": "Extract table families only with bytecode validation and execution parity locks."
       }
     ],
     "public_api_snapshots": [
@@ -2401,20 +2126,12 @@
     "status": "tracked_by_unsafe_concurrency_hardening_board",
     "unsafe_site_register": [
       {
-        "path": "crates/trust-platform-stm32f4/src/hardware_f407/crystal_timer.rs",
-        "line": 47,
-        "owner": "runtime portability STM32F407 (T3)",
-        "invariant": "Writes only TIM11_OR TI1_RMP (bits 1:0) of the owned TIM11 to 0b10 (HSE_RTC, ST HAL TIM_TIM11_HSE / CMSIS TIM_OR_TI1_RMP_1) during the clock measurement before any other code runs; release resets the register. The PAC has no safe writer for this field.",
-        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-platform-stm32f4/src/hardware_f407/emergency.rs",
-        "line": 35,
-        "owner": "runtime portability STM32F407 (T3)",
-        "invariant": "Terminal single-core abort disables interrupts and never returns to HAL owners; fixed shared PAC views write only GPIO BSRR bits of the recorded outputs to their safe levels, feed the IWDG and emit bounded UART; no peripheral steal, no DMA.",
-        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-17"
+        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+        "line": 20,
+        "owner": "runtime portability",
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
+        "review_date": "2026-10-10"
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
@@ -2426,7 +2143,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 22,
+        "line": 24,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2434,7 +2151,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 25,
+        "line": 26,
         "owner": "runtime portability",
         "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
@@ -2442,267 +2159,27 @@
       },
       {
         "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 27,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 29,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 31,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
-        "line": 34,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
-        "review_date": "2026-10-10"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
-        "line": 57,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
-        "line": 58,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
-        "line": 60,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
-        "line": 66,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/preparation_allocation_profile.rs",
-        "line": 69,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test preparation_allocation_profile",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
-        "line": 44,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
-        "line": 45,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
-        "line": 47,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
-        "line": 54,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/memory_figure.rs",
-        "line": 57,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test memory_figure",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
-        "line": 37,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
-        "line": 38,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
-        "line": 45,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
-        "line": 48,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/construction_in_place.rs",
-        "line": 50,
-        "owner": "runtime portability",
-        "invariant": "Test-only allocation meter forwards unchanged pointers and layouts to System; thread-local scalar bookkeeping does not allocate, block, or panic",
-        "test_evidence": "cargo test -p trust-runtime-core --test construction_in_place",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 149,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 150,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 153,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 156,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 159,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 162,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime-core/tests/scan_allocation_zero.rs",
-        "line": 165,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate, block or unwind; the ignored tracing diagnostic captures a backtrace only while counting is off and a re-entry guard is set, so its own allocations go straight to System",
-        "test_evidence": "cargo test -p trust-runtime-core --test scan_allocation_zero",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
-        "line": 27,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
         "line": 28,
         "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
-        "review_date": "2026-10-15"
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
+        "review_date": "2026-10-10"
       },
       {
-        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
-        "line": 31,
+        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
+        "line": 30,
         "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
-        "review_date": "2026-10-15"
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
+        "review_date": "2026-10-10"
       },
       {
-        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
+        "path": "crates/trust-runtime/tests/borrowed_reference_allocations.rs",
         "line": 33,
         "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
-        "line": 35,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
-        "line": 37,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/checked_admission_first_write_allocations.rs",
-        "line": 40,
-        "owner": "runtime portability",
-        "invariant": "Test-only counting allocator forwards unchanged layouts and pointers to System; thread-local Cells do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test checked_admission_first_write_allocations",
-        "review_date": "2026-10-15"
+        "invariant": "Test-only allocation counter forwards unchanged pointers/layouts to System; thread-local Cells do not allocate or unwind",
+        "test_evidence": "cargo test -p trust-runtime --test borrowed_reference_allocations",
+        "review_date": "2026-10-10"
       },
       {
         "path": "crates/trust-runtime/tests/device_link_heap.rs",
@@ -2759,46 +2236,6 @@
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; const-initialized thread-local Cells do not allocate or unwind",
         "test_evidence": "cargo test -p trust-runtime --features full --test device_link_heap",
         "review_date": "2026-10-19"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
-        "line": 62,
-        "owner": "runtime portability",
-        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
-        "line": 63,
-        "owner": "runtime portability",
-        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
-        "line": 65,
-        "owner": "runtime portability",
-        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
-        "line": 72,
-        "owner": "runtime portability",
-        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
-        "review_date": "2026-10-15"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_lifecycle.rs",
-        "line": 77,
-        "owner": "runtime portability",
-        "invariant": "Test-only measuring allocator forwards the caller's unchanged layout and pointer to System; atomics and a const thread-local flag do not allocate or unwind",
-        "test_evidence": "cargo test -p trust-runtime --features full --test allocation_lifecycle",
-        "review_date": "2026-10-15"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
@@ -2874,6 +2311,38 @@
       },
       {
         "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 14,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 15,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 18,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
+        "line": 21,
+        "owner": "trust-runtime allocation count test, C1-19f",
+        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
+        "review_date": "2026-10-20"
+      },
+      {
+        "path": "crates/trust-runtime/tests/allocation_count.rs",
         "line": 24,
         "owner": "trust-runtime allocation count test, C1-19f",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
@@ -2882,7 +2351,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/allocation_count.rs",
-        "line": 25,
+        "line": 27,
         "owner": "trust-runtime allocation count test, C1-19f",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count",
@@ -2890,39 +2359,7 @@
       },
       {
         "path": "crates/trust-runtime/tests/allocation_count.rs",
-        "line": 28,
-        "owner": "trust-runtime allocation count test, C1-19f",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_count.rs",
-        "line": 31,
-        "owner": "trust-runtime allocation count test, C1-19f",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_count.rs",
-        "line": 34,
-        "owner": "trust-runtime allocation count test, C1-19f",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_count.rs",
-        "line": 37,
-        "owner": "trust-runtime allocation count test, C1-19f",
-        "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime/tests/allocation_count.rs",
-        "line": 40,
+        "line": 30,
         "owner": "trust-runtime allocation count test, C1-19f",
         "invariant": "Test-only counting allocator forwards unchanged layouts, pointers and new sizes to System; the count touches only an atomic and a const-initialized thread-local Cell.",
         "test_evidence": "cargo test -p trust-runtime --test allocation_count",
@@ -3434,7 +2871,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/hardware/mod.rs",
-        "line": 342,
+        "line": 340,
         "owner": "runtime portability M2E board/firmware",
         "invariant": "Reads the misa CSR only; no memory is accessed.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: safe GPIO, identity, deliberate watchdog reset, heap accounting and stack-window headroom.",
@@ -3505,52 +2942,12 @@
         "review_date": "2026-10-18"
       },
       {
-        "path": "crates/trust-platform-esp32/src/program_memory.rs",
-        "line": 113,
-        "owner": "runtime portability S4-6b (program loading in place)",
-        "invariant": "Both pointers came from Box::leak a few lines above, so they are valid and nothing else reaches the boxes. The 'static borrows are stored only in the cycle that the engine closure builds (a program started by start, or the candidate of an online change built by replace), which owns the memory as its last field and returns no reference of its lifetime, or they are dropped in this function; an early return drops the memory after their last use.",
-        "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it) and --test online_change_state (an_online_change_keeps_a_retained_function_block_instance_of_a_congruent_candidate).",
-        "review_date": "2026-10-19"
-      },
-      {
-        "path": "crates/trust-platform-esp32/src/program_memory.rs",
-        "line": 126,
-        "owner": "runtime portability S4-6b (program loading in place)",
-        "invariant": "Both pointers came from Box::leak in build and are freed here and nowhere else, once, because ProgramMemory is neither Clone nor Copy. The cycle that owns this memory drops its engine state, its process I/O and its checkpoint store before it drops the memory (the last field), so no borrow of either box is alive; the services go first because they hold a borrow of the module.",
-        "test_evidence": "cargo test -p trust-platform-esp32 --test reload (install_and_restart_rounds_leave_the_heap_where_one_round_left_it).",
-        "review_date": "2026-10-19"
-      },
-      {
         "path": "firmware/trust-esp32c6/src/memory.rs",
-        "line": 73,
+        "line": 68,
         "owner": "runtime portability S1b-5 (C6 firmware)",
         "invariant": "Called exactly once before any allocation on a single core; the private HEAP_MEMORY static of the main heap (32,832 bytes, or 163,904 in the firmware that runs compiled programs), the 64 KiB reclaimed static and the 16,320-byte LP SRAM static (LOW_POWER) are exclusively owned by the allocator, and the slices cover exactly those statics.",
         "test_evidence": "C6 slice focused checks and the M2E board runs on NUCLEO-F401RE and ESP32-C6-DevKitC-1: heap accounting and stack-window headroom; the three-region allocator is proven by cargo test -p trust-platform-memory (a_third_region_serves_only_what_the_first_two_cannot); the HP CPU's atomic instructions on LP SRAM were probed on the C6 bench (21 October 2026).",
         "review_date": "2026-10-21"
-      },
-      {
-        "path": "firmware/trust-stm32f407/src/application.rs",
-        "line": 14,
-        "owner": "runtime portability STM32F407 (T3)",
-        "invariant": "The exact 16 KiB flash-sectors-10-and-11 slice is linker-excluded from firmware and never mutated during RUN; bundle ranges and CRCs are validated by the shared decode before any payload is exposed.",
-        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "firmware/trust-stm32f407/src/main.rs",
-        "line": 156,
-        "owner": "runtime portability STM32F407 (T3)",
-        "invariant": "Cortex-M exception ABI is required by cortex-m-rt; HardFault abandons execution permanently through the nonallocating terminal board safe-off path.",
-        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-17"
-      },
-      {
-        "path": "firmware/trust-stm32f407/src/memory.rs",
-        "line": 22,
-        "owner": "runtime portability STM32F407 (T3)",
-        "invariant": "Initialization occurs once before any allocation and transfers the linker-resident private 72 KiB aligned arena to the allocator.",
-        "test_evidence": "Planned F407 frozen thumbv7em build and DISC1 bench run: identity, crystal measurement, safe GPIO, deliberate watchdog reset, heap accounting and stack headroom; hardware evidence remains unrun.",
-        "review_date": "2026-10-17"
       },
       {
         "path": "firmware/trust-stm32u5a9/src/application.rs",
@@ -3578,11 +2975,19 @@
       },
       {
         "path": "firmware/trust-stm32u5a9/src/main.rs",
-        "line": 372,
+        "line": 327,
         "owner": "runtime portability STM32U5A9 (S1b-9u)",
         "invariant": "The Cortex-M exception ABI is required by cortex-m-rt. HardFault never returns: it runs the terminal fault path, which masks interrupts and resets the chip.",
         "test_evidence": "The fault path is proved on the bench (S1b-9u); no host test raises an exception.",
         "review_date": "2026-10-18"
+      },
+      {
+        "path": "firmware/trust-stm32u5a9/src/main.rs",
+        "line": 192,
+        "owner": "native execution (specification 44)",
+        "invariant": "The module is the CODE section of an image the loader admitted on this device (specification 44 §10.2), in internal flash the CPU executes in place and that nothing writes while the program runs (§10.3).",
+        "test_evidence": "cargo run -p xtask -- portability build-firmware stm32u5a9 (links); the device run is open: the STM32U5A9 is not connected.",
+        "review_date": "2026-10-25"
       },
       {
         "path": "firmware/trust-stm32u5a9/src/memory.rs",
@@ -3842,7 +3247,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 25,
+        "line": 26,
         "owner": "native execution (specification 44)",
         "invariant": "Turning an address into an entry function is sound only for the address of an entry point of an admitted image in executable memory that stays mapped; the caller (the kernel's loader after the checks of specification 44 §10.2) promises it.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3850,7 +3255,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 28,
+        "line": 29,
         "owner": "native execution (specification 44)",
         "invariant": "The address is a function of the module with the EntryFn signature, as the caller of from_address promises; a data pointer and a function pointer have the same size on every target of specification 44 §4.4.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3858,7 +3263,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 99,
+        "line": 100,
         "owner": "native execution (specification 44)",
         "invariant": "A context's raw pointers name memory its owning cycle owns with it (areas, breakpoint bits, function table); the cycle moves them as one and a module reads them only during a call on the cycle's thread.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3866,7 +3271,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 171,
+        "line": 172,
         "owner": "native execution (specification 44)",
         "invariant": "A module calls read_real with its own copy of the text, len bytes at text that it holds for the call (module::read_real), and null is refused before; the kernel only reads them during the call.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3874,7 +3279,15 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 175,
+        "line": 243,
+        "owner": "native execution (specification 44)",
+        "invariant": "out is the module's own aligned i64, which it holds for the call (module::wall_clock); null is refused before.",
+        "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --lib runtime_clock_source (CURRENT_DT on this computer's wall clock).",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/kernel.rs",
+        "line": 176,
         "owner": "native execution (specification 44)",
         "invariant": "out is the module's own aligned f64, which it holds for the call (module::read_real); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3882,7 +3295,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 213,
+        "line": 270,
         "owner": "native execution (specification 44)",
         "invariant": "In-place code is sound only for the module of an admitted image in memory the CPU executes that stays mapped and unchanged while its entries are called; the caller (a device's loader after the checks of specification 44 §10.2) promises it.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3890,7 +3303,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 228,
+        "line": 285,
         "owner": "native execution (specification 44)",
         "invariant": "The module is executable and unchanged as the caller of InPlace::new promised, and offset is checked inside the module.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3898,7 +3311,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/kernel.rs",
-        "line": 266,
+        "line": 323,
         "owner": "native execution (specification 44)",
         "invariant": "A computer kernel's executable mapping holds an admitted module's code copied in before the mapping was made executable and never written after; offset is checked inside the mapping, and the program keeps the mapping alive as long as its entries.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -3986,7 +3399,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
-        "line": 265,
+        "line": 266,
         "owner": "native execution (specification 44)",
         "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",
@@ -4026,7 +3439,15 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 201,
+        "line": 260,
+        "owner": "native execution (specification 44)",
+        "invariant": "The elements of an open array are viewed only after checking that the reference is not NULL and of the current generation, and that count elements of size_of::<T>() bytes at its offset lie inside an existing area and are aligned for T (specification 44 §7.3); T: Plain makes every bit pattern a value of T, and the 's lifetime of the entry call makes the shared view sound as for view.",
+        "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --test var_vla --test pointer_to_open_array.",
+        "review_date": "2026-10-25"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 269,
         "owner": "native execution (specification 44)",
         "invariant": "A reference's target is viewed only after checking that the reference is not NULL and of the current generation, and that size_of::<T>() bytes at its offset lie inside an existing area and are aligned for T; a dereference also checks that the reference spans exactly those bytes, and an instance view that the instance holds the expected class id (specification 44 §6.4, §7.3); T: Plain makes every bit pattern of those bytes a value of T, and the 's lifetime of the entry call makes the shared view sound as for view.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -4034,7 +3455,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 239,
+        "line": 340,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel calls an entry point with its own non-null context, valid and used by nothing else until the call returns (specification 44 §8.3); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -4042,7 +3463,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 340,
+        "line": 441,
         "owner": "native execution (specification 44)",
         "invariant": "index is below breakpoint_bytes and the kernel keeps breakpoint_bytes readable bytes at breakpoints for the call (specification 44 §13.2); null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -4050,7 +3471,7 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 345,
+        "line": 446,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
@@ -4058,11 +3479,19 @@
       },
       {
         "path": "crates/trust-plc-abi/src/module.rs",
-        "line": 365,
+        "line": 466,
         "owner": "native execution (specification 44)",
         "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path": "crates/trust-plc-abi/src/module.rs",
+        "line": 489,
+        "owner": "native execution (specification 44)",
+        "invariant": "The kernel's function table is a static that outlives every call; null is refused before.",
+        "test_evidence": "cargo test -p trust-runtime --lib runtime_clock_source (CURRENT_DT reads the wall clock through the table).",
+        "review_date": "2026-10-25"
       }
     ],
     "delegated_unsafe_path_register": [
@@ -4100,6 +3529,13 @@
         "invariant": "The Plain contract of the area types (specification 44 §6.3): the unsafe trait declaration and its implementations for cells of integers, floats and RefValue, arrays of Plain, Str and WStr, and plain_struct!'s implementation for a #[repr(C)] structure whose ZEROED value names each field's <$ty as Plain>::ZEROED, which fails the build for a field that is not Plain. No other unsafe code lives in the file.",
         "test_evidence": "cargo test -p trust-plc-abi (layouts, views, budget, breakpoint stop, fault records); every generated module runs through these sites in the pasteurizer runs of specification 44 §14.1.",
         "review_date": "2026-10-22"
+      },
+      {
+        "path_prefix": "crates/trust-plc-abi/src/open.rs",
+        "owner": "native execution (specification 44)",
+        "invariant": "The Plain contract of the open-array reference (specification 44 §7.3): OpenRef is #[repr(C)] of a RefValue cell and i64 cells, every bit pattern of which is a value, and all zeros is NULL with no bounds.",
+        "test_evidence": "cargo test -p trust-plc-abi; cargo test -p trust-runtime --test var_vla --test pointer_to_open_array.",
+        "review_date": "2026-10-25"
       }
     ],
     "panic_like_classifications": [
@@ -4725,8 +4161,6 @@
       "crates/trust-runtime/src/host/harness/protocol.rs",
       "crates/trust-runtime/src/bin/trust-harness.rs",
       "crates/trust-dev/src/agent/harness.rs",
-      "crates/trust-runtime/src/control/debug_handlers_variables.rs",
-      "crates/trust-runtime/src/control/debug_handlers_eval.rs",
       "crates/trust-runtime/src/control.rs",
       "crates/trust-runtime/src/web/hmi_ws.rs",
       "crates/trust-runtime/src/web/runtime_cloud_routes/control_proxy.rs",

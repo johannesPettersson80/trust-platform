@@ -4,7 +4,7 @@ const POINTER_REFERENCE_HANDLE_SIZE_BYTES: u64 = core::mem::size_of::<usize>() a
 #[cfg(feature = "hir")]
 use trust_hir::{Type, TypeId};
 
-use crate::value::{StorageAbi, Value};
+use crate::value::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeOfError {
@@ -15,21 +15,33 @@ pub enum SizeOfError {
 
 #[cfg(feature = "hir")]
 pub fn size_of_type(type_id: TypeId, registry: &TypeRegistry) -> Result<u64, SizeOfError> {
-    size_of_type_with_abi(type_id, registry, StorageAbi::default())
+    size_of_type_in(type_id, registry, POINTER_REFERENCE_HANDLE_SIZE_BYTES)
 }
 
-/// Calculate a source-associated type under an explicitly selected artifact ABI.
+/// The bytes `SIZEOF` gives for `type_id` in a program built for a target whose references and
+/// pointers take `pointer_bytes` (specification 29 §1): as [`size_of_type`], with the address
+/// width of the target the program runs on rather than of the computer that builds it.
 #[cfg(feature = "hir")]
-pub fn size_of_type_with_abi(
+pub fn size_of_type_for_target(
     type_id: TypeId,
     registry: &TypeRegistry,
-    abi: StorageAbi,
+    pointer_bytes: u64,
 ) -> Result<u64, SizeOfError> {
+    size_of_type_in(type_id, registry, pointer_bytes)
+}
+
+#[cfg(feature = "hir")]
+fn size_of_type_in(
+    type_id: TypeId,
+    registry: &TypeRegistry,
+    pointer_bytes: u64,
+) -> Result<u64, SizeOfError> {
+    let size_of = |type_id| size_of_type_in(type_id, registry, pointer_bytes);
     let ty = registry.get(type_id).ok_or(SizeOfError::UnknownType)?;
     match ty {
-        Type::Alias { target, .. } => size_of_type_with_abi(*target, registry, abi),
-        Type::Subrange { base, .. } => size_of_type_with_abi(*base, registry, abi),
-        Type::Enum { base, .. } => size_of_type_with_abi(*base, registry, abi),
+        Type::Alias { target, .. } => size_of(*target),
+        Type::Subrange { base, .. } => size_of(*base),
+        Type::Enum { base, .. } => size_of(*base),
         Type::Array {
             element,
             dimensions,
@@ -40,14 +52,12 @@ pub fn size_of_type_with_abi(
             {
                 return Err(SizeOfError::UnsupportedType);
             }
-            let element_size = size_of_type_with_abi(*element, registry, abi)?;
+            let element_size = size_of(*element)?;
             let len = array_len_bits(dimensions).ok_or(SizeOfError::UnsupportedType)?;
             element_size.checked_mul(len).ok_or(SizeOfError::Overflow)
         }
         Type::Struct { fields, .. } => {
-            if abi == StorageAbi::UniformTemporal64
-                && fields.iter().any(|field| field.address.is_some())
-            {
+            if fields.iter().any(|field| field.address.is_some()) {
                 let mut end = 0u64;
                 for field in fields {
                     let address = field
@@ -68,7 +78,7 @@ pub fn size_of_type_with_abi(
                     if address.bit != 0 && !boolean {
                         return Err(SizeOfError::UnsupportedType);
                     }
-                    let size = size_of_type_with_abi(field.type_id, registry, abi)?;
+                    let size = size_of(field.type_id)?;
                     let width = if boolean {
                         1
                     } else {
@@ -84,7 +94,7 @@ pub fn size_of_type_with_abi(
             }
             let mut total = 0u64;
             for field in fields {
-                let size = size_of_type_with_abi(field.type_id, registry, abi)?;
+                let size = size_of(field.type_id)?;
                 total = total.checked_add(size).ok_or(SizeOfError::Overflow)?;
             }
             Ok(total)
@@ -92,7 +102,7 @@ pub fn size_of_type_with_abi(
         Type::Union { variants, .. } => {
             let mut max = 0u64;
             for variant in variants {
-                let size = size_of_type_with_abi(variant.type_id, registry, abi)?;
+                let size = size_of(variant.type_id)?;
                 max = max.max(size);
             }
             Ok(max)
@@ -101,9 +111,16 @@ pub fn size_of_type_with_abi(
         Type::WString { max_len } => max_len
             .map(|len| u64::from(len) * 2)
             .ok_or(SizeOfError::UnsupportedType),
-        Type::Reference { .. } | Type::Pointer { .. } => Ok(POINTER_REFERENCE_HANDLE_SIZE_BYTES),
-        Type::Time | Type::Date | Type::Tod | Type::Dt => Ok(abi.short_temporal_bytes()),
-        Type::LTime | Type::LDate | Type::LTod | Type::Ldt => Ok(8),
+        Type::Reference { .. } | Type::Pointer { .. } => Ok(pointer_bytes),
+        // Every temporal type occupies eight bytes, on every platform.
+        Type::Time
+        | Type::Date
+        | Type::Tod
+        | Type::Dt
+        | Type::LTime
+        | Type::LDate
+        | Type::LTod
+        | Type::Ldt => Ok(8),
         _ => {
             let bits = ty.bit_size().ok_or(SizeOfError::UnsupportedType)?;
             Ok(u64::from(bits.div_ceil(8)))
@@ -125,22 +142,11 @@ fn hir_is_bool(mut ty: TypeId, registry: &TypeRegistry) -> Result<bool, SizeOfEr
 
 #[cfg(feature = "hir")]
 pub fn size_of_value(registry: &TypeRegistry, value: &Value) -> Result<u64, SizeOfError> {
-    size_of_value_with_abi(registry, value, StorageAbi::default())
-}
-
-/// Calculate a source-associated value under its installed artifact ABI.
-#[cfg(feature = "hir")]
-pub fn size_of_value_with_abi(
-    registry: &TypeRegistry,
-    value: &Value,
-    abi: StorageAbi,
-) -> Result<u64, SizeOfError> {
-    size_of_value_with_abi_and_visitor(
+    size_of_value_inner(
         value,
-        abi,
         &mut |name| {
             let type_id = registry.lookup(name).ok_or(SizeOfError::UnsupportedType)?;
-            size_of_type_with_abi(type_id, registry, abi)
+            size_of_type(type_id, registry)
         },
         &mut |name| {
             let Some(type_id) = registry.lookup(name) else {
@@ -150,12 +156,13 @@ pub fn size_of_value_with_abi(
                 Some(Type::Struct { fields, .. })
                     if fields.iter().any(|field| field.address.is_some()) =>
                 {
-                    size_of_type_with_abi(type_id, registry, abi).map(Some)
+                    size_of_type(type_id, registry).map(Some)
                 }
                 _ => Ok(None),
             }
         },
         &mut |_| Ok(()),
+        0,
     )
 }
 
@@ -166,26 +173,7 @@ pub fn size_of_value_with<E: From<SizeOfError>>(
     enum_size: &mut impl FnMut(&str) -> Result<u64, E>,
     visit: &mut impl FnMut(usize) -> Result<(), E>,
 ) -> Result<u64, E> {
-    size_of_value_with_abi_and_visitor(
-        value,
-        StorageAbi::default(),
-        enum_size,
-        &mut |_| Ok(None),
-        visit,
-    )
-}
-
-/// Shared runtime-value traversal with explicit legacy/current storage semantics.
-/// `structure_size` supplies the admitted extent for relative-layout structures;
-/// ordinary structures retain their dynamic field-size behavior when it returns `None`.
-pub fn size_of_value_with_abi_and_visitor<E: From<SizeOfError>>(
-    value: &Value,
-    abi: StorageAbi,
-    enum_size: &mut impl FnMut(&str) -> Result<u64, E>,
-    structure_size: &mut impl FnMut(&str) -> Result<Option<u64>, E>,
-    visit: &mut impl FnMut(usize) -> Result<(), E>,
-) -> Result<u64, E> {
-    size_of_value_inner(value, abi, enum_size, structure_size, visit, 0)
+    size_of_value_inner(value, enum_size, &mut |_| Ok(None), visit, 0)
 }
 
 impl From<SizeOfError> for crate::error::RuntimeError {
@@ -197,9 +185,11 @@ impl From<SizeOfError> for crate::error::RuntimeError {
     }
 }
 
+/// The traversal behind `size_of_value` and `size_of_value_with`.
+/// `structure_size` supplies the admitted extent for relative-layout structures;
+/// ordinary structures retain their dynamic field-size behavior when it returns `None`.
 fn size_of_value_inner<E: From<SizeOfError>>(
     value: &Value,
-    abi: StorageAbi,
     enum_size: &mut impl FnMut(&str) -> Result<u64, E>,
     structure_size: &mut impl FnMut(&str) -> Result<Option<u64>, E>,
     visit: &mut impl FnMut(usize) -> Result<(), E>,
@@ -215,10 +205,15 @@ fn size_of_value_inner<E: From<SizeOfError>>(
         Value::Int(_) | Value::UInt(_) | Value::Word(_) | Value::WChar(_) => 2,
         Value::DInt(_) | Value::UDInt(_) | Value::DWord(_) | Value::Real(_) => 4,
         Value::LInt(_) | Value::ULInt(_) | Value::LWord(_) | Value::LReal(_) => 8,
-        Value::Time(_) | Value::Date(_) | Value::Tod(_) | Value::Dt(_) => {
-            abi.short_temporal_bytes()
-        }
-        Value::LTime(_) | Value::LDate(_) | Value::LTod(_) | Value::Ldt(_) => 8,
+        // Every temporal type occupies eight bytes, on every platform.
+        Value::Time(_)
+        | Value::Date(_)
+        | Value::Tod(_)
+        | Value::Dt(_)
+        | Value::LTime(_)
+        | Value::LDate(_)
+        | Value::LTod(_)
+        | Value::Ldt(_) => 8,
         // A text occupies its UTF-8 bytes (STRING) or two bytes per UTF-16 code unit (WSTRING),
         // the units of its capacity (docs/IEC_DECISIONS.md 2026-10-17).
         Value::String(value) => {
@@ -232,7 +227,7 @@ fn size_of_value_inner<E: From<SizeOfError>>(
         Value::Array(array) => {
             let element_size = match array.elements().first() {
                 Some(value) => {
-                    size_of_value_inner(value, abi, enum_size, structure_size, visit, depth + 1)?
+                    size_of_value_inner(value, enum_size, structure_size, visit, depth + 1)?
                 }
                 None => 0,
             };
@@ -241,18 +236,12 @@ fn size_of_value_inner<E: From<SizeOfError>>(
             element_size.checked_mul(len).ok_or(SizeOfError::Overflow)?
         }
         Value::Struct(struct_value) => {
-            if abi == StorageAbi::UniformTemporal64 {
-                if let Some(size) = structure_size(struct_value.type_name())? {
-                    return Ok(size);
-                }
-                if struct_value.physical.is_some() {
-                    return Ok(struct_value.physical_byte_len() as u64);
-                }
+            if let Some(size) = structure_size(struct_value.type_name())? {
+                return Ok(size);
             }
             let mut total = 0u64;
             for value in struct_value.fields().values() {
-                let size =
-                    size_of_value_inner(value, abi, enum_size, structure_size, visit, depth + 1)?;
+                let size = size_of_value_inner(value, enum_size, structure_size, visit, depth + 1)?;
                 total = total.checked_add(size).ok_or(SizeOfError::Overflow)?;
             }
             total
@@ -280,11 +269,8 @@ fn array_len_bits(dimensions: &[(i64, i64)]) -> Option<u64> {
 
 #[cfg(all(test, feature = "hir"))]
 mod tests {
-    use super::{
-        array_len_bits, size_of_type, size_of_type_with_abi, size_of_value, size_of_value_with_abi,
-        SizeOfError,
-    };
-    use crate::value::{ArrayValue, Duration, StorageAbi, StructValue, Value};
+    use super::{array_len_bits, size_of_type, size_of_value, SizeOfError};
+    use crate::value::{ArrayValue, Duration, StructValue, Value};
     use alloc::{boxed::Box, sync::Arc, vec};
     use smol_str::SmolStr;
     use trust_hir::types::{
@@ -316,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn source_metadata_and_dynamic_values_agree_on_relative_extent_and_legacy_history() {
+    fn source_metadata_and_dynamic_values_agree_on_relative_extent() {
         let mut registry = TypeRegistry::new();
         let structure = registry.register_struct(
             "LocatedTime",
@@ -345,20 +331,10 @@ mod tests {
             .into_iter()
             .collect(),
         )));
-        for (abi, expected) in [
-            (StorageAbi::UniformTemporal64, 16),
-            (StorageAbi::LegacyTemporal32, 5),
-        ] {
-            assert_eq!(
-                size_of_type_with_abi(structure, &registry, abi),
-                Ok(expected)
-            );
-            assert_eq!(size_of_value_with_abi(&registry, &value, abi), Ok(expected));
-            assert_eq!(
-                size_of_type_with_abi(array, &registry, abi),
-                Ok(expected * 3)
-            );
-        }
+        let expected = 16;
+        assert_eq!(size_of_type(structure, &registry), Ok(expected));
+        assert_eq!(size_of_value(&registry, &value), Ok(expected));
+        assert_eq!(size_of_type(array, &registry), Ok(expected * 3));
     }
 
     #[test]

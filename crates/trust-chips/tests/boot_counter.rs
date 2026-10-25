@@ -4,7 +4,7 @@
 
 use trust_chips::{ChipFile, Problem};
 
-const F407: &str = include_str!("../../../chips/stm32f407.toml");
+const U5A9: &str = include_str!("../../../chips/stm32u5a9.toml");
 const C6: &str = include_str!("../../../chips/esp32c6.toml");
 
 /// A TOML text as a table.
@@ -44,8 +44,8 @@ fn edited(
     ChipFile::parse(name, &text).map_err(|error| error.problem)
 }
 
-fn f407(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
-    edited("stm32f407", F407, edit)
+fn u5a9(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
+    edited("stm32u5a9", U5A9, edit)
 }
 
 fn c6(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
@@ -177,58 +177,56 @@ fn a_boot_counter_sector_overlapping_another_region_is_refused() {
 }
 
 /// On flash in the address space the erase unit is the sector at the region's start (Appendix H.5
-/// rule 7). The F407's sectors are four of 16 KiB from 0x08000000, one of 64 KiB from 0x08010000
-/// and seven of 128 KiB from 0x08020000, to 0x08100000. With the firmware cut to 448 KiB (the
-/// 64 KiB sector and three of 128 KiB, ending at 0x08080000), the 16 KiB sector 1 at 0x08004000
-/// and the 128 KiB sectors 8 and 9 at 0x08080000 and 0x080A0000 are free, and one sector of
-/// either size is one erase unit. Catches a check that takes a fixed 4 KiB unit, and one that
-/// accepts several sectors, part of a sector, a sector off its boundary or a sector past the end
-/// of the flash.
+/// rule 7). The U5A9's flash is 512 pages of 8 KiB from 0x08000000 to 0x08400000. With the firmware
+/// cut from 2,040 to 2,008 KiB, so that it ends at 0x081F8000, the four pages at 0x081F8000,
+/// 0x081FA000, 0x081FC000 and 0x081FE000 are free below the application at 0x08200000, and one page
+/// is one erase unit. Catches a check that takes a fixed 4 KiB unit, and one that accepts several
+/// pages, part of a page, a page off its boundary or a page past the end of the flash.
 #[test]
 fn a_boot_counter_sector_on_mapped_flash_is_exactly_one_sector() {
     let counters = |a: (u32, u32), b: (u32, u32)| {
         move |file: &mut toml::Table| {
-            set(file, "layout.firmware", "kib", 448_i64);
+            set(file, "layout.firmware", "kib", 2008_i64);
             for (key, (start, kib)) in [("boot_counter_a", a), ("boot_counter_b", b)] {
                 let region = table(&format!("start = {start}\nkib = {kib}"));
                 set(file, "layout", key, toml::Value::Table(region));
             }
         }
     };
-    let (sector_1, sector_8) = ((0x0800_4000, 16), (0x0808_0000, 128));
-    assert_eq!(f407(counters(sector_1, sector_8)).err(), None);
-    // Sectors 8 and 9 together end at 0x080C_0000, where the application begins: aligned, apart
-    // from everything, and two units.
+    let (first, third) = ((0x081F_8000, 8), (0x081F_C000, 8));
+    assert_eq!(u5a9(counters(first, third)).err(), None);
+    // The third and fourth pages together end at 0x0820_0000, where the application begins:
+    // aligned, apart from everything, and two units.
     assert_eq!(
-        f407(counters(sector_1, (0x0808_0000, 256))),
+        u5a9(counters(first, (0x081F_C000, 16))),
         Err(Problem::NotOneEraseUnit {
             region: "boot_counter_b"
         })
     );
-    // 64 KiB from 0x0808_0000 end in the middle of sector 8; 128 KiB from 0x0808_8000 start in the
-    // middle of it.
+    // 4 KiB from 0x081F_C000 end in the middle of the third page; 8 KiB from 0x081F_D000 start in
+    // the middle of it.
     assert_eq!(
-        f407(counters(sector_1, (0x0808_0000, 64))),
+        u5a9(counters(first, (0x081F_C000, 4))),
         Err(Problem::RegionNotAligned {
             region: "boot_counter_b"
         })
     );
     assert_eq!(
-        f407(counters(sector_1, (0x0808_8000, 128))),
+        u5a9(counters(first, (0x081F_D000, 8))),
         Err(Problem::RegionNotAligned {
             region: "boot_counter_b"
         })
     );
-    // 80 KiB from 0x0800_4000 end at 0x0801_8000, in the middle of the 64 KiB sector 4.
+    // 12 KiB from 0x081F_8000 end at 0x081F_B000, in the middle of the second page.
     assert_eq!(
-        f407(counters((0x0800_4000, 80), sector_8)),
+        u5a9(counters((0x081F_8000, 12), third)),
         Err(Problem::RegionNotAligned {
             region: "boot_counter_a"
         })
     );
-    // The sector after the last one, 0x0810_0000, is past the end of the 1 MiB flash.
+    // The page after the last one, 0x0840_0000, is past the end of the 4 MiB flash.
     assert_eq!(
-        f407(counters(sector_1, (0x0810_0000, 128))),
+        u5a9(counters(first, (0x0840_0000, 8))),
         Err(Problem::RegionOutsideFlash {
             region: "boot_counter_b"
         })

@@ -81,7 +81,7 @@ impl CompiledRuntime {
     pub fn bound_addresses(&self, symbol: u32) -> Vec<IoAddress> {
         self.bindings
             .iter()
-            .filter(|binding| binding.ref_idx == symbol)
+            .filter(|binding| binding.symbol == symbol)
             .map(|binding| binding.address.clone())
             .collect()
     }

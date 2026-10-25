@@ -1,4 +1,3 @@
-use super::access::ref_for_map;
 use super::*;
 
 impl VariableStorage {
@@ -36,21 +35,6 @@ impl VariableStorage {
         }
         #[cfg(not(feature = "std"))]
         self.activations.instances.try_append(id, value)?;
-        Ok(())
-    }
-
-    /// Record `data` as the instance `id`, which the caller read from where another store holds it
-    /// (C1-17). A live instance that holds `id` is refused, never replaced.
-    pub(crate) fn put_instance(
-        &mut self,
-        id: InstanceId,
-        data: InstanceData,
-    ) -> Result<(), crate::error::RuntimeError> {
-        self.insert_instance(id, data.type_name.clone())?;
-        let held = self
-            .get_instance_mut(id)
-            .ok_or(crate::error::RuntimeError::InvalidExecutionState)?;
-        *held = data;
         Ok(())
     }
 
@@ -424,4 +408,20 @@ impl VariableStorage {
             })
             .is_some()
     }
+}
+
+/// The reference to the entry `name` of `map`, the variables of `location`.
+fn ref_for_map(
+    map: &IndexMap<SmolStr, Value>,
+    location: MemoryLocation,
+    generation: Generation,
+    name: &str,
+) -> Option<crate::value::ValueRef> {
+    let offset = u32::try_from(map.get_index_of(name)?).ok()?;
+    Some(crate::value::ValueRef {
+        location,
+        offset,
+        generation,
+        path: RefPath::new(),
+    })
 }

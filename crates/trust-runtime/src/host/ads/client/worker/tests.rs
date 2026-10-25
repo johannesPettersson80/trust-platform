@@ -7,13 +7,13 @@ use trust_ads_core::{
     AdsDataTypeDescriptor, ArrayDimension, IecDataType, PointAccess, PointQuality, QualityState,
     SymbolDescriptor, SymbolFlag, UpdateMode,
 };
-use trust_hir::types::TypeRegistry;
-use trust_hir::{Type, TypeId};
+use trust_runtime_core::native::image::type_kind;
+use trust_runtime_core::native::memory::TypeShape;
 
 use crate::value::{ArrayValue, Value};
 
 use super::super::{
-    ads_descriptor_matches_type_id, validate_bindings, validate_remote_symbols, AdsConnectionBridge,
+    ads_descriptor_matches_shape, validate_bindings, validate_remote_symbols, AdsConnectionBridge,
 };
 use super::*;
 use crate::ads::transport::{AdsPointAddress, AdsSubscription};
@@ -468,14 +468,13 @@ fn reconnect_invalidates_local_correlation_and_marks_cached_inputs_stale() {
 #[test]
 fn output_queue_reports_latest_value_as_write_pending_until_ack() {
     let (mut storage, mut bridge, mut worker) = output_fixture(Value::Real(0.0));
-    let output_ref = storage.ref_for_global("out").unwrap();
-    assert!(storage.write_by_ref(output_ref.clone(), Value::Real(10.0)));
+    storage.0.insert("out", Value::Real(10.0));
     bridge
-        .capture_outputs(&mut storage, 10)
+        .capture_outputs_compiled(&mut storage, 10)
         .expect("capture first finite output");
-    assert!(storage.write_by_ref(output_ref, Value::Real(11.0)));
+    storage.0.insert("out", Value::Real(11.0));
     bridge
-        .capture_outputs(&mut storage, 11)
+        .capture_outputs_compiled(&mut storage, 11)
         .expect("capture replacement output");
 
     assert_eq!(bridge.pending_write("out"), Some(Value::Real(11.0)));
@@ -495,9 +494,10 @@ fn output_queue_reports_latest_value_as_write_pending_until_ack() {
 
 #[test]
 fn output_queue_rejects_non_finite_values_before_enqueue() {
-    let mut registry = TypeRegistry::new();
-    let real_array = registry.register_array(TypeId::REAL, vec![(0, 1)]);
-    let lreal_array = registry.register_array(TypeId::LREAL, vec![(0, 1)]);
+    let array_of = |kind| TypeShape::Array {
+        element: Box::new(TypeShape::Elementary(kind)),
+        dimensions: vec![(0, 1)],
+    };
     let real_array_descriptor =
         real_descriptor().with_dimensions(vec![ArrayDimension { lower: 0, upper: 1 }]);
     let lreal_array_descriptor = AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal)
@@ -506,7 +506,7 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
         (
             "REAL NaN",
             real_descriptor(),
-            TypeId::REAL,
+            TypeShape::Elementary(type_kind::REAL),
             Value::Real(12.0),
             Value::Real(f32::NAN),
             Value::Real(13.0),
@@ -514,7 +514,7 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
         (
             "REAL infinity",
             real_descriptor(),
-            TypeId::REAL,
+            TypeShape::Elementary(type_kind::REAL),
             Value::Real(12.0),
             Value::Real(f32::INFINITY),
             Value::Real(13.0),
@@ -522,7 +522,7 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
         (
             "LREAL NaN",
             AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
-            TypeId::LREAL,
+            TypeShape::Elementary(type_kind::LREAL),
             Value::LReal(12.0),
             Value::LReal(f64::NAN),
             Value::LReal(13.0),
@@ -530,7 +530,7 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
         (
             "LREAL infinity",
             AdsDataTypeDescriptor::scalar("LREAL", IecDataType::Lreal),
-            TypeId::LREAL,
+            TypeShape::Elementary(type_kind::LREAL),
             Value::LReal(12.0),
             Value::LReal(f64::NEG_INFINITY),
             Value::LReal(13.0),
@@ -538,7 +538,7 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
         (
             "REAL array",
             real_array_descriptor,
-            real_array,
+            array_of(type_kind::REAL),
             Value::Array(Box::new(ArrayValue::from_canonical_parts(
                 vec![Value::Real(1.0), Value::Real(2.0)],
                 vec![(0, 1)],
@@ -555,7 +555,7 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
         (
             "LREAL array",
             lreal_array_descriptor,
-            lreal_array,
+            array_of(type_kind::LREAL),
             Value::Array(Box::new(ArrayValue::from_canonical_parts(
                 vec![Value::LReal(1.0), Value::LReal(2.0)],
                 vec![(0, 1)],
@@ -571,26 +571,23 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
         ),
     ];
 
-    for (case, descriptor, type_id, initial, rejected, recovery) in cases {
+    for (case, descriptor, shape, initial, rejected, recovery) in cases {
         assert!(
-            ads_descriptor_matches_type_id(&descriptor, type_id, &registry),
+            ads_descriptor_matches_shape(&descriptor, &shape),
             "{case} fixture descriptor/type must be product-valid"
         );
         let (mut storage, mut bridge, _worker) = typed_output_fixture(initial, descriptor);
-        let output_ref = storage.ref_for_global("out").unwrap();
         bridge
-            .capture_outputs(&mut storage, 1)
+            .capture_outputs_compiled(&mut storage, 1)
             .expect("queue prior finite intent");
-        assert!(storage.write_by_ref(output_ref.clone(), rejected.clone()));
+        storage.0.insert("out", rejected.clone());
 
         bridge
-            .capture_outputs(&mut storage, 2)
+            .capture_outputs_compiled(&mut storage, 2)
             .expect("reject non-finite output without stopping scan");
 
         assert_value_matches_with_nonfinite(
-            storage
-                .get_global("out")
-                .expect("output remains in PLC storage"),
+            storage.0.get("out").expect("output remains in PLC storage"),
             &rejected,
             case,
         );
@@ -605,9 +602,9 @@ fn output_queue_rejects_non_finite_values_before_enqueue() {
             "{case} lacks explicit rejection detail"
         );
 
-        assert!(storage.write_by_ref(output_ref, recovery.clone()));
+        storage.0.insert("out", recovery.clone());
         bridge
-            .capture_outputs(&mut storage, 3)
+            .capture_outputs_compiled(&mut storage, 3)
             .expect("finite recovery output");
         assert_eq!(bridge.pending_write("out"), Some(recovery), "{case}");
     }
@@ -699,63 +696,53 @@ fn worker_shutdown_and_drop_interrupt_idle_wait() {
 
 #[test]
 fn binding_and_remote_descriptor_validation_partition_table() {
-    let mut registry = TypeRegistry::new();
-    let real_alias = registry.register(
-        "REAL_ALIAS",
-        Type::Alias {
-            name: "REAL_ALIAS".into(),
-            target: TypeId::REAL,
-        },
-    );
-    let int_subrange = registry.register(
-        "INT_RANGE",
-        Type::Subrange {
-            base: TypeId::INT,
-            lower: -10,
-            upper: 10,
-        },
-    );
-    let int_enum = registry.register_enum(
-        "MODE",
-        TypeId::INT,
-        vec![("Idle".into(), 0), ("Run".into(), 1)],
-    );
-    let real_array = registry.register_array(TypeId::REAL, vec![(1, 2)]);
-    let string_8 = registry.register_string_with_length(8);
+    // A compiled program's type table gives an alias its base type's shape, so the alias partition
+    // is the scalar one (specification 44 §5.7).
     let accepted = [
-        ("scalar", real_descriptor(), TypeId::REAL),
-        ("alias", real_descriptor(), real_alias),
+        (
+            "scalar",
+            real_descriptor(),
+            TypeShape::Elementary(type_kind::REAL),
+        ),
         (
             "subrange",
             AdsDataTypeDescriptor::scalar("INT", IecDataType::Int),
-            int_subrange,
+            TypeShape::Subrange(type_kind::INT),
         ),
         (
             "enum",
             AdsDataTypeDescriptor::scalar("INT", IecDataType::Int),
-            int_enum,
+            TypeShape::Enumeration {
+                name: "MODE".into(),
+                size: 2,
+            },
         ),
         (
             "array",
             real_descriptor().with_dimensions(vec![ArrayDimension { lower: 1, upper: 2 }]),
-            real_array,
+            TypeShape::Array {
+                element: Box::new(TypeShape::Elementary(type_kind::REAL)),
+                dimensions: vec![(1, 2)],
+            },
         ),
         (
             "STRING capacity",
             AdsDataTypeDescriptor::string("STRING(8)", 8),
-            string_8,
+            TypeShape::Text {
+                wide: false,
+                capacity: 8,
+            },
         ),
     ];
-    for (partition, descriptor, type_id) in accepted {
+    for (partition, descriptor, shape) in accepted {
         assert!(
-            ads_descriptor_matches_type_id(&descriptor, type_id, &registry),
+            ads_descriptor_matches_shape(&descriptor, &shape),
             "accepted {partition} descriptor partition regressed"
         );
     }
-    assert!(!ads_descriptor_matches_type_id(
+    assert!(!ads_descriptor_matches_shape(
         &real_descriptor(),
-        TypeId::LREAL,
-        &registry,
+        &TypeShape::Elementary(type_kind::LREAL),
     ));
 
     let readable = binding(point(

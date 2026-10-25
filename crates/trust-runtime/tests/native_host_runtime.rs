@@ -432,7 +432,6 @@ fn the_services_read_a_compiled_program_through_its_symbol_table() {
     );
 
     let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: trust_runtime::value::StorageAbi::default(),
         storage: trust_runtime::memory::VariableStorage::new(),
         now: state.now(),
         compiled: Some(std::sync::Arc::new(state)),

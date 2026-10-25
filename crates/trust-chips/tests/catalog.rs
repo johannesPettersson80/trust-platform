@@ -4,7 +4,7 @@ use std::path::Path;
 
 use trust_chips::{Catalog, ChipFile, Component, Family, Fpu, PinReason, Problem};
 
-const F407: &str = include_str!("../../../chips/stm32f407.toml");
+const U5A9: &str = include_str!("../../../chips/stm32u5a9.toml");
 
 fn catalog() -> Catalog {
     Catalog::embedded().expect("the catalog's chip files are valid")
@@ -53,60 +53,14 @@ fn the_catalog_holds_every_chip_file_whose_firmware_crate_is_in_the_repository()
     files.sort();
     let catalog = catalog();
     let mut names = catalog.names();
-    assert_eq!(names, ["stm32f407", "esp32c6", "stm32u5a9"]);
+    assert_eq!(names, ["esp32c6", "stm32u5a9"]);
     names.sort_unstable();
     assert_eq!(names, files);
-    assert_eq!(catalog.chips().len(), 3);
+    assert_eq!(catalog.chips().len(), 2);
     assert!(catalog.chip("stm32f401").is_none());
+    assert!(catalog.chip("stm32f407").is_none());
     assert!(catalog.chip("stm32f407g-disc1").is_none());
     assert!(catalog.chip("riverdi-rvt50hqsnwc00-b").is_none());
-}
-
-#[test]
-fn the_stm32f407_file_describes_the_chip_of_appendix_d4() {
-    let chip = chip("stm32f407");
-    assert_eq!(chip.identity.model, "STM32F407");
-    assert_eq!(chip.identity.family, Family::Stm32f4);
-    assert_eq!(chip.identity.device_id, 0x413);
-    assert_eq!(chip.processor.rust_target, "thumbv7em-none-eabihf");
-    assert_eq!(chip.processor.fpu, Fpu::Single);
-    assert_eq!(chip.clock.max_hz, 168_000_000);
-    assert_eq!(chip.clock.firmware_hz, 168_000_000);
-    let flash = chip
-        .memory
-        .flash
-        .as_ref()
-        .expect("flash in the address space");
-    assert_eq!((flash.start, flash.kib), (0x0800_0000, 1024));
-    assert!(chip.memory.spi_flash.is_none());
-    // 192 KiB of RAM, of which DMA reaches the 128 KiB outside the CCM.
-    let total: u32 = chip.memory.ram.iter().map(|region| region.kib).sum();
-    let reached: u32 = chip
-        .memory
-        .ram
-        .iter()
-        .filter(|region| region.dma)
-        .map(|region| region.kib)
-        .sum();
-    assert_eq!((total, reached), (192, 128));
-    assert_eq!(
-        layout(&chip),
-        [
-            ("vectors", 0x0800_0000, 16),
-            ("firmware", 0x0801_0000, 704),
-            ("application", 0x080C_0000, 256),
-            ("checkpoint_a", 0x0800_8000, 16),
-            ("checkpoint_b", 0x0800_C000, 16),
-        ]
-    );
-    assert_eq!(chip.interfaces.usb, ["OTG_FS", "OTG_HS"]);
-    assert_eq!(chip.interfaces.ethernet, ["ETH"]);
-    assert_eq!(chip.interfaces.wifi, Vec::<String>::new());
-    assert_eq!(chip.interfaces.bluetooth, Vec::<String>::new());
-    assert_eq!(chip.gpio.reserved.len(), 6);
-    assert_eq!(chip.firmware.crate_dir, "firmware/trust-stm32f407");
-    assert_eq!(chip.firmware.bin, "trust-stm32f407");
-    assert_eq!(chip.firmware.components, [Component::Engine]);
 }
 
 #[test]
@@ -150,7 +104,7 @@ fn the_esp32c6_file_describes_the_chip_of_appendix_d2() {
     assert_eq!(usb_pins, ["GPIO12", "GPIO13"]);
     assert_eq!(chip.firmware.crate_dir, "firmware/trust-esp32c6");
     assert_eq!(chip.firmware.bin, "trust-esp32c6");
-    // Appendix H.3: the components the C6 bench measured; the F407 holds the engine alone.
+    // Appendix H.3: the components the C6 bench measured; the U5A9 holds the engine alone.
     assert_eq!(
         chip.firmware.components,
         [Component::Engine, Component::Control, Component::LiveValues]
@@ -211,38 +165,42 @@ fn the_stm32u5a9_file_describes_the_chip_of_appendix_d5() {
 }
 
 #[test]
-fn both_files_record_what_was_measured_on_the_owners_chips() {
-    for name in ["stm32f407", "esp32c6"] {
-        let sources = chip(name).sources;
-        assert!(
-            sources
-                .measured
-                .iter()
-                .any(|path| path == "identity.device_id"),
-            "{name}"
-        );
-        assert!(sources.measured_on.is_some(), "{name}");
-        assert!(!sources.documents.is_empty(), "{name}");
-        // The data-sheet USB IDs of the boot loaders are not yet in the repository's records.
-        assert!(
-            sources
-                .unchecked
-                .iter()
-                .any(|path| path == "identity.usb_bootloader"),
-            "{name}"
-        );
-    }
+fn the_files_record_what_was_measured_on_the_owners_chips() {
+    // Specification 34, Appendix H.5 rule 10: the C6's device ID was read on the owner's chip, and
+    // the file says where; no value has been read on a U5A9 yet, so its file names nothing measured
+    // and no `measured_on`. Catches a measurement claimed without its record, and a record left on
+    // a chip nobody measured.
+    let sources = chip("esp32c6").sources;
+    assert!(sources
+        .measured
+        .iter()
+        .any(|path| path == "identity.device_id"));
+    assert!(sources.measured_on.is_some());
+    assert_ne!(sources.documents, Vec::<String>::new());
+    // The data-sheet USB IDs of the boot loaders are not yet in the repository's records.
+    assert!(sources
+        .unchecked
+        .iter()
+        .any(|path| path == "identity.usb_bootloader"));
+    let sources = chip("stm32u5a9").sources;
+    assert_eq!(sources.measured, Vec::<String>::new());
+    assert!(sources.measured_on.is_none());
+    assert_ne!(sources.documents, Vec::<String>::new());
+    assert!(sources
+        .unchecked
+        .iter()
+        .any(|path| path == "identity.usb_bootloader"));
 }
 
 #[test]
 fn a_component_names_the_chips_whose_firmware_holds_it() {
     let catalog = catalog();
     // Appendix H.3: every chip in the catalog holds the engine; the C6's bench measured the control requests
-    // and Live Values, which the F407 and U5 firmware do not serve yet. Catches a chip offered for a
+    // and Live Values, which the U5 firmware does not serve yet. Catches a chip offered for a
     // component its firmware lacks, or one left out for a component it holds.
     assert_eq!(
         catalog.chips_with(Component::Engine),
-        ["stm32f407", "esp32c6", "stm32u5a9"]
+        ["esp32c6", "stm32u5a9"]
     );
     assert_eq!(catalog.chips_with(Component::Control), ["esp32c6"]);
     assert_eq!(catalog.chips_with(Component::LiveValues), ["esp32c6"]);
@@ -282,11 +240,11 @@ fn the_component_words_are_the_closed_list_of_appendix_h3() {
     );
     // Each word reads back as its component in a chip file.
     for component in Component::ALL.into_iter().skip(1) {
-        let text = F407.replace(
+        let text = U5A9.replace(
             "components = [\"engine\"]",
             &format!("components = [\"engine\", \"{}\"]", component.name()),
         );
-        let chip = ChipFile::parse("stm32f407", &text).expect("a valid file");
+        let chip = ChipFile::parse("stm32u5a9", &text).expect("a valid file");
         assert_eq!(chip.firmware.components, [Component::Engine, component]);
     }
 }
@@ -351,23 +309,23 @@ fn a_chip_file_gives_the_event_store_default_and_maximum() {
 
 #[test]
 fn two_files_of_one_name_are_refused() {
-    let error = Catalog::from_files(&[("stm32f407", F407), ("stm32f407", F407)]).unwrap_err();
+    let error = Catalog::from_files(&[("stm32u5a9", U5A9), ("stm32u5a9", U5A9)]).unwrap_err();
     assert_eq!(
         error.problem,
         Problem::Duplicate {
             list: "chips",
-            entry: "stm32f407".to_owned()
+            entry: "stm32u5a9".to_owned()
         }
     );
-    assert!(Catalog::from_files(&[("stm32f407", F407)]).is_ok());
+    assert!(Catalog::from_files(&[("stm32u5a9", U5A9)]).is_ok());
 }
 
 #[test]
 fn a_refusal_names_the_file() {
-    let error = ChipFile::parse("esp32c6", F407).unwrap_err();
+    let error = ChipFile::parse("esp32c6", U5A9).unwrap_err();
     assert_eq!(error.chip, "esp32c6");
     assert_eq!(
         error.to_string(),
-        "chips/esp32c6.toml: identity.name is \"stm32f407\", not the file's name"
+        "chips/esp32c6.toml: identity.name is \"stm32u5a9\", not the file's name"
     );
 }

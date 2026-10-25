@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")" || exit 1
 
 echo "=== Recompilando y ejecutando ==="
-rm -rf .trust-lsp program.stbc
+rm -rf .trust-lsp program.tpi deployment-record.bin
 trust-runtime build --project . --sources src
 
 echo "Iniciando runtime..."

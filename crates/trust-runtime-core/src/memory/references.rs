@@ -1,23 +1,5 @@
 use super::*;
 
-pub(crate) struct PreparedStorageWrite {
-    location: MemoryLocation,
-    offset: usize,
-    path_offset: usize,
-    value: crate::value::PreparedValuePathWrite,
-}
-impl PreparedStorageWrite {
-    pub(crate) fn requires_final_deadline_check(&self) -> bool {
-        self.value.requires_final_deadline_check()
-    }
-    pub(crate) fn validate_aliases(
-        &self,
-        check: &mut impl FnMut(&Value) -> Result<(), crate::error::RuntimeError>,
-    ) -> Result<(), crate::error::RuntimeError> {
-        self.value.validate_aliases(check)
-    }
-}
-
 impl VariableStorage {
     pub fn read_direct_slot_by_location(
         &self,
@@ -36,7 +18,7 @@ impl VariableStorage {
                 .instances
                 .get(&instance_id)
                 .and_then(|instance| instance.variables.get_index(offset).map(|(_, value)| value)),
-            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
+            MemoryLocation::Io(_) | MemoryLocation::Retain => None,
         }
     }
 
@@ -78,7 +60,7 @@ impl VariableStorage {
                     })
                 })
                 .is_some(),
-            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => false,
+            MemoryLocation::Io(_) | MemoryLocation::Retain => false,
         }
     }
 
@@ -235,74 +217,10 @@ impl VariableStorage {
                             .map(|(_, slot)| slot)
                     })
             }
-            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
+            MemoryLocation::Io(_) | MemoryLocation::Retain => None,
         };
         let Some(slot) = slot else { return Ok(false) };
         crate::value::write_value_path_checked(slot, resolved.path, value)
-    }
-
-    /// Stage a typed physical write while storage is still borrowed immutably.
-    pub(crate) fn prepare_by_ref_parts_write(
-        &self,
-        location: MemoryLocation,
-        offset: usize,
-        path: &[RefSegment],
-        value: &Value,
-    ) -> Result<Option<PreparedStorageWrite>, crate::error::RuntimeError> {
-        let Some(reference) = self.resolve_reference_parts(location, offset, path) else {
-            return Ok(None);
-        };
-        let Some(root) = self.read_direct_slot_by_location(reference.location, reference.offset)
-        else {
-            return Ok(None);
-        };
-        let Some(value) = crate::value::prepare_value_path_write(root, reference.path, value)?
-        else {
-            return Ok(None);
-        };
-        Ok(Some(PreparedStorageWrite {
-            location: reference.location,
-            offset: reference.offset,
-            path_offset: path.len() - reference.path.len(),
-            value,
-        }))
-    }
-
-    /// Commit the already checked patch once; this never reruns alias preflight. `capacity` is the
-    /// declared string capacity of the target element write, in UTF-8 bytes for `STRING` and
-    /// UTF-16 code units for `WSTRING`.
-    pub(crate) fn commit_prepared_write(
-        &mut self,
-        path: &[RefSegment],
-        value: Value,
-        prepared: PreparedStorageWrite,
-        capacity: usize,
-    ) -> bool {
-        let Some(path) = path.get(prepared.path_offset..) else {
-            return false;
-        };
-        let slot = match prepared.location {
-            MemoryLocation::Global => self
-                .values
-                .globals
-                .get_index_mut(prepared.offset)
-                .map(|(_, slot)| slot),
-            MemoryLocation::Local(id) => self.local_slot_mut(id, prepared.offset),
-            MemoryLocation::Instance(id) => {
-                self.activations
-                    .instances
-                    .get_mut(&id)
-                    .and_then(|instance| {
-                        instance
-                            .variables
-                            .get_index_mut(prepared.offset)
-                            .map(|(_, slot)| slot)
-                    })
-            }
-            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
-        };
-        let Some(slot) = slot else { return false };
-        crate::value::commit_value_path_write(slot, path, value, prepared.value, capacity)
     }
 
     #[cfg(feature = "hir")]
@@ -363,7 +281,7 @@ impl VariableStorage {
                     )
                 })
                 .unwrap_or(false),
-            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => false,
+            MemoryLocation::Io(_) | MemoryLocation::Retain => false,
         }
     }
 
@@ -393,38 +311,5 @@ impl VariableStorage {
             generation: self.identities.generation,
             path: &path[start..],
         })
-    }
-
-    /// Restore an existing physical slot without normalization or allocation.
-    /// Used only after a transaction has saved this exact slot.
-    pub(crate) fn restore_direct_slot(
-        &mut self,
-        location: MemoryLocation,
-        offset: usize,
-        value: Value,
-    ) {
-        let slot = match location {
-            MemoryLocation::Global => self
-                .values
-                .globals
-                .get_index_mut(offset)
-                .map(|(_, value)| value),
-            MemoryLocation::Local(id) => self.local_slot_mut(id, offset),
-            MemoryLocation::Instance(id) => {
-                self.activations
-                    .instances
-                    .get_mut(&id)
-                    .and_then(|instance| {
-                        instance
-                            .variables
-                            .get_index_mut(offset)
-                            .map(|(_, value)| value)
-                    })
-            }
-            MemoryLocation::Io(_) | MemoryLocation::Retain | MemoryLocation::Flat { .. } => None,
-        };
-        if let Some(slot) = slot {
-            *slot = value;
-        }
     }
 }

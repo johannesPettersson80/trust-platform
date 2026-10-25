@@ -1,11 +1,11 @@
-mod legacy_construction;
+mod construction;
 
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 
 use crate::debug::SourceLocation;
 use crate::task::ProgramDef;
-use crate::{Runtime, RuntimeBuilder};
+use crate::RuntimeBuilder;
 use std::{path::Path, sync::Arc};
 use trust_hir::db::{FileId, SemanticDatabase};
 use trust_hir::{semantic::DeclarationCatalog, Project, SourceKey};
@@ -16,14 +16,12 @@ use super::compiler::{lower_root_global_var_blocks, LoweringInputs};
 use super::config::{apply_program_retain_overrides, attach_programs_to_tasks};
 use super::types::{CompileError, SourceFile};
 
-/// Lowered declarations and original initialization expressions, before any runtime
-/// storage construction. Legacy execution and source-free artifact authoring consume
-/// the same frontend result, but only the legacy consumer evaluates startup values.
+/// Lowered declarations and original initialization expressions, before any storage is constructed.
+/// The program image's build reads them with the sources' syntax trees (specification 44 §3), and the
+/// declarations view constructs the starting values from them for the tools.
 pub(crate) struct LoweredApplication {
     pub(crate) builder: RuntimeBuilder,
     pub(crate) program_defs: IndexMap<SmolStr, ProgramDef>,
-    /// Borrowed global aliases needed by source configuration checks, never runtime fields.
-    pub(crate) program_externals: IndexMap<SmolStr, Vec<SmolStr>>,
     pub(crate) globals: Vec<super::compiler::GlobalInit>,
     pub(crate) program_access: Vec<super::compiler::AccessDecl>,
     pub(crate) configuration: Option<super::compiler::ConfigModel>,
@@ -33,23 +31,13 @@ pub(crate) struct LoweredApplication {
 pub(crate) struct LoweredSourceMetadata {
     pub(crate) file_id: u32,
     pub(crate) locations: Vec<SourceLocation>,
-    pub(crate) text: String,
-    pub(crate) path: Option<String>,
-}
-
-pub(super) fn build_runtime_from_source_files(
-    sources: &[SourceFile],
-    label_errors: bool,
-    extra_program_instances: &[SmolStr],
-) -> Result<Runtime, CompileError> {
-    lower_application(sources, label_errors)?.materialize(extra_program_instances)
 }
 
 pub(crate) fn lower_application(
     sources: &[SourceFile],
     label_errors: bool,
 ) -> Result<LoweredApplication, CompileError> {
-    lower_application_with_abi(sources, label_errors, crate::value::StorageAbi::default())
+    lower_application_and_frontend(sources, label_errors, true).map(|(lowered, _)| lowered)
 }
 
 /// The checked semantic model of a project's sources: the project database, each source's file id
@@ -65,7 +53,6 @@ pub(crate) struct AnalyzedSourceFiles {
 fn analyze_source_files(
     sources: &[SourceFile],
     label_errors: bool,
-    storage_abi: crate::value::StorageAbi,
 ) -> Result<AnalyzedSourceFiles, CompileError> {
     let mut parses = Vec::with_capacity(sources.len());
     let mut parse_errors = Vec::new();
@@ -97,12 +84,6 @@ fn analyze_source_files(
     }
 
     let mut project = Project::new();
-    project
-        .database_mut()
-        .set_temporal_storage(match storage_abi {
-            crate::value::StorageAbi::LegacyTemporal32 => trust_hir::TemporalStorage::Legacy32,
-            crate::value::StorageAbi::UniformTemporal64 => trust_hir::TemporalStorage::Uniform64,
-        });
     let mut file_ids = Vec::with_capacity(sources.len());
     for (idx, source) in sources.iter().enumerate() {
         let key = match source.path.as_deref() {
@@ -139,15 +120,6 @@ fn analyze_source_files(
     })
 }
 
-pub(crate) fn lower_application_with_abi(
-    sources: &[SourceFile],
-    label_errors: bool,
-    storage_abi: crate::value::StorageAbi,
-) -> Result<LoweredApplication, CompileError> {
-    lower_application_and_frontend(sources, label_errors, storage_abi, true)
-        .map(|(lowered, _)| lowered)
-}
-
 /// The lowered declarations of `sources` together with the semantic model they were lowered from,
 /// which the compiled-program generator reads the statements' types and resolved names from
 /// (specification 44 §3). The POUs' statements are lowered only when `lower_bodies` is set: the
@@ -155,20 +127,14 @@ pub(crate) fn lower_application_with_abi(
 pub(crate) fn lower_application_and_frontend(
     sources: &[SourceFile],
     label_errors: bool,
-    storage_abi: crate::value::StorageAbi,
     lower_bodies: bool,
 ) -> Result<(LoweredApplication, AnalyzedSourceFiles), CompileError> {
-    let frontend = analyze_source_files(sources, label_errors, storage_abi)?;
+    let frontend = analyze_source_files(sources, label_errors)?;
 
     let mut builder = RuntimeBuilder::new();
-    builder.storage_abi = storage_abi;
     let mut statement_locations: Vec<Vec<SourceLocation>> = vec![Vec::new(); sources.len()];
-    let (compile_time_consts, root_globals_per_file) = lower_project_types(
-        &frontend,
-        &mut builder,
-        &mut statement_locations,
-        storage_abi,
-    )?;
+    let (compile_time_consts, root_globals_per_file) =
+        lower_project_types(&frontend, &mut builder, &mut statement_locations)?;
     lower_named_declarations(
         &frontend,
         &mut builder,
@@ -190,15 +156,12 @@ pub(crate) fn lower_application_and_frontend(
         .map(|(idx, locations)| LoweredSourceMetadata {
             file_id: frontend.file_ids[idx].0,
             locations,
-            text: sources[idx].text.clone(),
-            path: sources[idx].path.clone(),
         })
         .collect();
     Ok((
         LoweredApplication {
             builder,
             program_defs: lowered_programs.program_defs,
-            program_externals: lowered_programs.program_externals,
             globals: lowered_programs.globals,
             program_access: lowered_programs.program_access,
             configuration: lowered_programs.configuration,
@@ -212,7 +175,6 @@ fn lower_project_types(
     frontend: &AnalyzedSourceFiles,
     builder: &mut RuntimeBuilder,
     statement_locations: &mut [Vec<SourceLocation>],
-    storage_abi: crate::value::StorageAbi,
 ) -> Result<
     (
         super::compiler::CompileTimeConsts,
@@ -238,7 +200,6 @@ fn lower_project_types(
         &frontend.file_ids,
         statement_locations,
         true,
-        storage_abi,
     )?;
 
     for (idx, syntax) in frontend.syntaxes.iter().enumerate() {
@@ -265,7 +226,6 @@ fn lower_project_types(
         &frontend.file_ids,
         statement_locations,
         false,
-        storage_abi,
     )?;
     let mut root_globals_per_file = Vec::with_capacity(frontend.parses.len());
     for (idx, syntax) in frontend.syntaxes.iter().enumerate() {
@@ -422,7 +382,6 @@ fn lower_named_declarations(
 
 struct LoweredPrograms {
     program_defs: IndexMap<SmolStr, ProgramDef>,
-    program_externals: IndexMap<SmolStr, Vec<SmolStr>>,
     globals: Vec<super::compiler::GlobalInit>,
     program_access: Vec<super::compiler::AccessDecl>,
     configuration: Option<super::compiler::ConfigModel>,
@@ -438,7 +397,6 @@ fn lower_programs_and_configuration(
 ) -> Result<LoweredPrograms, CompileError> {
     let profile = builder.profile();
     let mut program_defs = IndexMap::<SmolStr, ProgramDef>::new();
-    let mut program_externals = IndexMap::new();
     let mut globals = Vec::new();
     let mut program_access = Vec::new();
     for (idx, parse) in frontend.parses.iter().enumerate() {
@@ -468,7 +426,6 @@ fn lower_programs_and_configuration(
                     program.program.name
                 )));
             }
-            program_externals.insert(SmolStr::new(&key), program.external_names);
             program_defs.insert(key.into(), program.program);
             globals.extend(program.globals);
             program_access.extend(program.access);
@@ -507,7 +464,6 @@ fn lower_programs_and_configuration(
 
     Ok(LoweredPrograms {
         program_defs,
-        program_externals,
         globals,
         program_access,
         configuration: config_model,
@@ -515,92 +471,10 @@ fn lower_programs_and_configuration(
 }
 
 impl LoweredApplication {
-    pub(crate) fn has_repeated_program_types(&self) -> bool {
-        let Some(config) = &self.configuration else {
-            return false;
-        };
-        let mut types = std::collections::HashSet::new();
-        config
-            .programs
-            .iter()
-            .any(|program| !types.insert(program.type_name.to_ascii_uppercase()))
-    }
-
-    pub(crate) fn from_builder(
-        mut builder: RuntimeBuilder,
-        globals: Vec<super::GlobalInit>,
-        access: Vec<super::AccessDecl>,
-        config_inits: Vec<super::ConfigInit>,
-        tasks: Vec<crate::task::TaskConfig>,
-        task_bindings: Vec<(SmolStr, Vec<super::AccessPart>)>,
-    ) -> Result<Self, CompileError> {
-        let mut program_defs = IndexMap::new();
-        for program in builder.programs().values() {
-            if program_defs
-                .insert(
-                    SmolStr::new(program.name.to_ascii_uppercase()),
-                    program.clone(),
-                )
-                .is_some()
-            {
-                return Err(CompileError::new("duplicate builder program name"));
-            }
-        }
-        let programs = program_defs
-            .values()
-            .map(|program| super::ProgramInstanceConfig {
-                name: program.name.clone(),
-                type_name: program.name.clone(),
-                task: None,
-                retain: None,
-                fb_tasks: Vec::new(),
-            })
-            .collect::<Vec<_>>();
-        builder.manual_task_bindings = task_bindings;
-        let resource_name = Some(builder.resource_name().clone());
-        Ok(Self {
-            builder,
-            program_defs,
-            program_externals: IndexMap::new(),
-            globals,
-            program_access: Vec::new(),
-            source_metadata: Vec::new(),
-            configuration: Some(super::compiler::ConfigModel {
-                configuration_name: None,
-                resource_name,
-                globals: Vec::new(),
-                tasks,
-                programs,
-                using: Vec::new(),
-                access,
-                config_inits,
-            }),
-        })
-    }
-
     /// Resolve configuration identities without creating storage or evaluating startup code.
     pub(crate) fn prepare_authoring(
-        self,
-        extra_program_instances: &[SmolStr],
-    ) -> Result<Self, CompileError> {
-        self.prepare_with_program_type_policy(extra_program_instances, false)
-    }
-
-    /// Prepare source declarations as context for importing supplied legacy
-    /// bodies. The importer can bind several configured instance identities to
-    /// one compatible source PROGRAM template without authoring a new source
-    /// artifact; ordinary source authoring keeps its stricter duplicate-type rule.
-    pub(crate) fn prepare_legacy_import_context(
-        self,
-        extra_program_instances: &[SmolStr],
-    ) -> Result<Self, CompileError> {
-        self.prepare_with_program_type_policy(extra_program_instances, true)
-    }
-
-    fn prepare_with_program_type_policy(
         mut self,
         extra_program_instances: &[SmolStr],
-        allow_repeated_program_types: bool,
     ) -> Result<Self, CompileError> {
         let configured = self.configuration.is_some();
         let mut config = match self.configuration.take() {
@@ -610,7 +484,6 @@ impl LoweredApplication {
                     return Err(CompileError::new("missing PROGRAM declaration"));
                 }
                 super::compiler::ConfigModel {
-                    configuration_name: None,
                     resource_name: None,
                     globals: Vec::new(),
                     tasks: Vec::new(),
@@ -674,9 +547,7 @@ impl LoweredApplication {
                     program.name
                 )));
             }
-            if !types.insert(program.type_name.to_ascii_uppercase())
-                && !allow_repeated_program_types
-            {
+            if !types.insert(program.type_name.to_ascii_uppercase()) {
                 return Err(CompileError::new(
                     "multiple instances of the same PROGRAM type are not supported yet",
                 ));
@@ -687,71 +558,8 @@ impl LoweredApplication {
         for source in &self.source_metadata {
             self.builder
                 .register_statement_locations(source.file_id, source.locations.clone());
-            self.builder
-                .register_source_text(source.file_id, source.text.clone());
-            self.builder.register_source_label(
-                source.file_id,
-                source
-                    .path
-                    .clone()
-                    .unwrap_or_else(|| format!("file_{}", source.file_id)),
-            );
         }
         Ok(self)
-    }
-
-    pub(crate) fn materialize(
-        self,
-        extra_program_instances: &[SmolStr],
-    ) -> Result<Runtime, CompileError> {
-        let input = self.prepare_authoring(extra_program_instances)?;
-        let projected = crate::bytecode::build_module_with_type_projection(&input)
-            .map_err(|error| CompileError::new(error.to_string()))?;
-        let mut metadata = input.metadata_snapshot(&projected.module)?;
-        metadata.artifact_types = projected.artifact_types;
-        metadata.io_display_names = projected.io_display_names;
-        Runtime::from_module_with_metadata(
-            projected.module,
-            Some(std::sync::Arc::new(metadata)),
-            0,
-            trust_runtime_core::vm::PreparationLimits::default(),
-        )
-        .map_err(|error| CompileError::new(error.to_string()))
-    }
-
-    pub(crate) fn metadata_snapshot(
-        &self,
-        module: &crate::bytecode::BytecodeModule,
-    ) -> Result<crate::RuntimeMetadata, CompileError> {
-        let config = self
-            .configuration
-            .as_ref()
-            .ok_or_else(|| CompileError::new("authoring configuration not prepared"))?;
-        let mut instances = IndexMap::new();
-        for binding in &config.programs {
-            let mut template = self
-                .program_defs
-                .values()
-                .find(|program| program.name.eq_ignore_ascii_case(&binding.type_name))
-                .cloned()
-                .ok_or_else(|| CompileError::new("program template missing"))?;
-            template.name = binding.name.clone();
-            instances.insert(binding.name.clone(), template);
-        }
-        let metadata = module
-            .metadata()
-            .map_err(|error| CompileError::new(error.to_string()))?;
-        let resource = metadata
-            .resources
-            .first()
-            .ok_or_else(|| CompileError::new("resource missing"))?;
-        self.builder
-            .metadata_for_configuration(
-                self.program_defs.clone(),
-                instances,
-                resource.tasks.clone(),
-            )
-            .map_err(|error| CompileError::new(error.to_string()))
     }
 }
 
@@ -805,20 +613,6 @@ fn validate_task_single_bindings(
         }
     }
     Ok(())
-}
-
-pub(super) fn build_bytecode_module_from_source_files(
-    sources: &[SourceFile],
-    label_errors: bool,
-    extra_program_instances: &[SmolStr],
-) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    let builder = lower_application_with_abi(
-        sources,
-        label_errors,
-        crate::value::StorageAbi::LegacyTemporal32,
-    )?
-    .materialize_legacy(extra_program_instances)?;
-    build_bytecode_module_from_builder_and_sources(&builder, sources)
 }
 
 fn build_extra_program_instances(
@@ -891,31 +685,6 @@ fn ensure_all_program_declarations_bound(
     )))
 }
 
-fn build_bytecode_module_from_builder_and_sources(
-    builder: &RuntimeBuilder,
-    sources: &[SourceFile],
-) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    let source_refs = sources
-        .iter()
-        .map(|source| source.text.as_str())
-        .collect::<Vec<_>>();
-    let all_paths = sources.iter().all(|source| source.path.is_some());
-    let labels = sources
-        .iter()
-        .enumerate()
-        .map(|(index, source)| {
-            if all_paths {
-                source.path.clone().unwrap_or_default()
-            } else {
-                format!("file_{index}")
-            }
-        })
-        .collect::<Vec<_>>();
-    let paths = labels.iter().map(String::as_str).collect::<Vec<_>>();
-    crate::bytecode::build_legacy_module_from_builder(builder, &source_refs, &paths)
-        .map_err(|error| CompileError::new(error.to_string()))
-}
-
 fn source_label(source: &SourceFile, idx: usize) -> String {
     source
         .path
@@ -935,20 +704,3 @@ mod access_contract_tests;
 #[cfg(test)]
 #[path = "authoring_boundary_tests.rs"]
 mod authoring_boundary_tests;
-
-/// Historical register/stack fixtures only; never reachable from a product API.
-#[cfg(test)]
-pub(super) fn build_legacy_fixture(
-    sources: &[SourceFile],
-    labels: bool,
-    extras: &[SmolStr],
-) -> Result<crate::runtime::LegacyRuntimeFixture, CompileError> {
-    let builder =
-        lower_application_with_abi(sources, labels, crate::value::StorageAbi::LegacyTemporal32)?
-            .materialize_legacy(extras)?;
-    let mut fixture = crate::runtime::LegacyRuntimeFixture::from_authoring_fixture(builder);
-    fixture
-        .ensure_vm_module_loaded()
-        .map_err(|error| CompileError::new(error.to_string()))?;
-    Ok(fixture)
-}

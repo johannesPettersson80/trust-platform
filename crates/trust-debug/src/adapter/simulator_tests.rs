@@ -5,6 +5,8 @@
 use super::remote::{RemoteEndpoint, RemoteSession};
 use super::*;
 use serde_json::json;
+use std::io::{BufRead, BufReader, Write};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::time::{Duration as WallDuration, Instant};
 
@@ -23,6 +25,11 @@ struct Project {
 
 impl Project {
     fn new() -> Self {
+        Self::with_main(MAIN)
+    }
+
+    /// The project with `main` in place of [`MAIN`].
+    fn with_main(main: &str) -> Self {
         let stamp = format!(
             "{}-{}",
             std::process::id(),
@@ -33,7 +40,7 @@ impl Project {
         let root = std::env::temp_dir().join(format!("trust-simulator-{stamp}"));
         std::fs::create_dir_all(root.join("src")).expect("project folder");
         std::fs::write(root.join("src/types.st"), TYPES).expect("types");
-        std::fs::write(root.join("src/main.st"), MAIN).expect("program");
+        std::fs::write(root.join("src/main.st"), main).expect("program");
         let socket = std::env::temp_dir().join(format!("trust-simulator-{stamp}.sock"));
         Self { root, socket }
     }
@@ -80,9 +87,7 @@ fn a_launch_runs_the_program_compiled_and_debugs_it_through_the_control_protocol
     trust_runtime::native::Toolchain::find()
         .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let project = Project::new();
-    let mut adapter = DebugAdapter::new(crate::DebugSession::new(
-        trust_runtime::RuntimeBuilder::new().build().unwrap(),
-    ));
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
     adapter.dispatch_request(request(1, "initialize", json!({})));
     let launch = adapter.dispatch_request(request(
         2,
@@ -158,4 +163,220 @@ fn a_launch_runs_the_program_compiled_and_debugs_it_through_the_control_protocol
     succeeded(&adapter.dispatch_request(request(8, "stReload", json!({}))));
     succeeded(&adapter.dispatch_request(request(9, "disconnect", json!({}))));
     assert!(adapter.simulator.is_none());
+}
+
+/// A loopback address that no listener holds when it is returned.
+fn reserve_loopback_addr() -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+    let addr = listener.local_addr().expect("address");
+    drop(listener);
+    addr
+}
+
+/// The adapter after the launch of `project` with its control server at `endpoint`, authenticated
+/// with `auth`, and `configurationDone`.
+fn launched(project: &Project, endpoint: &str, auth: &str) -> DebugAdapter {
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
+    adapter.dispatch_request(request(1, "initialize", json!({})));
+    let launch = adapter.dispatch_request(request(
+        2,
+        "launch",
+        json!({
+            "program": project.main().to_string_lossy(),
+            "runtimeRoot": project.root.to_string_lossy(),
+            "controlEndpoint": endpoint,
+            "controlAuthToken": auth,
+        }),
+    ));
+    assert!(launch.responses.is_empty(), "the launch waits");
+    let configured = adapter.dispatch_request(request(3, "configurationDone", json!({})));
+    assert!(
+        configured
+            .responses
+            .iter()
+            .all(|response| response["success"].as_bool().unwrap_or(false)),
+        "{:?}",
+        configured.responses
+    );
+    adapter
+}
+
+/// The control server's answer at `addr` to `request`, which carries `auth`.
+fn send_control_request(addr: SocketAddr, auth: &str, mut request: Value) -> Value {
+    let deadline = Instant::now() + WallDuration::from_secs(2);
+    loop {
+        match TcpStream::connect(addr) {
+            Ok(mut stream) => {
+                stream
+                    .set_read_timeout(Some(WallDuration::from_secs(2)))
+                    .expect("read timeout");
+                request
+                    .as_object_mut()
+                    .expect("a control request is an object")
+                    .insert("auth".to_string(), json!(auth));
+                writeln!(stream, "{request}").expect("send the request");
+                let mut line = String::new();
+                BufReader::new(stream)
+                    .read_line(&mut line)
+                    .expect("read the answer");
+                return serde_json::from_str(&line).expect("the answer is JSON");
+            }
+            Err(error) => {
+                assert!(
+                    Instant::now() < deadline,
+                    "the control endpoint {addr} accepts no connection: {error}"
+                );
+                std::thread::sleep(WallDuration::from_millis(20));
+            }
+        }
+    }
+}
+
+/// The result of a control answer that succeeded.
+fn control_result<'a>(response: &'a Value, label: &str) -> &'a Value {
+    assert_eq!(response["ok"], json!(true), "{label} failed: {response}");
+    &response["result"]
+}
+
+/// Specification 44 NX-16: a launch whose control endpoint is already in use fails, and no program
+/// runs in the adapter. Catches a launch that answers success with a runtime that no client can
+/// reach.
+#[test]
+fn a_launch_on_a_busy_control_endpoint_fails() {
+    trust_runtime::native::Toolchain::find()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let project = Project::new();
+    let occupied = TcpListener::bind("127.0.0.1:0").expect("bind");
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
+    adapter.dispatch_request(request(1, "initialize", json!({})));
+    let launch = adapter.dispatch_request(request(
+        2,
+        "launch",
+        json!({
+            "program": project.main().to_string_lossy(),
+            "runtimeRoot": project.root.to_string_lossy(),
+            "controlEndpoint": format!("tcp://{}", occupied.local_addr().expect("address")),
+            "controlAuthToken": "debug-control-token",
+        }),
+    ));
+    assert!(launch.responses.is_empty(), "the launch waits");
+    let configured = adapter.dispatch_request(request(3, "configurationDone", json!({})));
+    assert!(
+        configured.responses.iter().any(|response| {
+            response["command"] == "launch" && !response["success"].as_bool().unwrap_or(true)
+        }),
+        "{:?}",
+        configured.responses
+    );
+    assert!(adapter.simulator.is_none(), "no program runs");
+    assert!(adapter.remote_session.is_none());
+}
+
+/// Specification 44 NX-16 with the control protocol's `comm.apply`: the simulator's control server
+/// edits the `io.toml` of the launch's project folder. The first Modbus driver creates the file, a
+/// second one is added beside the first, and each answer says that a restart is required. Catches a
+/// control server that writes another folder, and one that replaces the drivers already there.
+#[test]
+fn the_simulator_applies_communication_settings_to_the_launch_project() {
+    trust_runtime::native::Toolchain::find()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let project = Project::new();
+    let addr = reserve_loopback_addr();
+    let auth = "debug-control-token";
+    let mut adapter = launched(&project, &format!("tcp://{addr}"), auth);
+
+    let schema = send_control_request(
+        addr,
+        auth,
+        json!({"id": 1, "type": "comm.schema", "params": {"protocol": "modbus_tcp"}}),
+    );
+    control_result(&schema, "comm.schema");
+    let topology = send_control_request(addr, auth, json!({"id": 2, "type": "fleet.topology"}));
+    control_result(&topology, "fleet.topology");
+
+    let modbus = |id: u32, address: &str, unit_id: u32, input_start: u32, output_start: u32| {
+        json!({
+            "id": id,
+            "type": "comm.apply",
+            "params": {
+                "protocol": "modbus_tcp",
+                "action": "add",
+                "params": {
+                    "address": address,
+                    "unit_id": unit_id,
+                    "input_start": input_start,
+                    "output_start": output_start,
+                    "timeout_ms": 750,
+                    "on_error": "warn"
+                }
+            }
+        })
+    };
+    let create = send_control_request(addr, auth, modbus(3, "127.0.0.1:1502", 2, 5, 7));
+    let created = control_result(&create, "comm.apply create");
+    assert_eq!(created["lifecycle_effect"], "restart_required", "{create}");
+    assert_eq!(created["applied"], true, "{create}");
+    let io_toml = project.root.join("io.toml");
+    let created_text = std::fs::read_to_string(&io_toml).expect("comm.apply creates io.toml");
+    assert!(created_text.contains("127.0.0.1:1502"), "{created_text}");
+
+    let update = send_control_request(addr, auth, modbus(4, "127.0.0.1:1503", 3, 9, 11));
+    let updated = control_result(&update, "comm.apply update");
+    assert_eq!(updated["lifecycle_effect"], "restart_required", "{update}");
+    let updated_text = std::fs::read_to_string(&io_toml).expect("comm.apply updates io.toml");
+    assert!(updated_text.contains("127.0.0.1:1502"), "{updated_text}");
+    assert!(updated_text.contains("127.0.0.1:1503"), "{updated_text}");
+    assert!(
+        updated_text.matches("modbus-tcp").count() >= 2,
+        "{updated_text}"
+    );
+    succeeded(&adapter.dispatch_request(request(9, "disconnect", json!({}))));
+}
+
+/// Specification 44 NX-16 with the HMI's control requests: the simulator's control server serves
+/// the HMI schema of the launch's project and the values the compiled program publishes, here
+/// `Main.speed` with its starting value 1.5 and good quality once the program has run. Catches a
+/// control server without the project's HMI, and values that do not come from the running
+/// program.
+#[test]
+fn the_simulator_serves_the_hmi_schema_and_values() {
+    trust_runtime::native::Toolchain::find()
+        .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let project = Project::with_main(
+        "PROGRAM Main\nVAR\n    speed : REAL := 1.5;\n    running : BOOL := TRUE;\nEND_VAR\nEND_PROGRAM\n",
+    );
+    let addr = reserve_loopback_addr();
+    let auth = "debug-control-hmi-token";
+    let mut adapter = launched(&project, &format!("tcp://{addr}"), auth);
+
+    let schema = send_control_request(addr, auth, json!({"id": 5, "type": "hmi.schema.get"}));
+    let speed_id = control_result(&schema, "hmi.schema.get")["widgets"]
+        .as_array()
+        .expect("the schema's widgets")
+        .iter()
+        .find(|widget| widget["path"] == "Main.speed")
+        .and_then(|widget| widget["id"].as_str())
+        .expect("Main.speed is in the HMI schema")
+        .to_string();
+
+    let deadline = Instant::now() + WallDuration::from_secs(30);
+    loop {
+        let values = send_control_request(
+            addr,
+            auth,
+            json!({"id": 6, "type": "hmi.values.get", "params": {"ids": [speed_id]}}),
+        );
+        let result = control_result(&values, "hmi.values.get");
+        let record = &result["values"][&speed_id];
+        if result["connected"] == true && record["q"] == "good" {
+            assert_eq!(record["v"].as_f64(), Some(1.5), "{values}");
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "no good value within 30 s: {values}"
+        );
+        std::thread::sleep(WallDuration::from_millis(20));
+    }
+    succeeded(&adapter.dispatch_request(request(9, "disconnect", json!({}))));
 }

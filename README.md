@@ -75,7 +75,7 @@ code --install-extension trust-platform.trust-lsp
 | Runtime | `trust-runtime` | Runtime execution engine, CLI workflows, web UI |
 | Developer Workbench | `trust-dev` | Developer/workbench commands such as agent, test, docs, and project commit helpers |
 | Debug Adapter | `trust-debug` | DAP debugging |
-| Bundle Tool | `trust-bundle-gen` | STBC bundle generation |
+| Bundle Tool | `trust-bundle-gen` | Builds a runtime bundle's program image (`program.tpi`) |
 
 ## Status
 

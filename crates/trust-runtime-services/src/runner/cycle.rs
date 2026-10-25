@@ -1,17 +1,18 @@
 //! The installed program as the resource loop drives it: one scan at a time, its faults, its
 //! outputs at a stop, its retained values, its restarts, its task timing and its I/O drivers'
-//! health. [`EngineCycle`](crate::runner::engine::EngineCycle) implements [`ResourceCycle`] on
-//! the shared engine with the platform's process I/O.
+//! health. [`CompiledCycle`](crate::runner::CompiledCycle) implements [`ResourceCycle`] for a
+//! compiled program image with the platform's process I/O (specification 44 §8.7).
 
 use alloc::vec::Vec;
 
 use smol_str::SmolStr;
+use trust_runtime_core::cycle::CycleHooks;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::{Generation, VariableStorage};
+use trust_runtime_core::io_address::IoAddress;
+use trust_runtime_core::memory::Generation;
 use trust_runtime_core::ports::{MonotonicInstant, TimeSpan};
-use trust_runtime_core::retain::RestartMode;
-use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::{CycleHooks, PreparedModule, RetainApplyEvent, StatementFrame};
+use trust_runtime_core::retain::{RestartMode, RetainApplyEvent};
+use trust_runtime_core::value::{Duration, Value};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 use super::hold::HoldHandle;
@@ -20,27 +21,24 @@ use crate::debug::LineSources;
 use crate::metrics::ProgramMemory;
 use crate::status::IoDriverStatus;
 
-/// What a debug read sees of the installed program (specification 11 §6.13.1): the program's
-/// storage, the names that its frames and variables carry, the call stack while the debugger holds
-/// the scan, and the sources that place its statements. Nothing in it is a copy.
-#[derive(Debug, Clone, Copy)]
-pub struct DebugView<'a> {
-    /// The program's storage: the state of the last scan that ended between scans, and the halted
-    /// state while the debugger holds the scan.
-    pub storage: &'a VariableStorage,
-    /// The prepared program, which names the POUs and the variables of a frame.
-    pub prepared: &'a PreparedModule,
-    /// The frame of the statement that the scan is held before, with the suspended frames below
-    /// it; none between scans, because the published state of a scan that ended has no call stack.
-    pub frame: Option<StatementFrame<'a>>,
-    /// The program's `LINE_TABLE` and file labels, or none when the program has no `LINE_TABLE`.
-    pub sources: Option<&'a LineSources>,
+/// What the deployment configures for the installed program besides its code (specification
+/// 34, §5.1 and TARGET-08).
+#[derive(Debug, Clone)]
+pub struct CycleSettings {
+    /// The resource's cycle interval.
+    pub cycle_interval: Duration,
+    /// The cycle watchdog of `[runtime.watchdog]`.
+    pub watchdog: WatchdogPolicy,
+    /// What follows a failed scan, `[runtime.fault]`.
+    pub fault_policy: FaultPolicy,
+    /// The safe value of each output, `io.toml` `[[io.safe_state]]`, in its order. Without any,
+    /// a stop or a fault drives no output, as on trust-runtime.
+    pub safe_outputs: Vec<(IoAddress, Value)>,
 }
 
 /// What a debug read sees of an installed compiled program (specification 44 §13.2): its memory,
 /// held with the frames of its call stack while the debugger holds the scan, and the sources of
 /// its statement table.
-#[cfg(feature = "native")]
 #[derive(Clone, Copy)]
 pub struct CompiledView<'a> {
     /// The program's memory.
@@ -72,31 +70,6 @@ pub struct TaskDescriptor {
     pub priority: u32,
 }
 
-/// The tasks of resource `resource_index` of `prepared`, in declaration order, so that the task
-/// index of a cycle phase selects its task; empty for a resource the module does not have.
-#[must_use]
-pub fn resource_tasks(prepared: &PreparedModule, resource_index: usize) -> Vec<TaskDescriptor> {
-    let strings = prepared.strings();
-    prepared
-        .resources()
-        .get(resource_index)
-        .map(|resource| {
-            resource
-                .tasks
-                .iter()
-                .map(|task| TaskDescriptor {
-                    name: usize::try_from(task.name_idx)
-                        .ok()
-                        .and_then(|index| strings.get(index))
-                        .map(SmolStr::new)
-                        .unwrap_or_default(),
-                    priority: task.priority,
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 /// The installed program of one resource, as the resource loop runs it (specification 34,
 /// STATE-08).
 ///
@@ -105,8 +78,16 @@ pub fn resource_tasks(prepared: &PreparedModule, resource_index: usize) -> Vec<T
 /// task timing after every restart and at power-on ([`Self::reset_task_timing`]).
 pub trait ResourceCycle {
     /// The configured tasks of the installed resource, in declaration order: the task index of a
-    /// cycle phase indexes this list ([`resource_tasks`] reads them from the prepared module).
+    /// cycle phase indexes this list.
     fn tasks(&self) -> Vec<TaskDescriptor>;
+
+    /// The program instance each entry of the program's image runs, in the entries' order, by
+    /// which the program calls are recorded (specification 11, runtime metrics): the entry index
+    /// of a `ProgramStart` phase indexes this list. A cycle that reports no program phases has
+    /// none.
+    fn programs(&self) -> Vec<SmolStr> {
+        Vec::new()
+    }
 
     /// The resource's cycle interval: the next scan is due this long after the previous one
     /// started, as trust-runtime's scheduler paces its cycles.
@@ -124,19 +105,10 @@ pub trait ResourceCycle {
     /// its pause time, so a hold never reads as an overrun. Every implementor says what it holds.
     fn held_time(&self) -> TimeSpan;
 
-    /// Runs one scan of the installed program at logical time `now` with
-    /// `RuntimeState::execute_cycle_with_hooks`.
-    ///
-    /// The implementation
-    /// - arms the engine's execution deadline at `deadline`, when there is one, so the engine
-    ///   ends a scan still running then with `ExecutionTimeout`, and disarms it after the scan;
-    /// - passes the engine hooks that sample the inputs and publish the outputs at their phases
-    ///   (`CycleHooks::publish_outputs`) and forward every other callback to `observer`, the
-    ///   loop's record of the scan: `has_program_hooks`, `program_started`, `program_finished`
-    ///   and `on_phase`. They answer `has_output_hooks` true, as `observer` does, so the engine
-    ///   checks the deadline before it publishes and restores the outputs it staged when the
-    ///   publication fails, as trust-runtime's hosted cycle does. One without I/O passes
-    ///   `observer` itself.
+    /// Runs one scan of the installed program at logical time `now`. The scan ends with
+    /// `ExecutionTimeout` when it still runs at `deadline`, when there is one; its process images are
+    /// read from and written to the platform's drivers at their phases, and every boundary is given
+    /// to `observer`, the loop's record of the scan (specification 44 §8.7).
     ///
     /// # Errors
     ///
@@ -155,19 +127,19 @@ pub trait ResourceCycle {
         None
     }
 
-    /// The allocator operations the engine made itself in the last scan, its calls into the
+    /// The allocator operations the program made itself in the last scan, its calls into the
     /// services not counted; `None` when they were not counted.
     fn last_scan_allocations(&self) -> Option<u64> {
         None
     }
 
     /// The memory figure of the installed program, and whether the cycle keeps its retained values
-    /// (specification 34 MEM-12), which `status` reports; `None` when the cycle does not know it.
+    /// (specification 44 §10.4), which `status` reports; `None` when the cycle does not know it.
     fn program_memory(&self) -> Option<ProgramMemory> {
         None
     }
 
-    /// Latches `fault` in the engine: no further scan runs and no normal outputs are committed
+    /// Latches `fault` in the program: no further scan runs and no normal outputs are committed
     /// until a restart (STATE-04).
     fn latch_fault(&mut self, fault: RuntimeError);
 
@@ -210,9 +182,11 @@ pub trait ResourceCycle {
         source: RetainSource,
     ) -> Result<Vec<RetainApplyEvent>, RuntimeError>;
 
-    /// Restarts the task timing at logical time `now`, as `RuntimeState::reset_task_timing`
-    /// does: every task counts its next activation from `now`, which becomes the program's
-    /// current time.
+    /// Restarts the task timing at logical time `now`: every task counts its next activation from
+    /// `now`, which becomes the program's current time. Before the program's first scan this
+    /// registers the tasks, and an event input (`SINGLE`) that is TRUE then makes no rising edge;
+    /// after it, the event inputs' last samples are cleared, so that an input held TRUE through a
+    /// restart is a rising edge at the first scan after it (specification 10 §4.1.1).
     fn reset_task_timing(&mut self, now: Duration);
 
     /// The installation generation the program's state is in (specification 34 MEM-07 and
@@ -222,8 +196,7 @@ pub trait ResourceCycle {
     /// A request that names an instance by a bare identity belongs to the generation the Live Values
     /// carry when the request is accepted, and the scan that applies it refuses it when the program is
     /// in another generation. The loop therefore reads this after every restart that commits, and when
-    /// it takes a program, and gives it to the Live Values before the next cycle
-    /// ([`set_generation`](crate::runner::EngineLiveValues::set_generation); STATE-08).
+    /// it takes a program, and gives it to the Live Values before the next cycle (STATE-08).
     fn generation(&self) -> Generation;
 
     /// The health of the program's I/O drivers, in `io.toml` order, which `status` and `health`
@@ -253,21 +226,13 @@ pub trait ResourceCycle {
     /// Gives the cycle the loop's pass for a scan that a debugger holds (specification 13, "Safe
     /// Points"; specification 34, STATE-07). The loop calls it once, when it starts.
     ///
-    /// A cycle whose execution services stop at statement starts calls the pass from its statement
-    /// hook, at the first instruction of a statement, and lends it the halted state. It may keep the
-    /// handle for the rest of the boot. The default ignores it: a cycle that never holds a scan.
+    /// A cycle whose program stops at statement starts calls the pass from its statement hook and
+    /// lends it the halted state. It may keep the handle for the rest of the boot. The default
+    /// ignores it: a cycle that never holds a scan.
     fn attach_hold(&mut self, _hold: HoldHandle) {}
-
-    /// The program as a debug read sees it between scans, or none for a cycle that no debugger is
-    /// attached to; the debug operations are then unsupported. While a debugger holds the scan the
-    /// hold lends the halted state instead. The default has no debugger.
-    fn debug_view(&self) -> Option<DebugView<'_>> {
-        None
-    }
 
     /// The compiled program as a debug read sees it between scans, or none for a cycle that runs
     /// no compiled program or has no debugger. The default has none.
-    #[cfg(feature = "native")]
     fn compiled_view(&self) -> Option<CompiledView<'_>> {
         None
     }

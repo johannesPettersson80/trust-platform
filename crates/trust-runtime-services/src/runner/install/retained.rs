@@ -1,40 +1,28 @@
 //! The retained-value check of an install on a chip (specification 34 §11.2, decision G13;
-//! specification 11 §6.7.1).
+//! specification 11 §6.7.1; specification 44 §11).
 //!
-//! The check runs the new program's warm start with the retained values of the newest committed
-//! checkpoint, before any byte of the install is written, as the warm start of the boot will run it:
-//! the checkpoint is read and decoded as a warm start reads it, and applied by name to a fresh
-//! construction of the new program, which is dropped afterwards. A checkpoint that is damaged, or a
-//! value the new program refuses, is the check's refusal. A program that keeps no retained values
-//! (`[runtime.retain] mode = "none"`) restores nothing at its start, and a log with no committed
-//! checkpoint has nothing to restore.
+//! The check restores the retained values of the newest committed checkpoint into the new image,
+//! before any byte of the install is written, as the warm start of the boot will restore them: the
+//! checkpoint is read and decoded as a warm start reads it, and applied by name against the image's
+//! type table. A checkpoint that is damaged, or a value the new image refuses, is the check's
+//! refusal. A program that keeps no retained values (`[runtime.retain] mode = "none"`) restores
+//! nothing at its start, and a log with no committed checkpoint has nothing to restore.
 //!
 //! The device builds its check from this function and gives it to the loop with its program store
-//! ([`Runner::with_program_store`](crate::runner::Runner::with_program_store)). The function is
-//! generic, so its code is instantiated in the device's own crate, next to the engine's, and a chip
-//! image holds one copy of the code that the check and the engine share. The checkpoint slots are
-//! read through `ReadOnly`, so that the check can never write them.
-//!
-//! A chip's heap is small, and the shared dry run of an install prepares the program with the limits
-//! its record requested, which are the hosted maxima. [`check_install`] therefore prepares the program
-//! first, with the limits the heap allows now (specification 34 §11.2 and §11.3), and a program that
-//! the heap cannot hold is refused before anything is allocated that could reset the chip.
+//! ([`Runner::with_program_store`](crate::runner::Runner::with_program_store)). The checkpoint slots
+//! are read through `ReadOnly`, so that the check can never write them.
 
 use alloc::vec::Vec;
 
-use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::retain::checkpoint::{
     CheckpointFlash, CheckpointLog, FlashError, FlashGeometry, Slot,
 };
 use trust_runtime_core::retain::codec::decode_snapshot_payload_v3;
-use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
-use trust_runtime_core::vm::PreparedModule;
+use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::watchdog::RetainMode;
 
 use crate::installation::Admitted;
-use crate::runner::engine::{DeviceMemory, RESOURCE_INDEX};
-use crate::runner::online_change::{is_call_depth_limit, is_memory_limit, ChangeMemory};
 
 /// A checkpoint flash that is read and never written: its program and erase fail.
 struct ReadOnly<'a, F: ?Sized>(&'a mut F);
@@ -57,29 +45,6 @@ impl<F: CheckpointFlash + ?Sized> CheckpointFlash for ReadOnly<'_, F> {
     }
 }
 
-/// Checks that the retained values of the newest checkpoint in `checkpoints` can be restored into
-/// the program `admitted`, as its warm start restores them (specification 11 §6.7.1). The checkpoint
-/// slots are only read.
-///
-/// # Errors
-///
-/// A retained-value error when the newest checkpoint is damaged or its flash cannot be read, and the
-/// warm start's own error, which names the retained value and its reason, when the program refuses
-/// a value. Any other error means that the program could not be built to try its warm start.
-pub fn check_retained_values<F: CheckpointFlash + ?Sized>(
-    checkpoints: &mut F,
-    admitted: &Admitted<'_>,
-) -> Result<(), RuntimeError> {
-    if admitted.record.configuration.retain_mode == RetainMode::None {
-        return Ok(());
-    }
-    let Some(snapshot) = newest_checkpoint(checkpoints)? else {
-        return Ok(());
-    };
-    let prepared = PreparedModule::from_bytes(admitted.program, admitted.limits)?;
-    warm_start(&prepared, &snapshot)
-}
-
 /// Checks that the retained values of the newest checkpoint in `checkpoints` restore into the
 /// compiled program image `admitted`, as its warm start after a power-on restores them, by name and
 /// against its type table (specification 44 §11; specification 11 §6.7.1). The checkpoint slots
@@ -91,7 +56,6 @@ pub fn check_retained_values<F: CheckpointFlash + ?Sized>(
 /// A retained-value error when the newest checkpoint is damaged or its flash cannot be read, and the
 /// restore's own error, which names the retained value and its reason, when the image refuses a
 /// value.
-#[cfg(feature = "native")]
 pub fn check_image_retained_values<F: CheckpointFlash + ?Sized>(
     checkpoints: &mut F,
     admitted: &Admitted<'_>,
@@ -111,68 +75,6 @@ pub fn check_image_retained_values<F: CheckpointFlash + ?Sized>(
         return Ok(());
     };
     trust_runtime_core::native::retain::check(&image, &snapshot).map(drop)
-}
-
-/// The check of an install on a chip (specification 34 §11.2, decision G13): the program `admitted`
-/// is prepared with the limits that the heap allows now, and then [`check_retained_values`] runs on the
-/// module it prepared.
-///
-/// The heap's room is `room` bytes, less `reserve` bytes kept for the machine, and `memory` is the
-/// device's memory, as for an online change's candidate (specification 34 §11.3): the limits are
-/// [`ChangeMemory::limits`]. A program that needs more than those limits is refused with
-/// `insufficient memory` and its numbers, and a program that calls deeper than the call levels the
-/// device's main stack holds with `insufficient stack` and its numbers, as the error of this check
-/// (the shared install check puts `the retained-value check could not run: ` before it; specification
-/// 34 MEM-03), and the shared dry run of the install, which
-/// prepares the program with the limits its record requested, does not run. A refusal changes
-/// nothing: the module and the candidate this check builds are dropped before it returns.
-///
-/// # Errors
-///
-/// The `insufficient memory` refusal above, or the error of [`check_retained_values`].
-pub fn check_install<F: CheckpointFlash + ?Sized>(
-    checkpoints: &mut F,
-    admitted: &Admitted<'_>,
-    memory: DeviceMemory,
-    room: usize,
-    reserve: usize,
-) -> Result<(), RuntimeError> {
-    let budget = ChangeMemory::for_install(admitted.program.len(), room, reserve)
-        .with_call_depth(memory.call_depth);
-    let limits = budget
-        .limits(memory)
-        .map_err(|text| RuntimeError::ControlError(SmolStr::new(text)))?;
-    let prepared = PreparedModule::from_bytes(admitted.program, limits)
-        .map_err(|error| shortage_or(budget, error))?;
-    if let Some(refusal) = budget.stack_refusal(&prepared) {
-        return Err(RuntimeError::ControlError(SmolStr::new(refusal)));
-    }
-    if admitted.record.configuration.retain_mode == RetainMode::None {
-        return Ok(());
-    }
-    let Some(snapshot) = newest_checkpoint(checkpoints)? else {
-        return Ok(());
-    };
-    warm_start(&prepared, &snapshot).map_err(|error| shortage_or(budget, error))
-}
-
-/// `error` as the `insufficient memory` refusal when the memory limits refused it, as the
-/// `insufficient stack` refusal when a call went deeper than the device's main stack holds, and as it
-/// is otherwise.
-fn shortage_or(budget: ChangeMemory, error: RuntimeError) -> RuntimeError {
-    if is_memory_limit(&error) || is_call_depth_limit(&error) {
-        RuntimeError::ControlError(SmolStr::new(budget.refusal(&error)))
-    } else {
-        error
-    }
-}
-
-/// The warm start of `prepared` with the retained values of `snapshot`, tried on a fresh
-/// construction that is dropped afterwards.
-fn warm_start(prepared: &PreparedModule, snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
-    let mut candidate = prepared.instantiate(RESOURCE_INDEX)?;
-    candidate.restart_with_retain_snapshot(RestartMode::Warm, snapshot)?;
-    Ok(())
 }
 
 /// The retained values of the newest committed checkpoint in `checkpoints`, decoded as a warm start

@@ -638,6 +638,7 @@ dependencies = [
  "stm32u5",
  "trust-platform-memory",
  "trust-platform-stm32u5",
+ "trust-plc-abi",
  "trust-runtime-core",
  "trust-runtime-services",
 ]

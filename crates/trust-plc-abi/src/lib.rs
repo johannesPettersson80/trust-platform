@@ -22,18 +22,20 @@
 mod fault;
 pub mod kernel;
 pub mod module;
+mod open;
 mod plain;
 mod reference;
 mod strings;
 
 pub use fault::{Fault, FaultCode, FaultRecord};
+pub use open::{Open, OpenRef};
 pub use plain::Plain;
 pub use reference::RefValue;
 pub use strings::{Str, StrView, WStr, WStrView};
 
 /// The version of this interface. A module carries the version it was built against in its image's
 /// header, and a kernel runs only a module of its own version (specification 44 §8.2, §10.2).
-pub const INTERFACE_VERSION: u32 = 4;
+pub const INTERFACE_VERSION: u32 = 5;
 
 /// The id of the input area, `%I` (specification 44 §7.1).
 pub const AREA_INPUTS: u8 = 1;
@@ -97,6 +99,13 @@ pub type DebugWriteFn = abi_fn!(*mut Cx, u32 => u32);
 /// `TypeMismatch` for a text that spells no real.
 pub type ReadRealFn = abi_fn!(*mut Cx, *const u8, u32, *mut f64 => u32);
 
+/// The kernel's function that reads the platform's wall clock, which `CURRENT_DT` returns
+/// (specification 44 §8.2; specification 07, "Runtime Clock Sources"): the UTC Unix time in whole
+/// milliseconds goes to `out`. It returns 0, else the code of a fault: `Overflow` for a time before
+/// the epoch or past `i64::MAX` milliseconds, `ModuleInternal` on a device without a wall clock,
+/// whose admission refuses a program that reads it (specification 34 §5.2).
+pub type WallClockFn = abi_fn!(*mut Cx, *mut i64 => u32);
+
 /// The functions a scan may call in the kernel (specification 44 §8.2). Everything else a program
 /// needs, its time, inputs, outputs and variables, is memory that the kernel prepared before the
 /// call.
@@ -108,6 +117,8 @@ pub struct KernelApi {
     pub debug_write: DebugWriteFn,
     /// Reads the real a text spells.
     pub read_real: ReadRealFn,
+    /// Reads the platform's wall clock.
+    pub wall_clock: WallClockFn,
 }
 
 /// What the kernel gives an entry point: the areas, the task's logical time, the statement budget,

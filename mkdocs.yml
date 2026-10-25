@@ -259,7 +259,7 @@ nav:
           - 09 Semantic Rules: reference/specifications/09-semantic-rules.md
           - 10 Runtime Semantics: reference/specifications/10-runtime-semantics.md
           - 11 Runtime Engine: reference/specifications/11-runtime-engine.md
-          - 12 Bytecode: reference/specifications/12-bytecode.md
+          - 12 Bytecode (superseded): reference/specifications/12-bytecode.md
           - 13 Debug Adapter: reference/specifications/13-debug-adapter.md
           - 14 LSP: reference/specifications/14-lsp.md
           - 15 Ladder Diagram: reference/specifications/15-ladder-diagram.md
@@ -274,6 +274,7 @@ nav:
           - 24 Release Evidence: reference/specifications/24-release-evidence.md
           - 32 MQTT I/O: reference/specifications/32-mqtt-io.md
           - 34 Runtime Portability: reference/specifications/34-runtime-portability.md
+          - 44 Native Execution: reference/specifications/44-native-execution.md
           - SFC Profile: reference/specifications/sfc-profile.md
       - Hardware Compatibility: reference/hardware-compatibility.md
       - API Lifecycle And Deprecation: reference/api-lifecycle-and-deprecation.md

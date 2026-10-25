@@ -31,6 +31,7 @@ mod select;
 mod text;
 mod text_functions;
 mod timers;
+mod wide;
 
 pub use arith::{
     abs, add, div, fadd, fdiv, finite, fmul, fneg, fpow, fsub, mul, neg, pow, rem, sub, Integer,
@@ -70,6 +71,13 @@ pub use text_functions::{
     write_char, write_wchar,
 };
 pub use timers::{tof, ton, tp, Tof, Ton, Tp};
+pub use wide::{
+    assign_units, assign_wchar, assign_wide, char_at_wide, compare_wide, concat_wide, delete_wide,
+    find_wide, insert_wide, left_wide, len_wide, len_wide_int, mid_wide, replace_wide, right_wide,
+    set_char_wide, string_to_wstring, wstring_to_string, WPiece,
+};
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod wide_tests;

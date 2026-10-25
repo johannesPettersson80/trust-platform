@@ -30,7 +30,6 @@ pub mod cycle_step;
 pub mod debug;
 pub mod dispatch;
 pub mod events;
-pub mod execution_backend;
 pub mod installation;
 pub mod link;
 pub mod live_values;

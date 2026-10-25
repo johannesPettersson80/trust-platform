@@ -19,9 +19,9 @@
 use alloc::vec::Vec;
 
 use super::reserve;
-use crate::bytecode::BYTECODE_MAX_TYPE_NESTING;
 use crate::error::RuntimeError;
 use crate::native::image::{type_kind as kind, TypeRecord, SYMBOL_CONSTANT, SYMBOL_IN_OUT};
+use crate::native::values::MAX_TYPE_NESTING;
 use crate::native::values::{damaged, width, Types};
 
 /// The member that holds a derived function block's or class's base (specification 44 §6.4).
@@ -57,7 +57,7 @@ impl Ty {
 /// gives is damaged, so that a value's bytes are read only where they lie.
 pub(super) fn resolve(types: &Types<'_>, index: u32) -> Result<Ty, RuntimeError> {
     let mut index = index;
-    for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
+    for _ in 0..=MAX_TYPE_NESTING {
         let record = types.get(index)?;
         if record.kind != kind::ALIAS {
             return if sound(&record) {
@@ -118,7 +118,7 @@ fn same_at(
     depth: usize,
 ) -> Result<bool, RuntimeError> {
     // Only a type that names itself through a reference nests this deep; it is never the same.
-    if depth > BYTECODE_MAX_TYPE_NESTING {
+    if depth > MAX_TYPE_NESTING {
         return Ok(false);
     }
     let old = resolve(running, old)?.record;
@@ -198,7 +198,7 @@ pub(super) fn plain(types: &Types<'_>, index: u32) -> Result<bool, RuntimeError>
 }
 
 fn plain_at(types: &Types<'_>, index: u32, depth: usize) -> Result<bool, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
+    if depth > MAX_TYPE_NESTING {
         return Err(damaged("type table"));
     }
     let ty = resolve(types, index)?.record;
@@ -301,7 +301,7 @@ fn find_at<'i>(
     wanted: &mut dyn FnMut(&Member<'i>) -> Result<bool, RuntimeError>,
     depth: usize,
 ) -> Result<Option<Member<'i>>, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
+    if depth > MAX_TYPE_NESTING {
         return Err(damaged("type table"));
     }
     let owner = types.string(ty.record.name)?;

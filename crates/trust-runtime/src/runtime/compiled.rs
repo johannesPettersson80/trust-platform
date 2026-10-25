@@ -20,10 +20,12 @@ use smol_str::SmolStr;
 use trust_runtime_core::io_image::PreparedIoBinding;
 use trust_runtime_core::native::live::io_bindings;
 use trust_runtime_core::native::program::AdmittedImage;
+use trust_runtime_core::native::variables::{CompiledVariables, NameError};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_services::cycle_step::{StepOutcome, StepRefusal, StepRequest};
-use trust_runtime_services::runner::engine::CycleSettings;
-use trust_runtime_services::runner::{CompiledCycle, ResourceCycle, RetainSource, TaskDescriptor};
+use trust_runtime_services::runner::{
+    CompiledCycle, CycleSettings, ResourceCycle, RetainSource, TaskDescriptor,
+};
 
 use super::ads_subsystem::AdsSubsystem;
 use super::metrics_subsystem::MetricsSubsystem;
@@ -32,7 +34,6 @@ use super::openot_telemetry::OpenOtTelemetrySubsystem;
 use super::watchdog_subsystem::WatchdogSubsystem;
 use crate::debug::{DebugControl, RuntimeEvent};
 use crate::error::RuntimeError;
-use crate::execution_backend::ExecutionBackend;
 use crate::io::{IoAddress, IoDriver, IoDriverStatus, IoSafeState};
 use crate::memory::IoArea;
 use crate::metrics::{HostMonotonicClock, RuntimeMetrics};
@@ -60,6 +61,8 @@ pub struct CompiledRuntime {
     resource_name: SmolStr,
     /// The program's tasks, in the image's order without the programs that have no task.
     tasks: Vec<TaskDescriptor>,
+    /// The program instance each entry of the image runs, by which program calls are recorded.
+    programs: Vec<SmolStr>,
     /// The image's process-image bindings and their declared names, for the I/O snapshot.
     bindings: Vec<PreparedIoBinding>,
     binding_names: Vec<Option<SmolStr>>,
@@ -120,13 +123,16 @@ impl std::fmt::Debug for CompiledRuntime {
 
 impl CompiledRuntime {
     /// The compiled program of the image `bytes` on this computer, admitted against the
-    /// computer's device (specification 44 §10.2, NX-15) and not started: the scan thread restarts
-    /// it, cold, or warm from its retain file, once its adapters are set. Each task activation runs
-    /// at most 1,000,000 statements and loop passes, the default of NX-10.
+    /// computer's device (specification 44 §10.2, NX-15) and at its starting values, as power-on
+    /// starts it, in the first generation (specification 44 §6.7): its first scan runs on them, and
+    /// the scan thread restarts it, cold, or warm from its retain file, once its adapters are set.
+    /// Each task activation runs at most 1,000,000 statements and loop passes, the default of
+    /// NX-10.
     ///
     /// # Errors
     ///
-    /// [`RuntimeError::InvalidBundle`] for an image the computer refuses, with the refusal's text.
+    /// [`RuntimeError::InvalidBundle`] for an image the computer refuses, with the refusal's text,
+    /// and the fault of the program's cold-start initialization.
     pub fn load(bytes: Vec<u8>, resource_name: impl Into<SmolStr>) -> Result<Self, RuntimeError> {
         Self::load_with_statement_budget(
             bytes,
@@ -156,12 +162,15 @@ impl CompiledRuntime {
     /// # Errors
     ///
     /// As [`Self::load`], and [`RuntimeError::InvalidConfig`] when the computer's trusted keys
-    /// cannot be read.
+    /// cannot be read or the image's program declares a `RESOURCE` other than `resource_name`
+    /// ([`crate::native::check_resource`]).
     pub fn load_deployed(
         bytes: Vec<u8>,
         resource_name: impl Into<SmolStr>,
         budget: u32,
     ) -> Result<Self, RuntimeError> {
+        let resource_name = resource_name.into();
+        crate::native::check_resource(&bytes, &resource_name)?;
         let trusted_keys = crate::native::computer_trusted_keys()
             .map_err(|error| RuntimeError::InvalidConfig(error.to_string().into()))?;
         Self::load_trusting(bytes, resource_name, budget, trusted_keys)
@@ -174,8 +183,11 @@ impl CompiledRuntime {
         trusted_keys: &'static [[u8; 32]],
     ) -> Result<Self, RuntimeError> {
         let device = computer(budget, trusted_keys)?;
-        let program = crate::native::load_kept(bytes, &device)
+        let mut program = crate::native::load_kept(bytes, &device)
             .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
+        // The program runs on its starting values until a restart chooses otherwise, as power-on
+        // starts it; the first generation stays (specification 44 §6.7).
+        program.cold_start(Duration::ZERO)?;
         let (bindings, binding_names) = io_bindings(&program.image())
             .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
         let image = program
@@ -192,11 +204,13 @@ impl CompiledRuntime {
         let extra = io.extra_images();
         let cycle = HostCycle::unstarted(program, io, settings, clock);
         let tasks = cycle.tasks();
+        let programs = cycle.programs();
         let runtime = Self {
             cycle,
             image,
             resource_name: resource_name.into(),
             tasks,
+            programs,
             bindings,
             binding_names,
             clock,
@@ -232,12 +246,6 @@ impl CompiledRuntime {
     #[must_use]
     pub fn tasks(&self) -> &[TaskDescriptor] {
         &self.tasks
-    }
-
-    /// The backend `status` reports: a compiled program.
-    #[must_use]
-    pub fn execution_backend(&self) -> ExecutionBackend {
-        ExecutionBackend::Native
     }
 
     /// The program's logical time.
@@ -282,38 +290,42 @@ impl CompiledRuntime {
             .execution_deadline
             .map(|deadline| self.on_clock(deadline));
         let generation = self.cycle.generation();
+        let output_deadline = self.effective_output_commit_deadline();
+        let held_at_start = self.debug_watchdog_pause_elapsed();
         let mut observer = observer::HostedCompiledScan {
             metrics: &self.metrics,
             debug: self.debug.clone(),
+            debugger: self.debugger.as_ref(),
             ads: &mut self.ads,
             opcua: &mut self.opcua_client,
             tags: &self.tags,
             extra: &self.extra,
             tasks: &self.tasks,
+            programs: &self.programs,
             bindings: &self.bindings,
             binding_names: &self.binding_names,
             cycle: self.cycle_counter,
             generation,
             task_timer: None,
             program_timer: None,
+            output_deadline,
+            held_at_start,
         };
         let mut result = self.cycle.run_scan(now, deadline, &mut observer);
-        // The telemetry publishes after the outputs reached the drivers, as on the bytecode
-        // engine: a late failure latches a fault, but does not undo the outputs.
+        // The state the reads between scans answer from (specification 11 §6.13.1): the state the
+        // scan left, a faulted scan's too (decision O2), published before a fault's safe-state
+        // action; a failure after the scan ended does not replace it.
+        if let Some(debugger) = &self.debugger {
+            let program = self.cycle.program();
+            debugger.publish(|| CompiledState::of(program, now).ok());
+        }
+        // The telemetry publishes after the outputs reached the drivers, which the output commit's
+        // deadline allowed (specification 10 §4.7, steps 6 and 7): a late failure latches a fault,
+        // but does not undo the outputs.
         if result.is_ok() {
             result = self
                 .openot_telemetry
-                .publish_compiled(self.cycle_counter, self.cycle.program())
-                .and_then(|()| {
-                    if self
-                        .effective_output_commit_deadline()
-                        .is_some_and(|deadline| Instant::now() >= deadline)
-                    {
-                        Err(RuntimeError::WatchdogTimeout)
-                    } else {
-                        Ok(())
-                    }
-                });
+                .publish_compiled(self.cycle_counter, self.cycle.program());
         }
         self.cycle.process_io_mut().update_health();
         match result {
@@ -323,11 +335,6 @@ impl CompiledRuntime {
                         cycle: self.cycle_counter,
                         time: now,
                     });
-                }
-                // The state the reads between scans answer from (specification 11 §6.13.1).
-                if let Some(debugger) = &self.debugger {
-                    let program = self.cycle.program();
-                    debugger.publish(|| CompiledState::of(program, now).ok());
                 }
                 if let Some(start) = cycle_timer {
                     self.metrics.record_cycle(start.elapsed());
@@ -397,6 +404,9 @@ impl CompiledRuntime {
         source: RetainSource,
     ) -> Result<(), RuntimeError> {
         let events = self.cycle.restart(mode, source)?;
+        // An in-process restart keeps the logical time and starts the task timing again at it
+        // (specification 11 §6.3; specification 10 §4.8).
+        self.cycle.reset_task_timing(self.current_time);
         self.cycle_counter = 0;
         self.openot_telemetry.reset_scan_state();
         if let Some(debugger) = &self.debugger {
@@ -460,8 +470,11 @@ impl CompiledRuntime {
             debugger.set_program(Arc::clone(&self.image));
         }
         self.tasks = self.cycle.tasks();
+        self.programs = self.cycle.programs();
         self.bindings = bindings;
         self.binding_names = binding_names;
+        // The committed change restarts the scan counter (specification 11 §6.7.1).
+        self.cycle_counter = 0;
         if let Some(debug) = &self.debug {
             debug.begin_lifecycle(self.cycle.generation());
             for event in events {
@@ -681,7 +694,7 @@ impl CompiledRuntime {
     /// Takes the debugger's control, and with it the debugger of compiled programs, which holds
     /// the program's scans from now on (specification 44 §13.2, §8.8).
     pub fn set_debug_control(&mut self, debug: DebugControl) {
-        debug.begin_lifecycle(self.cycle.generation());
+        debug.set_generation(self.cycle.generation());
         let debugger = debug.compiled_debugger();
         debugger.set_program(Arc::clone(&self.image));
         self.cycle.attach_compiled_hold(debugger.hold());
@@ -720,7 +733,6 @@ impl CompiledRuntime {
     /// Records the metrics into `metrics` from now on.
     pub fn set_metrics_sink(&mut self, metrics: Arc<Mutex<RuntimeMetrics>>) {
         self.metrics.set_sink(metrics);
-        self.metrics.set_execution_backend(ExecutionBackend::Native);
         self.publish_program_memory();
     }
 
@@ -793,6 +805,43 @@ impl CompiledRuntime {
         self.cycle.program().read_address(address)
     }
 
+    /// The symbol of the variable `name` names, as the test harness resolves a name: a global, a
+    /// program's variable `Program.var`, or a program variable by its name alone when exactly one
+    /// program declares it (specification 44 §14.2).
+    ///
+    /// # Errors
+    ///
+    /// The [`NameError`] of a name that names no variable or several.
+    pub fn find_variable(&self, name: &str) -> Result<u32, NameError> {
+        self.image.image().find_variable(name)
+    }
+
+    /// The value of the variable `name` names, resolved as [`Self::find_variable`] resolves it, as
+    /// the last scan left it.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for a name that names no single variable.
+    pub fn read_variable(&self, name: &str) -> Result<Value, RuntimeError> {
+        self.cycle.program().read_named(name)
+    }
+
+    /// Writes `value` to the variable `name` names, resolved as [`Self::find_variable`] resolves
+    /// it, between scans; an untyped integer takes the variable's type (specification 44 §13.3).
+    /// An engineering write takes only finite reals: a `REAL` or `LREAL` NaN or infinity, at any
+    /// depth of an array or a structure, is refused before anything changes (specification 34
+    /// §4.3.1).
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::UndefinedVariable`] for a name that names no single variable,
+    /// [`RuntimeError::NonFiniteValue`] for a value that holds a NaN or an infinity, and the
+    /// refusal of a value the variable does not take.
+    pub fn write_variable(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
+        ensure_finite(value)?;
+        self.cycle.program_mut().write_named(name, value)
+    }
+
     /// The program's state as the last scan left it, for the other threads (specification 44
     /// §8.8): a copy of its areas with its image.
     ///
@@ -840,5 +889,18 @@ impl CompiledRuntime {
                 });
             }
         }
+    }
+}
+
+/// Refuses a value that holds a `REAL` or `LREAL` NaN or infinity, at any depth of an array or a
+/// structure: the finite admission of an engineering write (specification 34 §4.3.1). It does not
+/// change what the program's own arithmetic does with such values.
+fn ensure_finite(value: &Value) -> Result<(), RuntimeError> {
+    match value {
+        Value::Real(real) if !real.is_finite() => Err(RuntimeError::NonFiniteValue),
+        Value::LReal(real) if !real.is_finite() => Err(RuntimeError::NonFiniteValue),
+        Value::Array(array) => array.elements().iter().try_for_each(ensure_finite),
+        Value::Struct(record) => record.fields().values().try_for_each(ensure_finite),
+        _ => Ok(()),
     }
 }

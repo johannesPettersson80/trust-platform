@@ -1,16 +1,13 @@
 //! Stepped scans of a stopped hosted resource (`cycle.step`, specification 11 section 6.8.1).
 //!
-//! The stopped wait runs each step on the scan thread. Names resolve as the test harness resolves
-//! them; a cold restart loads a program installed since the program was loaded, as `restart` loads
-//! it after a stop, and every other restart is the runtime's restart in place; the scan is the
-//! shared scheduler at the request's time without the hosted services, so a step runs as the
-//! conformance runner's bytecode cycles run, or the body of the program instance the step names,
-//! as the test runner runs a test program. The watchdog bounds the scan as it bounds every scan.
+//! The stopped wait runs each step on the scan thread. A cold restart loads a program installed
+//! since the program was loaded, as `restart` loads it after a stop, and every other restart is
+//! the runtime's restart in place; the program steps through its compiled cycle, as a chip steps
+//! it (specification 44 §8.8).
 
 use trust_runtime_services::cycle_step::{restart_time, StepOutcome, StepRefusal, StepRequest};
 
-use super::{arm_cycle_deadlines, restore_cycle_deadlines, Clock, ResourceRunner};
-use crate::boundary::{resolve_read, resolve_write, BoundaryError};
+use super::{Clock, ResourceRunner};
 use crate::value::Duration;
 use crate::RestartMode;
 
@@ -43,104 +40,11 @@ pub(super) fn step<C: Clock + Clone>(
         steps.last = None;
         restart = None;
     }
-    // A compiled program steps through its compiled cycle, as a chip steps it (specification 44
-    // §8.8); the cycle restarts it at `restart_at` when the request still asks for a restart.
-    if let Some(program) = runner.runtime.compiled_mut() {
-        let mut request = request.clone();
-        request.restart = restart;
-        let outcome = program.step(&request, restart_at)?;
-        steps.last = Some(request.time);
-        return Ok(outcome);
-    }
-    let runtime = engine(runner)?;
-    for name in request
-        .inputs
-        .iter()
-        .map(|(name, _)| name)
-        .chain(&request.watch)
-    {
-        resolve_read(runtime, name).map_err(|error| StepRefusal::name(name, reason(&error)))?;
-    }
-    let run = request
-        .run
-        .as_ref()
-        .map(|name| {
-            runtime
-                .programs()
-                .values()
-                .find(|program| program.name.eq_ignore_ascii_case(name))
-                .cloned()
-                .ok_or_else(|| StepRefusal::name(name, "names no program instance"))
-        })
-        .transpose()?;
-    if let Some(mode) = restart {
-        runtime.set_current_time(restart_at);
-        runtime.restart(mode).map_err(StepRefusal::Restart)?;
-    }
-    for (name, value) in &request.inputs {
-        resolve_write(runtime, name, value.clone())
-            .map_err(|error| StepRefusal::write(name, &error))?;
-    }
-    for (text, address, value) in &request.direct_inputs {
-        runtime
-            .write_io(address, value.clone())
-            .map_err(|error| StepRefusal::write(text, &error))?;
-    }
-    runtime.set_current_time(request.time);
-    let watchdog = runtime.watchdog_policy();
-    let deadlines = arm_cycle_deadlines(&mut runner.runtime, watchdog, std::time::Instant::now());
-    let runtime = engine(runner)?;
-    let error = match &run {
-        Some(program) => runtime.execute_stepped_program(program),
-        None => runtime.execute_stepped_cycle(),
-    }
-    .err();
-    restore_cycle_deadlines(&mut runner.runtime, deadlines);
+    // The program steps through its compiled cycle, as a chip steps it (specification 44 §8.8);
+    // the cycle restarts it at `restart_at` when the request still asks for a restart.
+    let mut request = request.clone();
+    request.restart = restart;
+    let outcome = runner.runtime.step(&request, restart_at)?;
     steps.last = Some(request.time);
-    let runtime = engine(runner)?;
-    let values = request
-        .watch
-        .iter()
-        .map(|name| {
-            resolve_read(runtime, name)
-                .map(|value| (name.clone(), value))
-                .map_err(|error| StepRefusal::read(name, &error))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let direct = request
-        .watch_direct
-        .iter()
-        .map(|(text, address)| {
-            runtime
-                .io()
-                .read(address)
-                .map(|value| (text.clone(), value))
-                .map_err(|error| StepRefusal::read(text, &error))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(StepOutcome {
-        values,
-        direct,
-        error,
-    })
-}
-
-/// Why a name names no single variable, in the words of the other runtimes.
-fn reason(error: &BoundaryError) -> String {
-    match error {
-        BoundaryError::UnresolvedName { .. } => "names no variable of the program".to_string(),
-        BoundaryError::AmbiguousName { .. } => "names a variable of several programs".to_string(),
-        other => other.to_string(),
-    }
-}
-
-/// The program of `runner` on the bytecode engine, which a step that is not a compiled program's
-/// runs on.
-fn engine<C: Clock + Clone>(
-    runner: &mut ResourceRunner<C>,
-) -> Result<&mut crate::Runtime, StepRefusal> {
-    runner
-        .runtime
-        .engine_mut()
-        .ok_or_else(|| StepRefusal::NoProgram("the program runs on no engine".to_string()))
+    Ok(outcome)
 }

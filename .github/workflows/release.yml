@@ -40,7 +40,7 @@ jobs:
             --tag "${{ github.ref_name }}"
 
   runtime-vm-validation:
-    name: Runtime VM Validation
+    name: Runtime Validation
     needs: release-preflight
     runs-on: ubuntu-latest
     steps:
@@ -55,7 +55,16 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Run MP-060 full VM benchmark gate
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
+
+      - name: Run the full scan benchmark gate
         run: |
           OUT_DIR=artifacts/release/runtime-vm-bench \
           TRUST_VM_BENCH_PROFILE=full \
@@ -63,7 +72,7 @@ jobs:
           TRUST_VM_BENCH_HOST_CODEGEN=generic \
           ./scripts/runtime_vm_bench_gate.sh
 
-      - name: Run MP-060 VM determinism and reliability gate
+      - name: Run the runtime determinism and reliability gate
         run: |
           OUT_DIR=artifacts/release/runtime-vm-determinism \
           TRUST_VM_DETERMINISM_ITERATIONS=3 \

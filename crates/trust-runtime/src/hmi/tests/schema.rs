@@ -398,13 +398,16 @@ VAR
 END_VAR
 END_PROGRAM
 "#;
+    // A running program answers its writes from its state, with no metadata (specification 44
+    // §13.3); the build needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
     let harness = TestHarness::from_source(source).expect("build harness");
-    let metadata = harness.runtime().metadata_snapshot();
+    let metadata = RuntimeMetadata::default();
     let snapshot = crate::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: crate::memory::VariableStorage::new(),
         now: harness.runtime().current_time(),
-        compiled: None,
+        compiled: Some(std::sync::Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
 
     let by_id = resolve_write_point(

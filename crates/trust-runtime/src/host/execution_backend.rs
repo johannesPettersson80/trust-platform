@@ -1,11 +1,10 @@
-//! Runtime execution backend contracts.
+//! Where the `runtime.execution_backend` a status reports came from. Every runtime runs compiled
+//! programs (specification 44 §15); the key is still read, so that a project that names it loads,
+//! and `status` reports where the value it reports came from.
 
 #![allow(missing_docs)]
 
-// The execution backend selection is shared runtime code (spec 34 ARCH-11).
-pub use trust_runtime_services::execution_backend::ExecutionBackend;
-
-/// Provenance for selected runtime execution backend.
+/// Provenance of the reported execution backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ExecutionBackendSource {
     /// Built-in default selection.
@@ -13,8 +12,6 @@ pub enum ExecutionBackendSource {
     Default,
     /// Project configuration (`runtime.execution_backend`).
     Config,
-    /// CLI override (`--execution-backend`).
-    Flag,
 }
 
 impl ExecutionBackendSource {
@@ -23,14 +20,9 @@ impl ExecutionBackendSource {
         match self {
             Self::Default => "default",
             Self::Config => "config",
-            Self::Flag => "flag",
         }
     }
 }
 
-pub use trust_runtime_core::vm::register::{
-    VmRegisterCallOpCounters, VmRegisterFallbackReason, VmRegisterHotBlock,
-    VmRegisterLoweringCacheSnapshot, VmRegisterPreparationSnapshot, VmRegisterProfileSnapshot,
-    VmRegisterRefOpCounters, VmRegisterValueOpCounters,
-    VmTier1SpecializedExecutorCompileFailureReason, VmTier1SpecializedExecutorSnapshot,
-};
+/// The execution backend every runtime reports: compiled programs (specification 44 §8.8).
+pub const EXECUTION_BACKEND: &str = "native";

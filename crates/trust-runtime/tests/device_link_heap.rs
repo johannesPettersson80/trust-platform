@@ -45,7 +45,7 @@ use trust_runtime_services::ports::{
 };
 use trust_runtime_services::protocol::{ControlRequest, ControlResponse};
 use trust_runtime_services::resource::commands::CommandSendError;
-use trust_runtime_services::runner::EngineLiveValues;
+use trust_runtime_services::runner::DeviceLiveValues;
 use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
 use trust_runtime_services::transfer::{TransferSession, PART_BYTES};
 
@@ -150,7 +150,7 @@ struct FullStore {
     events: VecDeque<RuntimeEvent>,
     /// The Live Values the control pipeline answers `io.*` and `var.*` from; the event reads
     /// never touch them.
-    live: EngineLiveValues,
+    live: DeviceLiveValues,
     /// The transfer session of a chip that holds long replies; `None` for a platform without one.
     transfers: Option<RefCell<TransferSession>>,
 }
@@ -410,7 +410,7 @@ fn a_thousand_events_on_a_chips_frame_are_refused_within_sixteen_kib_of_heap() {
     ] {
         let host = FullStore {
             events,
-            live: EngineLiveValues::empty(),
+            live: DeviceLiveValues::empty(),
             transfers: None,
         };
         let (bounded, bounded_peak) =
@@ -538,7 +538,7 @@ fn a_long_reply_takes_no_heap_block_longer_than_a_part() {
     ] {
         let host = FullStore {
             events,
-            live: EngineLiveValues::empty(),
+            live: DeviceLiveValues::empty(),
             transfers: Some(c6_session()),
         };
         let (held, used) = heap_use(|| prepare_line_within(line, &host, None, DEVICE_FRAME_LEN));
@@ -581,7 +581,7 @@ fn an_event_read_reserves_nothing_ahead_of_its_text() {
     // that takes a second part before the first is full.
     let host = FullStore {
         events: overrun_events_of(3),
-        live: EngineLiveValues::empty(),
+        live: DeviceLiveValues::empty(),
         transfers: Some(RefCell::new(TransferSession::new(
             1,
             3_129_344,

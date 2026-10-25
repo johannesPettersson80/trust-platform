@@ -1,6 +1,7 @@
 //! The program store's tests. Expected values are worked out from specification 34 §11.2 and §5.1.1:
 //! the first deployment of a store has install sequence 1, and each later one takes one more than the
-//! newest of `current` and `previous`.
+//! newest of `current` and `previous`. The programs are program images (specification 44 §8.8), so
+//! the tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,7 +10,7 @@ use trust_runtime_core::deployment::{sha256, DeploymentRecord};
 use trust_runtime_services::ports::{ProgramIdentities, ProgramIdentity};
 
 use super::*;
-use crate::deployment::{write_record, DEPLOYMENT_RECORD_FILE};
+use crate::deployment::DEPLOYMENT_RECORD_FILE;
 use crate::harness::TestHarness;
 use crate::retain::FileRetainStore;
 use crate::value::{Duration, Value};
@@ -57,10 +58,29 @@ fn scratch(name: &str) -> PathBuf {
     path
 }
 
+/// The program image of `source` for this computer.
 fn compile(source: &str) -> Vec<u8> {
-    crate::harness::CompileSession::from_source(source)
-        .build_bytecode_bytes()
-        .expect("the test program compiles")
+    let toolchain = crate::native::Toolchain::find().expect("the toolchain");
+    let target = crate::native::Target::this_cpu().expect("this computer's CPU");
+    let work = scratch("image-build");
+    let built = crate::native::build(
+        &[crate::harness::SourceFile::new(source)],
+        &crate::native::Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("the test program builds");
+    let _ = fs::remove_dir_all(work);
+    built.image
+}
+
+/// Writes the deployment record of `program` into `dir`, which holds the configuration it describes.
+fn write_record(dir: &Path, program: &[u8]) {
+    let record = crate::deployment::image_record(dir, program).expect("the record of the program");
+    fs::write(dir.join(DEPLOYMENT_RECORD_FILE), record).expect("write the record");
 }
 
 /// A deployment that brings the test runtime and `program`.
@@ -72,7 +92,7 @@ fn payload_of(program: &[u8]) -> Payload {
                 bytes: RUNTIME_TOML.as_bytes().to_vec(),
             },
             PayloadFile {
-                path: PROGRAM_FILE.to_string(),
+                path: IMAGE_FILE.to_string(),
                 bytes: program.to_vec(),
             },
         ],
@@ -85,8 +105,8 @@ fn first_deployment(root: &Path, label: &str, program: &[u8]) -> PathBuf {
     let bundle = root.join(BUNDLES_DIR).join(label);
     fs::create_dir_all(&bundle).expect("create the first bundle");
     fs::write(bundle.join("runtime.toml"), RUNTIME_TOML).expect("write runtime.toml");
-    fs::write(bundle.join(PROGRAM_FILE), program).expect("write program.stbc");
-    write_record(&bundle, program).expect("write the record");
+    fs::write(bundle.join(IMAGE_FILE), program).expect("write program.tpi");
+    write_record(&bundle, program);
     fs::write(bundle.join(SEQUENCE_FILE), "1\n").expect("write the install sequence");
     replace_symlink(&root.join(CURRENT_LINK), &bundle).expect("point current at the first bundle");
     bundle
@@ -107,7 +127,7 @@ fn identity(program: &[u8], sequence: u64) -> ProgramIdentity {
 }
 
 /// Spec 34 §11.2 steps 6 and 7 (D2): a deployment admits its program before anything the runtime
-/// starts from is written. A program that does not prepare leaves `current` on the first bundle, and
+/// starts from is written. A program that is refused leaves `current` on the first bundle, and
 /// no second bundle appears. Catches a deployment that stages and commits first and refuses later.
 #[test]
 fn a_deploy_whose_program_does_not_admit_leaves_the_current_bundle_unchanged() {
@@ -116,9 +136,9 @@ fn a_deploy_whose_program_does_not_admit_leaves_the_current_bundle_unchanged() {
     first_deployment(&root, "first", &first);
     let project = root.join(CURRENT_LINK);
     let error = deploy(&project, &payload_of(&[1, 2, 3]), None)
-        .expect_err("a program that does not prepare is refused");
+        .expect_err("a program that is no program image is refused");
     assert!(
-        error.to_string().contains("does not prepare"),
+        error.to_string().contains("not a program image"),
         "unexpected refusal: {error}"
     );
     assert_eq!(
@@ -214,7 +234,7 @@ fn an_interrupted_stage_leaves_current_selected() {
         Some(Some(identity(&first, 1)))
     );
     assert_eq!(
-        fs::read(stage.join(PROGRAM_FILE)).expect("the staged program is on disk"),
+        fs::read(stage.join(IMAGE_FILE)).expect("the staged program is on disk"),
         second
     );
     let _ = fs::remove_dir_all(root);
@@ -264,7 +284,7 @@ fn program_active_on_a_computer_reports_current_and_previous() {
     let _ = fs::remove_dir_all(root);
 }
 
-/// Spec 34 §11.2 (program identities): a project folder with no store runs its own `program.stbc`, so
+/// Spec 34 §11.2 (program identities): a project folder with no store runs its own `program.tpi`, so
 /// `program.active` reports that program as active, with sequence 0, its SHA-256 and length, and no
 /// previous program. Catches a plain project that answers `unsupported request`, or that reports a
 /// previous program it does not have.
@@ -273,8 +293,8 @@ fn program_active_on_a_plain_project_reports_its_program_and_no_previous() {
     let project = scratch("plain-identities");
     let program = compile(COUNTING_PROGRAM);
     fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("a plain runtime.toml");
-    fs::write(project.join(PROGRAM_FILE), &program).expect("a plain program.stbc");
-    write_record(&project, &program).expect("the plain project's record");
+    fs::write(project.join(IMAGE_FILE), &program).expect("a plain program.tpi");
+    write_record(&project, &program);
     assert_eq!(
         identities(&project),
         Some(ProgramIdentities {
@@ -298,8 +318,8 @@ fn program_active_on_a_plain_project_whose_record_does_not_admit_its_program_rep
     let program = compile(EMPTY_PROGRAM);
     let other = compile(COUNTING_PROGRAM);
     fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("a plain runtime.toml");
-    fs::write(project.join(PROGRAM_FILE), &program).expect("a plain program.stbc");
-    write_record(&project, &other).expect("the record of another program");
+    fs::write(project.join(IMAGE_FILE), &program).expect("a plain program.tpi");
+    write_record(&project, &other);
     assert_eq!(
         identities(&project),
         Some(ProgramIdentities {
@@ -311,7 +331,7 @@ fn program_active_on_a_plain_project_whose_record_does_not_admit_its_program_rep
 }
 
 /// Spec 34 §11.2 step 7 and G17: the staged program and its deployment record are written as
-/// `bundles/<label>/program.stbc` and `deployment-record.bin`, each through a temporary file and a
+/// `bundles/<label>/program.tpi` and `deployment-record.bin`, each through a temporary file and a
 /// rename, and the commit is the `current` link. Catches a bundle without its record, a record of
 /// another program, or a temporary file left beside the bundle's files.
 #[test]
@@ -327,14 +347,14 @@ fn a_deployment_writes_its_program_and_record_into_its_bundle_and_commits_at_cur
         deployed.written,
         vec![
             "runtime.toml".to_string(),
-            PROGRAM_FILE.to_string(),
+            IMAGE_FILE.to_string(),
             DEPLOYMENT_RECORD_FILE.to_string(),
         ]
     );
     let bundle = root.join(BUNDLES_DIR).join("second");
     assert_eq!(resolved(&project), resolved(&bundle));
     assert_eq!(
-        fs::read(bundle.join(PROGRAM_FILE)).expect("the program"),
+        fs::read(bundle.join(IMAGE_FILE)).expect("the program"),
         second
     );
     let record = DeploymentRecord::decode(
@@ -361,7 +381,7 @@ fn a_plain_project_whose_program_does_not_admit_keeps_its_files() {
     let project = scratch("plain-refused");
     let first = compile(EMPTY_PROGRAM);
     fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("a plain runtime.toml");
-    fs::write(project.join(PROGRAM_FILE), &first).expect("a plain program.stbc");
+    fs::write(project.join(IMAGE_FILE), &first).expect("a plain program.tpi");
     let changed = RUNTIME_TOML.replace("cycle_interval_ms = 100", "cycle_interval_ms = 50");
     let payload = Payload {
         files: vec![
@@ -370,15 +390,15 @@ fn a_plain_project_whose_program_does_not_admit_keeps_its_files() {
                 bytes: changed.into_bytes(),
             },
             PayloadFile {
-                path: PROGRAM_FILE.to_string(),
+                path: IMAGE_FILE.to_string(),
                 bytes: vec![1, 2, 3],
             },
         ],
     };
-    let _ =
-        deploy(&project, &payload, None).expect_err("a program that does not prepare is refused");
+    let _ = deploy(&project, &payload, None)
+        .expect_err("a program that is no program image is refused");
     assert_eq!(
-        fs::read(project.join(PROGRAM_FILE)).expect("the program"),
+        fs::read(project.join(IMAGE_FILE)).expect("the program"),
         first
     );
     assert_eq!(
@@ -406,12 +426,12 @@ fn program_install_commits_and_program_active_reports_it() {
     let project = scratch("install-plain");
     let first = compile(EMPTY_PROGRAM);
     fs::write(project.join("runtime.toml"), RUNTIME_TOML).expect("a plain runtime.toml");
-    fs::write(project.join(PROGRAM_FILE), &first).expect("a plain program.stbc");
+    fs::write(project.join(IMAGE_FILE), &first).expect("a plain program.tpi");
     let second = compile(COUNTING_PROGRAM);
     let installed = install(&project, &second).expect("the program installs");
     assert_eq!(installed, identity(&second, 0));
     assert_eq!(
-        fs::read(project.join(PROGRAM_FILE)).expect("the program"),
+        fs::read(project.join(IMAGE_FILE)).expect("the program"),
         second
     );
     let active = identities(&project).expect("a plain folder reports its program");
@@ -448,15 +468,17 @@ fn an_install_that_cannot_restore_its_retained_values_is_refused_before_any_writ
     let runtime = RUNTIME_TOML.replace("mode = \"none\"", "mode = \"file\"\npath = \"retain.bin\"");
     fs::write(project.join("runtime.toml"), runtime).expect("a retaining runtime.toml");
     let old = compile(RETAINED_INT);
-    fs::write(project.join(PROGRAM_FILE), &old).expect("the old program.stbc");
+    fs::write(project.join(IMAGE_FILE), &old).expect("the old program.tpi");
     let mut saver = TestHarness::from_source(RETAINED_INT).expect("the old program builds");
-    saver.runtime_mut().set_retain_store(
-        Some(Box::new(FileRetainStore::new(project.join("retain.bin")))),
-        Some(Duration::from_millis(1)),
-    );
+    saver
+        .runtime_mut()
+        .set_retain_store(
+            Some(Box::new(FileRetainStore::new(project.join("retain.bin")))),
+            Some(Duration::from_millis(1)),
+        )
+        .expect("the retain file is set");
     saver.cycle();
     saver.set_input("r", Value::Int(100));
-    saver.runtime_mut().mark_retain_dirty();
     saver
         .runtime_mut()
         .save_retain_store()
@@ -472,7 +494,7 @@ fn an_install_that_cannot_restore_its_retained_values_is_refused_before_any_writ
         "unexpected refusal: {refused}"
     );
     assert_eq!(
-        fs::read(project.join(PROGRAM_FILE)).expect("the program"),
+        fs::read(project.join(IMAGE_FILE)).expect("the program"),
         old,
         "the check writes no program"
     );

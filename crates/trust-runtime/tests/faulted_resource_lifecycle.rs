@@ -4,6 +4,8 @@
 //! A halting fault leaves the resource thread alive in `Faulted`. The thread executes no task and
 //! commits no outputs, serves reads and configuration updates, and recovers only through a restart
 //! or an online change. A stop request ends it, still `Faulted`.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -13,7 +15,8 @@ use std::time::{Duration as WallDuration, Instant};
 use indexmap::IndexMap;
 use smol_str::SmolStr;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::{bytecode_bytes_from_source, TestHarness};
+use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::native::{build, Options, Target, Toolchain};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{
     ResourceCommand, ResourceControl, ResourceHandle, ResourceRunner, ResourceState, StdClock,
@@ -94,10 +97,33 @@ fn global(control: &ResourceControl<StdClock>, name: &str) -> Value {
         .expect("command channel open");
     let snapshot = rx.recv_timeout(WAIT).expect("snapshot reply");
     snapshot
-        .storage
-        .get_global(name)
-        .cloned()
+        .compiled
+        .as_ref()
+        .and_then(|state| state.value(name))
         .unwrap_or_else(|| panic!("global {name} exists"))
+}
+
+/// The program image of `source` for this computer.
+fn image(source: &str) -> Vec<u8> {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let work = std::env::temp_dir().join(format!(
+        "trust-faulted-lifecycle-{}-{:?}",
+        std::process::id(),
+        thread::current().id()
+    ));
+    let built = build(
+        &[SourceFile::new(source)],
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("build replacement image");
+    let _ = std::fs::remove_dir_all(&work);
+    built.image
 }
 
 fn inject_divide_by_zero(control: &ResourceControl<StdClock>, retained_value: Option<i32>) {
@@ -224,7 +250,8 @@ fn failing_restart_stays_faulted_with_the_new_error_until_a_restart_succeeds() {
     let mut harness = TestHarness::from_source(DIVIDE_PROGRAM).expect("fault fixture compiles");
     harness
         .runtime_mut()
-        .set_retain_store(Some(Box::new(UnreadableRetainStore)), None);
+        .set_retain_store(Some(Box::new(UnreadableRetainStore)), None)
+        .expect("the retain store is set; it is read at the next warm restart");
     let signal: RestartSignal = Arc::new(Mutex::new(None));
     let runner = ResourceRunner::new(
         harness.into_runtime(),
@@ -264,7 +291,7 @@ fn online_change_recovers_a_faulted_resource() {
     fault_running_resource(&handle, &control, None);
 
     // The replacement keeps the divisor 0 that faulted the program, and handles it.
-    let bytes = bytecode_bytes_from_source(GUARDED_PROGRAM).expect("build replacement bytecode");
+    let bytes = image(GUARDED_PROGRAM);
     let (reply_tx, reply_rx) = mpsc::channel();
     control
         .send_command(ResourceCommand::ReloadBytecode {

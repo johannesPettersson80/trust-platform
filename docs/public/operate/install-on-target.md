@@ -47,7 +47,16 @@ Your deployed project should contain at least:
 
 - `runtime.toml`
 - `io.toml`
-- `program.stbc`
+- `program.tpi` and `deployment-record.bin`
+
+A computer runs only a program image of its own CPU, so build the project on
+the target:
+
+```bash
+trust-runtime build --project /opt/trust/current
+```
+
+The first build installs the compiler toolchain when none is installed.
 
 ## 4. Install The systemd Unit
 

@@ -1,22 +1,22 @@
 //! The identities `program.active` reports (specification 34 §11.2), read from the program store in
 //! bounded reads. The flash is the fake program flash of `tests/program_store.rs`, which has the C6's
 //! units and records every operation. Every expected value is written out here from the specification
-//! and the container layout of §5.1, not taken from the code under test.
+//! and the container layout of §5.1 with a program image (specification 44 §10.1: the image at the
+//! first multiple of 64 bytes after the 60-byte header), not taken from the code under test.
 
 use alloc::vec;
 use alloc::vec::Vec;
 
 use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::retain::checkpoint::{FlashError, Slot};
-use trust_runtime_core::vm::PreparationLimits;
 use trust_runtime_core::watchdog::RetainMode;
 
 use super::identity::{identities, IdentityError};
 use super::select::ScanError;
-use crate::installation::encode_sequenced;
+use crate::installation::encode_image;
 use crate::ports::{ProgramIdentities, ProgramIdentity};
 use crate::tests::program_store::{
-    committed_image, record_bytes, FlashOp, FlashProbe, PROGRAM, SLOT_BYTES,
+    committed_image, program, record_bytes, FlashOp, FlashProbe, SLOT_BYTES,
 };
 
 /// A flash whose slot A holds `first` from its first byte, when there is one, and whose slot B holds
@@ -32,12 +32,12 @@ fn flash_of(first: Option<&[u8]>, second: Option<&[u8]>) -> FlashProbe {
     FlashProbe::from_slots([slot(first), slot(second)])
 }
 
-/// The identity of a container with install sequence `sequence` whose program is [`PROGRAM`].
+/// The identity of a container with install sequence `sequence` whose program is [`program`].
 fn identity(sequence: u64) -> ProgramIdentity {
     ProgramIdentity {
         sequence,
-        program_sha256: sha256(PROGRAM),
-        bytes: PROGRAM.len(),
+        program_sha256: sha256(program()),
+        bytes: program().len(),
     }
 }
 
@@ -75,8 +75,8 @@ fn a_store_with_one_container_reports_it_as_active_and_no_previous_program() {
 fn the_identity_comes_from_the_header_and_the_record_in_reads_of_one_step() {
     // Specification 34 §11.2 and §5.1: a chip reads the header of each container (60 bytes), then the
     // record in reads of at most the step budget (256 bytes), and never a byte of the program. The
-    // container is 60 + 6,412 + the record's bytes long, so its record starts at 6,472, a multiple of
-    // the 4-byte program unit. Wrong behaviour caught: a read of the whole container (one read of
+    // image starts at 64 and is 6,412 bytes long, so its record starts at 6,476, a multiple of the
+    // 4-byte program unit. Wrong behaviour caught: a read of the whole container (one read of
     // thousands of bytes), a read that crosses into the program, a record read in one piece.
     let flash = flash_of(
         Some(&committed_image(2, RetainMode::None)),
@@ -92,7 +92,7 @@ fn the_identity_comes_from_the_header_and_the_record_in_reads_of_one_step() {
             panic!("reading identities writes nothing: {operation:?}");
         };
         assert!(len <= 256, "a read of {len} bytes is above the step budget");
-        if offset >= 6_472 {
+        if offset >= 6_476 {
             record_reads += 1;
         } else {
             assert_eq!(
@@ -110,21 +110,22 @@ fn the_identity_comes_from_the_header_and_the_record_in_reads_of_one_step() {
 
 #[test]
 fn a_record_that_starts_inside_a_program_unit_is_read_whole() {
-    // Specification 34 §5.1: payloads follow the 60-byte header with no padding, so a program of 3
-    // bytes puts the record at byte 63, inside the 4-byte unit that starts at 60. The flash reads
-    // whole units at multiples of the unit, so the read starts at 60 and the bytes before the record
-    // are dropped. The record names the SHA-256 of `PROGRAM`, and the entry table gives the length 3.
+    // Specification 34 §5.1 and specification 44 §10.1: the image starts at byte 64 and the record
+    // follows it with no padding, so an image of 3 bytes puts the record at byte 67, inside the 4-byte
+    // unit that starts at 64. The flash reads whole units at multiples of the unit, so the read starts
+    // at 64 and the bytes before the record are dropped. The record names the SHA-256 of `program()`,
+    // and the entry table gives the length 3.
     // Wrong behaviour caught: a read at an unaligned offset (the flash refuses it), a record that
     // keeps the unit's first three bytes, a length taken from the record.
-    let record = record_bytes(RetainMode::None, &PreparationLimits::default());
-    let container = encode_sequenced(4, &[1, 2, 3], &record).expect("the container encodes");
+    let record = record_bytes(RetainMode::None);
+    let container = encode_image(4, &[1, 2, 3], &record).expect("the container encodes");
     let flash = flash_of(Some(&container), None);
     assert_eq!(
         identities(&mut flash.store()),
         Ok(ProgramIdentities {
             active: Some(ProgramIdentity {
                 sequence: 4,
-                program_sha256: sha256(PROGRAM),
+                program_sha256: sha256(program()),
                 bytes: 3,
             }),
             previous: None,
@@ -135,11 +136,11 @@ fn a_record_that_starts_inside_a_program_unit_is_read_whole() {
 #[test]
 fn a_container_whose_record_is_damaged_reports_null_and_does_not_hide_the_other() {
     // Specification 34 §11.2: a member is `null` when the container's record fails its CRC-32. The
-    // record of the active container (sequence 5, slot B) has one bit flipped at byte 6,480 (the
-    // record starts at 6,472), while `previous` is whole. Wrong behaviour caught: an identity read
+    // record of the active container (sequence 5, slot B) has one bit flipped at byte 6,484 (the
+    // record starts at 6,476), while `previous` is whole. Wrong behaviour caught: an identity read
     // from a record that fails its check; an error that hides the other container.
     let mut damaged = committed_image(5, RetainMode::None);
-    damaged[6_480] ^= 0x01;
+    damaged[6_484] ^= 0x01;
     let flash = flash_of(Some(&committed_image(2, RetainMode::None)), Some(&damaged));
     assert_eq!(
         identities(&mut flash.store()),

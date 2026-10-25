@@ -8,7 +8,7 @@ use smol_str::SmolStr;
 use trust_runtime::bundle_template::{
     build_io_config_auto, render_io_toml, render_runtime_toml, IoConfigTemplate, IoDriverTemplate,
 };
-use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::harness::SourceFile;
 
 use crate::git::git_init;
 use crate::prompt::{prompt_choice, prompt_path, prompt_string, prompt_u64, prompt_yes_no};
@@ -32,7 +32,7 @@ pub fn run_wizard(path: Option<PathBuf>, start: bool) -> anyhow::Result<()> {
             bundle_path.display()
         ))
     );
-    println!("(Project folder contains runtime.toml, io.toml, src/, program.stbc)");
+    println!("(Project folder contains runtime.toml, io.toml, src/, program.tpi)");
     let should_start = if start {
         true
     } else {
@@ -50,7 +50,6 @@ pub fn run_wizard(path: Option<PathBuf>, start: bool) -> anyhow::Result<()> {
             false,
             false,
             1,
-            None,
         )?;
     }
     Ok(())
@@ -67,7 +66,7 @@ pub fn create_bundle(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 
     let runtime_path = root.join("runtime.toml");
     let io_path = root.join("io.toml");
-    let program_path = root.join("program.stbc");
+    let program_path = root.join(trust_runtime::native::PROGRAM_IMAGE_FILE);
     if (runtime_path.exists() || io_path.exists() || program_path.exists())
         && !prompt_yes_no("Project files already exist. Overwrite?", false)?
     {
@@ -109,12 +108,7 @@ pub fn create_bundle(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
     fs::write(src_dir.join("main.st"), &main_text)?;
     fs::write(src_dir.join("config.st"), &config_text)?;
 
-    let session = CompileSession::from_sources(vec![
-        SourceFile::with_path("config.st", config_text),
-        SourceFile::with_path("main.st", main_text),
-    ]);
-    let bytecode = session.build_bytecode_bytes()?;
-    write_program(&root, &bytecode)?;
+    crate::build::build_project_program(&root)?;
 
     Ok(root)
 }
@@ -127,7 +121,7 @@ pub fn create_bundle_auto(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 
     let runtime_path = root.join("runtime.toml");
     let io_path = root.join("io.toml");
-    let program_path = root.join("program.stbc");
+    let program_path = root.join(trust_runtime::native::PROGRAM_IMAGE_FILE);
     let src_dir = root.join("src");
     migrate_legacy_sources_dir(&root, &src_dir)?;
 
@@ -166,27 +160,13 @@ pub fn create_bundle_auto(path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
 
     if !program_path.exists() {
         remove_legacy_global_io(&src_dir)?;
-        let sources = collect_sources(&root, &src_dir)?;
-        let sources = if sources.is_empty() {
+        if collect_sources(&root, &src_dir)?.is_empty() {
             write_default_sources(&src_dir, &resource_name, cycle_ms)?;
-            collect_sources(&root, &src_dir)?
-        } else {
-            sources
-        };
-        let session = CompileSession::from_sources(sources);
-        let bytecode = session.build_bytecode_bytes()?;
-        write_program(&root, &bytecode)?;
+        }
+        crate::build::build_project_program(&root)?;
     }
 
     Ok(root)
-}
-
-/// Write `program.stbc` and its deployment record (specification 34 §5.1.1), after the project's
-/// configuration files, which the record identifies.
-fn write_program(root: &Path, bytecode: &[u8]) -> anyhow::Result<()> {
-    fs::write(root.join("program.stbc"), bytecode)?;
-    trust_runtime::deployment::write_record(root, bytecode)?;
-    Ok(())
 }
 
 pub(crate) fn default_resource_name(root: &Path) -> SmolStr {
@@ -242,16 +222,23 @@ pub(crate) fn write_runtime_toml(
     }
     sources.sort_by(|left, right| left.path.cmp(&right.path));
 
-    let session = CompileSession::from_sources(sources);
-    let bytecode = session.build_bytecode_bytes()?;
+    // The sources are checked before anything is written (specification 44 §4.1).
+    let target = trust_runtime::native::Target::this_cpu()
+        .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+    trust_runtime::native::generate_source(
+        &sources,
+        &trust_runtime::native::Options {
+            target,
+            hooks: false,
+        },
+    )?;
 
     fs::create_dir_all(&src_dir)?;
     fs::write(&config_path, config_text)?;
-    fs::write(bundle_root.join("program.stbc"), &bytecode)?;
     fs::write(runtime_path, runtime_text)?;
-    // The record identifies the configuration, so it follows runtime.toml (spec 34 §5.1.1).
-    trust_runtime::deployment::write_record(bundle_root, &bytecode)?;
-    Ok(())
+    // The record identifies the configuration, so the program is built after runtime.toml (spec 34
+    // §5.1.1).
+    crate::build::build_project_program(bundle_root)
 }
 
 pub(crate) fn validate_runtime_generation_inputs(
@@ -293,9 +280,9 @@ pub(crate) fn remove_io_toml(io_path: &Path) -> anyhow::Result<()> {
 const DEFAULT_GITIGNORE: &str = "\
 # Build artifacts\n\
 /target/\n\
-/program.stbc\n\
+/program.tpi\n\
 /deployment-record.bin\n\
-*.stbc\n\
+*.tpi\n\
 \n\
 # Runtime data\n\
 /retain.bin\n\

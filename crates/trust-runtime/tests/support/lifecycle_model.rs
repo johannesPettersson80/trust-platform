@@ -100,7 +100,7 @@ pub enum Outcome {
     DivisionByZero,
     /// An out-of-range checked write (spec 10 2.4, spec 34 HOST-09).
     SubrangeViolation,
-    /// Malformed bytecode (spec 11 6.7.1).
+    /// Bytes that are no program image (spec 11 6.7.1, spec 44 §10.2).
     BytecodeRejected,
     /// A candidate refused for a reason the specifications do not name (spec 11 6.7, 6.7.1).
     CandidateRejected,

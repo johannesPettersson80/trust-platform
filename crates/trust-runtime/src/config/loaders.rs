@@ -9,9 +9,8 @@ impl RuntimeBundle {
         let runtime_path = root.join("runtime.toml");
         let io_path = root.join("io.toml");
         let simulation_path = root.join("simulation.toml");
-        let program_path = root.join("program.stbc");
-        // A project built for this computer holds its program image, which the computer runs in
-        // place of the bytecode (specification 44 §8.8, NX-15).
+        // The program a computer runs is the project's program image (specification 44 §8.8,
+        // NX-15); a project that holds only the bytecode engine's `program.stbc` is built again.
         let image_path = root.join(crate::native::PROGRAM_IMAGE_FILE);
 
         if !runtime_path.is_file() {
@@ -23,14 +22,20 @@ impl RuntimeBundle {
                 .into(),
             ));
         }
-        if !image_path.is_file() && !program_path.is_file() {
-            return Err(RuntimeError::InvalidBundle(
+        if !image_path.is_file() {
+            let reason = if root.join("program.stbc").is_file() {
                 format!(
-                    "missing program.stbc at {} (run `trust-runtime` to auto-create a project folder)",
-                    program_path.display()
+                    "the project holds program.stbc of the bytecode engine, which this runtime does not run: rebuild the project with `trust-runtime build --project {}`",
+                    root.display()
                 )
-                .into(),
-            ));
+            } else {
+                format!(
+                    "missing {} at {} (run `trust-runtime build` to build the project)",
+                    crate::native::PROGRAM_IMAGE_FILE,
+                    image_path.display()
+                )
+            };
+            return Err(RuntimeError::InvalidBundle(reason.into()));
         }
 
         let runtime = RuntimeConfig::load(&runtime_path)?;
@@ -50,32 +55,16 @@ impl RuntimeBundle {
         };
         let ads = load_bundle_ads_config(&root, &runtime)?;
         let opcua_client = load_bundle_opcua_client_config(&root, &runtime)?;
-        let image = if image_path.is_file() {
-            Some(std::fs::read(&image_path).map_err(|err| {
-                RuntimeError::InvalidBundle(
-                    format!(
-                        "failed to read {}: {err}",
-                        crate::native::PROGRAM_IMAGE_FILE
-                    )
-                    .into(),
+        let image = std::fs::read(&image_path).map_err(|err| {
+            RuntimeError::InvalidBundle(
+                format!(
+                    "failed to read {}: {err}",
+                    crate::native::PROGRAM_IMAGE_FILE
                 )
-            })?)
-        } else {
-            None
-        };
-        let (bytecode, preparation_limits) = if image.is_some() {
-            (
-                Vec::new(),
-                trust_runtime_core::vm::PreparationLimits::default(),
+                .into(),
             )
-        } else {
-            let bytecode = std::fs::read(&program_path).map_err(|err| {
-                RuntimeError::InvalidBundle(format!("failed to read program.stbc: {err}").into())
-            })?;
-            // The program's deployment record selects its limits (spec 34 HOST-02, §5.1.1).
-            let preparation_limits = crate::deployment::admitted_limits(&root, &bytecode)?;
-            (bytecode, preparation_limits)
-        };
+        })?;
+        crate::deployment::admit_project_image(&root, &image)?;
         let simulation = SimulationConfig::load_optional(&simulation_path)?;
 
         Ok(Self {
@@ -87,8 +76,6 @@ impl RuntimeBundle {
             opcua_client: opcua_client.as_ref().map(|loaded| loaded.config.clone()),
             opcua_client_config_hash: opcua_client.map(|loaded| loaded.config_hash),
             simulation,
-            bytecode,
-            preparation_limits,
             image,
         })
     }

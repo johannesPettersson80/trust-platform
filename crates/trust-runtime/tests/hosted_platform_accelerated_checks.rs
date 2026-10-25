@@ -1,16 +1,19 @@
 //! Spec 34 §4.3 HOST-06 (line 355): accelerated simulation keeps the arithmetic,
 //! bounds, reference and instruction-budget checks that a 1x run performs.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 #![cfg(feature = "full")]
 
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::CompileSession;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::scheduler::{ResourceRunner, ScaledClock};
 use trust_runtime::value::Duration;
+use trust_runtime::CompiledRuntime;
 
-fn build(source: &str) -> trust_runtime::Runtime {
-    CompileSession::from_source(source)
-        .build_runtime()
+fn build(source: &str) -> CompiledRuntime {
+    TestHarness::from_source(source)
         .expect("source admits")
+        .into_runtime()
 }
 
 /// Runs one faulting scan at 1x logical time and under a 1000x scaled clock.

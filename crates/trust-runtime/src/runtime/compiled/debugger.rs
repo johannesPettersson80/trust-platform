@@ -7,6 +7,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::time::{Duration as StdDuration, Instant};
 
 use trust_runtime_core::debug::StatementSpan;
 use trust_runtime_core::memory::FrameId;
@@ -15,7 +16,6 @@ use trust_runtime_core::native::program::AdmittedImage;
 use trust_runtime_services::debug::expression::Names;
 use trust_runtime_services::debug::logpoint::LogRecord;
 use trust_runtime_services::debug::projection::DebugVariableHandles;
-use trust_runtime_services::debug::reads::ReadState;
 use trust_runtime_services::debug::{
     answer, BreakpointOptions, BreakpointView, Debugger, LineSources, Span, StepKind, StopRecord,
 };
@@ -46,6 +46,15 @@ struct Shared {
     enabled: Arc<AtomicBool>,
 }
 
+/// The time the debugger held scans, which no watchdog counts (specification 11 §6.9).
+#[derive(Debug, Default, Clone, Copy)]
+struct HeldTime {
+    /// When the scan began to wait in the hold it waits in now.
+    since: Option<Instant>,
+    /// The holds that ended, in total.
+    total: StdDuration,
+}
+
 /// What the lock guards.
 struct State {
     debug: ChipDebug,
@@ -58,6 +67,7 @@ struct State {
     /// The memory and call stack the reads answer from: the held scan's while one is held, and
     /// otherwise the last scan's.
     memory: Option<CompiledState>,
+    held: HeldTime,
 }
 
 impl std::fmt::Debug for CompiledDebugger {
@@ -80,6 +90,7 @@ impl CompiledDebugger {
                     sources: None,
                     release: false,
                     memory: None,
+                    held: HeldTime::default(),
                 }),
                 wake: Condvar::new(),
                 enabled,
@@ -154,6 +165,33 @@ impl CompiledDebugger {
         self.lock().debug.rearm();
     }
 
+    /// The thread that runs the statements from now on: a task starts (specification 13,
+    /// "Multi-Task Thread Model"; specification 11 §6.13.3).
+    pub(crate) fn set_thread(&self, thread: Option<u32>) {
+        self.lock().debug.set_thread(thread);
+    }
+
+    /// Why the debugger holds the scan, as `status` reports it (specification 11 §6.9).
+    #[must_use]
+    pub(crate) fn hold_label(&self) -> Option<&'static str> {
+        self.lock().debug.hold_label()
+    }
+
+    /// The time the debugger held scans in the holds that ended, which no watchdog counts
+    /// (specification 11 §6.9).
+    #[must_use]
+    pub(crate) fn held_total(&self) -> StdDuration {
+        self.lock().held.total
+    }
+
+    /// Whether the scan waits in a hold now, and the holds that ended, in total, read under one
+    /// lock, so hosted hang supervision never sees a hold half-recorded.
+    #[must_use]
+    pub(crate) fn hold_view(&self) -> (bool, StdDuration) {
+        let held = self.lock().held;
+        (held.since.is_some(), held.total)
+    }
+
     /// Pauses at the next statement (specification 13, "Pause").
     pub fn pause(&self) {
         self.lock().debug.pause();
@@ -176,6 +214,25 @@ impl CompiledDebugger {
             io,
         };
         answer(request, &view)
+    }
+
+    /// Hands out the next variable handle for `handle`, as a listing hands out the handle of a
+    /// compound value it shows, for the tests that list a handle through `debug.variables` between
+    /// scans, where no frame has scopes (specification 44 §13.2).
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn alloc_handle(
+        &self,
+        handle: trust_runtime_services::debug::projection::VariableHandle,
+    ) -> u32 {
+        let mut handle = Some(handle);
+        let mut reference = 0;
+        self.lock().debug.with_handles(&mut |handles| {
+            if let Some(handle) = handle.take() {
+                reference = handles.alloc(handle);
+            }
+        });
+        reference
     }
 }
 
@@ -235,18 +292,23 @@ impl CompiledHold for HostHold {
             .ok_or(RuntimeError::InvalidExecutionState)?;
         let before = state.memory.take();
         state.memory = Some(CompiledState::held(image, view.memory, Duration::ZERO));
-        loop {
-            if !state.debug.holds(at)? {
-                break;
+        state.held.since = Some(Instant::now());
+        let held = loop {
+            match state.debug.holds(at) {
+                Ok(true) => {}
+                other => break other,
             }
             state = self
                 .shared
                 .wake
                 .wait(state)
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+        };
+        if let Some(since) = state.held.since.take() {
+            state.held.total = state.held.total.saturating_add(since.elapsed());
         }
         state.memory = before;
-        Ok(())
+        held.map(drop)
     }
 }
 
@@ -260,13 +322,6 @@ struct DebugView<'a> {
 impl Debugger for DebugView<'_> {
     fn sources(&self) -> Option<&LineSources> {
         self.state.sources.as_ref()
-    }
-
-    /// A compiled program is read through its memory ([`Debugger::program_memory`]).
-    fn read_state(&self) -> Result<ReadState<'_>, String> {
-        Err(String::from(
-            trust_runtime_services::debug::replies::NO_SNAPSHOT,
-        ))
     }
 
     fn io_snapshot(&self) -> IoSnapshotRead {

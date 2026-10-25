@@ -61,7 +61,6 @@ use trust_runtime_core::native::memory::{Place, ProgramMemory, StopFrame};
 use trust_runtime_core::value::Value;
 
 use crate::debug::projection::{DebugVariableHandles, VariableHandle, CHIP_HANDLE_BOUND};
-use crate::debug::reads::ReadState;
 use crate::debug::{BreakpointView, Debugger, LineSources, Span, StepKind, StopReason, StopRecord};
 use crate::live_values::io_requests::IoSnapshotRead;
 use crate::live_values::io_snapshot::{IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
@@ -540,12 +539,6 @@ impl Held {
 impl Debugger for Held {
     fn sources(&self) -> Option<&LineSources> {
         Some(&self.sources)
-    }
-
-    fn read_state(&self) -> Result<ReadState<'_>, String> {
-        Err(String::from(
-            "a compiled program is read through its memory",
-        ))
     }
 
     fn io_snapshot(&self) -> IoSnapshotRead {

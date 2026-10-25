@@ -67,7 +67,6 @@ pub struct StatementStart<'a> {
 /// What the statements of a compiled program's scan stop for (specification 44 §13.2): every
 /// statement while a pause waits or a step runs, otherwise the starts of the breakpoints, each by
 /// its file and its position.
-#[cfg(feature = "native")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StopPoints {
     /// Every statement stops.
@@ -341,7 +340,6 @@ impl ChipDebug {
 
     /// What the statements of a compiled program's next stretch of scan stop for (specification 44
     /// §13.2): nothing once a stop request ended the holds.
-    #[cfg(feature = "native")]
     #[must_use]
     pub fn stop_points(&self) -> StopPoints {
         self.with(|state| {

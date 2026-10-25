@@ -1,29 +1,128 @@
+//! Breakpoints and steps of a compiled program's debugger, through the control protocol's debug
+//! operations (specification 13; specification 44 §13.2): a step over stops in the caller after
+//! the call, a breakpoint stops only a statement that runs, stops again in each scan, and takes
+//! effect when it is set after the program started.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::channel;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use trust_runtime::debug::{DebugBreakpoint, DebugStopReason, SourceLocation};
-use trust_runtime::harness::{CompileSession, SourceFile};
+use serde_json::{json, Value as Json};
+use trust_runtime::debug::DebugControl;
+use trust_runtime::harness::SourceFile;
+use trust_runtime::native::{build, Options, Target, Toolchain};
+use trust_runtime::{CompiledDebugger, CompiledRuntime, RestartMode};
+use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
+use trust_runtime_services::protocol::ControlRequest;
 
-fn line_index(source: &str, needle: &str) -> u32 {
+/// The path of a single-file program's source, which the breakpoint requests name.
+const MAIN: &str = "main.st";
+
+/// The longest a test waits for a stop that must come.
+const WAIT: Duration = Duration::from_secs(5);
+
+fn line_index(source: &str, needle: &str) -> u64 {
     source
         .lines()
         .position(|line| line.contains(needle))
-        .unwrap_or_else(|| panic!("missing line for {needle}")) as u32
+        .unwrap_or_else(|| panic!("missing line for {needle}")) as u64
 }
 
-fn resolve_location(
-    runtime: &trust_runtime::Runtime,
-    source: &str,
-    file_id: u32,
-    needle: &str,
-) -> SourceLocation {
-    let line = line_index(source, needle);
-    runtime
-        .resolve_breakpoint_location(source, file_id, line, 0)
-        .unwrap_or_else(|| panic!("failed to resolve breakpoint for {needle}"))
+/// The program of `files`, each `(path, text)`, built for this computer with debug hooks, loaded
+/// and cold started, with its debug control and the debugger of the compiled program.
+fn debugged(files: &[(&str, &str)]) -> (CompiledRuntime, DebugControl, CompiledDebugger) {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let work = std::env::temp_dir().join(format!(
+        "trust-debug-stepping-{}-{:?}",
+        std::process::id(),
+        thread::current().id()
+    ));
+    let sources = files
+        .iter()
+        .map(|(path, text)| SourceFile::with_path(*path, *text))
+        .collect::<Vec<_>>();
+    let built = build(
+        &sources,
+        &Options {
+            target: Target::this_cpu().expect("a computer target"),
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("the program compiles");
+    let _ = std::fs::remove_dir_all(&work);
+    let mut runtime = CompiledRuntime::load(built.image, "RESOURCE").expect("the image loads");
+    let debug = DebugControl::new();
+    runtime.set_debug_control(debug.clone());
+    // A loaded program is not started (`CompiledRuntime::load`): it starts as trust-runtime starts
+    // the program it loads, with a cold restart that gives every variable its starting value
+    // (specification 44 §6.7), and its tasks count their activations from 0 ms.
+    runtime.restart(RestartMode::Cold).expect("the cold start");
+    runtime.reset_task_timing(trust_runtime::value::Duration::ZERO);
+    let debugger = debug.compiled().expect("the compiled program's debugger");
+    (runtime, debug, debugger)
+}
+
+/// The JSON of the debugger's answer to the debug operation `kind` with `params`.
+fn ask(debugger: &CompiledDebugger, kind: &str, params: Option<Json>) -> Json {
+    let request = ControlRequest {
+        id: 1,
+        r#type: kind.to_string(),
+        params,
+        auth: None,
+        request_id: None,
+    };
+    serde_json::to_value(debugger.answer(&request, IoSnapshotRead::Missing))
+        .expect("a response serializes")
+}
+
+/// Sets the breakpoints of `path` on the zero-based `lines`.
+fn set_breakpoints(debugger: &CompiledDebugger, path: &str, lines: &[u64]) {
+    let answer = ask(
+        debugger,
+        "breakpoints.set",
+        Some(json!({ "source": path, "lines": lines })),
+    );
+    assert_eq!(answer["ok"], json!(true), "{answer}");
+}
+
+/// Removes every breakpoint.
+fn clear_breakpoints(debugger: &CompiledDebugger) {
+    let answer = ask(debugger, "breakpoints.clear_all", None);
+    assert_eq!(answer["ok"], json!(true), "{answer}");
+}
+
+/// The next stop the debugger records within `wait`, or `None`.
+fn stop_within(debugger: &CompiledDebugger, wait: Duration) -> Option<Json> {
+    let deadline = Instant::now() + wait;
+    loop {
+        let answer = ask(debugger, "debug.stops", None);
+        if let Some(stop) = answer["result"]["stops"]
+            .as_array()
+            .and_then(|stops| stops.first())
+        {
+            return Some(stop.clone());
+        }
+        if Instant::now() >= deadline {
+            return None;
+        }
+        thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// A scan of `runtime` on its own thread, as the resource's scan thread runs it; joining it gives
+/// the runtime back.
+fn scan(mut runtime: CompiledRuntime) -> thread::JoinHandle<CompiledRuntime> {
+    thread::spawn(move || {
+        runtime.execute_cycle().unwrap();
+        runtime
+    })
 }
 
 #[test]
@@ -45,43 +144,30 @@ END_VAR
 END_FUNCTION
 "#;
 
-    let session = CompileSession::from_sources(vec![
-        SourceFile::with_path("main.st", main),
-        SourceFile::with_path("lib.st", lib),
-    ]);
-    let mut runtime = session.build_runtime().unwrap();
-    let call_location = resolve_location(&runtime, main, 0, "Count := AddTwo");
-    let expected_next = resolve_location(&runtime, main, 0, "Count := Count + 1");
+    let (runtime, _debug, debugger) = debugged(&[(MAIN, main), ("lib.st", lib)]);
+    let call_line = line_index(main, "Count := AddTwo");
+    let expected_next = line_index(main, "Count := Count + 1");
+    set_breakpoints(&debugger, MAIN, &[call_line]);
 
-    let control = runtime.enable_debug();
-    let (stop_tx, stop_rx) = channel();
-    control.set_stop_sender(stop_tx);
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(call_location)]);
+    let handle = scan(runtime);
 
-    let runtime = Arc::new(Mutex::new(runtime));
-    let runtime_thread = runtime.clone();
-    let handle = thread::spawn(move || {
-        let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
-        runtime.execute_cycle().unwrap();
-    });
+    let stop = stop_within(&debugger, WAIT).expect("the breakpoint stops");
+    assert_eq!(stop["reason"], json!("breakpoint"), "{stop}");
 
-    let stop = stop_rx.recv_timeout(Duration::from_millis(500)).unwrap();
-    assert_eq!(stop.reason, DebugStopReason::Breakpoint);
-    let thread_id = stop.thread_id.unwrap_or(1);
+    let step = ask(&debugger, "step_over", None);
+    assert_eq!(step["ok"], json!(true), "{step}");
+    let step_stop = stop_within(&debugger, WAIT).expect("the step stops");
+    assert_eq!(step_stop["reason"], json!("step"), "{step_stop}");
+    assert_eq!(step_stop["path"], json!(MAIN), "{step_stop}");
+    assert_eq!(step_stop["line"], json!(expected_next), "{step_stop}");
+    assert_eq!(step_stop["column"], json!(4), "{step_stop}");
 
-    control.step_over_thread(thread_id);
-    let step_stop = stop_rx.recv_timeout(Duration::from_millis(500)).unwrap();
-    assert_eq!(step_stop.reason, DebugStopReason::Step);
-    let location = step_stop.location.expect("step location");
-    assert_eq!(location.file_id, 0);
-    assert_eq!(location.start, expected_next.start);
-
-    control.continue_run();
+    debugger.resume();
     handle.join().unwrap();
 }
 
 #[test]
-fn vm_breakpoint_populates_debug_snapshot_for_stack_queries() {
+fn breakpoint_populates_debug_snapshot_for_stack_queries() {
     let source = r#"PROGRAM Main
 VAR
     Count : INT := 0;
@@ -90,34 +176,30 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let session = CompileSession::from_sources(vec![SourceFile::new(source)]);
-    let mut runtime = session.build_runtime().unwrap();
-    let breakpoint_location = resolve_location(&runtime, source, 0, "Count := Count + 1");
+    let (runtime, debug, debugger) = debugged(&[(MAIN, source)]);
+    set_breakpoints(&debugger, MAIN, &[line_index(source, "Count := Count + 1")]);
 
-    let control = runtime.enable_debug();
-    let (stop_tx, stop_rx) = channel();
-    control.set_stop_sender(stop_tx);
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(breakpoint_location)]);
+    let handle = scan(runtime);
 
-    let runtime = Arc::new(Mutex::new(runtime));
-    let runtime_thread = runtime.clone();
-    let handle = thread::spawn(move || {
-        let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
-        runtime.execute_cycle().unwrap();
-    });
+    let stop = stop_within(&debugger, WAIT).expect("the breakpoint stops");
+    assert_eq!(stop["reason"], json!("breakpoint"), "{stop}");
 
-    let stop = stop_rx.recv_timeout(Duration::from_millis(500)).unwrap();
-    assert_eq!(stop.reason, DebugStopReason::Breakpoint);
-
-    let snapshot = control
+    // The first scan is held before `Count := Count + 1` runs, so the held state holds 0.
+    let snapshot = debug
         .snapshot()
-        .expect("expected paused snapshot at VM breakpoint");
-    assert!(
-        snapshot.storage.get_global("Main").is_some(),
-        "expected snapshot to include runtime storage while paused"
+        .expect("expected a published state at the breakpoint");
+    assert_eq!(
+        snapshot
+            .compiled
+            .as_ref()
+            .and_then(|state| state.value("Main.Count")),
+        Some(trust_runtime::value::Value::Int(0)),
+        "expected the state to include the program's variables while paused"
     );
+    let stack = ask(&debugger, "debug.stack", None);
+    assert_eq!(stack["ok"], json!(true), "{stack}");
 
-    control.continue_run();
+    debugger.resume();
     handle.join().unwrap();
 }
 
@@ -135,33 +217,22 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let session = CompileSession::from_sources(vec![SourceFile::new(source)]);
-    let mut runtime = session.build_runtime().unwrap();
-    let then_location = resolve_location(&runtime, source, 0, "Flag := TRUE");
+    let (runtime, _debug, debugger) = debugged(&[(MAIN, source)]);
+    set_breakpoints(&debugger, MAIN, &[line_index(source, "Flag := TRUE")]);
 
-    let control = runtime.enable_debug();
-    let (stop_tx, stop_rx) = channel();
-    control.set_stop_sender(stop_tx);
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(then_location)]);
+    let handle = scan(runtime);
 
-    let runtime = Arc::new(Mutex::new(runtime));
-    let runtime_thread = runtime.clone();
-    let handle = thread::spawn(move || {
-        let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
-        runtime.execute_cycle().unwrap();
-    });
-
-    let received = stop_rx.recv_timeout(Duration::from_millis(500));
+    let received = stop_within(&debugger, Duration::from_millis(500));
 
     // The breakpoint is on the THEN branch, which does not run because Flag is FALSE. A statement
     // matches a breakpoint only when it starts inside the breakpoint's span (spec 13, hook
     // contract), and the enclosing IF starts before the branch, so no stop comes. Catches the old
     // overlap rule, which stopped at the enclosing IF. Always clean up the cycle thread first.
-    control.continue_run();
+    debugger.resume();
     handle.join().unwrap();
 
     assert!(
-        received.is_err(),
+        received.is_none(),
         "a breakpoint on a branch that does not run must not stop the scan, got {received:?}"
     );
 }
@@ -180,32 +251,23 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let session = CompileSession::from_sources(vec![SourceFile::new(source)]);
-    let mut runtime = session.build_runtime().unwrap();
-    let then_location = resolve_location(&runtime, source, 0, "Flag := FALSE");
+    let (runtime, _debug, debugger) = debugged(&[(MAIN, source)]);
+    let then_line = line_index(source, "Flag := FALSE");
+    set_breakpoints(&debugger, MAIN, &[then_line]);
 
-    let control = runtime.enable_debug();
-    let (stop_tx, stop_rx) = channel();
-    control.set_stop_sender(stop_tx);
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(then_location)]);
+    let handle = scan(runtime);
 
-    let runtime = Arc::new(Mutex::new(runtime));
-    let runtime_thread = runtime.clone();
-    let handle = thread::spawn(move || {
-        let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
-        runtime.execute_cycle().unwrap();
-    });
-
-    let received = stop_rx.recv_timeout(Duration::from_millis(500));
-    control.clear_breakpoints();
-    control.continue_run();
+    let received = stop_within(&debugger, WAIT);
+    clear_breakpoints(&debugger);
+    debugger.resume();
     handle.join().unwrap();
 
     // The branch runs because Flag is TRUE, so the breakpoint stops at the branch statement. The
     // enclosing IF starts before the branch and does not match it (spec 13, hook contract).
     let stop = received.expect("expected breakpoint stop in taken branch");
-    assert_eq!(stop.reason, DebugStopReason::Breakpoint);
-    assert_eq!(stop.location, Some(then_location));
+    assert_eq!(stop["reason"], json!("breakpoint"), "{stop}");
+    assert_eq!(stop["line"], json!(then_line), "{stop}");
+    assert_eq!(stop["column"], json!(8), "{stop}");
 }
 
 #[test]
@@ -221,31 +283,20 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let session = CompileSession::from_sources(vec![SourceFile::new(source)]);
-    let mut runtime = session.build_runtime().unwrap();
-    let if_location = resolve_location(&runtime, source, 0, "IF StartCmd THEN");
+    let (mut runtime, _debug, debugger) = debugged(&[(MAIN, source)]);
+    set_breakpoints(&debugger, MAIN, &[line_index(source, "IF StartCmd THEN")]);
 
-    let control = runtime.enable_debug();
-    let (stop_tx, stop_rx) = channel();
-    control.set_stop_sender(stop_tx);
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(if_location)]);
-
-    let runtime = Arc::new(Mutex::new(runtime));
     for cycle in 1..=3 {
-        let runtime_thread = runtime.clone();
-        let handle = thread::spawn(move || {
-            let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
-            runtime.execute_cycle().unwrap();
-        });
+        let handle = scan(runtime);
 
-        let received = stop_rx.recv_timeout(Duration::from_millis(500));
-        control.continue_run();
-        handle.join().unwrap();
+        let received = stop_within(&debugger, WAIT);
+        debugger.resume();
+        runtime = handle.join().unwrap();
 
-        let stop = received.unwrap_or_else(|_| panic!("expected stop on cycle {cycle}"));
-        assert_eq!(stop.reason, DebugStopReason::Breakpoint);
+        let stop = received.unwrap_or_else(|| panic!("expected stop on cycle {cycle}"));
+        assert_eq!(stop["reason"], json!("breakpoint"), "{stop}");
     }
-    control.clear_breakpoints();
+    clear_breakpoints(&debugger);
 }
 
 #[test]
@@ -258,22 +309,13 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let session = CompileSession::from_sources(vec![SourceFile::new(source)]);
-    let mut runtime = session.build_runtime().unwrap();
-    let increment_location = resolve_location(&runtime, source, 0, "Count := Count + 1");
-
-    let control = runtime.enable_debug();
-    let (stop_tx, stop_rx) = channel();
-    control.set_stop_sender(stop_tx);
+    let (mut runtime, _debug, debugger) = debugged(&[(MAIN, source)]);
+    let increment_line = line_index(source, "Count := Count + 1");
 
     let (first_cycle_done_tx, first_cycle_done_rx) = channel();
     let (continue_cycles_tx, continue_cycles_rx) = channel();
 
-    let runtime = Arc::new(Mutex::new(runtime));
-    let runtime_thread = runtime.clone();
     let handle = thread::spawn(move || {
-        let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
-
         // Launch/run starts with no breakpoints configured.
         runtime.execute_cycle().unwrap();
         first_cycle_done_tx.send(()).unwrap();
@@ -286,18 +328,18 @@ END_PROGRAM
     first_cycle_done_rx
         .recv_timeout(Duration::from_millis(500))
         .unwrap();
-    assert!(stop_rx.recv_timeout(Duration::from_millis(100)).is_err());
+    assert!(stop_within(&debugger, Duration::from_millis(100)).is_none());
 
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(increment_location)]);
+    set_breakpoints(&debugger, MAIN, &[increment_line]);
     continue_cycles_tx.send(()).unwrap();
 
-    let stop = stop_rx.recv_timeout(Duration::from_millis(500)).unwrap();
-    assert_eq!(stop.reason, DebugStopReason::Breakpoint);
-    let location = stop.location.expect("breakpoint location");
-    assert_eq!(location.file_id, 0);
-    assert_eq!(location.start, increment_location.start);
+    let stop = stop_within(&debugger, WAIT).expect("the breakpoint stops the next cycle");
+    assert_eq!(stop["reason"], json!("breakpoint"), "{stop}");
+    assert_eq!(stop["path"], json!(MAIN), "{stop}");
+    assert_eq!(stop["line"], json!(increment_line), "{stop}");
+    assert_eq!(stop["column"], json!(4), "{stop}");
 
-    control.continue_run();
+    debugger.resume();
     handle.join().unwrap();
 }
 
@@ -311,21 +353,13 @@ END_VAR
 END_PROGRAM
 "#;
 
-    let session = CompileSession::from_sources(vec![SourceFile::new(source)]);
-    let mut runtime = session.build_runtime().unwrap();
-    let increment_location = resolve_location(&runtime, source, 0, "Count := Count + 1");
-
-    let control = runtime.enable_debug();
-    let (stop_tx, stop_rx) = channel();
-    control.set_stop_sender(stop_tx);
+    let (mut runtime, _debug, debugger) = debugged(&[(MAIN, source)]);
+    let increment_line = line_index(source, "Count := Count + 1");
 
     let running = Arc::new(AtomicBool::new(true));
-    let runtime = Arc::new(Mutex::new(runtime));
-    let runtime_thread = Arc::clone(&runtime);
     let running_thread = Arc::clone(&running);
     let (first_cycle_done_tx, first_cycle_done_rx) = channel();
     let handle = thread::spawn(move || {
-        let mut runtime = runtime_thread.lock().expect("runtime lock poisoned");
         let mut first_cycle_pending = true;
         while running_thread.load(Ordering::SeqCst) {
             runtime.execute_cycle().unwrap();
@@ -340,19 +374,19 @@ END_PROGRAM
     first_cycle_done_rx
         .recv_timeout(Duration::from_millis(500))
         .unwrap();
-    assert!(stop_rx.recv_timeout(Duration::from_millis(100)).is_err());
+    assert!(stop_within(&debugger, Duration::from_millis(100)).is_none());
 
     // Set breakpoint while runtime is already running.
-    control.set_breakpoints_for_file(0, vec![DebugBreakpoint::new(increment_location)]);
+    set_breakpoints(&debugger, MAIN, &[increment_line]);
 
-    let stop = stop_rx.recv_timeout(Duration::from_millis(1000)).unwrap();
-    assert_eq!(stop.reason, DebugStopReason::Breakpoint);
-    let location = stop.location.expect("breakpoint location");
-    assert_eq!(location.file_id, 0);
-    assert_eq!(location.start, increment_location.start);
+    let stop = stop_within(&debugger, WAIT).expect("the breakpoint stops a later cycle");
+    assert_eq!(stop["reason"], json!("breakpoint"), "{stop}");
+    assert_eq!(stop["path"], json!(MAIN), "{stop}");
+    assert_eq!(stop["line"], json!(increment_line), "{stop}");
+    assert_eq!(stop["column"], json!(4), "{stop}");
 
     running.store(false, Ordering::SeqCst);
-    control.clear_breakpoints();
-    control.continue_run();
+    clear_breakpoints(&debugger);
+    debugger.resume();
     handle.join().unwrap();
 }

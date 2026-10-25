@@ -312,11 +312,10 @@ fn cycle_percentiles_track_recent_window() {
 }
 
 #[test]
-fn runtime_metrics_default_reports_vm_and_empty_state() {
+fn runtime_metrics_default_reports_an_empty_state() {
     let metrics = RuntimeMetrics::<StoppedClock>::default();
     let snapshot = metrics.snapshot();
 
-    assert_eq!(snapshot.execution_backend, ExecutionBackend::BytecodeVm);
     assert_eq!(snapshot.faults, 0);
     assert_eq!(snapshot.overruns, 0);
     assert!(snapshot.tasks.is_empty());
@@ -619,17 +618,6 @@ fn repeated_snapshots_are_observational_except_for_monotonic_uptime() {
 }
 
 #[test]
-fn execution_backend_is_recorded_for_the_snapshot() {
-    let mut metrics = metrics();
-    metrics.set_execution_backend(ExecutionBackend::BytecodeVm);
-    assert_eq!(
-        metrics.snapshot().execution_backend.as_str(),
-        "vm",
-        "the snapshot reports the recorded backend"
-    );
-}
-
-#[test]
 fn calls_whose_text_kind_name_is_the_same_share_one_entry() {
     let mut metrics = metrics();
     metrics.record_cycle(duration_ms(10));
@@ -684,7 +672,6 @@ fn restart_clears_every_record_and_measures_uptime_with_the_new_clock() {
         snapshot.profiling.calls.is_empty(),
         "no call is recorded since the restart"
     );
-    assert_eq!(snapshot.execution_backend.as_str(), "vm");
 
     metrics.record_cycle(duration_ms(4));
     let snapshot = metrics.snapshot();

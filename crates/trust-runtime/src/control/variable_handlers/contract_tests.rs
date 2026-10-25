@@ -2,6 +2,8 @@
 //! `var.unforce` and `var.forced` are answered by the shared request pipeline
 //! (`trust_runtime_services::live_values::var_requests`); their host wiring is tested by
 //! `control/tests/live_values_pipeline.rs`.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use serde_json::{json, Value as JsonValue};
 

@@ -7,20 +7,27 @@
 //! would wait for itself. Each test releases the hold and joins the scan thread before it asserts, so a
 //! failed assertion never leaves a thread waiting. The stop tests at the end of the file release the
 //! hold only when the stop request itself failed to end the resource.
+//!
+//! The debugger is the debugger of compiled programs, through the control protocol's debug
+//! operations (specification 44 §13.2): each hold is read from `debug.stops`.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
-use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration as WallDuration, Instant};
 
-use trust_runtime::debug::{DebugControl, DebugStop, DebugStopReason, RuntimeEvent};
+use serde_json::{json, Value as Json};
+use trust_runtime::debug::{DebugControl, RuntimeEvent};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{ResourceHandle, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::{RestartMode, RetainSnapshot, Runtime};
+use trust_runtime::{CompiledDebugger, CompiledRuntime, RestartMode, RetainSnapshot};
+use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
+use trust_runtime_services::protocol::ControlRequest;
 
 const WAIT: WallDuration = WallDuration::from_secs(5);
 /// How long the restart test keeps the hold, to show that the request is not taken meanwhile.
@@ -42,6 +49,50 @@ lamp := gate > DINT#0;
 END_PROGRAM
 "#;
 
+/// A debug control for `runtime`, and the debugger of its compiled program.
+fn attach(runtime: &mut CompiledRuntime) -> (DebugControl, CompiledDebugger) {
+    let debug = DebugControl::new();
+    runtime.set_debug_control(debug.clone());
+    let debugger = debug.compiled().expect("the compiled program's debugger");
+    (debug, debugger)
+}
+
+/// The JSON of the debugger's answer to the debug operation `kind`.
+fn ask(debugger: &CompiledDebugger, kind: &str) -> Json {
+    let request = ControlRequest {
+        id: 1,
+        r#type: kind.to_string(),
+        params: None,
+        auth: None,
+        request_id: None,
+    };
+    serde_json::to_value(debugger.answer(&request, IoSnapshotRead::Missing))
+        .expect("a response serializes")
+}
+
+/// The reason of the next stop the debugger records within `WAIT`; `None` when none arrives.
+fn next_stop(debugger: &CompiledDebugger) -> Option<String> {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        let answer = ask(debugger, "debug.stops");
+        if let Some(stop) = answer["result"]["stops"]
+            .as_array()
+            .and_then(|stops| stops.first())
+        {
+            return stop["reason"].as_str().map(str::to_string);
+        }
+        if Instant::now() >= deadline {
+            return None;
+        }
+        thread::sleep(WallDuration::from_millis(2));
+    }
+}
+
+/// Whether the debugger holds the scan.
+fn paused(debugger: &CompiledDebugger) -> bool {
+    ask(debugger, "debug.state")["result"]["paused"] == json!(true)
+}
+
 fn wait_until(mut condition: impl FnMut() -> bool) -> bool {
     let deadline = Instant::now() + WAIT;
     while Instant::now() < deadline {
@@ -59,30 +110,36 @@ fn wait_until(mut condition: impl FnMut() -> bool) -> bool {
 /// advances the cycle number by one. A write queued during the hold waits for the next scan boundary.
 #[test]
 fn scan_started_under_a_hold_applies_its_boundary_writes_then_waits_before_its_first_statement() {
-    let mut harness = TestHarness::from_source(SOURCE).expect("fixture compiles");
-    let debug = harness.runtime_mut().enable_debug();
-    let (stop_tx, stop_rx) = mpsc::channel();
-    debug.set_stop_sender(stop_tx);
-    debug.enqueue_global_write("gate", Value::DInt(3));
-    debug.pause();
+    let mut runtime = TestHarness::from_source(SOURCE)
+        .expect("fixture compiles")
+        .into_runtime();
+    let (debug, debugger) = attach(&mut runtime);
+    debug
+        .try_enqueue_global_write("gate", Value::DInt(3))
+        .expect("a new target is inside the bound");
+    debugger.pause();
 
-    let mut runtime = harness.into_runtime();
     let scan = thread::spawn(move || {
         let result = runtime.execute_cycle();
         (runtime, result)
     });
 
-    let stop = stop_rx.recv_timeout(WAIT);
+    let stop = next_stop(&debugger);
     let snapshot = debug.snapshot();
-    let held = debug.is_paused();
+    let held = paused(&debugger);
     let events_during_hold = debug.drain_runtime_events();
-    debug.enqueue_global_write("late", Value::DInt(9));
-    debug.continue_run();
+    debug
+        .try_enqueue_global_write("late", Value::DInt(9))
+        .expect("a new target is inside the bound");
+    debugger.resume();
     let (mut runtime, result) = scan.join().expect("the scan thread ends");
     let events_after_release = debug.drain_runtime_events();
 
-    let stop = stop.expect("the scan waits at a statement boundary");
-    assert_eq!(stop.reason, DebugStopReason::Pause);
+    assert_eq!(
+        stop.as_deref(),
+        Some("pause"),
+        "the scan waits at a statement boundary"
+    );
     assert!(held, "the debugger holds the scan while it waits");
     assert!(
         events_during_hold
@@ -105,43 +162,46 @@ fn scan_started_under_a_hold_applies_its_boundary_writes_then_waits_before_its_f
         "releasing the hold ends that same scan, once"
     );
     let snapshot = snapshot.expect("the hold publishes the state in which the scan waits");
+    let state = snapshot
+        .compiled
+        .expect("the state of the compiled program");
     assert_eq!(
-        snapshot.storage.get_global("gate"),
-        Some(&Value::DInt(3)),
+        state.value("gate"),
+        Some(Value::DInt(3)),
         "the boundary write is applied before the scan waits"
     );
     assert_eq!(
-        snapshot.storage.get_global("ticks"),
-        Some(&Value::DInt(0)),
+        state.value("ticks"),
+        Some(Value::DInt(0)),
         "the waiting scan has run no statement"
     );
 
     assert_eq!(result, Ok(()), "releasing the hold continues the same scan");
     assert_eq!(runtime.cycle_counter(), 1);
     assert_eq!(
-        runtime.storage().get_global("ticks"),
-        Some(&Value::DInt(1)),
+        runtime.read_variable("ticks"),
+        Ok(Value::DInt(1)),
         "the body ran once"
     );
     assert_eq!(
-        runtime
-            .io()
-            .read(&IoAddress::parse("%QX0.0").expect("address parses")),
+        runtime.read_io(&IoAddress::parse("%QX0.0").expect("address parses")),
         Ok(Value::Bool(true)),
         "the continued scan commits its outputs"
     );
+    // Specification 44 §13.2, specification 11 §6.9: a write queued during the hold is applied
+    // when the hold ends, before the held statement runs, so the continued scan already holds it.
     assert_eq!(
-        runtime.storage().get_global("late"),
-        Some(&Value::DInt(0)),
-        "a write queued during the hold is not applied by the scan that waits"
+        runtime.read_variable("late"),
+        Ok(Value::DInt(9)),
+        "a write queued during the hold is applied when the hold ends"
     );
     runtime
         .execute_cycle()
         .expect("the next scan completes without a hold");
     assert_eq!(
-        runtime.storage().get_global("late"),
-        Some(&Value::DInt(9)),
-        "the write queued during the hold is applied at the next scan boundary"
+        runtime.read_variable("late"),
+        Ok(Value::DInt(9)),
+        "the write was consumed once and the next scan keeps the value"
     );
     assert_eq!(runtime.cycle_counter(), 2);
 }
@@ -151,37 +211,36 @@ fn scan_started_under_a_hold_applies_its_boundary_writes_then_waits_before_its_f
 /// completed, and the restart then succeeds.
 #[test]
 fn restart_request_waits_for_the_hold_and_is_taken_after_the_held_scan_completes() {
-    let mut harness = TestHarness::from_source(SOURCE).expect("fixture compiles");
-    let debug = harness.runtime_mut().enable_debug();
-    let (stop_tx, stop_rx) = mpsc::channel();
-    debug.set_stop_sender(stop_tx);
-    debug.pause();
+    let mut runtime = TestHarness::from_source(SOURCE)
+        .expect("fixture compiles")
+        .into_runtime();
+    let (_debug, debugger) = attach(&mut runtime);
+    debugger.pause();
     let signal: Arc<Mutex<Option<RestartMode>>> = Arc::new(Mutex::new(None));
-    let runner = ResourceRunner::new(
-        harness.into_runtime(),
-        StdClock::new(),
-        Duration::from_millis(1),
-    )
-    .with_restart_signal(Arc::clone(&signal));
+    let runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
+        .with_restart_signal(Arc::clone(&signal));
     let mut handle = runner.spawn("hold-restart").expect("spawn the resource");
 
-    let stop = stop_rx.recv_timeout(WAIT);
+    let stop = next_stop(&debugger);
     *signal.lock().expect("restart signal") = Some(RestartMode::Cold);
     thread::sleep(DWELL);
     let pending_during_hold = signal.lock().expect("restart signal").is_some();
     let state_during_hold = handle.state();
     let error_during_hold = handle.last_error();
 
-    debug.continue_run();
+    debugger.resume();
     let taken = wait_until(|| signal.lock().expect("restart signal").is_none());
     let running_again = wait_until(|| handle.state() == ResourceState::Running);
     let error_after = handle.last_error();
     handle.stop();
-    debug.continue_run();
+    debugger.resume();
     handle.join().expect("the resource thread ends");
 
-    let stop = stop.expect("the scan waits at a statement boundary");
-    assert_eq!(stop.reason, DebugStopReason::Pause);
+    assert_eq!(
+        stop.as_deref(),
+        Some("pause"),
+        "the scan waits at a statement boundary"
+    );
     assert!(
         pending_during_hold,
         "the request is not taken while the scan waits in the hold"
@@ -284,12 +343,13 @@ impl Probes {
 
 /// The runtime of the stop tests with a debug control, a recording output driver, the stop policy
 /// `lamp := FALSE` and a recording retain store.
-fn stop_fixture() -> (Runtime, DebugControl, Probes) {
+fn stop_fixture() -> (CompiledRuntime, DebugControl, Probes) {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let saved = Arc::new(Mutex::new(Vec::new()));
-    let mut harness = TestHarness::from_source(STOP_SOURCE).expect("fixture compiles");
-    let runtime = harness.runtime_mut();
-    let debug = runtime.enable_debug();
+    let mut runtime = TestHarness::from_source(STOP_SOURCE)
+        .expect("fixture compiles")
+        .into_runtime();
+    let (debug, _) = attach(&mut runtime);
     runtime.add_io_driver(
         "recorder",
         Box::new(RecordingDriver {
@@ -302,24 +362,25 @@ fn stop_fixture() -> (Runtime, DebugControl, Probes) {
         Value::Bool(false),
     ));
     runtime.set_io_safe_state(safe_state);
-    runtime.set_retain_store(
-        Some(Box::new(RecordingStore {
-            saved: Arc::clone(&saved),
-        })),
-        None,
-    );
-    (harness.into_runtime(), debug, Probes { writes, saved })
+    runtime
+        .set_retain_store(
+            Some(Box::new(RecordingStore {
+                saved: Arc::clone(&saved),
+            })),
+            None,
+        )
+        .expect("the retain store takes the program's retained values");
+    (runtime, debug, Probes { writes, saved })
 }
 
 /// A resource whose scan the debugger holds at its first statement.
 struct Held {
     handle: ResourceHandle<StdClock>,
     debug: DebugControl,
+    debugger: CompiledDebugger,
     probes: Probes,
-    /// The stop event of the hold, or the timeout when the scan never waited.
-    hold: Result<DebugStop, mpsc::RecvTimeoutError>,
-    /// Keeps the channel of the stop events open.
-    _events: mpsc::Receiver<DebugStop>,
+    /// The reason of the stop of the hold, or `None` when the scan never waited.
+    hold: Option<String>,
 }
 
 impl Held {
@@ -329,7 +390,7 @@ impl Held {
     fn ended_by_stop(&mut self) -> bool {
         let ended = wait_until(|| self.handle.state() == ResourceState::Stopped);
         if !ended {
-            self.debug.continue_run();
+            self.debugger.resume();
         }
         self.handle.join().expect("the resource thread ends");
         ended
@@ -337,21 +398,20 @@ impl Held {
 }
 
 /// Starts the resource with a debug-mode pause requested before it starts, so that the scan waits before
-/// its first statement, and returns once the stop event of the hold has arrived.
-fn start_held(runtime: Runtime, debug: DebugControl, probes: Probes, name: &str) -> Held {
-    let (stop_tx, events) = mpsc::channel();
-    debug.set_stop_sender(stop_tx);
-    debug.pause();
+/// its first statement, and returns once the stop of the hold has been recorded.
+fn start_held(runtime: CompiledRuntime, debug: DebugControl, probes: Probes, name: &str) -> Held {
+    let debugger = debug.compiled().expect("the compiled program's debugger");
+    debugger.pause();
     let handle = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
         .spawn(name)
         .expect("spawn the resource");
-    let hold = events.recv_timeout(WAIT);
+    let hold = next_stop(&debugger);
     Held {
         handle,
         debug,
+        debugger,
         probes,
         hold,
-        _events: events,
     }
 }
 
@@ -369,13 +429,16 @@ fn spawn_held(name: &str) -> Held {
 #[test]
 fn stop_request_during_a_hold_ends_the_resource_through_the_normal_stop_path() {
     let mut held = spawn_held("stop-during-hold");
-    let held_by_debugger = held.debug.is_paused();
+    let held_by_debugger = paused(&held.debugger);
 
     held.handle.stop();
     let ended = held.ended_by_stop();
 
-    let stop = held.hold.expect("the scan waits at a statement boundary");
-    assert_eq!(stop.reason, DebugStopReason::Pause);
+    assert_eq!(
+        held.hold.as_deref(),
+        Some("pause"),
+        "the scan waits at a statement boundary"
+    );
     assert!(
         held_by_debugger,
         "the debugger holds the scan when the stop is requested"
@@ -407,11 +470,14 @@ fn stop_through_the_control_handle_is_not_held_again_by_a_pause_that_follows() {
     let control = held.handle.control();
 
     control.stop();
-    held.debug.pause();
+    held.debugger.pause();
     let ended = held.ended_by_stop();
 
-    let stop = held.hold.expect("the scan waits at a statement boundary");
-    assert_eq!(stop.reason, DebugStopReason::Pause);
+    assert_eq!(
+        held.hold.as_deref(),
+        Some("pause"),
+        "the scan waits at a statement boundary"
+    );
     assert!(
         ended,
         "a pause that follows the stop request does not hold the scan again"
@@ -433,7 +499,7 @@ fn resource_thread_started_after_a_stop_is_held_by_the_debugger_again() {
     let (mut runtime, _, probes) = stop_fixture();
     runtime.set_debug_control(first.debug.clone());
     let mut second = start_held(runtime, first.debug.clone(), probes, "second-resource");
-    let second_held = second.hold.is_ok();
+    let second_held = second.hold.is_some();
     second.handle.stop();
     let second_ended = second.ended_by_stop();
 

@@ -13,13 +13,21 @@ mod case;
 mod conversions;
 mod dates;
 mod effects;
+mod enable;
 mod expr;
 mod functions;
+mod jumps;
 mod object;
+mod open;
+mod partial;
+mod places;
+mod prelude;
 mod strings;
+mod text;
 
 pub(super) use call::{ident as ident_of, parameter};
-pub(super) use expr::byte_string;
+pub(super) use prelude::PRELUDE;
+pub(super) use text::{byte_string, unit_string};
 
 use std::collections::BTreeSet;
 
@@ -65,6 +73,12 @@ pub(super) struct Place {
 }
 
 impl Place {
+    /// Whether the place is a member of a `STRUCT OVERLAP`, a view of the structure's bytes that
+    /// no Rust reference names (the prelude's `ov`).
+    pub(super) fn is_overlap_member(&self) -> bool {
+        self.expr.starts_with("ov::")
+    }
+
     /// A reference to the storage.
     pub(super) fn reference(&self) -> String {
         if self.is_ref {
@@ -100,6 +114,15 @@ pub(super) struct Lowerer<'m, 'a> {
     pub(super) statements: Vec<u32>,
     /// What a `RETURN` and the end of the body do: copy a function's result and return it.
     pub(super) exit: String,
+    /// The result variable of a function or a method that returns a value, which `RETURN expr;`
+    /// assigns (specification 06, DEV-022).
+    pub(super) result: Option<Place>,
+    /// The labels of the body's segments, in capitals, while the body runs as their loop
+    /// (`jumps`).
+    jumps: Option<Vec<(SmolStr, usize)>>,
+    /// The open-array inputs of the body, views of the caller's arrays that it only reads
+    /// (specification 03 §6).
+    pub(super) read_only: Vec<SmolStr>,
     /// The functions and methods the body calls, which the crate must hold too.
     pub(super) needs: Vec<Need>,
     /// The generated functions the body calls, by their Rust names (specification 44 §6.4).
@@ -116,6 +139,9 @@ pub(super) struct Lowerer<'m, 'a> {
     /// symbols name (specification 44 §5.7, §13.2); `None` in a release image, whose frame
     /// variables are Rust locals.
     pub(super) frame_vars: Option<Vec<FrameVar>>,
+    /// The bytes of an address on the target, which `SIZEOF` gives a reference or a pointer
+    /// (specification 29 §1).
+    pub(super) pointer_bytes: u64,
 }
 
 /// A variable of a debug image's frame structure: its declared name, its field and its type.
@@ -140,6 +166,9 @@ pub(super) enum Need {
     Interface(SmolStr, SmolStr),
     /// The body of an instance of the type or of a type derived from it.
     Body(Ty),
+    /// The assignment attempt `?=` to an interface or to a reference of a class's type: the
+    /// reference when the instance it names takes the type, else `NULL` (IEC §6.6.6.7, Table 52).
+    Cast(Ty),
 }
 
 impl Need {
@@ -159,6 +188,7 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         ids: &'m StatementIds,
         frame: Frame,
         hooks: bool,
+        pointer_bytes: u64,
     ) -> Self {
         Self {
             model,
@@ -175,12 +205,16 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             hooks,
             statements: Vec::new(),
             exit: "return Ok(());".into(),
+            result: None,
+            jumps: None,
+            read_only: Vec::new(),
             needs: Vec::new(),
             called: BTreeSet::new(),
             recursive: BTreeSet::new(),
             held: Vec::new(),
             pou: u16::MAX,
             frame_vars: hooks.then(Vec::new),
+            pointer_bytes,
         }
     }
 
@@ -223,9 +257,40 @@ impl<'m, 'a> Lowerer<'m, 'a> {
         }
     }
 
-    /// The type trust-hir gave `node`.
+    /// The type trust-hir gave `node`; a sign or a parenthesis it gave none has its operand's, and
+    /// an arithmetic operation it gave none the type of its operands when they have one.
     pub(super) fn type_of(&mut self, node: &SyntaxNode) -> Result<Ty, NativeError> {
         let Some(hir) = self.src.type_of(node) else {
+            let signed = node.kind() == SyntaxKind::UnaryExpr
+                && matches!(
+                    effects::operator(node),
+                    Some(SyntaxKind::Minus | SyntaxKind::Plus)
+                );
+            if (signed || node.kind() == SyntaxKind::ParenExpr)
+                && let Some(operand) = node.children().next()
+            {
+                return self.type_of(&operand);
+            }
+            let arithmetic = node.kind() == SyntaxKind::BinaryExpr
+                && matches!(
+                    effects::operator(node),
+                    Some(
+                        SyntaxKind::Plus
+                            | SyntaxKind::Minus
+                            | SyntaxKind::Star
+                            | SyntaxKind::Slash
+                            | SyntaxKind::KwMod
+                            | SyntaxKind::Power
+                    )
+                );
+            let mut operands = node.children();
+            if arithmetic
+                && let (Some(left), Some(right)) = (operands.next(), operands.next())
+                && let (Ok(left), Ok(right)) = (self.type_of(&left), self.type_of(&right))
+                && left == right
+            {
+                return Ok(left);
+            }
             return Err(self.unsupported(node, "an expression without a type"));
         };
         let symbols = self.src.analysis.symbols.clone();
@@ -263,6 +328,17 @@ impl<'m, 'a> Lowerer<'m, 'a> {
 
     /// Names the parameter `argument`, a reference to the caller's variable, `name` in the frame:
     /// a function's or a method's `VAR_IN_OUT` (IEC §6.6.1.2.2).
+    /// Names `rust`, a variable that lies outside the frame, `name` in the body: a `VAR_STAT`
+    /// variable (specification 01 §3).
+    pub(super) fn bind_static(&mut self, name: &SmolStr, rust: String, ty: Ty) {
+        self.locals.push(Local {
+            name: name.clone(),
+            rust,
+            ty,
+            is_ref: false,
+        });
+    }
+
     pub(super) fn declare_reference(&mut self, name: &SmolStr, ty: Ty, argument: &str) {
         self.locals.push(Local {
             name: name.clone(),
@@ -323,6 +399,8 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                 Ok(())
             }
             SyntaxKind::ReturnStmt => self.return_statement(node),
+            SyntaxKind::JmpStmt => self.jump(node),
+            SyntaxKind::LabelStmt => self.labelled(node),
             other => Err(self.unsupported(node, format!("the statement {other:?}"))),
         }
     }
@@ -337,13 +415,90 @@ impl<'m, 'a> Lowerer<'m, 'a> {
             .children_with_tokens()
             .any(|element| element.kind() == SyntaxKind::RefAssign)
         {
-            return Err(self.unsupported(node, "the assignment attempt ?="));
+            return self.assignment_attempt(node, &target, &value);
+        }
+        if let Some((base, access)) = self.partial_access(&target) {
+            return self.partial_write(&target, &base, access, &value);
         }
         if self.string_element_write(&target, &value)? || self.property_write(&target, &value)? {
             return Ok(());
         }
+        self.refuse_read_only(&target)?;
         let place = self.place(&target)?;
         self.store(&place, &value)
+    }
+
+    /// Refuses a write to an element of an open-array input, which is the caller's array: an input
+    /// is the caller's value, which the callee does not change (specification 03 §6).
+    fn refuse_read_only(&self, target: &SyntaxNode) -> Result<(), NativeError> {
+        let mut root = target.clone();
+        while matches!(
+            root.kind(),
+            SyntaxKind::IndexExpr | SyntaxKind::FieldExpr | SyntaxKind::ParenExpr
+        ) {
+            let Some(base) = root.children().next() else {
+                break;
+            };
+            root = base;
+        }
+        if root.kind() == SyntaxKind::NameRef {
+            let name = call::ident(&root);
+            if self
+                .read_only
+                .iter()
+                .any(|input| input.eq_ignore_ascii_case(&name))
+            {
+                return Err(self.unsupported(
+                    target,
+                    format!(
+                        "a write to the open-array input {name}, which is the caller's array; \
+                         declare it VAR_IN_OUT"
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// `target ?= value` (IEC §6.6.6.7, Table 52; specification 02 §4.1, §4.2): an interface, or a
+    /// reference of a class's type, takes the reference when the instance it names is of a class
+    /// the target takes, and `NULL` otherwise, whatever the target held; any other reference or
+    /// pointer takes the value, `NULL` or of the same type, which trust-hir checked.
+    fn assignment_attempt(
+        &mut self,
+        node: &SyntaxNode,
+        target: &SyntaxNode,
+        value: &SyntaxNode,
+    ) -> Result<(), NativeError> {
+        let place = self.place(target)?;
+        let source = if self.is_reference(value) {
+            self.reference(value)?
+        } else {
+            self.interface_value(value)?
+        };
+        let cast = match self.info(place.ty).kind {
+            Kind::Interface => Some(place.ty),
+            Kind::Ref { target, .. } if self.model.types.class_field(target).is_some() => {
+                Some(target)
+            }
+            Kind::Ref { .. } => None,
+            _ => {
+                return Err(self.unsupported(
+                    node,
+                    "the assignment attempt ?= to a value that is no reference",
+                ));
+            }
+        };
+        let value = match cast {
+            Some(ty) => {
+                Need::Cast(ty).add_to(&mut self.needs);
+                let function = crate::native::dispatch::cast_function(ty);
+                self.bind(&format!("{function}(cx, w, {source})?"))
+            }
+            None => source,
+        };
+        self.line(&format!("{}.set({value});", place.expr));
+        Ok(())
     }
 
     /// Stores the value of `value` into `place`, converted to the place's type as the assignment
@@ -351,9 +506,11 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     pub(super) fn store(&mut self, place: &Place, value: &SyntaxNode) -> Result<(), NativeError> {
         let info = self.info(place.ty).clone();
         match &info.kind {
-            Kind::Str(_) => self.store_text(place, value),
-            Kind::WStr(_) => Err(self.unsupported(value, "WSTRING values")),
-            Kind::Ref { target } => {
+            Kind::Str(_) | Kind::WStr(_) => self.store_text(place, value),
+            Kind::Ref { target, .. } if matches!(self.info(*target).kind, Kind::Open { .. }) => {
+                self.store_open(place, value, *target)
+            }
+            Kind::Ref { target, .. } => {
                 let reference = match self.instance_source(*target, value)? {
                     // A result of a function block's type names the instance assigned to it,
                     // `THIS` or an instance (§6.4; IEC §6.6.5.7.2).
@@ -373,7 +530,11 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                 self.line(&format!("{}.set({reference});", place.expr));
                 Ok(())
             }
-            Kind::Array { .. } | Kind::Struct { .. } | Kind::Fb { .. } | Kind::StdFb(_) => {
+            Kind::Array { .. }
+            | Kind::Struct { .. }
+            | Kind::Overlap { .. }
+            | Kind::Fb { .. }
+            | Kind::StdFb(_) => {
                 let source = self.aggregate(value, place.ty)?;
                 self.line(&format!(
                     "Assign::assign({}, {});",
@@ -624,309 +785,18 @@ impl<'m, 'a> Lowerer<'m, 'a> {
     }
 
     fn return_statement(&mut self, node: &SyntaxNode) -> Result<(), NativeError> {
+        // `RETURN expr;` assigns the result, then returns (specification 06, DEV-022).
         if let Some(value) = node.children().next() {
-            return Err(self.unsupported(&value, "RETURN with a value"));
+            let Some(result) = self.result.clone() else {
+                return Err(self.unsupported(&value, "RETURN with a value without a result"));
+            };
+            self.store(&result, &value)?;
         }
         let exit = self.exit.clone();
         self.line(&exit);
         Ok(())
     }
-
-    /// The place `node` names: a variable, a member, an element, `THIS`; a property's value read
-    /// into a temporary.
-    pub(super) fn place(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
-        if let Some(place) = self.object_place(node) {
-            return place;
-        }
-        match node.kind() {
-            SyntaxKind::ParenExpr => match node.children().next() {
-                Some(inner) => self.place(&inner),
-                None => Err(self.unsupported(node, "an empty parenthesis")),
-            },
-            SyntaxKind::NameRef => {
-                if let Some(place) = self.property_read(node)? {
-                    return Ok(place);
-                }
-                let name = call::ident(node);
-                self.name_place(node, &name)
-            }
-            SyntaxKind::FieldExpr => {
-                if let Some(place) = self.property_read(node)? {
-                    return Ok(place);
-                }
-                self.field_place(node)
-            }
-            SyntaxKind::IndexExpr => self.index_place(node),
-            SyntaxKind::DerefExpr => self.deref_place(node),
-            SyntaxKind::CallExpr => self.result_instance(node),
-            other => Err(self.unsupported(node, format!("a {other:?} as a place"))),
-        }
-    }
-
-    /// The instance `value` names when a reference to an instance of type `target` takes it:
-    /// `THIS`, `SUPER` or a value of a function block's type; `None` for a reference value.
-    fn instance_source(
-        &mut self,
-        target: Ty,
-        value: &SyntaxNode,
-    ) -> Result<Option<Place>, NativeError> {
-        if !self.info(target).kind.is_instance() {
-            return Ok(None);
-        }
-        if let Some(place) = self.object_place(value) {
-            return place.map(Some);
-        }
-        if self
-            .type_of(value)
-            .is_ok_and(|ty| self.info(ty).kind.is_instance())
-        {
-            return self.place(value).map(Some);
-        }
-        Ok(None)
-    }
-
-    /// The instance the result of call `node` names, a call of a function block's type: the
-    /// receiver of a chained call `b.SetVolume(10).Build()` (§6.4).
-    fn result_instance(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
-        let ty = self.type_of(node)?;
-        if !self.info(ty).kind.is_instance() {
-            return Err(self.unsupported(node, "a call as a place"));
-        }
-        let reference = self.model.types.reference(ty);
-        let result = self.call_aggregate(node, reference)?;
-        Ok(self.dereference(&format!("{}.get()", result.expr), ty))
-    }
-
-    /// `reference^`: the variable a reference names, checked as specification 44 §7.3 says.
-    fn deref_place(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
-        let Some(reference) = node.children().next() else {
-            return Err(self.unsupported(node, "a dereference without its reference"));
-        };
-        let ty = self.type_of(&reference)?;
-        let Kind::Ref { target } = self.info(ty).kind else {
-            return Err(self.unsupported(node, "a dereference of a value that is no reference"));
-        };
-        let value = self.reference(&reference)?;
-        Ok(self.dereference(&value, target))
-    }
-
-    /// The variable of type `target` the reference value `reference` names, bound to a temporary.
-    pub(super) fn dereference(&mut self, reference: &str, target: Ty) -> Place {
-        let storage = self.info(target).rust.clone();
-        let expr = self.bind(&format!("w.areas.deref::<{storage}>(cx, &{reference})?"));
-        Place {
-            expr,
-            ty: target,
-            is_ref: true,
-        }
-    }
-
-    /// The variable `name` as `node` names it: the frame's own, the instance's, a global.
-    pub(super) fn name_place(
-        &mut self,
-        node: &SyntaxNode,
-        name: &str,
-    ) -> Result<Place, NativeError> {
-        if let Some(local) = self
-            .locals
-            .iter()
-            .rev()
-            .find(|local| local.name.eq_ignore_ascii_case(name))
-        {
-            return Ok(Place {
-                expr: local.rust.clone(),
-                ty: local.ty,
-                is_ref: local.is_ref,
-            });
-        }
-        match self.frame {
-            Frame::Program(index) => {
-                let program = &self.model.program_types[index];
-                if let Some((member, retained)) = program.member(name) {
-                    let owner = if retained { "mr" } else { "me" };
-                    return Ok(Place {
-                        expr: format!("{owner}.{}", member.field()),
-                        ty: member.ty,
-                        is_ref: false,
-                    });
-                }
-            }
-            Frame::FunctionBlock(ty) | Frame::Method(ty) => {
-                if let Some(member) = self
-                    .info(ty)
-                    .members()
-                    .iter()
-                    .find(|member| member.name.eq_ignore_ascii_case(name))
-                    .cloned()
-                {
-                    // A `VAR_IN_OUT` is the variable its stored reference names (§6.4).
-                    if member.flags & trust_runtime_core::native::image::SYMBOL_IN_OUT != 0
-                        && let Kind::Ref { target } = self.info(member.ty).kind
-                    {
-                        let reference = format!("me.{}.get()", member.field());
-                        return Ok(self.dereference(&reference, target));
-                    }
-                    return Ok(Place {
-                        expr: format!("me.{}", member.field()),
-                        ty: member.ty,
-                        is_ref: false,
-                    });
-                }
-            }
-            Frame::Function => {}
-        }
-        if let Some(global) = self.model.global(name) {
-            let area = if global.retained { "w.r" } else { "w.g" };
-            return Ok(Place {
-                expr: format!("{area}.{}", rust_field(&global.name)),
-                ty: global.ty,
-                is_ref: false,
-            });
-        }
-        Err(self.unsupported(node, format!("the name {name}")))
-    }
-
-    fn field_place(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
-        let mut children = node.children();
-        let (Some(base), Some(member)) = (children.next(), children.next()) else {
-            return Err(self.unsupported(node, "a member access without a member"));
-        };
-        let name = call::ident(&member);
-        if self.namespace_qualified(node) {
-            return self.name_place(node, &name);
-        }
-        let base = self.place(&base)?;
-        let info = self.info(base.ty).clone();
-        let members = match &info.kind {
-            Kind::Struct { members } | Kind::Fb { members, .. } => members.clone(),
-            Kind::StdFb(fb) => self.model.types.std_fb_members(*fb),
-            _ => return Err(self.unsupported(node, "a member of a value without members")),
-        };
-        let Some(member) = members
-            .iter()
-            .find(|member| member.name.eq_ignore_ascii_case(&name))
-        else {
-            return Err(self.unsupported(node, format!("the member {name}")));
-        };
-        let expr = format!("{}.{}", base.expr, member.field());
-        Ok(Place {
-            expr,
-            ty: member.ty,
-            is_ref: false,
-        })
-    }
-
-    /// Whether `node` is a name qualified by a namespace (`Control.LoopMode`), which trust-hir
-    /// resolved to a symbol of its own.
-    fn namespace_qualified(&self, node: &SyntaxNode) -> bool {
-        let Some(symbol) = self.src.symbol_of(node) else {
-            return false;
-        };
-        let symbols = &self.src.analysis.symbols;
-        symbols
-            .get(symbol)
-            .and_then(|symbol| symbol.parent)
-            .and_then(|parent| symbols.get(parent))
-            .is_some_and(|parent| matches!(parent.kind, trust_hir::SymbolKind::Namespace))
-    }
-
-    /// The value of the index `index` when it is an integer literal, which the build can compare
-    /// with the bounds (§6.5).
-    fn constant_index(&mut self, index: &SyntaxNode, ty: Ty) -> Option<i64> {
-        if index.kind() != SyntaxKind::Literal {
-            return None;
-        }
-        self.constant_integer(index, ty)
-            .ok()
-            .and_then(|value| i64::try_from(value).ok())
-    }
-
-    /// `array[i, j]`: each index checked against its dimension's bounds (§6.5), one nesting of
-    /// Rust arrays per dimension.
-    fn index_place(&mut self, node: &SyntaxNode) -> Result<Place, NativeError> {
-        let mut children = node.children();
-        let Some(base) = children.next() else {
-            return Err(self.unsupported(node, "an index without an array"));
-        };
-        let array = self.place(&base)?;
-        let indices: Vec<SyntaxNode> = children.collect();
-        let info = self.info(array.ty).clone();
-        let Kind::Array { elem, dims } = &info.kind else {
-            return Err(self.unsupported(node, "an index of a value that is no array"));
-        };
-        if indices.len() != dims.len() {
-            return Err(self.unsupported(node, "an index list unlike the array's dimensions"));
-        }
-        let lint = self.model.types.elem(Elem::LInt);
-        let mut current = array.reference();
-        for (index, (lower, upper)) in indices.iter().zip(dims) {
-            // A constant inside the bounds is not checked (§6.5): it indexes the Rust array, whose
-            // bound the compiler checks when it builds the module.
-            if let Some(constant) = self
-                .constant_index(index, lint)
-                .filter(|constant| (*lower..=*upper).contains(constant))
-            {
-                current = self.bind(&format!("&({current})[{}]", constant - lower));
-                continue;
-            }
-            let value = self.scalar_to(index, lint)?;
-            current = self.bind(&format!("lib::at(cx, {current}, {value}, {lower})?"));
-        }
-        Ok(Place {
-            expr: current,
-            ty: *elem,
-            is_ref: true,
-        })
-    }
 }
-
-/// The program library's and the interface's Rust names every generated crate uses.
-pub(super) const PRELUDE: &str = "use core::cell::Cell;
-use trust_plc_abi::{self as abi, plain_struct, Cx, Fault, Plain, Str, WStr};
-use trust_plc_abi::module::{fault, recurse, run, stmt as st, tick, Areas};
-use trust_plc_lib as lib;
-
-type R<T> = Result<T, Fault>;
-
-/// A value copied into a place of its type: a scalar, a string, an array, a structure.
-trait Assign {
-    fn assign(&self, source: &Self);
-}
-
-impl<T: Copy> Assign for Cell<T> {
-    #[inline]
-    fn assign(&self, source: &Self) {
-        self.set(source.get());
-    }
-}
-
-impl<const N: usize> Assign for Str<N> {
-    #[inline]
-    fn assign(&self, source: &Self) {
-        lib::assign(self.view(), source.view());
-    }
-}
-
-impl<T: Assign, const N: usize> Assign for [T; N] {
-    #[inline]
-    fn assign(&self, source: &Self) {
-        for (target, value) in self.iter().zip(source.iter()) {
-            target.assign(value);
-        }
-    }
-}
-
-/// Whether two references or interface values name the same variable or instance, whatever type
-/// each was taken as (an instance of a derived type as its base spans less).
-#[inline]
-fn same_target(a: abi::RefValue, b: abi::RefValue) -> bool {
-    a.kind == b.kind
-        && a.area == b.area
-        && a.char_index == b.char_index
-        && a.offset == b.offset
-        && a.generation == b.generation
-}
-";
 
 /// Whether `kind` is an expression's node.
 pub(super) fn is_expression(kind: SyntaxKind) -> bool {

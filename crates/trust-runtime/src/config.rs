@@ -12,7 +12,7 @@ use trust_runtime_services::events::{EVENT_STORE_CAPACITY_MAX, EVENT_STORE_CAPAC
 
 use crate::ads::server::{AdsServerClientConfig, AdsServerRuntimeConfig, AdsServerSourcePin};
 use crate::error::RuntimeError;
-use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
+use crate::execution_backend::ExecutionBackendSource;
 use crate::historian::{AlertRule, HistorianConfig, RecordingMode};
 use crate::hmi::HmiPersistenceConfig;
 use crate::io::{IoAddress, IoSafeState, IoSize};

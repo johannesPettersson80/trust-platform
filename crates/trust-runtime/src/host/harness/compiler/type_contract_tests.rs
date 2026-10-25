@@ -11,7 +11,7 @@ fn runtime(source: &str) -> RuntimeBuilder {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("type fixture must fail"),
         Err(error) => error.to_string(),
     }

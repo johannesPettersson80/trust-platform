@@ -1,16 +1,45 @@
-use trust_runtime::debug::RuntimeEvent;
+//! Periodic and event tasks on the resource scheduler (specification 10 §4.3): readiness, missed
+//! intervals, backward clock steps, faults and a deterministic event trace.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
+use std::sync::{Arc, Mutex};
+
+use trust_runtime::debug::{DebugControl, RuntimeEvent};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
+use trust_runtime::metrics::RuntimeMetrics;
 use trust_runtime::scheduler::{ManualClock, ResourceRunner};
 use trust_runtime::value::{Duration, Value};
+use trust_runtime::CompiledRuntime;
 
-fn assert_counter(value: Option<&Value>, expected: i64) {
+fn assert_counter(value: Result<Value, RuntimeError>, expected: i64) {
     match value {
-        Some(Value::Int(v)) => assert_eq!(i64::from(*v), expected),
-        Some(Value::DInt(v)) => assert_eq!(i64::from(*v), expected),
-        Some(Value::LInt(v)) => assert_eq!(*v, expected),
+        Ok(Value::Int(v)) => assert_eq!(i64::from(v), expected),
+        Ok(Value::DInt(v)) => assert_eq!(i64::from(v), expected),
+        Ok(Value::LInt(v)) => assert_eq!(v, expected),
         other => panic!("unexpected counter value {other:?}"),
     }
+}
+
+/// The program of `source` with a metrics sink, which counts each task's missed intervals.
+fn with_metrics(source: &str) -> (CompiledRuntime, Arc<Mutex<RuntimeMetrics>>) {
+    let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let metrics = Arc::new(Mutex::new(RuntimeMetrics::default()));
+    runtime.set_metrics_sink(Arc::clone(&metrics));
+    (runtime, metrics)
+}
+
+/// The missed intervals the metrics counted for `task`, once the task ran.
+fn overruns(metrics: &Mutex<RuntimeMetrics>, task: &str) -> Option<u64> {
+    metrics
+        .lock()
+        .expect("metrics lock")
+        .snapshot()
+        .tasks
+        .iter()
+        .find(|stats| stats.name == task)
+        .map(|stats| stats.overruns)
 }
 
 #[test]
@@ -45,92 +74,41 @@ END_PROGRAM
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
-    let periodic_id = match runner
-        .engine()
-        .expect("a program on the bytecode engine")
-        .storage()
-        .get_global("P1")
-    {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected P1 instance, got {other:?}"),
-    };
-    let event_id = match runner
-        .engine()
-        .expect("a program on the bytecode engine")
-        .storage()
-        .get_global("P2")
-    {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected P2 instance, got {other:?}"),
-    };
+    let periodic = "P1";
+    let event = "P2";
 
     runner.tick().unwrap();
     assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(periodic_id, "count"),
+        runner.program().read_variable(&format!("{periodic}.count")),
         0,
     );
-    assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(event_id, "count"),
-        0,
-    );
+    assert_counter(runner.program().read_variable(&format!("{event}.count")), 0);
 
     runner
-        .engine_mut()
-        .expect("a program on the bytecode engine")
-        .write_global("trigger", Value::Bool(true))
+        .program_mut()
+        .write_variable("trigger", &Value::Bool(true))
         .unwrap();
     clock.advance(Duration::from_millis(10));
     runner.tick().unwrap();
 
     assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(periodic_id, "count"),
+        runner.program().read_variable(&format!("{periodic}.count")),
         1,
     );
-    assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(event_id, "count"),
-        1,
-    );
+    assert_counter(runner.program().read_variable(&format!("{event}.count")), 1);
 
     runner
-        .engine_mut()
-        .expect("a program on the bytecode engine")
-        .write_global("trigger", Value::Bool(false))
+        .program_mut()
+        .write_variable("trigger", &Value::Bool(false))
         .unwrap();
     clock.advance(Duration::from_millis(10));
     runner.tick().unwrap();
 
     assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(periodic_id, "count"),
+        runner.program().read_variable(&format!("{periodic}.count")),
         2,
     );
-    assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(event_id, "count"),
-        1,
-    );
+    assert_counter(runner.program().read_variable(&format!("{event}.count")), 1);
 }
 
 #[test]
@@ -161,24 +139,17 @@ x := 1 / 0;
 END_PROGRAM
 "#;
 
-    let runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let (runtime, metrics) = with_metrics(source);
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
     clock.advance(Duration::from_millis(15));
     runner.tick().unwrap();
-    assert_eq!(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .task_overrun_count("Fast"),
-        Some(2)
-    );
+    assert_eq!(overruns(&metrics, "Fast"), Some(2));
 
     runner
-        .engine_mut()
-        .expect("a program on the bytecode engine")
-        .write_global("fault_trigger", Value::Bool(true))
+        .program_mut()
+        .write_variable("fault_trigger", &Value::Bool(true))
         .unwrap();
     let err = runner.tick().unwrap_err();
     assert!(matches!(err, RuntimeError::DivisionByZero));
@@ -203,65 +174,33 @@ END_VAR
 count := count + 1;
 END_PROGRAM
 "#;
-    let runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let (runtime, metrics) = with_metrics(source);
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
-    let program = match runner
-        .engine()
-        .expect("a program on the bytecode engine")
-        .storage()
-        .get_global("P")
-    {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected P instance, got {other:?}"),
-    };
+    let program = "P";
 
     clock.set_time(Duration::from_millis(10));
     runner.tick().unwrap();
     assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(program, "count"),
+        runner.program().read_variable(&format!("{program}.count")),
         1,
     );
 
     clock.set_time(Duration::from_millis(2));
     runner.tick().unwrap();
     assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(program, "count"),
+        runner.program().read_variable(&format!("{program}.count")),
         1,
     );
-    assert_eq!(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .task_overrun_count("Fast"),
-        Some(0)
-    );
+    assert_eq!(overruns(&metrics, "Fast"), Some(0));
 
     clock.set_time(Duration::from_millis(20));
     runner.tick().unwrap();
     assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(program, "count"),
+        runner.program().read_variable(&format!("{program}.count")),
         2,
     );
-    assert_eq!(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .task_overrun_count("Fast"),
-        Some(0)
-    );
+    assert_eq!(overruns(&metrics, "Fast"), Some(0));
 }
 
 #[test]
@@ -279,37 +218,19 @@ END_VAR
 count := count + 1;
 END_PROGRAM
 "#;
-    let runtime = TestHarness::from_source(source).unwrap().into_runtime();
+    let (runtime, metrics) = with_metrics(source);
     let clock = ManualClock::new();
     let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
-    let program = match runner
-        .engine()
-        .expect("a program on the bytecode engine")
-        .storage()
-        .get_global("P")
-    {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected P instance, got {other:?}"),
-    };
+    let program = "P";
 
     clock.set_time(Duration::from_millis(55));
     runner.tick().unwrap();
 
     assert_counter(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .storage()
-            .get_instance_var(program, "count"),
+        runner.program().read_variable(&format!("{program}.count")),
         1,
     );
-    assert_eq!(
-        runner
-            .engine()
-            .expect("a program on the bytecode engine")
-            .task_overrun_count("Fast"),
-        Some(4)
-    );
+    assert_eq!(overruns(&metrics, "Fast"), Some(4));
 }
 
 #[test]
@@ -342,22 +263,21 @@ END_PROGRAM
 "#;
 
         let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
-        let debug = runtime.enable_debug();
+        let debug = DebugControl::new();
+        runtime.set_debug_control(debug.clone());
         let clock = ManualClock::new();
         let mut runner = ResourceRunner::new(runtime, clock.clone(), Duration::from_millis(1));
 
         runner.tick().unwrap();
         runner
-            .engine_mut()
-            .expect("a program on the bytecode engine")
-            .write_global("trigger", Value::Bool(true))
+            .program_mut()
+            .write_variable("trigger", &Value::Bool(true))
             .unwrap();
         clock.advance(Duration::from_millis(10));
         runner.tick().unwrap();
         runner
-            .engine_mut()
-            .expect("a program on the bytecode engine")
-            .write_global("trigger", Value::Bool(false))
+            .program_mut()
+            .write_variable("trigger", &Value::Bool(false))
             .unwrap();
         clock.advance(Duration::from_millis(10));
         runner.tick().unwrap();

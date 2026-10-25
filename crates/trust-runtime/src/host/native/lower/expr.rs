@@ -1,5 +1,6 @@
 //! Expressions (IEC §7.3.2; specification 05; specification 44 §6.5, §6.6): literals, names,
-//! operators and their checks, the implicit conversions of an assignment or an operand, and texts.
+//! operators and their checks, and the implicit conversions of an assignment or an operand; texts
+//! are lowered in `text`.
 
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
@@ -8,77 +9,6 @@ use crate::harness::literal_text;
 use crate::native::types::{Elem, Kind, Ty};
 use crate::native::NativeError;
 use crate::value::Value;
-
-/// A part of a text: a literal's bytes or a string's value, as `CONCAT` and an assignment take it.
-pub(super) enum Text {
-    Bytes(Vec<u8>),
-    /// A reference to a `Str<N>` and its capacity `N`.
-    Str {
-        reference: String,
-        capacity: u32,
-    },
-}
-
-impl Text {
-    pub(super) fn piece(&self) -> String {
-        match self {
-            Self::Bytes(bytes) => format!("lib::Piece::Bytes({})", byte_string(bytes)),
-            Self::Str { reference, .. } => format!("lib::Piece::Str(({reference}).view())"),
-        }
-    }
-
-    /// The most bytes the part can hold.
-    pub(super) fn capacity(&self) -> u32 {
-        match self {
-            Self::Bytes(bytes) => u32::try_from(bytes.len()).unwrap_or(u32::MAX),
-            Self::Str { capacity, .. } => *capacity,
-        }
-    }
-}
-
-/// `parts` with adjacent literals joined into one: a text of literals only is then one byte
-/// string, written by a call that takes it, and no array of pieces holds a pointer to a literal. A
-/// constant array would be promoted to a static whose pointers a position-independent module could
-/// reach only through relocations, which a module has none of (specification 44 §5.3).
-fn joined(parts: &[Text]) -> Vec<Text> {
-    let mut joined: Vec<Text> = Vec::with_capacity(parts.len());
-    for part in parts {
-        if let (Some(Text::Bytes(last)), Text::Bytes(bytes)) = (joined.last_mut(), part) {
-            last.extend_from_slice(bytes);
-            continue;
-        }
-        joined.push(match part {
-            Text::Bytes(bytes) => Text::Bytes(bytes.clone()),
-            Text::Str {
-                reference,
-                capacity,
-            } => Text::Str {
-                reference: reference.clone(),
-                capacity: *capacity,
-            },
-        });
-    }
-    joined
-}
-
-/// The longest text a string function or a concatenation may give, in bytes (specification 07
-/// §8.1): a longer literal text is concatenated, which refuses it as the runtime does.
-const MAX_TEXT_BYTES: usize = 65_535;
-
-/// `bytes` as a Rust byte string literal.
-pub(in crate::native) fn byte_string(bytes: &[u8]) -> String {
-    let mut out = String::from("b\"");
-    for byte in bytes {
-        match byte {
-            b'"' => out.push_str("\\\""),
-            b'\\' => out.push_str("\\\\"),
-            0x20..=0x7e => out.push(char::from(*byte)),
-            other => out.push_str(&format!("\\x{other:02x}")),
-        }
-    }
-    out.push('"');
-    out
-}
 
 /// The rank of a scalar type among the types an operand may widen to (IEC §6.4.2, Table 11's
 /// implicit conversions): a wider type of the same family ranks higher.
@@ -120,6 +50,15 @@ impl Lowerer<'_, '_> {
         {
             return self.literal(node, target);
         }
+        // Arithmetic of untyped literals alone is computed in the type of where it goes, as each of
+        // its literals would be (specification 05 §5.2.1): `(16 * 45 + 1) / 2` given to an `INT`
+        // is 360, never an overflow of the smallest type of 16.
+        if let Some(elem) = self.info(target).scalar()
+            && (elem.is_integer() || elem.is_real())
+            && untyped_arithmetic(node, elem.is_real())
+        {
+            return self.scalar_typed(node, target);
+        }
         let ty = self.type_of(node)?;
         let value = self.scalar_typed(node, ty)?;
         self.convert(node, &value, ty, target)
@@ -132,8 +71,10 @@ impl Lowerer<'_, '_> {
             );
         }
         match node.kind() {
+            // The parenthesis has its inner expression's type, or the type of where untyped
+            // literal arithmetic goes.
             SyntaxKind::ParenExpr => match node.children().next() {
-                Some(inner) => self.scalar(&inner),
+                Some(inner) => self.scalar_to(&inner, ty),
                 None => Err(self.unsupported(node, "an empty parenthesis")),
             },
             SyntaxKind::Literal => self.literal(node, ty),
@@ -148,6 +89,9 @@ impl Lowerer<'_, '_> {
                 if let Some(value) = self.enum_value(node, ty) {
                     return Ok(value);
                 }
+                if let Some((base, access)) = self.partial_access(node) {
+                    return self.partial_read(node, &base, access, ty);
+                }
                 if let Some(value) = self.string_element(node)? {
                     return Ok(value);
                 }
@@ -161,8 +105,49 @@ impl Lowerer<'_, '_> {
             SyntaxKind::BinaryExpr => self.binary(node, ty),
             SyntaxKind::UnaryExpr => self.unary(node, ty),
             SyntaxKind::CallExpr => self.call_scalar(node, ty),
+            SyntaxKind::SizeOfExpr => self.size_of(node, ty),
             other => Err(self.unsupported(node, format!("the expression {other:?}"))),
         }
+    }
+
+    /// `SIZEOF(operand)` (specification 29 §1): the byte count of the type trust-hir resolved its
+    /// operand to, a constant of the target the program is built for, as a value of `ty`.
+    fn size_of(&mut self, node: &SyntaxNode, ty: Ty) -> Result<String, NativeError> {
+        let Some(operand) = node
+            .children()
+            .find(|child| child.kind() == SyntaxKind::TypeRef || child.kind().is_expression_node())
+        else {
+            return Err(self.unsupported(node, "SIZEOF without an operand"));
+        };
+        let Some(hir) = self.src.type_of(&operand) else {
+            return Err(self.unsupported(node, "SIZEOF of an operand without a type"));
+        };
+        let symbols = self.src.analysis.symbols.clone();
+        let bytes = self
+            .model
+            .types
+            .size_of_hir(&symbols, hir, self.pointer_bytes)?;
+        let Some(elem) = self.info(ty).scalar() else {
+            return Err(self.unsupported(node, "SIZEOF as a value that is no scalar"));
+        };
+        let fits = match elem.rust() {
+            "i8" => i8::try_from(bytes).is_ok(),
+            "i16" => i16::try_from(bytes).is_ok(),
+            "i32" => i32::try_from(bytes).is_ok(),
+            "i64" => i64::try_from(bytes).is_ok(),
+            "u8" => u8::try_from(bytes).is_ok(),
+            "u16" => u16::try_from(bytes).is_ok(),
+            "u32" => u32::try_from(bytes).is_ok(),
+            "u64" => true,
+            _ => false,
+        };
+        if !fits || !(elem.is_signed() || elem.is_unsigned()) {
+            return Err(self.unsupported(
+                node,
+                format!("SIZEOF of {bytes} bytes as a {}", elem.name()),
+            ));
+        }
+        Ok(format!("{bytes}{}", elem.rust()))
     }
 
     /// The reference value of `node` (IEC §6.4.4.10): `NULL`, `REF(variable)`, or a variable or a
@@ -185,26 +170,28 @@ impl Lowerer<'_, '_> {
                 None => Err(self.unsupported(node, "an empty parenthesis")),
             },
             SyntaxKind::Literal if is_null(node) => Ok("abi::RefValue::NULL_REF".into()),
-            SyntaxKind::CallExpr if is_ref_call(node) => {
+            SyntaxKind::CallExpr if reference_call(node).is_some() => {
+                // `REF` gives a reference, `ADR` a pointer, to the variable (specification 02 §4.2).
+                let kind = reference_call(node).unwrap_or("VARIABLE");
                 let Some(variable) = node
                     .children()
                     .find(|child| child.kind() == SyntaxKind::ArgList)
                     .and_then(|list| list.children().find(|arg| arg.kind() == SyntaxKind::Arg))
                     .and_then(|arg| arg.children().last())
                 else {
-                    return Err(self.unsupported(node, "REF without its variable"));
+                    return Err(self.unsupported(node, "REF or ADR without its variable"));
                 };
-                let place = match self.object_place(&variable) {
-                    Some(place) => place?,
-                    None => self.place(&variable)?,
+                self.refer(node, &variable, target, kind)
+            }
+            // `ADR(variable)` with `ADR` as its keyword: a pointer to the variable.
+            SyntaxKind::AddrExpr => {
+                let Some(variable) = node
+                    .children()
+                    .find(|child| super::is_expression(child.kind()))
+                else {
+                    return Err(self.unsupported(node, "ADR without its variable"));
                 };
-                let variable = match target {
-                    Some(target) => self.as_type(node, &place, target)?,
-                    None => place.reference(),
-                };
-                Ok(self.bind(&format!(
-                    "w.areas.refer(cx, {variable}, abi::RefValue::VARIABLE)?"
-                )))
+                self.refer(node, &variable, target, "POINTER")
             }
             SyntaxKind::NameRef
             | SyntaxKind::FieldExpr
@@ -220,8 +207,34 @@ impl Lowerer<'_, '_> {
         }
     }
 
+    /// A reference of kind `kind`, `VARIABLE` or `POINTER`, to `variable`, as a reference to
+    /// `target` when given (specification 02 §4.2).
+    fn refer(
+        &mut self,
+        node: &SyntaxNode,
+        variable: &SyntaxNode,
+        target: Option<Ty>,
+        kind: &str,
+    ) -> Result<String, NativeError> {
+        let place = match self.object_place(variable) {
+            Some(place) => place?,
+            None => self.place(variable)?,
+        };
+        // A reference to a function block or class instance names the instance, so that its
+        // class can be asked (§6.4).
+        let kind = if kind == "VARIABLE" && self.info(place.ty).kind.is_instance() {
+            "INSTANCE"
+        } else {
+            kind
+        };
+        let variable = self.as_type(node, &place, target.unwrap_or(place.ty))?;
+        Ok(self.bind(&format!(
+            "w.areas.refer(cx, {variable}, abi::RefValue::{kind})?"
+        )))
+    }
+
     /// Whether `node` is a reference: `NULL` or a value of a reference or an interface type.
-    fn is_reference(&mut self, node: &SyntaxNode) -> bool {
+    pub(super) fn is_reference(&mut self, node: &SyntaxNode) -> bool {
         if is_null(node) {
             return true;
         }
@@ -242,7 +255,7 @@ impl Lowerer<'_, '_> {
         if !matches!(symbol.kind, trust_hir::SymbolKind::EnumValue { .. }) {
             return None;
         }
-        let Kind::Enum { base, values } = &self.info(ty).kind else {
+        let Kind::Enum { base, values, .. } = &self.info(ty).kind else {
             return None;
         };
         let value = values
@@ -412,8 +425,8 @@ impl Lowerer<'_, '_> {
             K::Eq | K::Neq | K::Lt | K::LtEq | K::Gt | K::GtEq => {
                 let a = self.type_of(&left)?;
                 let b = self.type_of(&right)?;
-                if matches!(self.info(a).kind, Kind::Str(_))
-                    || matches!(self.info(b).kind, Kind::Str(_))
+                if matches!(self.info(a).kind, Kind::Str(_) | Kind::WStr(_))
+                    || matches!(self.info(b).kind, Kind::Str(_) | Kind::WStr(_))
                 {
                     return self.compare_texts(node, &left, &right, op);
                 }
@@ -429,6 +442,35 @@ impl Lowerer<'_, '_> {
                     _ => ">=",
                 };
                 Ok(format!("({a} {sign} {b})"))
+            }
+            K::KwAnd | K::Ampersand | K::KwOr if self.info(ty).scalar() == Some(Elem::Bool) => {
+                // `AND`, `&` and `OR` of BOOL stop once the left operand decides: the right one
+                // then runs nothing, no call, fault, read or write (specification 05, rule 4).
+                let and = op != K::KwOr;
+                let a = self.scalar_to(&left, ty)?;
+                let mark = self.out.len();
+                self.indent += 1;
+                let b = self.scalar_to(&right, ty);
+                self.indent -= 1;
+                let b = b?;
+                let body = self.out.split_off(mark);
+                if body.is_empty() {
+                    let sign = if and { "&&" } else { "||" };
+                    return Ok(format!("({a} {sign} {b})"));
+                }
+                let result = self.temp();
+                self.line(&format!("let {result}: bool;"));
+                self.line(&format!("if {}({a}) {{", if and { "" } else { "!" }));
+                self.out.push_str(&body);
+                self.indent += 1;
+                self.line(&format!("{result} = {b};"));
+                self.indent -= 1;
+                self.line("} else {");
+                self.indent += 1;
+                self.line(&format!("{result} = {};", !and));
+                self.indent -= 1;
+                self.line("}");
+                Ok(result)
             }
             K::KwAnd | K::Ampersand | K::KwOr | K::KwXor => {
                 let a = self.scalar_to(&left, ty)?;
@@ -516,7 +558,20 @@ impl Lowerer<'_, '_> {
         let Some(elem) = self.info(ty).scalar() else {
             return Err(self.unsupported(node, "a literal that is no scalar"));
         };
-        let value = self.literal_value(node, ty)?;
+        // A named value (`Signal#High`) where its type's base goes, an integer, is the number its
+        // own type gives the name (IEC §6.4.4.3).
+        let named = node
+            .descendants_with_tokens()
+            .any(|element| element.kind() == SyntaxKind::Ident);
+        let own = if named && !matches!(self.info(ty).kind, Kind::Enum { .. }) {
+            self.type_of(node)
+                .ok()
+                .filter(|own| matches!(self.info(*own).kind, Kind::Enum { .. }))
+                .unwrap_or(ty)
+        } else {
+            ty
+        };
+        let value = self.literal_value(node, own)?;
         let rust = elem.rust();
         Ok(match value {
             Literal::Bool(value) if elem == Elem::Bool => value.to_string(),
@@ -568,6 +623,15 @@ impl Lowerer<'_, '_> {
                 }
                 format!("{code}{rust}")
             }
+            // A `WCHAR` written as a one-character `WSTRING` literal: one code unit.
+            Literal::WText(units) if elem == Elem::WChar => {
+                let [unit] = units.as_slice() else {
+                    return Err(
+                        self.unsupported(node, "a character literal of other than one character")
+                    );
+                };
+                format!("{unit}{rust}")
+            }
             _ => {
                 return Err(self.unsupported(node, format!("a literal of type {}", elem.name())));
             }
@@ -575,7 +639,7 @@ impl Lowerer<'_, '_> {
     }
 
     /// The value a literal's tokens spell, for type `ty` (its enumeration values).
-    fn literal_value(&self, node: &SyntaxNode, ty: Ty) -> Result<Literal, NativeError> {
+    pub(super) fn literal_value(&self, node: &SyntaxNode, ty: Ty) -> Result<Literal, NativeError> {
         let mut negative = false;
         let mut typed = None;
         let mut result = None;
@@ -626,6 +690,14 @@ impl Lowerer<'_, '_> {
                             .into_bytes(),
                     ));
                 }
+                SyntaxKind::WideStringLiteral => {
+                    result = Some(Literal::WText(
+                        literal_text::string(text, true)
+                            .map_err(error)?
+                            .encode_utf16()
+                            .collect(),
+                    ));
+                }
                 SyntaxKind::Ident => {
                     let Kind::Enum { values, .. } = &self.info(ty).kind else {
                         return Err(self.unsupported(
@@ -664,129 +736,6 @@ impl Lowerer<'_, '_> {
         } else {
             value
         })
-    }
-
-    /// The text of `node` as parts: a literal, a string, a string function's result.
-    pub(super) fn text(&mut self, node: &SyntaxNode) -> Result<Vec<Text>, NativeError> {
-        match node.kind() {
-            SyntaxKind::ParenExpr => match node.children().next() {
-                Some(inner) => self.text(&inner),
-                None => Err(self.unsupported(node, "an empty parenthesis")),
-            },
-            SyntaxKind::Literal => {
-                let ty = self.type_of(node)?;
-                match self.literal_value(node, ty)? {
-                    Literal::Text(bytes) => Ok(vec![Text::Bytes(bytes)]),
-                    _ => Err(self.unsupported(node, "a literal that is no text")),
-                }
-            }
-            SyntaxKind::NameRef
-            | SyntaxKind::FieldExpr
-            | SyntaxKind::IndexExpr
-            | SyntaxKind::DerefExpr => {
-                let place = self.place(node)?;
-                self.text_of(node, &place)
-            }
-            SyntaxKind::CallExpr => self.call_text(node),
-            other => Err(self.unsupported(node, format!("the text expression {other:?}"))),
-        }
-    }
-
-    /// The text `place`, a `STRING`, holds.
-    pub(super) fn text_of(
-        &self,
-        node: &SyntaxNode,
-        place: &Place,
-    ) -> Result<Vec<Text>, NativeError> {
-        match self.info(place.ty).kind {
-            Kind::Str(capacity) => Ok(vec![Text::Str {
-                reference: place.reference(),
-                capacity,
-            }]),
-            _ => Err(self.unsupported(node, "a value that is no STRING where a text is needed")),
-        }
-    }
-
-    /// `place := value` for a `STRING` place: the text cut at the place's capacity.
-    pub(super) fn store_text(
-        &mut self,
-        place: &Place,
-        value: &SyntaxNode,
-    ) -> Result<(), NativeError> {
-        let written = self.text(value)?;
-        let parts = joined(&written);
-        let target = place.reference();
-        match parts.as_slice() {
-            // A literal is cut to the capacity; literals concatenated past the longest text are
-            // refused as the concatenation refuses them.
-            [Text::Bytes(bytes)] if written.len() == 1 || bytes.len() <= MAX_TEXT_BYTES => {
-                self.line(&format!(
-                    "lib::assign_bytes(({target}).view(), {});",
-                    byte_string(bytes)
-                ));
-            }
-            [Text::Str {
-                reference: source, ..
-            }] => {
-                self.line(&format!(
-                    "lib::assign(({target}).view(), ({source}).view());"
-                ));
-            }
-            _ => {
-                let pieces: Vec<String> = parts.iter().map(Text::piece).collect();
-                self.line(&format!(
-                    "lib::concat(cx, ({target}).view(), &[{}])?;",
-                    pieces.join(", ")
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    /// `parts` written into a fresh temporary `STRING[capacity]`, whose reference is returned.
-    pub(super) fn text_temp(&mut self, parts: &[Text], capacity: u32) -> String {
-        let temp = self.temp();
-        self.line(&format!("let {temp} = Str::<{capacity}>::new();"));
-        let written = parts.len();
-        let parts = joined(parts);
-        if let [Text::Bytes(bytes)] = parts.as_slice()
-            && (written == 1 || bytes.len() <= MAX_TEXT_BYTES)
-        {
-            self.line(&format!(
-                "lib::assign_bytes({temp}.view(), {});",
-                byte_string(bytes)
-            ));
-            return format!("&{temp}");
-        }
-        let pieces: Vec<String> = parts.iter().map(Text::piece).collect();
-        self.line(&format!(
-            "lib::concat(cx, {temp}.view(), &[{}])?;",
-            pieces.join(", ")
-        ));
-        format!("&{temp}")
-    }
-
-    fn compare_texts(
-        &mut self,
-        node: &SyntaxNode,
-        left: &SyntaxNode,
-        right: &SyntaxNode,
-        op: SyntaxKind,
-    ) -> Result<String, NativeError> {
-        let (a, _) = self.text_ref(left)?;
-        let (b, _) = self.text_ref(right)?;
-        let ordering = match op {
-            SyntaxKind::Eq => "== core::cmp::Ordering::Equal",
-            SyntaxKind::Neq => "!= core::cmp::Ordering::Equal",
-            SyntaxKind::Lt => "== core::cmp::Ordering::Less",
-            SyntaxKind::Gt => "== core::cmp::Ordering::Greater",
-            SyntaxKind::LtEq => "!= core::cmp::Ordering::Greater",
-            SyntaxKind::GtEq => "!= core::cmp::Ordering::Less",
-            _ => return Err(self.unsupported(node, "this comparison of texts")),
-        };
-        Ok(format!(
-            "(lib::compare(({a}).view(), ({b}).view()) {ordering})"
-        ))
     }
 
     /// The value of `node` as an aggregate of type `ty`: a place, or a function's result.
@@ -831,12 +780,21 @@ pub(super) fn is_null(node: &SyntaxNode) -> bool {
             .any(|element| element.kind() == SyntaxKind::KwNull)
 }
 
-/// Whether `node` is the call `REF(variable)`.
-fn is_ref_call(node: &SyntaxNode) -> bool {
-    node.children()
+/// The kind of reference the call `node` takes of its variable: `VARIABLE` for `REF(variable)`,
+/// `POINTER` for `ADR(variable)`; `None` for another call.
+pub(super) fn reference_call(node: &SyntaxNode) -> Option<&'static str> {
+    let callee = node
+        .children()
         .next()
-        .filter(|callee| callee.kind() == SyntaxKind::NameRef)
-        .is_some_and(|callee| super::call::ident(&callee).eq_ignore_ascii_case("REF"))
+        .filter(|callee| callee.kind() == SyntaxKind::NameRef)?;
+    let name = super::call::ident(&callee);
+    if name.eq_ignore_ascii_case("REF") {
+        Some("VARIABLE")
+    } else if name.eq_ignore_ascii_case("ADR") {
+        Some("POINTER")
+    } else {
+        None
+    }
 }
 
 /// A literal's value.
@@ -851,6 +809,8 @@ pub(super) enum Literal {
     /// A date, a time of day or a date and time: its type and its value.
     DateTime(Elem, i64),
     Text(Vec<u8>),
+    /// The UTF-16 code units of a `WSTRING` literal.
+    WText(Vec<u16>),
     Enum(i64),
 }
 
@@ -870,6 +830,60 @@ fn date_time(value: Value) -> Option<Literal> {
 
 /// Whether `node` is a literal with a sign, `-273.15` or `+5`: a unary minus or plus of a literal,
 /// whose tokens `literal_value` reads with the sign.
+/// Whether `node` is arithmetic of untyped numeric literals alone, through parentheses, signs and
+/// `+ - * / MOD`: integer literals, and real ones too when `reals` (specification 05 §5.2.1).
+fn untyped_arithmetic(node: &SyntaxNode, reals: bool) -> bool {
+    let tokens = || {
+        node.descendants_with_tokens()
+            .filter_map(|element| element.into_token())
+    };
+    match node.kind() {
+        SyntaxKind::Literal => {
+            tokens().all(|token| token.kind() != SyntaxKind::TypedLiteralPrefix)
+                && tokens().any(|token| {
+                    token.kind() == SyntaxKind::IntLiteral
+                        || (reals && token.kind() == SyntaxKind::RealLiteral)
+                })
+                && tokens().all(|token| {
+                    token.kind().is_trivia()
+                        || matches!(
+                            token.kind(),
+                            SyntaxKind::IntLiteral | SyntaxKind::RealLiteral | SyntaxKind::Minus
+                        )
+                })
+        }
+        SyntaxKind::ParenExpr => node
+            .children()
+            .next()
+            .is_some_and(|inner| untyped_arithmetic(&inner, reals)),
+        SyntaxKind::UnaryExpr => {
+            matches!(
+                super::effects::operator(node),
+                Some(SyntaxKind::Minus | SyntaxKind::Plus)
+            ) && node
+                .children()
+                .next()
+                .is_some_and(|operand| untyped_arithmetic(&operand, reals))
+        }
+        SyntaxKind::BinaryExpr => {
+            matches!(
+                super::effects::operator(node),
+                Some(
+                    SyntaxKind::Plus
+                        | SyntaxKind::Minus
+                        | SyntaxKind::Star
+                        | SyntaxKind::Slash
+                        | SyntaxKind::KwMod
+                )
+            ) && node.children().count() == 2
+                && node
+                    .children()
+                    .all(|operand| untyped_arithmetic(&operand, reals))
+        }
+        _ => false,
+    }
+}
+
 pub(super) fn signed_literal(node: &SyntaxNode) -> bool {
     node.kind() == SyntaxKind::UnaryExpr
         && node

@@ -76,6 +76,33 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
         self.checker.record_expression_type(node, type_id)
     }
 
+    /// An enumeration's typed literal names one of its values (IEC 61131-3 §6.4.4.2, Table 11):
+    /// `Color#Blue` of a `Color` that declares `Blue`; a number after the prefix is a typed number
+    /// of a type with named values, which this does not check.
+    fn check_enumeration_literal(&mut self, node: &SyntaxNode, type_name: &str, type_id: TypeId) {
+        let resolved = self.checker.resolve_alias_type(type_id);
+        let Some(Type::Enum { values, .. }) = self.checker.symbols.type_by_id(resolved) else {
+            return;
+        };
+        let text = node.text().to_string();
+        let Some((_, value_text)) = text.split_once('#') else {
+            return;
+        };
+        let value = value_text.rsplit('.').next().unwrap_or("").trim();
+        if !value.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            || values
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case(value))
+        {
+            return;
+        }
+        self.checker.diagnostics.error(
+            DiagnosticCode::CannotResolve,
+            node.text_range(),
+            format!("invalid typed literal: {value} is no value of {type_name}"),
+        );
+    }
+
     fn infer_literal(&mut self, node: &SyntaxNode) -> TypeId {
         // Check for typed literal prefix (e.g., DINT#123)
         for token in node
@@ -91,10 +118,13 @@ impl<'a, 'b> ExprChecker<'a, 'b> {
                 return type_id;
             }
             // A type of the scope, a namespace a USING directive names included (IEC §6.9.4).
-            if let Some(type_id) = self.checker.resolve_ref().resolve_type_by_name(type_name) {
-                return type_id;
-            }
-            if let Some(type_id) = self.checker.symbols.lookup_registered_type_name(type_name) {
+            let named = self
+                .checker
+                .resolve_ref()
+                .resolve_type_by_name(type_name)
+                .or_else(|| self.checker.symbols.lookup_registered_type_name(type_name));
+            if let Some(type_id) = named {
+                self.check_enumeration_literal(node, type_name, type_id);
                 return type_id;
             }
             return self.checker.legacy_diagnostic_type(

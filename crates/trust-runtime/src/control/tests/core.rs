@@ -1,5 +1,16 @@
 #[test]
 fn breakpoints_set_accepts_project_relative_source_path() {
+    // Specification 13, "Source Mapping" rule 4 and "SetBreakpoints"; specification 11 §6.13.3,
+    // "File identity"; specification 44 §13.2: a compiled program's breakpoints resolve through the
+    // file labels of its image, and `trust-runtime build` labels a project's file by its path
+    // relative to the project root (specification 44 §5.3). A request names the file by a path that
+    // is its label or ends with it after a `/`, and the reply names the file by the index of its
+    // entry in the image's file table. Worked: the one file, labelled `src/main.st`, is file 0; the
+    // project-relative `src/main.st` and the absolute `<root>/src/main.st` both bind it, and the
+    // zero-based line 5 resolves to its statement `run := NOT run;` at line 5, column 0;
+    // `lib/main.st` ends with no label and is refused with `unknown source path`.
+    // Wrong behaviour caught: a project-relative path that does not bind, a file numbered by
+    // anything but its table index, and a path bound to a file whose label it does not end with.
     let source = r#"
 PROGRAM Main
 VAR
@@ -8,35 +19,54 @@ END_VAR
 run := NOT run;
 END_PROGRAM
 "#;
-    let mut state = hmi_test_state(source);
+    let state = hmi_test_state(source);
+    // The program as the project's build labels it, on the debugger that the control state asks.
+    let mut runtime =
+        crate::CompiledRuntime::load(labelled_program_image("src/main.st", source), "RESOURCE")
+            .expect("the labelled image loads");
+    runtime.set_debug_control(state.debug.clone());
     let project_root = std::env::temp_dir().join("trust-breakpoints-project-relative");
-    state.project_root = Some(project_root.clone());
-    state.sources = SourceRegistry::new(vec![SourceFile {
-        id: 1,
-        path: project_root.join("src").join("main.st"),
-        text: source.to_string(),
-    }]);
+    let absolute = project_root.join("src").join("main.st");
 
-    let response = handle_request_value(
+    for path in ["src/main.st", absolute.to_str().expect("a UTF-8 path")] {
+        let response = handle_request_value(
+            json!({
+                "id": 101,
+                "type": "breakpoints.set",
+                "params": { "source": path, "lines": [5] }
+            }),
+            &state,
+            None,
+        );
+        assert!(
+            response.ok,
+            "the breakpoint source {path} should bind: {:?}",
+            response.error
+        );
+        let result = response.result.expect("breakpoint result");
+        assert_eq!(
+            result.get("file_id").and_then(serde_json::Value::as_u64),
+            Some(0),
+            "{path}"
+        );
+        assert_eq!(
+            result["resolved"],
+            json!([{ "line": 5, "column": 0 }]),
+            "{path}"
+        );
+    }
+
+    let unknown = handle_request_value(
         json!({
-            "id": 101,
+            "id": 102,
             "type": "breakpoints.set",
-            "params": { "source": "src/main.st", "lines": [6] }
+            "params": { "source": "lib/main.st", "lines": [5] }
         }),
         &state,
         None,
     );
-
-    assert!(
-        response.ok,
-        "project-relative breakpoint source should bind: {:?}",
-        response.error
-    );
-    let result = response.result.expect("breakpoint result");
-    assert_eq!(
-        result.get("file_id").and_then(serde_json::Value::as_u64),
-        Some(1)
-    );
+    assert!(!unknown.ok, "a path that ends with no label binds no file");
+    assert_eq!(unknown.error.as_deref(), Some("unknown source path"));
 }
 
 #[test]
@@ -4657,24 +4687,18 @@ END_PROGRAM
     let status = handle_request_value(json!({"id": 30, "type": "status"}), &state, None);
     assert!(status.ok, "status should succeed: {:?}", status.error);
     let result = status.result_value().expect("status result");
+    // Every runtime runs compiled programs (specification 44 §15).
     assert_eq!(
         result
             .get("execution_backend")
             .and_then(serde_json::Value::as_str),
-        Some("vm")
+        Some("native")
     );
     assert_eq!(
         result
             .get("execution_backend_source")
             .and_then(serde_json::Value::as_str),
         Some("default")
-    );
-    assert_eq!(
-        result
-            .get("metrics")
-            .and_then(|metrics| metrics.get("execution_backend"))
-            .and_then(serde_json::Value::as_str),
-        Some("vm")
     );
 }
 
@@ -5165,7 +5189,7 @@ END_PROGRAM
         result
             .get("execution_backend")
             .and_then(serde_json::Value::as_str),
-        Some("vm")
+        Some("native")
     );
     assert_eq!(
         result

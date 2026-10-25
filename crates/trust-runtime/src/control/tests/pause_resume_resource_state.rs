@@ -41,7 +41,6 @@ fn resource_state_fixture(
 #[test]
 fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
     use crate::config::ControlMode;
-    use crate::debug::ControlAction;
     use crate::scheduler::ResourceState;
     for mode in [ControlMode::Production, ControlMode::Debug] {
         for (resource, reason) in [
@@ -54,7 +53,7 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
             let label = format!("{mode:?} {resource:?}");
             let (state, cmd_rx) = resource_state_fixture(mode, resource);
             // A debugger hold that a refused resume must leave in place.
-            let _ = state.debug.apply_action(ControlAction::Pause(None));
+            debugger_pause(&state.debug);
 
             for (id, kind) in [(1, "pause"), (2, "resume")] {
                 let response = handle_request_value(json!({"id": id, "type": kind}), &state, None);
@@ -71,7 +70,7 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
                 );
             }
             assert!(
-                state.debug.is_paused(),
+                debugger_holds(&state.debug),
                 "{label}: a refused resume releases no debugger hold"
             );
             assert!(
@@ -99,7 +98,6 @@ fn faulted_or_stopped_resource_refuses_pause_and_resume_and_changes_nothing() {
 #[test]
 fn scheduler_that_no_longer_accepts_commands_refuses_without_reporting_success() {
     use crate::config::ControlMode;
-    use crate::debug::ControlAction;
     use crate::scheduler::ResourceState;
     // The resource reports running, but its command receiver is gone: the runner thread
     // has exited without updating the state.
@@ -117,7 +115,7 @@ fn scheduler_that_no_longer_accepts_commands_refuses_without_reporting_success()
         Some("resource is running and its scheduler does not accept commands")
     );
 
-    let _ = state.debug.apply_action(ControlAction::Pause(None));
+    debugger_pause(&state.debug);
     let resumed = handle_request_value(json!({"id": 2, "type": "resume"}), &state, None);
     assert!(
         !resumed.ok,
@@ -125,7 +123,7 @@ fn scheduler_that_no_longer_accepts_commands_refuses_without_reporting_success()
     );
     assert_eq!(resumed.error_code.as_deref(), Some("resource_not_running"));
     assert!(
-        state.debug.is_paused(),
+        debugger_holds(&state.debug),
         "a resume the scheduler cannot take releases no debugger hold"
     );
 }
@@ -151,7 +149,7 @@ fn healthy_resource_keeps_today_replies_and_scheduler_commands_in_both_modes() {
             "{label}: pause reply"
         );
         assert_eq!(
-            state.debug.is_paused(),
+            debugger_holds(&state.debug),
             !production,
             "{label}: only debug mode holds the scan on pause"
         );
@@ -167,7 +165,10 @@ fn healthy_resource_keeps_today_replies_and_scheduler_commands_in_both_modes() {
             Some(json!({"status": "running"})),
             "{label}: resume reply"
         );
-        assert!(!state.debug.is_paused(), "{label}: resume releases a hold");
+        assert!(
+            !debugger_holds(&state.debug),
+            "{label}: resume releases a hold"
+        );
 
         let sent: Vec<&str> = cmd_rx
             .try_iter()

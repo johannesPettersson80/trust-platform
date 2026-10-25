@@ -1,5 +1,7 @@
 //! Spec 34 §4.3 HOST-05 (line 353): a stalled reader of the control thread's
 //! health sink cannot hold a scan beyond a bounded wait.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 #![cfg(feature = "full")]
 
 use std::{
@@ -7,15 +9,15 @@ use std::{
     thread,
     time::Duration as WallDuration,
 };
-use trust_runtime::harness::CompileSession;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Duration;
 
 /// Spec 34 §4.3 HOST-05 (line 353): a control cycle completes while a status reader holds the health sink. EXPECTED-FAIL: `update_health` takes a blocking `sink.lock()` (runtime/io_subsystem.rs:198).
 #[test]
 fn stalled_health_reader_cannot_hold_the_control_cycle() {
-    let mut runtime = CompileSession::from_source("PROGRAM Main END_PROGRAM")
-        .build_runtime()
-        .expect("source admits");
+    let mut runtime = TestHarness::from_source("PROGRAM Main END_PROGRAM")
+        .expect("source admits")
+        .into_runtime();
     let sink = Arc::new(Mutex::new(Vec::new()));
     runtime.set_io_health_sink(Some(Arc::clone(&sink)));
 

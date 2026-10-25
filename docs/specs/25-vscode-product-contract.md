@@ -947,8 +947,8 @@ is specific to boards.
   runtime reports them. A host is a chip when one of its runtimes reports, as
   the `platform` of its `status`, the name of a chip of truST's chip files
   (specification 34 TARGET-03): the frame is then headed by the chip's model
-  and address, such as `STM32F407 192.168.10.31`, its platform reads
-  `STM32F407 chip`, and its runtimes have the chip icon.
+  and address, such as `STM32U5A9 192.168.10.31`, its platform reads
+  `STM32U5A9 chip`, and its runtimes have the chip icon.
 - A container that holds one runtime is drawn as a chip on that runtime's
   card; only a container with several runtimes is drawn as a frame. Both keep
   their inspector.

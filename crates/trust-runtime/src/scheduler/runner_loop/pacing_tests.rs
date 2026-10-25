@@ -1,5 +1,6 @@
 //! The cycle grid of the hosted scheduler (specification 10 §4.3; specification 34 CYCLE-03): a
-//! wake that comes late does not move the next cycle.
+//! wake that comes late does not move the next cycle. The tests build a program, which needs the
+//! toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -29,9 +30,9 @@ fn a_late_wake_does_not_move_the_cycle_grid() {
     // after each 10 ms boundary, never later. Catches pacing one interval after the cycle's
     // start, which drifts 1 ms per cycle (0, 11, 22, 33 ms) and loses a 10 ms activation every
     // ten cycles.
-    let runtime = crate::RuntimeBuilder::new()
-        .build()
-        .expect("admit runner fixture");
+    let runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("build the runner fixture")
+        .into_runtime();
     let runner = ResourceRunner::new(runtime, LateClock::default(), Duration::from_millis(10));
     let stop = Arc::new(AtomicBool::new(false));
     let state = Arc::new(Mutex::new(ResourceState::Boot));
@@ -71,9 +72,9 @@ fn a_restart_begins_the_cycle_grid_again_at_its_first_cycle() {
     // and 51 ms), whose first cycle after the restart's comes less than an interval after the
     // restart, before the restarted tasks are due (the transcript of
     // `runner_transcript_parity.rs`, 23 October 2026).
-    let runtime = crate::RuntimeBuilder::new()
-        .build()
-        .expect("admit runner fixture");
+    let runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("build the runner fixture")
+        .into_runtime();
     let restart = Arc::new(Mutex::new(None));
     let runner = ResourceRunner::new(runtime, LateClock::default(), Duration::from_millis(10))
         .with_restart_signal(Arc::clone(&restart));
@@ -119,9 +120,9 @@ fn a_start_after_a_stop_begins_the_cycle_grid_again_at_its_first_cycle() {
     // that keeps the grid of the program it stopped (41 and 51 ms) or the boundary of the last cycle
     // before the stop, which a long stop puts in the past and which then starts a second cycle at
     // once after the first.
-    let runtime = crate::RuntimeBuilder::new()
-        .build()
-        .expect("admit runner fixture");
+    let runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("build the runner fixture")
+        .into_runtime();
     let restart = Arc::new(Mutex::new(None));
     let runner = ResourceRunner::new(runtime, LateClock::default(), Duration::from_millis(10))
         .with_restart_signal(Arc::clone(&restart));

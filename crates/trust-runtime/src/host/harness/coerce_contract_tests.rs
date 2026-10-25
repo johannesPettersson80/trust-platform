@@ -348,9 +348,16 @@ fn harness_coerce_contract_character_arity_is_checked() {
 }
 
 #[test]
-fn harness_coerce_contract_char_rejects_non_ascii_scalar() {
+fn harness_coerce_contract_char_takes_latin_1_and_rejects_above_u00ff() {
+    // Specification 02 §6: a `CHAR` holds U+0000 to U+00FF, so `å` (U+00E5) is the CHAR 229, and
+    // `€` (U+20AC) is out of range. A seven-bit rule would refuse `å`; a rule without a bound would
+    // take `€`.
+    assert_eq!(
+        coerce_value_to_type(Value::String("å".into()), TypeId::CHAR).unwrap(),
+        Value::Char(229)
+    );
     assert_compile_error(
-        coerce_value_to_type(Value::String("å".into()), TypeId::CHAR),
+        coerce_value_to_type(Value::String("€".into()), TypeId::CHAR),
         "char range",
     );
 }

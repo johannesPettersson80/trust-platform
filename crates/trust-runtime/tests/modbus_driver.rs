@@ -1,3 +1,10 @@
+//! The Modbus TCP I/O driver against a test server: register functions, point maps, error policies
+//! and the safe-state handoff.
+//!
+//! The safe-state tests run a program and need the toolchain of specification 44 §4.6 at
+//! `TRUST_TOOLCHAIN`.
+
+use std::net::SocketAddr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -10,11 +17,66 @@ use modbus_support::{
     start_closing_modbus_server, start_delayed_modbus_server, start_modbus_server, ModbusTestState,
 };
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState, ModbusTcpDriver};
 use trust_runtime::value::Value;
-use trust_runtime::RuntimeBuilder;
+use trust_runtime::CompiledRuntime;
 
 const MODBUS_CI_SCAN_BOUND: StdDuration = StdDuration::from_millis(150);
+
+/// A program with an output word at `%QW0`, so the output image has the two bytes the safe state
+/// writes.
+const OUTPUT_WORD: &str = "
+VAR_GLOBAL
+    word_out AT %QW0 : WORD;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+";
+
+/// A runtime of [`OUTPUT_WORD`] whose safe state writes `0x1234` to `%QW0`, through a Modbus
+/// driver to the test server at `addr`.
+fn safe_state_runtime(addr: SocketAddr) -> CompiledRuntime {
+    let params: toml::Value = toml::from_str(&format!(
+        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
+    ))
+    .expect("params");
+    let mut runtime = TestHarness::from_source(OUTPUT_WORD)
+        .expect("the output word program compiles")
+        .into_runtime();
+    let mut safe_state = IoSafeState::default();
+    safe_state.outputs.push((
+        IoAddress::parse("%QW0").expect("safe-state output word"),
+        Value::Word(0x1234),
+    ));
+    runtime.set_io_safe_state(safe_state);
+    runtime.add_io_driver(
+        "modbus-safe-state",
+        Box::new(ModbusTcpDriver::from_params(&params).expect("driver")),
+    );
+    runtime
+}
+
+/// Waits up to 500 ms for the server's first holding register to hold `0x3412`, the safe state's
+/// word on the wire; `what` says what a timeout means.
+fn await_safe_state_word(state: &Mutex<ModbusTestState>, what: &str) {
+    let deadline = Instant::now() + StdDuration::from_millis(500);
+    loop {
+        let value = state
+            .lock()
+            .expect("modbus state lock")
+            .holding_registers
+            .first()
+            .copied()
+            .unwrap_or(0);
+        if value == 0x3412 {
+            return;
+        }
+        assert!(Instant::now() < deadline, "{what}, got 0x{value:04x}");
+        thread::sleep(StdDuration::from_millis(5));
+    }
+}
 
 #[test]
 fn modbus_driver_reads_and_writes_default_register_functions() {
@@ -825,23 +887,7 @@ fn modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery() {
         vec![0u16; 1],
     )));
     let addr = start_delayed_modbus_server(Arc::clone(&state), delay);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(0, 2, 0);
-    let mut safe_state = IoSafeState::default();
-    safe_state.outputs.push((
-        IoAddress::parse("%QW0").expect("safe-state output word"),
-        Value::Word(0x1234),
-    ));
-    let mut runtime = runtime.build().expect("install declared test runtime");
-    runtime.set_io_safe_state(safe_state);
-    runtime.add_io_driver(
-        "modbus-safe-state",
-        Box::new(ModbusTcpDriver::from_params(&params).expect("driver")),
-    );
+    let mut runtime = safe_state_runtime(addr);
 
     let started = Instant::now();
     runtime
@@ -854,24 +900,10 @@ fn modbus_safe_state_handoff_succeeds_when_worker_confirms_delivery() {
         "confirmed safe-state output handoff must remain bounded, elapsed={elapsed:?}"
     );
 
-    let deadline = Instant::now() + StdDuration::from_millis(500);
-    loop {
-        let value = state
-            .lock()
-            .expect("modbus state lock")
-            .holding_registers
-            .first()
-            .copied()
-            .unwrap_or(0);
-        if value == 0x3412 {
-            break;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "safe-state output should eventually reach the delayed Modbus device, got 0x{value:04x}"
-        );
-        thread::sleep(StdDuration::from_millis(5));
-    }
+    await_safe_state_word(
+        &state,
+        "safe-state output should eventually reach the delayed Modbus device",
+    );
 }
 
 #[test]
@@ -882,23 +914,7 @@ fn modbus_safe_state_handoff_reports_unconfirmed_worker_delivery() {
         vec![0u16; 1],
     )));
     let addr = start_delayed_modbus_server(Arc::clone(&state), delay);
-    let params: toml::Value = toml::from_str(&format!(
-        "address = \"{addr}\"\nunit_id = 1\ninput_start = 0\noutput_start = 0\ntimeout_ms = 1000\non_error = \"warn\"\n"
-    ))
-    .expect("params");
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(0, 2, 0);
-    let mut safe_state = IoSafeState::default();
-    safe_state.outputs.push((
-        IoAddress::parse("%QW0").expect("safe-state output word"),
-        Value::Word(0x1234),
-    ));
-    let mut runtime = runtime.build().expect("install declared test runtime");
-    runtime.set_io_safe_state(safe_state);
-    runtime.add_io_driver(
-        "modbus-safe-state",
-        Box::new(ModbusTcpDriver::from_params(&params).expect("driver")),
-    );
+    let mut runtime = safe_state_runtime(addr);
 
     let started = Instant::now();
     let error = runtime
@@ -916,24 +932,10 @@ fn modbus_safe_state_handoff_reports_unconfirmed_worker_delivery() {
         "expected named unconfirmed Modbus safe-state error, got {error}"
     );
 
-    let deadline = Instant::now() + StdDuration::from_millis(500);
-    loop {
-        let value = state
-            .lock()
-            .expect("modbus state lock")
-            .holding_registers
-            .first()
-            .copied()
-            .unwrap_or(0);
-        if value == 0x3412 {
-            break;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "a later delivery must not erase the earlier unconfirmed result, got 0x{value:04x}"
-        );
-        thread::sleep(StdDuration::from_millis(5));
-    }
+    await_safe_state_word(
+        &state,
+        "a later delivery must not erase the earlier unconfirmed result",
+    );
 }
 
 #[test]

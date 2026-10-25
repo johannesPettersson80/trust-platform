@@ -108,10 +108,10 @@ fn runtime_generation_preserves_existing_artifacts_when_sources_fail_to_compile(
     wizard::create_bundle_auto(Some(root.clone())).expect("create initial bundle");
     let runtime_path = root.join("runtime.toml");
     let config_path = root.join("src").join("config.st");
-    let bytecode_path = root.join("program.stbc");
+    let image_path = root.join(trust_runtime::native::PROGRAM_IMAGE_FILE);
     let runtime_before = std::fs::read(&runtime_path).expect("read original runtime.toml");
     let config_before = std::fs::read(&config_path).expect("read original config.st");
-    let bytecode_before = std::fs::read(&bytecode_path).expect("read original bytecode");
+    let image_before = std::fs::read(&image_path).expect("read original program image");
     std::fs::write(root.join("src").join("main.st"), "PROGRAM Main\nBROKEN")
         .expect("write malformed source");
 
@@ -131,8 +131,8 @@ fn runtime_generation_preserves_existing_artifacts_when_sources_fail_to_compile(
         config_before
     );
     assert_eq!(
-        std::fs::read(&bytecode_path).expect("read retained bytecode"),
-        bytecode_before
+        std::fs::read(&image_path).expect("read retained program image"),
+        image_before
     );
     let _ = std::fs::remove_dir_all(root);
 }
@@ -220,9 +220,8 @@ END_FUNCTION
         root.join("io.toml").is_file() || trust_runtime::config::system_io_config_path().is_file(),
         "automatic setup requires project or system I/O configuration"
     );
-    let bytecode = std::fs::read(root.join("program.stbc")).expect("read compiled bytecode");
-    let module = trust_runtime::bytecode::BytecodeModule::decode(&bytecode)
-        .expect("decode migrated bytecode");
-    module.validate().expect("validate migrated bytecode");
+    let image = std::fs::read(root.join(trust_runtime::native::PROGRAM_IMAGE_FILE))
+        .expect("read the built program image");
+    trust_runtime::native::admit_on_this_computer(&image).expect("admit the migrated program");
     let _ = std::fs::remove_dir_all(root);
 }

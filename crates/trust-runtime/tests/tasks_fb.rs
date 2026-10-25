@@ -1,3 +1,7 @@
+//! A function block instance that a task runs on its own (IEC 61131-3 §6.8.2, `fb WITH T`).
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
@@ -32,29 +36,20 @@ END_CONFIGURATION
 "#;
 
     let mut harness = TestHarness::from_source(source).unwrap();
-    let program_id = match harness.runtime().storage().get_global("P1") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected program instance, got {other:?}"),
-    };
-    let fb_id = match harness
-        .runtime()
-        .storage()
-        .get_instance_var(program_id, "fb")
-    {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected FB instance, got {other:?}"),
-    };
-
     {
         let runtime = harness.runtime_mut();
         runtime
-            .write_instance(fb_id, "IN", Value::Bool(true))
+            .write_variable("P1.fb.IN", &Value::Bool(true))
             .unwrap();
-        runtime.write_global("trigger", Value::Bool(true)).unwrap();
+        runtime
+            .write_variable("trigger", &Value::Bool(true))
+            .unwrap();
     }
 
     harness.cycle();
 
-    let out = harness.runtime().storage().get_instance_var(fb_id, "OUT");
-    assert_eq!(out, Some(&Value::Bool(true)));
+    assert_eq!(
+        harness.runtime().read_variable("P1.fb.OUT"),
+        Ok(Value::Bool(true))
+    );
 }

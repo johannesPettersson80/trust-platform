@@ -1,55 +1,13 @@
 //! Specification 11 §6.7 and specification 34 §10 (bounded-C slice C5-2): the retain capture that a
 //! computer and a chip share.
 //!
-//! The corpus `retain` fixture is the artifact: `VAR_GLOBAL RETAIN counter : DINT := DINT#0;
-//! setpoint : REAL := REAL#20.0;` and the program `Retained`, instantiated as `Plant`, with
-//! `runs : DINT` and `label : STRING[12] := 'boiler'`, all advanced by one 10 ms scan per cycle.
-//!
-//! The capture is checked at the boundary the engine gives it: a hook stages the engine's
-//! pre-output-sample checkpoint into the shared capture through `CycleAccess::capture_retain`, so
-//! the staged STRN v3 payload holds the finished scan's values and not a value a later host write
-//! changed. The rule is checked against the decisions the hosted `RetainManager` made before the
-//! rule moved into the capture.
-
-use std::cell::RefCell;
-use std::rc::Rc;
+//! The staged STRN v3 payload is checked against the codec's bytes, and the due rule against the
+//! decisions the hosted `RetainManager` made before the rule moved into the capture.
 
 use trust_runtime_core::{
-    error::RuntimeError,
     retain::{capture::RetainCapture, codec::encode_snapshot, RetainSnapshot},
     value::{Duration, Value},
-    vm::{CycleAccess, CycleHooks, CyclePhase, PreparationLimits, PreparedModule},
 };
-
-const RETAIN_BYTES: &[u8] =
-    include_bytes!("../../trust-runtime/tests/fixtures/bounded-c/retain/program.stbc");
-
-/// Captures the finished scan at the pre-output-sample checkpoint, then a late host write at
-/// `AfterOutputSample` changes a retained value the capture must not include.
-struct Boundary {
-    capture: Rc<RefCell<RetainCapture>>,
-    late_write: bool,
-}
-
-impl CycleHooks for Boundary {
-    fn on_phase(
-        &mut self,
-        phase: CyclePhase,
-        access: &mut CycleAccess<'_, '_>,
-    ) -> Result<(), RuntimeError> {
-        match phase {
-            CyclePhase::BeforeOutputSample => {
-                access.capture_retain(&mut self.capture.borrow_mut())?;
-            }
-            CyclePhase::AfterOutputSample => {
-                access.write_named_path("counter", &[], Value::DInt(99))?;
-                self.late_write = true;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-}
 
 /// The STRN v3 payload the codec writes for `entries`, the bytes a capture must stage.
 fn payload_of(entries: &[(&str, Value)]) -> Vec<u8> {
@@ -64,7 +22,7 @@ fn payload_of(entries: &[(&str, Value)]) -> Vec<u8> {
     bytes
 }
 
-/// Stage `entries` as a capture's payload, as the engine's capture appends them.
+/// Stage `entries` as a capture's payload, as a capture appends them.
 fn stage(capture: &mut RetainCapture, entries: &[(&str, Value)]) {
     let mut snapshot = RetainSnapshot::default();
     for (name, value) in entries {
@@ -77,48 +35,6 @@ fn stage(capture: &mut RetainCapture, entries: &[(&str, Value)]) {
         capture.staged_payload(),
         payload_of(entries).as_slice(),
         "staging the values writes the codec's payload"
-    );
-}
-
-/// Specification 11 §6.7 and specification 34 §10: the platform's capture is taken at the
-/// established pre-output-sample checkpoint, so it holds the values of the finished scan — here the
-/// first scan's `counter = 1` — and not the value a later host write changed.
-#[test]
-fn capture_is_taken_at_before_output_sample() {
-    let prepared = PreparedModule::from_bytes(RETAIN_BYTES, PreparationLimits::default())
-        .expect("the shared admission accepts the corpus retain fixture");
-    let mut state = prepared
-        .instantiate(0)
-        .expect("the corpus retain fixture constructs");
-    let capture = Rc::new(RefCell::new(RetainCapture::new()));
-    let mut hooks = Boundary {
-        capture: Rc::clone(&capture),
-        late_write: false,
-    };
-    state
-        .execute_cycle_with_hooks(Duration::from_millis(10), &mut hooks)
-        .expect("the first scan succeeds");
-    assert!(
-        hooks.late_write,
-        "the late host write runs after the checkpoint"
-    );
-
-    // Worked out by hand from the corpus fixture: two retained globals and the program `Retained`
-    // instantiated as `Plant` with two retained variables, each advanced once by the first scan.
-    let expected = payload_of(&[
-        ("counter", Value::DInt(1)),
-        ("setpoint", Value::Real(20.5)),
-        ("@program/Plant/runs", Value::DInt(1)),
-        ("@program/Plant/label", Value::String("boiler".into())),
-    ]);
-    assert_eq!(
-        capture.borrow().staged_payload(),
-        expected.as_slice(),
-        "the checkpoint holds the finished scan's values, not the later host write"
-    );
-    assert_eq!(
-        state.storage().get_global("counter"),
-        Some(&Value::DInt(99))
     );
 }
 

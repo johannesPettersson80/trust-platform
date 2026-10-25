@@ -3,25 +3,18 @@
 //!
 //! The shared request module ([`crate::debug::requests`]) parses a request and builds its reply.
 //! It reads and changes the debugger through [`Debugger`], and this module implements that over the
-//! loop: the state of reads is the storage the program owns, between scans or lent by the hold, and
-//! the frames of the call stack are named from the prepared program on the way, so nothing is
-//! copied (specification 11 §6.13.1).
+//! loop: the state of reads is the memory the program owns, between scans or lent by the hold, so
+//! nothing is copied (specification 11 §6.13.1; specification 44 §13.2).
 
-use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
-use trust_runtime_core::bytecode::StorageRole;
 use trust_runtime_core::debug::StatementSpan;
-use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::memory::FrameId;
-use trust_runtime_core::vm::{PreparedModule, StatementFrame};
 
 use super::host::RunnerHost;
 use super::RunnerPlatform;
 use crate::debug::logpoint::LogRecord;
 use crate::debug::projection::DebugVariableHandles;
-use crate::debug::reads::{NamedFrame, ReadState};
-use crate::debug::replies::NO_SNAPSHOT;
 use crate::debug::{
     BreakpointOptions, BreakpointView, Debugger, LineSources, Span, StepKind, StopRecord,
 };
@@ -29,34 +22,7 @@ use crate::live_values::io_requests::IoSnapshotRead;
 
 impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
     fn sources(&self) -> Option<&LineSources> {
-        #[cfg(feature = "native")]
-        if let Some(view) = self.program.compiled_state() {
-            return view.sources;
-        }
-        self.program.debug_state()?.sources
-    }
-
-    /// The halted state while the debugger holds the scan; between scans the storage of the last
-    /// scan that ended, with no call stack, once a scan has ended (specification 11 §6.13.1).
-    fn read_state(&self) -> Result<ReadState<'_>, String> {
-        let view = self
-            .program
-            .debug_state()
-            .ok_or_else(|| String::from(NO_SNAPSHOT))?;
-        let Some(frame) = view.frame else {
-            if !self.debug.published() {
-                return Err(String::from(NO_SNAPSHOT));
-            }
-            return Ok(ReadState {
-                storage: view.storage,
-                frames: Vec::new(),
-            });
-        };
-        let frames = named_frames(view.prepared, frame).map_err(|error| error.to_string())?;
-        Ok(ReadState {
-            storage: view.storage,
-            frames,
-        })
+        self.program.compiled_state()?.sources
     }
 
     fn io_snapshot(&self) -> IoSnapshotRead {
@@ -113,7 +79,6 @@ impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
 
     /// A compiled release image has no statement hooks (specification 44 §13.2).
     fn undebuggable(&self) -> Option<&'static str> {
-        #[cfg(feature = "native")]
         if self
             .program
             .compiled_state()
@@ -124,86 +89,15 @@ impl<P: RunnerPlatform, C> Debugger for RunnerHost<'_, P, C> {
         None
     }
 
-    /// A compiled program's memory once a scan has ended, as the interpreter's state is read
-    /// (specification 11 §6.13.1; specification 44 §13.2).
-    #[cfg(feature = "native")]
+    /// The program's memory while a scan is held or once a scan has ended (specification 11
+    /// §6.13.1; specification 44 §13.2).
     fn program_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
         let view = self.program.compiled_state()?;
         (self.debug.published() || self.debug.is_held()).then_some(view.memory)
     }
 
-    /// A compiled program's debugger evaluates compiled expressions (specification 11 §6.13.2).
+    /// The debugger evaluates the compiled debug expressions (specification 11 §6.13.2).
     fn evaluates_expressions(&self) -> bool {
-        #[cfg(feature = "native")]
-        {
-            self.program.compiled_state().is_some()
-        }
-        #[cfg(not(feature = "native"))]
-        {
-            false
-        }
+        self.program.compiled_state().is_some()
     }
-}
-
-/// The frames of the call stack of `frame`, outermost first, each with its locals named from the
-/// prepared program: the declarations of the frame's POU give each slot its name. The compiler's
-/// scratch slots are skipped and take their slots, so the rest keep their positions. Nothing is
-/// copied: the names are the program's and the values are the frames' own.
-///
-/// # Errors
-///
-/// [`RuntimeError::InvalidExecutionState`] when a frame names no POU, or its declarations do not
-/// cover its slots exactly.
-fn named_frames<'a>(
-    prepared: &'a PreparedModule,
-    frame: StatementFrame<'a>,
-) -> Result<Vec<NamedFrame<'a>>, RuntimeError> {
-    let strings = prepared.strings();
-    let mut frames = Vec::new();
-    for invocation in frame.call_stack() {
-        let Some(id) = invocation.activation() else {
-            continue;
-        };
-        let pou = invocation
-            .pou_id()
-            .ok_or(RuntimeError::InvalidExecutionState)?;
-        let owner = prepared
-            .pou_name(pou)
-            .ok_or(RuntimeError::InvalidExecutionState)?;
-        let locals = invocation.locals();
-        let mut variables = Vec::new();
-        let mut next_slot = 0_usize;
-        for declaration in prepared.frame_declarations(pou) {
-            let slot = usize::try_from(declaration.slot)
-                .map_err(|_| RuntimeError::InvalidExecutionState)?;
-            if slot != next_slot {
-                return Err(RuntimeError::InvalidExecutionState);
-            }
-            if declaration.role == StorageRole::Scratch {
-                let nodes = usize::try_from(declaration.construction_nodes)
-                    .map_err(|_| RuntimeError::InvalidExecutionState)?;
-                next_slot = slot.checked_add(nodes).ok_or(RuntimeError::Overflow)?;
-                continue;
-            }
-            let name = usize::try_from(declaration.name_idx)
-                .ok()
-                .and_then(|index| strings.get(index))
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            let value = locals
-                .get(slot)
-                .ok_or(RuntimeError::InvalidExecutionState)?;
-            variables.push((name, value));
-            next_slot = slot + 1;
-        }
-        if next_slot != locals.len() {
-            return Err(RuntimeError::InvalidExecutionState);
-        }
-        frames.push(NamedFrame {
-            id,
-            owner,
-            instance: invocation.runtime_instance(),
-            variables,
-        });
-    }
-    Ok(frames)
 }

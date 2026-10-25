@@ -176,7 +176,7 @@ impl AgentServer {
                     "lsp.diagnostics and lsp.format reuse the in-process Web IDE analysis/formatting services.",
                     "lsp.ast_canonicalize and lsp.ast_similarity expose the canonical AST 5-gram normalization path used by contamination and dedup tooling.",
                     "runtime.compile_reload returns diagnostics plus build/reload status for iterative repair loops.",
-                    "runtime.reload rebuilds program.stbc and sends bytecode.reload to the configured control endpoint.",
+                    "runtime.reload rebuilds program.tpi and sends it with bytecode.reload to the configured control endpoint.",
                     "harness.execute runs a fresh deterministic fixture session and reports pass/fail plus reduced failure context for benchmark/datagen callers.",
                     "Source-aware attached-session reload flows remain future work.",
                 ],
@@ -409,8 +409,8 @@ impl AgentServer {
             .transpose()?;
         let build = crate::build::build_json_payload(Some(project_root.clone()), sources_root)
             .map_err(AgentCommandError::from_anyhow)?;
-        let program_path = project_root.join("program.stbc");
-        let bytecode = fs::read(&program_path).map_err(|error| {
+        let program_path = project_root.join(trust_runtime::native::PROGRAM_IMAGE_FILE);
+        let image = fs::read(&program_path).map_err(|error| {
             AgentCommandError::io(
                 format!("failed to read '{}': {error}", program_path.display()),
                 json!({
@@ -424,7 +424,7 @@ impl AgentServer {
             params.token,
             "bytecode.reload",
             Some(json!({
-                "bytes": BASE64_STANDARD.encode(bytecode),
+                "bytes": BASE64_STANDARD.encode(image),
             })),
         )
         .map_err(AgentCommandError::from_anyhow)?;

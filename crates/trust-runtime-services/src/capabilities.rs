@@ -36,7 +36,7 @@ pub fn capabilities<H: StatusPort>(id: u64, host: &H) -> ControlResponse {
 )]
 pub fn descriptor_json(descriptor: &DeviceDescriptor, last_reset: Option<&LastReset>) -> Value {
     json!({
-        "bytecode_versions": bytecode_versions_json(descriptor),
+        "program_versions": program_versions_json(descriptor),
         "scheduling_profiles": descriptor
             .scheduling_profiles
             .iter()
@@ -58,11 +58,11 @@ pub fn descriptor_json(descriptor: &DeviceDescriptor, last_reset: Option<&LastRe
     })
 }
 
-/// The STBC versions the device prepares, each `<major>.<minor>`.
-fn bytecode_versions_json(descriptor: &DeviceDescriptor) -> Value {
+/// The program formats the device runs, each `<major>.<minor>` (specification 44 §10.1).
+fn program_versions_json(descriptor: &DeviceDescriptor) -> Value {
     Value::Array(
         descriptor
-            .bytecode_versions
+            .program_versions
             .iter()
             .map(|version| Value::String(format!("{}.{}", version.major, version.minor)))
             .collect(),

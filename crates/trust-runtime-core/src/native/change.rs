@@ -43,9 +43,48 @@ use super::image::{
 };
 use super::memory::ProgramMemory;
 use super::values::{damaged, Types};
-use crate::bytecode::BYTECODE_MAX_TYPE_NESTING;
 use crate::error::RuntimeError;
-use crate::vm::{CarriedValueEvent, MAX_CARRIED_VALUE_EVENTS};
+use crate::native::values::MAX_TYPE_NESTING;
+
+/// The most variables an online change records an event for; the others are counted in one more
+/// event, so that the change takes a bounded amount of memory for them.
+pub const MAX_CARRIED_VALUE_EVENTS: usize = 32;
+
+/// What an online change did with the value of one variable of the new program that does not go
+/// on with the running program's value as it was (specification 34 §11.3, specification 44 §12.2).
+/// `name` is the variable's path: `total`, `Plant.motor.speed`, `Plant.table[3]`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CarriedValueEvent {
+    /// The running program declares no such variable at this place: it starts with its declared
+    /// initial value.
+    New {
+        /// The variable's path.
+        name: SmolStr,
+    },
+    /// Its declaration changed, and the running value was converted to the new type, which holds it.
+    Converted {
+        /// The variable's path.
+        name: SmolStr,
+    },
+    /// Its declaration changed, and the new type does not hold the running value: it starts with
+    /// its declared initial value.
+    NotKept {
+        /// The variable's path.
+        name: SmolStr,
+    },
+    /// A reference or interface value whose target the new program does not have, or has with
+    /// another type: it is NULL.
+    Cleared {
+        /// The variable's path.
+        name: SmolStr,
+    },
+    /// The number of further variables, beyond [`MAX_CARRIED_VALUE_EVENTS`], that did not go on
+    /// with their running values as they were.
+    More {
+        /// How many.
+        count: usize,
+    },
+}
 
 mod fit;
 mod plan;
@@ -405,7 +444,7 @@ impl Walk<'_, '_, '_> {
 
     /// The running program's value at `old` into the new program's place `new`, by their types.
     fn value(&mut self, old: Node, new: Node, depth: usize) -> Result<(), RuntimeError> {
-        if depth > BYTECODE_MAX_TYPE_NESTING {
+        if depth > MAX_TYPE_NESTING {
             return Err(damaged("type table"));
         }
         let (running, changed) = (self.running, self.changed);

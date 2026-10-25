@@ -29,8 +29,15 @@ const START_TIMEOUT: Duration = Duration::from_secs(30);
 /// Interval between polls. It is shorter than the 50 ms example cycle, so consecutive scans are
 /// seen rather than skipped.
 const POLL: Duration = Duration::from_millis(25);
-/// Entries left out of the copy: bundles from earlier builds and dependency caches.
-const SKIPPED: [&str; 4] = ["program.stbc", "target", ".trust", "node_modules"];
+/// Entries left out of the copy: programs and build folders of earlier builds and dependency caches.
+const SKIPPED: [&str; 6] = [
+    "program.tpi",
+    "deployment-record.bin",
+    "build",
+    "target",
+    ".trust",
+    "node_modules",
+];
 /// Fixed listen addresses in the example projects, by runtime.toml table and key. Each one moves
 /// to a reserved loopback port in the copy. The examples' io.toml files need no change: their only
 /// `address` keys are process-image addresses such as `%QX0.0`, not network ports.
@@ -223,7 +230,7 @@ impl Runtime {
         &self.project
     }
 
-    /// The tutorials' build step. `play` on a folder without `program.stbc` takes the
+    /// The tutorials' build step. `play` on a folder without `program.tpi` takes the
     /// project-creation path instead (run/util.rs, `should_auto_create`), which can rewrite the
     /// copied sources, so the copy is built explicitly first.
     fn build(&self) {
@@ -762,7 +769,7 @@ fn read_log(path: &Path) -> String {
     fs::read_to_string(path).unwrap_or_else(|_| String::from("<not written>"))
 }
 
-/// A program built apart from a running copy: its `program.stbc` and its deployment record.
+/// A program built apart from a running copy: its `program.tpi` and its deployment record.
 pub struct BuiltProgram {
     pub program: Vec<u8>,
     pub record: Vec<u8>,
@@ -792,7 +799,7 @@ pub fn build_program(example: &str, edits: &[(&str, &str, &str)]) -> BuiltProgra
         describe(&output)
     );
     let built = BuiltProgram {
-        program: fs::read(project.join("program.stbc")).expect("read the built program.stbc"),
+        program: fs::read(project.join("program.tpi")).expect("read the built program.tpi"),
         record: fs::read(project.join("deployment-record.bin"))
             .expect("read the built deployment record"),
     };

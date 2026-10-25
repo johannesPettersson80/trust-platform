@@ -1,13 +1,36 @@
-//! Hosted presentation labels survive declared construction and saved-artifact loading.
+//! Hosted presentation labels: each process-image binding of a compiled program is named in the
+//! I/O snapshot by its declared name, a global's or a `VAR_CONFIG` path's (specification 44 §13.3).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+use std::sync::mpsc;
+
 use trust_runtime::{
-    harness::CompileSession,
+    debug::DebugControl,
+    harness::TestHarness,
     io::{IoAddress, IoSnapshotValue},
     value::Value,
-    Runtime, RuntimeBuilder,
 };
 
-fn assert_input(runtime: &Runtime, label: &str) {
-    let snapshot = runtime.io().snapshot();
+/// The I/O snapshot that a scan of `source` publishes with `%IX0.0` TRUE names its one input
+/// `label` and shows it TRUE.
+fn assert_input(source: &str, label: &str) {
+    let mut harness = TestHarness::from_source(source).unwrap();
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    let (sender, snapshots) = mpsc::channel();
+    debug.set_io_sender(sender);
+    let address = IoAddress::parse("%IX0.0").unwrap();
+    harness
+        .runtime_mut()
+        .write_io(&address, Value::Bool(true))
+        .unwrap();
+    harness
+        .runtime_mut()
+        .execute_cycle()
+        .expect("a scan publishes the I/O snapshot");
+    let snapshot = snapshots
+        .try_recv()
+        .expect("the scan published an I/O snapshot");
     assert_eq!(snapshot.inputs.len(), 1);
     assert_eq!(snapshot.inputs[0].name.as_deref(), Some(label));
     assert!(matches!(
@@ -17,33 +40,15 @@ fn assert_input(runtime: &Runtime, label: &str) {
 }
 
 #[test]
-fn manual_named_binding_keeps_its_name_and_value_through_install_and_saved_load() {
-    let mut builder = RuntimeBuilder::new();
-    builder
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "IN0".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: None,
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .unwrap();
-    let address = IoAddress::parse("%IX0.0").unwrap();
-    builder.io_mut().bind("IN0", address.clone());
-    builder.io_mut().write(&address, Value::Bool(true)).unwrap();
-    let runtime = builder.build().unwrap();
-    assert_input(&runtime, "IN0");
-    let module = trust_runtime::bytecode::build_module_from_runtime(&runtime).unwrap();
-    let restored = Runtime::from_bytes(&module.encode().unwrap(), Default::default()).unwrap();
-    assert_input(&restored, "IN0");
+fn global_binding_keeps_its_name_and_value() {
+    assert_input(
+        "VAR_GLOBAL IN0 AT %IX0.0 : BOOL; END_VAR PROGRAM Main END_PROGRAM",
+        "IN0",
+    );
 }
 
 #[test]
-fn configured_symbolic_binding_retains_qualified_path_for_host_and_saved_load() {
+fn configured_symbolic_binding_retains_qualified_path() {
     let source = r#"
 PROGRAM Main
 VAR enabled : BOOL; END_VAR
@@ -53,12 +58,5 @@ PROGRAM P : Main;
 VAR_CONFIG P.enabled AT %IX0.0 : BOOL; END_VAR
 END_CONFIGURATION
 "#;
-    let mut runtime = CompileSession::from_source(source).build_runtime().unwrap();
-    let address = IoAddress::parse("%IX0.0").unwrap();
-    runtime.write_io(&address, Value::Bool(true)).unwrap();
-    assert_input(&runtime, "P.enabled");
-    let module = trust_runtime::bytecode::build_module_from_runtime(&runtime).unwrap();
-    let mut restored = Runtime::from_bytes(&module.encode().unwrap(), Default::default()).unwrap();
-    restored.write_io(&address, Value::Bool(true)).unwrap();
-    assert_input(&restored, "P.enabled");
+    assert_input(source, "P.enabled");
 }

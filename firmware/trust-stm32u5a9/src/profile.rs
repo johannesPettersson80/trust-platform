@@ -1,12 +1,13 @@
 //! The fixed STM32U5A9 profile: the installed application's region and the device descriptor that
-//! admission reads (specification 34, §5.1.1, COMPAT-02 and TARGET-03; design §4.4).
+//! admission reads (specification 34, §5.1.1, COMPAT-02 and TARGET-03; specification 44 §10.2;
+//! design §4.4).
 use trust_platform_stm32u5::memory::MAIN_STACK as MAIN_STACK_REGION;
-use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
-    Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
-    TimingEvidence,
+    Capabilities, DeviceDescriptor, NativeTarget, NumericContract, ProgramVersion, RequestedLimits,
+    SchedulingProfile, TimingEvidence,
 };
-use trust_runtime_services::runner::engine::DeviceStack;
+use trust_runtime_core::native::image::Target;
+use trust_runtime_services::runner::DeviceStack;
 
 /// First byte of the installed application: bank 2 (`[layout] application` of chips/stm32u5a9.toml).
 pub const APPLICATION_BASE: usize = 0x0820_0000;
@@ -16,37 +17,42 @@ pub const APPLICATION_BYTES: usize = 2016 * 1024;
 const CHECKPOINT_A: usize = 0x083F_8000;
 const _: () = assert!(APPLICATION_BASE + APPLICATION_BYTES <= CHECKPOINT_A);
 
-/// The STM32U5A9's main stack (specification 34 MEM-03 and Appendix D.5; owner, 21 October 2026,
-/// "Stack decides"): the 78 KiB at the top of SRAM5. Until this chip's bench measures its own, the
-/// base and the level are the ESP32-C6's measured 34,008 and 6,144 bytes (D.2), so the window holds
-/// the C6's (79,872 − 2,048 − 34,008) / 6,144 = 7 call levels.
+/// The STM32U5A9's main stack (specification 34 MEM-03 and Appendix D.5; specification 44 §8.5): the
+/// 78 KiB at the top of SRAM5. Until this chip's bench measures its own, the base of the firmware's
+/// deepest path is the ESP32-C6's measured 34,008 bytes (D.2).
 pub const MAIN_STACK: DeviceStack = DeviceStack {
     window_bytes: (MAIN_STACK_REGION.end - MAIN_STACK_REGION.start) as usize,
     base_bytes: 34_008,
-    level_bytes: 6_144,
 };
-const _: () = assert!(MAIN_STACK.call_depth() == 7);
+
+/// What the STM32U5A9 offers compiled programs (specification 44 §10.2 and NX-10): the Cortex-M33
+/// module target, whose module runs where its image lies in the internal flash (§10.3); as the task
+/// stack, the main stack's window less its headroom and the firmware's deepest path,
+/// 79,872 − 2,048 − 34,008 = 43,816 bytes; and the default statement budget of 1,000,000.
+pub const NATIVE_TARGET: NativeTarget = NativeTarget {
+    target: Target::ThumbV8mMainHf,
+    task_stack_bytes: MAIN_STACK.task_stack_bytes() as u64,
+    max_statements: 1_000_000,
+};
 
 /// The bytes of the heap the STM32U5A9 keeps free beside a program and its event store: its replies
 /// and the Live Values and services of the program (specification 34 MEM-12, Appendix D.5).
 pub const PROGRAM_MEMORY_RESERVE_BYTES: usize = 8 * 1024;
 
 /// The device descriptor admission reads for the STM32U5A9 (specification 34 §5.1.1, COMPAT-02 and
-/// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
-/// timing evidence (none qualified yet), no platform capability, the hosted maxima of the
-/// preparation limits, its event store and its application slot. The chip has no wall clock until
-/// slice T6, so it supplies no capability and admission refuses a program that calls `CURRENT_DT`.
+/// TARGET-03; specification 44 §10.2): the compiled program image as the only program format, its
+/// scheduling profile and numeric contract, its timing evidence (none qualified yet), no platform
+/// capability, the maxima of the chip file, its event store, its application slot and what it offers
+/// compiled programs ([`NATIVE_TARGET`]). The chip has no wall clock until slice T6, so it supplies no
+/// capability and admission refuses a program that calls `CURRENT_DT`.
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
-    bytecode_versions: &[
-        BytecodeVersion::SOURCE_FREE_V2,
-        BytecodeVersion::SOURCE_FREE,
-    ],
+    program_versions: &[ProgramVersion::NATIVE_IMAGE],
     scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
     numeric_contracts: &[NumericContract::V1],
     timing_evidence: TimingEvidence::UNQUALIFIED,
     capabilities: Capabilities::NONE,
-    // The hosted maxima of `DeviceDescriptor::hosted`: the 64 MiB artifact and 1,024 call levels,
-    // with no maximum for the other limits. On a 32-bit target admission clamps them.
+    // The maxima of the chip file. An image requests the bytes of its process images and 0 for every
+    // other limit (specification 44 §10.1), and its own checks bound it (§10.2).
     maxima: RequestedLimits {
         max_artifact_bytes: 64 * 1024 * 1024,
         max_preparation_bytes: u64::MAX,
@@ -67,5 +73,5 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(APPLICATION_BYTES as u64),
     // Measured at boot, before the program loads (`Platform::set_program_memory`).
     program_memory_bytes: None,
-    native: None,
+    native: Some(NATIVE_TARGET),
 };

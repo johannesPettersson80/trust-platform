@@ -1,5 +1,10 @@
+//! The OPC UA client of a runtime: its points bind the program's globals by the names the VS Code
+//! extension writes.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
-use trust_runtime::opcua::parse_opcua_client_toml;
+use trust_runtime::opcua::{parse_opcua_client_toml, resolve_compiled_opcua_client_bindings};
 
 #[cfg(feature = "opcua-wire")]
 macro_rules! assert_opcua_subscription_api_contract {
@@ -72,7 +77,7 @@ RESOURCE CommRes ON PLC
 END_RESOURCE
 END_CONFIGURATION
 "#;
-    let mut harness = TestHarness::from_source(source).expect("project should compile");
+    let harness = TestHarness::from_source(source).expect("project should compile");
     let config = parse_opcua_client_toml(
         r#"
 [[connections]]
@@ -92,15 +97,11 @@ access = "read"
     )
     .expect("OPC UA client config should parse");
 
-    harness
-        .runtime_mut()
-        .configure_opcua_client(&config)
-        .expect("UI-generated global.X point should bind to runtime storage");
-
-    let status = harness.runtime().opcua_client_status_report();
-    assert_eq!(status.connections.len(), 1);
-    assert_eq!(
-        status.connections[0].points[0].var,
-        "global.ConveyorRunning"
-    );
+    assert_eq!(config.connections.len(), 1);
+    let bindings =
+        resolve_compiled_opcua_client_bindings(harness.runtime(), &config.connections[0])
+            .expect("UI-generated global.X point should bind to the program's global");
+    assert_eq!(bindings.len(), 1);
+    assert_eq!(bindings[0].point.var, "global.ConveyorRunning");
+    assert_eq!(bindings[0].target.name(), "ConveyorRunning");
 }

@@ -2,20 +2,20 @@
 //! the areas as `#[repr(C)]` structures of cells with an assertion of every offset, every POU as a
 //! function, and the entry points the kernel calls.
 
-use std::collections::BTreeSet;
-use std::fmt::Write as _;
+mod bodies;
 
-use smol_str::SmolStr;
+use std::fmt::Write as _;
 
 use super::classes::Owner;
 use super::entries::{entries, reference_initializers, Entry};
 use super::front::{Front, StatementIds};
-use super::lower::{Frame, FrameVar, Lowerer, Need, Place, PRELUDE};
+use super::lower::{FrameVar, Need, PRELUDE};
 use super::model::{AreaLayout, Model};
 use super::recursion::{CallGraph, Recursion};
 use super::types::{mangle, rust_field, Kind, Ty};
 use super::NativeError;
-use crate::program_model::{FunctionDef, MethodDef, Param, VarDef};
+use crate::program_model::{FunctionDef, MethodDef, Param};
+use bodies::{body, BodyContext};
 use trust_runtime_core::native::image::Target;
 
 /// The generated crate and what the image's tables need of it.
@@ -60,59 +60,6 @@ enum Work<'a> {
     FunctionBlock(Ty),
     Method(Owner<'a>, &'a MethodDef, Ty),
     Function(&'a FunctionDef),
-}
-
-/// The source file of a POU: the file whose syntax tree holds its body.
-fn find_pou(
-    front: &Front,
-    kind: trust_syntax::syntax::SyntaxKind,
-    name: &str,
-    owner: Option<&str>,
-) -> Option<(usize, trust_syntax::syntax::SyntaxNode)> {
-    let last = name.rsplit('.').next().unwrap_or(name);
-    for (index, source) in front.sources.iter().enumerate() {
-        for node in source.root.descendants().filter(|node| node.kind() == kind) {
-            let Some(found) = node
-                .children()
-                .find(|child| child.kind() == trust_syntax::syntax::SyntaxKind::Name)
-            else {
-                continue;
-            };
-            if !super::lower::ident_of(&found).eq_ignore_ascii_case(last) {
-                continue;
-            }
-            if let Some(owner) = owner {
-                let owner_last = owner.rsplit('.').next().unwrap_or(owner);
-                let parent = node.ancestors().skip(1).find(|ancestor| {
-                    matches!(
-                        ancestor.kind(),
-                        trust_syntax::syntax::SyntaxKind::FunctionBlock
-                            | trust_syntax::syntax::SyntaxKind::Class
-                    )
-                });
-                let Some(parent) = parent else {
-                    continue;
-                };
-                let Some(parent_name) = parent
-                    .children()
-                    .find(|child| child.kind() == trust_syntax::syntax::SyntaxKind::Name)
-                else {
-                    continue;
-                };
-                if !super::lower::ident_of(&parent_name).eq_ignore_ascii_case(owner_last) {
-                    continue;
-                }
-            }
-            return Some((index, node));
-        }
-    }
-    None
-}
-
-/// The statement list of a POU's body.
-fn body_of(node: &trust_syntax::syntax::SyntaxNode) -> Option<trust_syntax::syntax::SyntaxNode> {
-    node.children()
-        .find(|child| child.kind() == trust_syntax::syntax::SyntaxKind::StmtList)
 }
 
 /// Generates the crate of `model` for `target`, with the calls `recursion` names bounded by the call
@@ -181,8 +128,15 @@ pub(super) fn generate<'a>(
         };
         index += 1;
         let pou = u16::try_from(pous).unwrap_or(u16::MAX);
-        let (text, statements, needs, name, called, frame) =
-            body(front, model, ids, &item, hooks, recursion, pou)?;
+        let context = BodyContext {
+            front,
+            ids,
+            hooks,
+            recursion,
+            pou,
+            pointer_bytes: target.pointer_bytes(),
+        };
+        let (text, statements, needs, name, called, frame) = body(&context, model, &item)?;
         if let Some((pou_frame, layout)) = frame {
             frame_types.push_str(&layout);
             pou_frames.push(pou_frame);
@@ -197,7 +151,7 @@ pub(super) fn generate<'a>(
         functions.push_str(&text);
         for need in needs {
             match need {
-                Need::Virtual(..) | Need::Interface(..) | Need::Body(_) => {
+                Need::Virtual(..) | Need::Interface(..) | Need::Body(_) | Need::Cast(_) => {
                     need.add_to(&mut dispatchers);
                 }
                 other => {
@@ -229,7 +183,7 @@ pub(super) fn generate<'a>(
     areas(&mut source, model, images);
     source.push_str(&functions);
     let references = reference_initializers(front, model)?;
-    let entries = entries(&mut source, model, target, &references);
+    let entries = entries(&mut source, model, target, &references)?;
     source.push_str(
         "\n#[panic_handler]\nfn panic(_: &core::panic::PanicInfo<'_>) -> ! {\n    loop {}\n}\n",
     );
@@ -291,352 +245,9 @@ fn queue<'a>(
     Ok(true)
 }
 
-/// The file and the statement list of `method` of `owner`: a method's body, or a property's `GET`
-/// or `SET`, which the declarations hold as a method named like the property and one named
-/// `__set_<property>`.
-fn method_body(
-    front: &Front,
-    owner: Owner<'_>,
-    method: &MethodDef,
-) -> Option<(usize, Option<trust_syntax::syntax::SyntaxNode>)> {
-    use trust_syntax::syntax::SyntaxKind as K;
-    let accessor = |kind: K, name: &str| {
-        let (file, node) = find_pou(front, K::Property, name, Some(owner.name()))?;
-        let accessor = node.children().find(|child| child.kind() == kind)?;
-        Some((file, body_of(&accessor)))
-    };
-    if let Some(property) = method.name.strip_prefix("__set_") {
-        return accessor(K::PropertySet, property);
-    }
-    if let Some((file, node)) = find_pou(front, K::Method, &method.name, Some(owner.name())) {
-        return Some((file, body_of(&node)));
-    }
-    accessor(K::PropertyGet, &method.name)
-}
-
-/// The Rust of one body, its statements, the POUs it calls, its function's name, the generated
-/// functions it calls and, in a debug image, its frame; its calls that `recursion` names take one
-/// from the call depth. `pou` is the POU's id.
-fn body<'a>(
-    front: &Front,
-    model: &mut Model<'a>,
-    ids: &StatementIds,
-    item: &Work<'a>,
-    hooks: bool,
-    recursion: &Recursion,
-    pou: u16,
-) -> Result<GeneratedBody, NativeError> {
-    use trust_syntax::syntax::SyntaxKind as K;
-    match item {
-        Work::Program(index) => {
-            let (def, rust, rust_retain, name) = {
-                let program = &model.program_types[*index];
-                (
-                    program.def,
-                    program.rust.clone(),
-                    program.rust_retain.clone(),
-                    program.body.clone(),
-                )
-            };
-            let signature = format!(
-                "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{rust}, mr: &{rust_retain}) -> R<()> {{\n",
-            );
-            let Some((file, node)) = find_pou(front, K::Program, &def.name, None) else {
-                return Err(NativeError::Compile(format!(
-                    "program {} has no body",
-                    def.name
-                )));
-            };
-            let source = &front.sources[file];
-            let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Program(*index), hooks);
-            lowerer.pou = pou;
-            lowerer.recursive = recursion.callees_of(&name);
-            declare_locals(&mut lowerer, &def.temps)?;
-            if let Some(list) = body_of(&node) {
-                lowerer.statements(list.children())?;
-            }
-            lowerer.line("Ok(())");
-            let of = PouOf {
-                name: def.name.to_string(),
-                instance: Some(PouInstance::Program(*index)),
-                returns: "()".into(),
-            };
-            Ok(finished(lowerer, &signature, name, of))
-        }
-        Work::FunctionBlock(ty) => {
-            let info = model.types.info(*ty).clone();
-            let Kind::Fb { def, .. } = &info.kind else {
-                return Err(NativeError::Compile(
-                    "a function block without its definition".into(),
-                ));
-            };
-            let Some(Owner::Fb(def)) = model.types.owner(def) else {
-                return Err(NativeError::Compile(format!(
-                    "function block {def} is not declared"
-                )));
-            };
-            let signature = format!(
-                "fn fb_{}(cx: &mut Cx, w: &World<'_>, me: &{}) -> R<()> {{\n",
-                mangle(&def.name),
-                info.rust
-            );
-            let Some((file, node)) = find_pou(front, K::FunctionBlock, &def.name, None) else {
-                return Err(NativeError::Compile(format!(
-                    "function block {} has no body",
-                    def.name
-                )));
-            };
-            let source = &front.sources[file];
-            let name = format!("fb_{}", mangle(&def.name));
-            let mut lowerer =
-                Lowerer::new(model, source, file, ids, Frame::FunctionBlock(*ty), hooks);
-            lowerer.pou = pou;
-            lowerer.recursive = recursion.callees_of(&name);
-            declare_locals(&mut lowerer, &def.temps)?;
-            if let Some(list) = body_of(&node) {
-                lowerer.statements(list.children())?;
-            }
-            lowerer.line("Ok(())");
-            let of = PouOf {
-                name: def.name.to_string(),
-                instance: Some(PouInstance::Block(*ty)),
-                returns: "()".into(),
-            };
-            Ok(finished(lowerer, &signature, name, of))
-        }
-        Work::Method(owner, method, ty) => {
-            let info = model.types.info(*ty).clone();
-            let Some((file, list)) = method_body(front, *owner, method) else {
-                return Err(NativeError::Compile(format!(
-                    "method {}.{} has no body",
-                    owner.name(),
-                    method.name
-                )));
-            };
-            let source = &front.sources[file];
-            let name = method_function(*owner, method);
-            let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Method(*ty), hooks);
-            lowerer.pou = pou;
-            lowerer.recursive = recursion.callees_of(&name);
-            let (parameters, returns) = frame(
-                &mut lowerer,
-                &method.name,
-                method.return_type,
-                &method.params,
-                &method.locals,
-            )?;
-            if !method.static_locals.is_empty() {
-                return Err(NativeError::unsupported(format!(
-                    "VAR_STAT of {}.{}",
-                    owner.name(),
-                    method.name
-                )));
-            }
-            if let Some(list) = list {
-                lowerer.statements(list.children())?;
-            }
-            let exit = lowerer.exit.clone();
-            lowerer.line(&exit);
-            let signature = format!(
-                "fn {name}(cx: &mut Cx, w: &World<'_>, me: &{}{parameters}) -> R<{returns}> {{\n",
-                info.rust
-            );
-            let of = PouOf {
-                name: format!("{}.{}", owner.name(), method.name),
-                instance: Some(PouInstance::Block(*ty)),
-                returns,
-            };
-            Ok(finished(lowerer, &signature, name, of))
-        }
-        Work::Function(def) => {
-            let Some((file, node)) = find_pou(front, K::Function, &def.name, None) else {
-                return Err(NativeError::Compile(format!(
-                    "function {} has no body",
-                    def.name
-                )));
-            };
-            let source = &front.sources[file];
-            let name = format!("f_{}", mangle(&def.name));
-            let mut lowerer = Lowerer::new(model, source, file, ids, Frame::Function, hooks);
-            lowerer.pou = pou;
-            lowerer.recursive = recursion.callees_of(&name);
-            let (parameters, returns) = frame(
-                &mut lowerer,
-                &def.name,
-                Some(def.return_type),
-                &def.params,
-                &def.locals,
-            )?;
-            if !def.static_locals.is_empty() {
-                return Err(NativeError::unsupported(format!(
-                    "VAR_STAT of {}",
-                    def.name
-                )));
-            }
-            if let Some(list) = body_of(&node) {
-                lowerer.statements(list.children())?;
-            }
-            let exit = lowerer.exit.clone();
-            lowerer.line(&exit);
-            let signature =
-                format!("fn {name}(cx: &mut Cx, w: &World<'_>{parameters}) -> R<{returns}> {{\n");
-            let of = PouOf {
-                name: def.name.to_string(),
-                instance: None,
-                returns,
-            };
-            Ok(finished(lowerer, &signature, name, of))
-        }
-    }
-}
-
-/// One body as [`body`] generates it: its Rust, its statements, the POUs it needs, its function's
-/// name, the generated functions it calls and, in a debug image, its POU's frame with the
-/// definition of its frame structure.
-type GeneratedBody = (
-    String,
-    Vec<u32>,
-    Vec<Need>,
-    String,
-    BTreeSet<String>,
-    Option<(PouFrame, String)>,
-);
-
-/// What the frame of a body names: the POU's declared name, the instance it runs on and its
-/// function's result type.
-struct PouOf {
-    name: String,
-    instance: Option<PouInstance>,
-    returns: String,
-}
-
-/// The body `lowerer` wrote, under `signature`, as the function `name`. A body that makes a
-/// recursive call is never inlined, so that no cycle collapses into a call of a function to itself,
-/// which the link keeps no relocation for (specification 44 §6.4, §8.5).
-///
-/// In a debug image the body links its `Frame` into `cx.frame` for the length of the call, a fault's
-/// return too, and its frame variables lie in one structure at the offsets their symbols name
-/// (specification 44 §5.7, §13.2).
-fn finished(lowerer: Lowerer<'_, '_>, signature: &str, name: String, of: PouOf) -> GeneratedBody {
-    let needs = lowerer.needs.clone();
-    let called = lowerer.called.clone();
-    let attribute = if lowerer.recursive.is_empty() {
-        ""
-    } else {
-        "#[inline(never)]\n"
-    };
-    let pou = lowerer.pou;
-    let parts: Option<Vec<(SmolStr, String, u32, u32)>> = lowerer.frame_vars.as_ref().map(|vars| {
-        vars.iter()
-            .map(|var| {
-                let info = lowerer.model.types.info(var.ty);
-                (var.name.clone(), info.rust.clone(), info.size, info.align)
-            })
-            .collect()
-    });
-    let (text, statements, frame_vars) = lowerer.finish();
-    let (text, frame) = match (frame_vars, parts) {
-        (Some(vars), Some(parts)) => {
-            let layout = AreaLayout::new(parts);
-            let structure_name = format!("Fr{pou}");
-            let mut definition = String::new();
-            let locals = if vars.is_empty() {
-                "core::ptr::null()".to_string()
-            } else {
-                let fields: Vec<(String, String, u32)> = vars
-                    .iter()
-                    .zip(&layout.fields)
-                    .map(|(var, field)| (var.field.clone(), field.rust.clone(), field.offset))
-                    .collect();
-                structure(
-                    &mut definition,
-                    &structure_name,
-                    &fields,
-                    layout.size,
-                    false,
-                );
-                "(&fr as *const _ as *const u8)".to_string()
-            };
-            let instance = if of.instance.is_some() {
-                "(me as *const _ as *const u8)"
-            } else {
-                "core::ptr::null()"
-            };
-            let declaration = if vars.is_empty() {
-                String::new()
-            } else {
-                format!("    let fr: {structure_name} = <{structure_name} as Plain>::ZEROED;\n")
-            };
-            let returns = &of.returns;
-            let text = format!(
-                "{declaration}    let link = abi::Frame {{ caller: cx.frame, pou: {pou}, call_stmt: cx.stmt, locals: {locals}, instance: {instance} }};\n    cx.frame = &link;\n    let result = (|| -> R<{returns}> {{\n{text}    }})();\n    cx.frame = link.caller;\n    result\n"
-            );
-            let offsets = vars
-                .into_iter()
-                .zip(layout.fields.iter().map(|field| field.offset))
-                .collect();
-            let frame = PouFrame {
-                id: pou,
-                name: of.name,
-                instance: of.instance,
-                vars: offsets,
-                size: layout.size,
-            };
-            (text, Some((frame, definition)))
-        }
-        _ => (text, None),
-    };
-    (
-        format!("{attribute}{signature}{text}}}\n\n"),
-        statements,
-        needs,
-        name,
-        called,
-        frame,
-    )
-}
-
 /// The Rust name of method `method` of `owner`.
 pub(super) fn method_function(owner: Owner<'_>, method: &MethodDef) -> String {
     format!("m_{}__{}", mangle(owner.name()), mangle(&method.name))
-}
-
-/// Declares the `VAR_TEMP` of a program or a function block, each at its starting value at each
-/// call (IEC §6.5.2.1).
-fn declare_locals(lowerer: &mut Lowerer<'_, '_>, temps: &[VarDef]) -> Result<(), NativeError> {
-    for temp in temps {
-        let ty = local_type(lowerer, &temp.name, temp.type_id)?;
-        let variable = lowerer.declare(&temp.name, ty);
-        let place = Place {
-            expr: variable,
-            ty,
-            is_ref: false,
-        };
-        super::frame_init::start(
-            lowerer,
-            &place,
-            temp.type_id,
-            temp.initializer.as_ref(),
-            &temp.name,
-        )?;
-    }
-    Ok(())
-}
-
-/// The type of the frame variable `name`: never one that holds an instance with a class id, which
-/// a dynamic call reaches only where it lies in an area (specification 44 §6.4, §7.3).
-fn local_type(
-    lowerer: &mut Lowerer<'_, '_>,
-    name: &SmolStr,
-    type_id: trust_hir::TypeId,
-) -> Result<Ty, NativeError> {
-    let ty = lowerer.model.ty(type_id)?;
-    if lowerer.model.types.holds_class(ty) {
-        return Err(NativeError::unsupported(format!(
-            "the frame variable {name}, an instance of a class with inheritance or interfaces"
-        )));
-    }
-    Ok(ty)
 }
 
 /// The Rust form of a function's or a method's call (specification 44 §6.4): the parameters after
@@ -693,13 +304,18 @@ pub(super) fn signature(
         }
     }
     for param in params {
-        if param.name.eq_ignore_ascii_case("EN") || param.name.eq_ignore_ascii_case("ENO") {
+        // `EN` is TRUE whenever the body runs, since a call it disables does not call the
+        // function (specification 10 §7.5); `ENO` is an output like any other.
+        if param.name.eq_ignore_ascii_case("EN") {
             continue;
         }
         let ty = model.ty(param.type_id)?;
         let info = model.types.info(ty);
         let argument = super::lower::parameter(&param.name);
-        if param.direction == trust_hir::symbols::ParamDirection::In
+        if matches!(info.kind, Kind::Open { .. }) {
+            // An open array is a view of the caller's array, passed as it is (§6.2).
+            let _ = write!(parameters, ", {argument}: {}", info.rust);
+        } else if param.direction == trust_hir::symbols::ParamDirection::In
             && super::lower::is_scalar(&info.kind)
         {
             let elem = info.scalar().map_or("u8", |elem| elem.rust());
@@ -714,114 +330,6 @@ pub(super) fn signature(
         names,
         returns,
     })
-}
-
-/// Declares a function's or a method's frame: its return variable first, its inputs copied from the call's arguments, its in-outs and outputs as the caller's
-/// variables, its locals; the result, the outputs and the locals start at their starting values
-/// (IEC §6.5.1, §6.5.2.1). Returns the Rust parameters after `w` (or `me`) and the Rust return
-/// type, and sets the body's exit.
-fn frame(
-    lowerer: &mut Lowerer<'_, '_>,
-    name: &SmolStr,
-    ret: Option<trust_hir::TypeId>,
-    params: &[Param],
-    locals: &[VarDef],
-) -> Result<(String, String), NativeError> {
-    let signature = signature(lowerer.model, ret, params)?;
-    if let (Some(ret_id), Some(ret)) = (ret, return_type(lowerer.model, ret)?) {
-        let info = lowerer.info(ret).clone();
-        let own = SmolStr::new(name.rsplit('.').next().unwrap_or(name));
-        let variable = lowerer.declare(&own, ret);
-        let place = Place {
-            expr: variable.clone(),
-            ty: ret,
-            is_ref: false,
-        };
-        // A reference to an instance starts as `NULL`, as the declaration leaves it.
-        if !matches!(info.kind, Kind::Ref { .. }) {
-            super::frame_init::start(lowerer, &place, ret_id, None, &own)?;
-        }
-        if super::lower::is_scalar(&info.kind) {
-            let value = lowerer.load(&place);
-            lowerer.exit = format!("return Ok({value});");
-        } else {
-            lowerer.exit = format!("Assign::assign(out, &{variable});\n        return Ok(());");
-        }
-    }
-    for param in params {
-        if param.name.eq_ignore_ascii_case("EN") || param.name.eq_ignore_ascii_case("ENO") {
-            continue;
-        }
-        let ty = lowerer.model.ty(param.type_id)?;
-        let info = lowerer.info(ty).clone();
-        let argument = super::lower::parameter(&param.name);
-        if param.direction != trust_hir::symbols::ParamDirection::In {
-            // An in-out is the caller's variable itself (IEC §6.6.1.2.2); an output is the
-            // caller's place for it, which the caller copies to the output's variable after the
-            // call, and which starts at the output's starting value.
-            let output = param.direction == trust_hir::symbols::ParamDirection::Out;
-            if param.default.is_some() && !output {
-                return Err(NativeError::unsupported(format!(
-                    "the initial value of in-out {} of {name}",
-                    param.name
-                )));
-            }
-            lowerer.declare_reference(&param.name, ty, &argument);
-            if output {
-                let place = Place {
-                    expr: argument,
-                    ty,
-                    is_ref: true,
-                };
-                super::frame_init::start(
-                    lowerer,
-                    &place,
-                    param.type_id,
-                    param.default.as_ref(),
-                    &param.name,
-                )?;
-            }
-            continue;
-        }
-        // A function block instance given as an input is the caller's instance (§6.4).
-        if info.kind.is_instance() {
-            lowerer.declare_reference(&param.name, ty, &argument);
-            continue;
-        }
-        let local = lowerer.declare(&param.name, ty);
-        if super::lower::is_scalar(&info.kind) {
-            let elem = info.scalar().map_or("u8", |elem| elem.rust());
-            let stored = if elem == "bool" {
-                format!("u8::from({argument})")
-            } else {
-                argument.clone()
-            };
-            lowerer.line(&format!("{local}.set({stored});"));
-        } else {
-            lowerer.line(&format!("Assign::assign(&{local}, {argument});"));
-        }
-    }
-    for local in locals {
-        // A `VAR_EXTERNAL` names the global itself (IEC §6.5.2.2), which the frame does not hold.
-        if local.external {
-            continue;
-        }
-        let ty = local_type(lowerer, &local.name, local.type_id)?;
-        let variable = lowerer.declare(&local.name, ty);
-        let place = Place {
-            expr: variable,
-            ty,
-            is_ref: false,
-        };
-        super::frame_init::start(
-            lowerer,
-            &place,
-            local.type_id,
-            local.initializer.as_ref(),
-            &local.name,
-        )?;
-    }
-    Ok((signature.parameters, signature.returns))
 }
 
 /// Writes a `plain_struct!` of `fields`, its offset assertions and, for a structure that is
@@ -894,6 +402,12 @@ fn types(source: &mut String, model: &Model<'_>) {
                     info.size,
                     matches!(info.kind, Kind::Struct { .. }),
                 );
+            }
+            // A `STRUCT OVERLAP` is its byte backing, which the views of its members read and write
+            // (specification 44 §6.2).
+            Kind::Overlap { .. } => {
+                let fields = [("B".to_string(), format!("[Cell<u8>; {}]", info.size), 0)];
+                structure(source, &info.rust, &fields, info.size, true);
             }
             Kind::StdFb(_) => {
                 let _ = writeln!(

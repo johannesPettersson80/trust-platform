@@ -1,4 +1,6 @@
-use crate::harness::{CompileSession, SourceFile, TestHarness};
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
+use crate::harness::{lower_application, CompileSession, SourceFile, TestHarness};
 use crate::value::Value;
 
 fn source_files(files: &[(&str, &str)]) -> Vec<SourceFile> {
@@ -25,7 +27,7 @@ fn run_sources(sources: &[&str]) -> TestHarness {
 }
 
 fn compile_error(files: &[(&str, &str)]) -> String {
-    match CompileSession::from_sources(source_files(files)).build_runtime() {
+    match CompileSession::from_sources(source_files(files)).declarations() {
         Ok(_) => panic!("POU initializer fixture must fail"),
         Err(error) => error.to_string(),
     }
@@ -205,10 +207,7 @@ END_PROGRAM
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(25)));
 }
 
-#[test]
-fn pou_initializer_dependency_program_sections_share_complete_graph() {
-    let mut harness = TestHarness::from_source(
-        r#"
+const PROGRAM_SECTIONS_SOURCE: &str = r#"
 PROGRAM Main
 VAR_OUTPUT
     Observed : INT := InitialValue;
@@ -227,24 +226,19 @@ Stored := Stored + INT#1;
 Scratch := Scratch + INT#1;
 Observed := Observed + Stored + Scratch;
 END_PROGRAM
-"#,
-    )
-    .expect("program initializer fixture must compile");
+"#;
+
+#[test]
+fn pou_initializer_dependency_program_sections_share_complete_graph() {
+    let mut harness = TestHarness::from_source(PROGRAM_SECTIONS_SOURCE)
+        .expect("program initializer fixture must compile");
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(10)));
-    let main_instance = match harness.runtime().storage().get_global("Main") {
-        Some(Value::Instance(instance)) => *instance,
-        other => panic!("expected Main instance, got {other:?}"),
-    };
-    assert_eq!(
-        harness
-            .runtime()
-            .storage()
-            .get_instance_var(main_instance, "Stored"),
-        Some(&Value::Int(10))
-    );
-    let scratch = harness
-        .runtime()
+    assert_eq!(harness.get_output("Main.Stored"), Some(Value::Int(10)));
+    let (builder, _) = lower_application(&[SourceFile::new(PROGRAM_SECTIONS_SOURCE)], false)
+        .and_then(|lowered| lowered.construct(&[]))
+        .expect("program initializer fixture must compile");
+    let scratch = builder
         .programs()
         .values()
         .find(|program| program.name == "Main")
@@ -260,10 +254,7 @@ END_PROGRAM
         "{:?}; observed={:?}; stored={:?}",
         cycle.errors,
         harness.get_output("Observed"),
-        harness
-            .runtime()
-            .storage()
-            .get_instance_var(main_instance, "Stored")
+        harness.get_output("Main.Stored")
     );
 
     assert_eq!(harness.get_output("Observed"), Some(Value::Int(24)));

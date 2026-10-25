@@ -1,7 +1,7 @@
 use crate::harness::CompileSession;
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("invalid variable-section fixture must fail"),
         Err(error) => error.to_string(),
     }

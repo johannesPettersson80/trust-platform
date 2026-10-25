@@ -51,12 +51,12 @@ fn run_hmi_scaffold(
                 .ok_or_else(|| anyhow::anyhow!("project source is missing path metadata"))
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    let runtime = CompileSession::from_sources(sources.clone()).build_runtime()?;
-    let metadata = runtime.metadata_snapshot();
+    // The project's declarations in their starting state (specification 44 §6.7).
+    let declarations = CompileSession::from_sources(sources.clone()).declarations()?;
+    let metadata = declarations.metadata().clone();
     let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: runtime.prepared().storage_abi(),
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
+        storage: declarations.storage().clone(),
+        now: trust_runtime::value::Duration::ZERO,
         compiled: None,
     };
 

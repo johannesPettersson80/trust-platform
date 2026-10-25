@@ -84,9 +84,7 @@ fn io_list_answers_the_hosted_snapshot_through_the_portable_one() {
 fn declared_retain_targets_keep_control_status_labels_and_apply_to_real_storage() {
     let source = "VAR_GLOBAL RETAIN kept : LINT := 1; END_VAR PROGRAM Main VAR RETAIN member : LINT := 2; END_VAR END_PROGRAM";
     let state = hmi_test_state(source);
-    let mut runtime = crate::harness::CompileSession::from_source(source)
-        .build_runtime()
-        .unwrap();
+    let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
     runtime.set_debug_control(state.debug.clone());
     assert_eq!(
         live_values_result(handle_request_value(
@@ -104,25 +102,21 @@ fn declared_retain_targets_keep_control_status_labels_and_apply_to_real_storage(
         )),
         json!({"status":"queued"})
     );
+    // The scan publishes the program's state, which the evaluation reads (specification 11
+    // §6.13.1).
     runtime.execute_cycle().unwrap();
-    state.debug.refresh_snapshot_from_storage_with_abi(
-        runtime.storage(),
-        runtime.current_time(),
-        runtime.prepared().storage_abi(),
-    );
     assert_eq!(
         live_values_result(super::variable_handlers::handle_eval(
             903,
-            Some(json!({"expr":"@program/Main/member"})),
+            Some(json!({"expr":"Main.member"})),
             &state
         )),
         json!({"value":"LInt(8)"})
     );
     assert_eq!(
-        runtime.storage().get_global("kept"),
-        Some(&crate::value::Value::LInt(7))
+        runtime.read_variable("kept"),
+        Ok(crate::value::Value::LInt(7))
     );
-    assert!(runtime.storage().retain().is_empty());
     assert_eq!(
         live_values_result(handle_request_value(
             json!({"id": 904, "type": "var.force", "params": {"target": "retain:kept", "value": "9"}}),
@@ -141,8 +135,8 @@ fn declared_retain_targets_keep_control_status_labels_and_apply_to_real_storage(
     );
     runtime.execute_cycle().unwrap();
     assert_eq!(
-        runtime.storage().get_global("kept"),
-        Some(&crate::value::Value::LInt(9))
+        runtime.read_variable("kept"),
+        Ok(crate::value::Value::LInt(9))
     );
     assert_eq!(
         live_values_result(handle_request_value(
@@ -153,12 +147,12 @@ fn declared_retain_targets_keep_control_status_labels_and_apply_to_real_storage(
         json!({"status":"released"})
     );
     runtime
-        .write_global("kept", crate::value::Value::LInt(10))
+        .write_variable("kept", &crate::value::Value::LInt(10))
         .unwrap();
     runtime.execute_cycle().unwrap();
     assert_eq!(
-        runtime.storage().get_global("kept"),
-        Some(&crate::value::Value::LInt(10))
+        runtime.read_variable("kept"),
+        Ok(crate::value::Value::LInt(10))
     );
     assert!(!runtime.faulted());
 }

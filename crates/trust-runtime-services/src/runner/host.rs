@@ -15,10 +15,9 @@ use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value::Value;
 
-use super::cycle::DebugView;
 use super::debugger::ChipDebug;
-use super::engine::EngineLiveValues;
 use super::install::InstallState;
+use super::live::DeviceLiveValues;
 use super::online_change::ChangeState;
 use super::state::{Records, ResourceCell};
 use super::stepping::StepState;
@@ -68,11 +67,11 @@ pub trait RunnerPlatform:
     /// The Live Values the runner applies at its cycle phases and the platform answers the
     /// `io.*`, `set` and `var.*` requests from (specification 11, "Live Values"; specification 34
     /// §4.3.1). The platform owns it, and the runner takes a handle on the same state when it
-    /// starts ([`EngineLiveValues`] is a handle), so a platform returns the same one for as long as
+    /// starts ([`DeviceLiveValues`] is a handle), so a platform returns the same one for as long as
     /// its program lives. A device that loads a program in place gives the platform the Live Values
     /// of each program it loads (`unload_program`, then its loader), and the loop takes a handle on
     /// them as that program starts (specification 34 STATE-08).
-    fn live_values(&self) -> &EngineLiveValues;
+    fn live_values(&self) -> &DeviceLiveValues;
 
     /// Work between scans, for example servicing a communication driver; the loop runs it once
     /// per pass, and so does the pass of a debugger hold on a scan, which keeps communication
@@ -138,15 +137,9 @@ pub(super) trait ProgramView {
     /// The [`StepRefusal`] of a step that ran no scan or whose values cannot be read.
     fn step(&self, request: &StepRequest) -> Result<StepOutcome, StepRefusal>;
 
-    /// What a debug read sees of the program (specification 11 §6.13.1): between scans the state of
-    /// the last scan that ended, and while a debugger holds the scan its halted state. None when no
-    /// debugger is attached to the program.
-    fn debug_state(&self) -> Option<DebugView<'_>>;
-
-    /// What a debug read sees of a compiled program (specification 44 §13.2): its memory between
-    /// scans, and its held scan's memory and frames while the debugger holds it. None for the
-    /// interpreter's program and without a debugger.
-    #[cfg(feature = "native")]
+    /// What a debug read sees of the program (specification 11 §6.13.1; specification 44 §13.2):
+    /// its memory between scans, and its held scan's memory and frames while the debugger holds it.
+    /// None without a debugger.
     fn compiled_state(&self) -> Option<super::cycle::CompiledView<'_>> {
         None
     }
@@ -231,16 +224,15 @@ impl<P: RunnerPlatform, C> ResourcePort for RunnerHost<'_, P, C> {
         matches!(self.platform.control_mode(), ControlMode::Debug)
     }
 
-    /// A program with a debugger but without a line table has no statement start to hold at
+    /// A program with a debugger but without a statement table has no statement start to hold at
     /// (specification 11 §6.13.3). A program that no debugger is attached to is not asked.
     fn debugger_unavailable(&self) -> bool {
         self.program
-            .debug_state()
+            .compiled_state()
             .is_some_and(|view| view.sources.is_none())
     }
 
     fn undebuggable(&self) -> Option<&'static str> {
-        #[cfg(feature = "native")]
         if self
             .program
             .compiled_state()
@@ -504,13 +496,13 @@ impl<P: RunnerPlatform, C: MonotonicClock> ExtensionDispatch for RunnerHost<'_, 
     }
 
     /// The loop's own debugger answers the debug operations when a debugger is attached to the
-    /// program, the interpreter's or a compiled program's (specification 44 §13.2); a program
-    /// without one leaves them to the platform, which has none.
+    /// program (specification 44 §13.2); a program without one leaves them to the platform, which
+    /// has none.
     fn debugger(&self) -> Option<&dyn Debugger> {
-        let attached = self.program.debug_state().is_some();
-        #[cfg(feature = "native")]
-        let attached = attached || self.program.compiled_state().is_some();
-        attached.then_some(self as &dyn Debugger)
+        self.program
+            .compiled_state()
+            .is_some()
+            .then_some(self as &dyn Debugger)
     }
 
     fn audit_details(&self, request: &ControlRequest) -> Option<serde_json::Value> {

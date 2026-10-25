@@ -527,10 +527,8 @@ class StructuredTextDebugConfigurationProvider
         }
       }
       // The launch builds the program compiled (specification 44 NX-16): the toolchain is
-      // installed first when none is (§4.6), unless the launch asks for the bytecode engine.
-      if (config.executionBackend !== "vm") {
-        await this.ensureToolchain();
-      }
+      // installed first when none is (§4.6).
+      await this.ensureToolchain();
     }
 
     if (!config.cwd && folder) {

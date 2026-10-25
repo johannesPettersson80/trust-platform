@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use crate::harness::{CompileSession, TestHarness};
 use crate::value::Value;
 
@@ -12,7 +14,7 @@ fn run_output(source: &str, name: &str) -> Value {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("expression fixture must fail"),
         Err(error) => error.to_string(),
     }

@@ -29,7 +29,9 @@ pub(super) fn apply_config_inits(
                 ));
             }
             match &resolved {
-                ResolvedAccess::Variable { reference, partial } => {
+                ResolvedAccess::Variable {
+                    reference, partial, ..
+                } => {
                     if partial.is_some() {
                         return Err(CompileError::new(
                             "AT binding not allowed on partial access",
@@ -69,10 +71,9 @@ pub(super) fn apply_config_inits(
             continue;
         };
 
-        let value = crate::harness::initializer::evaluate_initializer_with_abi(
+        let value = crate::harness::initializer::evaluate_initializer(
             runtime.storage(),
             &registry,
-            crate::value::StorageAbi::LegacyTemporal32,
             &initializer_catalog,
             &profile,
             None,
@@ -83,7 +84,9 @@ pub(super) fn apply_config_inits(
         .map_err(|err| CompileError::new(format!("VAR_CONFIG initializer error: {err}")))?;
 
         match resolved {
-            ResolvedAccess::Variable { reference, partial } => {
+            ResolvedAccess::Variable {
+                reference, partial, ..
+            } => {
                 let storage = runtime.storage_mut();
                 if let Some(access) = partial {
                     let current = storage

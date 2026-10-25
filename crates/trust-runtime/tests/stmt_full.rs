@@ -116,10 +116,26 @@ fn iec_table72() {
         END_PROGRAM
     "#;
 
-    let err = TestHarness::from_source(source)
-        .err()
-        .expect("Table72 lowering should fail under current VM constraints");
-    assert!(err
-        .to_string()
-        .contains("unsupported C5 edge-case lowering path"));
+    // Worked by hand from IEC Table 72: x = 20 from the CASE, 23 after the first FOR, 24 after the
+    // second (i = 0 adds, 1 continues, 2 exits), 25 at label1, the jump skips + 100, 26 at label2;
+    // tmp = Inc(26) = 27, which is positive, so out = 27.
+    let mut harness = TestHarness::from_source(source).expect("the Table 72 program compiles");
+    let cycle = harness.cycle();
+    assert!(cycle.errors.is_empty(), "{:?}", cycle.errors);
+    assert_eq!(
+        harness.get_output("x"),
+        Some(trust_runtime::value::Value::Int(26))
+    );
+    assert_eq!(
+        harness.get_output("y"),
+        Some(trust_runtime::value::Value::Int(2))
+    );
+    assert_eq!(
+        harness.get_output("tmp"),
+        Some(trust_runtime::value::Value::Int(27))
+    );
+    assert_eq!(
+        harness.get_output("out"),
+        Some(trust_runtime::value::Value::Int(27))
+    );
 }

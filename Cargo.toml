@@ -18,11 +18,9 @@ members = [
     "crates/trust-plc-mem",
     "crates/trust-runtime-services",
     "crates/trust-platform-stm32",
-    "crates/trust-platform-stm32f4",
     "crates/trust-platform-stm32u5",
     "crates/trust-platform-esp32",
     "crates/trust-platform-memory",
-    "crates/trust-board-fixture",
     "crates/trust-chips",
     "crates/trust-runtime",
     "crates/trust-runtime-client",
@@ -32,7 +30,6 @@ members = [
 ]
 exclude = [
     "third_party/tiverse-mmap",
-    "firmware/trust-stm32f407",
     "firmware/trust-esp32c6",
     "firmware/trust-stm32u5a9",
 ]
@@ -131,7 +128,6 @@ trust-runtime-core = { path = "crates/trust-runtime-core", default-features = fa
 trust-plc-abi = { path = "crates/trust-plc-abi" }
 trust-plc-lib = { path = "crates/trust-plc-lib" }
 trust-runtime-services = { path = "crates/trust-runtime-services" }
-trust-board-fixture = { path = "crates/trust-board-fixture" }
 trust-platform-memory = { path = "crates/trust-platform-memory" }
 trust-platform-stm32 = { path = "crates/trust-platform-stm32" }
 trust-chips = { path = "crates/trust-chips" }

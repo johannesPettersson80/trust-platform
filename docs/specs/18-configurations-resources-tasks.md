@@ -16,8 +16,8 @@ This document covers:
 - validation rules shared by `trust-hir`, `trust-lsp`, and the runtime bundle
 
 POU declaration syntax remains in `04-pou-declarations.md`. Runtime scheduler
-behavior is specified in `11-runtime-engine.md`. STBC encoding is specified in
-`12-bytecode.md`.
+behavior is specified in `11-runtime-engine.md`. The program image that carries
+the tasks is specified in `44-native-execution.md` §5.
 
 ## 2. Declaration Model
 
@@ -156,15 +156,15 @@ input high does not retrigger; a later low-to-high transition does.
 
 ## 4. Runtime Contract
 
-Validated configuration/resource/task metadata is lowered into runtime bundle
-metadata and then encoded into the `RESOURCE_META` section of STBC. The runtime
-engine uses that metadata to construct scheduler state, process-image sizes, and
-program-to-task mappings.
+Validated configuration/resource/task metadata is lowered by the build and
+written into the program image's area, task and I/O-binding tables
+(specification 44 §5.5, §5.6). The runtime uses those tables to construct
+scheduler state, process-image sizes, and program-to-task mappings.
 
 See:
 
 - `11-runtime-engine.md` for scheduler/process-image behavior
-- `12-bytecode.md` §6.7 for `RESOURCE_META`
+- `44-native-execution.md` §5.5 and §5.6 for the area, task and I/O-binding tables
 
 ## 5. Diagnostics Ownership
 

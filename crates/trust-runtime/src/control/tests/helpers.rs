@@ -10,7 +10,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use indexmap::IndexMap;
 use serde_json::json;
 
-use crate::debug::{DebugVariableHandles, PendingVarTarget};
+use crate::debug::PendingVarTarget;
 use crate::error::RuntimeError;
 use crate::harness::TestHarness;
 use crate::historian::{AlertRule, HistorianConfig, HistorianService, RecordingMode};
@@ -39,6 +39,39 @@ fn temp_dir(name: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!("trust-control-{name}-{stamp}"));
     fs::create_dir_all(&path).expect("create temp dir");
     path
+}
+
+/// The program image of `source` for this computer, as the harness builds it: what a client sends
+/// with `bytecode.reload` to change the running program online (specification 44 §12). The build
+/// needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+fn program_image(source: &str) -> Vec<u8> {
+    built_program_image(crate::harness::SourceFile::new(source))
+}
+
+/// The program image of `source` labelled `path`, the file's path relative to the project root,
+/// as `trust-runtime build` labels a project's file (specification 44 §5.3, with the label rule of
+/// specification 12 §7.5.1.4).
+fn labelled_program_image(path: &str, source: &str) -> Vec<u8> {
+    built_program_image(crate::harness::SourceFile::with_path(path, source))
+}
+
+/// The program image of `file` for this computer, with statement hooks.
+fn built_program_image(file: crate::harness::SourceFile) -> Vec<u8> {
+    let toolchain = crate::native::Toolchain::find().expect("the toolchain");
+    let target = crate::native::Target::this_cpu().expect("this computer's CPU");
+    let work = temp_dir("program-image");
+    let built = crate::native::build(
+        &[file],
+        &crate::native::Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    )
+    .expect("build the program image");
+    let _ = fs::remove_dir_all(work);
+    built.image
 }
 
 fn write_file(path: &Path, content: &str) {
@@ -115,20 +148,19 @@ fn hmi_test_state_with_status_reports(
     ads_status: crate::ads::diagnostics::AdsStatusReport,
     opcua_status: crate::opcua::OpcUaClientStatusReport,
 ) -> ControlState {
+    // The program and its control are wired as trust-runtime wires a compiled program
+    // (specification 44 §8.8): the snapshot carries the program's state, and the metadata is empty.
     let mut harness = TestHarness::from_source(source).expect("build harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = crate::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness.cycle();
     let snapshot = crate::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: crate::memory::VariableStorage::new(),
         now: harness.runtime().current_time(),
-        compiled: None,
+        compiled: Some(Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
-    debug.refresh_snapshot_from_storage_with_abi(
-        &snapshot.storage,
-        snapshot.now,
-        snapshot.storage_abi,
-    );
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
     std::thread::spawn(move || {
@@ -179,7 +211,7 @@ fn hmi_test_state_with_status_reports(
         transfers: crate::control::new_transfer_session(),
         debug,
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
+        metadata: Arc::new(Mutex::new(crate::RuntimeMetadata::default())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -203,7 +235,6 @@ fn hmi_test_state_with_status_reports(
         runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(crate::hmi::HmiLiveState::default())),
         hmi_persistence: None,
         hmi_descriptor,
@@ -218,6 +249,34 @@ fn hmi_test_state_with_status_reports(
         #[cfg(feature = "ads-server")]
         ads_server_runtime: Arc::new(Mutex::new(None)),
     }
+}
+
+/// Holds the scan as an attached debugger's `pause` does (specification 13, "Pause").
+fn debugger_pause(debug: &crate::debug::DebugControl) {
+    debug.compiled().expect("the program's debugger").pause();
+}
+
+/// Releases the scan as an attached debugger's `continue` does (specification 13, "Continue").
+fn debugger_continue(debug: &crate::debug::DebugControl) {
+    debug.compiled().expect("the program's debugger").resume();
+}
+
+/// Whether the debugger holds the scan, which status reports as its hold.
+fn debugger_holds(debug: &crate::debug::DebugControl) -> bool {
+    debug.hold_label().is_some()
+}
+
+/// The handle that the program's debugger hands out for `handle`, among the handles that
+/// `debug.variables` lists from (specification 44 §13.2; specification 11 §6.13.3, "Variable
+/// handles").
+fn debugger_handle(
+    debug: &crate::debug::DebugControl,
+    handle: crate::debug::dap::VariableHandle,
+) -> u32 {
+    debug
+        .compiled()
+        .expect("the program's debugger")
+        .alloc_handle(handle)
 }
 
 fn disabled_ads_status() -> crate::ads::diagnostics::AdsStatusReport {

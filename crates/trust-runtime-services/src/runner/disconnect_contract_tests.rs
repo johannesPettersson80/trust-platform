@@ -4,7 +4,7 @@
 //!
 //! The link is the shared line link of a chip's USB port ([`crate::link::LineLink`]) behind a fake of
 //! the adapter's hardware, so the rules the tests check are those of the code a chip runs. The board
-//! probe runs on the real engine. Every expected value is written out here from the specification and
+//! probe runs on the compiled cycle. Every expected value is written out here from the specification and
 //! the schedule of the test, not taken from the code under test.
 
 use alloc::boxed::Box;

@@ -1,7 +1,7 @@
 //! When the resource loop acts (specification 34, STATE-08, PORT-03 and TIME-04): the program's
 //! logical time starts with the program, the faulted wait takes requests at its polls, the loop
 //! feeds the hardware watchdog in every state, and the command queue has trust-runtime's bound.
-//! With the board probe on the real engine.
+//! With the board probe on the compiled cycle.
 
 use alloc::rc::Rc;
 use alloc::vec::Vec;

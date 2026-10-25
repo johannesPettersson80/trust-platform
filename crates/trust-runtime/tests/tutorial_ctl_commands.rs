@@ -1,6 +1,8 @@
 //! The documented `ctl` sequences, run as written against the example each document names. Only
 //! the project path and the generic `<project-folder>` placeholder are substituted. The runtime is
 //! built and started as the tutorials start it, from a private copy of the example.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
@@ -212,13 +214,13 @@ fn plc_io_binding_guide_io_read_and_output_write_are_accepted() {
 #[test]
 fn runtime_cloud_troubleshooting_checks_run_as_written() {
     // docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md section 1: `ctl --project <project> status`,
-    // then `ctl --project <project> config-get`. The config must report the vm execution backend.
+    // then `ctl --project <project> config-get`. The config must report the native execution backend.
     let runtime = ExampleRuntime::new("memory_marker_counter").start();
     runtime.wait_until(WAIT, "status to report running", || {
         runtime.status().state == "running"
     });
     assert_eq!(runtime.status().fault, "none", "{}", runtime.diagnostics());
-    assert_reports_vm_backend(&runtime, "docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md");
+    assert_reports_native_backend(&runtime, "docs/guides/RUNTIME_CLOUD_TROUBLESHOOTING.md");
 }
 
 #[test]
@@ -226,16 +228,17 @@ fn runtime_cloud_profile_cookbook_config_get_runs_as_written() {
     // docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md section 7: `ctl --project <project>
     // config-get`. The cookbook shows no status command.
     let runtime = ExampleRuntime::new("memory_marker_counter").start();
-    assert_reports_vm_backend(&runtime, "docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md");
+    assert_reports_native_backend(&runtime, "docs/guides/RUNTIME_CLOUD_PROFILE_COOKBOOK.md");
 }
 
-/// A document's `ctl --project <project> config-get`: the result must report the vm execution
-/// backend (config_handlers_get.rs, `runtime.execution_backend`).
-fn assert_reports_vm_backend(runtime: &Runtime, document: &str) {
+/// A document's `ctl --project <project> config-get`: the result must report the native execution
+/// backend that every runtime runs (specification 44 §15; config_handlers_get.rs,
+/// `runtime.execution_backend`).
+fn assert_reports_native_backend(runtime: &Runtime, document: &str) {
     let config = runtime.ctl_result(&["config-get"]);
     assert_eq!(
-        config["runtime.execution_backend"], "vm",
-        "{document} must report the vm backend: {config}"
+        config["runtime.execution_backend"], "native",
+        "{document} must report the native backend: {config}"
     );
 }
 

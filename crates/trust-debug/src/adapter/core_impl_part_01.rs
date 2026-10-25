@@ -8,12 +8,7 @@ impl DebugAdapter {
             remote_breakpoints: Arc::new(Mutex::new(HashMap::new())),
             next_seq: Arc::new(AtomicU32::new(1)),
             coordinate: CoordinateConverter::new(true, true),
-            variable_handles: HashMap::new(),
-            next_variable_ref: 1,
-            watch_cache: HashMap::new(),
             expression_types: None,
-            runner: None,
-            control_server: None,
             simulator: None,
             last_io_state: Arc::new(Mutex::new(None)),
             forced_io_addresses: Arc::new(Mutex::new(HashSet::new())),
@@ -41,13 +36,9 @@ impl DebugAdapter {
         self.session
     }
 
+    /// Sets the breakpoints of one source on the connected runtime.
     #[must_use]
     pub fn set_breakpoints(&mut self, args: SetBreakpointsArguments) -> SetBreakpointsResponseBody {
-        if self.remote_session.is_some() {
-            return self.set_breakpoints_remote(args);
-        }
-        let adjusted = self.to_session_breakpoints(args);
-        let response = self.session.set_breakpoints(&adjusted);
-        self.to_client_breakpoints(response)
+        self.set_breakpoints_remote(args)
     }
 }

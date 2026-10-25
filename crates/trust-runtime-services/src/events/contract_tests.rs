@@ -430,13 +430,6 @@ fn a_message_fault_replies_as_before() {
             },
             "retain migration error 'invalid retained value for 'Speed': value 5000 outside declared subrange 0..1000'",
         ),
-        (
-            RuntimeError::Bytecode {
-                code: StableErrorCode::VmStackUnderflow,
-                detail: "vm invalid opcode 0xFF".into(),
-            },
-            "invalid bytecode 'vm invalid opcode 0xFF'",
-        ),
     ];
 
     for (error, text) in cases {

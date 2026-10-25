@@ -14,9 +14,7 @@ use core::time::Duration;
 
 use smol_str::SmolStr;
 
-use crate::execution_backend::ExecutionBackend;
 use trust_runtime_core::ports::MonotonicClock;
-use trust_runtime_core::vm::MemoryFigure;
 
 const CYCLE_LATENCY_WINDOW_SIZE: usize = 512;
 
@@ -306,9 +304,46 @@ pub struct ScanAllocations {
     pub services: u64,
 }
 
-/// The memory figure of the program a runtime runs (specification 34 MEM-12): the bytes of each
-/// part, which preparation computed, and whether the runtime keeps the program's retained values,
-/// so that the capture of them counts.
+/// The memory figure of a program, part by part, as `status` reports it (specification 11,
+/// `metrics.program_memory`; specification 44 §10.4): the areas as the persistent block, the stack
+/// bound as the activation stack, the kernel's bookkeeping as the engine, and the capture of the
+/// retained values. A compiled program has no prepared program and no operand stack, which are 0.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MemoryFigure {
+    /// The prepared program: 0 for a compiled program, whose module is not in the figure.
+    pub program: usize,
+    /// The areas of the program.
+    pub persistent_block: usize,
+    /// The stack bound.
+    pub activation_stack: usize,
+    /// The operand stack: 0 for a compiled program.
+    pub operand_stack: usize,
+    /// The kernel's bookkeeping of the program.
+    pub engine: usize,
+    /// The capture of the retained values, which a runtime reserves when it keeps them.
+    pub retain_capture: usize,
+}
+
+impl MemoryFigure {
+    /// The bytes of the whole figure, the capture of the retained values included when the runtime
+    /// keeps them (`retains`).
+    #[must_use]
+    pub fn total(&self, retains: bool) -> usize {
+        [
+            self.program,
+            self.persistent_block,
+            self.activation_stack,
+            self.operand_stack,
+            self.engine,
+            if retains { self.retain_capture } else { 0 },
+        ]
+        .iter()
+        .fold(0usize, |sum, bytes| sum.saturating_add(*bytes))
+    }
+}
+
+/// The memory figure of the program a runtime runs (specification 44 §10.4), and whether the
+/// runtime keeps the program's retained values, so that the capture of them counts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProgramMemory {
     /// The figure, part by part.
@@ -341,7 +376,6 @@ impl ProgramMemory {
 #[derive(Debug, Clone)]
 pub struct RuntimeMetrics<C> {
     clock: C,
-    execution_backend: ExecutionBackend,
     /// Scan cycle durations.
     cycle: Durations,
     cycle_window: CycleLatencyWindow,
@@ -368,7 +402,6 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     pub fn with_clock(clock: C) -> Self {
         Self {
             clock,
-            execution_backend: ExecutionBackend::BytecodeVm,
             cycle: Durations::default(),
             cycle_window: CycleLatencyWindow::default(),
             tasks: BTreeMap::new(),
@@ -385,7 +418,6 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     /// `clock`'s, and every statistic, count and recorded call is cleared.
     pub fn restart(&mut self, clock: C) {
         self.clock = clock;
-        self.execution_backend = ExecutionBackend::BytecodeVm;
         self.cycle = Durations::default();
         self.cycle_window.clear();
         self.tasks.clear();
@@ -446,11 +478,6 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
     /// Counts one fault.
     pub fn record_fault(&mut self) {
         self.faults = self.faults.saturating_add(1);
-    }
-
-    /// Records the execution backend that runs the program.
-    pub fn set_execution_backend(&mut self, backend: ExecutionBackend) {
-        self.execution_backend = backend;
     }
 
     /// Records the memory figure of the program the runtime runs now, `None` while it runs none
@@ -560,7 +587,6 @@ impl<C: MonotonicClock> RuntimeMetrics<C> {
         tasks.sort_by(|left, right| left.name.cmp(&right.name));
         RuntimeMetricsSnapshot {
             uptime_ms: self.uptime_ms(),
-            execution_backend: self.execution_backend,
             cycle,
             cycle_percentiles: self.cycle_window.snapshot(),
             faults: self.faults,
@@ -613,8 +639,6 @@ pub struct TaskStatsSnapshot {
 pub struct RuntimeMetricsSnapshot {
     /// Milliseconds since the metrics started.
     pub uptime_ms: u64,
-    /// Execution backend that runs the program.
-    pub execution_backend: ExecutionBackend,
     /// Scan cycle statistics.
     pub cycle: CycleStats,
     /// Percentiles of the most recent 512 cycles.

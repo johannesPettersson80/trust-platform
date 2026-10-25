@@ -234,37 +234,6 @@ impl From<&IoAddress> for IoAddressKey {
     }
 }
 
-/// The identity of a hierarchical process-image value borrowed from its address, so that a lookup
-/// builds no owned key (specification 34 ARCH-05; C1-16). It hashes as [`IoAddressKey`] hashes the
-/// same address: the same fields in the same order, the path as its slice.
-#[derive(Hash)]
-pub(crate) struct IoAddressKeyRef<'a> {
-    area: IoArea,
-    size: IoSize,
-    path: &'a [u32],
-    bit: u8,
-}
-
-impl<'a> From<&'a IoAddress> for IoAddressKeyRef<'a> {
-    fn from(address: &'a IoAddress) -> Self {
-        Self {
-            area: address.area,
-            size: address.size,
-            path: &address.path,
-            bit: address.bit,
-        }
-    }
-}
-
-impl indexmap::Equivalent<IoAddressKey> for IoAddressKeyRef<'_> {
-    fn equivalent(&self, key: &IoAddressKey) -> bool {
-        self.area == key.area
-            && self.size == key.size
-            && self.path == key.path.as_slice()
-            && self.bit == key.bit
-    }
-}
-
 /// Ensure an addressed byte exists, rejecting growth beyond the process-image limit.
 pub fn ensure_len(buffer: &mut Vec<u8>, index: usize) -> Result<(), RuntimeError> {
     if index >= PROCESS_IMAGE_AREA_LIMIT {

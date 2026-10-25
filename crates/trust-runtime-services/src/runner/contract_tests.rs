@@ -1,6 +1,6 @@
 //! The resource loop of a device without an operating system (specification 34, STATE-08): its
 //! states and their transitions, and where the effects of the requests it serves are taken, with
-//! the board probe program on the real engine.
+//! the board probe program on the compiled cycle.
 
 use serde_json::{json, Value};
 use trust_runtime_core::deployment::ControlMode;

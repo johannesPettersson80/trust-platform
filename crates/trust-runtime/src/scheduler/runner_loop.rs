@@ -33,7 +33,7 @@ struct CycleDeadlineSnapshot {
 }
 
 fn arm_cycle_deadlines(
-    runtime: &mut HostProgram,
+    runtime: &mut CompiledRuntime,
     watchdog: crate::watchdog::WatchdogPolicy,
     wall_start: std::time::Instant,
 ) -> CycleDeadlineSnapshot {
@@ -49,7 +49,7 @@ fn arm_cycle_deadlines(
     snapshot
 }
 
-fn restore_cycle_deadlines(runtime: &mut HostProgram, snapshot: CycleDeadlineSnapshot) {
+fn restore_cycle_deadlines(runtime: &mut CompiledRuntime, snapshot: CycleDeadlineSnapshot) {
     runtime.set_execution_deadline(snapshot.execution_deadline);
     runtime.set_output_commit_deadline(snapshot.output_deadline);
 }
@@ -66,24 +66,6 @@ fn run_resource_loop<C: Clock + Clone>(
     });
 }
 
-fn run_resource_loop_with_shared<C: Clock + Clone>(
-    runner: ResourceRunner<C>,
-    stop: Arc<AtomicBool>,
-    state: Arc<Mutex<ResourceState>>,
-    last_error: Arc<Mutex<Option<RuntimeError>>>,
-    supervision: Arc<supervisor::ScanSupervision>,
-    shared: SharedGlobals,
-) {
-    run_resource_loop_core(
-        runner,
-        stop,
-        state,
-        last_error,
-        supervision,
-        move |runtime| shared.execute_program_cycle(runtime),
-    );
-}
-
 /// Runs the scan loop until a stop request ends it. A halting fault does not end the loop: the
 /// resource stays `Faulted` in the faulted wait (specification 11 section 6.6) and resumes only
 /// after a successful restart or online change. A program stop, the control `shutdown`, does not
@@ -98,7 +80,7 @@ fn run_resource_loop_core<C, F>(
     mut execute_cycle: F,
 ) where
     C: Clock + Clone,
-    F: FnMut(&mut HostProgram) -> Result<(), RuntimeError>,
+    F: FnMut(&mut CompiledRuntime) -> Result<(), RuntimeError>,
 {
     let shared = LoopShared {
         stop: &stop,
@@ -460,7 +442,7 @@ fn execute_protected_cycle<C, F>(
 ) -> Result<(), RuntimeError>
 where
     C: Clock + Clone,
-    F: FnMut(&mut HostProgram) -> Result<(), RuntimeError>,
+    F: FnMut(&mut CompiledRuntime) -> Result<(), RuntimeError>,
 {
     let mut sentinel = CyclePanicSentinel::entered();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -528,6 +510,14 @@ mod runner_loop_poison_tests {
     use crate::harness::TestHarness;
     use crate::value::Value;
 
+    /// An empty compiled program, which the scheduler runs; the build needs the toolchain of
+    /// specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+    fn empty_program() -> CompiledRuntime {
+        TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+            .expect("build the runner fixture")
+            .into_runtime()
+    }
+
     #[derive(Clone, Debug)]
     struct TestClock;
 
@@ -593,9 +583,7 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn scheduler_arms_execution_deadline_during_cycle() {
-        let mut runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
+        let mut runtime = empty_program();
         runtime.set_watchdog_policy(crate::watchdog::WatchdogPolicy {
             enabled: true,
             timeout: Duration::from_millis(10),
@@ -634,7 +622,7 @@ mod runner_loop_poison_tests {
                 .expect("observed deadline lock")
                 .expect("cycle should run")
                 .is_some(),
-            "scheduler must arm Runtime::execution_deadline before cycle execution"
+            "scheduler must arm the execution deadline before cycle execution"
         );
     }
 
@@ -652,10 +640,7 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn cycle_deadline_guard_restores_previous_deadlines_after_success() {
-        let runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
-        let mut runtime: HostProgram = runtime.into();
+        let mut runtime = empty_program();
         let previous = std::time::Instant::now() + std::time::Duration::from_secs(30);
         runtime.set_execution_deadline(Some(previous));
         runtime.set_output_commit_deadline(Some(previous));
@@ -684,10 +669,7 @@ mod runner_loop_poison_tests {
     #[test]
     fn cycle_deadline_guard_restores_after_runtime_error_and_contained_panic() {
         for outcome in ["runtime-error", "panic"] {
-            let runtime = crate::RuntimeBuilder::new()
-                .build()
-                .expect("admit runner fixture");
-            let mut runtime: HostProgram = runtime.into();
+            let mut runtime = empty_program();
             let snapshot = arm_cycle_deadlines(
                 &mut runtime,
                 crate::watchdog::WatchdogPolicy {
@@ -728,10 +710,7 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn disabled_watchdog_does_not_arm_cycle_deadlines() {
-        let runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
-        let mut runtime: HostProgram = runtime.into();
+        let mut runtime = empty_program();
         let snapshot = arm_cycle_deadlines(
             &mut runtime,
             crate::watchdog::WatchdogPolicy {
@@ -751,9 +730,7 @@ mod runner_loop_poison_tests {
 
     #[test]
     fn cycle_execution_panic_faults_resource_visibly() {
-        let runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
+        let runtime = empty_program();
         let runner = ResourceRunner::new(runtime, TestClock, Duration::from_millis(1));
         let stop = Arc::new(AtomicBool::new(false));
         let state = Arc::new(Mutex::new(ResourceState::Boot));
@@ -833,28 +810,16 @@ END_PROGRAM
             &supervision,
         ));
         assert_eq!(
-            runner
-                .engine()
-                .expect("a program on the bytecode engine")
-                .storage()
-                .get_global("retained_value"),
-            Some(&Value::DInt(42)),
+            runner.program().read_variable("retained_value"),
+            Ok(Value::DInt(42)),
         );
         assert_eq!(
-            runner
-                .engine()
-                .expect("a program on the bytecode engine")
-                .storage()
-                .get_global("transient_value"),
-            Some(&Value::DInt(2)),
+            runner.program().read_variable("transient_value"),
+            Ok(Value::DInt(2)),
         );
         assert_eq!(
-            runner
-                .engine()
-                .expect("a program on the bytecode engine")
-                .storage()
-                .get_global("ordinary_value"),
-            Some(&Value::DInt(3)),
+            runner.program().read_variable("ordinary_value"),
+            Ok(Value::DInt(3)),
         );
         assert_eq!(*recover_mutex_lock(state.lock()), ResourceState::Running);
         assert!(recover_mutex_lock(last_error.lock()).is_none());
@@ -862,10 +827,7 @@ END_PROGRAM
 
     #[test]
     fn update_watchdog_zero_timeout_is_normalized_before_use() {
-        let runtime = crate::RuntimeBuilder::new()
-            .build()
-            .expect("admit runner fixture");
-        let mut runtime: HostProgram = runtime.into();
+        let mut runtime = empty_program();
 
         let fault_policy = runtime.fault_policy();
         apply_resource_command(
@@ -890,7 +852,7 @@ END_PROGRAM
     }
 }
 
-fn apply_resource_command(runtime: &mut HostProgram, command: ResourceCommand) {
+fn apply_resource_command(runtime: &mut CompiledRuntime, command: ResourceCommand) {
     match command {
         ResourceCommand::Pause | ResourceCommand::Resume => {}
         // One command boundary applies the whole set: no cycle runs between the three updates.
@@ -920,53 +882,27 @@ fn apply_resource_command(runtime: &mut HostProgram, command: ResourceCommand) {
             source: _,
             sequence: _,
         } => runtime.apply_mesh_updates(&updates),
+        // A program's variables are read from its state through its symbol table (specification
+        // 44 §8.8, §13.3).
         ResourceCommand::Snapshot { respond_to } => {
-            let snapshot = match runtime {
-                HostProgram::Engine(runtime) => crate::debug::DebugSnapshot {
-                    storage_abi: runtime.prepared().storage_abi(),
-                    storage: runtime.storage().clone(),
-                    now: runtime.current_time(),
-                    compiled: None,
-                },
-                // A compiled program's variables are read from its state through its symbol table
-                // (specification 44 §8.8, §13.3), which holds no storage of the bytecode engine.
-                HostProgram::Compiled(program) => crate::debug::DebugSnapshot {
-                    storage_abi: crate::value::StorageAbi::default(),
-                    storage: crate::memory::VariableStorage::new(),
-                    now: program.current_time(),
-                    compiled: program.snapshot().ok().map(std::sync::Arc::new),
-                },
-            };
-            let _ = respond_to.send(snapshot);
+            let _ = respond_to.send(crate::debug::DebugSnapshot {
+                storage: crate::memory::VariableStorage::new(),
+                now: runtime.current_time(),
+                compiled: runtime.snapshot().ok().map(std::sync::Arc::new),
+            });
         }
         ResourceCommand::AdsStatus { respond_to } => {
-            let report = match runtime {
-                HostProgram::Engine(runtime) => runtime.ads_status_report(),
-                HostProgram::Compiled(program) => program.ads_status_report(),
-            };
-            let _ = respond_to.send(report);
+            let _ = respond_to.send(runtime.ads_status_report());
         }
         ResourceCommand::OpcUaClientStatus { respond_to } => {
-            let report = match runtime {
-                HostProgram::Engine(runtime) => runtime.opcua_client_status_report(),
-                HostProgram::Compiled(program) => program.opcua_client_status_report(),
-            };
-            let _ = respond_to.send(report);
+            let _ = respond_to.send(runtime.opcua_client_status_report());
         }
         ResourceCommand::ActiveAdsDevice {
             target,
             local,
             respond_to,
         } => {
-            let snapshot = match runtime {
-                HostProgram::Engine(runtime) => {
-                    runtime.active_ads_device_snapshot(&target, local.as_ref())
-                }
-                HostProgram::Compiled(program) => {
-                    program.active_ads_device_snapshot(&target, local.as_ref())
-                }
-            };
-            let _ = respond_to.send(snapshot);
+            let _ = respond_to.send(runtime.active_ads_device_snapshot(&target, local.as_ref()));
         }
         // Only a stopped resource takes an install; the stopped wait notes it.
         ResourceCommand::ProgramInstalled => {}

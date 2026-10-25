@@ -11,7 +11,7 @@ fn run_cli_setup_interactive() -> anyhow::Result<()> {
 }
 
 fn run_cli_guided_interactive() -> anyhow::Result<()> {
-    println!("Project folder: where runtime.toml, io.toml, src/, program.stbc live.");
+    println!("Project folder: where runtime.toml, io.toml, src/, program.tpi live.");
     let default_bundle = default_bundle_path();
     let bundle_path = prompt::prompt_path("Project folder (runtime files)", &default_bundle)?;
     let defaults = SetupDefaults::from_bundle(&bundle_path);
@@ -86,7 +86,7 @@ fn run_cli_manual() -> anyhow::Result<()> {
     println!("Manual setup:");
     println!("1) Create a project folder with:");
     println!("   - runtime.toml ([bundle], [resource], [runtime.control], [runtime.log])");
-    println!("   - program.stbc");
+    println!("   - program.tpi (written by trust-runtime build)");
     println!("   - io.toml (optional if using system IO)");
     println!("2) Start runtime with:");
     println!("   trust-runtime --project <project-folder>");

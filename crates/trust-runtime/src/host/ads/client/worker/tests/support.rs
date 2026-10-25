@@ -6,9 +6,10 @@ use trust_ads_core::{
     UpdateMode,
 };
 
-use crate::memory::{MemoryLocation, VariableStorage};
-use crate::runtime::BoundGlobal;
-use crate::value::{Value, ValueRef};
+use std::collections::BTreeMap;
+
+use crate::runtime::{BoundGlobal, NamedGlobals};
+use crate::value::Value;
 
 use super::super::super::AdsConnectionBridge;
 use super::super::*;
@@ -307,13 +308,8 @@ pub(super) fn point(
 
 pub(super) fn binding(point: AdsPointConfig) -> AdsBinding {
     AdsBinding {
+        target: BoundGlobal(point.point_name.as_str().into()),
         point,
-        target: BoundGlobal::Engine(ValueRef {
-            location: MemoryLocation::Global,
-            offset: 0,
-            generation: crate::memory::Generation::FIRST,
-            path: Vec::new(),
-        }),
         quality_target: None,
         retain: false,
     }
@@ -363,7 +359,7 @@ pub(super) fn worker_fixture(
 pub(super) fn output_fixture(
     initial: Value,
 ) -> (
-    VariableStorage,
+    NamedGlobals,
     AdsConnectionBridge,
     AdsConnectionWorker<ScriptedAdsTransport>,
 ) {
@@ -374,20 +370,20 @@ pub(super) fn typed_output_fixture(
     initial: Value,
     descriptor: AdsDataTypeDescriptor,
 ) -> (
-    VariableStorage,
+    NamedGlobals,
     AdsConnectionBridge,
     AdsConnectionWorker<ScriptedAdsTransport>,
 ) {
-    let mut storage = VariableStorage::new();
-    storage.set_global("out", initial);
-    let reference = storage.ref_for_global("out").expect("output reference");
+    // The program's one output global, held apart from it: the bridge-only corpus captures its
+    // outputs by name, as a scan's boundaries reach a compiled program's variables (specification
+    // 44 §13.3).
+    let storage = NamedGlobals(BTreeMap::from([("out", initial)]));
     let mut output = binding(point(
         "out",
         "MAIN.Out",
         PointAccess::Write,
         UpdateMode::Poll,
     ));
-    output.target = BoundGlobal::Engine(reference);
     output.point.data_type = descriptor;
     let transport = ScriptedAdsTransport::for_bindings(std::slice::from_ref(&output));
     let (bridge, worker) =

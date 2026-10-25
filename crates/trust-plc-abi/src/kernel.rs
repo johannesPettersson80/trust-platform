@@ -4,7 +4,8 @@
 use core::ptr::NonNull;
 
 use crate::{
-    Area, Cx, EntryFn, FaultCode, FaultRecord, KernelApi, ReadRealFn, AREA_COUNT, INTERFACE_VERSION,
+    Area, Cx, EntryFn, FaultCode, FaultRecord, KernelApi, ReadRealFn, WallClockFn, AREA_COUNT,
+    INTERFACE_VERSION,
 };
 
 /// An entry point of an admitted module.
@@ -180,13 +181,69 @@ fn read_real_with<R: RealReader>(text: *const u8, len: u32, out: *mut f64) -> u3
 }
 
 /// The functions of a kernel without a debugger that reads reals with `read_real`: a stop
-/// continues at once and no write is queued.
+/// continues at once, no write is queued and no wall clock is read.
 #[must_use]
 pub const fn without_debugger(read_real: ReadRealFn) -> KernelApi {
     KernelApi {
         stop: continue_stop,
         debug_write: no_queued_write,
         read_real,
+        wall_clock: wall_clock::<NoWallClock>,
+    }
+}
+
+/// The functions `api` with the wall clock `wall_clock`, a platform's that has one (specification
+/// 34 §5.2).
+#[must_use]
+pub const fn with_wall_clock(api: &KernelApi, wall_clock: WallClockFn) -> KernelApi {
+    KernelApi { wall_clock, ..*api }
+}
+
+/// How a kernel reads the platform's wall clock (specification 44 §8.2; specification 34 §5.2).
+pub trait WallClock {
+    /// The UTC Unix time in whole milliseconds, a positive fraction cut off.
+    ///
+    /// # Errors
+    ///
+    /// The code of the fault for a time the clock cannot give: `Overflow` before the epoch or past
+    /// `i64::MAX` milliseconds.
+    fn unix_millis() -> Result<i64, FaultCode>;
+}
+
+/// The wall clock of a platform that has none, whose admission refuses a program that reads one.
+pub struct NoWallClock;
+
+impl WallClock for NoWallClock {
+    fn unix_millis() -> Result<i64, FaultCode> {
+        Err(FaultCode::ModuleInternal)
+    }
+}
+
+/// The kernel function [`KernelApi::wall_clock`] of clock `C`.
+#[cfg(target_arch = "x86_64")]
+pub extern "sysv64" fn wall_clock<C: WallClock>(_cx: *mut Cx, out: *mut i64) -> u32 {
+    wall_clock_with::<C>(out)
+}
+
+/// The kernel function [`KernelApi::wall_clock`] of clock `C`.
+#[cfg(not(target_arch = "x86_64"))]
+pub extern "C" fn wall_clock<C: WallClock>(_cx: *mut Cx, out: *mut i64) -> u32 {
+    wall_clock_with::<C>(out)
+}
+
+#[allow(unsafe_code)]
+fn wall_clock_with<C: WallClock>(out: *mut i64) -> u32 {
+    if out.is_null() {
+        return FaultCode::ModuleInternal as u32;
+    }
+    match C::unix_millis() {
+        Ok(millis) => {
+            // SAFETY: a module calls with its own aligned `i64` at `out` (`module::wall_clock`);
+            // null is refused before.
+            unsafe { out.write(millis) };
+            0
+        }
+        Err(code) => code as u32,
     }
 }
 

@@ -68,7 +68,7 @@ pub(super) fn handle_config_get(id: u64, state: &ControlState) -> ControlRespons
             },
             "watchdog.hang_action": settings.watchdog_hang_action.as_str(),
             "resource.cycle_interval_ms": settings.cycle_interval.as_millis(),
-            "runtime.execution_backend": settings.execution_backend.as_str(),
+            "runtime.execution_backend": crate::execution_backend::EXECUTION_BACKEND,
             "runtime.execution_backend_source": settings.execution_backend_source.as_str(),
             "fault.policy": match settings.fault_policy {
                 crate::watchdog::FaultPolicy::Halt => "halt",

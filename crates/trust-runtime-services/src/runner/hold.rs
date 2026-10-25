@@ -2,15 +2,14 @@
 //! "Continue", "Stepping Semantics" and "Safe Points"; specification 11 §6.9; specification 34,
 //! STATE-07, STATE-08, PORT-05 and TIME-04).
 //!
-//! The device services' statement hook ([`DeviceServices`](crate::runner::engine::DeviceServices))
-//! calls the loop at the first instruction of each statement through a [`HoldHandle`]. The loop
-//! decides there whether the scan stops, and if it does, holds the scan inside the hook. A hold
-//! repeats one pass until it is released:
+//! A compiled program's statement hook calls the loop at each statement start through a
+//! [`HoldHandle`] (specification 44 §13.2). The loop decides there whether the scan stops, and if it
+//! does, holds the scan inside the hook. A hold repeats one pass until it is released:
 //!
 //! 1. it reads a wake token;
 //! 2. it serves up to [`FRAMES_PER_PASS`](crate::runner::FRAMES_PER_PASS) requests through the
 //!    loop's own path, so `status`, `health`, `pause`, `resume` and `shutdown` answer as between
-//!    scans (the halted state is lent to the pass as a [`HeldView`], for the debug reads);
+//!    scans (the halted state is lent to the pass as a [`CompiledHeld`], for the debug reads);
 //! 3. it runs the platform's idle work, so communication drivers keep running as they do on
 //!    trust-runtime;
 //! 4. it feeds the hardware watchdog;
@@ -35,13 +34,9 @@ use core::cell::Cell;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::memory::VariableStorage;
 use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
 use trust_runtime_core::scheduler::ResourceState;
-use trust_runtime_core::value;
-use trust_runtime_core::vm::{PreparedModule, StatementFrame};
 
-use super::cycle::DebugView;
 use super::debugger::{Boundary, StatementStart};
 use super::host::ProgramView;
 use super::shell::Shell;
@@ -50,33 +45,6 @@ use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
 use crate::debug::expression::Names;
 use crate::debug::LineSources;
 use crate::status::IoDriverStatus;
-
-/// The halted state of a held scan, lent to the hold for the length of one hook call: the storage
-/// and the active frame the engine passed to the hook, the prepared program that names them, and the
-/// health of the process I/O the cycle published before the program ran. Nothing in it is a copy
-/// (specification 11 §6.13.1: the value of a held scan is the halted state, and the runtime makes no
-/// copy per statement).
-pub(super) struct HeldView<'a> {
-    /// The scan's storage as the statements before the stop left it.
-    pub(super) storage: &'a VariableStorage,
-    /// The frame of the statement the scan stopped before, with the suspended frames below it.
-    pub(super) frame: StatementFrame<'a>,
-    /// The prepared program, which names the POUs and the variables of the frames.
-    pub(super) prepared: &'a PreparedModule,
-    /// The program's `LINE_TABLE` and file labels, when it has a `LINE_TABLE`.
-    pub(super) sources: Option<&'a LineSources>,
-    /// The logical time of the scan.
-    #[cfg_attr(
-        not(test),
-        allow(
-            dead_code,
-            reason = "S3c's compiled debug expressions read the time of the halted scan"
-        )
-    )]
-    pub(super) logical_time: value::Duration,
-    /// The health of the process I/O, which the cycle published after it read the inputs.
-    pub(super) drivers: &'a Cell<Vec<IoDriverStatus>>,
-}
 
 /// What the device services ask of the resource loop at a scan and at a statement start. The
 /// loop's shell implements it.
@@ -98,21 +66,13 @@ pub(super) trait HoldPass {
         names: Option<&dyn Names>,
     ) -> Result<Boundary, RuntimeError>;
 
-    /// Holds the scan before the statement `at` until the debugger releases it.
-    ///
-    /// # Errors
-    ///
-    /// The [`RuntimeError`] that fails the scan when the hold cannot go on: a wait that failed, or
-    /// state of the loop that was in use.
-    fn hold(&self, at: &StatementStart<'_>, view: &HeldView<'_>) -> Result<(), RuntimeError>;
-
     /// Holds a compiled program's scan before the statement `at` until the debugger releases it,
     /// with the held scan's memory and frames for the debug reads (specification 44 §13.2).
     ///
     /// # Errors
     ///
-    /// As [`Self::hold`].
-    #[cfg(feature = "native")]
+    /// The [`RuntimeError`] that fails the scan when the hold cannot go on: a wait that failed, or
+    /// state of the loop that was in use.
     fn hold_compiled(
         &self,
         at: &StatementStart<'_>,
@@ -120,7 +80,6 @@ pub(super) trait HoldPass {
     ) -> Result<(), RuntimeError>;
 
     /// What the statements of a compiled program stop for from here (specification 44 §13.2).
-    #[cfg(feature = "native")]
     fn stop_points(&self) -> super::debugger::StopPoints;
 
     /// Whether no cell of the loop is borrowed.
@@ -131,7 +90,6 @@ pub(super) trait HoldPass {
 /// A compiled program's held scan, lent to the hold for the length of one stop: the program's
 /// memory with the frames of its call stack, the sources of its statement table, and the health
 /// of the process I/O the cycle published before the program ran (specification 44 §13.2).
-#[cfg(feature = "native")]
 pub struct CompiledHeld<'a> {
     /// The held scan's memory.
     pub memory: &'a dyn trust_runtime_core::native::memory::ProgramMemory,
@@ -144,7 +102,6 @@ pub struct CompiledHeld<'a> {
 /// How a compiled program's cycle holds its scan for the debugger (specification 44 §13.2, §8.8):
 /// a device's loop serves its link while it holds the scan ([`HoldHandle`]); a computer's debugger
 /// waits on the scan thread while the computer's other threads serve the control link.
-#[cfg(feature = "native")]
 pub trait CompiledHold {
     /// The hold of a device's loop as this kind of hold, when it is one: the loop attaches its
     /// hold to the installed cycle ([`ResourceCycle::attach_hold`]), and a hold of another kind
@@ -187,7 +144,6 @@ pub trait CompiledHold {
     ) -> Result<(), RuntimeError>;
 }
 
-#[cfg(feature = "native")]
 impl CompiledHold for HoldHandle {
     fn from_loop(hold: HoldHandle) -> Option<Self> {
         Some(hold)
@@ -241,29 +197,6 @@ impl HoldHandle {
         Self(shell)
     }
 
-    /// A scan begins; see [`HoldPass::scan_begins`].
-    pub(super) fn scan_begins(&self) -> bool {
-        self.0.scan_begins()
-    }
-
-    /// The decision at a statement start; see [`HoldPass::at_statement`].
-    pub(super) fn at_statement(
-        &self,
-        at: &StatementStart<'_>,
-        names: Option<&dyn Names>,
-    ) -> Result<Boundary, RuntimeError> {
-        self.0.at_statement(at, names)
-    }
-
-    /// Holds the scan; see [`HoldPass::hold`].
-    pub(super) fn hold(
-        &self,
-        at: &StatementStart<'_>,
-        view: &HeldView<'_>,
-    ) -> Result<(), RuntimeError> {
-        self.0.hold(at, view)
-    }
-
     /// Whether no cell of the loop is borrowed, for the tests that prove no borrow outlives an
     /// operation.
     #[cfg(test)]
@@ -272,48 +205,11 @@ impl HoldHandle {
     }
 }
 
-/// The installed program as a held scan shows it: installed, with the I/O health its cycle
-/// published and the halted state the hook lent.
-struct HeldProgram<'a> {
-    view: &'a HeldView<'a>,
-}
-
-impl ProgramView for HeldProgram<'_> {
-    /// A program that is held has run its scan, so it is installed.
-    fn missing_program(&self) -> Option<&str> {
-        None
-    }
-
-    fn driver_health(&self) -> Vec<IoDriverStatus> {
-        let drivers = self.view.drivers.take();
-        let health = drivers.clone();
-        self.view.drivers.set(drivers);
-        health
-    }
-
-    /// A held scan is a running program's, which no step runs (specification 11 §6.8.1).
-    fn step(&self, _request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
-        Err(StepRefusal::NotStopped(ResourceState::Running))
-    }
-
-    /// The halted state: the storage and call stack at the stop (specification 11 §6.13.1).
-    fn debug_state(&self) -> Option<DebugView<'_>> {
-        Some(DebugView {
-            storage: self.view.storage,
-            prepared: self.view.prepared,
-            frame: Some(self.view.frame),
-            sources: self.view.sources,
-        })
-    }
-}
-
 /// A compiled program as its held scan shows it (specification 44 §13.2).
-#[cfg(feature = "native")]
 struct HeldCompiled<'a> {
     view: &'a CompiledHeld<'a>,
 }
 
-#[cfg(feature = "native")]
 impl ProgramView for HeldCompiled<'_> {
     /// A program that is held has run its scan, so it is installed.
     fn missing_program(&self) -> Option<&str> {
@@ -330,10 +226,6 @@ impl ProgramView for HeldCompiled<'_> {
     /// A held scan is a running program's, which no step runs (specification 11 §6.8.1).
     fn step(&self, _request: &StepRequest) -> Result<StepOutcome, StepRefusal> {
         Err(StepRefusal::NotStopped(ResourceState::Running))
-    }
-
-    fn debug_state(&self) -> Option<DebugView<'_>> {
-        None
     }
 
     fn compiled_state(&self) -> Option<super::cycle::CompiledView<'_>> {
@@ -375,23 +267,14 @@ where
         self.debug.at_statement(at, names)
     }
 
-    fn hold(&self, at: &StatementStart<'_>, view: &HeldView<'_>) -> Result<(), RuntimeError> {
-        self.hold_with(at, &HeldProgram { view }, &mut || {
-            #[cfg(test)]
-            self.run_probe(view);
-        })
-    }
-
-    #[cfg(feature = "native")]
     fn hold_compiled(
         &self,
         at: &StatementStart<'_>,
         view: &CompiledHeld<'_>,
     ) -> Result<(), RuntimeError> {
-        self.hold_with(at, &HeldCompiled { view }, &mut || {})
+        self.hold_with(at, &HeldCompiled { view })
     }
 
-    #[cfg(feature = "native")]
     fn stop_points(&self) -> super::debugger::StopPoints {
         self.debug.stop_points()
     }
@@ -410,12 +293,11 @@ where
     C: MonotonicClock,
 {
     /// Holds the scan before the statement `at` until the debugger releases it, serving the link
-    /// with `program` as the installed program and calling `probe` at the start of each pass.
+    /// with `program` as the installed program.
     fn hold_with(
         &self,
         at: &StatementStart<'_>,
         program: &dyn ProgramView,
-        probe: &mut dyn FnMut(),
     ) -> Result<(), RuntimeError> {
         #[cfg(test)]
         assert!(
@@ -424,7 +306,6 @@ where
         );
         loop {
             let token = self.wake_token();
-            probe();
             // A scan that the debugger holds reaches no boundary, so the change that waits for one is
             // withdrawn here after five seconds, and the requests behind its reply are served again.
             self.expire_change();
@@ -473,15 +354,5 @@ where
             self.note_reply(after_response);
         }
         true
-    }
-
-    /// Calls the test's probe with the view of this pass, if there is one.
-    #[cfg(test)]
-    fn run_probe(&self, view: &HeldView<'_>) {
-        if let Ok(probe) = self.probe.try_borrow()
-            && let Some(probe) = probe.as_ref()
-        {
-            probe(view);
-        }
     }
 }

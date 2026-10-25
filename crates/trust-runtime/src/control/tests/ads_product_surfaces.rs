@@ -14,7 +14,10 @@ fn generated_ads_globals_are_first_class_product_surface_variables() {
 
     let schema = hmi_schema_result(&state);
     let temp_widget = hmi_widget_by_path(&schema, "global.line1_temp");
-    assert_eq!(temp_widget.get("id").and_then(serde_json::Value::as_str), Some(temp_id));
+    assert_eq!(
+        temp_widget.get("id").and_then(serde_json::Value::as_str),
+        Some(temp_id)
+    );
     assert_eq!(
         temp_widget
             .get("data_type")
@@ -30,9 +33,7 @@ fn generated_ads_globals_are_first_class_product_surface_variables() {
 
     let quality_widget = hmi_widget_by_path(&schema, "global.line1_temp_quality");
     assert_eq!(
-        quality_widget
-            .get("id")
-            .and_then(serde_json::Value::as_str),
+        quality_widget.get("id").and_then(serde_json::Value::as_str),
         Some(quality_id)
     );
     assert_eq!(
@@ -135,20 +136,14 @@ fn generated_ads_globals_are_first_class_product_surface_variables() {
     assert!(
         globals.iter().any(|entry| {
             entry.get("name").and_then(serde_json::Value::as_str) == Some("line1_temp")
-                && entry
-                    .get("type")
-                    .and_then(serde_json::Value::as_str)
-                    == Some("REAL")
+                && entry.get("type").and_then(serde_json::Value::as_str) == Some("REAL")
         }),
         "line1_temp should appear in debug Globals"
     );
     assert!(
         globals.iter().any(|entry| {
-            entry.get("name").and_then(serde_json::Value::as_str)
-                == Some("line1_temp_quality")
-                && entry
-                    .get("value")
-                    .and_then(serde_json::Value::as_str)
+            entry.get("name").and_then(serde_json::Value::as_str) == Some("line1_temp_quality")
+                && entry.get("value").and_then(serde_json::Value::as_str)
                     == Some("ADS_QUALITY::Stale")
         }),
         "line1_temp_quality should appear in debug Globals"
@@ -173,13 +168,19 @@ fn generated_ads_globals_are_first_class_product_surface_variables() {
     let recorded = historian
         .capture_snapshot_at(&snapshot, 1_000)
         .expect("historian capture");
-    assert!(recorded >= 2, "historian should record ADS value and quality globals");
-    assert!(historian.query(Some("line1_temp"), None, 10).iter().any(|sample| {
-        matches!(
-            &sample.value,
-            crate::historian::HistorianValue::Float(value) if *value == 0.0
-        )
-    }));
+    assert!(
+        recorded >= 2,
+        "historian should record ADS value and quality globals"
+    );
+    assert!(historian
+        .query(Some("line1_temp"), None, 10)
+        .iter()
+        .any(|sample| {
+            matches!(
+                &sample.value,
+                crate::historian::HistorianValue::Float(value) if *value == 0.0
+            )
+        }));
     assert!(
         historian
             .query(Some("line1_temp_quality"), None, 10)
@@ -193,17 +194,19 @@ fn generated_ads_globals_are_first_class_product_surface_variables() {
     let _ = std::fs::remove_file(history_path);
 
     let opc_temp = crate::opcua::map_iec_value(
-        snapshot
-            .storage
-            .get_global("line1_temp")
+        &snapshot
+            .compiled
+            .as_deref()
+            .and_then(|state| state.value("line1_temp"))
             .expect("line1_temp global"),
     )
     .expect("line1_temp maps to OPC UA");
     assert_eq!(opc_temp.data_type, crate::opcua::OpcUaDataType::Float);
     let opc_quality = crate::opcua::map_iec_value(
-        snapshot
-            .storage
-            .get_global("line1_temp_quality")
+        &snapshot
+            .compiled
+            .as_deref()
+            .and_then(|state| state.value("line1_temp_quality"))
             .expect("line1_temp_quality global"),
     )
     .expect("line1_temp_quality maps to OPC UA");
@@ -223,19 +226,20 @@ fn hmi_widget_by_path<'a>(schema: &'a serde_json::Value, path: &str) -> &'a serd
         .get("widgets")
         .and_then(serde_json::Value::as_array)
         .and_then(|widgets| {
-            widgets.iter().find(|widget| {
-                widget.get("path").and_then(serde_json::Value::as_str) == Some(path)
-            })
+            widgets
+                .iter()
+                .find(|widget| widget.get("path").and_then(serde_json::Value::as_str) == Some(path))
         })
         .unwrap_or_else(|| panic!("missing HMI widget for {path}"))
 }
 
+/// The variables of the compiled program's `Globals` scope, through the handle of that scope that
+/// the program's debugger hands out (specification 44 §13.2).
 fn debug_global_variables(state: &ControlState) -> Vec<serde_json::Value> {
-    let globals_ref = state
-        .debug_variables
-        .lock()
-        .expect("debug variable handles")
-        .alloc(crate::debug::dap::VariableHandle::Globals);
+    let globals_ref = debugger_handle(
+        &state.debug,
+        crate::debug::dap::VariableHandle::CompiledGlobals,
+    );
     let variables = handle_request_value(
         json!({
             "id": 713,

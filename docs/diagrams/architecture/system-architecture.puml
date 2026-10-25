@@ -248,20 +248,20 @@ package "trust-runtime crate" as struntime #LightYellow {
     component "ADS Generated Globals\n(src/generated/ads_generated.st)" as adsGenerated
     component "MQTT Driver\n(TCP/TLS/mTLS)" as mqttDriver
 
-    package "eval/" as eval {
-        component "Stmt" as stmtAst <<eval/stmt.rs:30-95>>
-        component "Expr" as exprAst <<eval/expr/ast.rs:6-36>>
+    package "program_model/" as programModel {
+        component "Stmt" as stmtAst <<program_model/stmt.rs>>
+        component "Expr" as exprAst <<program_model/stmt.rs>>
     }
 
-    package "bytecode/" as bytecode {
-        component "BytecodeModule" as bcModule <<bytecode/format.rs>>
-        component "Decoder" as decoder
-        component "Encoder" as encoder
+    package "host/native/" as nativeBuild {
+        component "Generator\n(front, model, lower, emit)" as nativeGenerator <<host/native/*.rs>>
+        component "Toolchain\n(rustc, the program library)" as nativeToolchain
+        component "Program image\n(program.tpi, signed)" as programImage
     }
 
     package "debug/" as debug {
-        component "DebugControl" as debugCtrl <<debug/control/api.rs + debug/control/hook.rs>>
-        component "DebugHook" as debugHook <<debug/hook.rs>>
+        component "DebugControl\n(Live Values, events)" as debugCtrl <<host/debug/control.rs>>
+        component "CompiledDebugger" as compiledDebugger <<runtime/compiled/debugger.rs>>
     }
 
     runtime --> varStorage
@@ -277,12 +277,12 @@ package "trust-runtime crate" as struntime #LightYellow {
     harness --> adsGenerated : compiles generated ST
     harness --> hirInitCatalog : imports source/default handles
     harness --> initSvc : lowers handles/CST to Expr records
-    harness --> bytecode
+    harness --> nativeBuild
     launcher --> bundleLoader
     bundleLoader --> runtimeConfig
     bundleLoader --> adsClient : loads ads.toml\nwhen [runtime.ads] enabled
     bundleLoader --> adsServerIntegration : validates [runtime.ads_server]\nand starts listener
-    launcher --> harness : loads bytecode
+    launcher --> harness : builds the program image
     launcher --> registryCli : delegates\nregistry subcommands
     launcher --> adsClient : ads import/validate\nand worker startup
     launcher --> adsServerIntegration : ads server status/doctor/route
@@ -371,7 +371,7 @@ package "trust-debug crate" as stdebug #Lavender {
 ' DEPLOYMENT + IO
 ' ============================================================
 package "Deployment" as deploy #LightGray {
-    artifact "Project Folder\n(Runtime Bundle Format)\nprogram.stbc, deployment-record.bin,\nruntime.toml, io.toml,\nads.toml when [runtime.ads] enabled" as bundle
+    artifact "Project Folder\n(Runtime Bundle Format)\nprogram.tpi, deployment-record.bin,\nruntime.toml, io.toml,\nads.toml when [runtime.ads] enabled" as bundle
     artifact "ADS Authoring Artifacts\nads.toml, ads/snapshots/*.symbols.json,\nsrc/generated/ads_generated.st" as adsArtifacts
     artifact "Package Registry Root\n(index.json, packages/*)" as packageRegistry
     artifact "Project Sources\n(sources/**/*.st)" as sourceFiles
@@ -418,7 +418,7 @@ harness --> project : diagnostics
 
 ' Execution path
 sthir --> harness : compile inputs
-harness --> struntime : runtime + bytecode
+harness --> struntime : runtime + program image
 stdebug --> struntime : runtime + debug control
 stdebug -up-> vscode : DAP events
 bundle --> launcher : load

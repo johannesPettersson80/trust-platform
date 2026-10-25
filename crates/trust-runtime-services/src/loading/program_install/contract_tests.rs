@@ -17,7 +17,7 @@ use super::*;
 use crate::access::AccessRole;
 use crate::dispatch::dispatch_value;
 use crate::loading::reload;
-use crate::loading::tests::{transfer_of, PROGRAM};
+use crate::loading::tests::{program, transfer_of};
 use crate::ports::RecordsPort;
 use crate::tests::fake_host::FakeHost;
 use crate::transfer::{TransferSession, PART_BYTES};
@@ -77,7 +77,7 @@ fn program_install_requires_admin() {
     host.control_token = Some("secret");
     host.requires_auth = true;
     host.pairing = Some(("paired", AccessRole::Operator));
-    let id = upload(&host, &transfer_of(PROGRAM));
+    let id = upload(&host, &transfer_of(program()));
     let refused = dispatch_value(
         json!({"id": 1, "type": "program.install", "auth": "paired", "params": {"transfer": id}}),
         &host,
@@ -101,7 +101,7 @@ fn program_install_while_running_replies_resource_not_running() {
     // Wrong behaviour: the container is committed while the program runs.
     let host = store_host();
     host.state.set(ResourceState::Running);
-    let id = upload(&host, &transfer_of(PROGRAM));
+    let id = upload(&host, &transfer_of(program()));
     let refused = install_of(&host, 1, &id);
     assert_refusal(
         &refused,
@@ -121,7 +121,7 @@ fn a_refused_state_leaves_the_transfer_open() {
     // Stopped. Wrong behaviour: a refused install uses up its upload, and the client must upload again.
     let host = store_host();
     host.state.set(ResourceState::Running);
-    let id = upload(&host, &transfer_of(PROGRAM));
+    let id = upload(&host, &transfer_of(program()));
     let refused = install_of(&host, 1, &id);
     assert!(!refused.ok, "a running resource refuses the install");
     host.state.set(ResourceState::Stopped);
@@ -139,7 +139,7 @@ fn a_platform_without_a_program_store_answers_unsupported_request_and_takes_noth
     // behaviour: the upload is taken and lost, or the request is answered as if it were stored.
     let mut host = store_host();
     host.has_program_store = false;
-    let id = upload(&host, &transfer_of(PROGRAM));
+    let id = upload(&host, &transfer_of(program()));
     let refused = install_of(&host, 1, &id);
     assert_refusal(&refused, "unsupported request", None);
     assert!(host.commits.borrow().is_empty(), "nothing is stored");
@@ -160,7 +160,7 @@ fn an_install_that_cannot_restore_its_retained_values_is_refused_before_any_writ
     let mut host = store_host();
     host.retained_refusal =
         Some("invalid retained value for 'r': value 100 outside declared subrange 0..10");
-    let id = upload(&host, &transfer_of(PROGRAM));
+    let id = upload(&host, &transfer_of(program()));
     let refused = install_of(&host, 1, &id);
     assert_refusal(
         &refused,
@@ -180,7 +180,7 @@ fn program_install_commits_the_checked_container_and_replies_its_identity() {
     // other than the uploaded one is committed, or the reply drops the sequence or writes the SHA-256
     // in another form.
     let host = store_host();
-    let container = transfer_of(PROGRAM);
+    let container = transfer_of(program());
     let id = upload(&host, &container);
     let installed = install_of(&host, 1, &id);
     assert!(installed.ok, "a checked install commits: {installed:?}");

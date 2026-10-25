@@ -5,11 +5,9 @@
 mod ads_handlers;
 mod audit;
 mod auth;
-mod breakpoint_handlers;
 mod comm_handlers;
 mod config_handlers;
 mod connectors_handlers;
-mod debug_handlers;
 pub(crate) mod fleet_handlers;
 mod handlers;
 mod hmi_handlers;
@@ -31,7 +29,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use crate::config::ControlMode;
-use crate::debug::{DebugControl, DebugVariableHandles};
+use crate::debug::DebugControl;
 use crate::discovery::DiscoveryState;
 use crate::error::RuntimeError;
 use crate::io::{IoDriverStatus, IoSnapshot};
@@ -81,10 +79,12 @@ fn control_event_time_now() -> crate::value::Duration {
     crate::value::Duration::from_millis(timestamp_ms)
 }
 
+/// The largest reply a computer holds and the largest upload it takes: 64 MiB, the largest program
+/// container a computer admits (specification 34 §5.1, PORT-05).
+const MAX_TRANSFER_BYTES: usize = 64 * 1024 * 1024;
+
 /// The transfers of this process (specification 34, PORT-05). Its boot number is the process start
-/// in seconds since the epoch, so a transfer id does not repeat after a restart. A computer's reply
-/// buffer and its upload limit are both the engine's container limit, the largest artifact a hosted
-/// runtime admits.
+/// in seconds since the epoch, so a transfer id does not repeat after a restart.
 #[must_use]
 pub fn new_transfer_session() -> Arc<Mutex<TransferSession>> {
     let boot = std::time::SystemTime::now()
@@ -94,8 +94,8 @@ pub fn new_transfer_session() -> Arc<Mutex<TransferSession>> {
         });
     Arc::new(Mutex::new(TransferSession::new(
         boot,
-        crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES,
-        crate::bytecode::BYTECODE_MAX_CONTAINER_BYTES,
+        MAX_TRANSFER_BYTES,
+        MAX_TRANSFER_BYTES,
     )))
 }
 
@@ -248,7 +248,6 @@ pub struct ControlState {
     pub runtime_id: SmolStr,
     pub io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
     pub debug_enabled: Arc<AtomicBool>,
-    pub debug_variables: Arc<Mutex<DebugVariableHandles>>,
     pub hmi_live: Arc<Mutex<crate::hmi::HmiLiveState>>,
     pub hmi_persistence: Option<Arc<crate::hmi::HmiPersistenceService>>,
     pub hmi_descriptor: Arc<Mutex<HmiRuntimeDescriptor>>,

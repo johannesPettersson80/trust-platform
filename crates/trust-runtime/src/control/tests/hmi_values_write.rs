@@ -340,8 +340,10 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     assert_eq!(writes.len(), 1);
     assert_eq!(writes[0].value, Value::Bool(false));
     match &writes[0].target {
-        PendingVarTarget::Instance(_, _, name) => assert_eq!(name.as_str(), "run"),
-        other => panic!("expected instance write, got {other:?}"),
+        // A compiled program's variable is written by its full name through the symbol table
+        // (specification 44 §13.3).
+        PendingVarTarget::Global(name) => assert_eq!(name.as_str(), "Main.run"),
+        other => panic!("expected a write of Main.run, got {other:?}"),
     }
 
     fs::remove_dir_all(root).ok();
@@ -439,8 +441,10 @@ allow = ["resource/RESOURCE/program/Main/field/run"]
     );
     assert_eq!(writes[0].value, Value::Bool(true));
     match &writes[0].target {
-        PendingVarTarget::Instance(_, _, name) => assert_eq!(name.as_str(), "run"),
-        other => panic!("expected instance write, got {other:?}"),
+        // A compiled program's variable is written by its full name through the symbol table
+        // (specification 44 §13.3).
+        PendingVarTarget::Global(name) => assert_eq!(name.as_str(), "Main.run"),
+        other => panic!("expected a write of Main.run, got {other:?}"),
     }
 
     let artifact_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

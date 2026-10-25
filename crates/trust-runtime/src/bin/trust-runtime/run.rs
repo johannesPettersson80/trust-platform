@@ -8,14 +8,12 @@ use std::sync::{Arc, Mutex};
 use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime::bundle::{detect_bundle_path, is_bundle_not_found};
-use trust_runtime::bytecode::BytecodeModule;
 use trust_runtime::config::{RuntimeBundle, WebAuthMode, WebConfig};
 use trust_runtime::control::{
     spawn_hmi_descriptor_watcher, ControlEndpoint, ControlServer, ControlState,
     HmiRuntimeDescriptor, SourceFile, SourceRegistry,
 };
 use trust_runtime::discovery::{start_discovery_with_state, DiscoveryState};
-use trust_runtime::harness::CompileSession;
 use trust_runtime::historian::HistorianService;
 use trust_runtime::hmi::{HmiPersistenceService, HmiScaffoldMode, HmiSourceRef};
 use trust_runtime::io::IoDriverRegistry;
@@ -33,7 +31,7 @@ use trust_runtime::settings::{
 };
 use trust_runtime::value::Duration;
 use trust_runtime::web::start_web_server;
-use trust_runtime::{RestartMode, Runtime};
+use trust_runtime::RestartMode;
 
 use crate::setup;
 use crate::style;

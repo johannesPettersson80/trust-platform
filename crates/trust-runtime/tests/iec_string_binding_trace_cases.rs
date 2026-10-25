@@ -1,3 +1,7 @@
+//! The IEC STRING binding cases of `IEC_STRING_001`: in-out and output copy-back of bounded strings.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -194,7 +198,7 @@ fn run_runtime(
 }
 
 fn compile_reject(probe: &mut StringBindingProbe, source: &str, expected: &str) -> Option<String> {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => Some(format!("fixture compiled but expected {expected}")),
         Err(error) => {
             let rendered = error.to_string();

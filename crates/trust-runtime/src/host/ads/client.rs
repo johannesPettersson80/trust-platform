@@ -5,16 +5,14 @@ use smol_str::SmolStr;
 use trust_ads_core::{
     AdsDataTypeDescriptor, IecDataType, PointQuality, PointStatus, QualityState, SymbolDescriptor,
 };
-use trust_hir::{Type, TypeId};
 use trust_runtime_core::native::image::type_kind;
 use trust_runtime_core::native::memory::TypeShape;
 
 use crate::error::RuntimeError;
 use crate::harness::CompileError;
-use crate::memory::VariableStorage;
 use crate::runtime::{BoundGlobal, GlobalPort};
-use crate::value::{EnumValue, Value, ValueRef};
-use crate::{CompiledRuntime, RetainPolicy, Runtime};
+use crate::value::{EnumValue, Value};
+use crate::CompiledRuntime;
 
 use super::contracts::{AdsConnectionConfig, AdsPointConfig};
 use super::descriptors::{point_reads, point_writes, validate_point_against_symbols};
@@ -134,63 +132,15 @@ pub struct AdsLiveValue {
     pub forced: bool,
 }
 
-pub fn resolve_declared_bindings(
-    runtime: &Runtime,
-    connection: &AdsConnectionConfig,
-) -> Result<Vec<AdsBinding>, CompileError> {
-    let mut seen = BTreeSet::new();
-    let mut bindings = Vec::with_capacity(connection.points.len());
-    for point in &connection.points {
-        if !seen.insert(point.point_name.clone()) {
-            return Err(CompileError::new(format!(
-                "ADS point '{}' is bound more than once",
-                point.point_name
-            )));
-        }
-        let meta = runtime
-            .globals()
-            .get(point.point_name.as_str())
-            .ok_or_else(|| {
-                CompileError::new(format!(
-                    "failed to resolve declared global '{}' for ADS binding",
-                    point.point_name
-                ))
-            })?;
-        let reference = runtime
-            .storage()
-            .ref_for_global(point.point_name.as_str())
-            .ok_or_else(|| {
-                CompileError::new(format!(
-                    "failed to resolve ValueRef for ADS binding '{}'",
-                    point.point_name
-                ))
-            })?;
-        let quality_reference = resolve_quality_reference(runtime, point)?;
-        validate_declared_type(point, meta.type_id, runtime.registry())?;
-        let retain = matches!(meta.retain, RetainPolicy::Retain | RetainPolicy::Persistent);
-        if point_reads(point.access) && retain && !point.allow_retain_read {
-            return Err(CompileError::new(format!(
-                "ADS read binding '{}' targets a RETAIN/PERSISTENT global; set allow_retain_read=true to acknowledge cold-start stale quality",
-                point.point_name
-            )));
-        }
-        bindings.push(AdsBinding {
-            point: point.clone(),
-            target: BoundGlobal::Engine(reference),
-            quality_target: quality_reference.map(BoundGlobal::Engine),
-            retain,
-        });
-    }
-    Ok(bindings)
-}
-
-/// [`resolve_declared_bindings`] for a compiled program (specification 44 §13.3): each point binds
-/// the global of its name, found through the program's symbol table, with the same checks; the
-/// program resolves the name again at each access.
+/// The bindings of a connection's points (specification 11's ADS client, specification 44 §13.3):
+/// each point binds the global of its name, found through the program's symbol table; the program
+/// resolves the name again at each access.
 ///
 /// # Errors
 ///
-/// As [`resolve_declared_bindings`].
+/// A point bound twice, a global the program does not declare, a `<point>_quality` global of
+/// another type than `ADS_QUALITY`, a configured type that does not match the declared one, and a
+/// read of a retained global without `allow_retain_read`.
 pub fn resolve_compiled_bindings(
     program: &CompiledRuntime,
     connection: &AdsConnectionConfig,
@@ -223,7 +173,7 @@ pub fn resolve_compiled_bindings(
                         quality.type_name
                     )));
                 }
-                Some(BoundGlobal::Compiled(quality.name))
+                Some(BoundGlobal(quality.name))
             }
             None => None,
         };
@@ -241,7 +191,7 @@ pub fn resolve_compiled_bindings(
         }
         bindings.push(AdsBinding {
             point: point.clone(),
-            target: BoundGlobal::Compiled(global.name),
+            target: BoundGlobal(global.name),
             quality_target,
             retain: global.retained,
         });
@@ -257,16 +207,6 @@ pub struct AdsConnectionBridge {
 }
 
 impl AdsConnectionBridge {
-    pub(crate) fn points(&self) -> Vec<AdsPointConfig> {
-        self.bindings
-            .iter()
-            .map(|binding| binding.point.clone())
-            .collect()
-    }
-    pub(crate) fn replace_bindings(&mut self, bindings: Vec<AdsBinding>) {
-        self.bindings = bindings;
-    }
-
     pub fn new(bindings: Vec<AdsBinding>) -> Result<Self, AdsBridgeError> {
         validate_bindings(&bindings)?;
         Ok(Self {
@@ -289,14 +229,6 @@ impl AdsConnectionBridge {
             DEFAULT_SYMBOL_VERSION_CHECK_INTERVAL_MS,
         );
         Ok((bridge, worker))
-    }
-
-    pub fn apply_inputs(
-        &mut self,
-        storage: &mut VariableStorage,
-        now_ms: u64,
-    ) -> Result<(), AdsBridgeError> {
-        self.apply_inputs_with(now_ms, storage)
     }
 
     fn apply_inputs_with(
@@ -373,56 +305,6 @@ impl AdsConnectionBridge {
         Ok(())
     }
 
-    pub fn capture_outputs(
-        &mut self,
-        storage: &mut VariableStorage,
-        now_ms: u64,
-    ) -> Result<(), AdsBridgeError> {
-        let snapshot = self.shared.snapshot();
-        for binding in self
-            .bindings
-            .iter()
-            .filter(|binding| point_writes(binding.point.access))
-        {
-            if let Some(quality) = snapshot.qualities.get(binding.point.point_name.as_str()) {
-                self.write_quality(storage, binding, quality, now_ms)?;
-            }
-            let Some(value) = binding
-                .target
-                .reference()
-                .ok()
-                .and_then(|reference| storage.read_by_ref(reference.clone()).cloned())
-            else {
-                self.shared.set_quality(
-                    binding.point.point_name.as_str(),
-                    PointQuality::error(
-                        now_ms,
-                        format!("failed to read ADS output '{}'", binding.point.point_name),
-                    ),
-                );
-                continue;
-            };
-            cycle_port::queue_output(
-                &self.shared,
-                &mut self.last_queued_values,
-                binding,
-                value,
-                now_ms,
-            );
-        }
-        Ok(())
-    }
-
-    fn write_quality(
-        &self,
-        storage: &mut VariableStorage,
-        binding: &AdsBinding,
-        quality: &PointQuality,
-        now_ms: u64,
-    ) -> Result<(), AdsBridgeError> {
-        self.write_quality_with(binding, quality, now_ms, storage)
-    }
-
     fn write_quality_with(
         &self,
         binding: &AdsBinding,
@@ -474,32 +356,6 @@ impl AdsConnectionBridge {
             .pending_writes
             .get(point_name)
             .cloned()
-    }
-
-    pub fn live_values(
-        &self,
-        storage: &VariableStorage,
-        connection_name: &str,
-        ams_port: u16,
-    ) -> Vec<AdsLiveValue> {
-        self.bindings
-            .iter()
-            .filter_map(|binding| {
-                let reference = binding.target.reference().ok()?;
-                storage
-                    .read_by_ref(reference.clone())
-                    .cloned()
-                    .map(|value| AdsLiveValue {
-                        connection_name: connection_name.to_string(),
-                        ams_port,
-                        point_name: binding.point.point_name.clone(),
-                        input: point_reads(binding.point.access),
-                        writable: point_writes(binding.point.access),
-                        value,
-                        forced: false,
-                    })
-            })
-            .collect()
     }
 
     pub fn live_value_writable(&self, point_name: &str) -> Option<bool> {
@@ -557,51 +413,6 @@ fn validate_bindings(bindings: &[AdsBinding]) -> Result<(), AdsBridgeError> {
     Ok(())
 }
 
-fn resolve_quality_reference(
-    runtime: &Runtime,
-    point: &AdsPointConfig,
-) -> Result<Option<ValueRef>, CompileError> {
-    let quality_name = format!("{}_quality", point.point_name);
-    let Some(meta) = runtime.globals().get(quality_name.as_str()) else {
-        return Ok(None);
-    };
-    validate_quality_type(quality_name.as_str(), meta.type_id, runtime.registry())?;
-    let reference = runtime
-        .storage()
-        .ref_for_global(quality_name.as_str())
-        .ok_or_else(|| {
-            CompileError::new(format!(
-                "failed to resolve ValueRef for ADS quality binding '{quality_name}'"
-            ))
-        })?;
-    Ok(Some(reference))
-}
-
-fn validate_quality_type(
-    quality_name: &str,
-    type_id: TypeId,
-    registry: &trust_hir::types::TypeRegistry,
-) -> Result<(), CompileError> {
-    if is_ads_quality_type(type_id, registry) {
-        return Ok(());
-    }
-    Err(CompileError::new(format!(
-        "ADS quality binding '{quality_name}' must have type ADS_QUALITY, got {}",
-        type_name(type_id, registry)
-    )))
-}
-
-fn is_ads_quality_type(type_id: TypeId, registry: &trust_hir::types::TypeRegistry) -> bool {
-    let Some(ty) = registry.get(type_id) else {
-        return false;
-    };
-    match ty {
-        Type::Alias { target, .. } => is_ads_quality_type(*target, registry),
-        Type::Enum { name, .. } => name.eq_ignore_ascii_case("ADS_QUALITY"),
-        _ => false,
-    }
-}
-
 fn quality_value(state: QualityState) -> Value {
     let (variant, ordinal) = match state {
         QualityState::Stale => ("Stale", 0),
@@ -624,56 +435,6 @@ fn validate_remote_symbols(
             .map_err(|err| AdsBridgeError::validation(err.to_string()))?;
     }
     Ok(())
-}
-
-fn validate_declared_type(
-    point: &AdsPointConfig,
-    type_id: TypeId,
-    registry: &trust_hir::types::TypeRegistry,
-) -> Result<(), CompileError> {
-    if ads_descriptor_matches_type_id(&point.data_type, type_id, registry) {
-        Ok(())
-    } else {
-        Err(CompileError::new(format!(
-            "ADS point '{}' type mismatch: config {:?} does not match declared type {}",
-            point.point_name,
-            point.data_type,
-            type_name(type_id, registry)
-        )))
-    }
-}
-
-fn ads_descriptor_matches_type_id(
-    descriptor: &AdsDataTypeDescriptor,
-    type_id: TypeId,
-    registry: &trust_hir::types::TypeRegistry,
-) -> bool {
-    let Some(ty) = registry.get(type_id) else {
-        return descriptor.dimensions.is_empty()
-            && scalar_matches_type_id(descriptor.iec_type, type_id);
-    };
-    match ty {
-        Type::Alias { target, .. } => ads_descriptor_matches_type_id(descriptor, *target, registry),
-        Type::Subrange { base, .. } => {
-            descriptor.dimensions.is_empty() && scalar_matches_type_id(descriptor.iec_type, *base)
-        }
-        Type::Enum { base, .. } => {
-            descriptor.dimensions.is_empty() && scalar_matches_type_id(descriptor.iec_type, *base)
-        }
-        Type::Array {
-            element,
-            dimensions,
-        } => {
-            let ads_dimensions = descriptor
-                .dimensions
-                .iter()
-                .map(|dimension| (dimension.lower, dimension.upper))
-                .collect::<Vec<_>>();
-            ads_dimensions == *dimensions
-                && scalar_descriptor_matches_type_id(descriptor, *element, registry)
-        }
-        _ => descriptor.dimensions.is_empty() && scalar_type_matches(descriptor, ty, type_id),
-    }
 }
 
 /// Whether the ADS descriptor fits a compiled program's global of `shape`, as
@@ -745,70 +506,4 @@ fn scalar_matches_kind(iec_type: IecDataType, kind: u32) -> bool {
             | (IecDataType::Dword, type_kind::DWORD)
             | (IecDataType::Lword, type_kind::LWORD)
     )
-}
-
-fn scalar_descriptor_matches_type_id(
-    descriptor: &AdsDataTypeDescriptor,
-    type_id: TypeId,
-    registry: &trust_hir::types::TypeRegistry,
-) -> bool {
-    let scalar = AdsDataTypeDescriptor {
-        source_name: descriptor.source_name.clone(),
-        iec_type: descriptor.iec_type,
-        dimensions: Vec::new(),
-        string_len: descriptor.string_len,
-    };
-    ads_descriptor_matches_type_id(&scalar, type_id, registry)
-}
-
-fn scalar_type_matches(descriptor: &AdsDataTypeDescriptor, ty: &Type, type_id: TypeId) -> bool {
-    match (descriptor.iec_type, ty) {
-        (IecDataType::Bool, Type::Bool)
-        | (IecDataType::Sint, Type::SInt)
-        | (IecDataType::Int, Type::Int)
-        | (IecDataType::Dint, Type::DInt)
-        | (IecDataType::Lint, Type::LInt)
-        | (IecDataType::Usint, Type::USInt)
-        | (IecDataType::Uint, Type::UInt)
-        | (IecDataType::Udint, Type::UDInt)
-        | (IecDataType::Ulint, Type::ULInt)
-        | (IecDataType::Real, Type::Real)
-        | (IecDataType::Lreal, Type::LReal)
-        | (IecDataType::Byte, Type::Byte)
-        | (IecDataType::Word, Type::Word)
-        | (IecDataType::Dword, Type::DWord)
-        | (IecDataType::Lword, Type::LWord) => true,
-        (IecDataType::String, Type::String { max_len }) => descriptor
-            .string_len
-            .is_some_and(|len| max_len.is_none_or(|max| u32::from(len) == max)),
-        _ => scalar_matches_type_id(descriptor.iec_type, type_id),
-    }
-}
-
-fn scalar_matches_type_id(iec_type: IecDataType, type_id: TypeId) -> bool {
-    matches!(
-        (iec_type, type_id),
-        (IecDataType::Bool, TypeId::BOOL)
-            | (IecDataType::Sint, TypeId::SINT)
-            | (IecDataType::Int, TypeId::INT)
-            | (IecDataType::Dint, TypeId::DINT)
-            | (IecDataType::Lint, TypeId::LINT)
-            | (IecDataType::Usint, TypeId::USINT)
-            | (IecDataType::Uint, TypeId::UINT)
-            | (IecDataType::Udint, TypeId::UDINT)
-            | (IecDataType::Ulint, TypeId::ULINT)
-            | (IecDataType::Real, TypeId::REAL)
-            | (IecDataType::Lreal, TypeId::LREAL)
-            | (IecDataType::Byte, TypeId::BYTE)
-            | (IecDataType::Word, TypeId::WORD)
-            | (IecDataType::Dword, TypeId::DWORD)
-            | (IecDataType::Lword, TypeId::LWORD)
-            | (IecDataType::String, TypeId::STRING)
-    )
-}
-
-fn type_name(type_id: TypeId, registry: &trust_hir::types::TypeRegistry) -> SmolStr {
-    registry
-        .type_name(type_id)
-        .unwrap_or_else(|| SmolStr::new(format!("TypeId({})", type_id.0)))
 }

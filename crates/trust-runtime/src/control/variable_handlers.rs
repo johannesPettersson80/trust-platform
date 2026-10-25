@@ -1,5 +1,5 @@
-//! The host's variable handlers: `eval` reads the debugger snapshot and the retained names here,
-//! because it needs the HIR expression evaluator. `set`, `var.force`, `var.unforce` and
+//! The host's variable handlers: `eval` reads a variable of the published state of the program
+//! through its symbol table (specification 44 §13.3). `set`, `var.force`, `var.unforce` and
 //! `var.forced` are answered by the shared request pipeline
 //! (`trust_runtime_services::live_values::var_requests`); their host wiring is tested by
 //! `control/tests/live_values_pipeline.rs` (specification 11, "Live Values"; specification 34
@@ -26,23 +26,14 @@ pub(super) fn handle_eval(
         },
         None => return ControlResponse::error(id, "missing params".into()),
     };
-    let snapshot = match state.debug.snapshot() {
-        Some(snapshot) => snapshot,
-        None => return ControlResponse::error(id, "no snapshot available".into()),
+    let Some(program) = state
+        .debug
+        .snapshot()
+        .and_then(|snapshot| snapshot.compiled)
+    else {
+        return ControlResponse::error(id, "no snapshot available".into());
     };
-    let name = params.expr.trim();
-    let value = if let Some(value) = snapshot.storage.get_global(name) {
-        Some(value.clone())
-    } else {
-        let metadata = match state.metadata.lock() {
-            Ok(metadata) => metadata,
-            Err(_) => return ControlResponse::error(id, "metadata unavailable".into()),
-        };
-        metadata
-            .retained_reference_exact(&snapshot.storage, name)
-            .and_then(|reference| snapshot.storage.materialize_by_ref_ref(&reference))
-            .or_else(|| snapshot.storage.get_retain(name).cloned())
-    };
+    let value = program.value(params.expr.trim());
     match value {
         Some(value) => ControlResponse::ok(id, json!({ "value": format!("{value:?}") })),
         None => ControlResponse::error(id, "unknown identifier".into()),

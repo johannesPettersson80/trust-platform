@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use trust_runtime::bundle::detect_bundle_path;
-use trust_runtime::bundle_builder::{check_program_stbc, inspect_project_layout};
+use trust_runtime::bundle_builder::{check_program, inspect_project_layout};
 
 use crate::{ci, style};
 
@@ -35,7 +35,6 @@ struct CheckProgramResponse {
     sources: Vec<String>,
     dependency_roots: Vec<String>,
     resolved_dependencies: Vec<String>,
-    bytecode_size: Option<usize>,
 }
 
 pub fn run_check(
@@ -85,16 +84,14 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
     let mut sources = Vec::new();
     let mut dependency_roots = Vec::new();
     let mut resolved_dependencies = Vec::new();
-    let mut bytecode_size = None;
 
     match inspect_project_layout(project_root, sources_root) {
         Ok(layout) => {
             sources = paths_to_strings(layout.sources);
             dependency_roots = paths_to_strings(layout.dependency_roots);
             resolved_dependencies = layout.resolved_dependencies;
-            match check_program_stbc(project_root, sources_root) {
+            match check_program(project_root, sources_root) {
                 Ok(report) => {
-                    bytecode_size = Some(report.bytecode_size);
                     sources = paths_to_strings(report.sources);
                     dependency_roots = paths_to_strings(report.dependency_roots);
                     resolved_dependencies = report.resolved_dependencies;
@@ -137,7 +134,6 @@ fn build_check_response(project_root: &Path, sources_root: Option<&Path>) -> Che
         sources,
         dependency_roots,
         resolved_dependencies,
-        bytecode_size,
     }
 }
 

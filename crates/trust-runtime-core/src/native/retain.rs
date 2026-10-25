@@ -31,14 +31,14 @@ use super::values::{
     damaged, read, read_unsigned, read_value, text_length, variant_of, wide_length, wide_units,
     width, AreaBytes, Types, Writer,
 };
-use crate::bytecode::BYTECODE_MAX_TYPE_NESTING;
 use crate::error::RuntimeError;
+use crate::native::values::MAX_TYPE_NESTING;
 use crate::retain::codec::{
     encode_array_header, encode_enumeration, encode_string, encode_struct_header, PayloadWriter,
     ValueTag, NO_PHYSICAL_CHECKPOINT,
 };
+use crate::retain::RetainApplyEvent;
 use crate::retain::RetainSnapshot;
-use crate::vm::RetainApplyEvent;
 
 /// The bytes of a retained variable: its area, its offset in the area and its bytes. A restore
 /// works them out; a warm start keeps them across the start.
@@ -414,7 +414,7 @@ fn each_retained<'i>(
 /// class or program instance, an interface, a reference or a pointer, at any depth, as the
 /// interpreter leaves out a value that holds an instance or a reference (specification 11 §6.7).
 fn retainable(types: &Types<'_>, index: u32, depth: usize) -> Result<bool, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
+    if depth > MAX_TYPE_NESTING {
         return Err(RuntimeError::TypeMismatch);
     }
     let ty = types.get(index)?;
@@ -472,7 +472,7 @@ fn tag(kind: u32) -> Option<ValueTag> {
 
 /// The largest encoding of a value of type `index`.
 fn bound(types: &Types<'_>, index: u32, depth: usize) -> Result<usize, RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
+    if depth > MAX_TYPE_NESTING {
         return Err(RuntimeError::TypeMismatch);
     }
     let ty = types.get(index)?;
@@ -538,7 +538,7 @@ fn encode<A: AreaBytes + ?Sized>(
     out: &mut Vec<u8>,
     depth: usize,
 ) -> Result<(), RuntimeError> {
-    if depth > BYTECODE_MAX_TYPE_NESTING {
+    if depth > MAX_TYPE_NESTING {
         return Err(RuntimeError::TypeMismatch);
     }
     let ty = types.get(index)?;
@@ -587,6 +587,15 @@ fn encode<A: AreaBytes + ?Sized>(
             out.push(NO_PHYSICAL_CHECKPOINT);
             Ok(())
         }
+        // A `BOOL` member of a `STRUCT OVERLAP` that takes one bit of its byte.
+        kind::BOOL => match types.bit(&ty)? {
+            Some(bit) => {
+                out.push(ValueTag::Bool as u8);
+                out.push(u8::from((read_unsigned(area, offset, 1)? >> bit) & 1 != 0));
+                Ok(())
+            }
+            None => encode_scalar(area, offset, kind::BOOL, out),
+        },
         other => encode_scalar(area, offset, other, out),
     }
 }

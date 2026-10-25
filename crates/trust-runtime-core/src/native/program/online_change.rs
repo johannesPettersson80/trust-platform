@@ -27,11 +27,22 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
     /// Takes over from `old` at the logical time `now`: the images the drivers fill and drive keep
     /// the bytes both programs have, each task takes the schedule of `old`'s task of the same name,
     /// compared without regard to case, while a new task counts its first activation from `now`
-    /// (decision OC-2), and the variables located at `%M` are published into the marker image, as
-    /// a cold start publishes them.
+    /// (decision OC-2), the tasks are live when `old`'s were, and the variables located at `%M` are
+    /// published into the marker image, as a cold start publishes them.
     pub(crate) fn take_over<D: ModuleCode>(&mut self, old: &NativeProgram<'_, D>, now: Duration) {
         keep_shared(&mut self.inputs, &old.inputs);
         keep_shared(&mut self.outputs, &old.outputs);
+        // The values at the hierarchical addresses both programs bind.
+        for (key, slot) in &self.hierarchical_keys {
+            if let Some((_, held)) = old
+                .hierarchical_keys
+                .iter()
+                .find(|(running, _)| running == key)
+            {
+                self.hierarchical[*slot..*slot + super::HIERARCHICAL_SLOT]
+                    .copy_from_slice(&old.hierarchical[*held..*held + super::HIERARCHICAL_SLOT]);
+            }
+        }
         for task in &mut self.tasks {
             task.state = old
                 .tasks
@@ -39,7 +50,11 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
                 .find(|running| running.name.eq_ignore_ascii_case(&task.name))
                 .map_or_else(|| TaskState::new(now), |running| running.state.clone());
         }
-        self.publish_markers();
+        self.live = old.live;
+        // The candidate's markers start where the running program left them; a `TIME` there that
+        // the image cannot hold leaves its byte as it was, which the next scan's publication
+        // refuses.
+        let _ = self.publish_markers();
     }
 }
 

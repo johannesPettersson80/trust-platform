@@ -52,7 +52,7 @@ bundle. This is the quickest shape check before running diagnostics or reloads.
 
 ## What Success Looks Like
 
-- build produces bytecode without errors
+- build writes the program image `program.tpi` without errors
 - validate succeeds
 - tests report pass/fail output
 - `agent.describe` and `workspace.project_info` return JSON-RPC responses

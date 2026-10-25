@@ -11,8 +11,8 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use super::image::{Image, RetainRecord, SymbolRecord, NONE, SYMBOL_PROGRAM};
-use super::values::{damaged, read_value, Types, Writer};
+use super::image::{Image, RetainRecord, SymbolRecord, NONE, SYMBOL_INSTANCE, SYMBOL_PROGRAM};
+use super::values::{damaged, holds_non_finite, read_value, Types, Writer, MAX_TYPE_NESTING};
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
 use crate::value::{EnumValue, Value};
@@ -150,18 +150,110 @@ pub fn read_place<M: ProgramMemory + ?Sized>(
 /// # Errors
 ///
 /// [`RuntimeError::TypeMismatch`] for a value the type refuses, [`RuntimeError::SubrangeViolation`]
-/// for a number outside its subrange, and [`RuntimeError::InvalidBundle`] for a place outside its
-/// area or frame.
+/// for a number outside its subrange, the errors of [`write_by_symbol`] for a `STRUCT OVERLAP`,
+/// and [`RuntimeError::InvalidBundle`] for a place outside its area or frame.
 pub fn write_place<M: ProgramMemory + ?Sized>(
     memory: &mut M,
     place: Place,
     type_index: u32,
     value: &Value,
 ) -> Result<(), RuntimeError> {
+    stage(memory, place, type_index, 0, type_index, value)
+}
+
+/// Writes `value` into the variable of symbol `index` as [`write_place`] writes it. A variable that
+/// lies in a `STRUCT OVERLAP` is written as a part of the outermost such structure that holds it:
+/// the write is staged on the structure's bytes, and each member of the structure is read back from
+/// them before a byte changes, so that a write that would leave a member a value it cannot hold, a
+/// `REAL` NaN or infinity or an undeclared enumeration value, is refused and the structure keeps
+/// its value (specification 02 §3.6; specification 34 §4.3.1).
+///
+/// # Errors
+///
+/// The errors of [`write_place`], [`RuntimeError::NonFiniteValue`] for a write that would leave a
+/// `REAL` or `LREAL` member of a `STRUCT OVERLAP` a NaN or an infinity, and
+/// [`RuntimeError::TypeMismatch`] for a symbol that names no variable.
+pub fn write_by_symbol<M: ProgramMemory + ?Sized>(
+    memory: &mut M,
+    index: u32,
+    value: &Value,
+) -> Result<(), RuntimeError> {
+    let (place, type_index, holder) = {
+        let image = memory.image();
+        let (place, type_index) = symbol_place(&image, index)?;
+        (place, type_index, overlap_holder(&image, index)?)
+    };
+    match holder {
+        Some((holder, holder_type, relative)) => {
+            stage(memory, holder, holder_type, relative, type_index, value)
+        }
+        None => write_place(memory, place, type_index, value),
+    }
+}
+
+/// The place, the type and the offset of symbol `index` in the outermost `STRUCT OVERLAP` that
+/// holds the variable of the symbol, the symbol's own included; `None` when no such structure holds
+/// it. The search stops at an instance, whose members are variables of their own.
+fn overlap_holder(
+    image: &Image<'_>,
+    index: u32,
+) -> Result<Option<(Place, u32, usize)>, RuntimeError> {
+    let symbols = image
+        .table::<SymbolRecord>()
+        .map_err(|_| damaged("symbol table"))?;
+    let types = Types::of(image)?;
+    let start = symbols.get(index).ok_or_else(|| damaged("symbol table"))?;
+    let mut holder = None;
+    let mut current = start;
+    for _ in 0..=MAX_TYPE_NESTING {
+        if current.flags & (SYMBOL_PROGRAM | SYMBOL_INSTANCE) != 0 || current.type_index == NONE {
+            break;
+        }
+        if types.overlapping(current.type_index)? {
+            holder = Some(current);
+        }
+        if current.parent == NONE {
+            break;
+        }
+        current = symbols
+            .get(current.parent)
+            .ok_or_else(|| damaged("symbol table"))?;
+    }
+    let Some(holder) = holder else {
+        return Ok(None);
+    };
+    let relative = start
+        .offset
+        .checked_sub(holder.offset)
+        .ok_or_else(|| damaged("symbol table"))?;
+    Ok(Some((
+        Place::Area {
+            area: holder.area,
+            offset: holder.offset,
+        },
+        holder.type_index,
+        usize::try_from(relative).map_err(|_| RuntimeError::Overflow)?,
+    )))
+}
+
+/// Writes `value` as a value of type `type_index` at `relative` into the bytes of the variable of
+/// type `holder_type` at `place`, staged first: the variable keeps its bytes when the write is
+/// refused. A variable whose members share bytes is read back from the staged bytes, and a member
+/// that holds no value of its type, or a NaN or an infinity, refuses the write (specification 02
+/// §3.6; specification 34 §4.3.1).
+fn stage<M: ProgramMemory + ?Sized>(
+    memory: &mut M,
+    place: Place,
+    holder_type: u32,
+    relative: usize,
+    type_index: u32,
+    value: &Value,
+) -> Result<(), RuntimeError> {
     let staged = {
         let image = memory.image();
         let types = Types::of(&image)?;
-        let size = types.get(type_index)?.size as usize;
+        let size =
+            usize::try_from(types.get(holder_type)?.size).map_err(|_| RuntimeError::Overflow)?;
         let mut current = vec![0u8; size];
         if !read_bytes(memory, place, &mut current) {
             return Err(damaged("symbol table"));
@@ -172,7 +264,12 @@ pub fn write_place<M: ProgramMemory + ?Sized>(
             staged: &mut staged,
             starting: &current,
         }
-        .write(type_index, 0, value, 0)?;
+        .write(type_index, relative, value, 0)?;
+        if types.overlapping(holder_type)?
+            && holds_non_finite(&read_value(&types, staged.as_slice(), 0, holder_type)?)
+        {
+            return Err(RuntimeError::NonFiniteValue);
+        }
         staged
     };
     if write_bytes(memory, place, &staged) {
@@ -253,6 +350,17 @@ pub fn member_place(
     instance: u32,
     member: &str,
 ) -> Result<(Place, u32), RuntimeError> {
+    symbol_place(image, member_symbol(image, instance, member)?)
+}
+
+/// The symbol of member `member` of the instance whose symbol is `instance`:
+/// `<instance>.<MEMBER>`.
+///
+/// # Errors
+///
+/// [`RuntimeError::UndefinedVariable`] for an instance symbol the image does not hold, and
+/// [`RuntimeError::UndefinedField`] for a member it does not declare.
+pub fn member_symbol(image: &Image<'_>, instance: u32, member: &str) -> Result<u32, RuntimeError> {
     let path = image
         .table::<SymbolRecord>()
         .ok()
@@ -263,7 +371,7 @@ pub fn member_place(
     let (index, _) = image
         .find_symbol(&path)
         .ok_or_else(|| RuntimeError::UndefinedField(member.into()))?;
-    symbol_place(image, index)
+    Ok(index)
 }
 
 /// The index and the record of the POU symbol of POU `pou` (specification 44 §5.7): a debug image

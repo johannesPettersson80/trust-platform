@@ -14,6 +14,7 @@ use crate::harness::{AccessPart, AccessPath, ConfigModel, LoweredApplication};
 use crate::io::IoAddress;
 use crate::task::ProgramDef;
 use crate::RetainPolicy;
+use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::native::image::{SYMBOL_CONSTANT, SYMBOL_INSTANCE, SYMBOL_RETAINED};
 
 /// Whether a declaration's qualifier keeps the variable across a warm restart.
@@ -77,13 +78,30 @@ pub(super) struct Task {
     pub(super) priority: u32,
     pub(super) single: Option<SmolStr>,
     pub(super) programs: Vec<usize>,
+    /// The function block instances the task runs on their own, after its programs, as indexes
+    /// into [`Model::block_tasks`] (IEC §6.8.2, `fb WITH task`).
+    pub(super) blocks: Vec<usize>,
 }
 
-/// A variable bound to a process image address (`AT %…` or `VAR_CONFIG`).
+/// A function block instance of a program instance that a task runs on its own (IEC §6.8.2).
+pub(super) struct BlockTask {
+    /// The program instance, an index into [`Model::instances`].
+    pub(super) instance: usize,
+    /// The path from the program instance to the function block instance.
+    pub(super) path: Vec<SmolStr>,
+    pub(super) task: SmolStr,
+}
+
+/// A variable bound to a process image address (`AT %…` or `VAR_CONFIG`), or one leaf of a located
+/// array or structure (`located`).
 pub(super) struct Binding {
-    /// The variable's path: a global's name, or the program instance first.
+    /// The path of the variable's symbol: a global's name, or the program instance first.
     pub(super) path: Vec<SmolStr>,
     pub(super) address: IoAddress,
+    /// The offset of the bound leaf within the variable.
+    pub(super) leaf: u32,
+    /// The leaf's codec: `BIND_RAW` or `BIND_TIME_MILLIS`.
+    pub(super) codec: u32,
 }
 
 /// One field of an area: a global, or a program instance's part.
@@ -139,6 +157,8 @@ pub(super) struct Model<'a> {
     pub(super) program_types: Vec<ProgramType<'a>>,
     pub(super) instances: Vec<ProgramInstance>,
     pub(super) tasks: Vec<Task>,
+    /// The function block instances tasks run on their own (IEC §6.8.2).
+    pub(super) block_tasks: Vec<BlockTask>,
     pub(super) bindings: Vec<Binding>,
     /// The non-retained globals.
     pub(super) area_g: AreaLayout,
@@ -151,6 +171,11 @@ pub(super) struct Model<'a> {
     /// The bytes of the stack area: the largest pair of texts that a failed assertion lays there
     /// for the kernel (specification 44 §7.1, Appendix A), 0 without one.
     pub(super) stack: u32,
+    /// Whether a body reads the platform's wall clock, `CURRENT_DT` (specification 44 §5.2).
+    pub(super) wall_clock: bool,
+    /// The access paths the configuration and the programs declare (`VAR_ACCESS`, IEC §6.5.2.2),
+    /// which a body may name as the variables they name (specification 03 §2).
+    pub(super) access: Vec<crate::harness::AccessDecl>,
 }
 
 impl<'a> Model<'a> {
@@ -171,6 +196,7 @@ impl<'a> Model<'a> {
                 builder.function_blocks(),
                 builder.classes(),
                 builder.interfaces(),
+                builder.edge_inputs(),
             ),
         );
         let Some(configuration) = lowered.configuration.as_ref() else {
@@ -179,9 +205,17 @@ impl<'a> Model<'a> {
             ));
         };
         let globals = globals(lowered, configuration, &mut types)?;
-        let (program_types, instances) = instances(lowered, configuration, &mut types)?;
-        let tasks = tasks(configuration, tests);
-        let bindings = bindings(configuration, &globals, &instances, &program_types)?;
+        let (program_types, instances, block_tasks) =
+            instances(lowered, configuration, &mut types)?;
+        let tasks = tasks(configuration, tests, &block_tasks);
+        let mut declared = bindings(configuration, &globals, &instances, &program_types)?;
+        declared.extend(super::located::block_members(
+            &types,
+            &instances,
+            &program_types,
+        ));
+        let bindings =
+            super::located::bindings(&types, declared, &globals, &instances, &program_types)?;
         let images = images(&bindings)?;
         let area_g = AreaLayout::new(
             globals
@@ -227,12 +261,20 @@ impl<'a> Model<'a> {
             program_types,
             instances,
             tasks,
+            block_tasks,
             bindings,
             area_g,
             area_r,
             area_p,
             images,
             stack: 0,
+            wall_clock: false,
+            access: configuration
+                .access
+                .iter()
+                .chain(&lowered.program_access)
+                .cloned()
+                .collect(),
         })
     }
 
@@ -282,6 +324,7 @@ fn program_type<'a>(
 ) -> Result<ProgramType<'a>, NativeError> {
     let mut plain = Vec::new();
     let mut kept = Vec::new();
+    let edges = types.defs.edge_inputs(&def.name);
     for var in &def.vars {
         if var.external {
             continue;
@@ -301,10 +344,22 @@ fn program_type<'a>(
         // qualifier (specification 11 §6.7).
         let qualified =
             retain_all && var.retain == RetainPolicy::Unspecified && flags & SYMBOL_INSTANCE == 0;
+        // An edge-qualified input's trigger lies beside it, retained as it is (IEC §6.5.2.2).
+        let trigger = edges
+            .iter()
+            .find(|edge| edge.name.eq_ignore_ascii_case(&var.name))
+            .map(|edge| {
+                (
+                    super::types::edge_trigger_name(&var.name),
+                    types.edge_trigger(edge),
+                )
+            });
         if retained(var.retain) || qualified {
             kept.push((var.name.clone(), ty, flags | SYMBOL_RETAINED));
+            kept.extend(trigger.map(|(name, ty)| (name, ty, SYMBOL_RETAINED)));
         } else {
             plain.push((var.name.clone(), ty, flags));
+            plain.extend(trigger.map(|(name, ty)| (name, ty, 0)));
         }
     }
     let (members, size, align) = lay_out(plain, types);
@@ -363,17 +418,32 @@ fn globals(
             address,
         });
     }
+    // A function's `VAR_STAT` variables live as long as the program, one of each per function
+    // (specification 01 §3): globals of hidden names, which no source names.
+    for function in lowered.builder.functions().values() {
+        for local in &function.static_locals {
+            globals.push(Global {
+                name: crate::program_model::static_storage_name(&function.name, &local.name),
+                ty: types.of(local.type_id)?,
+                retained: retained(local.retain),
+                constant: local.constant,
+                address: None,
+            });
+        }
+    }
     Ok(globals)
 }
 
 /// The program instances of the configuration and the layout of each program type they use.
+#[allow(clippy::type_complexity)]
 fn instances<'a>(
     lowered: &'a LoweredApplication,
     configuration: &ConfigModel,
     types: &mut Types<'_>,
-) -> Result<(Vec<ProgramType<'a>>, Vec<ProgramInstance>), NativeError> {
+) -> Result<(Vec<ProgramType<'a>>, Vec<ProgramInstance>, Vec<BlockTask>), NativeError> {
     let mut program_types: Vec<ProgramType<'a>> = Vec::new();
     let mut instances = Vec::new();
+    let mut block_tasks = Vec::new();
     for config in &configuration.programs {
         let Some(def) = lowered
             .program_defs
@@ -386,11 +456,28 @@ fn instances<'a>(
             )));
         };
         let retain_all = config.retain.is_some_and(retained);
-        if !config.fb_tasks.is_empty() {
-            return Err(NativeError::unsupported(format!(
-                "function blocks of {} bound to tasks",
-                config.name
-            )));
+        for binding in &config.fb_tasks {
+            let AccessPath::Parts(parts) = &binding.path else {
+                return Err(NativeError::unsupported(format!(
+                    "a function block of {} bound to a task by an address",
+                    config.name
+                )));
+            };
+            let mut path = Vec::with_capacity(parts.len());
+            for part in parts {
+                let AccessPart::Name(name) = part else {
+                    return Err(NativeError::unsupported(format!(
+                        "a function block of {} bound to a task through an index",
+                        config.name
+                    )));
+                };
+                path.push(name.clone());
+            }
+            block_tasks.push(BlockTask {
+                instance: instances.len(),
+                path,
+                task: binding.task.clone(),
+            });
         }
         let program = if let Some(index) = program_types
             .iter()
@@ -406,14 +493,14 @@ fn instances<'a>(
             program,
         });
     }
-    Ok((program_types, instances))
+    Ok((program_types, instances, block_tasks))
 }
 
 /// The tasks with their program instances, and the programs without a task as the task of the
 /// lowest priority (specification 10 §4). The test programs `tests` are instances that no task runs,
 /// the background task included: only a test's own invocation runs one (specification 22), so a
 /// device that starts a test image runs none of them by itself.
-fn tasks(configuration: &ConfigModel, tests: &[SmolStr]) -> Vec<Task> {
+fn tasks(configuration: &ConfigModel, tests: &[SmolStr], block_tasks: &[BlockTask]) -> Vec<Task> {
     let mut tasks = Vec::new();
     for task in &configuration.tasks {
         let interval = u64::try_from(task.interval.as_nanos()).unwrap_or(0);
@@ -429,12 +516,19 @@ fn tasks(configuration: &ConfigModel, tests: &[SmolStr]) -> Vec<Task> {
             })
             .map(|(index, _)| index)
             .collect();
+        let blocks = block_tasks
+            .iter()
+            .enumerate()
+            .filter(|(_, block)| block.task.eq_ignore_ascii_case(&task.name))
+            .map(|(index, _)| index)
+            .collect();
         tasks.push(Task {
             name: task.name.clone(),
             interval_ns: interval,
             priority: task.priority,
             single: task.single.clone(),
             programs,
+            blocks,
         });
     }
     let background: Vec<usize> = configuration
@@ -456,6 +550,7 @@ fn tasks(configuration: &ConfigModel, tests: &[SmolStr]) -> Vec<Task> {
             priority: u32::MAX,
             single: None,
             programs: background,
+            blocks: Vec::new(),
         });
     }
     tasks
@@ -463,21 +558,28 @@ fn tasks(configuration: &ConfigModel, tests: &[SmolStr]) -> Vec<Task> {
 
 /// The variables bound to the process image: the directly addressed globals, `VAR_CONFIG` and `AT`
 /// in the programs.
+#[allow(clippy::type_complexity)]
 fn bindings(
     configuration: &ConfigModel,
     globals: &[Global],
     instances: &[ProgramInstance],
     program_types: &[ProgramType<'_>],
-) -> Result<Vec<Binding>, NativeError> {
-    let mut bindings: Vec<Binding> = globals
-        .iter()
-        .filter_map(|global| {
-            Some(Binding {
-                path: vec![global.name.clone()],
-                address: global.address.clone()?,
-            })
-        })
-        .collect();
+) -> Result<Vec<(Vec<SmolStr>, IoAddress)>, NativeError> {
+    // A variable at an incomplete location (`AT %I*`) takes the address the configuration's
+    // `VAR_CONFIG` gives it (IEC §6.5.5.4), and a build without one fails.
+    let mut incomplete: Vec<(Vec<SmolStr>, IoArea)> = Vec::new();
+    let mut bindings: Vec<(Vec<SmolStr>, IoAddress)> = Vec::new();
+    for global in globals {
+        let Some(address) = global.address.clone() else {
+            continue;
+        };
+        let path = vec![global.name.clone()];
+        if address.wildcard {
+            incomplete.push((path, address.area));
+        } else {
+            bindings.push((path, address));
+        }
+    }
     for init in &configuration.config_inits {
         let Some(address) = init.address.clone() else {
             continue;
@@ -494,37 +596,111 @@ fn bindings(
             };
             path.push(name.clone());
         }
-        bindings.push(Binding { path, address });
+        bindings.push((path, address));
     }
     for instance in instances {
         let program = &program_types[instance.program];
         for var in &program.def.vars {
             if let Some(address) = var.address.clone() {
-                bindings.push(Binding {
-                    path: vec![instance.name.clone(), var.name.clone()],
-                    address,
-                });
+                let path = vec![instance.name.clone(), var.name.clone()];
+                if address.wildcard {
+                    incomplete.push((path, address.area));
+                } else {
+                    bindings.push((path, address));
+                }
             }
         }
     }
+    // A location entry that names a variable by its name alone, no global, completes the one
+    // incomplete location of that name (specification 03 §2): `out AT %QX0.1` gives `P1.out` its
+    // address when no other program instance declares an `out` at an incomplete location.
+    for (bound, _) in &mut bindings {
+        if let [name] = bound.as_slice()
+            && !globals
+                .iter()
+                .any(|global| global.name.eq_ignore_ascii_case(name))
+        {
+            let mut named = incomplete.iter().map(|(path, _)| path).filter(|path| {
+                path.last()
+                    .is_some_and(|last| last.eq_ignore_ascii_case(name))
+            });
+            match (named.next(), named.next()) {
+                (Some(path), None) => *bound = path.clone(),
+                (Some(_), Some(_)) => {
+                    return Err(NativeError::Compile(format!(
+                        "VAR_CONFIG {name} names an incomplete location of several program \
+                         instances"
+                    )));
+                }
+                _ => {}
+            }
+        }
+    }
+    // The asterisk stands for the size and the address only: the completion keeps the declared
+    // area (IEC §6.5.5.4; specification 03 §5).
+    for (path, area) in incomplete {
+        let configured = bindings.iter().find(|(bound, _)| {
+            bound.len() == path.len()
+                && bound
+                    .iter()
+                    .zip(&path)
+                    .all(|(a, b)| a.eq_ignore_ascii_case(b))
+        });
+        match configured {
+            None => {
+                return Err(NativeError::Compile(format!(
+                    "{} lies at an incomplete location that no VAR_CONFIG completes",
+                    path.join(".")
+                )));
+            }
+            Some((_, address)) if address.area != area => {
+                return Err(NativeError::Compile(format!(
+                    "VAR_CONFIG completes {}, declared at {}*, with an address of another area",
+                    path.join("."),
+                    area_prefix(area)
+                )));
+            }
+            Some(_) => {}
+        }
+    }
     Ok(bindings)
+}
+
+/// The prefix of the process image area `area`: `%I`, `%Q` or `%M`.
+fn area_prefix(area: IoArea) -> &'static str {
+    match area {
+        IoArea::Input => "%I",
+        IoArea::Output => "%Q",
+        IoArea::Memory => "%M",
+    }
 }
 
 /// The bytes of the input, output and marker images the bindings reach.
 fn images(bindings: &[Binding]) -> Result<[u32; 3], NativeError> {
     let mut images = [0u32; 3];
     for binding in bindings {
+        // A hierarchical address lies in the kernel's hierarchical image (§5.6).
+        if binding.address.path.len() > 1 {
+            continue;
+        }
         let Ok(Some(end)) = binding.address.flat_byte_end() else {
             return Err(NativeError::unsupported(format!(
                 "the address of {}",
                 binding.path.join(".")
             )));
         };
-        let image = match binding.address.area {
-            trust_runtime_core::memory::IoArea::Input => 0,
-            trust_runtime_core::memory::IoArea::Output => 1,
-            trust_runtime_core::memory::IoArea::Memory => 2,
+        let (image, area) = match binding.address.area {
+            trust_runtime_core::memory::IoArea::Input => (0, "%I"),
+            trust_runtime_core::memory::IoArea::Output => (1, "%Q"),
+            trust_runtime_core::memory::IoArea::Memory => (2, "%M"),
         };
+        // Each process image holds at most 16 MiB (specification 11 §6.4).
+        let len = usize::try_from(end).unwrap_or(usize::MAX);
+        trust_runtime_core::io_image::validate_process_image_area_len(
+            &format!("the {area} image of {}", binding.path.join(".")),
+            len,
+        )
+        .map_err(|error| NativeError::Compile(error.to_string()))?;
         images[image] = images[image].max(end);
     }
     Ok(images)

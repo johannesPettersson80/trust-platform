@@ -4,7 +4,6 @@
 //! queues the loop answers the `io.*`, `set` and `var.*` operations from, and the checkpoint
 //! store the loop's persister step programs.
 
-use alloc::boxed::Box;
 use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -20,7 +19,6 @@ use trust_runtime_core::memory::{Generation, InstanceId};
 use trust_runtime_core::ports::{
     CheckpointStorage, CheckpointStore, HardwareWatchdog, MonotonicClock, TimeSpan, WallClock,
 };
-use trust_runtime_core::retain::checkpoint::CheckpointFlash;
 use trust_runtime_core::value::Value;
 
 use super::runner_ports::{ms, TestClock, TestWait};
@@ -34,7 +32,7 @@ use crate::ports::{
     AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
-use crate::runner::{EngineLiveValues, RunnerPlatform};
+use crate::runner::{DeviceLiveValues, RunnerPlatform};
 use crate::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
@@ -67,8 +65,8 @@ pub(crate) struct TestPlatform {
     pub(crate) debug_enabled: bool,
     /// The Live Values the runner applies and the shared `io.*`, `set` and `var.*` operations
     /// answer from: the queues and the published snapshot. The fixture replaces it with the one
-    /// built from the prepared board probe.
-    pub(crate) live_values: Rc<EngineLiveValues>,
+    /// bound to the board probe's image.
+    pub(crate) live_values: DeviceLiveValues,
     /// The checkpoint store the platform supplies, or `None` when it has none.
     pub(crate) checkpoint: Option<CheckpointStore>,
     /// The control mode the platform's deployment record carries, `production` by default.
@@ -96,28 +94,13 @@ impl Default for TestPlatform {
             feed_times: Rc::new(RefCell::new(Vec::new())),
             clock: None,
             debug_enabled: true,
-            live_values: Rc::new(EngineLiveValues::empty()),
+            live_values: DeviceLiveValues::empty(),
             checkpoint: None,
             control_mode: ControlMode::Production,
             device_descriptor: DeviceDescriptor::hosted(),
             last_reset: None,
             unloads: Rc::new(Cell::new(0)),
         }
-    }
-}
-
-impl TestPlatform {
-    /// The platform's checkpoint store is `flash`, which one persister step may program up to
-    /// `program_budget` bytes of (specification 34 §10).
-    pub(crate) fn set_checkpoint(
-        &mut self,
-        flash: Box<dyn CheckpointFlash>,
-        program_budget: usize,
-    ) {
-        self.checkpoint = Some(CheckpointStore {
-            flash,
-            program_budget,
-        });
     }
 }
 
@@ -160,15 +143,15 @@ impl StatusPort for TestPlatform {
         "Controller"
     }
 
-    /// The test platform stands for the board fixture, not for the computer the tests run on.
+    /// The test platform stands for a chip, not for the computer the tests run on.
     fn platform(&self) -> &'static str {
-        "stm32f407"
+        "esp32c6"
     }
 
     /// A device without an operating system has no project ID; the runner reports its platform's
     /// value (specification 11, `status`).
     fn runtime_id(&self) -> &'static str {
-        "stm32f407"
+        "esp32c6"
     }
 
     /// A device without an operating system keeps control after `shutdown` (spec 34 STATE-08).
@@ -176,15 +159,9 @@ impl StatusPort for TestPlatform {
         ProgramControl::KeepsControl
     }
 
+    /// A chip's settings: compiled programs, production control and no simulation.
     fn status_settings(&self) -> Option<StatusSettings> {
-        Some(StatusSettings {
-            execution_backend: "vm",
-            execution_backend_source: "default",
-            simulation_enabled: false,
-            simulation_time_scale: 1,
-            simulation_mode: SmolStr::new("production"),
-            simulation_warning: SmolStr::default(),
-        })
+        Some(crate::chip::platform::status_settings())
     }
 
     fn io_drivers(&self) -> Option<Vec<IoDriverStatus>> {
@@ -255,7 +232,7 @@ impl CheckpointStorage for TestPlatform {
 }
 
 impl RunnerPlatform for TestPlatform {
-    fn live_values(&self) -> &EngineLiveValues {
+    fn live_values(&self) -> &DeviceLiveValues {
         &self.live_values
     }
 
@@ -272,7 +249,7 @@ impl RunnerPlatform for TestPlatform {
 
     fn unload_program(&mut self) {
         self.unloads.set(self.unloads.get() + 1);
-        self.live_values = Rc::new(EngineLiveValues::empty());
+        self.live_values = DeviceLiveValues::empty();
     }
 }
 

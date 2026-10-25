@@ -10,7 +10,7 @@ use crate::config::{
     MeshRole, RuntimeCloudLinkPreferenceRule, RuntimeCloudProfile, RuntimeCloudWanAllowRule,
     RuntimeConfig, WebAuthMode,
 };
-use crate::execution_backend::{ExecutionBackend, ExecutionBackendSource};
+use crate::execution_backend::ExecutionBackendSource;
 use crate::linux_rt::LinuxRtConfig;
 use crate::value::Duration;
 use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogPolicy};
@@ -18,7 +18,6 @@ use crate::watchdog::{FaultPolicy, HangAction, RetainMode, WatchdogPolicy};
 #[derive(Debug, Clone)]
 pub struct RuntimeSettings {
     pub cycle_interval: Duration,
-    pub execution_backend: ExecutionBackend,
     pub execution_backend_source: ExecutionBackendSource,
     pub log_level: SmolStr,
     /// The newest events the event store keeps (`runtime.events.capacity`, specification 11).
@@ -49,7 +48,6 @@ impl RuntimeSettings {
     ) -> Self {
         Self {
             cycle_interval,
-            execution_backend: ExecutionBackend::BytecodeVm,
             execution_backend_source: ExecutionBackendSource::Default,
             log_level: base.log_level,
             event_capacity: EVENT_STORE_CAPACITY,
@@ -123,7 +121,6 @@ impl RuntimeSettings {
                 warning: SmolStr::new(""),
             },
         );
-        settings.execution_backend = config.execution_backend;
         settings.execution_backend_source = config.execution_backend_source;
         settings.watchdog_hang_action = config.watchdog_hang_action;
         settings.event_capacity = config.event_store_capacity();

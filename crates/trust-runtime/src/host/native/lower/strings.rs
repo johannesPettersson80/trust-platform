@@ -6,7 +6,7 @@
 use trust_syntax::syntax::{SyntaxKind, SyntaxNode};
 
 use super::call::{Arg, Called, Want};
-use super::expr::Text;
+use super::text::Text;
 use super::Lowerer;
 use crate::native::types::{Elem, Kind};
 use crate::native::NativeError;
@@ -90,7 +90,7 @@ impl Lowerer<'_, '_> {
     }
 
     /// The call of string function `name` with `args`; its arguments are evaluated in their
-    /// order.
+    /// order. A function of `WSTRING`s calls the library's wide function of the same rule.
     pub(super) fn call_text_function(
         &mut self,
         node: &SyntaxNode,
@@ -100,51 +100,62 @@ impl Lowerer<'_, '_> {
         want: &Want,
     ) -> Result<Called, NativeError> {
         let values = self.formal_order(node, name, formals, args)?;
+        let wide = values.first().is_some_and(|text| self.is_wide_text(text));
+        let function = |base: &str| {
+            if wide {
+                format!("{base}_wide")
+            } else {
+                base.to_string()
+            }
+        };
         match (name, values.as_slice()) {
             ("LEN", [text]) => {
                 let (text, _) = self.text_ref(text)?;
-                let value = self.bind(&format!("lib::len_int(cx, ({text}).view())?"));
+                let len = if wide { "len_wide_int" } else { "len_int" };
+                let value = self.bind(&format!("lib::{len}(cx, ({text}).view())?"));
                 self.int_result(node, value, want)
             }
             ("FIND", [text, wanted]) => {
                 let (text, _) = self.text_ref(text)?;
                 let (wanted, _) = self.text_ref(wanted)?;
                 let value = self.bind(&format!(
-                    "lib::find(cx, ({text}).view(), ({wanted}).view())?"
+                    "lib::{}(cx, ({text}).view(), ({wanted}).view())?",
+                    function("find")
                 ));
                 self.int_result(node, value, want)
             }
             ("LEFT" | "RIGHT", [text, count]) => {
                 let (text, capacity) = self.text_ref(text)?;
                 let count = self.count(count)?;
-                let function = name.to_ascii_lowercase();
-                let temp = self.result_temp(capacity);
+                let function = function(&name.to_ascii_lowercase());
+                let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
                     "lib::{function}(cx, {temp}.view(), ({text}).view(), {count})?;"
                 ));
-                Ok(text_result(temp, capacity))
+                Ok(text_result(temp, capacity, wide))
             }
             ("MID" | "DELETE", [text, length, position]) => {
                 let (text, capacity) = self.text_ref(text)?;
                 let length = self.count(length)?;
                 let position = self.count(position)?;
-                let function = name.to_ascii_lowercase();
-                let temp = self.result_temp(capacity);
+                let function = function(&name.to_ascii_lowercase());
+                let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
                     "lib::{function}(cx, {temp}.view(), ({text}).view(), {length}, {position})?;"
                 ));
-                Ok(text_result(temp, capacity))
+                Ok(text_result(temp, capacity, wide))
             }
             ("INSERT", [text, inserted, position]) => {
                 let (text, first) = self.text_ref(text)?;
                 let (inserted, second) = self.text_ref(inserted)?;
                 let position = self.count(position)?;
                 let capacity = first.saturating_add(second).min(MAX_TEXT);
-                let temp = self.result_temp(capacity);
+                let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
-                    "lib::insert(cx, {temp}.view(), ({text}).view(), ({inserted}).view(), {position})?;"
+                    "lib::{}(cx, {temp}.view(), ({text}).view(), ({inserted}).view(), {position})?;",
+                    function("insert")
                 ));
-                Ok(text_result(temp, capacity))
+                Ok(text_result(temp, capacity, wide))
             }
             ("REPLACE", [text, replacement, length, position]) => {
                 let (text, first) = self.text_ref(text)?;
@@ -152,20 +163,23 @@ impl Lowerer<'_, '_> {
                 let length = self.count(length)?;
                 let position = self.count(position)?;
                 let capacity = first.saturating_add(second).min(MAX_TEXT);
-                let temp = self.result_temp(capacity);
+                let temp = self.result_temp(capacity, wide);
                 self.line(&format!(
-                    "lib::replace(cx, {temp}.view(), ({text}).view(), ({replacement}).view(), {length}, {position})?;"
+                    "lib::{}(cx, {temp}.view(), ({text}).view(), ({replacement}).view(), {length}, {position})?;",
+                    function("replace")
                 ));
-                Ok(text_result(temp, capacity))
+                Ok(text_result(temp, capacity, wide))
             }
             _ => Err(self.unsupported(node, format!("the standard function {name}"))),
         }
     }
 
-    /// A fresh empty `STRING[capacity]` for a function's result.
-    fn result_temp(&mut self, capacity: u32) -> String {
+    /// A fresh empty `STRING[capacity]`, or `WSTRING[capacity]` when `wide`, for a function's
+    /// result.
+    fn result_temp(&mut self, capacity: u32, wide: bool) -> String {
         let temp = self.temp();
-        self.line(&format!("let {temp} = Str::<{capacity}>::new();"));
+        let ty = if wide { "WStr" } else { "Str" };
+        self.line(&format!("let {temp} = {ty}::<{capacity}>::new();"));
         temp
     }
 
@@ -183,11 +197,12 @@ impl Lowerer<'_, '_> {
         }
     }
 
-    /// The `STRING` and the index expression of `node`, `text[index]`, when it indexes a string.
+    /// The string, the index expression of `node`, `text[index]`, and whether the string is a
+    /// `WSTRING`, when it indexes a string.
     fn string_index(
         &mut self,
         node: &SyntaxNode,
-    ) -> Result<Option<(SyntaxNode, SyntaxNode)>, NativeError> {
+    ) -> Result<Option<(SyntaxNode, SyntaxNode, bool)>, NativeError> {
         if node.kind() != SyntaxKind::IndexExpr {
             return Ok(None);
         }
@@ -197,24 +212,26 @@ impl Lowerer<'_, '_> {
         };
         let ty = self.type_of(&base)?;
         match self.info(ty).kind {
-            Kind::Str(_) => Ok(Some((base, index))),
-            Kind::WStr(_) => Err(self.unsupported(node, "a character of a WSTRING")),
+            Kind::Str(_) => Ok(Some((base, index, false))),
+            Kind::WStr(_) => Ok(Some((base, index, true))),
             _ => Ok(None),
         }
     }
 
-    /// `text[index]` as a `CHAR`, when `node` indexes a string (specification 02 §6).
+    /// `text[index]` as a `CHAR`, or a `WCHAR` of a `WSTRING`, when `node` indexes a string
+    /// (specification 02 §6).
     pub(super) fn string_element(
         &mut self,
         node: &SyntaxNode,
     ) -> Result<Option<String>, NativeError> {
-        let Some((base, index)) = self.string_index(node)? else {
+        let Some((base, index, wide)) = self.string_index(node)? else {
             return Ok(None);
         };
         let text = self.place(&base)?.reference();
         let index = self.count(&index)?;
+        let function = if wide { "char_at_wide" } else { "char_at" };
         Ok(Some(self.bind(&format!(
-            "lib::char_at(cx, ({text}).view(), {index})?"
+            "lib::{function}(cx, ({text}).view(), {index})?"
         ))))
     }
 
@@ -224,24 +241,37 @@ impl Lowerer<'_, '_> {
         target: &SyntaxNode,
         value: &SyntaxNode,
     ) -> Result<bool, NativeError> {
-        let Some((base, index)) = self.string_index(target)? else {
+        let Some((base, index, wide)) = self.string_index(target)? else {
             return Ok(false);
         };
         let text = self.place(&base)?.reference();
         let index = self.count(&index)?;
-        let char_ty = self.model.types.elem(Elem::Char);
+        let (elem, function) = if wide {
+            (Elem::WChar, "set_char_wide")
+        } else {
+            (Elem::Char, "set_char")
+        };
+        let char_ty = self.model.types.elem(elem);
         let character = self.scalar_to(value, char_ty)?;
         self.line(&format!(
-            "lib::set_char(cx, ({text}).view(), {index}, {character})?;"
+            "lib::{function}(cx, ({text}).view(), {index}, {character})?;"
         ));
         Ok(true)
     }
 }
 
-/// A function's result in the temporary `temp` of `capacity` bytes.
-fn text_result(temp: String, capacity: u32) -> Called {
-    Called::Text(vec![Text::Str {
-        reference: format!("&{temp}"),
-        capacity,
+/// A function's result in the temporary `temp` of `capacity` bytes, or code units when `wide`.
+fn text_result(temp: String, capacity: u32, wide: bool) -> Called {
+    let reference = format!("&{temp}");
+    Called::Text(vec![if wide {
+        Text::WStr {
+            reference,
+            capacity,
+        }
+    } else {
+        Text::Str {
+            reference,
+            capacity,
+        }
     }])
 }

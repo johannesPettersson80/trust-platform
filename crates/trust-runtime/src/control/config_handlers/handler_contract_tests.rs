@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::atomic::Ordering;
 
 use serde_json::{json, Map, Value};
@@ -507,7 +509,7 @@ fn config_handler_contract_config_get_uses_canonical_enum_spellings() {
     assert_eq!(result["control.mode"], "production");
     assert_eq!(result["mesh.role"], "peer");
     assert_eq!(result["runtime_cloud.profile"], "dev");
-    assert_eq!(result["runtime.execution_backend"], "vm");
+    assert_eq!(result["runtime.execution_backend"], "native");
     assert_eq!(result["runtime.execution_backend_source"], "default");
 }
 

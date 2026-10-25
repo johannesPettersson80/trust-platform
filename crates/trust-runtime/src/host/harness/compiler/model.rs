@@ -15,7 +15,6 @@ use super::super::types::CompileError;
 
 #[derive(Clone, Default)]
 pub(crate) struct CompileTimeConsts {
-    pub(super) storage_abi: crate::value::StorageAbi,
     global_values: IndexMap<SmolStr, Value>,
     global_reserved: indexmap::IndexSet<SmolStr>,
     local_values: IndexMap<SmolStr, Value>,
@@ -23,13 +22,6 @@ pub(crate) struct CompileTimeConsts {
 }
 
 impl CompileTimeConsts {
-    pub(crate) fn with_storage_abi(storage_abi: crate::value::StorageAbi) -> Self {
-        Self {
-            storage_abi,
-            ..Default::default()
-        }
-    }
-
     fn key(name: &str) -> SmolStr {
         SmolStr::new(name.to_ascii_uppercase())
     }
@@ -70,20 +62,17 @@ impl CompileTimeConsts {
 
 pub(crate) struct LoweredProgram {
     pub(crate) program: ProgramDef,
-    pub(crate) external_names: Vec<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) access: Vec<AccessDecl>,
 }
 
 pub(crate) struct ProgramVars {
     pub(crate) globals: Vec<GlobalInit>,
-    pub(crate) external_names: Vec<SmolStr>,
     pub(crate) vars: Vec<VarDef>,
     pub(crate) temps: Vec<VarDef>,
 }
 
 pub(crate) struct ConfigModel {
-    pub(crate) configuration_name: Option<SmolStr>,
     pub(crate) resource_name: Option<SmolStr>,
     pub(crate) globals: Vec<GlobalInit>,
     pub(crate) tasks: Vec<crate::task::TaskConfig>,
@@ -130,7 +119,6 @@ pub(crate) struct AccessDecl {
 #[derive(Debug, Clone)]
 pub(crate) struct ConfigInit {
     /// Original declaration/binding label for hosted I/O presentation only.
-    pub(crate) display_name: Option<SmolStr>,
     pub(crate) path: AccessPath,
     pub(crate) address: Option<IoAddress>,
     pub(crate) type_id: TypeId,
@@ -143,7 +131,25 @@ pub(crate) enum ResolvedAccess {
     Variable {
         reference: crate::value::ValueRef,
         partial: Option<crate::value::PartialAccess>,
+        /// The same place by the names of the program's symbols, as a compiled program reaches it.
+        symbol: AccessSymbol,
     },
+}
+
+/// A place of the program by the names of its symbols (specification 44 §5.7): the variable the
+/// path's names reach, and the path into that variable's value; `None` for a place within a
+/// function block instance that an array or a structure holds, which no symbol names.
+pub(crate) type AccessSymbol = Option<(SmolStr, Vec<crate::value::RefSegment>)>;
+
+/// A `VAR_ACCESS` declaration as the test harness reads and writes it (specification 10 §4.1.2):
+/// its name, the place it names by the program's symbols, its partial selection and whether it
+/// takes writes.
+#[derive(Debug, Clone)]
+pub(crate) struct NamedAccess {
+    pub(crate) name: SmolStr,
+    pub(crate) symbol: AccessSymbol,
+    pub(crate) partial: Option<crate::value::PartialAccess>,
+    pub(crate) writable: bool,
 }
 
 #[derive(Clone)]
@@ -252,11 +258,10 @@ impl LoweringContext<'_> {
     }
 
     pub(crate) fn eval_compile_time_const_expr(&self, expr: &Expr) -> Result<Value, CompileError> {
-        crate::helper_eval::eval_const_expr_with_abi(
+        crate::helper_eval::eval_const_expr_with_resolver_and_registry(
             expr,
             &self.profile,
             self.registry,
-            self.compile_time_consts.storage_abi,
             &|name| self.lookup_compile_time_value(name),
         )
         .map_err(|err| CompileError::new(err.to_string()))

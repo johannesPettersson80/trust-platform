@@ -1,7 +1,7 @@
 //! The resource loop's control link (specification 34, §7, ARCH-12 and STATE-08): the requests
 //! only the platform answers, the access rights of the link's peers, the frames that cannot be
 //! request lines, the replies that do not fit a frame and the bound on the requests of one pass,
-//! with the board probe program on the real engine.
+//! with the board probe program on the compiled cycle.
 
 use alloc::string::ToString;
 use alloc::vec;

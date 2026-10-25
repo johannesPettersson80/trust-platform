@@ -291,16 +291,16 @@ fn hmi_init_value_with_context<C: ServerContext>(context: &C, args: Vec<Value>) 
         })
         .collect::<Vec<_>>();
 
-    let runtime = match CompileSession::from_sources(compile_sources).build_runtime() {
-        Ok(runtime) => runtime,
+    // The project's declarations in their starting state (specification 44 §6.7).
+    let declarations = match CompileSession::from_sources(compile_sources).declarations() {
+        Ok(declarations) => declarations,
         Err(error) => return Some(json!({ "ok": false, "error": error.to_string() })),
     };
 
-    let metadata = runtime.metadata_snapshot();
+    let metadata = declarations.metadata().clone();
     let snapshot = DebugSnapshot {
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-        storage_abi: metadata.storage_abi(),
+        storage: declarations.storage().clone(),
+        now: trust_runtime::value::Duration::ZERO,
         compiled: None,
     };
     let source_refs = sources
@@ -367,16 +367,16 @@ fn hmi_bindings_value_with_context<C: ServerContext>(
         })
         .collect::<Vec<_>>();
 
-    let runtime = match CompileSession::from_sources(compile_sources).build_runtime() {
-        Ok(runtime) => runtime,
+    // The project's declarations in their starting state (specification 44 §6.7).
+    let declarations = match CompileSession::from_sources(compile_sources).declarations() {
+        Ok(declarations) => declarations,
         Err(error) => return Some(json!({ "ok": false, "error": error.to_string() })),
     };
 
-    let metadata = runtime.metadata_snapshot();
+    let metadata = declarations.metadata().clone();
     let snapshot = DebugSnapshot {
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-        storage_abi: metadata.storage_abi(),
+        storage: declarations.storage().clone(),
+        now: trust_runtime::value::Duration::ZERO,
         compiled: None,
     };
     let source_refs = sources

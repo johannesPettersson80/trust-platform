@@ -117,6 +117,20 @@ impl StdFb {
         Self::named(name).is_some()
     }
 
+    /// The member an input's long name names: `SET1` and `RESET` of `SR`, `SET` and `RESET1` of
+    /// `RS` (IEC Table 43); any other name names itself.
+    pub(super) fn member_named(self, name: &str) -> &str {
+        let aliases: &[(&'static str, &'static str)] = match self {
+            Self::Sr => &[("SET1", "S1"), ("RESET", "R")],
+            Self::Rs => &[("SET", "S"), ("RESET1", "R1")],
+            _ => &[],
+        };
+        aliases
+            .iter()
+            .find(|(alias, _)| alias.eq_ignore_ascii_case(name))
+            .map_or(name, |(_, member)| member)
+    }
+
     /// The block `name` stands for, as the runtime recognizes it: the typed timers and counters, and
     /// Mitsubishi's `DIFU` and `DIFD` as `R_TRIG` and `F_TRIG`.
     pub(super) fn named(name: &str) -> Option<Self> {

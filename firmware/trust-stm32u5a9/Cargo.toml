@@ -14,9 +14,13 @@ resolver = "3"
 # measurement crate, which the adapter's memory map and the stack window come from (design §6.2).
 trust-platform-stm32u5 = { path = "../../crates/trust-platform-stm32u5" }
 trust-platform-memory = { path = "../../crates/trust-platform-memory" }
-# The shared single-thread resource loop, container admission and engine cycle (specification 34).
+# The shared single-thread resource loop, container admission and the compiled cycle (specification
+# 34, specification 44).
 trust-runtime-core = { path = "../../crates/trust-runtime-core", default-features = false }
 trust-runtime-services = { path = "../../crates/trust-runtime-services" }
+# The kernel interface: the chip calls a compiled program's module where its image lies in the
+# internal flash (specification 44 §10.3).
+trust-plc-abi = { path = "../../crates/trust-plc-abi" }
 # The PAC names the peripherals the boot takes; the adapter uses the same PAC instance.
 stm32u5 = { version = "=0.16.0", default-features = false, features = ["stm32u5a9", "rt"] }
 cortex-m = { version = "=0.7.9", features = ["critical-section-single-core"] }

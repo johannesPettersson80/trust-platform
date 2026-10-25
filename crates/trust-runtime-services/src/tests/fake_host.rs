@@ -332,7 +332,7 @@ impl StatusPort for FakeHost {
 
     fn status_settings(&self) -> Option<StatusSettings> {
         self.readable("settings").then(|| StatusSettings {
-            execution_backend: "vm",
+            execution_backend: "native",
             execution_backend_source: "default",
             simulation_enabled: false,
             simulation_time_scale: 1,

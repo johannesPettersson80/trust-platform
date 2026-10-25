@@ -9,7 +9,8 @@ use core::fmt;
 use super::image::{Image, SymbolRecord, NONE, SYMBOL_PROGRAM};
 use super::literal;
 use super::memory::{
-    member_place, read_place, retained_place, symbol_place, write_place, Place, ProgramMemory,
+    member_symbol, read_place, retained_place, symbol_place, write_by_symbol, write_place, Place,
+    ProgramMemory,
 };
 use super::program::{ModuleCode, NativeProgram};
 use crate::error::RuntimeError;
@@ -30,7 +31,7 @@ pub enum NameError {
 impl fmt::Display for NameError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
-            Self::Unknown => "names no variable of the compiled program",
+            Self::Unknown => "names no variable of the program",
             Self::Ambiguous => "names a variable of several programs",
         })
     }
@@ -84,12 +85,18 @@ impl Image<'_> {
 
 impl<C: ModuleCode> NativeProgram<'_, C> {
     /// The value at process-image `address`: in the input image the next scan samples, the output
-    /// image the last scan published, or the marker area.
+    /// image the last scan published, or the marker area; at a hierarchical address, the slot of
+    /// the variable bound there (§5.6).
     ///
     /// # Errors
     ///
-    /// The [`RuntimeError`] of an address that is no flat address of its image.
+    /// The [`RuntimeError`] of an address that is no flat address of its image or a hierarchical
+    /// address no variable binds.
     pub fn read_address(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
+        // A hierarchical address's value lies in the kernel's hierarchical image (§5.6).
+        if address.path.len() > 1 {
+            return self.read_hierarchical(address);
+        }
         match address.area {
             IoArea::Input => read_flat_image(&self.inputs, address),
             IoArea::Output => read_flat_image(&self.outputs, address),
@@ -105,6 +112,9 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
     /// The [`RuntimeError`] of an address that is no flat address of its image, of a value of another
     /// size than the address's, or of a marker address outside the program's marker area.
     pub fn write_address(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
+        if address.path.len() > 1 {
+            return self.write_hierarchical(address, value);
+        }
         match address.area {
             IoArea::Input => write_flat_image(&mut self.inputs, address, value),
             IoArea::Output => write_flat_image(&mut self.outputs, address, value),
@@ -217,12 +227,11 @@ impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
     }
 
     fn write_named(&mut self, name: &str, value: &Value) -> Result<(), RuntimeError> {
-        let image = self.image();
-        let index = image
+        let index = self
+            .image()
             .find_variable(name)
             .map_err(|_| RuntimeError::UndefinedVariable(name.into()))?;
-        let (place, type_index) = symbol_place(&image, index)?;
-        write_admitted(self, place, type_index, value)
+        write_symbol_admitted(self, index, value)
     }
 
     fn write_retained(&mut self, label: &str, value: &Value) -> Result<(), RuntimeError> {
@@ -236,14 +245,29 @@ impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
         member: &str,
         value: &Value,
     ) -> Result<(), RuntimeError> {
-        let (place, type_index) = member_place(&self.image(), instance, member)?;
-        write_admitted(self, place, type_index, value)
+        let index = member_symbol(&self.image(), instance, member)?;
+        write_symbol_admitted(self, index, value)
     }
 
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
         let value = literal::for_address(&self.image(), address, value)?;
         ProgramMemory::write_image(self, address, value)
     }
+}
+
+/// Writes `value`, an integer literal typed for the variable first, into the variable of symbol
+/// `index`, as [`write_by_symbol`] writes it.
+fn write_symbol_admitted<M: ProgramMemory + ?Sized>(
+    memory: &mut M,
+    index: u32,
+    value: &Value,
+) -> Result<(), RuntimeError> {
+    let typed = {
+        let image = memory.image();
+        let (_, type_index) = symbol_place(&image, index)?;
+        literal::for_variable(&image, type_index, value)?
+    };
+    write_by_symbol(memory, index, typed.as_ref().unwrap_or(value))
 }
 
 /// Writes `value`, an integer literal typed for the variable first, at `place`.

@@ -73,7 +73,7 @@ trust-runtime ctl --project . io-read
 
 Why this loop matters:
 
-- `build` confirms ST parses/type-checks and bytecode generation succeeds.
+- `build` confirms ST parses/type-checks and compiles into the program image.
 - `validate` checks runtime + I/O schema before launch.
 - `io-read` confirms the control plane can read process image state.
 

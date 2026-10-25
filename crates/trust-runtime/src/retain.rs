@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 use crate::error::RuntimeError;
 use crate::runtime::RetainSnapshot;
 use crate::value::{Duration, Value};
-use crate::Runtime;
 
 include!("retain/manager.rs");
 include!("retain/store.rs");

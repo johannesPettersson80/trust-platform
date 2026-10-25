@@ -100,27 +100,33 @@ pub(super) fn retain_map(model: &mut Model<'_>) -> Vec<Retained> {
             .map(|var| (var.name.clone(), var.retain))
             .collect();
         for (variable, policy) in variables {
-            let Some((member, in_retain)) = model.program_types[*program].member(&variable) else {
-                continue;
-            };
-            let (area, base) = if in_retain {
-                (abi::AREA_RETAIN, r_offset)
-            } else {
-                (abi::AREA_INSTANCES, p_offset)
-            };
-            let (member_name, offset, ty) = (member.name.clone(), member.offset, member.ty);
-            let place = Place {
-                area,
-                offset: base + offset,
-                holder: retained(policy),
-            };
-            value(
-                model,
-                &mut map,
-                format!("@program/{name}/{member_name}"),
-                place,
-                ty,
-            );
+            // An edge-qualified input's hidden trigger follows it, retained as it is.
+            let trigger = super::types::edge_trigger_name(&variable);
+            for name_in_program in [variable, trigger] {
+                let Some((member, in_retain)) =
+                    model.program_types[*program].member(&name_in_program)
+                else {
+                    continue;
+                };
+                let (area, base) = if in_retain {
+                    (abi::AREA_RETAIN, r_offset)
+                } else {
+                    (abi::AREA_INSTANCES, p_offset)
+                };
+                let (member_name, offset, ty) = (member.name.clone(), member.offset, member.ty);
+                let place = Place {
+                    area,
+                    offset: base + offset,
+                    holder: retained(policy),
+                };
+                value(
+                    model,
+                    &mut map,
+                    format!("@program/{name}/{member_name}"),
+                    place,
+                    ty,
+                );
+            }
         }
     }
     map
@@ -199,12 +205,17 @@ fn value(model: &mut Model<'_>, map: &mut Vec<Retained>, path: String, place: Pl
 fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &str, place: Place, ty: Ty) {
     match model.types.info(ty).kind.clone() {
         Kind::StdFb(fb) => {
-            // A library block's own state (`__LAST`) is no variable the program declares.
+            // A library block's own state (`__LAST`) is no variable the program declares, but the
+            // hidden trigger of a retained edge-qualified input keeps its memory with the input, so
+            // that a warm restart fabricates no edge (IEC §6.5.2.2).
+            let trigger = path
+                .rsplit(['.', '/'])
+                .next()
+                .is_some_and(|last| last.starts_with("__TRIG_"));
             for member in model.types.std_fb_members(fb) {
-                if member.flags & (SYMBOL_INPUT | SYMBOL_OUTPUT) == 0
-                    || member.name.starts_with("__")
-                    || !place.holder
-                {
+                let declared = member.flags & (SYMBOL_INPUT | SYMBOL_OUTPUT) != 0
+                    && !member.name.starts_with("__");
+                if !(declared || trigger) || !place.holder {
                     continue;
                 }
                 let key = format!("{path}.{}", member.name);
@@ -255,6 +266,24 @@ fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &str, place: P
                     value(model, map, key, place, member.ty);
                 } else if kept(policy, place.holder) {
                     push(model, map, key, place.area, offset, member.ty);
+                }
+                // An edge-qualified input's hidden trigger follows it, retained as it is.
+                let trigger = super::types::edge_trigger_name(&name);
+                if let Some(member) = members.iter().find(|member| {
+                    member.via.is_empty() && member.name.eq_ignore_ascii_case(&trigger)
+                }) {
+                    let place = Place {
+                        area: place.area,
+                        offset: place.offset + member.offset,
+                        holder: kept(policy, place.holder),
+                    };
+                    value(
+                        model,
+                        map,
+                        format!("{path}.{}", member.name),
+                        place,
+                        member.ty,
+                    );
                 }
             }
             if let Some(base) = base {

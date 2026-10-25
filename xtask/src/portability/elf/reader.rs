@@ -1,7 +1,7 @@
-//! The ELF reader of the chip image policies (specification 34, D.4 and D.5): it reads a linked ELF32
+//! The ELF reader of the chip image policies (specification 34, D.5): it reads a linked ELF32
 //! image into the facts a policy checks, its allocated sections, its loadable segments, its vector table,
-//! its entry and its linker symbols. Each chip's policy (`stm32f407.rs`, `stm32u5a9.rs`) applies its own
-//! memory map to those facts, so the reading is written once.
+//! its entry and its linker symbols. A chip's policy (`stm32u5a9.rs`) applies its own memory map to
+//! those facts, so the reading is written once.
 
 use anyhow::{bail, Context, Result};
 use object::read::elf::ProgramHeader;

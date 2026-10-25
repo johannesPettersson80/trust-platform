@@ -60,6 +60,7 @@ impl Symbols<'_, '_> {
         let info = self.model.types.info(variable.ty).clone();
         let members: Vec<Member> = match &info.kind {
             Kind::Struct { members } | Kind::Fb { members, .. } => members.clone(),
+            Kind::Overlap { members, bits } => self.model.types.overlap_members(members, bits),
             Kind::StdFb(fb) => self.model.types.std_fb_members(*fb),
             _ => Vec::new(),
         };
@@ -407,6 +408,7 @@ fn symbols(
 /// The I/O bindings, each to its variable's symbol.
 fn bindings(
     writer: &mut ImageWriter,
+    pool: &mut StringPool,
     model: &Model<'_>,
     sorted: &Sorted,
 ) -> Result<(), NativeError> {
@@ -425,6 +427,7 @@ fn bindings(
             )));
         };
         let address = &binding.address;
+        let hierarchical = address.path.len() > 1;
         records.push(IoBindRecord {
             symbol,
             area: match address.area {
@@ -442,13 +445,45 @@ fn bindings(
                     return Err(NativeError::unsupported("a byte window address".into()));
                 }
             },
-            byte: address.byte,
+            // A hierarchical address is its text, which the kernel parses (§5.6).
+            byte: if hierarchical {
+                pool.add(&address_text(address))
+            } else {
+                address.byte
+            },
             bit: address.bit,
-            flags: 0,
+            kind: if hierarchical {
+                trust_runtime_core::native::image::BIND_HIERARCHICAL
+            } else {
+                trust_runtime_core::native::image::BIND_FLAT
+            },
+            flags: binding.codec
+                | (binding.leaf << trust_runtime_core::native::image::BIND_OFFSET_SHIFT),
         });
     }
     writer.table(&records, &[]);
     Ok(())
+}
+
+/// The text of `address` as a declaration spells it: `%IX1.2.3`, `%QW2.5.7.1`.
+fn address_text(address: &trust_runtime_core::io_address::IoAddress) -> String {
+    let area = match address.area {
+        IoArea::Input => 'I',
+        IoArea::Output => 'Q',
+        IoArea::Memory => 'M',
+    };
+    let size = match address.size {
+        IoSize::Bit => 'X',
+        IoSize::Byte => 'B',
+        IoSize::Word => 'W',
+        IoSize::DWord => 'D',
+        IoSize::LWord | IoSize::Bytes(_) => 'L',
+    };
+    let mut parts: Vec<String> = address.path.iter().map(u32::to_string).collect();
+    if matches!(address.size, IoSize::Bit) {
+        parts.push(address.bit.to_string());
+    }
+    format!("%{area}{size}{}", parts.join("."))
 }
 
 /// The tasks with their program lists of entry indexes.
@@ -475,6 +510,18 @@ fn tasks(
                 .unwrap_or(NONE);
             list.extend_from_slice(&entry.to_le_bytes());
         }
+        // The function block instances it runs on their own, after its programs (IEC §6.8.2).
+        for block in &task.blocks {
+            let symbol = format!("trust_entry_b{block}");
+            let entry = inputs
+                .generated
+                .entries
+                .iter()
+                .position(|entry| entry.symbol == symbol)
+                .and_then(|index| u32::try_from(index).ok())
+                .unwrap_or(NONE);
+            list.extend_from_slice(&entry.to_le_bytes());
+        }
         records.push(TaskRecord {
             name: pool.add(&task.name),
             interval_ns: task.interval_ns,
@@ -484,7 +531,8 @@ fn tasks(
                 .as_deref()
                 .and_then(|name| sorted.index(&name.to_ascii_uppercase()))
                 .unwrap_or(NONE),
-            program_count: u32::try_from(task.programs.len()).unwrap_or(u32::MAX),
+            program_count: u32::try_from(task.programs.len() + task.blocks.len())
+                .unwrap_or(u32::MAX),
             program_first: first,
             flags: 0,
         });
@@ -529,6 +577,13 @@ fn type_record(
         Kind::Elem(elem) => (elem.kind(), 0, 0),
         Kind::Str(capacity) => (type_kind::STRING, 0, *capacity),
         Kind::WStr(capacity) => (type_kind::WSTRING, 0, *capacity),
+        // A type with named values of an integer type is its base, by its own name (specification
+        // 02 §3.2): a tool reads and writes every value of the base.
+        Kind::Enum {
+            base: elem,
+            named: true,
+            ..
+        } => (elem.kind(), 0, 0),
         Kind::Enum { values, .. } => {
             for (value_name, value) in values {
                 details.extend_from_slice(&pool.add(value_name).to_le_bytes());
@@ -557,11 +612,33 @@ fn type_record(
             }
             (type_kind::ARRAY, start, count(dims.len()))
         }
+        // An open array has the sentinel bounds `(0, i64::MAX)` in each dimension (specification
+        // 12 §4); no variable holds one, only a reference to one does.
+        Kind::Open { elem, rank } => {
+            details.extend_from_slice(&elem.0.to_le_bytes());
+            details.extend_from_slice(&0u32.to_le_bytes());
+            for _ in 0..*rank {
+                details.extend_from_slice(&0i64.to_le_bytes());
+                details.extend_from_slice(&i64::MAX.to_le_bytes());
+            }
+            (type_kind::ARRAY, start, count(*rank))
+        }
         Kind::Struct { members } => (
             type_kind::STRUCT,
             member_detail(pool, details, base, members),
             count(members.len()),
         ),
+        // The members of a `STRUCT OVERLAP` share bytes; a `BOOL` is the type of its bit.
+        Kind::Overlap { members, bits } => {
+            let members = model.types.overlap_members(members, bits);
+            (
+                type_kind::STRUCT,
+                member_detail(pool, details, base, &members),
+                count(members.len()),
+            )
+        }
+        // A `BOOL` that takes bit n of its byte counts n + 1 (specification 44 §5.8).
+        Kind::Bit(bit) => (type_kind::BOOL, 0, u32::from(*bit) + 1),
         Kind::Fb {
             members, is_class, ..
         } => (
@@ -582,11 +659,16 @@ fn type_record(
                 count(members.len()),
             )
         }
-        // A reference's detail is its target type (specification 44 §5.8).
-        Kind::Ref { target } => {
+        // A reference's or a pointer's detail is its target type (specification 44 §5.8).
+        Kind::Ref { target, pointer } => {
             details.extend_from_slice(&target.0.to_le_bytes());
             details.extend_from_slice(&0u32.to_le_bytes());
-            (type_kind::REFERENCE, start, 0)
+            let kind = if *pointer {
+                type_kind::POINTER
+            } else {
+                type_kind::REFERENCE
+            };
+            (kind, start, 0)
         }
     };
     TypeRecord {
@@ -671,15 +753,35 @@ pub(super) fn write(
     entries(writer, inputs)?;
     let (area_records, init_bytes) = areas(writer, model, inputs.memory);
     let sorted = symbols(writer, &mut pool, model, &inputs.generated.pous);
-    bindings(writer, model, &sorted)?;
+    bindings(writer, &mut pool, model, &sorted)?;
     tasks(writer, &mut pool, model, inputs, &sorted);
     types(writer, &mut pool, model);
     statements(writer, &mut pool, inputs);
+    // The `RESOURCE` the program's `CONFIGURATION` declares, which a computer compares with the
+    // name its `runtime.toml` gives (§5.2, specification 10 §4.7).
+    if let Some(resource) = inputs
+        .front
+        .lowered
+        .configuration
+        .as_ref()
+        .and_then(|configuration| configuration.resource_name.as_ref())
+    {
+        writer.resource = pool.add(resource).saturating_add(1);
+    }
 
     writer.section(SectionId::Strings, pool.into_bytes());
     let area_bytes: u64 = area_records.iter().map(|area| area.length).sum();
-    let bookkeeping =
-        64 * (model.tasks.len() as u64) + (inputs.ids.order.len() as u64).div_ceil(8) + 256;
+    // The kernel's tasks, its breakpoint bits, and an 8-byte slot of the hierarchical image for each
+    // binding at a hierarchical address (§5.6).
+    let hierarchical = model
+        .bindings
+        .iter()
+        .filter(|binding| binding.address.path.len() > 1)
+        .count() as u64;
+    let bookkeeping = 64 * (model.tasks.len() as u64)
+        + (inputs.ids.order.len() as u64).div_ceil(8)
+        + 8 * hierarchical
+        + 256;
     let mut figure = MemoryFigure {
         areas: area_bytes,
         stack: inputs.stack.bound,

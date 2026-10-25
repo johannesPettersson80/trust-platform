@@ -73,7 +73,7 @@ export function toolchainStatus(
 /**
  * Before a build that needs the toolchain: installs it when none is installed, as specification 44
  * §4.6 has the extension do on the first build. Resolves whether a toolchain is there; a launch
- * goes on either way, without one on the bytecode engine (NX-16).
+ * goes on either way, and without one its build fails with the reason (NX-16).
  */
 export async function ensureToolchain(
   context: vscode.ExtensionContext

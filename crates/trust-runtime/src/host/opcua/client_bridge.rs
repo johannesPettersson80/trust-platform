@@ -77,10 +77,6 @@ pub struct OpcUaClientBridge {
 }
 
 impl OpcUaClientBridge {
-    pub(crate) fn replace_bindings(&mut self, bindings: Vec<OpcUaClientBinding>) {
-        self.bindings = bindings;
-    }
-
     pub fn new(bindings: Vec<OpcUaClientBinding>) -> Result<Self, OpcUaClientBridgeError> {
         validate_opcua_client_bindings(&bindings)?;
         let points = bindings
@@ -102,14 +98,6 @@ impl OpcUaClientBridge {
         let bridge = Self::new(bindings)?;
         let worker = OpcUaClientWorker::new(connection, transport, bridge.shared.clone());
         Ok((bridge, worker))
-    }
-
-    pub fn apply_inputs(
-        &mut self,
-        storage: &mut crate::memory::VariableStorage,
-        now_ms: u64,
-    ) -> Result<(), OpcUaClientBridgeError> {
-        self.apply_inputs_with(now_ms, storage)
     }
 
     fn apply_inputs_with(
@@ -177,42 +165,6 @@ impl OpcUaClientBridge {
         Ok(())
     }
 
-    pub fn capture_outputs(
-        &mut self,
-        storage: &mut crate::memory::VariableStorage,
-        now_ms: u64,
-    ) -> Result<(), OpcUaClientBridgeError> {
-        for binding in self
-            .bindings
-            .iter()
-            .filter(|binding| binding.point.access.can_write())
-        {
-            let Some(value) = binding
-                .target
-                .reference()
-                .ok()
-                .and_then(|reference| storage.read_by_ref(reference.clone()).cloned())
-            else {
-                self.shared.set_point_status(
-                    &binding.point,
-                    OpcUaClientConnectionState::Faulted,
-                    Some(now_ms),
-                    None,
-                    format!("Failed to read OPC UA output '{}'", binding.point.var),
-                );
-                continue;
-            };
-            client_cycle_port::queue_output(
-                &self.shared,
-                &mut self.last_queued_values,
-                binding,
-                value,
-                now_ms,
-            )?;
-        }
-        Ok(())
-    }
-
     pub fn state(&self) -> OpcUaClientConnectionState {
         self.shared.state()
     }
@@ -230,41 +182,14 @@ impl OpcUaClientBridge {
     }
 }
 
-pub fn resolve_opcua_client_bindings(
-    runtime: &crate::Runtime,
-    connection: &OpcUaClientConnectionConfig,
-) -> Result<Vec<OpcUaClientBinding>, RuntimeError> {
-    let mut bindings = Vec::with_capacity(connection.points.len());
-    for point in &connection.points {
-        let storage_name = opcua_client_global_storage_name(point.var.as_str());
-        let reference = runtime
-            .storage()
-            .ref_for_global(storage_name)
-            .ok_or_else(|| {
-                RuntimeError::InvalidConfig(
-                    format!(
-                        "OPC UA client connection '{}': global '{}' does not exist",
-                        connection.name, point.var
-                    )
-                    .into(),
-                )
-            })?;
-        validate_opcua_client_initial_value(runtime, connection, point, storage_name)?;
-        bindings.push(OpcUaClientBinding {
-            point: point.clone(),
-            target: crate::runtime::BoundGlobal::Engine(reference),
-        });
-    }
-    Ok(bindings)
-}
-
-/// [`resolve_opcua_client_bindings`] for a compiled program (specification 44 §13.3): each point
-/// binds the global of its name, found through the program's symbol table, whose value as the last
-/// scan left it must fit the point as an interpreted program's does.
+/// The bindings of a connection's points (specification 11's OPC UA client, specification 44
+/// §13.3): each point binds the global of its name, found through the program's symbol table, whose
+/// value as the last scan left it must fit the point.
 ///
 /// # Errors
 ///
-/// As [`resolve_opcua_client_bindings`].
+/// [`RuntimeError::InvalidConfig`] for a global the program does not declare or whose value does
+/// not fit the point.
 pub fn resolve_compiled_opcua_client_bindings(
     program: &crate::CompiledRuntime,
     connection: &OpcUaClientConnectionConfig,
@@ -289,7 +214,7 @@ pub fn resolve_compiled_opcua_client_bindings(
         validate_opcua_client_value(connection, point, &value)?;
         bindings.push(OpcUaClientBinding {
             point: point.clone(),
-            target: crate::runtime::BoundGlobal::Compiled(global.name),
+            target: crate::runtime::BoundGlobal(global.name),
         });
     }
     Ok(bindings)
@@ -314,24 +239,6 @@ fn validate_opcua_client_bindings(
         }
     }
     Ok(())
-}
-
-fn validate_opcua_client_initial_value(
-    runtime: &crate::Runtime,
-    connection: &OpcUaClientConnectionConfig,
-    point: &OpcUaClientPointConfig,
-    storage_name: &str,
-) -> Result<(), RuntimeError> {
-    let value = runtime.storage().get_global(storage_name).ok_or_else(|| {
-        RuntimeError::InvalidConfig(
-            format!(
-                "OPC UA client connection '{}': global '{}' does not exist",
-                connection.name, point.var
-            )
-            .into(),
-        )
-    })?;
-    validate_opcua_client_value(connection, point, value)
 }
 
 /// Whether the global's current `value` fits the point: its OPC UA type is the point's, and the

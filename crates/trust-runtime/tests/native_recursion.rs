@@ -1,11 +1,12 @@
 //! Recursion in a compiled program (specification 44 §6.4, §8.5): IEC 61131-3 leaves the recursive
-//! call of POUs to the implementer (§6.6.1.1), and truST runs it, as its bytecode engine does, within
-//! a call depth that the task stack holds.
+//! call of POUs to the implementer (§6.6.1.1), and truST runs it within a call depth that the task
+//! stack holds.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::SourceFile;
 use trust_runtime::native::{build, load, Build, Device, NoHooks, Options, Target, Toolchain};
 use trust_runtime::value::{Duration, Value};
@@ -142,8 +143,8 @@ fn a_recursion_that_does_not_end_ends_the_scan_at_the_call_depth() {
     // Specification 44 §6.4 and §8.5: the kernel gives the activation the depth (task stack −
     // bound) / call level, here worked out from the image's figure; the program's call of
     // `Forever` and as many recursive calls as the depth holds run, each counting in `Calls`, and
-    // the next recursive call ends the scan with the error the bytecode engine ends a call beyond
-    // its call levels with, `call depth exceeded`, instead of running the task stack over. Catches a recursion
+    // the next recursive call ends the scan with the error of a call beyond the call levels,
+    // `call depth exceeded`, instead of running the task stack over. Catches a recursion
     // that overflows the stack (the native image had no bound before 23 October 2026), a depth
     // not worked out from the figure, and an entry into the recursion counted as a turn.
     let (built, device) = compiled(FOREVER);
@@ -155,10 +156,7 @@ fn a_recursion_that_does_not_end_ends_the_scan_at_the_call_depth() {
     let error = program
         .scan(Duration::from_millis(10), &mut NoHooks)
         .expect_err("the recursion ends the scan");
-    assert_eq!(
-        error,
-        trust_runtime::runtime_core::vm::VmTrap::CallStackOverflow.into_runtime_error()
-    );
+    assert_eq!(error, RuntimeError::call_depth_exceeded());
     assert_eq!(error.to_string(), "call depth exceeded");
     let calls = i64::try_from(depth + 1).expect("a depth of a test's task stack");
     assert_eq!(

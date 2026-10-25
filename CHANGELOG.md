@@ -6,6 +6,43 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Removed: the bytecode engine. Every runtime now runs the project compiled into a program image
+  (specification 44 §15): `trust-runtime build` writes `program.tpi`, and `run`, `play`, `fleet
+  start`, `conformance`, `bench project`, `trust-dev test` and the VS Code simulator run it. The STBC
+  format with its encoder, loaders, validator and virtual machine is deleted, and so are the
+  `--execution-backend` options of `run`, `play`, `build`, `conformance`, `bench` and `trust-dev
+  test` and the debug launch's `executionBackend`, which entries below still name. A project that
+  holds only an old `program.stbc` is refused with "rebuild the project"; `runtime.execution_backend`
+  in `runtime.toml` still loads with `vm` or `native` and selects nothing. Retain files written
+  before restore unchanged. `trust-bundle-gen` writes `program.tpi`, `trust-runtime check` no longer
+  reports a bytecode size, and `cargo xtask portability` loses its STBC actions (`pack`, `verify`,
+  `footprint`, `compare-benchmarks`). The STM32F407 firmware and its adapter are deleted with the
+  engine they ran: the chips are the ESP32-C6 and the STM32U5A9. The engine's error codes, which
+  nothing reports any more, leave the stable vocabulary: `bytecode_*`, every `vm_*` code but
+  `vm_call_stack_overflow`, `runtime_invalid_bytecode`, `runtime_invalid_bytecode_metadata`,
+  `runtime_unsupported_bytecode_version`, `runtime_condition_not_bool`, `runtime_case_selector_type`,
+  `runtime_invalid_control_flow`, `runtime_type_nesting_exceeds`, `runtime_undefined_task`,
+  `runtime_undefined_label`, `runtime_invalid_task_single`, `runtime_constant_write`,
+  `runtime_staging_violation`, `runtime_visibility_violation`, `runtime_program_root_replacement`
+  and `runtime_preparation_limit`.
+- Added: compiled programs run every construct the bytecode engine ran (specification 44 0.23):
+  `EN`/`ENO`, outputs given by position, `RETURN` with a value, `JMP` and labels, `VAR_STAT`,
+  `UNION`, `STRUCT OVERLAP`, `POINTER TO` and `ADR`, `?=`, `WSTRING`, `IS_VALID`, edge-qualified
+  inputs, function blocks run by a task, located structures and arrays, hierarchical addresses
+  (`%IX1.2.3`), `VAR_CONFIG` locations and initial values, `VAR_ACCESS` names, `CURRENT_DT`, `ARRAY[*]` parameters and pointers with
+  `LOWER_BOUND`/`UPPER_BOUND`, a function's own function block instance with its initial values,
+  and a structure that refers to itself. A write to an element of an `ARRAY[*]` input is refused at
+  build: an input is the caller's array (specification 03 §6). `DATE`, `TOD` and `DT` at a direct
+  address are refused with the name of their long form. The kernel interface is version 5, so
+  images built before must be rebuilt.
+- Changed: every runtime records each program's calls in `tasks.stats`' top contributors, a chip as
+  a computer; a forced marker reads its forced value between scans; a program loaded by
+  `CompiledRuntime::load` starts at its starting values; an input of an enumeration type that holds
+  no declared value of it is refused before the scan reads it; trust-hir refuses a `VAR_ACCESS` path
+  to a `VAR_TEMP`, `VAR_EXTERNAL` or `VAR_IN_OUT` variable and an enumeration literal that names no
+  value of its type; a `VAR_CONFIG` entry that completes `AT %Q*` with an address of another area is
+  refused at build (IEC 61131-3 §6.5.5.4).
+
 - Added: `trust-runtime build --target <device or CPU>` compiles a project into native machine code
   for that device, in a program image (`build/program.<target>.tpi`) with its memory figure in
   `build.json` and, with `--emit-source`, the generated Rust (specification 44). The reference plant

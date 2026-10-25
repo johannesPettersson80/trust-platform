@@ -75,7 +75,7 @@ fn dap_envelopes_use_canonical_keys_and_legacy_input_only() {
 }
 
 #[test]
-fn custom_state_payloads_preserve_force_scan_frame_and_instance_identity() {
+fn custom_state_payloads_preserve_force_and_scan() {
     let source = Source {
         name: Some("main.st".to_string()),
         path: Some("/workspace/main.st".to_string()),
@@ -152,49 +152,14 @@ fn custom_state_payloads_preserve_force_scan_frame_and_instance_identity() {
         }),
     );
 
-    let var = VarStateEntry {
-        name: "Counter".to_string(),
-        value: "5".to_string(),
-    };
-    assert_wire(
-        VarStateEventBody {
-            locals: Vec::new(),
-            globals: vec![var.clone()],
-            instances: vec![VarStateInstance {
-                id: 17,
-                name: "Main".to_string(),
-                vars: vec![var],
-            }],
-            retain: Vec::new(),
-            frame_id: Some(0),
-            paused: Some(false),
-        },
-        json!({
-            "globals": [{"name": "Counter", "value": "5"}],
-            "instances": [{
-                "id": 17,
-                "name": "Main",
-                "vars": [{"name": "Counter", "value": "5"}]
-            }],
-            "retain": [],
-            "frameId": 0,
-            "paused": false
-        }),
-    );
-
     let default_entry: IoStateEntry =
         serde_json::from_value(json!({"address": "%QX0.0", "value": "FALSE"}))
             .expect("forced defaults to false");
     assert!(!default_entry.forced);
-    let default_vars: VarStateEventBody =
-        serde_json::from_value(json!({"globals": [], "retain": []}))
-            .expect("locals and instances default empty");
-    assert!(default_vars.locals.is_empty());
-    assert!(default_vars.instances.is_empty());
 }
 
 #[test]
-fn custom_mutation_payloads_use_required_fields_and_lowercase_discriminators() {
+fn custom_io_mutation_payloads_use_required_fields() {
     assert_wire(
         IoWriteArguments {
             address: "%QW2".to_string(),
@@ -207,42 +172,6 @@ fn custom_mutation_payloads_use_required_fields_and_lowercase_discriminators() {
             address: "%QW2".to_string(),
         },
         json!({"address": "%QW2"}),
-    );
-    assert_wire(VarWriteAction::Write, json!("write"));
-    assert_wire(VarWriteAction::Force, json!("force"));
-    assert_wire(VarWriteAction::Release, json!("release"));
-    assert_wire(VarWriteScope::Locals, json!("locals"));
-    assert_wire(VarWriteScope::Globals, json!("globals"));
-    assert_wire(VarWriteScope::Instances, json!("instances"));
-    assert_wire(VarWriteScope::Retain, json!("retain"));
-    assert_wire(
-        VarWriteArguments {
-            scope: VarWriteScope::Instances,
-            name: "Drive.Speed".to_string(),
-            value: Some("12.5".to_string()),
-            action: Some(VarWriteAction::Force),
-            instance_id: Some(3),
-            frame_id: Some(0),
-        },
-        json!({
-            "scope": "instances",
-            "name": "Drive.Speed",
-            "value": "12.5",
-            "action": "force",
-            "instanceId": 3,
-            "frameId": 0
-        }),
-    );
-    assert_wire(
-        VarWriteArguments {
-            scope: VarWriteScope::Globals,
-            name: "EmergencyStop".to_string(),
-            value: None,
-            action: Some(VarWriteAction::Release),
-            instance_id: None,
-            frame_id: None,
-        },
-        json!({"scope": "globals", "name": "EmergencyStop", "action": "release"}),
     );
 }
 
@@ -487,22 +416,6 @@ fn standard_session_inspection_and_mutation_payloads_keep_dap_field_names() {
         json!({"variablesReference": 9, "name": "Counter", "value": "6"}),
     );
     assert_wire(
-        SetVariableResponseBody {
-            value: "6".to_string(),
-            r#type: Some("DINT".to_string()),
-            variables_reference: 0,
-            named_variables: Some(0),
-            indexed_variables: Some(0),
-        },
-        json!({
-            "value": "6",
-            "type": "DINT",
-            "variablesReference": 0,
-            "namedVariables": 0,
-            "indexedVariables": 0
-        }),
-    );
-    assert_wire(
         SetExpressionArguments {
             expression: "Globals.Counter".to_string(),
             value: "7".to_string(),
@@ -692,10 +605,8 @@ fn missing_required_fields_and_invalid_discriminators_fail_closed() {
     );
     assert_rejected!(Event<Value>, json!({"seq": 1, "type": "event"}));
     assert_rejected!(IoStateEventBody, json!({"inputs": [], "outputs": []}));
-    assert_rejected!(VarStateEventBody, json!({"globals": []}));
     assert_rejected!(IoWriteArguments, json!({"address": "%QX0.0"}));
     assert_rejected!(IoReleaseArguments, json!({}));
-    assert_rejected!(VarWriteArguments, json!({"scope": "globals"}));
     assert_rejected!(ContinueArguments, json!({}));
     assert_rejected!(EvaluateArguments, json!({"frameId": 0}));
     assert_rejected!(Thread, json!({"name": "MainTask"}));
@@ -710,8 +621,6 @@ fn missing_required_fields_and_invalid_discriminators_fail_closed() {
     assert_rejected!(SetBreakpointsArguments, json!({}));
     assert_rejected!(BreakpointLocationsArguments, json!({"source": {}}));
     assert_rejected!(MessageType, json!("Request"));
-    assert_rejected!(VarWriteAction, json!("FORCE"));
-    assert_rejected!(VarWriteScope, json!("instance"));
 }
 
 #[test]

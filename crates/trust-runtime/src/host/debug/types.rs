@@ -95,8 +95,6 @@ pub struct DebugLog {
 /// Snapshot of runtime state at a stop.
 #[derive(Debug, Clone)]
 pub struct DebugSnapshot {
-    /// Storage interpretation of the installed artifact that produced this snapshot.
-    pub storage_abi: crate::value::StorageAbi,
     /// Variable storage snapshot.
     pub storage: VariableStorage,
     /// Current runtime time.
@@ -132,13 +130,11 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<Value, RuntimeError> {
-        let storage_abi = self.storage_abi;
         let eval = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::eval_storage_expr_with_abi(
+            crate::helper_eval::eval_storage_expr_with_stdlib(
                 storage,
                 registry,
-                storage_abi,
                 profile,
                 instance_id,
                 stdlib,
@@ -163,17 +159,9 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<Value, RuntimeError> {
-        let storage_abi = self.storage_abi;
         let read = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::read_storage_lvalue_with_abi(
-                storage,
-                registry,
-                storage_abi,
-                profile,
-                instance_id,
-                target,
-            )
+            crate::helper_eval::read_storage_lvalue(storage, registry, profile, instance_id, target)
         };
 
         if let Some(frame_id) = frame_id {
@@ -194,13 +182,11 @@ impl DebugSnapshot {
         profile: &DateTimeProfile,
         frame_id: Option<FrameId>,
     ) -> Result<(), RuntimeError> {
-        let storage_abi = self.storage_abi;
         let write = |storage: &mut VariableStorage| {
             let instance_id = storage.current_frame().and_then(|frame| frame.instance_id);
-            crate::helper_eval::write_storage_lvalue_with_abi(
+            crate::helper_eval::write_storage_lvalue(
                 storage,
                 registry,
-                storage_abi,
                 profile,
                 instance_id,
                 target,

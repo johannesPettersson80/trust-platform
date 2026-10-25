@@ -4,17 +4,11 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
         output,
         update_expected,
         filter,
-        execution_backend: backend,
         device,
         target,
     } = args;
-    // The expected artifacts are the bytecode engine's; the native backend is measured against
-    // them (specification 44 §14.2).
-    if update_expected && backend == ProgramBackend::Native {
-        bail!("expected artifacts are written with the vm backend; drop --update-expected");
-    }
-    let mut device = open_device(backend, device, target.as_deref())?;
-    let (runtime_name, actual_dir) = run_names(backend, device.is_some());
+    let mut device = open_device(device, target.as_deref())?;
+    let (runtime_name, actual_dir) = run_names(device.is_some());
     let suite_root = resolve_suite_root(suite_root)?;
     let mut cases = discover_cases(&suite_root)?;
     if let Some(filter) = filter.as_deref() {
@@ -69,7 +63,7 @@ pub fn run_conformance(args: ConformanceArgs) -> anyhow::Result<()> {
             reason: None,
         };
 
-        match execute_case(case, backend, device.as_mut()) {
+        match execute_case(case, device.as_mut()) {
             Ok(artifact) => {
                 summary_result.cycles = artifact.cycles;
                 if update_expected {
@@ -200,27 +194,20 @@ fn summary_contract_for_cases(cases: &[CaseDefinition]) -> SummaryContract {
 }
 
 /// The device that runs the runtime cases, compiled for it and stepped over its control link
-/// (specification 44 §14.2), when the run names one; only the native backend runs on a device.
-fn open_device(
-    backend: ProgramBackend,
-    port: Option<String>,
-    target: Option<&str>,
-) -> anyhow::Result<Option<DeviceRun>> {
+/// (specification 44 §14.2), when the run names one.
+fn open_device(port: Option<String>, target: Option<&str>) -> anyhow::Result<Option<DeviceRun>> {
     let Some(port) = port else {
         return Ok(None);
     };
-    if backend != ProgramBackend::Native {
-        bail!("a device runs compiled programs: use --execution-backend native");
-    }
     DeviceRun::open(&port, target.unwrap_or_default()).map(Some)
 }
 
-/// The runtime's name in the summary and the folder of the actual artifacts, for what runs the
-/// runtime cases.
-fn run_names(backend: ProgramBackend, on_device: bool) -> (&'static str, &'static str) {
-    match (backend, on_device) {
-        (ProgramBackend::Vm, _) => ("trust-runtime", "actual"),
-        (ProgramBackend::Native, false) => ("trust-runtime-native", "actual-native"),
-        (ProgramBackend::Native, true) => ("trust-runtime-device", "actual-device"),
+/// The runtime's name in the summary and the folder of the actual artifacts: this computer's, or a
+/// device's.
+fn run_names(on_device: bool) -> (&'static str, &'static str) {
+    if on_device {
+        ("trust-runtime-device", "actual-device")
+    } else {
+        ("trust-runtime", "actual")
     }
 }

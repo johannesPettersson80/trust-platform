@@ -373,10 +373,22 @@ pub(super) fn handle_build_command(state: &mut UiState) -> anyhow::Result<()> {
         )]);
         return Ok(());
     };
-    match build_program_stbc(root, None) {
+    // The toolchain is found, not installed: `trust-runtime toolchain install` downloads it.
+    let built = crate::native::Toolchain::find()
+        .map_err(anyhow::Error::from)
+        .and_then(|toolchain| {
+            let target = crate::native::Target::this_cpu()
+                .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+            build_program_image(root, None, target, &toolchain, false, true)
+        });
+    match built {
         Ok(report) => {
             state.prompt.set_output(vec![PromptLine::plain(
-                format!("Built program.stbc ({} sources).", report.sources.len()),
+                format!(
+                    "Built {} ({} sources).",
+                    crate::native::PROGRAM_IMAGE_FILE,
+                    report.sources.len()
+                ),
                 Style::default().fg(COLOR_GREEN),
             )]);
         }
@@ -401,7 +413,7 @@ pub(super) fn handle_reload_command(
         )]);
         return Ok(());
     };
-    let path = root.join("program.stbc");
+    let path = root.join(crate::native::PROGRAM_IMAGE_FILE);
     let bytes = fs::read(&path)?;
     let encoded = BASE64_STANDARD.encode(bytes);
     let response = client.request(json!({

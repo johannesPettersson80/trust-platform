@@ -355,11 +355,11 @@ import sys
 root = pathlib.Path(sys.argv[1])
 rule = "RUNTIMESAFE-RETAIN-ORPHAN-SILENT owner=runtime/retain"
 # The retained-value events are shared runtime code (S1a-3): `retain_apply_event` turns
-# what a restart reports into runtime events, and both trust-runtime's restart and the
-# device runner's restart publish them.
+# what a restart reports into runtime events, and both trust-runtime's restart (the compiled
+# runtime, specification 44 §11) and the device runner's restart publish them.
 events = root / "crates/trust-runtime-services/src/events.rs"
 publishers = [
-    root / "crates/trust-runtime/src/runtime/installed_lifecycle.rs",
+    root / "crates/trust-runtime/src/runtime/compiled.rs",
     root / "crates/trust-runtime-services/src/runner/supervision.rs",
 ]
 

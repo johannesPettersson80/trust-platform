@@ -16,30 +16,24 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_services::capabilities::{self, LastReset, ResetCauseName};
+use trust_runtime_services::chip::platform::status_settings;
 use trust_runtime_services::live_values::io_requests::{io_list, io_read, IoQueuePort};
 use trust_runtime_services::ports::{ProgramControl, ResourcePort, StatusPort};
 use trust_runtime_services::resource::commands::CommandSendError;
-use trust_runtime_services::runner::EngineLiveValues;
+use trust_runtime_services::runner::DeviceLiveValues;
 use trust_runtime_services::status::{health, IoDriverStatus, StatusSettings};
 
-/// The C6's platform after a power-on boot with boot counter 1, built the way `chip_file.rs` builds it:
-/// the resource `Controller`, the VM settings, production control, no debug surface, the live values of
-/// no program, and the runtime ID of the owned board's base MAC address.
+/// The C6's platform after a power-on boot with boot counter 1, built the way the firmware builds it:
+/// the resource `Controller`, a chip's settings, production control, no debug surface, the live values
+/// of no program, and the runtime ID of the owned board's base MAC address.
 fn platform() -> Platform<()> {
     Platform::new(
         (),
         SmolStr::new_static("Controller"),
-        StatusSettings {
-            execution_backend: "vm",
-            execution_backend_source: "default",
-            simulation_enabled: false,
-            simulation_time_scale: 1,
-            simulation_mode: SmolStr::new_static("production"),
-            simulation_warning: SmolStr::default(),
-        },
+        status_settings(),
         false,
         ControlMode::Production,
-        EngineLiveValues::empty(),
+        DeviceLiveValues::empty(),
         LastReset {
             cause: ResetCauseName::PowerOn,
             text: SmolStr::default(),
@@ -49,8 +43,8 @@ fn platform() -> Platform<()> {
     )
 }
 
-/// The `capabilities` reply of the C6 is its descriptor and its reset, with the STBC versions 2.0 and
-/// 3.0 (`bytecode::BytecodeVersion`), the cooperative resource profile, numeric contract 1, unqualified
+/// The `capabilities` reply of the C6 is its descriptor and its reset, with the program format 44.1, the
+/// compiled program image (specification 44 §10.1), the cooperative resource profile, numeric contract 1, unqualified
 /// timing and no capability (the C6 has no wall clock until slice T6). Its maxima are the 64 MiB artifact
 /// and 1,024 call levels, and every other limit is `null`. Its event store holds 200 events by default and
 /// at most 200, and its application slot is one program slot, 3,056 KiB = 3,129,344 bytes
@@ -73,7 +67,7 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
             "id": 7,
             "ok": true,
             "result": {
-                "bytecode_versions": ["2.0", "3.0"],
+                "program_versions": ["44.1"],
                 "scheduling_profiles": ["cooperative-resource-v1"],
                 "numeric_contracts": ["1"],
                 "timing_evidence": "unqualified",
@@ -102,7 +96,8 @@ fn the_c6_capabilities_reply_is_the_bytes_the_chip_gives_today() {
 }
 
 /// The platform answers `status` with its resource, its chip name (`esp32c6`), its runtime ID (the chip
-/// name and the USB serial number), its control after `shutdown`, its VM settings, an empty list of its
+/// name and the USB serial number), its control after `shutdown`, a chip's settings (compiled programs,
+/// specification 44 NX-15), an empty list of its
 /// own I/O drivers (the installed program's drivers come from the cycle), and its reset (specification
 /// 11, `status`; specification 34, STATE-08). Catches a platform name or runtime ID taken from another
 /// source, a chip that gives up control, and settings or a driver list that differ from the C6's.
@@ -120,7 +115,7 @@ fn the_c6_status_answers_name_the_chip_and_keep_its_control() {
         ProgramControl::KeepsControl
     );
     let settings = StatusPort::status_settings(&platform).expect("the C6 gives its settings");
-    assert_eq!(settings.execution_backend, "vm");
+    assert_eq!(settings.execution_backend, "native");
     assert_eq!(settings.execution_backend_source, "default");
     assert!(!settings.simulation_enabled);
     assert_eq!(settings.simulation_time_scale, 1);

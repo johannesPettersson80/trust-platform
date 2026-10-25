@@ -9,15 +9,13 @@ use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{
     AdmissionRefusal, ApplicationIdentity, Capabilities, Configuration, Contracts,
     DeploymentRecord, DeploymentRecordError, DeviceDescriptor, NumericContract,
-    ProcessImageSummary, RequestedLimits, SchedulingProfile, TimingEvidence,
+    ProcessImageSummary, ProgramVersion, RequestedLimits, SchedulingProfile, TimingEvidence,
 };
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::vm::PreparationLimits;
 
 use super::{
     admit, admit_sequenced, committed_header, decode, decode_sequenced, encode, encode_image,
@@ -172,24 +170,26 @@ fn a_write_stopped_at_any_byte_is_no_installed_program() {
 /// SHA-256, so any bytes serve.
 const PROGRAM: &[u8] = b"TRSTB002-prg";
 
-/// The chip's descriptor: a computer's maxima with an application slot of `slot_bytes`
-/// (specification 34 §5.1.1, COMPAT-02).
+/// The chip's descriptor: a computer's maxima with an application slot of `slot_bytes`, running
+/// compiled program images (specification 34 §5.1.1, COMPAT-02; specification 44 §10.1).
 fn chip(slot_bytes: u64) -> DeviceDescriptor {
     DeviceDescriptor {
+        program_versions: &[ProgramVersion::NATIVE_IMAGE],
         application_slot_bytes: Some(slot_bytes),
         ..DeviceDescriptor::hosted()
     }
 }
 
-/// A version-1 record that describes `program`, requests the default limits and needs nothing
-/// else; `DeploymentRecord::encode` turns it into the record's bytes (specification 34 §5.1.1).
+/// A version-1 record that describes `program` as a compiled program image (version 44.1),
+/// requests no limit and needs nothing else; `DeploymentRecord::encode` turns it into the record's
+/// bytes (specification 34 §5.1.1; specification 44 §10.1).
 fn record_of(program: &[u8]) -> DeploymentRecord {
     DeploymentRecord {
         application: ApplicationIdentity {
             program_sha256: trust_runtime_core::deployment::sha256(program),
             program_bytes: u32::try_from(program.len()).expect("a short program"),
-            bytecode_version: BytecodeVersion::SOURCE_FREE,
-            bytecode_flags: 0,
+            program_version: ProgramVersion::NATIVE_IMAGE,
+            program_flags: 0,
             configuration_sha256: [0; 32],
             retain_schema_sha256: [0; 32],
         },
@@ -199,7 +199,19 @@ fn record_of(program: &[u8]) -> DeploymentRecord {
             timing_evidence: TimingEvidence::UNQUALIFIED,
             capabilities: Capabilities::NONE,
         },
-        limits: RequestedLimits::from_preparation(&PreparationLimits::default()),
+        limits: RequestedLimits {
+            max_artifact_bytes: 0,
+            max_preparation_bytes: 0,
+            max_preparation_work: 0,
+            max_validation_scratch_bytes: 0,
+            max_validation_work: 0,
+            max_construction_values: 0,
+            max_construction_bytes: 0,
+            max_process_image_bytes: 0,
+            max_work: 0,
+            max_construction_work: 0,
+            max_call_depth: 0,
+        },
         process_image: ProcessImageSummary::default(),
         tasks: Vec::new(),
         imports: Vec::new(),
@@ -207,18 +219,27 @@ fn record_of(program: &[u8]) -> DeploymentRecord {
     }
 }
 
+/// [`record_of`] for an STBC program of the bytecode engine: the record names STBC 3.0.
+fn stbc_record_of(program: &[u8]) -> Vec<u8> {
+    let mut record = record_of(program);
+    record.application.program_version = ProgramVersion::new(3, 0);
+    record.encode().expect("the record encodes")
+}
+
 #[test]
 fn an_installed_container_is_admitted_for_the_chip() {
     // Specification 34 §5.1: a chip reads its installed program and record from the one container
     // in its `application` region; §5.1.1 admits it before any state exists. Catches a chip that
-    // returns the wrong payload, drops the decoded record or grants other limits.
+    // returns the wrong payload or drops the decoded record.
     let record = record_of(PROGRAM);
     let record_bytes = record.encode().expect("the record encodes");
-    let container = encode(PROGRAM, &record_bytes).expect("the container encodes");
-    let admitted = admit(&container, &chip(6112 * 1024)).expect("the chip admits it");
+    let container = encode_image(1, PROGRAM, &record_bytes).expect("the container encodes");
+    let admitted = admit_sequenced(&container, &chip(6112 * 1024))
+        .expect("the chip admits it")
+        .admitted;
+    assert_eq!(admitted.format, ProgramFormat::Image);
     assert_eq!(admitted.program, PROGRAM);
     assert_eq!(admitted.record, record);
-    assert_eq!(admitted.limits, PreparationLimits::default());
 }
 
 #[test]
@@ -233,9 +254,9 @@ fn a_container_of_another_program_is_refused_before_any_state() {
     let mut longer = PROGRAM.to_vec();
     longer.push(b'!');
     for other in [same_length, longer] {
-        let container = encode(&other, &record_bytes).expect("the container encodes");
+        let container = encode_image(1, &other, &record_bytes).expect("the container encodes");
         assert_eq!(
-            admit(&container, &chip(6112 * 1024)),
+            admit_sequenced(&container, &chip(6112 * 1024)),
             Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
                 AdmissionRefusal::ProgramMismatch
             )))
@@ -256,9 +277,9 @@ fn a_program_too_large_for_the_slot_is_refused_with_its_numbers() {
     // The program is 12 bytes, so the pair needs 354 bytes of the slot; one byte less refuses.
     let needed = u64::try_from(PROGRAM.len() + record_bytes.len()).expect("a small pair");
     assert_eq!(needed, 354);
-    let container = encode(PROGRAM, &record_bytes).expect("the container encodes");
+    let container = encode_image(1, PROGRAM, &record_bytes).expect("the container encodes");
     assert_eq!(
-        admit(&container, &chip(needed - 1)),
+        admit_sequenced(&container, &chip(needed - 1)),
         Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
             AdmissionRefusal::ApplicationSlot {
                 needed,
@@ -267,8 +288,8 @@ fn a_program_too_large_for_the_slot_is_refused_with_its_numbers() {
         )))
     );
     // The exact size is admitted, with the program the container holds.
-    let admitted = admit(&container, &chip(needed)).expect("the exact fit is admitted");
-    assert_eq!(admitted.program, PROGRAM);
+    let admitted = admit_sequenced(&container, &chip(needed)).expect("the exact fit is admitted");
+    assert_eq!(admitted.admitted.program, PROGRAM);
 }
 
 #[test]
@@ -294,10 +315,10 @@ fn a_container_whose_record_is_unreadable_is_refused_by_the_record_step() {
     );
 }
 
-/// A `TRSTA002` container of `PROGRAM` and its record, written with the install sequence `sequence`.
+/// A `TRSTA002` container of the STBC program `PROGRAM` and its record, written with the install
+/// sequence `sequence`.
 fn sequenced_container(sequence: u64) -> Vec<u8> {
-    let record = record_of(PROGRAM).encode().expect("the record encodes");
-    encode_sequenced(sequence, PROGRAM, &record).expect("the container encodes")
+    encode_sequenced(sequence, PROGRAM, &stbc_record_of(PROGRAM)).expect("the container encodes")
 }
 
 #[test]
@@ -434,19 +455,14 @@ fn a_layout_is_refused_for_a_header_that_fails_a_check_of_the_container() {
 /// The bytes of a stand-in compiled program image. Admission reads only their length and SHA-256.
 const IMAGE: &[u8] = b"TRSTI001-image-bytes";
 
-/// [`record_of`] for a compiled program image: the record names [`BytecodeVersion::NATIVE_IMAGE`].
+/// [`record_of`] for a compiled program image, as its bytes.
 fn image_record_of(image: &[u8]) -> Vec<u8> {
-    let mut record = record_of(image);
-    record.application.bytecode_version = BytecodeVersion::NATIVE_IMAGE;
-    record.encode().expect("the record encodes")
+    record_of(image).encode().expect("the record encodes")
 }
 
-/// A chip that runs STBC 3.0 and compiled program images.
+/// A chip that runs compiled program images.
 fn image_chip() -> DeviceDescriptor {
-    DeviceDescriptor {
-        bytecode_versions: &[BytecodeVersion::SOURCE_FREE, BytecodeVersion::NATIVE_IMAGE],
-        ..chip(6112 * 1024)
-    }
+    chip(6112 * 1024)
 }
 
 #[test]
@@ -511,7 +527,7 @@ fn an_image_and_its_record_name_the_same_kind_of_program() {
     let refused = Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
         AdmissionRefusal::ProgramMismatch,
     )));
-    let stbc_record = record_of(IMAGE).encode().expect("the record encodes");
+    let stbc_record = stbc_record_of(IMAGE);
     let image_with_stbc_record =
         encode_image(1, IMAGE, &stbc_record).expect("the container encodes");
     assert_eq!(
@@ -536,11 +552,15 @@ fn a_device_that_runs_no_images_refuses_one() {
     // name the compiled-image version refuses an image, and says so in words rather than as an STBC
     // version. Catches a refusal that reads "STBC 44.1".
     let image = encode_image(1, IMAGE, &image_record_of(IMAGE)).expect("the container encodes");
-    let refusal = admit_sequenced(&image, &chip(6112 * 1024)).expect_err("the chip runs no image");
+    let no_images = DeviceDescriptor {
+        program_versions: &[],
+        ..chip(6112 * 1024)
+    };
+    let refusal = admit_sequenced(&image, &no_images).expect_err("the chip runs no image");
     assert_eq!(
         refusal,
         AdmissionError::Deployment(RuntimeError::DeploymentRefused(
-            AdmissionRefusal::BytecodeVersion {
+            AdmissionRefusal::ProgramVersion {
                 major: 44,
                 minor: 1,
             }

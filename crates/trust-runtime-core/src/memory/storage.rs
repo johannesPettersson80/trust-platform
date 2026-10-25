@@ -14,12 +14,6 @@ impl VariableStorage {
         self.identities.generation
     }
 
-    /// Start an empty storage in `generation`, before construction creates any
-    /// reference into it. Unit tests also use it to reach the exhaustion path.
-    pub(crate) fn set_generation(&mut self, generation: Generation) {
-        self.identities.generation = generation;
-    }
-
     pub fn set_global(&mut self, name: impl Into<SmolStr>, value: Value) {
         self.values.globals.insert(name.into(), value);
     }
@@ -27,12 +21,6 @@ impl VariableStorage {
     #[must_use]
     pub fn globals(&self) -> &IndexMap<SmolStr, Value> {
         &self.values.globals
-    }
-
-    /// Replace the globals with `globals`, in their order: a copy of the flat store holds them in
-    /// declaration order, as the value store does (C1-17).
-    pub(crate) fn replace_globals(&mut self, globals: IndexMap<SmolStr, Value>) {
-        self.values.globals = globals;
     }
 
     #[must_use]
@@ -59,7 +47,6 @@ impl VariableStorage {
     pub fn reset_runtime_values(&mut self, reset_instance_sequence: bool) {
         self.values.globals.clear();
         self.activations.frames.clear();
-        self.activations.execution_frames.clear();
         self.activations.instances.clear();
         self.activations.next_frame_id = 0;
         if reset_instance_sequence {
@@ -103,20 +90,6 @@ impl VariableStorage {
                     .checked_mul(named_slot)?
                     .checked_mul(4)?,
             )?;
-        }
-        bytes = bytes.checked_add(
-            self.activations
-                .execution_frames
-                .capacity()
-                .checked_mul(core::mem::size_of::<(FrameId, ExecutionActivation)>() * 4)?,
-        )?;
-        for values in self
-            .activations
-            .execution_frames
-            .values()
-            .flat_map(|activation| activation.locals.as_ref())
-        {
-            bytes = bytes.checked_add(values.len().checked_mul(core::mem::size_of::<Value>())?)?;
         }
         #[cfg(not(feature = "std"))]
         {

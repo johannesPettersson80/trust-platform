@@ -1,6 +1,6 @@
 # Bytecode Format
 
-**Status:** The shared reader and executor support the legacy 1.1 contextual contract and source-free 2.0. H adopts source-free 3.0 for new applications, with the uniform temporal storage ABI below. The H corrections and 3.0 contract are implementation work until their consolidated validation passes; scope evidence is recorded in the runtime-portability checklist.
+**Status: superseded** by [specification 44](44-native-execution.md) (native execution), 24 October 2026 (§15 of specification 44). truST no longer writes, reads or runs STBC: every runtime runs a program compiled into a program image, and a project or a device container that holds STBC is refused with "rebuild the project". This document records the format the bytecode engine ran, for the history and for the references that other specifications keep to it; none of it is product behaviour any more.
 
 ### 1. Purpose
 

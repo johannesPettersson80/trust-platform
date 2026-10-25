@@ -1,6 +1,6 @@
 # Runtime Engine
 
-**Status:** Implemented architecture. Production runtime executes STBC bytecode through the VM only; helper evaluation remains for bounded const/debug/config flows and the old evaluator internals are test-only.
+**Status:** Implemented architecture. Every runtime runs the program compiled into a program image for its CPU (specification 44); the bytecode engine, STBC and its VM, was deleted on 24 October 2026 (specification 44 §15). Helper evaluation remains for bounded const/debug/config flows. Where this document describes the bytecode engine's internals, it records that deleted engine; where it states how a program behaves, the statement holds for compiled programs, and its references to bytecode read as references to the program image (specification 44).
 
 ### 1. Purpose
 
@@ -20,7 +20,7 @@ This document specifies the architecture for a portable Structured Text (ST) run
 
 ```
 ┌──────────────────────────────────────────────────┐
-│               ST Program (Bytecode)              │
+│            ST Program (Program Image)            │
 └──────────────────────┬───────────────────────────┘
                        ▼
 ┌──────────────────────────────────────────────────┐
@@ -163,8 +163,9 @@ boundaries while retaining common IEC semantics and supported hosted behavior.
 
 Board adapters supply time, process-image I/O, persistence, watchdog, and startup
 mechanisms. A bare-metal or RTOS-backed clock is a composition choice; it does not
-change common PLC scheduling. The STM32 target is the STM32F407 (the first reference
-board, NUCLEO-F401RE, was retired 17 October 2026 by the owner); the provisional
+change common PLC scheduling. The STM32 target is the STM32U5A9 (the first reference
+board, NUCLEO-F401RE, was retired 17 October 2026 by the owner, and the STM32F407
+was deleted with the bytecode engine on 24 October 2026); the provisional
 second target is ESP32-C6. Neither is qualified by this specification update. Current hosted behavior remains authoritative until the corresponding
 planned profile is implemented and validated.
 
@@ -172,27 +173,17 @@ planned profile is implemented and validated.
 
 #### 6.1 Executor
 
-Executes compiled ST bytecode against runtime variable/instance storage and the
-I/O process image. The current hosted VM has a stack path and an optimized
-register-IR/tier-1 path; both use shared value operations, budgets, and error
-contracts. Current host ownership, allocation, and timing dependencies are not
-proof of portable or allocation-free execution.
+Runs the program compiled into a program image (specification 44). On a
+computer, trust-runtime runs the image's module with the chips' compiled cycle
+(`CompiledCycle` of trust-runtime-services) over the computer's ports, the
+process image, the drivers, the clock, the retain file and the debugger's hold
+(specification 44 §8.8, NX-14). The kernel gives the program its memory areas,
+its statement budget and its faults (specification 44 §7, §8).
 
-The planned portable engine preserves those semantics and supported optimized
-execution while separating immutable prepared metadata from mutable state.
-Allocation-free control paths are an acceptance requirement for the bounded
-profiles in specification 34, including fault/first-use paths. They are not a
-claim about every existing hosted execution path, and all PLC state is not
-required to reside inside the byte-oriented I/O image.
-
-Planned H optimized-tier migration (specification 34 HOST-04/MODEL-02) moves
-lowering and specialized compilation into candidate preparation. Their diagnostic
-attempt/result counts are preparation observations; installed plan hits, opcode
-counts and precomputed fallback reasons remain execution observations. Resetting
-telemetry does not invalidate installed executable plans. Existing hosted tuning
-controls select an explicit prepared policy, without permitting first-use or
-threshold-triggered compilation in bounded RUN. This planned diagnostic migration
-does not change IEC instruction results or assert that H is already verified.
+The bytecode executor that this section described, with its stack path, its
+register-IR and tier-1 paths and the planned H optimized-tier migration
+(specification 34 HOST-04/MODEL-02), was deleted with the bytecode engine
+(specification 44 §15).
 
 #### 6.2 Task Manager (Resource Scheduler)
 
@@ -381,7 +372,7 @@ pub struct IoInterface {
 
 Sizes are derived from compiled program metadata at load time. On embedded targets, static sizing may be used, but the logical model remains the same.
 
-The process image is owned by a single resource thread; no internal locking is required. Cross-resource data sharing is synchronized through the configuration-level shared globals lock (see 6.7). External I/O exchange (Modbus, etc.) reads/writes to this image at cycle boundaries.
+The process image is owned by a single resource thread; no internal locking is required. A runtime runs one resource, and cross-resource data sharing is later work (section 6.10). External I/O exchange (Modbus, etc.) reads/writes to this image at cycle boundaries.
 
 ##### Process-image bounds, reads, snapshots, and metadata application
 
@@ -391,8 +382,8 @@ write whose addressed window exceeds that limit is rejected before allocating
 or mutating the affected area. A failed metadata application is transactional:
 resource selection, task/program references, all three area lengths, and I/O
 bindings are validated before the executable state or process image changes.
-The exact-resource and single-legacy-`RESOURCE` selection rules are defined in
-section 6.7.1.
+The rule that a project's resource is the program's `RESOURCE` is in section
+6.8.1d.
 
 Reading an unallocated byte or the unallocated portion of a multi-byte value
 returns zero bytes without growing the area. An unallocated fixed-width string
@@ -1682,7 +1673,7 @@ EtherCAT hardware is available or production-ready.
 - Driver name: `modbus-rtu`, on every target (owner, 16 October 2026): a serial
   port of the operating system on Linux, macOS and Windows, for example
   `/dev/ttyUSB0` or `COM3`, and a UART of the chip on a board, for example
-  `USART2` on the STM32F407 (specification 34, TARGET-01).
+  `USART2` on the STM32U5A9 (specification 34, TARGET-01).
 - truST is the Modbus client on an RS-485 or RS-232 line; `unit_id` names the
   server.
 - Functions, default profile, `input_points`/`output_points`, payload order,
@@ -2273,22 +2264,14 @@ transport or transaction boundary. A reload request is applied only
 at a completed scan boundary. The runtime must prepare every fallible input
 needed by the change before replacing live execution state:
 
-- decode and validate the complete bytecode container and materialize its VM
-  module;
+- admit the new program image (specification 44 §10.2) and load its module;
 - validate the selected resource, tasks, and process-image sizes; and
 - construct the candidate's variables and instances in staged storage, with all
   fallible function-block, class, and program instance initialization, and
   carry the running program's values into them (below).
 
-When a caller names a bytecode resource, selection is case-insensitive but
-must resolve that exact resource; an unknown name is an error and must not
-silently select the primary resource. For compatibility with bytecode emitted
-before resource identities were preserved, a module containing exactly one
-resource named by the synthetic legacy placeholder `RESOURCE` may satisfy a
-named selection. After that compatibility load, the requested name becomes the
-runtime's active resource identity so subsequent bytecode encoding cannot
-propagate the placeholder. The exception does not apply to multi-resource
-modules.
+An image holds one resource (specification 44 NX-03), so a change names none;
+the runtime keeps its resource identity.
 
 A reload request waits up to five seconds for the resource to take it. If the
 resource has not started applying the request by then, the request is withdrawn
@@ -2301,26 +2284,26 @@ executable module, task schedule, variable storage, process image and bindings,
 debug mutations, logical time, cycle counter, and runtime fault/status state
 unchanged. The old program remains executable on the next scan. A value never
 fails the preparation (below).
-The reviewed malformed byte sequence `[00, 01, 02, 03]` fails preparation as
-the typed `RuntimeError::Bytecode`; no stable message text is implied.
+A byte sequence that is no program image, such as `[00, 01, 02, 03]`, fails
+preparation as `RuntimeError::InvalidBundle` with the admission's reason
+(specification 44 §10.2); no stable message text is implied.
 
-After successful preparation, the commit replaces the executable and resource
-metadata as one cycle-boundary operation, restarts at the program entry point,
-rebinds I/O, and returns the new runtime metadata. The candidate's variables
-keep the values the running program holds (below). Logical time is
-preserved, and the candidate's tasks continue the running program's schedule
-(specification 34 §11.3, decision OC-2): a task takes the last activation, the
-level of its event input and the overruns of the running program's task of the
-same name, compared without regard to case, so the first scan after the commit
-runs the tasks that are due; a task that the running program does not have
-counts its first activation from the program's logical time at the commit,
-which is the time of the last cycle that started before it, since the
-program's time advances when a cycle starts: it first runs in the first cycle
-that starts one interval or more after that time (a 1 s task added by a change
-committed 135 ms after the last cycle's start first runs about 0.9 s after the
-commit). The scan counter restarts, and
-queued writes and forces are cleared under section 6.9.2. A request must never
-report `reloaded` unless this complete commit succeeds.
+After successful preparation, the commit replaces the program as one
+cycle-boundary operation, restarts at the program entry point, and rebinds I/O.
+The candidate's variables keep the values the running program holds (below).
+Logical time is preserved, and the candidate's tasks continue the running
+program's schedule (specification 34 §11.3, decision OC-2): a task takes the
+last activation, the level of its event input and the overruns of the running
+program's task of the same name, compared without regard to case, so the first
+scan after the commit runs the tasks that are due; a task that the running
+program does not have counts its first activation from the program's logical
+time at the commit, which is the time of the last cycle that started before it,
+since the program's time advances when a cycle starts: it first runs in the
+first cycle that starts one interval or more after that time (a 1 s task added
+by a change committed 135 ms after the last cycle's start first runs about 0.9 s
+after the commit). The scan counter restarts, and queued writes and forces are
+cleared under section 6.9.2. A request must never report `reloaded` unless this
+complete commit succeeds.
 
 The replacement installs the next generation of the running program's lineage, so
 a reference or an instance identity taken before it is refused as stale after it
@@ -2371,6 +2354,9 @@ set to NULL) is recorded at the commit as an `online_change_value` event with
 the variable's path as `name` (`total`, `Plant.motor.speed`, `Plant.table[3]`)
 and what happened as `detail`, at most 32 events per change and then one event
 whose `name` is null and whose `detail` gives the number of further variables.
+The events follow the order of the candidate's symbol table, which sorts the
+names in capitals (specification 44 §5.7), so a change gives the same list on
+every runtime.
 
 ##### 6.7.2 Runtime agent command conformance
 
@@ -2396,9 +2382,13 @@ Agent API method contract and do not widen its public method set.
 Production runtimes are started via the CLI (`trust-runtime run`) using a **project folder**
 (runtime bundle format) directory. The launcher is responsible for:
 
-- Loading the bytecode program (`program.stbc`).
-- Admitting the program's deployment record (`deployment-record.bin`) when the project has one,
-  and preparing the program with its limits (specification 34 §5.1.1, HOST-02).
+- Loading the program image (`program.tpi`) that `trust-runtime build` wrote and admitting it on
+  this computer, with the statement budget of `[resource] max_statements_per_scan` and the trusted
+  keys of the computer's `device.toml` (specification 44 §8.8, §10.2, §5.11). A project without
+  `program.tpi` is refused with "missing program.tpi at <path> (run `trust-runtime build` to build
+  the project)", and one that holds only the bytecode engine's `program.stbc` with "the project
+  holds program.stbc of the bytecode engine, which this runtime does not run: rebuild the project
+  with `trust-runtime build --project <dir>`".
 - Loading runtime configuration (`runtime.toml`).
 - Initializing I/O drivers (`io.toml` or system IO config).
 - Initializing retain storage (if configured).
@@ -2434,16 +2424,18 @@ silently changing source roots.
 The reviewed local dependency graph resolves direct and transitive
 `trust-lsp.toml` path dependencies, includes the root and dependency source
 files in compilation and inspection, reports the reviewed `LibA`, `LibB`
-dependency identities, and produces `program.stbc` after successful build.
+dependency identities, and produces `program.tpi` after successful build.
 For one unchanged reviewed local dependency graph, two consecutive builds
-resolve the same dependency and source order and emit byte-identical
-`program.stbc` content. This bounded repeatability contract does not establish
-determinism for arbitrary registries, symlink graphs, concurrent filesystem
-mutation, or cross-platform path representations.
+resolve the same dependency and source order and emit the same image bytes,
+apart from the build time in the header and the signature (specification 44
+NX-07). This bounded repeatability contract does not establish determinism for
+arbitrary registries, symlink graphs, concurrent filesystem mutation, or
+cross-platform path representations.
 
-`check_program_stbc` performs the same source discovery, dependency resolution,
-compilation, and bytecode sizing as build, reports the reviewed root source and
-dependency identity, and does not create or replace `program.stbc`.
+`check_program` performs the same source discovery and dependency resolution as
+build and runs the build's front end and generator for this computer's CPU
+without the toolchain, reports the reviewed root source and dependency
+identity, and does not create or replace `program.tpi`.
 
 Dependency resolution rejects a missing declared path, a cycle in the local
 dependency graph, and a requested package version that disagrees with the
@@ -2509,10 +2501,6 @@ successful parse, use of either `--bundle <path>` or `--bundle=<path>` emits one
 deprecation warning before dispatch. It does not change project creation or
 validation semantics.
 
-`run` and `play` accept `vm` as the sole production
-`--execution-backend` value. The retired `interpreter` value is rejected during
-argument parsing, before handler dispatch, project access, or runtime mutation.
-
 Ordinary handler failures exit with status 1. When a parsed command enables
 `--ci`, the entrypoint uses the documented CI error classification, including
 command-aware fallback codes. Known configuration and permission failures may
@@ -2572,8 +2560,9 @@ The runner supports three closed case kinds:
 
 Cases execute in ascending case-ID order. Runtime artifacts contain the
 declared observations for every cycle; connector artifacts contain every
-projected step. `--execution-backend native` runs each runtime case compiled for
-this computer (specification 44 §14.2); with `--device <port> --target <target>`,
+projected step. Each runtime case runs compiled for this computer (specification
+44 §14.2): it is built into an image and run cycle by cycle by the kernel; with
+`--device <port> --target <target>`,
 the port a serial port or `tcp://<host>:<port>` of a bridge to one on another
 computer, it runs each on the device instead: the case is compiled for the target, as
 `trust-runtime build --target` names it, installed over the device's control
@@ -2585,7 +2574,8 @@ starts and stops an idle program whose record turns the debug surface on; every
 case's record turns it on too. A `REAL` the device
 writes through its double is compared as this computer writes the `REAL`. The
 summary names the runtime `trust-runtime-device` and the actual artifacts go to
-`reports/actual-device`. `--update-expected` writes canonical pretty JSON to the
+`reports/actual-device`; on this computer they are `trust-runtime` and
+`reports/actual`. `--update-expected` writes canonical pretty JSON to the
 category's expected-artifact path. Verify mode distinguishes a missing or
 unreadable expectation from a readable value mismatch, writes actual mismatch
 artifacts, and emits stable reason codes. Suites containing only the six legacy
@@ -2599,7 +2589,7 @@ are neither an IEC decision nor an IEC deviation.
 
 `trust-runtime play --project <path>` is the product convenience entry point.
 It creates or completes the selected project when the folder is missing or
-lacks `runtime.toml` or `program.stbc`; project I/O may instead come from the
+lacks `runtime.toml` or `program.tpi`; project I/O may instead come from the
 system configuration. An existing non-directory project path is rejected
 without mutation.
 
@@ -2617,23 +2607,26 @@ project mutation. A rejected option therefore leaves a previously missing
 project path missing. `trust-runtime run` consumes an existing project and does
 not provide this creation behavior.
 
-Project-mode startup recursively compiles the `.st` and `.pou` sources beneath
-the project's selected source root, case-insensitively by extension, together
-with sources from resolved local project dependencies. Legacy `--config`
-startup recursively compiles those source types beneath its literal runtime
-root. Source discovery must not interpret project or directory names as glob
-syntax, must use deterministic path ordering, and must propagate directory and
-file-read failures. An empty or invalid source set is a startup error. Startup
-without a project or legacy configuration is the IDE-shell mode: it compiles
-one synthetic empty `Main` program rooted at `__ide_bootstrap__.st`, exposes no
-bundle, and marks the loaded runtime as an IDE shell instead of claiming that a
-project was loaded.
+Project-mode startup runs the project's `program.tpi` and compiles nothing; it
+reads the `.st` and `.pou` sources beneath the project's selected source root,
+case-insensitively by extension, together with sources from resolved local
+project dependencies, for the source views. Legacy `--config` startup
+recursively compiles those source types beneath its literal runtime root into a
+debug image for this computer, in a temporary folder, with the toolchain of
+specification 44 §4.6, installed on the first build that needs it. Source
+discovery must not interpret project or directory names as glob syntax, must use
+deterministic path ordering, and must propagate directory and file-read
+failures. An empty or invalid source set is a startup error. Startup without a
+project or legacy configuration is the IDE-shell mode: it compiles one synthetic
+empty `Main` program rooted at `__ide_bootstrap__.st` as legacy `--config`
+startup compiles its sources, exposes no bundle, and marks the loaded runtime as
+an IDE shell instead of claiming that a project was loaded.
 
 Before the first PLC scan, the launcher must successfully complete all startup
-preparation: bundle-version validation; source and bytecode validation; runtime,
-watchdog, fault, safe-state, telemetry, I/O-driver, and retain configuration;
-configured ADS and OPC UA client startup; execution-backend selection; control
-endpoint and TLS validation; and enabled control, protocol, discovery, mesh,
+preparation: bundle-version validation; source and program-image validation;
+runtime, watchdog, fault, safe-state, telemetry, I/O-driver, and retain
+configuration; configured ADS and OPC UA client startup; control endpoint and
+TLS validation; and enabled control, protocol, discovery, mesh,
 historian, persistence, and web-service initialization. Failure in any of these
 steps aborts startup; the scan start gate is not opened and the launcher must
 not report the PLC as running. Warm startup loads and validates the configured
@@ -2650,18 +2643,16 @@ enables simulation without discarding the project's simulation model; a CLI
 time scale greater than one enables simulation and overrides the project time
 scale. Otherwise the loaded project simulation configuration remains
 authoritative. The settings exposed to control and status surfaces must reflect
-the effective runtime configuration and this effective simulation/backend
-selection, rather than an independent set of launcher defaults.
+the effective runtime configuration and this effective simulation selection,
+rather than an independent set of launcher defaults.
 A simulated launch exposes a warning that names simulation mode, the effective
 time scale, and that the mode is not for live hardware. Production mode emits
 no simulation warning.
 
 `trust-runtime validate --ci` validates the same bundle version, TLS, control
-authentication, enabled I/O-driver configurations, bytecode container, module,
-and selected-resource requirements used by startup. The configured resource name
-resolves exactly as at launch (§6.7.1 named selection): a name the bytecode does
-not declare fails validation with the launch error, and validation never falls
-back to the primary resource. Its versioned JSON success
+authentication and enabled I/O-driver configurations as startup, and admits the
+program image as the computer admits it at its start (specification 44 §10.2).
+Its versioned JSON success
 payload reports only enabled I/O drivers in `io_driver` and `io_drivers`, in
 configuration order; disabled configuration entries are not reported as active
 runtime drivers.
@@ -2867,7 +2858,8 @@ The status and configuration surfaces project one effective runtime state:
 
 - `status.execution_backend`, `status.execution_backend_source`,
   `status.metrics.execution_backend`, and the corresponding `config.get`
-  values agree. Omission selects backend `vm` with source `default`.
+  values agree. The backend is `native` on every runtime; the source is
+  `config` when `runtime.execution_backend` names one and `default` otherwise.
 - Status preserves resource identity, control and simulation mode, cycle and
   profiling metrics, realtime requested and observed state, warnings, errors,
   and every I/O-driver health entry. The default realtime projection is
@@ -2885,13 +2877,16 @@ The status and configuration surfaces project one effective runtime state:
   parts `program`, `persistent_block`, `activation_stack`, `operand_stack`,
   `engine` and `retain_capture`. The capture of the retained values is 0 when
   the runtime keeps none, and `bytes` is the sum of the parts. The figure is
-  the one the runtime computed when it prepared the program, with its own sizes;
-  it follows the program through a restart, a load in place and an online
-  change. A runtime without a program reports `null`.
+  the image's memory figure (specification 44 §10.4): its areas as
+  `persistent_block`, its stack bound as `activation_stack` and the kernel's
+  bookkeeping as `engine`, with `program` and `operand_stack` 0, since a
+  compiled program has no prepared program and no operand stack; it follows the
+  program through a restart, a load in place and an online change. A runtime
+  without a program reports `null`.
 - Status reports the truST version in `version`, the platform the runtime runs
   on in `platform` as `<os>-<arch>` on a computer, for example `linux-x86_64`
   or `windows-x86_64`, and as the board name on a device, for example
-  `stm32f407` or `esp32c6`, and its program-control posture in
+  `stm32u5a9` or `esp32c6`, and its program-control posture in
   `program_control`: `keeps_control` when the runtime still answers after
   `shutdown` and can be started again with `restart` (specification 34,
   STATE-08), which a chip does and trust-runtime on a computer does, and
@@ -2926,7 +2921,7 @@ The status and configuration surfaces project one effective runtime state:
 Status, health, and task-stat projection is fail-closed and deterministic.
 `status` returns an error when runtime settings, control mode, I/O health,
 metrics, realtime-status state, or the event store's capacity is unavailable; it
-must not substitute production mode, VM defaults, an empty driver list, zero
+must not substitute production mode, a default backend, an empty driver list, zero
 metrics, or a default realtime posture for an internal read failure.
 `tasks.stats` likewise returns an error when metrics are unavailable. `health`
 returns an error when I/O health or realtime status is unavailable.
@@ -3049,28 +3044,29 @@ Derived startup/backend-source, simulation, observability, and credential
 presence fields are read-only observations rather than implicit authorization
 for `config.set`.
 
-###### Runtime execution-backend selection and construction contract
+###### Runtime execution-backend report contract
 
-The host-runtime execution-backend selector trims surrounding whitespace and
-matches ASCII case-insensitively. The only accepted value is `vm`, which selects
-`BytecodeVm`. Empty or unknown values reject with an invalid-configuration
-error that names `runtime.execution_backend` and preserves the rejected text.
-The retired `interpreter` value rejects with the distinct migration guidance
-that it is no longer supported for production runtimes and that `vm` must be
-used.
+Every runtime runs the program compiled into a program image (specification 44
+§8.8), so `runtime.execution_backend` selects nothing. The configuration parser
+trims surrounding whitespace and matches ASCII case-insensitively: `vm` and
+`native` load, as a project written before may name them, and make the
+reported source `config`; an absent key makes it `default`. An empty value
+rejects with `runtime.execution_backend must not be empty`, and any other value
+with an invalid-configuration error that names `runtime.execution_backend` and
+preserves the rejected text. The retired `interpreter` value rejects with
+`runtime.execution_backend='interpreter' is no longer supported; remove the key,
+every runtime runs the compiled program`.
 
-A freshly constructed `Runtime` selects `BytecodeVm`, has zero elapsed logical
-time and zero completed cycles, and exposes the default date/time profile with
-epoch tick zero and one-millisecond resolution. Selecting `BytecodeVm` is valid
-before a bytecode module has been loaded. For a runtime built from accepted
-source, the first VM cycle may materialize the module lazily; that cycle must
-complete successfully and expose the source program's resulting state.
-When a metrics sink is attached, the snapshot after the reviewed VM cycle
-reports `BytecodeVm` as the effective execution backend.
+`status.execution_backend`, `status.metrics.execution_backend`, `config.get`'s
+`runtime.execution_backend`, the startup log event `execution_backend_selected`
+and the Prometheus metric `trust_runtime_execution_backend_info` report
+`native`.
 
-This contract does not authorize another production backend, cross-version
-bytecode compatibility, arbitrary source semantics, optimized-backend parity,
-or a general performance claim.
+A freshly loaded compiled runtime has zero elapsed logical time and zero
+completed cycles.
+
+This contract does not authorize another production backend, arbitrary source
+semantics, or a general performance claim.
 
 ###### Runtime historian recording and export contract
 
@@ -3111,9 +3107,11 @@ Hosted program-call instrumentation records each invoked program under its
 canonical configured instance name, including multiple programs in one task and
 unscheduled background programs. A program invocation that returns an execution
 fault is still recorded; later programs in the failed cycle are not invoked or
-counted. Observation does not change the original execution error. The shared
-engine supplies paired, read-only program observations to the hosted adapter;
-ordinary MCU execution does not acquire a hosted metrics clock or sink.
+counted. Observation does not change the original execution error. The kernel
+reports the start and the end of each program body as paired, read-only
+observations (specification 44 §8.7), and every runtime, a chip as a computer,
+times them on its monotonic clock; a function block instance that a task runs on
+its own is recorded under the program instance that holds it.
 
 Disabling profiling clears accumulated call entries and top contributors and
 ignores calls recorded while disabled. Re-enabling profiling starts a clean
@@ -3175,8 +3173,8 @@ overrun metrics are independent of the profiling toggle.
 A metrics snapshot is observational: it does not reset counters, consume
 samples, reorder retained window state, or alter profiling enablement.
 Successive snapshots without new records preserve all metric values except
-that monotonic uptime may increase. The default and explicitly selected
-execution backend are reported exactly.
+that monotonic uptime may increase. The status's `metrics.execution_backend`
+reports `native`.
 
 These rules establish the in-memory accounting and snapshot contract. They do
 not claim wall-clock accuracy, lock-free concurrent collection,
@@ -3193,7 +3191,7 @@ Its result is the same shape on every runtime, a computer or a device without an
 
 | Result field | Type | Value |
 |---|---|---|
-| `bytecode_versions` | array of strings | The program formats the device prepares, each `<major>.<minor>`: its STBC versions, and 44.1 where it runs compiled program images (specification 44 §10.2) |
+| `program_versions` | array of strings | The program formats the device runs, each `<major>.<minor>`: 44.1 where it runs compiled program images (specification 44 §10.1, §10.2), and none on a computer whose CPU runs no image |
 | `scheduling_profiles` | array of strings | The scheduling/I/O profiles the device runs (specification 34 §4.4) |
 | `numeric_contracts` | array of strings | The numeric contracts the device implements (specification 34 §12.1) |
 | `timing_evidence` | string | `unqualified`, `measured-qualified` or `analytically supported` (specification 34 §4.4) |
@@ -4926,8 +4924,8 @@ for reproducible workload selection.
 
 JSON output serializes the benchmark kind and its typed report; table output
 renders the same contract fields. Project reports separate measured cycles,
-configured cycle budget and overruns, throughput, requested watched globals,
-and optional VM/Tier-1 profile data. A missing watched global is explicit JSON
+configured cycle budget and overruns, throughput, and requested watched
+globals. A missing watched global is explicit JSON
 `null`, not an omitted or fabricated value.
 
 Every benchmark subcommand defaults to table output when `--output` is omitted;
@@ -4948,25 +4946,26 @@ and choices without performing import or export work.
 
 ##### 6.8.1c Runtime project-check contract
 
-`trust-runtime check` validates a project without writing `program.stbc` or
-another compiled bytecode artifact. An explicit `--project` selects the
+`trust-runtime check` validates a project without writing `program.tpi` or any
+other build output. An explicit `--project` selects the
 project root; otherwise the command uses bundle auto-detection and falls back
 to the current directory. A relative `--sources` override is resolved from the
 project root, while the default source root is `<project>/src`.
 
 The command validates required `runtime.toml` and `io.toml` files plus optional
 `ads.toml` and `opcua_client.toml` files, inspects the complete source and local
-dependency layout, and compiles valid layouts in memory. Independent
-configuration and compile findings are accumulated in one response. A
-configuration failure does not suppress an otherwise possible in-memory
-compile, and a compile failure does not discard the source and dependency
+dependency layout, and checks valid layouts with the build's front end and its
+generator for this computer's CPU, without the toolchain (specification 44
+§4.1). Independent configuration and compile findings are accumulated in one
+response. A configuration failure does not suppress an otherwise possible
+check, and a compile failure does not discard the source and dependency
 identity already obtained from successful layout inspection.
 
 `--json` and `--ci` emit response version 1. The response identifies the
 command and project; exposes `ok`/`status`, error and warning counts, stable
 issue codes and optional file locations; and reports the exact source count,
-source paths, dependency roots, resolved dependency names, and optional
-in-memory bytecode size. `source_count` equals the number of reported source
+source paths, dependency roots, and resolved dependency names. `source_count`
+equals the number of reported source
 paths. `ok` is true exactly when the error count is zero. Human output is
 derived from the same response and reports either the successful source list
 or every accumulated issue.
@@ -4974,46 +4973,52 @@ or every accumulated issue.
 Success exits 0. Any configuration or source-layout error exits with the
 invalid-configuration class 10, including a response that also contains a
 compile error. A compile-only failure exits with the build-failure class 11.
-Both successful and failed checks leave an existing `program.stbc` untouched
+Both successful and failed checks leave an existing `program.tpi` untouched
 and never create one.
 
 ##### 6.8.1d Runtime build and CI failure contract
 
-`trust-runtime build` compiles the selected project and writes
-`<project>/program.stbc`. An explicit `--project` selects the project root;
-otherwise ordinary bundle discovery is used and the current directory is the
-final fallback. The default source root is `<project>/src`. A relative
-`--sources` override is resolved from the project root, including when the
-command is launched from another working directory. Local package dependencies
-are resolved and compiled with the selected project sources.
+`trust-runtime build` compiles the selected project into the program image of
+this computer's CPU and writes it as `<project>/program.tpi`, with its
+deployment record `<project>/deployment-record.bin` (specification 44 §4.1,
+NX-15); with `--target <device or CPU>` it writes that target's image into the
+project's build folder as `build/program.<triple>.tpi`, with
+`build/deployment-record.<triple>.bin`. An explicit `--project` selects the
+project root; otherwise ordinary bundle discovery is used and the current
+directory is the final fallback. The default source root is `<project>/src`. A
+relative `--sources` override is resolved from the project root, including when
+the command is launched from another working directory. Local package
+dependencies are resolved and compiled with the selected project sources. The
+build installs the toolchain on the first build that needs it (specification 44
+§4.6). The project's `[build] debug` chooses a debug or a release image
+(specification 44 §13.2), and the image is signed with the project's key or the
+user's own before its record names its bytes (specification 44 §5.11, §10.1).
+`--emit-source` keeps the generated Rust crate in the build folder. A source set
+that declares OpenOT data also gets its `openot-definition.json`.
 
-Compilation completes before `program.stbc` is opened for writing. A source,
-dependency, or compile failure therefore neither creates the artifact nor
-replaces bytes from an earlier successful build. A successful build writes the
-new bytecode and reports the exact collected source paths, including dependency
-sources.
+Compilation completes before the image is opened for writing. A source,
+dependency, or compile failure therefore neither creates the image nor replaces
+bytes from an earlier successful build.
 
-After `program.stbc`, a successful build writes the program's deployment record
-`<project>/deployment-record.bin` (specification 34 §5.1.1). It prepares the
-program as a runtime does, with the hosted default limits. A program that cannot
-be prepared gets no record: the build removes an older record, reports the reason
-on standard error and still succeeds.
+Every build writes `build/build.json`: version 1, command `build`, status `ok`,
+the selected `project`, `source_count`, the complete `sources` list with the
+dependency sources, the `dependency_roots` and the `resolved_dependencies`
+names, the `target` triple, `debug`, the `image` path and `image_bytes`, the
+`signer` key, the `record` path, the `memory_figure` (`areas`, `stack`,
+`bookkeeping`, `retain_capture`, `total`, `call_level`) and the `flash` parts
+(`code`, `rodata`, `init`) of specification 44 §10.4; `source_count` equals the
+number of reported source paths, and `--ci` prints the same object. Human mode
+reports the written image, whether it is a debug or a release image, its bytes
+with its code, read-only data and starting memory, the memory figure with its
+parts, the public key that signed it, and the source count with at most the
+first five collected paths and the number omitted.
 
-The build also reports the program's memory figure on the computer that builds
-(specification 34 MEM-12): the figure that preparation computes with the
-record's limits, with the capture of the retained values when the project's
-`[runtime.retain] mode` is `file`. A device computes its own figure, with its
-own sizes, when it prepares the program, and reports it in `status`.
-
-`--ci` emits response version 1 with command `build`, status `ok`, the selected
-project and output paths, `source_count`, the complete source list, dependency
-roots, resolved dependency names, `deployment_record`, the record's path or
-`null` when none was written, and `program_memory`, the figure in the shape of
-`status`'s `metrics.program_memory`, or `null` when the program has no record.
-`source_count` equals the number of reported source paths. Human mode reports
-the written paths, a line `Memory figure: <bytes> bytes on this computer` with
-the parts, and the source count, shows at most the first five collected paths,
-and reports the number omitted.
+An image runs the one resource it was built from (specification 44 NX-03), so
+a build refuses a project whose `runtime.toml` `[resource] name` is not the
+`RESOURCE` its `CONFIGURATION` declares, compared without regard to case:
+`resource '<name>' of runtime.toml is not the RESOURCE the program declares
+('<declared>')`. A program without a `CONFIGURATION` runs under the name the
+project gives it.
 
 CI failures use stable process classes: invalid project or configuration input
 is 10, build or compile failure is 11, test assertion or runtime-test failure is
@@ -5293,7 +5298,10 @@ optional leading `src/` normalize to the same contained bundle destination;
 normalization never permits an absolute path, parent traversal, or platform
 prefix.
 
-A deployment through the web interface (`POST /api/deploy`, Admin) installs into
+A deployment through the web interface (`POST /api/deploy`, Admin) carries any of
+`runtime_toml`, `io_toml`, the program image `program_tpi_b64` (base64 of
+`program.tpi`, specification 44 §8.8) and `sources`; a request that carries the
+bytecode engine's `program_stbc_b64` is refused (specification 44 §15). It installs into
 the running runtime's project folder, so it follows the rule of `program.install`
 (specification 34 §11.2): it is accepted only while the resource is Stopped.
 Otherwise its reply is `{"ok": false, "error": <message>, "error_code":
@@ -5499,8 +5507,10 @@ when enabled:
 - A hold is debugger state, not resource state, and it changes no value. Checked
   writes, queued writes, forces, releases and retain saves between scans are
   accepted and behave as without a hold (section 6.9.2; specification 34
-  HOST-09). A write queued while a scan waits in the hold is not applied by that
-  scan; it waits for the boundary of the next scan.
+  HOST-09). A write or a force queued while a scan waits in the hold is applied
+  when the hold ends, before the held statement runs, as at a scan's start
+  (specification 44 §13.2), so a value changed at a breakpoint is the one the
+  continued scan reads.
 - A restart or an online change that commits between scans (called by the
   embedding host, or taken by the scan loop between cycles) is a clearing boundary
   as always (section 6.9.2) and leaves the hold in place: a paused session stays
@@ -5555,7 +5565,12 @@ the separate runtime control endpoint contract.
 
 Debug writes are one-shot requests. An accepted write is applied at the next
 scan boundary and is then consumed. A force is applied at scan boundaries
-until the matching release request or a clearing lifecycle boundary. Release
+until the matching release request or a clearing lifecycle boundary: at the
+start of the scan, after its writes and inputs, and again after the scan's last
+task, before the outputs are sampled (specification 10 §4.7, steps 2 and 6). A
+forced variable therefore reads its forced value between scans, and a forced
+variable that lies at an output address reaches the output, whatever the
+program wrote to it during the scan. Release
 removes the force without writing a replacement value; normal program and I/O
 evaluation determine the value at the next scan.
 
@@ -6017,14 +6032,17 @@ Shared web helper grammar is deterministic:
 
 IEC configurations model one or more resources (IEC 61131-3 Ed.3, §6.8.1;
 Table 62). The runtime scheduler supports several independently constructed
-resources, each scheduled in its own OS thread. The current
-`CompileSession::build_runtime` source profile constructs exactly one resource:
-it accepts zero or one explicit `RESOURCE` and rejects a multi-resource source
-configuration instead of flattening it. Multi-resource orchestration therefore
-uses separately constructed runtimes; one source build does not yet project an
-IEC multi-resource configuration into several runtime objects.
+resources, each scheduled in its own OS thread. A build compiles exactly one
+resource into one program image (specification 44 NX-03): it accepts zero or one
+explicit `RESOURCE` and rejects a multi-resource source configuration instead of
+flattening it. Multi-resource orchestration therefore uses separately built
+runtimes; one source build does not yet project an IEC multi-resource
+configuration into several runtime objects.
 
-Cross-resource data exchange is limited to explicitly declared globals (e.g., `VAR_GLOBAL` in configuration scope). (IEC 61131-3 Ed.3, §6.8.1; Table 62) Shared globals are synchronized under a single configuration lock: each resource cycle copies shared values in, executes ready tasks, then writes back updates before releasing the lock. This preserves deterministic ordering while serializing shared-global access.
+Cross-resource data exchange through shared globals (IEC 61131-3 Ed.3, §6.8.1;
+Table 62) is later work, with several resources per image (specification 44
+§16): the bytecode engine's shared-global exchange between resources was deleted
+with it (specification 44 §15), and a runtime runs one resource.
 
 ##### Runtime configuration loading and validation contract
 
@@ -6061,7 +6079,9 @@ normative for parsing and activation:
   sections must satisfy their documented credential, endpoint, allowlist,
   capacity, and explicit insecure-transport acknowledgement rules.
 - Bundle loading requires a project directory, `runtime.toml`, validated
-  project or system I/O configuration, and `program.stbc`. ADS and OPC UA
+  project or system I/O configuration, and the program image `program.tpi`; a
+  project that holds only the bytecode engine's `program.stbc` is refused with
+  the advice to rebuild it (section 6.8). ADS and OPC UA
   client sidecars are loaded only when enabled; relative sidecar paths resolve
   against the bundle root, enabled missing sidecars fail visibly, and the
   retained evidence hash covers the exact bytes that were parsed.
@@ -6130,15 +6150,15 @@ asset reads apply the same containment rule under `hmi/` and admit only a
 regular file with lowercase `.svg`; another extension, directory, traversal,
 or symbolic escape rejects.
 
-#### 6.11 Bytecode Format (Overview)
+#### 6.11 Program Image (Overview)
 
-The executor consumes a stable bytecode container format emitted by the compiler. See the "ST Bytecode Format Specification" section in this document for details.
-- Instruction encoding and versioning
-- Program/function/function-block layouts
-- Constant pools and type descriptors
-- Resource, task, and POU metadata required by the runtime (process image sizing, task associations)
-
-The runtime rejects unsupported major bytecode versions before configuring resources.
+The runtime runs the program image that the build writes (specification 44 §5):
+its code, its constants, its starting memory, the sizes of its memory areas,
+its tasks, its I/O bindings, its symbol and type tables, its statement table,
+its retain map and its signature. The runtime admits an image before it
+configures the resource and refuses one of another format version, CPU, kernel
+interface or program library with its reason (specification 44 §10.2). The
+STBC bytecode format of specification 12 is superseded.
 
 #### 6.12 Browser UI, Discovery, and Mesh (Operational UX)
 
@@ -6192,7 +6212,7 @@ Rules:
   than fabricated.
 - The TXT record also carries `version` (the truST version), `platform` (the
   operating system and architecture, for example `linux-aarch64`, or the chip,
-  for example `stm32f407`), and `auth` (`token` when the control endpoint needs
+  for example `stm32u5a9`), and `auth` (`token` when the control endpoint needs
   a token, otherwise `none`). The `id` is the runtime's stable runtime ID: it is
   generated once with a random part on first start and kept in the project's
   `.trust-runtime/runtime_id`, read back on every start, so it stays the same
@@ -6729,7 +6749,7 @@ zero, an overflow and more than 1,024 nodes evaluated are `expr_evaluation_faile
 compiles from the project's sources what this version can say, names, literals, the operators,
 indexing and member access, and refuses an expression with any other part (a call, a reference,
 `THIS`, `SUPER`, an initializer) before it sends a request. A compiled program evaluates version 1
-on every device; the bytecode engine keeps its text form until it is deleted (specification 44 §15).
+on every device; the bytecode engine's text form was deleted with it (specification 44 §15).
 
 A runtime answers with a value, in the stable debug representation and with the public type name,
 exactly as `debug.variables` reports a variable of that type. Evaluation reads the published state
@@ -6774,9 +6794,7 @@ and the zero-based start of the logpoint's statement; their buffer is bounded as
 bound replaces the oldest. A runtime refuses whole, and changes nothing, a `breakpoints.set` whose
 `options` are not as long as `lines`, carry an `op` outside the three or a `count` of 0, or carry an
 expression of a version it does not implement (below). A runtime that runs a compiled program
-implements version 1 for all of them. The bytecode engine evaluates no compiled form: it refuses
-`options` that carry anything, and a tool attached to it reports such a breakpoint unverified rather
-than stopping without its condition.
+implements version 1 for all of them.
 
 **Before a runtime implements a version (owner, 18 October 2026).** A runtime that implements no
 `expr_version` yet, a chip until the tool compile exists, refuses every request that would evaluate

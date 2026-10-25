@@ -21,5 +21,7 @@ include!("setup/helpers.rs");
 
 #[cfg(test)]
 mod tests {
+    //! Setup builds the project's program: the tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
     include!("setup/tests.rs");
 }

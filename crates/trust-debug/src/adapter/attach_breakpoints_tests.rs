@@ -122,9 +122,7 @@ fn breakpoints_set_while_an_attach_is_pending_reach_the_runtime_once_it_connects
     // after this line`. Catches breakpoints dropped by the attach, events without the pending
     // answer's ids, a line sent one-based, and a skipped line given another breakpoint's result.
     let (addr, requests) = spawn_runtime();
-    let mut adapter = DebugAdapter::new(crate::DebugSession::new(
-        trust_runtime::RuntimeBuilder::new().build().unwrap(),
-    ));
+    let mut adapter = DebugAdapter::new(crate::DebugSession::new());
     let initialized = adapter.dispatch_request(request(1, "initialize", json!({})));
     assert_eq!(initialized.responses.len(), 1);
     let attach = AttachArguments {

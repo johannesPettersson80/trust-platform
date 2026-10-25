@@ -1,94 +1,18 @@
+//! The `trust-dev test` command: discovery, the compiled run of the tests and the reports. The tests
+//! that run ST tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use super::*;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use trust_runtime::harness::SourceFile as HarnessSourceFile;
-use trust_runtime::value::Value;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
 };
-
-#[path = "tests/work_charges.rs"]
-mod work_charges;
 
 const DISCOVERY_TRACE_TEST_ID: &str = "TEST_DEV_TEST_DISCOVERY_TRACE_001";
 const DISCOVERY_TRACE_CASE_FILE: &str =
     "verification/cases/plcopen_devtools/DEV_TEST_DISCOVERY_001.toml";
 const DISCOVERY_TRACE_CASE_DIGEST: &str =
     "sha256:d217e40fa2ade0354fd1ad5bda019650d382c05eda109b8dbc74d76b3bfb0cff";
-
-#[test]
-#[ignore = "opt-in work charge capture for the existing PLCopen CLI fixture"]
-fn plcopen_motion_single_axis_construction_work_charges() {
-    use trust_runtime_core::vm::diagnostic_timing::{
-        finish_callsite_accounting_log, start_callsite_accounting_log,
-    };
-
-    let project = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../trust-runtime/tests/fixtures/plcopen_motion/oop_single_axis")
-        .canonicalize()
-        .expect("resolve the original PLCopen CLI fixture path");
-    let sources_root = resolve_sources_root(&project, None).expect("resolve PLCopen fixture");
-    let sources = load_sources(&sources_root).expect("load the CLI discovery sources");
-    let discovered = discover_tests(&sources);
-    assert!(
-        !discovered.is_empty(),
-        "the original fixture must discover ST tests"
-    );
-
-    // The CLI calls this same constructor with every discovered test before
-    // executing cases. Keep its project dependency and instance setup.
-    start_callsite_accounting_log();
-    let result = compile_test_runtime(&project, &discovered);
-    let snapshot = finish_callsite_accounting_log();
-    let thread = std::thread::current();
-    let test = thread.name().unwrap_or("unnamed");
-    let consumed_work: u128 = snapshot.work[..snapshot.work_len]
-        .iter()
-        .map(|row| u128::from(row.consumed_units))
-        .sum();
-    eprintln!(
-        "plcopen-work-charge test={test:?} operation=construct result={:?} discovered={} work_len={} copy_len={} lifecycle_len={} index_lookup_len={} consumed_work={consumed_work} overflow_count={} recorder_busy={} valid={}",
-        result.as_ref().map(|_| ()),
-        discovered.len(),
-        snapshot.work_len,
-        snapshot.copy_len,
-        snapshot.lifecycle_len,
-        snapshot.index_lookup_len,
-        snapshot.overflow_count,
-        snapshot.recorder_busy,
-        snapshot.is_valid(),
-    );
-    eprintln!("plcopen-attribution-header test={test:?} operation=construct owner_query_len={} array_consumer_len={}", snapshot.owner_queries.len(), snapshot.array_consumers.len());
-    for row in &snapshot.owner_queries {
-        eprintln!("plcopen-owner-query-row test={test:?} operation=construct {row:?}");
-    }
-    for row in &snapshot.array_consumers {
-        eprintln!("plcopen-array-consumer-row test={test:?} operation=construct {row:?}");
-    }
-    for row in &snapshot.work[..snapshot.work_len] {
-        eprintln!("plcopen-work-charge-row test={test:?} operation=construct {row:?}");
-    }
-    for row in &snapshot.index_lookups[..snapshot.index_lookup_len] {
-        eprintln!("plcopen-index-lookup-row test={test:?} operation=construct {row:?}");
-    }
-    for row in &snapshot.lifecycle[..snapshot.lifecycle_len] {
-        eprintln!("plcopen-lifecycle-demand-row test={test:?} operation=construct {row:?}");
-    }
-    for row in &snapshot.copies[..snapshot.copy_len] {
-        eprintln!(
-            "plcopen-copy-admission-row test={test:?} operation=construct variant={} {row:?}",
-            row.value_variant.name(),
-        );
-    }
-    assert!(
-        snapshot.is_valid(),
-        "PLCopen diagnostic capture is incomplete: overflow_count={}, recorder_busy={}; original outcome: {:?}",
-        snapshot.overflow_count,
-        snapshot.recorder_busy,
-        result.as_ref().map(|_| ()),
-    );
-    result.expect("the original PLCopen CLI fixture construction must succeed");
-}
 
 fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
     let nanos = SystemTime::now()
@@ -354,86 +278,114 @@ impl StateProbe for DiscoveryTraceProbe {
     }
 }
 
-#[test]
-fn execution_reports_assertion_failure_for_test_program() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("tests.st"),
-        text: r#"
-TEST_PROGRAM FailCase
-ASSERT_TRUE(FALSE);
-END_TEST_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    assert_eq!(tests.len(), 1);
-
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "tests.st",
-        sources[0].text.clone(),
-    )]);
-    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
-    assert!(matches!(err, RuntimeError::AssertionFailed(_)));
+/// The outcome and message of each test of `source`, the project's one file `src/tests.st`, when
+/// `run` names the tests that run in their order, compiled for this computer (specification 44
+/// §14.2).
+fn compiled_outcomes(
+    label: &str,
+    source: &str,
+    run: &[&str],
+) -> Vec<(String, TestOutcome, String)> {
+    let project = unique_temp_dir(label);
+    std::fs::create_dir_all(project.join("src")).expect("project folder");
+    std::fs::write(project.join("src/tests.st"), source).expect("write the tests");
+    let sources_root = resolve_sources_root(&project, None).expect("sources");
+    let sources = load_sources(&sources_root).expect("load");
+    let discovered = discover_tests(&sources);
+    let tests: Vec<DiscoveredTest> = run
+        .iter()
+        .map(|name| {
+            discovered
+                .iter()
+                .find(|case| case.name.as_str() == *name)
+                .unwrap_or_else(|| panic!("{name} is discovered"))
+                .clone()
+        })
+        .collect();
+    let results = execute_native_tests(&project, &discovered, &tests, 5).expect("the compiled run");
+    let _ = std::fs::remove_dir_all(&project);
+    results
+        .into_iter()
+        .map(|result| {
+            (
+                result.case.name.to_string(),
+                result.outcome,
+                result.message.unwrap_or_default(),
+            )
+        })
+        .collect()
 }
 
 #[test]
+fn execution_reports_assertion_failure_for_test_program() {
+    let outcomes = compiled_outcomes(
+        "assertion-failure",
+        r#"
+TEST_PROGRAM FailCase
+ASSERT_TRUE(FALSE);
+END_TEST_PROGRAM
+"#,
+        &["FailCase"],
+    );
+    assert_eq!(outcomes[0].1, TestOutcome::Failed, "{outcomes:?}");
+}
+
+/// A runtime error that is no assertion is the test's error with the runtime's words, here the
+/// division of `DINT#1` by a variable that holds 0 (specification 10 §10). Catches a runtime error
+/// reported as a failed assertion.
+#[test]
 fn execution_preserves_non_assertion_runtime_error_classification() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("runtime_error.st"),
-        text: r#"
+    let outcomes = compiled_outcomes(
+        "runtime-error",
+        r#"
 TEST_PROGRAM RuntimeErrorCase
 VAR
+    Zero : DINT := DINT#0;
     Result : DINT;
 END_VAR
-Result := DINT#1 / DINT#0;
+Result := DINT#1 / Zero;
 END_TEST_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    assert_eq!(tests.len(), 1);
-
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "runtime_error.st",
-        sources[0].text.clone(),
-    )]);
-    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
-    assert_eq!(err, RuntimeError::DivisionByZero);
+"#,
+        &["RuntimeErrorCase"],
+    );
+    assert_eq!(
+        (outcomes[0].1, outcomes[0].2.as_str()),
+        (
+            TestOutcome::Error,
+            RuntimeError::DivisionByZero.to_string().as_str()
+        )
+    );
 }
 
 #[test]
 fn execution_runs_test_function_block() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("tests_fb.st"),
-        text: r#"
+    let outcomes = compiled_outcomes(
+        "function-block",
+        r#"
 TEST_FUNCTION_BLOCK FbPass
 ASSERT_TRUE(FALSE);
 END_TEST_FUNCTION_BLOCK
 
 PROGRAM Main
 END_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    assert_eq!(tests.len(), 1);
-
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "tests_fb.st",
-        sources[0].text.clone(),
-    )]);
-    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
-    assert!(
-        matches!(err, RuntimeError::AssertionFailed(_)),
-        "function-block test body was not executed: {err}"
+"#,
+        &["FbPass"],
+    );
+    assert_eq!(
+        outcomes[0].1,
+        TestOutcome::Failed,
+        "function-block test body was not executed: {outcomes:?}"
     );
 }
 
+/// Each run of a test starts from a cold restart: `Counter` is 1 after the body in both runs of
+/// the same test, which its own assertion checks. Catches a second run that sees the first run's
+/// 1 and counts to 2.
 #[test]
 fn execution_isolated_per_test_case() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("isolation.st"),
-        text: r#"
+    let outcomes = compiled_outcomes(
+        "isolation",
+        r#"
 VAR_GLOBAL
     Counter : INT := INT#0;
 END_VAR
@@ -442,32 +394,26 @@ TEST_PROGRAM Isolated
 Counter := Counter + INT#1;
 ASSERT_EQUAL(INT#1, Counter);
 END_TEST_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    assert_eq!(tests.len(), 1);
-
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "isolation.st",
-        sources[0].text.clone(),
-    )]);
-    let mut runtime = session.build_runtime().expect("build runtime");
-    for execution in 1..=2 {
-        execute_test_case_in_runtime(&mut runtime, &tests[0], None).unwrap();
+"#,
+        &["Isolated", "Isolated"],
+    );
+    for (execution, outcome) in outcomes.iter().enumerate() {
         assert_eq!(
-            runtime.storage().get_global("Counter"),
-            Some(&Value::Int(1)),
-            "execution {execution} did not run from cold initial state"
+            outcome.1,
+            TestOutcome::Passed,
+            "execution {} did not run from cold initial state: {outcome:?}",
+            execution + 1
         );
     }
 }
 
+/// Two tests of one image: the second starts from a cold restart, so it finds `Counter` 0 after
+/// the first set it to 1. Catches a program image that keeps one test's state for the next.
 #[test]
 fn prepared_runtime_cold_restarts_between_cases() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("prepared_runtime.st"),
-        text: r#"
+    let outcomes = compiled_outcomes(
+        "cold-restarts",
+        r#"
 VAR_GLOBAL
     Counter : INT := INT#0;
 END_VAR
@@ -481,79 +427,24 @@ TEST_PROGRAM SecondCase
 ASSERT_EQUAL(INT#0, Counter);
 Counter := INT#2;
 END_TEST_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    assert_eq!(tests.len(), 2);
-
-    let extra_program_instances = tests
-        .iter()
-        .map(|case| case.name.clone())
-        .collect::<Vec<_>>();
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "prepared_runtime.st",
-        sources[0].text.clone(),
-    )])
-    .with_extra_program_instances(extra_program_instances);
-    let mut runtime = session.build_runtime().expect("build runtime");
-
-    execute_test_case_in_runtime(&mut runtime, &tests[0], None).unwrap();
-    assert_eq!(
-        runtime.storage().get_global("Counter"),
-        Some(&Value::Int(1)),
-        "first test body did not execute"
+"#,
+        &["FirstCase", "SecondCase"],
     );
-    execute_test_case_in_runtime(&mut runtime, &tests[1], None).unwrap();
+    assert_eq!(outcomes[0].1, TestOutcome::Passed, "{outcomes:?}");
     assert_eq!(
-        runtime.storage().get_global("Counter"),
-        Some(&Value::Int(2)),
-        "second test did not execute after a cold restart"
+        outcomes[1].1,
+        TestOutcome::Passed,
+        "second test did not execute after a cold restart: {outcomes:?}"
     );
 }
 
+/// A test program runs beside a `CONFIGURATION` that does not bind it (specification 44 §14.2).
+/// Catches a test program left out of the image because the configuration names other programs.
 #[test]
-fn execute_test_case_keeps_unconfigured_test_program_out_of_default_runtime() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("tests.st"),
-        text: r#"
-CONFIGURATION Cfg
-    RESOURCE Res ON PLC
-        TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
-        PROGRAM MainInst WITH MainTask : Main;
-    END_RESOURCE
-END_CONFIGURATION
-
-PROGRAM Main
-END_PROGRAM
-
-TEST_PROGRAM Probe
-ASSERT_TRUE(TRUE);
-END_TEST_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    assert_eq!(tests.len(), 1);
-
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "tests.st",
-        sources[0].text.clone(),
-    )]);
-    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
-    assert!(
-        matches!(&err, RuntimeError::ControlError(message)
-            if message.contains("unbound PROGRAM declaration(s) under CONFIGURATION")
-                && message.contains("Probe")),
-        "unexpected error: {err}"
-    );
-}
-
-#[test]
-fn execute_test_case_runs_test_program_when_session_registers_extra_program_instance() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("tests.st"),
-        text: r#"
+fn a_test_program_runs_beside_a_configuration() {
+    let outcomes = compiled_outcomes(
+        "configuration",
+        r#"
 CONFIGURATION Cfg
     RESOURCE Res ON PLC
         TASK MainTask(INTERVAL := T#10ms, PRIORITY := 1);
@@ -567,21 +458,13 @@ END_PROGRAM
 TEST_PROGRAM Probe
 ASSERT_TRUE(FALSE);
 END_TEST_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    assert_eq!(tests.len(), 1);
-
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "tests.st",
-        sources[0].text.clone(),
-    )])
-    .with_extra_program_instances([tests[0].name.clone()]);
-    let err = execute_test_case(&session, &tests[0], None).unwrap_err();
-    assert!(
-        matches!(err, RuntimeError::AssertionFailed(_)),
-        "registered test program was not executed: {err}"
+"#,
+        &["Probe"],
+    );
+    assert_eq!(
+        outcomes[0].1,
+        TestOutcome::Failed,
+        "the test program was not executed: {outcomes:?}"
     );
 }
 
@@ -617,7 +500,7 @@ END_TEST_PROGRAM
         0,
         TestOutput::Human,
         false,
-        TestRunner::Bytecode,
+        TestRunner::Native,
     );
     let error = result.expect_err("configured test program must execute its failing assertion");
     assert!(
@@ -820,25 +703,31 @@ fn list_output_contract() {
     assert!(text.contains("2 test(s) listed"));
 }
 
+/// A test that never ends ends with the statement budget of a test, 100,000,000 statements and
+/// loop passes (specification 44 NX-10), as the test's error. Catches a test run that hangs, and
+/// one whose end is reported as a failed assertion.
 #[test]
-fn execute_test_case_returns_execution_timeout_for_deadline_overrun() {
-    let sources = vec![LoadedSource {
-        path: PathBuf::from("timeout.st"),
-        text: r#"
+fn a_test_that_never_ends_is_stopped_by_its_statement_budget() {
+    let outcomes = compiled_outcomes(
+        "endless",
+        r#"
 TEST_PROGRAM TimeoutCase
 WHILE TRUE DO
 END_WHILE;
 END_TEST_PROGRAM
-"#
-        .to_string(),
-    }];
-    let tests = discover_tests(&sources);
-    let session = CompileSession::from_sources(vec![HarnessSourceFile::with_path(
-        "timeout.st",
-        sources[0].text.clone(),
-    )]);
-    let err = execute_test_case(&session, &tests[0], Some(StdDuration::ZERO)).unwrap_err();
-    assert!(matches!(err, RuntimeError::ExecutionTimeout));
+"#,
+        &["TimeoutCase"],
+    );
+    let limit = RuntimeError::ExecutionLimit {
+        kind: trust_runtime::error::ExecutionLimitKind::Work,
+        used: 100_000_000,
+        requested: 1,
+        limit: 100_000_000,
+    };
+    assert_eq!(
+        (outcomes[0].1, outcomes[0].2.as_str()),
+        (TestOutcome::Error, limit.to_string().as_str())
+    );
 }
 
 #[test]
@@ -891,14 +780,13 @@ END_TEST_PROGRAM
         0,
         TestOutput::Human,
         false,
-        TestRunner::Bytecode,
+        TestRunner::Native,
     )
     .unwrap();
     let _ = std::fs::remove_dir_all(project);
 }
 
-/// The tests of a project compiled for this computer pass and fail as the bytecode engine's do, with
-/// the runtime's words (specification 44 §14.2): `ASSERT_EQUAL` of `INT#5` and `INT#4` fails
+/// The tests of a project compiled for this computer pass and fail with the runtime's words (specification 44 §14.2): `ASSERT_EQUAL` of `INT#5` and `INT#4` fails
 /// "expected 5, actual 4"; `ASSERT_NEAR` of 1.0 and 1.5 within 0.1 fails with the binary64 spelling
 /// of the `REAL` 0.1, 0.10000000149011612, and the difference 0.5; `ASSERT_TRUE(FALSE)` fails; an
 /// enumeration is written `Type::Value`; a text is quoted with `$$` for `$` and `$'` for `'`, so the
@@ -909,7 +797,7 @@ END_TEST_PROGRAM
 /// so `Counter` is 1 in both tests that count. The tests need the toolchain of specification 44
 /// §4.6 at `TRUST_TOOLCHAIN`.
 #[test]
-fn native_backend_runs_tests_as_the_bytecode_backend_does() {
+fn compiled_tests_pass_and_fail_with_the_runtimes_words() {
     let project =
         std::env::temp_dir().join(format!("trust-dev-native-tests-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&project);
@@ -1007,7 +895,6 @@ END_TEST_FUNCTION_BLOCK
     let sources = load_sources(&sources_root).expect("load");
     let discovered = discover_tests(&sources);
     let native = execute_native_tests(&project, &discovered, &discovered, 5).expect("native run");
-    let mut runtime = compile_test_runtime(&project, &discovered).expect("bytecode build");
     let outcome = |results: &[ExecutedTest], name: &str| {
         let result = results
             .iter()
@@ -1061,22 +948,6 @@ END_TEST_FUNCTION_BLOCK
             (expected, message.to_string()),
             "{name} compiled"
         );
-        let case = discovered
-            .iter()
-            .find(|case| case.name.as_str() == name)
-            .expect("discovered");
-        let started = Instant::now();
-        let bytecode = executed(
-            case,
-            execute_test_case_in_runtime(&mut runtime, case, None),
-            5,
-            started,
-        );
-        assert_eq!(
-            (bytecode.outcome, bytecode.message.unwrap_or_default()),
-            (expected, message.to_string()),
-            "{name} in the bytecode engine"
-        );
     }
     let _ = std::fs::remove_dir_all(&project);
 }
@@ -1122,49 +993,14 @@ fn the_test_image_is_the_kind_of_image_the_project_builds() {
 
 #[test]
 fn a_device_runs_the_tests_compiled_for_it() {
-    // Specification 44 §14.2 and specification 22: `--device` with `--target` runs the native
-    // tests on the device; the bytecode engine runs on this computer only, so a device with it is
-    // refused. Catches a device run that silently runs the bytecode engine here.
+    // Specification 44 §14.2 and specification 22: `--device` with `--target` runs the compiled
+    // tests on the device, and without them the kernel of this computer runs them. Catches a device
+    // run that silently runs the tests here.
     let device = || Some(("tcp://127.0.0.1:5555".to_string(), "esp32c6".to_string()));
     let on_device = TestRunner::Device {
         port: "tcp://127.0.0.1:5555".into(),
         target: "esp32c6".into(),
     };
-    assert_eq!(
-        TestRunner::of(Some(TestBackend::Native), device(), false)
-            .expect("a device runs compiled tests"),
-        on_device
-    );
-    assert_eq!(
-        TestRunner::of(None, device(), false).expect("a device runs compiled tests"),
-        on_device
-    );
-    assert!(TestRunner::of(Some(TestBackend::Bytecode), device(), true).is_err());
-    assert_eq!(
-        TestRunner::of(Some(TestBackend::Native), None, false).expect("this computer's kernel"),
-        TestRunner::Native { fallback: false }
-    );
-}
-
-#[test]
-fn the_tests_run_compiled_where_the_toolchain_is_installed() {
-    // Specification 44 §14.2 and NX-15: without `--execution-backend`, `trust-dev test` runs the
-    // tests compiled for this computer when the toolchain is installed, as `trust-runtime build`
-    // builds, the bytecode engine standing in for a construct not compiled yet, and on the
-    // bytecode engine when the toolchain is not installed; an explicit backend is kept either way,
-    // without a stand-in. Catches a default that keeps the bytecode engine where the toolchain is
-    // installed, one that asks for a toolchain that is missing, and an explicit native backend
-    // that silently runs the bytecode engine.
-    assert_eq!(
-        TestRunner::of(None, None, true).expect("the compiled tests"),
-        TestRunner::Native { fallback: true }
-    );
-    assert_eq!(
-        TestRunner::of(None, None, false).expect("the bytecode engine"),
-        TestRunner::Bytecode
-    );
-    assert_eq!(
-        TestRunner::of(Some(TestBackend::Bytecode), None, true).expect("the bytecode engine"),
-        TestRunner::Bytecode
-    );
+    assert_eq!(TestRunner::of(device()), on_device);
+    assert_eq!(TestRunner::of(None), TestRunner::Native);
 }

@@ -15,7 +15,7 @@ use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::value::Value;
 
-use crate::runner::engine::ProcessIo;
+use crate::runner::ProcessIo;
 use crate::status::{IoDriverHealth, IoDriverStatus};
 
 /// One line's place in the flat process image and its `io.toml` inversion.

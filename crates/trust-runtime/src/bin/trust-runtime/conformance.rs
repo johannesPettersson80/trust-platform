@@ -17,14 +17,14 @@ use trust_runtime::connectors::{
     OpcUaServerSnapshotState,
 };
 use trust_runtime::device_link::{self, DeviceLink};
-use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::harness::{CompileSession, SourceFile};
 use trust_runtime::io::{IoAddress, IoDriverErrorPolicy, IoDriverHealth};
 use trust_runtime::native::{self, Target, Toolchain};
 use trust_runtime::opcua::OpcUaClientConnectionState;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::RestartMode;
 
-use crate::cli::{ConformanceArgs, ProgramBackend};
+use crate::cli::ConformanceArgs;
 
 include!("conformance/models.rs");
 include!("conformance/runner.rs");

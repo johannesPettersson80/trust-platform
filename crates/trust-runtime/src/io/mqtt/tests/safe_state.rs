@@ -2,9 +2,14 @@ mod safe_state_cases {
     use super::*;
     use crate::io::{IoAddress, IoSafeState};
     use crate::value::Value;
-    use crate::Runtime;
+    use crate::CompiledRuntime;
 
-    fn runtime_with_mqtt_safe_state(state: Arc<Mutex<MockState>>, connected: bool) -> Runtime {
+    /// A program with a one-byte output image and the MQTT driver whose safe state it hands off. The
+    /// build needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+    fn runtime_with_mqtt_safe_state(
+        state: Arc<Mutex<MockState>>,
+        connected: bool,
+    ) -> CompiledRuntime {
         state.lock().unwrap_or_else(|e| e.into_inner()).connected = connected;
         let factory = Arc::new(MockFactory {
             state,
@@ -24,9 +29,11 @@ on_error = "warn"
         )
         .expect("construct MQTT driver");
 
-        let mut builder = crate::RuntimeBuilder::new();
-        builder.io_mut().resize(0, 1, 0);
-        let mut runtime = builder.build().expect("install MQTT output image");
+        let mut runtime = crate::harness::TestHarness::from_source(
+            "VAR_GLOBAL out AT %QB0 : BYTE; END_VAR PROGRAM Main END_PROGRAM",
+        )
+        .expect("build the MQTT output program")
+        .into_runtime();
         let mut safe_state = IoSafeState::default();
         safe_state.outputs.push((
             IoAddress::parse("%QB0").expect("safe-state output byte"),

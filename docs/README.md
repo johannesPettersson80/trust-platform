@@ -53,7 +53,9 @@ Runnable payload/config examples:
 
 ## Runtime Execution Backend Migration
 
-Backend mode controls, rollback workflow, compatibility-window policy, and release-evidence expectations for MP-060 are documented in:
+Every runtime runs the program compiled into a program image (`program.tpi`). Upgrading a project
+built for the removed bytecode engine (rebuild it, the `runtime.execution_backend` key, the removed
+`--execution-backend` option) is documented in:
 `docs/guides/RUNTIME_EXECUTION_BACKEND_MIGRATION.md`.
 
 ## Runtime Performance And Benchmark Builds

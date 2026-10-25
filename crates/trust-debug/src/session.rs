@@ -1,32 +1,20 @@
+//! The sources of a debug session and the project's declarations: the files a launch builds or an
+//! attach names, how a client's paths map to them, and the tasks whose threads the client sees.
+
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 use glob::glob;
 
 use trust_hir::{db::FileId, SourceKey, SourceRegistry};
-use trust_runtime::config::IoConfig;
 use trust_runtime::control::SourceFile as ControlSourceFile;
-use trust_runtime::debug::{DebugBreakpoint, DebugControl, HitCondition, LogFragment};
-#[cfg(test)]
-use trust_runtime::harness::TestHarness;
+use trust_runtime::debug::HitCondition;
 use trust_runtime::harness::{CompileError, CompileSession, SourceFile as HarnessSourceFile};
-use trust_runtime::io::IoDriverRegistry;
-use trust_runtime::{Runtime, RuntimeMetadata};
+use trust_runtime::RuntimeMetadata;
 
-use crate::protocol::{
-    Breakpoint, SetBreakpointsArguments, SetBreakpointsResponseBody, Source, SourceBreakpoint,
-};
+use crate::protocol::Source;
 use crate::runtime::DebugRuntime;
 
-const MSG_MISSING_SOURCE: &str = "source path not provided";
-const MSG_UNKNOWN_SOURCE: &str = "source not registered";
-const MSG_PENDING_SOURCE: &str = "source pending (program not loaded yet)";
-const MSG_INVALID_POSITION: &str = "line/column are 1-based";
-const MSG_INVALID_LOG_MESSAGE: &str = "invalid log message";
-const MSG_INVALID_CONDITION: &str = "invalid breakpoint condition";
-const MSG_INVALID_HIT_CONDITION: &str = "invalid hit condition";
-const MSG_NO_STATEMENT: &str = "no statement at or after requested location";
 const DEFAULT_IGNORE_PRAGMAS: &[&str] = &["@trustlsp:runtime-ignore"];
 const PRAGMA_SCAN_LINES: usize = 20;
 
@@ -72,57 +60,23 @@ impl SourceOptions {
     }
 }
 
-#[derive(Debug)]
+/// The sources of a debug session, and the declarations of the project they belong to.
+#[derive(Debug, Default)]
 pub struct DebugSession {
-    runtime: Arc<Mutex<Runtime>>,
+    /// The declarations of the project's sources, once they compiled: its tasks, whose debugger
+    /// threads the client sees (specification 13, "Multi-Task Thread Model").
     metadata: RuntimeMetadata,
-    control: DebugControl,
     sources: HashMap<SourceKey, SourceFile>,
     source_registry: SourceRegistry,
-    breakpoints: BreakpointManager,
     program_path: Option<String>,
     source_options: SourceOptions,
 }
 
 impl DebugSession {
+    /// A session with no sources.
     #[must_use]
-    pub fn new(runtime: Runtime) -> Self {
-        let mut runtime = runtime;
-        let control = DebugControl::new();
-        runtime.set_debug_control(control.clone());
-        let metadata = runtime.metadata_snapshot();
-        Self {
-            runtime: Arc::new(Mutex::new(runtime)),
-            metadata,
-            control,
-            sources: HashMap::new(),
-            source_registry: SourceRegistry::new(),
-            breakpoints: BreakpointManager::new(),
-            program_path: None,
-            source_options: SourceOptions::default(),
-        }
-    }
-
-    #[must_use]
-    pub fn with_control(runtime: Runtime, control: DebugControl) -> Self {
-        let mut runtime = runtime;
-        runtime.set_debug_control(control.clone());
-        let metadata = runtime.metadata_snapshot();
-        Self {
-            runtime: Arc::new(Mutex::new(runtime)),
-            metadata,
-            control,
-            sources: HashMap::new(),
-            source_registry: SourceRegistry::new(),
-            breakpoints: BreakpointManager::new(),
-            program_path: None,
-            source_options: SourceOptions::default(),
-        }
-    }
-
-    #[must_use]
-    pub fn take_breakpoint_report(&mut self) -> Option<String> {
-        self.breakpoints.take_report()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn register_source(
@@ -145,13 +99,6 @@ impl DebugSession {
         );
     }
 
-    /// Replace all sources with a single file.
-    pub fn replace_single_source(&mut self, path: impl Into<String>, text: impl Into<String>) {
-        self.sources.clear();
-        self.source_registry.clear();
-        self.register_source(path, 0, text);
-    }
-
     /// Replace all sources with multiple files.
     pub fn replace_sources(&mut self, sources: &[(String, String)]) {
         self.sources.clear();
@@ -170,80 +117,12 @@ impl DebugSession {
         self.source_options.apply_update(update);
     }
 
-    /// Reload the current program from disk.
-    pub fn reload_program(&mut self, path: Option<&str>) -> Result<Vec<Breakpoint>, CompileError> {
-        let path = match path {
-            Some(path) => path.to_string(),
-            None => self
-                .program_path
-                .clone()
-                .ok_or_else(|| CompileError::new("no program path for reload"))?,
-        };
-        let sources = collect_sources(&path, &self.source_options)?;
-        let (retained, current_time) = {
-            let mut runtime = self
-                .runtime
-                .lock()
-                .map_err(|_| CompileError::new("runtime lock poisoned"))?;
-            (
-                runtime
-                    .retain_snapshot()
-                    .map_err(|error| CompileError::new(error.to_string()))?,
-                runtime.current_time(),
-            )
-        };
-
-        let source_files = sources
-            .iter()
-            .map(|(path, text)| HarnessSourceFile::with_path(path.clone(), text.clone()))
-            .collect::<Vec<_>>();
-        let compile = CompileSession::from_sources(source_files);
-        let mut runtime = compile.build_runtime()?;
-        apply_project_io_config(&mut runtime, &path, &self.source_options)?;
-        apply_project_ads_config(&mut runtime, &path, &self.source_options)?;
-        runtime.set_debug_control(self.control.clone());
-        runtime
-            .apply_retain_snapshot(&retained)
-            .map_err(|error| CompileError::new(error.to_string()))?;
-        runtime.set_current_time(current_time);
-
-        let metadata = runtime.metadata_snapshot();
-        {
-            let mut guard = self
-                .runtime
-                .lock()
-                .map_err(|_| CompileError::new("runtime lock poisoned"))?;
-            *guard = runtime;
-        }
-        self.metadata = metadata;
-        self.replace_sources(&sources);
-
-        // Compiled watch expressions own the replaced type registry. The client
-        // retains its watch definitions and recompiles them on the next evaluate.
-        self.control.invalidate_schema_observations();
-
-        // Ensure no stale breakpoints linger across reloads.
-        self.control.clear_breakpoints();
-
-        Ok(self.revalidate_breakpoints())
-    }
-
     #[must_use]
     pub fn source_file_for_path(&self, path: &str) -> Option<&SourceFile> {
         let key = SourceKey::from_path(Path::new(path));
         self.sources
             .get(&key)
             .or_else(|| self.sources.get(&SourceKey::from_virtual(path.to_string())))
-    }
-
-    #[must_use]
-    pub fn debug_control(&self) -> DebugControl {
-        self.control.clone()
-    }
-
-    #[must_use]
-    pub fn runtime_handle(&self) -> Arc<Mutex<Runtime>> {
-        Arc::clone(&self.runtime)
     }
 
     #[must_use]
@@ -281,24 +160,12 @@ impl DebugSession {
         self.sources.get(key).map(|file| file.text.as_str())
     }
 
-    #[must_use]
-    pub fn set_breakpoints(
-        &mut self,
-        args: &SetBreakpointsArguments,
-    ) -> SetBreakpointsResponseBody {
-        let context = BreakpointContext::new(&self.sources, &self.metadata, &self.control);
-        self.breakpoints.set_breakpoints(context, args)
-    }
-
-    /// Revalidate previously requested breakpoints after reload.
-    pub fn revalidate_breakpoints(&mut self) -> Vec<Breakpoint> {
-        let context = BreakpointContext::new(&self.sources, &self.metadata, &self.control);
-        self.breakpoints.revalidate_breakpoints(context)
-    }
-
-    #[cfg(test)]
-    pub fn clear_requested_breakpoints(&mut self) {
-        self.breakpoints.clear_requested();
+    /// The project's sources as the build takes them.
+    fn project_files(&self) -> Result<Vec<HarnessSourceFile>, CompileError> {
+        Ok(collect_project_sources(&self.source_options)?
+            .into_iter()
+            .map(|(path, text)| HarnessSourceFile::with_path(path, text))
+            .collect())
     }
 }
 
@@ -311,30 +178,31 @@ impl DebugRuntime for DebugSession {
         DebugSession::set_program_path(self, path);
     }
 
-    fn reload_program(&mut self, path: Option<&str>) -> Result<Vec<Breakpoint>, CompileError> {
-        DebugSession::reload_program(self, path)
+    fn program_path(&self) -> Option<&str> {
+        self.program_path.as_deref()
     }
 
     fn launch_sources(&mut self, path: &str) -> Result<Vec<(String, String)>, CompileError> {
         let sources = collect_sources(path, &self.source_options)?;
         self.replace_sources(&sources);
+        let files = sources
+            .iter()
+            .map(|(path, text)| HarnessSourceFile::with_path(path.clone(), text.clone()))
+            .collect();
+        self.metadata = CompileSession::from_sources(files)
+            .declarations()
+            .map(|declarations| declarations.metadata().clone())
+            .unwrap_or_default();
         Ok(sources)
     }
 
-    fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> SetBreakpointsResponseBody {
-        DebugSession::set_breakpoints(self, args)
-    }
-
-    fn take_breakpoint_report(&mut self) -> Option<String> {
-        DebugSession::take_breakpoint_report(self)
-    }
-
-    fn debug_control(&self) -> DebugControl {
-        DebugSession::debug_control(self)
-    }
-
-    fn runtime_handle(&self) -> Arc<Mutex<Runtime>> {
-        DebugSession::runtime_handle(self)
+    fn load_project(&mut self) -> Result<(), CompileError> {
+        let files = self.project_files()?;
+        self.metadata = CompileSession::from_sources(files)
+            .declarations()?
+            .metadata()
+            .clone();
+        Ok(())
     }
 
     fn metadata(&self) -> &RuntimeMetadata {
@@ -350,11 +218,7 @@ impl DebugRuntime for DebugSession {
         ),
         CompileError,
     > {
-        let sources = collect_project_sources(&self.source_options)?
-            .into_iter()
-            .map(|(path, text)| HarnessSourceFile::with_path(path, text))
-            .collect::<Vec<_>>();
-        trust_runtime::harness::project_expression_types(&sources)
+        trust_runtime::harness::project_expression_types(&self.project_files()?)
     }
 
     fn source_file_for_path(&self, path: &str) -> Option<&SourceFile> {
@@ -393,9 +257,5 @@ fn display_path(path: &Path) -> String {
     }
 }
 
-#[cfg(test)]
-mod mqtt_install_reload_tests;
-
-include!("session/breakpoint_manager.rs");
 include!("session/source_and_parse_helpers.rs");
 include!("session/tests.rs");

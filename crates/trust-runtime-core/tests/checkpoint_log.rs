@@ -2,8 +2,8 @@
 //! the record layout, the order of a write, recovery after a power cut at every byte of a write
 //! and an erase, and the refusal of a damaged newest checkpoint.
 //!
-//! The flash is simulated (`checkpoint_log/flash.rs`) with each chip's program and erase units,
-//! which `checkpoint_log/chips.rs` reads from the chip files.
+//! The flash is simulated (`checkpoint_log/flash.rs`) with the ESP32-C6's program and erase units,
+//! which `checkpoint_log/chips.rs` reads from its chip file.
 
 #[path = "checkpoint_log/chips.rs"]
 mod chips;
@@ -204,45 +204,33 @@ fn sweep(start: &SimFlash, first: Write, next: Write) -> usize {
     cuts
 }
 
-fn geometries() -> [FlashGeometry; 2] {
+fn geometries() -> [FlashGeometry; 1] {
     chips::chips().map(|chip| chip.geometry())
 }
 
 #[test]
 fn chip_files_give_each_checkpoint_slot_whole_erase_units() {
-    let [f407, c6] = chips::chips();
-    // STM32F407: sectors 2 and 3, one 16 KiB sector each.
-    assert_eq!(f407.slots.map(|slot| slot.first_unit), [2, 3]);
-    assert_eq!(
-        f407.slots.map(|slot| (slot.len, slot.erase_unit)),
-        [(16_384, 16_384); 2]
-    );
-    // ESP32-C6: four 4 KiB sectors each.
+    let [c6] = chips::chips();
+    // ESP32-C6: four 4 KiB sectors each, from sector 0x7F8 = 2040 at offset 0x7F_8000 and sector
+    // 0x7FC = 2044 at offset 0x7F_C000.
+    assert_eq!(c6.slots.map(|slot| slot.first_unit), [2040, 2044]);
     assert_eq!(
         c6.slots.map(|slot| (slot.len, slot.erase_unit)),
         [(16_384, 4096); 2]
     );
-    for chip in [f407, c6] {
-        assert!(chip
-            .slots
-            .iter()
-            .all(|slot| slot.start.is_multiple_of(slot.erase_unit)));
-        let geometry = chip.geometry();
-        assert_eq!(geometry.program_unit(), 4, "{}", chip.name);
-        assert_eq!(geometry.max_payload_len(), 16_300, "{}", chip.name);
-        // Records per slot before it is erased again: the wear figures put to the owner.
-        for (len, per_slot) in [(256, 50), (1024, 14), (4096, 3)] {
-            let record = geometry.record_len(len).unwrap();
-            assert_eq!(
-                (geometry.slot_len() - 16) / record,
-                per_slot,
-                "{}",
-                chip.name
-            );
-        }
+    assert!(c6
+        .slots
+        .iter()
+        .all(|slot| slot.start.is_multiple_of(slot.erase_unit)));
+    let geometry = c6.geometry();
+    assert_eq!(geometry.program_unit(), 4);
+    assert_eq!(geometry.max_payload_len(), 16_300);
+    // Records per slot before it is erased again: the wear figures put to the owner.
+    for (len, per_slot) in [(256, 50), (1024, 14), (4096, 3)] {
+        let record = geometry.record_len(len).unwrap();
+        assert_eq!((geometry.slot_len() - 16) / record, per_slot, "{len}");
     }
-    assert_eq!(geometries()[0].erase_units(), 1);
-    assert_eq!(geometries()[1].erase_units(), 4);
+    assert_eq!(geometry.erase_units(), 4);
 }
 
 #[test]
@@ -275,7 +263,7 @@ fn geometry_refuses_flash_the_layout_cannot_use() {
         (16, 4)
     );
     assert_eq!(bytewise.record_len(3), Some(64 + 4 + 3));
-    let chip = geometries()[1];
+    let chip = geometries()[0];
     assert_eq!((chip.first_record_offset(), chip.commit_len()), (16, 4));
     assert_eq!(chip.record_len(1), Some(72));
     assert_eq!(chip.record_len(16_300), Some(16_368));

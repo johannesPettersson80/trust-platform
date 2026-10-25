@@ -8,15 +8,14 @@
 //! at the same points: the operations of [`crate::resource::operations`], the supervisor's
 //! decisions of [`crate::resource::supervisor`] and the command rules of
 //! [`crate::resource::commands`]. The platform adapter supplies the link, the wait and wake, the
-//! clock, the installed program ([`ResourceCycle`]; [`engine`] runs it on the shared engine over
-//! the adapter's process I/O, and [`compiled`] runs a compiled program image, specification 44)
-//! and its own values and watchdog ([`RunnerPlatform`]).
+//! clock, the installed program ([`ResourceCycle`]; [`compiled`] runs a compiled program image over
+//! the adapter's process I/O, specification 44) and its own values and watchdog ([`RunnerPlatform`]).
 //!
 //! A device without an installed program runs the same loop without one ([`Runner::stopped`]):
 //! the resource is Stopped, the loop serves the link and feeds the hardware watchdog, and
 //! `restart` is refused with the reason until a program is installed.
 //!
-//! The debugger can hold a scan inside the engine, at the first instruction of a statement
+//! The debugger can hold a scan inside the program, at the start of a statement
 //! (specification 13, "Safe Points"). The loop is then not running, so the hold runs a pass of its
 //! own that does what the loop does while it waits: it serves the link, does the platform's idle
 //! work, feeds the hardware watchdog and waits (specification 34, STATE-07 and TIME-04). The link,
@@ -54,21 +53,23 @@
 //! drops the running program. The reply is the one reply in flight until the change ends (the order is
 //! in `online_change.rs`).
 
-#[cfg(feature = "native")]
 pub mod compiled;
 mod cycle;
 mod debug_port;
 mod debugger;
-pub mod engine;
+mod held_time;
 mod hold;
 mod host;
 mod install;
+mod live;
 mod observer;
 mod online_change;
+mod process_io;
 mod program;
 mod reload;
 mod retain;
 mod shell;
+mod stack;
 mod state;
 mod stepping;
 mod supervision;
@@ -88,36 +89,25 @@ use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, PortError, ProgramStore, RunnerWait, TimeSpan,
     WakeReason,
 };
+use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
-use trust_runtime_core::vm::RetainApplyEvent;
 
-#[cfg(feature = "native")]
 pub use compiled::CompiledCycle;
-#[cfg(feature = "native")]
-pub use cycle::CompiledView;
-pub use cycle::{resource_tasks, DebugView, ResourceCycle, RetainSource, TaskDescriptor};
+pub use cycle::{CompiledView, CycleSettings, ResourceCycle, RetainSource, TaskDescriptor};
 pub use debugger::ChipDebug;
-#[cfg(feature = "native")]
 pub use debugger::{Boundary, Position, StatementStart, StopPoints};
-pub use engine::EngineLiveValues;
 pub use hold::HoldHandle;
-#[cfg(feature = "native")]
 pub use hold::{CompiledHeld, CompiledHold};
 pub use host::RunnerPlatform;
-#[cfg(feature = "native")]
-pub use install::check_image_retained_values;
-pub use install::{
-    check_install, check_retained_values, newest_checkpoint, newest_checkpoint_payload_len,
-};
-pub use online_change::{
-    address_text, is_call_depth_limit, is_memory_limit, prepare_candidate, stack_shortage,
-    too_deep, unwired_binding, Candidate, ChangeMemory,
-};
+pub use install::{check_image_retained_values, newest_checkpoint, newest_checkpoint_payload_len};
+pub use live::DeviceLiveValues;
+pub use online_change::{address_text, unwired_binding, Candidate, ChangeMemory};
+pub use process_io::ProcessIo;
 pub use reload::{Loaded, ProgramLoader};
-#[cfg(feature = "native")]
 pub use retain::CycleRetain;
 pub use retain::{RetainConfig, RetainStore};
+pub use stack::DeviceStack;
 pub use state::event_store_bytes;
 
 use crate::installation::Admitted;
@@ -175,13 +165,15 @@ pub struct Runner<L, W, Y, P, C> {
     clock: C,
     /// The Live Values the platform answers the control requests from, which the scan applies. The
     /// loop holds its own handle so that a scan does not borrow the platform.
-    live: EngineLiveValues,
+    live: DeviceLiveValues,
     /// The loop's pass for a scan that a debugger holds, which every program of the loop gets when it
     /// is loaded in place ([`Runner::with_program_loader`]).
     hold: HoldHandle,
     /// What loads the installed program in place, when the device gave the loop one.
     loader: Option<Box<dyn ProgramLoader<P, Y>>>,
     tasks: Vec<TaskDescriptor>,
+    /// The program instance of each entry of the program's image ([`ResourceCycle::programs`]).
+    programs: Vec<SmolStr>,
     /// Where the program's logical time and uptime start: its start, as a new trust-runtime
     /// process starts its scheduler clock and its metrics.
     program_start: MonotonicInstant,
@@ -240,6 +232,7 @@ where
         event_capacity: usize,
     ) -> Self {
         let tasks = cycle.tasks();
+        let programs = cycle.programs();
         let start = clock.now();
         cycle.reset_task_timing(value::Duration::ZERO);
         let live = platform.live_values().clone();
@@ -278,6 +271,7 @@ where
             hold,
             loader: None,
             tasks,
+            programs,
             program_start: start,
             next_boundary: Some(start),
             cycle_count: 0,
@@ -326,6 +320,7 @@ where
             hold,
             loader: None,
             tasks: Vec::new(),
+            programs: Vec::new(),
             program_start: start,
             next_boundary: None,
             cycle_count: 0,
@@ -383,9 +378,9 @@ impl<L, W, Y, P, C> Runner<L, W, Y, P, C> {
 
     /// Gives the loop the device's program store, which `program.install` commits to in steps
     /// (specification 34 §5.1 and §11.2), and the device's retained-value check of an install (decision
-    /// G13): the warm start of the admitted program with the newest checkpoint, which refuses the install
+    /// G13): the restore of the newest checkpoint into the admitted image, which refuses the install
     /// before any byte is written. A device whose checkpoints are in a checkpoint flash builds the check
-    /// with [`check_retained_values`], over a handle on the slots that it only reads. The loop answers
+    /// with [`check_image_retained_values`], over a handle on the slots that it only reads. The loop answers
     /// `program.install` with `unsupported request` until it is given a store.
     #[must_use]
     pub fn with_program_store(
@@ -418,12 +413,6 @@ where
     #[must_use]
     pub fn last_error(&self) -> Option<RuntimeError> {
         self.shell.resource.last_error()
-    }
-
-    /// The shell the loop shares with a hold, for the tests that drive the debugger.
-    #[cfg(test)]
-    fn shell(&self) -> &Rc<Shell<L, W, P, C>> {
-        &self.shell
     }
 
     /// Records the retained values that the boot's warm start dropped or migrated, at the program's
@@ -580,19 +569,7 @@ fn span(configured: value::Duration) -> TimeSpan {
 mod contract_tests;
 
 #[cfg(test)]
-mod debug_contract_tests;
-
-#[cfg(test)]
-mod debug_read_contract_tests;
-
-#[cfg(test)]
 mod disconnect_contract_tests;
-
-#[cfg(test)]
-mod hold_contract_tests;
-
-#[cfg(test)]
-mod hold_link_contract_tests;
 
 #[cfg(test)]
 mod install_contract_tests;
@@ -602,12 +579,6 @@ mod link_contract_tests;
 
 #[cfg(test)]
 mod live_values_contract_tests;
-
-#[cfg(test)]
-mod retain_contract_tests;
-
-#[cfg(test)]
-mod reload_contract_tests;
 
 #[cfg(test)]
 mod reply_contract_tests;
@@ -626,6 +597,3 @@ mod stopped_contract_tests;
 
 #[cfg(test)]
 mod timing_contract_tests;
-
-#[cfg(test)]
-mod scan_cost_probe_tests;

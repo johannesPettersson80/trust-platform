@@ -92,6 +92,11 @@ pub struct ImageWriter {
     /// Whether the image is a release image, built without statement hooks (specification 44
     /// §13.2); its header flags say so.
     pub release: bool,
+    /// Whether the program reads the platform's wall clock (`CURRENT_DT`); its header flags say so.
+    pub wall_clock: bool,
+    /// The offset plus one in `STRINGS` of the `RESOURCE` name the program's `CONFIGURATION`
+    /// declares, or zero when it declares none (§5.2).
+    pub resource: u32,
     module: CodeImage,
     sections: BTreeMap<u32, Vec<u8>>,
 }
@@ -116,6 +121,8 @@ impl ImageWriter {
                 target,
             ),
             release: false,
+            wall_clock: false,
+            resource: 0,
             module: CodeImage::default(),
             sections: BTreeMap::new(),
         }
@@ -190,8 +197,12 @@ impl ImageWriter {
         image[112..116].copy_from_slice(&count.to_le_bytes());
         let table = u32::try_from(HEADER_BYTES).map_err(|_| WriteError::TooLong)?;
         image[116..120].copy_from_slice(&table.to_le_bytes());
-        let flags = if self.release { super::FLAG_RELEASE } else { 0 };
+        let mut flags = if self.release { super::FLAG_RELEASE } else { 0 };
+        if self.wall_clock {
+            flags |= super::FLAG_WALL_CLOCK;
+        }
         image[120..124].copy_from_slice(&flags.to_le_bytes());
+        image[124..128].copy_from_slice(&self.resource.to_le_bytes());
         for (index, (id, offset, bytes)) in placed.iter().enumerate() {
             let entry = HEADER_BYTES + index * SECTION_ENTRY_BYTES;
             let offset32 = u32::try_from(*offset).map_err(|_| WriteError::TooLong)?;

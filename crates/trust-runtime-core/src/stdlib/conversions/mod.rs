@@ -18,8 +18,6 @@ use crate::value::Value;
 
 pub use spec::ConversionSpec;
 
-pub(crate) use dispatch::{convert_integer, convert_text_into, convert_value_into};
-
 #[derive(Debug, Clone, Copy)]
 enum ConversionMode {
     Round,

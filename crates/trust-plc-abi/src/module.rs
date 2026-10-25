@@ -111,6 +111,86 @@ impl<'s> Areas<'s> {
         self.at(cx, reference)
     }
 
+    /// A reference of `kind` to `elements`, the elements of an array that lie in one of the areas,
+    /// as [`Areas::refer`] takes one to a variable: their area, the offset of the first and the
+    /// bytes of them all.
+    ///
+    /// # Errors
+    ///
+    /// [`FaultCode::ReferenceLifetime`] when the elements lie in no area.
+    pub fn refer_elements<T: Plain>(
+        &self,
+        cx: &mut Cx,
+        elements: &[T],
+        kind: u8,
+    ) -> Result<RefValue, Fault> {
+        let address = elements.as_ptr().addr();
+        let extent = core::mem::size_of_val(elements);
+        for (index, area) in self.areas.iter().enumerate() {
+            let base = area.base.addr();
+            let end = usize::try_from(area.len)
+                .ok()
+                .and_then(|len| base.checked_add(len));
+            let inside = address >= base
+                && address
+                    .checked_add(extent)
+                    .zip(end)
+                    .is_some_and(|(target_end, end)| target_end <= end);
+            if inside {
+                return Ok(RefValue {
+                    area: u8::try_from(index + 1).unwrap_or(u8::MAX),
+                    kind,
+                    char_index: 0,
+                    offset: u32::try_from(address - base).unwrap_or(u32::MAX),
+                    extent: u32::try_from(extent).unwrap_or(u32::MAX),
+                    generation: GENERATION,
+                });
+            }
+        }
+        Err(fault(cx, FaultCode::ReferenceLifetime, 0, 0, 0))
+    }
+
+    /// The array `reference` names, its elements viewed as `T` with the bounds the reference holds
+    /// (specification 44 §7.3): the reference is checked as [`Areas::deref`] checks one, its extent
+    /// being the bytes of the elements its bounds count.
+    ///
+    /// # Errors
+    ///
+    /// As [`Areas::deref`].
+    pub fn open<T: Plain, const R: usize>(
+        &self,
+        cx: &mut Cx,
+        reference: &crate::OpenRef<R>,
+    ) -> Result<crate::Open<'s, T, R>, Fault> {
+        let value = reference.get();
+        current(cx, &value)?;
+        let bounds = reference.bounds();
+        let mut count = 1usize;
+        for (lower, upper) in bounds {
+            let length = upper
+                .checked_sub(lower)
+                .and_then(|span| span.checked_add(1))
+                .and_then(|length| usize::try_from(length).ok());
+            match length.and_then(|length| count.checked_mul(length)) {
+                Some(total) => count = total,
+                None => return Err(fault(cx, FaultCode::TypeMismatch, lower, upper, 0)),
+            }
+        }
+        let size = core::mem::size_of::<T>().checked_mul(count);
+        if size.is_none() || usize::try_from(value.extent).ok() != size {
+            return Err(fault(
+                cx,
+                FaultCode::TypeMismatch,
+                i64::from(value.extent),
+                size.and_then(|size| i64::try_from(size).ok())
+                    .unwrap_or(i64::MAX),
+                0,
+            ));
+        }
+        let elements = self.elements::<T>(cx, &value, count)?;
+        Ok(crate::Open::new(elements, bounds))
+    }
+
     /// The class of the instance `reference` names (specification 44 §6.4): the class id the
     /// instance holds in its first four bytes, which every instance of a class that implements an
     /// interface or takes part in inheritance holds.
@@ -162,11 +242,36 @@ impl<'s> Areas<'s> {
         self.at(cx, reference)
     }
 
+    /// The `count` values of type `T` from the area and offset of `reference`, which [`current`]
+    /// has checked: inside the area and aligned for `T`.
+    #[allow(unsafe_code)]
+    fn elements<T: Plain>(
+        &self,
+        cx: &mut Cx,
+        reference: &RefValue,
+        count: usize,
+    ) -> Result<&'s [T], Fault> {
+        let size = core::mem::size_of::<T>().saturating_mul(count);
+        let target = self.target::<T>(cx, reference, size)?;
+        // SAFETY: `target` and the `count` values' bytes after it lie inside an area the kernel
+        // owns and keeps in place for the whole entry call (`'s` cannot outlive it), the pointer is
+        // aligned for `T`, and `T: Plain` makes every bit pattern a value of `T` that changes only
+        // through cells, as for `view`.
+        Ok(unsafe { core::slice::from_raw_parts(target.cast::<T>(), count) })
+    }
+
     /// The `T` at the area and offset of `reference`, which [`current`] has checked: inside the
     /// area and aligned for `T`.
     #[allow(unsafe_code)]
     fn at<T: Plain>(&self, cx: &mut Cx, reference: &RefValue) -> Result<&'s T, Fault> {
-        let size = core::mem::size_of::<T>();
+        let target = self.target::<T>(cx, reference, core::mem::size_of::<T>())?;
+        // SAFETY: as for `elements`, one `T`.
+        Ok(unsafe { &*target.cast::<T>() })
+    }
+
+    /// The address of the area and offset of `reference`, with `size` bytes from there inside the
+    /// area, aligned for `T`.
+    fn target<T>(&self, cx: &mut Cx, reference: &RefValue, size: usize) -> Result<*mut u8, Fault> {
         let area = usize::from(reference.area)
             .checked_sub(1)
             .and_then(|index| self.areas.get(index));
@@ -194,11 +299,7 @@ impl<'s> Areas<'s> {
                 0,
             ));
         }
-        // SAFETY: `target` and the `size_of::<T>()` bytes after it lie inside an area the kernel
-        // owns and keeps in place for the whole entry call (`'s` cannot outlive it), the pointer is
-        // aligned for `T`, and `T: Plain` makes every bit pattern a value of `T` that changes only
-        // through cells, as for `view`.
-        Ok(unsafe { &*target.cast::<T>() })
+        Ok(target)
     }
 }
 
@@ -367,6 +468,29 @@ pub fn read_real(cx: &mut Cx, text: &[u8]) -> Result<f64, Fault> {
     let code = (api.read_real)(cx, text.as_ptr(), length, &raw mut value);
     match FaultCode::from_raw(code) {
         None if code == 0 => Ok(value),
+        Some(code) => Err(fault(cx, code, 0, 0, 0)),
+        None => Err(fault(cx, FaultCode::ModuleInternal, i64::from(code), 0, 0)),
+    }
+}
+
+/// The platform's wall clock, the UTC Unix time in whole milliseconds, which `CURRENT_DT` returns as
+/// a `DT` (specification 44 §8.2; specification 07, "Runtime Clock Sources").
+///
+/// # Errors
+///
+/// The fault the kernel gives: `Overflow` for a time before the epoch or past `i64::MAX`
+/// milliseconds.
+#[allow(unsafe_code)]
+pub fn wall_clock(cx: &mut Cx) -> Result<i64, Fault> {
+    if cx.api.is_null() {
+        return Err(fault(cx, FaultCode::ModuleInternal, 0, 0, 0));
+    }
+    // SAFETY: the kernel's function table lives as long as the kernel, which outlives the call.
+    let api = unsafe { &*cx.api };
+    let mut millis = 0;
+    let code = (api.wall_clock)(cx, &raw mut millis);
+    match FaultCode::from_raw(code) {
+        None if code == 0 => Ok(millis),
         Some(code) => Err(fault(cx, code, 0, 0, 0)),
         None => Err(fault(cx, FaultCode::ModuleInternal, i64::from(code), 0, 0)),
     }

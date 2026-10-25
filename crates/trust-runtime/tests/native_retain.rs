@@ -1,12 +1,16 @@
-//! The retained values of a compiled program and of today's runtime are one checkpoint
-//! (specification 44 §11; specification 11 §6.7): the same program, compiled for this computer and
-//! run by the kernel, and run by the runtime, writes the same STRN v3 payload byte for byte, and
-//! each restores the checkpoint the other wrote.
+//! The retained values of a compiled program run by the kernel and by the runtime that hosts it are
+//! one checkpoint (specification 44 §11; specification 11 §6.7): the same program, compiled for
+//! this computer and run by the kernel, and run by the runtime, writes the same STRN v3 payload byte
+//! for byte, and each restores the checkpoint the other wrote.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
+use std::sync::{Arc, Mutex};
+
+use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::{SourceFile, TestHarness};
 use trust_runtime::native::{build, load, Build, Device, NoHooks, Options, Target, Toolchain};
+use trust_runtime::retain::RetainStore;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::{RestartMode, RetainSnapshot};
 use trust_runtime_core::retain::capture::RetainCapture;
@@ -91,17 +95,65 @@ END_CONFIGURATION
 
 const MS: i64 = 1_000_000;
 
-/// The STRN v3 payload of the runtime's retained values.
+/// A retain file that loads `checkpoint` and keeps the STRN v3 payload the runtime writes.
+struct PayloadStore {
+    checkpoint: RetainSnapshot,
+    payload: Arc<Mutex<Vec<u8>>>,
+}
+
+impl RetainStore for PayloadStore {
+    fn load(&self) -> Result<RetainSnapshot, RuntimeError> {
+        Ok(self.checkpoint.clone())
+    }
+
+    fn store(&self, _snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
+        panic!("a compiled program's capture writes its payload, not a snapshot")
+    }
+
+    fn store_payload(&self, payload: &[u8]) -> Result<(), RuntimeError> {
+        *self.payload.lock().expect("the payload lock") = payload.to_vec();
+        Ok(())
+    }
+}
+
+/// The STRN v3 payload of the runtime's retained values, as the runtime saves them into its retain
+/// file.
 fn runtime_payload(runtime: &mut TestHarness) -> Vec<u8> {
-    let snapshot = runtime
+    let payload = Arc::new(Mutex::new(Vec::new()));
+    runtime
         .runtime_mut()
-        .retain_snapshot()
-        .expect("the runtime captures its retained values");
-    let mut payload = Vec::new();
-    Checkpoint::from_values(snapshot.values().clone())
-        .encode_snapshot_payload_into(&mut payload)
-        .expect("the runtime's values encode");
+        .set_retain_store(
+            Some(Box::new(PayloadStore {
+                checkpoint: RetainSnapshot::default(),
+                payload: Arc::clone(&payload),
+            })),
+            None,
+        )
+        .expect("the retain file is set");
+    runtime
+        .runtime_mut()
+        .save_retain_store()
+        .expect("the runtime saves its retained values");
+    let payload = payload.lock().expect("the payload lock").clone();
+    assert!(!payload.is_empty(), "the runtime wrote its retained values");
     payload
+}
+
+/// Restores `checkpoint` into the runtime: a warm restart from a retain file that holds it.
+fn restore(runtime: &mut TestHarness, checkpoint: RetainSnapshot) {
+    runtime
+        .runtime_mut()
+        .set_retain_store(
+            Some(Box::new(PayloadStore {
+                checkpoint,
+                payload: Arc::default(),
+            })),
+            None,
+        )
+        .expect("the retain file is set");
+    runtime
+        .restart_with_retain(RestartMode::Warm)
+        .expect("the kernel's checkpoint restores into the runtime");
 }
 
 /// The probe compiled for this computer, in a work folder of its own named `name`, and the device
@@ -206,10 +258,7 @@ fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
     for (key, value) in checkpoint.values() {
         restored.insert(key.clone(), value.clone());
     }
-    runtime
-        .runtime_mut()
-        .apply_retain_snapshot(&restored)
-        .expect("the kernel's checkpoint restores into the runtime");
+    restore(&mut runtime, restored);
     assert_eq!(runtime_payload(&mut runtime), native);
 }
 
@@ -338,7 +387,7 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
     // because `Whole` is declared `RETAIN`, but not its `NON_RETAIN` `Session`. Catches a member
     // left out, an unqualified member retained without a `RETAIN` holder, a `NON_RETAIN` one
     // retained, a holder's qualifier passed into a nested instance, a base's variables lost, and
-    // either engine writing another key, order or encoding than the other.
+    // either side writing another key, order or encoding than the other.
     let toolchain =
         Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
     let host = Target::this_cpu().expect("a computer target");
@@ -363,14 +412,7 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
     };
     let mut program = load(&built.image, &device).expect("the image loads");
     program.cold_start(Duration::ZERO).expect("the cold start");
-    // The bytecode engine refuses a call of an array's element ("unsupported CALL_NATIVE target
-    // expression"), and the one list's N11 removes it: its program leaves those two calls out, so
-    // its `Many` keeps its starting values.
-    let element_calls = "Many[1](Preset := 6);\nMany[2](Preset := 7);\n";
-    assert!(INSTANCES.contains(element_calls));
-    let without_element_calls = INSTANCES.replace(element_calls, "");
-    let mut runtime =
-        TestHarness::from_source(&without_element_calls).expect("the runtime builds them");
+    let mut runtime = TestHarness::from_source(INSTANCES).expect("the runtime builds them");
     for scan in 1..=3i64 {
         program
             .scan(Duration::from_nanos(scan * 10 * MS), &mut NoHooks)
@@ -414,24 +456,15 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
             .map(|(key, value)| (key.to_string(), value.clone()))
             .collect()
     };
-    let wanted = |uncalled: bool| -> Vec<(String, Value)> {
-        expected
-            .iter()
-            .map(|(key, value)| {
-                let value = if uncalled && key.contains("Many[") {
-                    0
-                } else {
-                    *value
-                };
-                ((*key).to_string(), Value::DInt(value))
-            })
-            .collect()
-    };
-    assert_eq!(entries(&checkpoint), wanted(false));
-    // The same keys, in the same order, from the runtime; its elements of `Many` never called.
-    assert_eq!(entries(&interpreted_checkpoint), wanted(true));
+    let wanted: Vec<(String, Value)> = expected
+        .iter()
+        .map(|(key, value)| ((*key).to_string(), Value::DInt(*value)))
+        .collect();
+    assert_eq!(entries(&checkpoint), wanted);
+    // The same keys, in the same order, with the same values, from the runtime.
+    assert_eq!(entries(&interpreted_checkpoint), wanted);
 
-    // A warm restart keeps exactly these and starts the rest again, in both engines.
+    // A warm restart keeps exactly these and starts the rest again, on both sides.
     program
         .warm_start(Duration::from_nanos(30 * MS))
         .expect("the warm restart");
@@ -468,7 +501,7 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
     assert_eq!(capture.staged_payload(), native.as_slice());
     assert_eq!(runtime_payload(&mut runtime), interpreted);
 
-    // Each engine's checkpoint restores into the other after a cold restart, with no event, and
+    // Each side's checkpoint restores into the other after a cold restart, with no event, and
     // is written back byte for byte.
     program
         .cold_start(Duration::ZERO)
@@ -490,10 +523,7 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
     for (key, value) in checkpoint.values() {
         restored.insert(key.clone(), value.clone());
     }
-    runtime
-        .runtime_mut()
-        .apply_retain_snapshot(&restored)
-        .expect("the kernel's checkpoint restores into the runtime");
+    restore(&mut runtime, restored);
     assert_eq!(runtime_payload(&mut runtime), native);
 }
 

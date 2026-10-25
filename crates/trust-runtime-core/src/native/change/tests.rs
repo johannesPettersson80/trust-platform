@@ -17,6 +17,7 @@ use super::carry;
 use super::fit::convert;
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
+use crate::native::change::CarriedValueEvent;
 use crate::native::image::{
     type_kind as kind, AreaRecord, CodeImage, EntryKind, EntryRecord, FileRecord, Image,
     ImageWriter, IoBindRecord, MemberDetail, MemoryFigure, Record, RetainRecord, SectionId,
@@ -26,7 +27,6 @@ use crate::native::image::{
 use crate::native::memory::ProgramMemory;
 use crate::native::values::width;
 use crate::value::Value;
-use crate::vm::CarriedValueEvent;
 
 mod aggregates;
 mod references;

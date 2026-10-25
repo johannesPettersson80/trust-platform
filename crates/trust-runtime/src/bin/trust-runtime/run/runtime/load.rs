@@ -12,31 +12,16 @@ fn load_runtime(
         } else {
             SourceRegistry::new(Vec::new())
         };
-        // A project built for this computer runs its program image (specification 44 §8.8, NX-15).
-        if let Some(image) = bundle.image.clone() {
-            let program = trust_runtime::CompiledRuntime::load_deployed(
-                image,
-                bundle.runtime.resource_name.clone(),
-                bundle.runtime.max_statements_per_scan,
-            )?;
-            return Ok(LoadedRuntime {
-                bundle: Some(bundle),
-                runtime: program.into(),
-                sources,
-                ide_shell_mode,
-            });
-        }
-        let module = BytecodeModule::decode(&bundle.bytecode)?;
-        // The limits of the project's deployment record, or the defaults (spec 34 HOST-02).
-        let runtime = compile_session_from_sources(&sources)
-            .build_runtime_from_bytecode_with_limits(
-                &module,
-                Some(&bundle.runtime.resource_name),
-                bundle.preparation_limits,
-            )?;
+        // A project runs the program image it was built into for this computer (specification 44
+        // §8.8, NX-15).
+        let runtime = trust_runtime::CompiledRuntime::load_deployed(
+            bundle.image.clone(),
+            bundle.runtime.resource_name.clone(),
+            bundle.runtime.max_statements_per_scan,
+        )?;
         return Ok(LoadedRuntime {
             bundle: Some(bundle),
-            runtime: runtime.into(),
+            runtime,
             sources,
             ide_shell_mode,
         });
@@ -50,10 +35,10 @@ fn load_runtime(
                 .unwrap_or_else(|| PathBuf::from("."))
         });
         let sources = load_sources(&runtime_root)?;
-        let runtime = compile_runtime_from_sources(&sources)?;
+        let runtime = build_sources(&sources)?;
         return Ok(LoadedRuntime {
             bundle: None,
-            runtime: runtime.into(),
+            runtime,
             sources,
             ide_shell_mode,
         });
@@ -68,35 +53,48 @@ fn load_runtime(
         text: "PROGRAM Main\nEND_PROGRAM\n".to_string(),
     };
     let sources = SourceRegistry::new(vec![bootstrap_source]);
-    let runtime = compile_runtime_from_sources(&sources)?;
+    let runtime = build_sources(&sources)?;
 
     Ok(LoadedRuntime {
         bundle: None,
-        runtime: runtime.into(),
+        runtime,
         sources,
         ide_shell_mode,
     })
 }
 
-fn compile_session_from_sources(sources: &SourceRegistry) -> CompileSession {
-    CompileSession::from_sources(
-        sources
-            .files()
-            .iter()
-            .map(|file| {
-                trust_runtime::harness::SourceFile::with_path(
-                    file.path.to_string_lossy().as_ref(),
-                    file.text.clone(),
-                )
-            })
-            .collect(),
-    )
-}
-
-fn compile_runtime_from_sources(sources: &SourceRegistry) -> anyhow::Result<Runtime> {
-    compile_session_from_sources(sources)
-        .build_runtime()
-        .map_err(anyhow::Error::from)
+/// The program of `sources`, built for this computer with the toolchain, installed on the first
+/// build that needs it (specification 44 §8.8, §4.6): a launch without a project builds the sources
+/// it is given, in a temporary folder.
+fn build_sources(sources: &SourceRegistry) -> anyhow::Result<trust_runtime::CompiledRuntime> {
+    let toolchain = crate::toolchain::build_toolchain()?;
+    let target = trust_runtime::native::Target::this_cpu()
+        .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+    let files = sources
+        .files()
+        .iter()
+        .map(|file| {
+            trust_runtime::harness::SourceFile::with_path(
+                file.path.to_string_lossy().as_ref(),
+                file.text.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let work = std::env::temp_dir().join(format!("trust-runtime-sources-{}", std::process::id()));
+    let built = trust_runtime::native::build(
+        &files,
+        &trust_runtime::native::Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    );
+    let _ = std::fs::remove_dir_all(&work);
+    Ok(trust_runtime::CompiledRuntime::load(
+        built?.image,
+        "RESOURCE",
+    )?)
 }
 
 fn load_project_bundle_sources(bundle_root: &Path) -> anyhow::Result<SourceRegistry> {

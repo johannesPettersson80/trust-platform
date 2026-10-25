@@ -22,7 +22,8 @@ use trust_plc_abi as abi;
 pub use records::{
     type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, IoBindRecord, MemberDetail,
     MemoryFigure, Record, RetainRecord, StmtRecord, SymbolRecord, TaskRecord, TypeRecord,
-    AREA_HAS_INIT, AREA_READ_ONLY, AREA_RETAINED, BACKGROUND_PRIORITY, MEMBER_BYTES, NONE,
+    AREA_HAS_INIT, AREA_READ_ONLY, AREA_RETAINED, BACKGROUND_PRIORITY, BIND_FLAT,
+    BIND_HIERARCHICAL, BIND_OFFSET_SHIFT, BIND_RAW, BIND_TIME_MILLIS, MEMBER_BYTES, NONE,
     SYMBOL_CONSTANT, SYMBOL_DIRECT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_IN_OUT, SYMBOL_OUTPUT,
     SYMBOL_PROGRAM, SYMBOL_RETAINED,
 };
@@ -39,6 +40,10 @@ pub const HEADER_BYTES: usize = 128;
 /// Bit 0 of the header's flags: the image has no statement hooks, a release image built with
 /// `[build] debug = false` (specification 44 §5.2, §13.2).
 pub const FLAG_RELEASE: u32 = 1;
+/// Bit 1 of the header's flags: the program reads the platform's wall clock, `CURRENT_DT`, so its
+/// deployment record requires a device that has one (specification 44 §5.2; specification 34
+/// §5.2).
+pub const FLAG_WALL_CLOCK: u32 = 2;
 /// The bytes of a section table entry.
 pub const SECTION_ENTRY_BYTES: usize = 16;
 /// The bytes before a table's records: its count and a reserved word.
@@ -205,6 +210,17 @@ impl Target {
     pub fn is_computer(self) -> bool {
         matches!(self, Self::X86_64 | Self::Aarch64)
     }
+
+    /// The bytes of an address on the target, which a reference or a pointer of a program built
+    /// for it takes (specification 29 §1): 4 on the 32-bit chips, 8 on a 64-bit computer.
+    #[must_use]
+    pub fn pointer_bytes(self) -> u64 {
+        if self.is_computer() {
+            8
+        } else {
+            4
+        }
+    }
 }
 
 /// The header (specification 44 §5.2).
@@ -234,6 +250,9 @@ pub struct Header {
     pub section_table: u32,
     /// The flags: [`FLAG_RELEASE`] for an image without statement hooks.
     pub flags: u32,
+    /// The offset plus one in `STRINGS` of the `RESOURCE` name the program's `CONFIGURATION`
+    /// declares; zero when it declares none.
+    pub resource: u32,
 }
 
 impl Header {
@@ -262,6 +281,7 @@ impl Header {
             section_count: u32_at(bytes, 112),
             section_table: u32_at(bytes, 116),
             flags: u32_at(bytes, 120),
+            resource: u32_at(bytes, 124),
         }
     }
 
@@ -270,6 +290,12 @@ impl Header {
     #[must_use]
     pub const fn is_release(&self) -> bool {
         self.flags & FLAG_RELEASE != 0
+    }
+
+    /// Whether the program reads the platform's wall clock (`CURRENT_DT`, specification 34 §5.2).
+    #[must_use]
+    pub const fn reads_wall_clock(&self) -> bool {
+        self.flags & FLAG_WALL_CLOCK != 0
     }
 
     /// The compiler version as text, without its padding.
@@ -657,6 +683,14 @@ impl<'a> Image<'a> {
         })
     }
 
+    /// The `RESOURCE` name the program's `CONFIGURATION` declares; `None` when it declares none
+    /// (§5.2).
+    #[must_use]
+    pub fn resource_name(&self) -> Option<&'a str> {
+        let offset = self.header().resource.checked_sub(1)?;
+        self.string(offset)
+    }
+
     /// The string at `offset` in `STRINGS`; `None` past the pool, without its NUL or not UTF-8.
     #[must_use]
     pub fn string(&self, offset: u32) -> Option<&'a str> {
@@ -903,14 +937,20 @@ impl<'a> Image<'a> {
         Ok(())
     }
 
-    /// Every binding to a symbol and an image address.
+    /// Every binding to a symbol and an image address, a hierarchical one to the text of a
+    /// hierarchical address of the same area and size.
     fn check_bindings(&self, symbols: u32) -> Result<(), ImageError> {
         let bindings = self.table::<IoBindRecord>()?;
         for (index, binding) in (0u32..).zip(bindings.iter()) {
             if binding.symbol >= symbols {
                 return Err(record(SectionId::IoBind, index, "symbol outside SYMBOLS"));
             }
-            if !(1..=3).contains(&binding.area) || binding.size > 4 || binding.bit > 7 {
+            if !(1..=3).contains(&binding.area)
+                || binding.size > 4
+                || binding.bit > 7
+                || binding.kind > BIND_HIERARCHICAL
+                || self.binding_address(&binding).is_none()
+            {
                 return Err(record(
                     SectionId::IoBind,
                     index,
@@ -919,6 +959,40 @@ impl<'a> Image<'a> {
             }
         }
         Ok(())
+    }
+
+    /// The address of `binding`: its process image's, or the hierarchical address its text spells
+    /// (§5.6); `None` for a hierarchical binding whose text is no hierarchical address of the
+    /// record's area and size.
+    #[must_use]
+    pub fn binding_address(&self, binding: &IoBindRecord) -> Option<crate::io_address::IoAddress> {
+        use crate::io_address::{IoAddress, IoSize};
+        use crate::memory::IoArea;
+        let area = match binding.area {
+            1 => IoArea::Input,
+            2 => IoArea::Output,
+            _ => IoArea::Memory,
+        };
+        let size = match binding.size {
+            0 => IoSize::Bit,
+            1 => IoSize::Byte,
+            2 => IoSize::Word,
+            3 => IoSize::DWord,
+            _ => IoSize::LWord,
+        };
+        if !binding.is_hierarchical() {
+            // A flat address keeps its byte as its one path component, as the parser makes it.
+            return Some(IoAddress {
+                area,
+                size,
+                byte: binding.byte,
+                bit: binding.bit,
+                path: alloc::vec![binding.byte],
+                wildcard: false,
+            });
+        }
+        let address = IoAddress::parse(self.string(binding.byte)?).ok()?;
+        (address.area == area && address.size == size && address.path.len() > 1).then_some(address)
     }
 
     /// Every file's label and text inside their sections, every statement's file in `FILES`.

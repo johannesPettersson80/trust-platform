@@ -1,6 +1,14 @@
+//! The retain file and the restore of its checkpoint: corrupt or non-finite files are refused, and
+//! a checkpoint restored by a warm restart migrates, drops or refuses each value as specification 11
+//! §6.7 says, as a whole.
+//!
+//! The tests that run a program need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::env;
 
 use smol_str::SmolStr;
+use trust_runtime::debug::DebugControl;
+use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::retain::{FileRetainStore, RetainStore};
 use trust_runtime::value::{ArrayValue, Value};
@@ -11,6 +19,37 @@ fn temp_path(name: &str) -> std::path::PathBuf {
     let pid = std::process::id();
     path.push(format!("trust_runtime_retain_integrity_{pid}_{name}.bin"));
     path
+}
+
+/// A retain file that holds `snapshot`.
+struct SnapshotStore {
+    snapshot: RetainSnapshot,
+}
+
+impl RetainStore for SnapshotStore {
+    fn load(&self) -> Result<RetainSnapshot, RuntimeError> {
+        Ok(self.snapshot.clone())
+    }
+
+    fn store(&self, _snapshot: &RetainSnapshot) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+}
+
+/// Restores `snapshot` into the program: a warm restart from a retain file that holds it.
+fn apply_snapshot(harness: &mut TestHarness, snapshot: RetainSnapshot) -> Result<(), RuntimeError> {
+    harness
+        .runtime_mut()
+        .set_retain_store(Some(Box::new(SnapshotStore { snapshot })), None)
+        .expect("the retain file is set");
+    harness.restart_with_retain(RestartMode::Warm)
+}
+
+/// A debug control attached to the harness's runtime, which receives its events.
+fn debugged(harness: &mut TestHarness) -> DebugControl {
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    debug
 }
 
 fn count_snapshot(value: Value) -> RetainSnapshot {
@@ -291,7 +330,8 @@ END_PROGRAM
 
         harness
             .runtime_mut()
-            .set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
+            .set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None)
+            .expect("the retain file is set");
         let err = harness
             .restart_with_retain(RestartMode::Warm)
             .expect_err("checksum-valid non-finite retain load must fail");
@@ -316,13 +356,11 @@ PROGRAM Main
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
     let mut snapshot = RetainSnapshot::default();
     snapshot.insert("old_count", Value::DInt(7));
 
-    harness
-        .runtime_mut()
-        .apply_retain_snapshot(&snapshot)
+    apply_snapshot(&mut harness, snapshot)
         .expect("orphan retained globals should be dropped with evidence");
 
     let events = debug.drain_runtime_events();
@@ -345,11 +383,9 @@ PROGRAM Main
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
 
-    harness
-        .runtime_mut()
-        .apply_retain_snapshot(&count_snapshot(Value::Int(7)))
+    apply_snapshot(&mut harness, count_snapshot(Value::Int(7)))
         .expect("INT retained value should migrate to DINT");
 
     assert_eq!(harness.get_output("count"), Some(Value::DInt(7)));
@@ -373,13 +409,11 @@ PROGRAM Main
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
     let mut snapshot = RetainSnapshot::default();
     snapshot.insert("label", Value::String("TOO-LONG".into()));
 
-    harness
-        .runtime_mut()
-        .apply_retain_snapshot(&snapshot)
+    apply_snapshot(&mut harness, snapshot)
         .expect("overlong bounded STRING retain value should be canonicalized");
 
     assert_eq!(
@@ -409,9 +443,7 @@ END_PROGRAM
     let mut snapshot = RetainSnapshot::default();
     snapshot.insert("limited", Value::Int(100));
 
-    let err = harness
-        .runtime_mut()
-        .apply_retain_snapshot(&snapshot)
+    let err = apply_snapshot(&mut harness, snapshot)
         .expect_err("out-of-range subrange retain value must be rejected");
     assert!(
         err.to_string().contains("outside declared subrange 0..10"),
@@ -449,9 +481,7 @@ END_PROGRAM
     snapshot.insert("accepted_first", Value::DInt(111));
     snapshot.insert("rejected_later", Value::Int(100));
 
-    let err = harness
-        .runtime_mut()
-        .apply_retain_snapshot(&snapshot)
+    let err = apply_snapshot(&mut harness, snapshot)
         .expect_err("one invalid retained value must reject the complete snapshot");
     assert!(
         err.to_string().contains("outside declared subrange 0..10"),
@@ -496,11 +526,12 @@ PROGRAM Main
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let debug = harness.runtime_mut().enable_debug();
-    harness
-        .runtime_mut()
-        .apply_retain_snapshot(&holder_snapshot([(SmolStr::new("count"), Value::DInt(11))]))
-        .expect("struct added field should migrate with declared default");
+    let debug = debugged(&mut harness);
+    apply_snapshot(
+        &mut harness,
+        holder_snapshot([(SmolStr::new("count"), Value::DInt(11))]),
+    )
+    .expect("struct added field should migrate with declared default");
 
     let Some(Value::Struct(holder)) = harness.get_output("holder") else {
         panic!("expected retained struct holder");
@@ -532,15 +563,16 @@ PROGRAM Main
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("compile harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
 
-    harness
-        .runtime_mut()
-        .apply_retain_snapshot(&holder_snapshot([
+    apply_snapshot(
+        &mut harness,
+        holder_snapshot([
             (SmolStr::new("count"), Value::DInt(1)),
             (SmolStr::new("removed_field"), Value::DInt(7)),
-        ]))
-        .expect("struct removed field should be dropped with migration evidence");
+        ]),
+    )
+    .expect("struct removed field should be dropped with migration evidence");
     let Some(Value::Struct(holder)) = harness.get_output("holder") else {
         panic!("expected retained struct holder");
     };

@@ -5,9 +5,6 @@ version = 1
 name = "MotionBenchStatusRes"
 cycle_interval_ms = 10
 
-[runtime]
-execution_backend = "vm"
-
 [runtime.control]
 endpoint = "unix:///tmp/trust-motion-bench-status.sock"
 mode = "production"

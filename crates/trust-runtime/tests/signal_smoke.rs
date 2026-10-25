@@ -1,4 +1,7 @@
 #![cfg(unix)]
+//! A running `trust-runtime` stops cleanly on SIGINT and SIGTERM.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::fs;
 use std::net::{TcpListener, TcpStream};
@@ -8,8 +11,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use smol_str::SmolStr;
-use trust_runtime::bundle_builder::build_program_stbc;
+use trust_runtime::bundle_builder::build_program_image;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
+use trust_runtime::native::{Target, Toolchain};
 
 static TEMP_DIR_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -80,8 +84,12 @@ END_PROGRAM
 "#,
     )
     .expect("write source");
-    let report = build_program_stbc(root, None).expect("build program.stbc");
-    assert!(report.program_path.is_file(), "program.stbc should exist");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let report = build_program_image(root, None, target, &toolchain, false, true)
+        .expect("build program.tpi");
+    assert!(report.image.is_file(), "program.tpi should exist");
 }
 
 fn spawn_runtime(project: &Path) -> Child {

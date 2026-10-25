@@ -1,30 +1,29 @@
-//! Debug runtime facade for the adapter.
-
-use std::sync::{Arc, Mutex};
+//! Debug runtime facade for the adapter: the session's sources and the project's declarations.
 
 use trust_hir::types::TypeRegistry;
 use trust_runtime::control::SourceFile as ControlSourceFile;
-use trust_runtime::debug::DebugControl;
 use trust_runtime::harness::CompileError;
 use trust_runtime::value::DateTimeProfile;
-use trust_runtime::{Runtime, RuntimeMetadata};
+use trust_runtime::RuntimeMetadata;
 
-use crate::protocol::{Breakpoint, SetBreakpointsArguments, SetBreakpointsResponseBody, Source};
+use crate::protocol::Source;
 use crate::session::{SourceFile, SourceOptionsUpdate};
 
 /// Narrow interface for debug adapters.
 pub trait DebugRuntime: Send {
     fn update_source_options(&mut self, update: SourceOptionsUpdate);
     fn set_program_path(&mut self, path: String);
-    fn reload_program(&mut self, path: Option<&str>) -> Result<Vec<Breakpoint>, CompileError>;
+    /// The program file of the last launch.
+    fn program_path(&self) -> Option<&str>;
     /// The sources of the program at `path` by the source options, registered as the session's
-    /// sources without building a runtime from them: the sources of a launch whose program runs
-    /// compiled (specification 44 NX-16).
+    /// sources, whose declarations the session keeps: the sources a launch builds (specification 44
+    /// NX-16).
     fn launch_sources(&mut self, path: &str) -> Result<Vec<(String, String)>, CompileError>;
-    fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> SetBreakpointsResponseBody;
-    fn take_breakpoint_report(&mut self) -> Option<String>;
-    fn debug_control(&self) -> DebugControl;
-    fn runtime_handle(&self) -> Arc<Mutex<Runtime>>;
+    /// Reads the declarations of the project the source options name, as an attach knows its
+    /// program.
+    fn load_project(&mut self) -> Result<(), CompileError>;
+    /// The declarations of the session's project: its tasks, whose debugger threads the client sees
+    /// (specification 13, "Multi-Task Thread Model").
     fn metadata(&self) -> &RuntimeMetadata;
     fn source_file_for_path(&self, path: &str) -> Option<&SourceFile>;
     fn source_for_file_id(&self, file_id: u32) -> Option<Source>;

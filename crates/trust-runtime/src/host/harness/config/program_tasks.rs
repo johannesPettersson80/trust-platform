@@ -75,7 +75,7 @@ pub(super) fn register_program_instances(
         let mut instance = def.clone();
         instance.name = program.name.clone();
         runtime
-            .materialize_legacy_program(instance.clone())
+            .instantiate_program(instance.clone())
             .map_err(|err| CompileError::new(format!("PROGRAM init error: {err}")))?;
         let instance_id = match runtime.storage().get_global(program.name.as_ref()) {
             Some(Value::Instance(id)) => *id,

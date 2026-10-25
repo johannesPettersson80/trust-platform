@@ -76,6 +76,25 @@ impl Lowerer<'_, '_> {
         if name == "TIME" && values.is_empty() {
             return Ok(Called::Scalar("cx.now_ns".into()));
         }
+        // `LOWER_BOUND` and `UPPER_BOUND` of a fixed array are constants, of an open array its
+        // view's (specification 07, "Array bound").
+        if name == "LOWER_BOUND" || name == "UPPER_BOUND" {
+            let bound = self.array_bound(node, name == "UPPER_BOUND", &values)?;
+            let ty = self.type_of(node)?;
+            let rust = self.info(ty).scalar().map_or("i64", Elem::rust);
+            if rust == "i64" {
+                return Ok(Called::Scalar(bound));
+            }
+            return Ok(Called::Scalar(
+                self.bind(&format!("lib::sint_to::<{rust}>(cx, {bound})?")),
+            ));
+        }
+        // `CURRENT_DT()` reads the platform's wall clock: a `DT` of Unix milliseconds, which the
+        // runtime's clock does not move (specification 07, "Runtime Clock Sources").
+        if name == "CURRENT_DT" && values.is_empty() {
+            self.model.wall_clock = true;
+            return Ok(Called::Scalar(self.bind("abi::module::wall_clock(cx)?")));
+        }
         if name.contains("_TO_") || name.starts_with("TO_") || name == "TRUNC" {
             let ty = self.type_of(node)?;
             let [value] = values.as_slice() else {
@@ -99,8 +118,40 @@ impl Lowerer<'_, '_> {
                 self.arithmetic_function(node, name, &values, &want)
             }
             "AND" | "OR" | "XOR" | "NOT" => self.bitwise_function(node, name, &values, &want),
+            "IS_VALID" | "IS_VALID_BCD" => self.validation(node, name, &values, &want),
             _ => self.selection(node, name, &values, &want),
         }
+    }
+
+    /// `IS_VALID(IN)`, whether a `REAL` or an `LREAL` is finite, and `IS_VALID_BCD(IN)`, whether
+    /// every four bits of a bit string are at most 9 (IEC Table 39; specification 07 §9).
+    fn validation(
+        &mut self,
+        node: &SyntaxNode,
+        name: &str,
+        values: &[SyntaxNode],
+        want: &Want,
+    ) -> Result<Called, NativeError> {
+        let [value] = values else {
+            return Err(self.unsupported(node, format!("{name} with other than one input")));
+        };
+        let ty = self.type_of(value)?;
+        let elem = self.elem_of(node, ty, name)?;
+        let input = self.scalar_to(value, ty)?;
+        let valid = match (name, elem) {
+            ("IS_VALID", Elem::Real | Elem::LReal) => format!("({input}).is_finite()"),
+            ("IS_VALID_BCD", Elem::Byte | Elem::Word | Elem::DWord | Elem::LWord) => {
+                let digits = elem.size() * 2;
+                format!(
+                    "{{ let bits = u64::from({input}); (0..{digits}u32).all(|digit| (bits >> (4 * digit)) & 0xF <= 9) }}"
+                )
+            }
+            _ => {
+                return Err(self.unsupported(node, format!("{name} of a {}", elem.name())));
+            }
+        };
+        let bool_ty = self.model.types.elem(Elem::Bool);
+        self.result(node, &valid, bool_ty, want)
     }
 
     /// The arguments of standard function `name` in the order of its formal parameters
@@ -384,7 +435,8 @@ impl Lowerer<'_, '_> {
             _ => "!=",
         };
         let ty = self.common_of(node, values)?;
-        let operands: Vec<String> = if matches!(self.info(ty).kind, Kind::Str(_)) {
+        let wide = matches!(self.info(ty).kind, Kind::WStr(_));
+        let operands: Vec<String> = if matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_)) {
             let mut texts = Vec::with_capacity(values.len());
             for value in values {
                 texts.push(self.text_ref(value)?.0);
@@ -393,13 +445,14 @@ impl Lowerer<'_, '_> {
         } else {
             self.scalars_of(values, ty)?
         };
-        let text = matches!(self.info(ty).kind, Kind::Str(_));
+        let text = matches!(self.info(ty).kind, Kind::Str(_) | Kind::WStr(_));
+        let compare = if wide { "compare_wide" } else { "compare" };
         let links: Vec<String> = operands
             .windows(2)
             .map(|pair| {
                 if text {
                     format!(
-                        "(lib::compare(({}).view(), ({}).view()) {sign} core::cmp::Ordering::Equal)",
+                        "(lib::{compare}(({}).view(), ({}).view()) {sign} core::cmp::Ordering::Equal)",
                         pair[0], pair[1]
                     )
                 } else {
@@ -494,7 +547,7 @@ impl Lowerer<'_, '_> {
                 let scalar = self.scalar_to(value, ty)?;
                 self.result(node, &scalar, ty, want)
             }
-            Kind::Str(_) => Ok(Called::Text(self.text(value)?)),
+            Kind::Str(_) | Kind::WStr(_) => Ok(Called::Text(self.text(value)?)),
             _ => Ok(Called::Place(self.aggregate(value, ty)?)),
         }
     }

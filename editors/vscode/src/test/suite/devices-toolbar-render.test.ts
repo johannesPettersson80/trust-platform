@@ -172,8 +172,8 @@ suite("Devices & Connections panel shell", () => {
           },
           {
             id: "host-chip",
-            heading: "STM32F407 192.168.10.31",
-            platform: "STM32F407 chip",
+            heading: "STM32U5A9 192.168.10.31",
+            platform: "STM32U5A9 chip",
             reachability: { word: "Reachable", tone: "ok" },
             runtimes: [
               { id: "runtime-conveyor", name: "Conveyor node", state: { word: "Running", tone: "ok" } },

@@ -1,6 +1,6 @@
-//! Test support for the program store (specification 34 §5.1 and §11.2): a program flash that has
-//! the C6's units, records every operation that reaches it and can fail one, a checkpoint flash that
-//! holds committed checkpoints, and the containers of the install tests.
+//! Test support for the program store (specification 34 §5.1 and §11.2; specification 44 §10.1): a
+//! program flash that has the C6's units, records every operation that reaches it and can fail one,
+//! a checkpoint flash that holds committed checkpoints, and the containers of the install tests.
 //!
 //! The slots of the fake flash are 16 KiB each, four erase units, so that a test can keep a copy of the
 //! flash after every step of an install; the units are the C6's: 4-byte program units and 4 KiB erase
@@ -12,26 +12,53 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-use trust_runtime_core::bytecode::BytecodeVersion;
+use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{
     sha256, ApplicationIdentity, Capabilities, Configuration, Contracts, DeploymentRecord,
-    DeviceDescriptor, NumericContract, ProcessImageSummary, RequestedLimits, SchedulingProfile,
-    TimingEvidence,
+    DeviceDescriptor, NumericContract, ProcessImageSummary, ProgramVersion, RequestedLimits,
+    SchedulingProfile, TimingEvidence,
+};
+use trust_runtime_core::native::image::{
+    type_kind, AreaRecord, CodeImage, EntryKind, EntryRecord, FileRecord, ImageWriter,
+    IoBindRecord, MemoryFigure, RetainRecord, SectionId, StmtRecord, StringPool, SymbolRecord,
+    Target, TaskRecord, TypeRecord, AREA_RETAINED, HEADER_BYTES, NONE, SECTION_ENTRY_BYTES,
+    SYMBOL_PROGRAM, SYMBOL_RETAINED,
 };
 use trust_runtime_core::ports::{ProgramFlash, ProgramStore};
 use trust_runtime_core::retain::checkpoint::{
     CheckpointFlash, CheckpointIdentity, CheckpointLog, FlashError, FlashGeometry, Slot,
 };
 use trust_runtime_core::retain::RetainSnapshot;
-use trust_runtime_core::vm::PreparationLimits;
 use trust_runtime_core::watchdog::RetainMode;
 
-use crate::installation::{encode, encode_sequenced};
+use crate::installation::{encode, encode_image};
+use crate::tests::runner_ports::board_probe_image;
 
-/// The installed program of the tests: the fixture `program-v2.stbc`, which has the retained
-/// `activations` of its program `Plant`.
-pub(crate) const PROGRAM: &[u8] =
-    include_bytes!("../../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
+/// The length of [`program`]: 6,412 bytes, so that its container, with the record and the 64 bytes
+/// before the image, takes two of the C6's 4 KiB erase units.
+pub(crate) const PROGRAM_BYTES: usize = 6_412;
+
+/// The installed program of the tests: the board probe's compiled image for this computer's CPU
+/// (`tests/runner_ports.rs`), with zeros after its last section up to [`PROGRAM_BYTES`]. Its header
+/// declares that length, and its header CRC, over bytes 12 to the end of the section table, is
+/// written again for it (specification 44 §5.2), so that the kernel's checks before a commit admit
+/// it as they admit the probe (specification 44 §10.2). The store and the boot read a program only
+/// as bytes, which its record names by their SHA-256 and length.
+pub(crate) fn program() -> &'static [u8] {
+    let mut image = board_probe_image();
+    assert!(
+        image.len() <= PROGRAM_BYTES,
+        "the probe's image is no longer than the program"
+    );
+    image.resize(PROGRAM_BYTES, 0);
+    let length = u32::try_from(PROGRAM_BYTES).expect("a short image");
+    image[12..16].copy_from_slice(&length.to_le_bytes());
+    let sections = u32::from_le_bytes([image[112], image[113], image[114], image[115]]);
+    let table_end = HEADER_BYTES + sections as usize * SECTION_ENTRY_BYTES;
+    let crc = crc32::checksum(&image[12..table_end]);
+    image[8..12].copy_from_slice(&crc.to_le_bytes());
+    Box::leak(image.into_boxed_slice())
+}
 
 /// The bytes of each slot of the fake program flash: 16 KiB.
 pub(crate) const SLOT_BYTES: u32 = 16 * 1024;
@@ -217,17 +244,16 @@ pub(crate) fn device() -> DeviceDescriptor {
     }
 }
 
-/// The deployment record of [`PROGRAM`]: the program's SHA-256 and length, the preparation limits
-/// `limits` as the limits it requests, `retain_mode` as its `[runtime.retain] mode`, and no
-/// capability, import or task (specification 34 §5.1.1). `bytecode_flags` is the CRC-32 flag of the
-/// fixture's STBC 2.0 header.
-pub(crate) fn record_bytes(retain_mode: RetainMode, limits: &PreparationLimits) -> Vec<u8> {
+/// The deployment record of [`program`] as an image's record (specification 44 §10.1): the
+/// program's SHA-256 and length, the version 44.1, no preparation limit, `retain_mode` as its
+/// `[runtime.retain] mode`, and no capability, import or task (specification 34 §5.1.1).
+pub(crate) fn record_bytes(retain_mode: RetainMode) -> Vec<u8> {
     DeploymentRecord {
         application: ApplicationIdentity {
-            program_sha256: sha256(PROGRAM),
-            program_bytes: u32::try_from(PROGRAM.len()).expect("a short program"),
-            bytecode_version: BytecodeVersion::SOURCE_FREE_V2,
-            bytecode_flags: 1,
+            program_sha256: sha256(program()),
+            program_bytes: u32::try_from(PROGRAM_BYTES).expect("a short program"),
+            program_version: ProgramVersion::NATIVE_IMAGE,
+            program_flags: 0,
             configuration_sha256: [0; 32],
             retain_schema_sha256: [0; 32],
         },
@@ -237,7 +263,19 @@ pub(crate) fn record_bytes(retain_mode: RetainMode, limits: &PreparationLimits) 
             timing_evidence: TimingEvidence::UNQUALIFIED,
             capabilities: Capabilities::NONE,
         },
-        limits: RequestedLimits::from_preparation(limits),
+        limits: RequestedLimits {
+            max_artifact_bytes: 0,
+            max_preparation_bytes: 0,
+            max_preparation_work: 0,
+            max_validation_scratch_bytes: 0,
+            max_validation_work: 0,
+            max_construction_values: 0,
+            max_construction_bytes: 0,
+            max_process_image_bytes: 0,
+            max_work: 0,
+            max_construction_work: 0,
+            max_call_depth: 0,
+        },
         process_image: ProcessImageSummary::default(),
         tasks: Vec::new(),
         imports: Vec::new(),
@@ -250,36 +288,184 @@ pub(crate) fn record_bytes(retain_mode: RetainMode, limits: &PreparationLimits) 
     .expect("the record encodes")
 }
 
-/// The `TRSTA002` container a transfer of [`PROGRAM`] carries, with the default preparation limits.
-/// Its sequence is zero: the device writes its own before the commit.
+/// The `TRSTA002` container a transfer of [`program`] carries (specification 44 §10.1). Its sequence
+/// is zero: the device writes its own before the commit.
 pub(crate) fn transfer_of(retain_mode: RetainMode) -> Vec<u8> {
-    transfer_with(retain_mode, &PreparationLimits::default())
-}
-
-/// As [`transfer_of`], with the preparation limits `limits` in its record.
-pub(crate) fn transfer_with(retain_mode: RetainMode, limits: &PreparationLimits) -> Vec<u8> {
-    encode_sequenced(0, PROGRAM, &record_bytes(retain_mode, limits)).expect("the container encodes")
+    encode_image(0, program(), &record_bytes(retain_mode)).expect("the container encodes")
 }
 
 /// The bytes a commit of [`transfer_of`] with install sequence `sequence` leaves at the start of its
 /// slot, written by the container writer, not by the store.
 pub(crate) fn committed_image(sequence: u64, retain_mode: RetainMode) -> Vec<u8> {
-    encode_sequenced(
-        sequence,
-        PROGRAM,
-        &record_bytes(retain_mode, &PreparationLimits::default()),
-    )
-    .expect("the container encodes")
+    encode_image(sequence, program(), &record_bytes(retain_mode)).expect("the container encodes")
 }
 
-/// A `TRSTA001` container of [`PROGRAM`], as the bench packer wrote it before S4-7: no install
+/// A `TRSTA001` container of [`program`], as the bench packer wrote it before S4-7: no install
 /// sequence, and the boot no longer reads it (specification 34 §5.1, the program store).
 pub(crate) fn packed_container() -> Vec<u8> {
-    encode(
-        PROGRAM,
-        &record_bytes(RetainMode::None, &PreparationLimits::default()),
-    )
-    .expect("the container encodes")
+    encode(program(), &record_bytes(RetainMode::None)).expect("the container encodes")
+}
+
+/// A compiled program image for this computer's CPU whose program instance `Plant` keeps the
+/// retained `activations : DINT`, named `@program/Plant/activations` in its retain map
+/// (specification 44 §5.10; specification 11 §6.7). Its module never runs in these tests: the
+/// install's retained-value check reads its tables alone.
+pub(crate) fn retaining_image() -> Vec<u8> {
+    let mut strings = StringPool::new();
+    let task = strings.add("Main");
+    let program_type = strings.add("Counter");
+    let key = strings.add("@program/Plant/activations");
+    let label = strings.add("main.st");
+    let mut writer = ImageWriter::new(
+        Target::this_cpu().unwrap_or(Target::X86_64),
+        u16::try_from(trust_plc_abi::INTERFACE_VERSION).expect("the interface version is a u16"),
+    );
+    layout_tables(&mut writer, task);
+    retained_symbols(&mut writer, &mut strings, program_type);
+    writer.table::<IoBindRecord>(&[], &[]);
+    writer.table::<StmtRecord>(&[], &[]);
+    writer.table(
+        &[RetainRecord {
+            key,
+            area: 5,
+            offset: 0,
+            type_index: 0,
+        }],
+        &[],
+    );
+    writer.table(
+        &[FileRecord {
+            label,
+            source_offset: NONE,
+            source_length: 0,
+        }],
+        &[],
+    );
+    writer.section(
+        SectionId::MemFig,
+        MemoryFigure {
+            areas: 16,
+            stack: 64,
+            bookkeeping: 24,
+            retain_capture: 64,
+            total: 168,
+            ..MemoryFigure::default()
+        }
+        .bytes()
+        .to_vec(),
+    );
+    // No area starts from memory of its own; the section is there, as in every image.
+    writer.section(SectionId::Init, Vec::new());
+    writer.section(SectionId::Strings, strings.into_bytes());
+    writer.finish().expect("the image builds")
+}
+
+/// Writes the module of [`retaining_image`] and its entry, area and task tables: one program body,
+/// the retained area 5 and the program area 6 of 8 bytes each, and the task `task`, every 25 ms.
+fn layout_tables(writer: &mut ImageWriter, task: u32) {
+    writer.module(CodeImage {
+        code: vec![0; 16],
+        rodata: Vec::new(),
+        rodata_distance: 16,
+    });
+    writer.table(
+        &[EntryRecord {
+            kind: EntryKind::ProgramBody as u32,
+            index: 0,
+            code_offset: 0,
+        }],
+        &[],
+    );
+    let area = |id: u8, length: u64, flags: u32| AreaRecord {
+        id: u32::from(id),
+        length,
+        alignment: 8,
+        flags,
+        init_offset: 0,
+    };
+    writer.table(
+        &[
+            area(1, 0, 0),
+            area(2, 0, 0),
+            area(3, 0, 0),
+            area(4, 0, 0),
+            area(5, 8, AREA_RETAINED),
+            area(6, 8, 0),
+        ],
+        &[],
+    );
+    writer.table(
+        &[TaskRecord {
+            name: task,
+            interval_ns: 25_000_000,
+            priority: 1,
+            single: NONE,
+            program_count: 1,
+            program_first: 0,
+            flags: 0,
+        }],
+        &0u32.to_le_bytes(),
+    );
+}
+
+/// Writes the type and symbol tables of [`retaining_image`]: the program instance `Plant` of type
+/// `program_type` and its retained `activations : DINT`.
+fn retained_symbols(writer: &mut ImageWriter, strings: &mut StringPool, program_type: u32) {
+    writer.table(
+        &[
+            TypeRecord {
+                kind: type_kind::DINT,
+                name: 0,
+                size: 4,
+                alignment: 4,
+                detail: 0,
+                count: 0,
+            },
+            TypeRecord {
+                kind: type_kind::PROGRAM,
+                name: program_type,
+                size: 8,
+                alignment: 8,
+                detail: 0,
+                count: 0,
+            },
+        ],
+        &[],
+    );
+    let plant = SymbolRecord {
+        canonical: strings.add("PLANT"),
+        display: strings.add("Plant"),
+        type_index: 1,
+        area: 6,
+        flags: SYMBOL_PROGRAM,
+        offset: 0,
+        size: 8,
+        parent: NONE,
+        // The program root carries the instance's number, 0 (specification 44 §5.7).
+        pou: 0,
+    };
+    let activations = SymbolRecord {
+        canonical: strings.add("PLANT.ACTIVATIONS"),
+        display: strings.add("Plant.activations"),
+        type_index: 0,
+        area: 5,
+        flags: SYMBOL_RETAINED,
+        offset: 0,
+        size: 4,
+        parent: 0,
+        pou: NONE,
+    };
+    writer.table(&[plant, activations], &[]);
+}
+
+/// The `TRSTA002` container a transfer of [`retaining_image`] carries, with the record the build
+/// writes for it (`DeploymentRecord::for_image`) and `retain_mode` as its `[runtime.retain] mode`.
+pub(crate) fn retaining_transfer(retain_mode: RetainMode) -> Vec<u8> {
+    let image = retaining_image();
+    let mut record = DeploymentRecord::for_image(&image, [0; 32]).expect("the image has a record");
+    record.configuration.retain_mode = retain_mode;
+    let record = record.encode().expect("the record encodes");
+    encode_image(0, &image, &record).expect("the container encodes")
 }
 
 /// The identity every checkpoint of these tests is written for.
@@ -296,8 +482,6 @@ struct CheckpointState {
     bytes: Vec<u8>,
     /// The programs and erases that reached the flash.
     writes: usize,
-    /// The reads that reached the flash.
-    reads: usize,
 }
 
 /// The fake checkpoint flash, with the C6's units, shared with the handle a loop owns.
@@ -310,7 +494,6 @@ impl CheckpointProbe {
         Self(Rc::new(RefCell::new(CheckpointState {
             bytes: vec![0xff; 2 * CHECKPOINT_SLOT_BYTES as usize],
             writes: 0,
-            reads: 0,
         })))
     }
 
@@ -328,7 +511,6 @@ impl CheckpointProbe {
             .expect("the checkpoint is written");
         let mut state = probe.0.borrow_mut();
         state.writes = 0;
-        state.reads = 0;
         drop(state);
         probe
     }
@@ -336,11 +518,6 @@ impl CheckpointProbe {
     /// The programs and erases that reached the flash since the checkpoint was written.
     pub(crate) fn writes(&self) -> usize {
         self.0.borrow().writes
-    }
-
-    /// The reads that reached the flash since the checkpoint was written.
-    pub(crate) fn reads(&self) -> usize {
-        self.0.borrow().reads
     }
 
     /// Flips the lowest bit of the byte at `offset` of the first slot, as damage does.
@@ -363,8 +540,7 @@ impl CheckpointFlash for CheckpointProbe {
     }
 
     fn read(&mut self, slot: Slot, offset: u32, bytes: &mut [u8]) -> Result<(), FlashError> {
-        let mut state = self.0.borrow_mut();
-        state.reads += 1;
+        let state = self.0.borrow();
         let base = Self::slot_base(slot) + offset as usize;
         bytes.copy_from_slice(&state.bytes[base..base + bytes.len()]);
         Ok(())

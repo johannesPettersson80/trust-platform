@@ -1,6 +1,6 @@
 //! `xtask portability pack-project` (specification 34 §5.1): the bench packer that builds the
-//! `TRSTA002` container of a first flash from `program.stbc`, or a compiled program image
-//! (specification 44 §10.1), and `deployment-record.bin`.
+//! `TRSTA002` container of a first flash from a compiled program image (specification 44 §10.1)
+//! and its `deployment-record.bin`.
 //!
 //! Each wire format has one owner: the chip's own `trust_runtime_services::installation` writes
 //! the container, and the core's `DeploymentRecord` reads the record. The container carries the
@@ -14,21 +14,25 @@ use trust_runtime_core::deployment::{sha256, DeploymentRecord};
 use trust_runtime_core::native::image::MAGIC as IMAGE_MAGIC;
 use trust_runtime_services::installation::{self, FIRST_SEQUENCE};
 
-/// Build the `TRSTA002` container of a first flash for `program` and `record`. A program that starts
-/// with the image magic `TRSTI001` is packed as a compiled program image (entry kind 3), any other as
-/// `program.stbc`.
+/// Build the `TRSTA002` container of a first flash for the program image `program` and `record`: the
+/// image as entry kind 3, at the first 64-byte boundary after the header.
 ///
 /// The record is read by the core's own decoder, which refuses a record it cannot read
-/// (specification 34 §5.1.1). The container is built by the writer of every container,
-/// `installation::encode_sequenced`, with the install sequence of a first commit, so the bench
+/// (specification 34 §5.1.1). The container is built by the writer of every image container,
+/// `installation::encode_image`, with the install sequence of a first commit, so the bench
 /// writes exactly the bytes a chip checks and the program store commits (specification 34 §5.1, "A
 /// first flash").
 ///
 /// # Errors
 ///
-/// The record does not read, or it describes a program other than the one being packed, by
-/// length or by SHA-256.
+/// The program is not a program image (it does not start with the image magic `TRSTI001`), the
+/// record does not read, or it describes a program other than the one being packed, by length or
+/// by SHA-256.
 pub(super) fn pack_project(program: &[u8], record: &[u8]) -> Result<Vec<u8>> {
+    ensure!(
+        program.starts_with(&IMAGE_MAGIC),
+        "the program is not a program image: build the project with trust-runtime build"
+    );
     let named = DeploymentRecord::decode(record).context("read the deployment record")?;
     ensure!(
         usize::try_from(named.application.program_bytes)? == program.len(),
@@ -38,14 +42,9 @@ pub(super) fn pack_project(program: &[u8], record: &[u8]) -> Result<Vec<u8>> {
     );
     ensure!(
         named.application.program_sha256 == sha256(program),
-        "the record describes another program, not this program.stbc"
+        "the record describes another program, not this program.tpi"
     );
-    let container = if program.starts_with(&IMAGE_MAGIC) {
-        installation::encode_image(FIRST_SEQUENCE, program, record)?
-    } else {
-        installation::encode_sequenced(FIRST_SEQUENCE, program, record)?
-    };
-    Ok(container)
+    Ok(installation::encode_image(FIRST_SEQUENCE, program, record)?)
 }
 
 #[cfg(test)]
@@ -53,33 +52,30 @@ mod tests {
     use super::*;
     use std::cell::RefCell;
     use std::rc::Rc;
-    use trust_runtime_core::bytecode::BytecodeVersion;
     use trust_runtime_core::deployment::{
         ApplicationIdentity, Capabilities, Configuration, Contracts, DeviceDescriptor,
-        NumericContract, ProcessImageSummary, RequestedLimits, SchedulingProfile, TimingEvidence,
+        NumericContract, ProcessImageSummary, ProgramVersion, RequestedLimits, SchedulingProfile,
+        TimingEvidence,
     };
     use trust_runtime_core::ports::{ProgramFlash, ProgramStore};
     use trust_runtime_core::retain::checkpoint::{FlashError, FlashGeometry, Slot};
-    use trust_runtime_core::vm::PreparationLimits;
     use trust_runtime_services::loading::install::{start, Checked, Progress};
     use trust_runtime_services::loading::select::boot;
 
-    /// SHA-256 of `abc` (FIPS 180-4 test vector).
-    const ABC_SHA256: [u8; 32] = [
-        0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22,
-        0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00,
-        0x15, 0xad,
-    ];
+    /// The program the tests pack: 33 bytes that start with the image magic, which is all the packer
+    /// and the store read of an image.
+    const IMAGE: &[u8] = b"TRSTI001 and the rest of an image";
 
-    /// A valid version-1 record that names the program of `sha256` and `bytes`, written by the
-    /// core's own record writer (specification 34 §5.1.1).
+    /// A valid version-1 record that names the image of `sha256` and `bytes`, written by the core's
+    /// own record writer (specification 34 §5.1.1), with the requests of an image: no limit, since an
+    /// image is not prepared (specification 44 §10.1).
     fn record_of(program_sha256: [u8; 32], program_bytes: u32) -> Vec<u8> {
         DeploymentRecord {
             application: ApplicationIdentity {
                 program_sha256,
                 program_bytes,
-                bytecode_version: BytecodeVersion::SOURCE_FREE,
-                bytecode_flags: 0,
+                program_version: ProgramVersion::NATIVE_IMAGE,
+                program_flags: 0,
                 configuration_sha256: [0; 32],
                 retain_schema_sha256: [0; 32],
             },
@@ -89,7 +85,19 @@ mod tests {
                 timing_evidence: TimingEvidence::UNQUALIFIED,
                 capabilities: Capabilities::NONE,
             },
-            limits: RequestedLimits::from_preparation(&PreparationLimits::default()),
+            limits: RequestedLimits {
+                max_artifact_bytes: 0,
+                max_preparation_bytes: 0,
+                max_preparation_work: 0,
+                max_validation_scratch_bytes: 0,
+                max_validation_work: 0,
+                max_construction_values: 0,
+                max_construction_bytes: 0,
+                max_process_image_bytes: 0,
+                max_work: 0,
+                max_construction_work: 0,
+                max_call_depth: 0,
+            },
             process_image: ProcessImageSummary::default(),
             tasks: Vec::new(),
             imports: Vec::new(),
@@ -97,6 +105,11 @@ mod tests {
         }
         .encode()
         .expect("a small record encodes")
+    }
+
+    /// The record of [`IMAGE`].
+    fn image_record() -> Vec<u8> {
+        record_of(sha256(IMAGE), 33)
     }
 
     /// The C6's program unit, in bytes.
@@ -196,43 +209,45 @@ mod tests {
         }
     }
 
-    /// Specification 44 §10.1: a program that starts with the image magic is packed as an image, entry
-    /// kind 3 at byte 64, and its record names the compiled-image version. Catches an image packed as
-    /// STBC, which every device would refuse as a record of another program.
+    /// Specification 44 §10.1: an image is packed as an image, entry kind 3, at byte 64, the first
+    /// 64-byte boundary after the 60-byte header. Catches an image packed with another entry kind or
+    /// at another offset, which every device would refuse or read wrongly.
     #[test]
     fn an_image_is_packed_as_an_image() {
-        let image = b"TRSTI001 and the rest of an image";
-        let mut record = DeploymentRecord::decode(&record_of(
-            sha256(image),
-            u32::try_from(image.len()).expect("a short image"),
-        ))
-        .expect("the record reads");
-        record.application.bytecode_version = BytecodeVersion::NATIVE_IMAGE;
-        let record = record.encode().expect("the record encodes");
-        let packed = pack_project(image, &record).expect("the record describes this image");
+        let record = image_record();
+        let packed = pack_project(IMAGE, &record).expect("the record describes this image");
         assert_eq!(packed[28..32], 3_u32.to_le_bytes());
         assert_eq!(packed[32..36], 64_u32.to_le_bytes());
         let decoded =
             installation::decode_sequenced(&packed).expect("the packed container decodes");
         assert_eq!(decoded.installed.format, installation::ProgramFormat::Image);
-        assert_eq!(decoded.installed.program, image);
+        assert_eq!(decoded.installed.program, IMAGE);
+    }
+
+    /// Specification 44 §15: a device runs program images only, so the packer refuses any other
+    /// program before it reads the record. Catches a packer that packs a program no device admits.
+    #[test]
+    fn pack_project_refuses_a_program_that_is_not_an_image() {
+        let program = b"abc";
+        let error = pack_project(program, &record_of(sha256(program), 3))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("not a program image"), "{error}");
     }
 
     #[test]
     fn pack_project_refuses_a_record_of_another_program() {
-        let program = b"abc";
-        let matching = record_of(ABC_SHA256, 3);
-        let container =
-            pack_project(program, &matching).expect("the record describes this program");
+        let matching = image_record();
+        let container = pack_project(IMAGE, &matching).expect("the record describes this program");
         let decoded =
             installation::decode_sequenced(&container).expect("the packed container decodes");
-        assert_eq!(decoded.installed.program, program);
+        assert_eq!(decoded.installed.program, IMAGE);
         assert_eq!(decoded.installed.record, matching.as_slice());
 
         // The record of another program, by SHA-256 or by length, is refused.
-        for other in [record_of([0x22; 32], 3), record_of(ABC_SHA256, 4)] {
+        for other in [record_of([0x22; 32], 33), record_of(sha256(IMAGE), 34)] {
             assert!(
-                pack_project(program, &other).is_err(),
+                pack_project(IMAGE, &other).is_err(),
                 "a record of another program must be refused"
             );
         }
@@ -240,30 +255,28 @@ mod tests {
         let mut damaged = matching;
         let middle = damaged.len() / 2;
         damaged[middle] ^= 1;
-        assert!(pack_project(program, &damaged).is_err());
+        assert!(pack_project(IMAGE, &damaged).is_err());
     }
 
-    /// Specification 34 §5.1, "A first flash": for one program and record, the container that the
+    /// Specification 34 §5.1, "A first flash": for one image and record, the container that the
     /// packer writes is, byte for byte, the container that `program.install` commits into an empty
     /// store. A client's upload carries any install sequence (77 here), and the device replaces it with
     /// the sequence of a first commit, 1. Worked out by hand: the container is the 60-byte `TRSTA002`
-    /// header, the 3-byte program and the record, so `63 + record.len()` bytes, with the magic
-    /// `TRSTA002` at byte 0 and the sequence 1 as eight little-endian bytes at byte 16. Catches a
-    /// packer that writes a sequence other than the first commit's (0 as version 1 had, or 2), a packer
-    /// whose layout or version differs from the writer the store commits, and a store that keeps the
-    /// sequence of the upload.
+    /// header, four zero bytes up to the 64-byte boundary where the image starts, the 33-byte image
+    /// and the record, so `97 + record.len()` bytes, with the magic `TRSTA002` at byte 0 and the
+    /// sequence 1 as eight little-endian bytes at byte 16. Catches a packer that writes a sequence
+    /// other than the first commit's (0, or 2), a packer whose layout or version differs from the
+    /// writer the store commits, and a store that keeps the sequence of the upload.
     #[test]
     fn a_packed_container_is_the_container_the_store_commits() {
-        let program = b"abc";
-        let record = record_of(ABC_SHA256, 3);
-        let packed = pack_project(program, &record).expect("the record describes this program");
+        let record = image_record();
+        let packed = pack_project(IMAGE, &record).expect("the record describes this program");
         assert_eq!(&packed[..8], b"TRSTA002");
         assert_eq!(packed[16..24], 1_u64.to_le_bytes());
-        assert_eq!(packed.len(), 63 + record.len());
+        assert_eq!(packed.len(), 97 + record.len());
 
         let flash = Flash::erased();
-        let upload =
-            installation::encode_sequenced(77, program, &record).expect("the upload encodes");
+        let upload = installation::encode_image(77, IMAGE, &record).expect("the upload encodes");
         assert_eq!(
             commit(&flash, upload),
             1,
@@ -291,22 +304,21 @@ mod tests {
     /// the program it replaces. Catches a packer whose container the store does not count as
     /// committed (version 1, or a sequence the boot cannot read), after which the first install would
     /// erase slot A under the running program, and a packer that writes sequence 2 or more, so that
-    /// the first install would not outrank the flashed program.
+    /// the first install would not outrank the flashed program. The boot admits the image on this
+    /// computer, whose CPU runs program images.
     #[test]
     fn a_packed_container_boots_as_a_committed_first_flash() {
-        let program = b"abc";
-        let record = record_of(ABC_SHA256, 3);
-        let packed = pack_project(program, &record).expect("the record describes this program");
+        let record = image_record();
+        let packed = pack_project(IMAGE, &record).expect("the record describes this program");
         let flash = Flash::erased();
         flash.flash(Slot::A, &packed);
 
         let booted = boot(&mut flash.store(), &DeviceDescriptor::hosted(), ROOM)
             .expect("a packed container boots");
         assert_eq!(booted.sequence, 1, "a first flash has sequence 1");
-        assert_eq!(&*booted.program, program, "and hands over its program");
+        assert_eq!(&*booted.program, IMAGE, "and hands over its program");
 
-        let upload =
-            installation::encode_sequenced(0, program, &record).expect("the upload encodes");
+        let upload = installation::encode_image(0, IMAGE, &record).expect("the upload encodes");
         assert_eq!(
             commit(&flash, upload),
             2,

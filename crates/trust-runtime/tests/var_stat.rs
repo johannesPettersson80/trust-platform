@@ -1,3 +1,8 @@
+//! VAR_STAT of functions and methods: kept from call to call, per instance for a method; the calls'
+//! results show it.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
 
@@ -28,13 +33,6 @@ END_PROGRAM
     let result = harness.cycle();
     assert!(result.errors.is_empty(), "{:?}", result.errors);
 
-    assert_eq!(
-        harness
-            .runtime()
-            .storage()
-            .get_global("__STAT::Counter::Count"),
-        Some(&Value::Int(3))
-    );
     assert_eq!(harness.get_output("first"), Some(Value::Int(1)));
     assert_eq!(harness.get_output("second"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("third"), Some(Value::Int(3)));
@@ -71,28 +69,6 @@ END_PROGRAM
     let result = harness.cycle();
     assert!(result.errors.is_empty(), "{:?}", result.errors);
 
-    let a = match harness.get_output("a") {
-        Some(Value::Instance(id)) => id,
-        other => panic!("expected class instance for a, got {other:?}"),
-    };
-    let b = match harness.get_output("b") {
-        Some(Value::Instance(id)) => id,
-        other => panic!("expected class instance for b, got {other:?}"),
-    };
-    assert_eq!(
-        harness
-            .runtime()
-            .storage()
-            .get_instance_var(a, "__STAT::Accumulator::Next::Count"),
-        Some(&Value::Int(2))
-    );
-    assert_eq!(
-        harness
-            .runtime()
-            .storage()
-            .get_instance_var(b, "__STAT::Accumulator::Next::Count"),
-        Some(&Value::Int(1))
-    );
     assert_eq!(harness.get_output("a_first"), Some(Value::Int(1)));
     assert_eq!(harness.get_output("a_second"), Some(Value::Int(2)));
     assert_eq!(harness.get_output("b_first"), Some(Value::Int(1)));

@@ -4,6 +4,8 @@
 //! interface, running in the Stopped state. `restart` starts the installed program again, an
 //! install is accepted only while the resource is Stopped, and only a signal or the explicit exit
 //! ends the process. Every test runs the real binary on a private copy of an example project.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
@@ -14,7 +16,7 @@ use std::time::Duration;
 use base64::Engine as _;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use trust_runtime_services::installation::encode_sequenced;
+use trust_runtime_services::installation::encode_image;
 
 use runtime_process::{
     build_program, hold_for, BuiltProgram, ExampleRuntime, Runtime, CLIMB, WAIT,
@@ -293,12 +295,12 @@ fn the_web_deploy_while_running_answers_resource_not_running() {
     // running resource accepts the deployment, or the refusal is a text of the web interface alone.
     let runtime = ExampleRuntime::new(EXAMPLE).web().start();
     runtime.wait_for_snapshot(WAIT, "a running scan", |_| true);
-    let program_before = fs::read(runtime.project().join("program.stbc")).expect("program.stbc");
+    let program_before = fs::read(runtime.project().join("program.tpi")).expect("program.tpi");
     let step_two = step_two_program();
 
     let answer = post_deploy(
         &runtime,
-        &json!({"program_stbc_b64": base64::engine::general_purpose::STANDARD.encode(&step_two.program)}),
+        &json!({"program_tpi_b64": base64::engine::general_purpose::STANDARD.encode(&step_two.program)}),
     );
 
     assert_eq!(answer["ok"], json!(false), "{answer}");
@@ -316,7 +318,7 @@ fn the_web_deploy_while_running_answers_resource_not_running() {
         json!("resource is running and its scheduler does not accept commands")
     );
     assert_eq!(
-        fs::read(runtime.project().join("program.stbc")).expect("program.stbc"),
+        fs::read(runtime.project().join("program.tpi")).expect("program.tpi"),
         program_before,
         "a refused deployment writes nothing"
     );
@@ -330,7 +332,7 @@ fn the_web_rollback_while_running_answers_resource_not_running() {
     // running resource changes its links, or answers the store's own error without the code.
     let runtime = ExampleRuntime::new(EXAMPLE).web().start();
     runtime.wait_for_snapshot(WAIT, "a running scan", |_| true);
-    let program_before = fs::read(runtime.project().join("program.stbc")).expect("program.stbc");
+    let program_before = fs::read(runtime.project().join("program.tpi")).expect("program.tpi");
 
     let answer = ureq::post(&format!("{}/api/rollback", runtime.web_base()))
         .header("Content-Type", "application/json")
@@ -348,7 +350,7 @@ fn the_web_rollback_while_running_answers_resource_not_running() {
         json!("resource is running and its scheduler does not accept commands")
     );
     assert_eq!(
-        fs::read(runtime.project().join("program.stbc")).expect("program.stbc"),
+        fs::read(runtime.project().join("program.tpi")).expect("program.tpi"),
         program_before,
         "a refused rollback changes nothing"
     );
@@ -374,7 +376,7 @@ fn a_program_installed_while_stopped_runs_after_restart() {
 
     let answer = post_deploy(
         &runtime,
-        &json!({"program_stbc_b64": base64::engine::general_purpose::STANDARD.encode(&step_two.program)}),
+        &json!({"program_tpi_b64": base64::engine::general_purpose::STANDARD.encode(&step_two.program)}),
     );
     assert_eq!(answer["ok"], json!(true), "{answer}");
 
@@ -403,7 +405,7 @@ fn a_program_installed_with_program_install_while_stopped_runs_after_restart() {
     let before = run_until_the_counter_is_high(&runtime);
     stop_the_program(&runtime);
     let step_two = step_two_program();
-    let container = encode_sequenced(1, &step_two.program, &step_two.record)
+    let container = encode_image(1, &step_two.program, &step_two.record)
         .expect("encode the container of the second program");
 
     let transfer = upload(&runtime, &container);
@@ -439,7 +441,7 @@ fn a_program_installed_into_the_store_while_stopped_runs_after_restart() {
     stop_the_program(&runtime);
     let first_bundle = fs::read_link(runtime.project()).expect("current is a link");
     let step_two = step_two_program();
-    let container = encode_sequenced(1, &step_two.program, &step_two.record)
+    let container = encode_image(1, &step_two.program, &step_two.record)
         .expect("encode the container of the second program");
 
     let transfer = upload(&runtime, &container);
@@ -571,7 +573,7 @@ fn a_stopped_computer_steps_its_program_and_loads_an_installed_one() {
     );
 
     let step_two = step_two_program();
-    let container = encode_sequenced(1, &step_two.program, &step_two.record)
+    let container = encode_image(1, &step_two.program, &step_two.record)
         .expect("encode the container of the second program");
     let transfer = upload(&runtime, &container);
     let installed = runtime.control_request(

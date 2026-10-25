@@ -175,7 +175,7 @@ Rejected cases include:
 
 ## Generated Runtime Path
 
-For attributed programs, truST instruments the source before bytecode generation.
+For attributed programs, truST instruments the source before it compiles the program.
 The generated program contains:
 
 - a hidden `OotProducer : OPENOT_Producer` instance;

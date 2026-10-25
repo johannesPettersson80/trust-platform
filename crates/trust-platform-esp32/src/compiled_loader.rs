@@ -1,7 +1,8 @@
-//! The C6's loader of compiled programs (specification 44 §8, §10): it builds the running program
-//! out of an admitted container whose program is a compiled program image, for the boot and for a
-//! `restart` that loads a newer container in place, in the steps and the order of the interpreter's
-//! loader ([`crate::loader`]):
+//! The C6's loader of compiled programs (specification 44 §8, §10; specification 34 STATE-08 and
+//! §11.2): it builds the running program out of an admitted container whose program is a compiled
+//! program image, for the boot and for a `restart` that loads a newer container in place, in the same
+//! steps and the same order, so a program starts the same way after a reset and after a `restart`
+//! ([`crate::loader`] holds what it needs of the chip and takes from a record):
 //!
 //! 1. the image is checked where it lies in the mapped slot, against the C6's CPU, its memory for
 //!    programs and its task stack (specification 44 §10.2), and its module is put where the CPU runs
@@ -47,14 +48,14 @@ use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::ports::StatusPort;
 use trust_runtime_services::runner::{
     address_text, check_image_retained_values, unwired_binding, Candidate, ChangeMemory,
-    CompiledCycle, EngineLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainSource,
+    CompiledCycle, DeviceLiveValues, Loaded, ProgramLoader, ResourceCycle, RetainSource,
 };
 
 use crate::loader::{
     cycle_timeout_ms, event_capacity, retain_config, settings, start_failure, CycleWatchdog,
     ProgramHardware, ONLINE_CHANGE_WORKING_MEMORY_BYTES,
 };
-use crate::platform::NativePlatform;
+use crate::platform::Platform;
 use crate::profile::NATIVE_TARGET;
 
 mod changed_image;
@@ -136,7 +137,7 @@ impl<H, M, C> CompiledLoader<H, M, C> {
     }
 }
 
-impl<H, M, C, W> ProgramLoader<NativePlatform<W>, CompiledProgramCycle<C, H::Io, M::Code>>
+impl<H, M, C, W> ProgramLoader<Platform<W>, CompiledProgramCycle<C, H::Io, M::Code>>
     for CompiledLoader<H, M, C>
 where
     H: ProgramHardware,
@@ -150,7 +151,7 @@ where
 
     fn load(
         &mut self,
-        platform: &mut NativePlatform<W>,
+        platform: &mut Platform<W>,
         booted: Booted,
         mode: RestartMode,
     ) -> Result<Loaded<CompiledProgramCycle<C, H::Io, M::Code>>, String> {
@@ -187,7 +188,7 @@ where
         let (bindings, names) = io_bindings(&program.image()).map_err(|error| {
             format!("the installed application's Live Values cannot be bound: {error}")
         })?;
-        let live = EngineLiveValues::for_compiled(bindings, names).map_err(|error| {
+        let live = DeviceLiveValues::for_compiled(bindings, names).map_err(|error| {
             format!("the installed application's Live Values cannot be bound: {error}")
         })?;
         if !platform
@@ -245,7 +246,7 @@ where
 
     fn prepare_change(
         &mut self,
-        platform: &mut NativePlatform<W>,
+        platform: &mut Platform<W>,
         running: &mut CompiledProgramCycle<C, H::Io, M::Code>,
         program: Vec<u8>,
     ) -> Result<Candidate<CompiledProgramCycle<C, H::Io, M::Code>>, String> {
@@ -282,7 +283,7 @@ where
                 address_text(&address)
             ));
         }
-        let live = EngineLiveValues::for_compiled(bindings, names)
+        let live = DeviceLiveValues::for_compiled(bindings, names)
             .map_err(|error| format!("the change's Live Values cannot be bound: {error}"))?;
         // The candidate claims no line: the commit hands it the running program's.
         let io = self.hardware.claim_lines(&Configuration::default())?;
@@ -304,7 +305,7 @@ where
     /// released or claimed, and no output is written (specification 34 §11.3).
     fn commit_change(
         &mut self,
-        platform: &mut NativePlatform<W>,
+        platform: &mut Platform<W>,
         running: &mut CompiledProgramCycle<C, H::Io, M::Code>,
         candidate: &mut Candidate<CompiledProgramCycle<C, H::Io, M::Code>>,
     ) {
@@ -323,7 +324,7 @@ where
 /// A changed program's cycle and the events of the values it did not keep as they were.
 type Changed<C, I, K> = (
     CompiledProgramCycle<C, I, K>,
-    Vec<trust_runtime_core::vm::CarriedValueEvent>,
+    Vec<trust_runtime_core::native::change::CarriedValueEvent>,
 );
 
 /// The candidate of an online change, once its module is where the CPU runs it: its program over the
@@ -344,7 +345,7 @@ fn build_candidate<C, I, K>(
 ) -> Result<Changed<C, I, K>, String>
 where
     C: MonotonicClock + Copy + 'static,
-    I: trust_runtime_services::runner::engine::ProcessIo,
+    I: trust_runtime_services::runner::ProcessIo,
     K: ModuleCode,
 {
     let program = NativeProgram::new(admitted, code, device, &KERNEL_FUNCTIONS)

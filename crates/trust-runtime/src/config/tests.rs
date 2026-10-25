@@ -1429,7 +1429,7 @@ fn runtime_bundle_loads_ads_toml_when_enabled() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
     std::fs::write(root.join("ads.toml"), ads_toml()).expect("write ads.toml");
 
     let bundle = RuntimeBundle::load(&root).expect("load runtime bundle");
@@ -1457,7 +1457,7 @@ fn runtime_bundle_loads_opcua_client_toml_when_enabled() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
     std::fs::write(root.join("opcua_client.toml"), opcua_client_toml())
         .expect("write opcua_client.toml");
 
@@ -1489,7 +1489,7 @@ fn runtime_bundle_rejects_missing_enabled_opcua_client_toml() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
 
     let err = RuntimeBundle::load(&root).expect_err("missing OPC UA client config should fail");
 
@@ -1507,7 +1507,7 @@ fn runtime_bundle_rejects_missing_enabled_ads_toml() {
     )
     .expect("write runtime.toml");
     std::fs::write(root.join("io.toml"), io_toml()).expect("write io.toml");
-    std::fs::write(root.join("program.stbc"), []).expect("write bytecode");
+    std::fs::write(root.join(crate::native::PROGRAM_IMAGE_FILE), []).expect("write program image");
 
     let err = RuntimeBundle::load(&root).expect_err("missing ADS config should fail");
 
@@ -1737,10 +1737,6 @@ fn runtime_config_load_records_execution_backend_source_from_config() {
 
     let runtime = RuntimeConfig::load(&runtime_path).expect("load runtime config");
     assert_eq!(
-        runtime.execution_backend,
-        crate::execution_backend::ExecutionBackend::BytecodeVm
-    );
-    assert_eq!(
         runtime.execution_backend_source,
         crate::execution_backend::ExecutionBackendSource::Config
     );
@@ -1764,10 +1760,6 @@ fn runtime_config_load_defaults_execution_backend_source_when_omitted() {
     .expect("write runtime config");
 
     let runtime = RuntimeConfig::load(&runtime_path).expect("load runtime config");
-    assert_eq!(
-        runtime.execution_backend,
-        crate::execution_backend::ExecutionBackend::BytecodeVm
-    );
     assert_eq!(
         runtime.execution_backend_source,
         crate::execution_backend::ExecutionBackendSource::Default

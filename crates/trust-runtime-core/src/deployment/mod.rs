@@ -1,33 +1,27 @@
-//! The record of a deployment and its admission (specification 34 §5.1.1, DEPLOY-04, HOST-02).
+//! The record of a deployment and its admission (specification 34 §5.1.1, specification 44 §10.1).
 //!
-//! A deployment record describes one STBC program: its identities, the contracts and
-//! capabilities it needs, the preparation limits it requests, its process image, its tasks, its
-//! built-in imports and the configuration a device without an operating system runs from. It
-//! travels as the versioned binary sidecar `deployment-record.bin`
-//! next to `program.stbc`. Before any state exists, a runtime admits the record against its
-//! device descriptor and prepares the program with the limits the record requests. The same
-//! code runs on every target, with and without `std`.
+//! A deployment record describes one program image: its identities, the contracts and
+//! capabilities it needs, the process image it requests, its tasks and the configuration a device
+//! without an operating system runs from. It travels as the versioned binary sidecar
+//! `deployment-record.bin` next to `program.tpi`. Before any state exists, a runtime admits the
+//! record against its device descriptor. The same code runs on every target, with and without
+//! `std`.
 
 mod admission;
 mod codec;
 mod configuration;
-mod describe;
 mod identity;
 mod refusal;
 
-pub use admission::{admit, admit_memory, DeviceDescriptor, NativeTarget, HOSTED_MAX_STATEMENTS};
+pub use admission::{admit, DeviceDescriptor, NativeTarget, HOSTED_MAX_STATEMENTS};
 pub use configuration::{
     Configuration, ControlMode, GpioInput, GpioOutput, HangAction, IoDriver, LogLevel,
     SafeStateEntry, TaskOverride,
 };
-pub use identity::{
-    configuration_identity, retain_schema_identity, sha256, sha256_parts, Sha256Stream,
-};
+pub use identity::{configuration_identity, sha256, sha256_parts, Sha256Stream};
 pub use refusal::{AdmissionRefusal, DeploymentRecordError, LimitKind};
 
-use crate::bytecode::BytecodeVersion;
 use crate::retain::checkpoint::CheckpointIdentity;
-use crate::vm::PreparationLimits;
 use alloc::vec::Vec;
 use core::fmt;
 use smol_str::SmolStr;
@@ -74,17 +68,40 @@ impl DeploymentRecord {
     }
 }
 
+/// The version of the program format a record names (specification 34 §5.1.1, section 1): 44.1
+/// for a compiled program image, the only program a runtime runs (specification 44 §10.1). The
+/// versions below 44 named the STBC programs of the bytecode engine, which a runtime refuses with
+/// "rebuild the project" (specification 44 §15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProgramVersion {
+    /// Major version.
+    pub major: u16,
+    /// Minor version.
+    pub minor: u16,
+}
+
+impl ProgramVersion {
+    /// The version pair `major.minor`.
+    #[must_use]
+    pub const fn new(major: u16, minor: u16) -> Self {
+        Self { major, minor }
+    }
+
+    /// A compiled program image `TRSTI001` (specification 44 §10.1).
+    pub const NATIVE_IMAGE: Self = Self::new(44, 1);
+}
+
 /// The program and the configuration it was built with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ApplicationIdentity {
-    /// SHA-256 of the exact bytes of `program.stbc`.
+    /// SHA-256 of the exact bytes of `program.tpi`.
     pub program_sha256: [u8; 32],
-    /// The length of `program.stbc` in bytes.
+    /// The length of `program.tpi` in bytes.
     pub program_bytes: u32,
-    /// The program's STBC version.
-    pub bytecode_version: BytecodeVersion,
-    /// The program's STBC header flags.
-    pub bytecode_flags: u32,
+    /// The version of the program's format.
+    pub program_version: ProgramVersion,
+    /// The program's format flags; 0 for an image.
+    pub program_flags: u32,
     /// SHA-256 over the project's `runtime.toml` and `io.toml` (`configuration_identity`).
     pub configuration_sha256: [u8; 32],
     /// SHA-256 over the retained declarations and the types (`retain_schema_identity`).
@@ -209,8 +226,9 @@ impl fmt::Display for Capabilities {
     }
 }
 
-/// The preparation limits a program requests: one 64-bit value per field of
-/// `PreparationLimits`, so that a record means the same on 32- and 64-bit targets.
+/// The limits a program requests, one 64-bit value each, so that a record means the same on 32- and
+/// 64-bit targets. An image requests its process image's bytes and 0 for every other limit, which
+/// named a limit of the bytecode engine's preparation (specification 44 §10.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RequestedLimits {
     /// `max_artifact_bytes`.
@@ -238,24 +256,6 @@ pub struct RequestedLimits {
 }
 
 impl RequestedLimits {
-    /// The request for exactly these preparation limits.
-    #[must_use]
-    pub fn from_preparation(limits: &PreparationLimits) -> Self {
-        Self {
-            max_artifact_bytes: wide(limits.max_artifact_bytes),
-            max_preparation_bytes: wide(limits.max_preparation_bytes),
-            max_preparation_work: wide(limits.max_preparation_work),
-            max_validation_scratch_bytes: wide(limits.validation.max_scratch_bytes),
-            max_validation_work: wide(limits.validation.max_work),
-            max_construction_values: wide(limits.max_construction_values),
-            max_construction_bytes: wide(limits.max_construction_bytes),
-            max_process_image_bytes: wide(limits.max_process_image_bytes),
-            max_work: wide(limits.max_work),
-            max_construction_work: wide(limits.max_construction_work),
-            max_call_depth: wide(limits.max_call_depth),
-        }
-    }
-
     /// Every limit with its value, in the order of the record's limits section.
     #[must_use]
     pub fn values(&self) -> [(LimitKind, u64); LimitKind::ALL.len()] {

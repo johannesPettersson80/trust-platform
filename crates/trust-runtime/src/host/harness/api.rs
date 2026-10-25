@@ -4,10 +4,47 @@
 
 use super::build;
 use super::types::{CompileError, SourceFile};
-use crate::Runtime;
+use crate::memory::VariableStorage;
+use crate::RuntimeMetadata;
+use indexmap::IndexMap;
 use smol_str::SmolStr;
 
-/// Compile helper for runtime + bytecode builds.
+/// A project's declarations in their starting state (specification 44 §6.7): the metadata of its
+/// programs, functions, types and tasks, and the storage that holds the starting values of its
+/// globals and program instances.
+#[derive(Debug, Clone)]
+pub struct Declarations {
+    metadata: RuntimeMetadata,
+    storage: VariableStorage,
+    globals: IndexMap<SmolStr, trust_hir::TypeId>,
+    access: Vec<super::NamedAccess>,
+}
+
+impl Declarations {
+    /// The `VAR_ACCESS` declarations, by the names of the program's symbols.
+    pub(crate) fn access_paths(&self) -> &[super::NamedAccess] {
+        &self.access
+    }
+
+    /// The project's globals, each with its declared type, in declaration order.
+    pub fn globals(&self) -> impl Iterator<Item = (&SmolStr, trust_hir::TypeId)> {
+        self.globals.iter().map(|(name, type_id)| (name, *type_id))
+    }
+
+    /// The metadata of the project's declarations.
+    #[must_use]
+    pub fn metadata(&self) -> &RuntimeMetadata {
+        &self.metadata
+    }
+
+    /// The starting values of the project's globals and program instances.
+    #[must_use]
+    pub fn storage(&self) -> &VariableStorage {
+        &self.storage
+    }
+}
+
+/// The sources of a project and how their errors are labelled.
 #[derive(Debug, Clone)]
 pub struct CompileSession {
     sources: Vec<SourceFile>,
@@ -66,107 +103,30 @@ impl CompileSession {
         &self.sources
     }
 
-    /// Build an isolated historical baseline for private native parity fixtures.
-    #[cfg(test)]
-    pub(crate) fn build_legacy_fixture(
-        &self,
-    ) -> Result<crate::runtime::LegacyRuntimeFixture, CompileError> {
+    /// The declared program in its starting state (specification 44 §6.7), which the tools read
+    /// without running it: its programs, their variables and types, and the starting values the build
+    /// computes.
+    ///
+    /// # Errors
+    ///
+    /// The [`CompileError`] of sources with errors.
+    pub fn declarations(&self) -> Result<Declarations, CompileError> {
         self.ensure_instrumented()?;
-        build::build_legacy_fixture(
-            &self.sources,
-            self.label_errors,
-            &self.extra_program_instances,
-        )
-    }
-
-    /// Compile sources into a runtime.
-    pub fn build_runtime(&self) -> Result<Runtime, CompileError> {
-        self.ensure_instrumented()?;
-        build::build_runtime_from_source_files(
-            &self.sources,
-            self.label_errors,
-            &self.extra_program_instances,
-        )
-    }
-
-    /// Install supplied bytecode once. Legacy 1.1 requires these sources as
-    /// matching construction context; 2.0/3.0 may use an empty source list. Ordinary
-    /// instruction bytes are never replaced by recompiled source bodies.
-    pub fn build_runtime_from_bytecode(
-        &self,
-        supplied: &crate::bytecode::BytecodeModule,
-        resource_name: Option<&str>,
-    ) -> Result<Runtime, CompileError> {
-        self.build_runtime_from_bytecode_with_limits(
-            supplied,
-            resource_name,
-            trust_runtime_core::vm::PreparationLimits::default(),
-        )
-    }
-
-    /// [`Self::build_runtime_from_bytecode`], prepared with `limits`: those of the
-    /// project's admitted deployment record (specification 34 HOST-02,
-    /// `RuntimeBundle::preparation_limits`).
-    pub fn build_runtime_from_bytecode_with_limits(
-        &self,
-        supplied: &crate::bytecode::BytecodeModule,
-        resource_name: Option<&str>,
-        limits: trust_runtime_core::vm::PreparationLimits,
-    ) -> Result<Runtime, CompileError> {
-        self.ensure_instrumented()?;
-        super::artifact::build_runtime(
-            supplied,
-            resource_name,
-            &self.sources,
-            self.label_errors,
-            &self.extra_program_instances,
-            limits,
-        )
-    }
-
-    /// Compile sources into a bytecode module.
-    pub fn build_bytecode_module(&self) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-        self.build_bytecode_module_for_version(crate::bytecode::BytecodeVersion::SOURCE_FREE)
-    }
-
-    /// Select a wire contract explicitly. Hosted adoption defaults to STBC 3.0;
-    /// the temporary 1.1 writer remains an explicit compatibility choice.
-    /// Source-free STBC preserves declarations and executable initializers without running them.
-    pub fn build_bytecode_module_for_version(
-        &self,
-        version: crate::bytecode::BytecodeVersion,
-    ) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-        self.ensure_instrumented()?;
-        if version == crate::bytecode::BytecodeVersion::LEGACY {
-            return build::build_bytecode_module_from_source_files(
-                &self.sources,
-                self.label_errors,
-                &self.extra_program_instances,
-            );
-        }
-        if !matches!(
-            version,
-            crate::bytecode::BytecodeVersion::SOURCE_FREE
-                | crate::bytecode::BytecodeVersion::SOURCE_FREE_V2
-        ) {
-            return Err(CompileError::new("unsupported bytecode producer version"));
-        }
-        let abi = version
-            .storage_abi()
+        let (builder, templates) = build::lower_application(&self.sources, self.label_errors)?
+            .construct(&self.extra_program_instances)?;
+        let metadata = builder
+            .metadata_for_configuration(
+                templates,
+                builder.programs().clone(),
+                builder.tasks().to_vec(),
+            )
             .map_err(|error| CompileError::new(error.to_string()))?;
-        let input = build::lower_application_with_abi(&self.sources, self.label_errors, abi)?
-            .prepare_authoring(&self.extra_program_instances)?;
-        crate::bytecode::build_module_with_type_projection_for_version(&input, version)
-            .map(|projected| projected.module)
-            .map_err(|error| CompileError::new(error.to_string()))
-    }
-
-    /// Compile sources into bytecode bytes.
-    pub fn build_bytecode_bytes(&self) -> Result<Vec<u8>, CompileError> {
-        let module = self.build_bytecode_module()?;
-        module
-            .encode()
-            .map_err(|err| CompileError::new(err.to_string()))
+        Ok(Declarations {
+            metadata,
+            storage: builder.storage().clone(),
+            globals: builder.global_types(),
+            access: builder.access_paths().to_vec(),
+        })
     }
 
     fn ensure_instrumented(&self) -> Result<(), CompileError> {
@@ -183,88 +143,6 @@ fn instrument_sources_for_compile(sources: Vec<SourceFile>) -> (Vec<SourceFile>,
         Ok(instrumented) => (instrumented, Vec::new()),
         Err(error) => (sources, vec![error]),
     }
-}
-
-/// Build a bytecode module from a single source file.
-pub fn bytecode_module_from_source(
-    source: &str,
-) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    CompileSession::from_source(source).build_bytecode_module()
-}
-
-/// Build a bytecode module from a single source file with an explicit path.
-pub fn bytecode_module_from_source_with_path(
-    source: &str,
-    path: &str,
-) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    CompileSession::from_sources(vec![SourceFile::with_path(path, source)]).build_bytecode_module()
-}
-
-/// Build a bytecode module from multiple source files.
-pub fn bytecode_module_from_sources(
-    sources: &[&str],
-) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    let source_files = sources
-        .iter()
-        .copied()
-        .map(SourceFile::new)
-        .collect::<Vec<_>>();
-    CompileSession::from_sources(source_files).build_bytecode_module()
-}
-
-/// Build a bytecode module from multiple source files with explicit paths.
-pub fn bytecode_module_from_sources_with_paths(
-    sources: &[&str],
-    paths: &[&str],
-) -> Result<crate::bytecode::BytecodeModule, CompileError> {
-    if sources.len() != paths.len() {
-        return Err(CompileError::new("sources/paths length mismatch"));
-    }
-    let source_files = sources
-        .iter()
-        .zip(paths.iter())
-        .map(|(source, path)| SourceFile::with_path(*path, *source))
-        .collect::<Vec<_>>();
-    CompileSession::from_sources(source_files).build_bytecode_module()
-}
-
-/// Build bytecode bytes from a single source file.
-pub fn bytecode_bytes_from_source(source: &str) -> Result<Vec<u8>, CompileError> {
-    CompileSession::from_source(source).build_bytecode_bytes()
-}
-
-/// Build bytecode bytes from a single source file with an explicit path.
-pub fn bytecode_bytes_from_source_with_path(
-    source: &str,
-    path: &str,
-) -> Result<Vec<u8>, CompileError> {
-    CompileSession::from_sources(vec![SourceFile::with_path(path, source)]).build_bytecode_bytes()
-}
-
-/// Build bytecode bytes from multiple source files.
-pub fn bytecode_bytes_from_sources(sources: &[&str]) -> Result<Vec<u8>, CompileError> {
-    let source_files = sources
-        .iter()
-        .copied()
-        .map(SourceFile::new)
-        .collect::<Vec<_>>();
-    CompileSession::from_sources(source_files).build_bytecode_bytes()
-}
-
-/// Build bytecode bytes from multiple source files with explicit paths.
-pub fn bytecode_bytes_from_sources_with_paths(
-    sources: &[&str],
-    paths: &[&str],
-) -> Result<Vec<u8>, CompileError> {
-    if sources.len() != paths.len() {
-        return Err(CompileError::new("sources/paths length mismatch"));
-    }
-    let source_files = sources
-        .iter()
-        .zip(paths.iter())
-        .map(|(source, path)| SourceFile::with_path(*path, *source))
-        .collect::<Vec<_>>();
-    CompileSession::from_sources(source_files).build_bytecode_bytes()
 }
 
 #[cfg(test)]

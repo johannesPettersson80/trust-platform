@@ -15,14 +15,14 @@
 //! with a zero or carried image, construction and every restart or online change publish the initial (or
 //! retained) value into the marker image before the first scan. The tests that follow the input test pin
 //! that for the first start, both restarts, a restart from the store, a retained program variable and an
-//! online change. A binding-only update (`bind_direct`) resets no PLC value either, so it publishes the
-//! current value of each marker binding that it adds or changes, in the commit that installs the binding
-//! and grows the image, and no other marker bit or byte: the last tests of the file pin that.
+//! online change.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use std::sync::{Arc, Mutex};
 
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::{bytecode_bytes_from_source, TestHarness};
+use trust_runtime::harness::TestHarness;
 use trust_runtime::retain::RetainStore;
 use trust_runtime::value::Value;
 use trust_runtime::{RestartMode, RetainSnapshot};
@@ -83,7 +83,7 @@ fn restart_gives_a_retained_located_output_its_value_by_mode_and_carries_its_ima
 
         harness
             .runtime_mut()
-            .write_global("kept", Value::Int(9))
+            .write_variable("kept", &Value::Int(9))
             .expect("checked write");
         scan(&mut harness);
         assert_eq!(image(&harness, "%QW2"), Value::Word(9), "{mode:?}");
@@ -359,12 +359,15 @@ fn marker_variable_restarted_from_the_store_has_the_checkpoint_value_in_the_imag
     let mut harness =
         TestHarness::from_source(&marker_source("RETAIN", 5)).expect("fixture compiles");
     let content = Arc::new(Mutex::new(RetainSnapshot::default()));
-    harness.runtime_mut().set_retain_store(
-        Some(Box::new(SharedStore {
-            content: Arc::clone(&content),
-        })),
-        None,
-    );
+    harness
+        .runtime_mut()
+        .set_retain_store(
+            Some(Box::new(SharedStore {
+                content: Arc::clone(&content),
+            })),
+            None,
+        )
+        .expect("the store is set");
     change_marker(&mut harness);
     content
         .lock()
@@ -441,12 +444,8 @@ fn online_change_publishes_the_carried_value_of_a_marker_variable() {
             TestHarness::from_source(&marker_source(qualifier, 5)).expect("fixture compiles");
         change_marker(&mut harness);
         write_marker_word(&mut harness, "%MW0", 7);
-        let candidate = bytecode_bytes_from_source(&marker_source(qualifier, 8))
-            .expect("the candidate compiles");
-
         harness
-            .runtime_mut()
-            .apply_online_change_bytes(&candidate, None)
+            .reload_source(&marker_source(qualifier, 8))
             .expect("the online change is accepted");
         assert_eq!(global(&harness, "m"), Value::Int(expected), "{case}");
         assert_eq!(
@@ -462,204 +461,4 @@ fn online_change_publishes_the_carried_value_of_a_marker_variable() {
             "{case}: the first scan of the new module starts with it"
         );
     }
-}
-
-/// Globals with non-zero values that a test binds to a direct address only after admission, as
-/// `bind_direct` does. The program copies what the scan loaded into `g`, so `seen` shows the value
-/// that the scan started with.
-const LATE_BINDING: &str = r#"
-VAR_GLOBAL
-    g : INT := INT#7;
-    h : INT := INT#9;
-    flag : BOOL := TRUE;
-    seen : INT := INT#0;
-END_VAR
-
-PROGRAM Main
-seen := g;
-END_PROGRAM
-"#;
-
-/// A marker word `m` that is bound from the start, a marker byte `tail` that leaves byte 2 of the
-/// image covered by no variable, and a global `g` that a test binds later.
-const BOUND_MARKER_AND_LATE_GLOBAL: &str = r#"
-VAR_GLOBAL
-    m AT %MW0 : INT := INT#1;
-    tail AT %MB3 : USINT;
-    g : INT := INT#7;
-    seen_m : INT := INT#0;
-    seen_g : INT := INT#0;
-END_VAR
-
-PROGRAM Main
-seen_m := m;
-seen_g := g;
-END_PROGRAM
-"#;
-
-/// Spec 11 6.7 (the binding-only update): binding a declared variable after admission resets no PLC
-/// value. The variable holds 7, the binding grows the marker image from nothing to six bytes, and the
-/// commit publishes the 7 into exactly the word it covers. Pre-fix the grown image was zero and the next
-/// scan loaded that zero over the variable.
-#[test]
-fn binding_a_variable_to_a_marker_word_publishes_its_value_into_the_grown_image() {
-    let mut harness = TestHarness::from_source(LATE_BINDING).expect("fixture compiles");
-    assert!(
-        harness.runtime().io().memory().is_empty(),
-        "the source declares no marker"
-    );
-
-    harness
-        .bind_direct("g", "%MW4")
-        .expect("bind the global to a marker word");
-    assert_eq!(
-        harness.runtime().io().memory(),
-        &[0, 0, 0, 0, 7, 0],
-        "the image grew to cover the word and holds the value in exactly that word"
-    );
-    assert_eq!(image(&harness, "%MW4"), Value::Word(7));
-
-    scan(&mut harness);
-    assert_eq!(
-        global(&harness, "g"),
-        Value::Int(7),
-        "the next scan loads the published value, not zero"
-    );
-    assert_eq!(global(&harness, "seen"), Value::Int(7));
-    assert_eq!(image(&harness, "%MW4"), Value::Word(7));
-}
-
-/// Spec 11 6.7: the update publishes the bindings it adds or changes and no other. A driver wrote the
-/// marker image after the last scan: a word that another variable is bound to and a byte that no
-/// variable covers. The new binding must leave both as they were written, so the next scan loads the
-/// written word into `m` instead of the value `m` held at the last scan.
-#[test]
-fn binding_a_variable_to_markers_leaves_every_other_marker_byte_as_a_driver_wrote_it() {
-    let mut harness =
-        TestHarness::from_source(BOUND_MARKER_AND_LATE_GLOBAL).expect("fixture compiles");
-    scan(&mut harness);
-    write_marker_word(&mut harness, "%MW0", 99);
-    harness
-        .set_direct_input("%MB2", Value::Byte(0x5A))
-        .expect("write a marker byte that no variable covers");
-
-    harness
-        .bind_direct("g", "%MW4")
-        .expect("bind the global to a marker word");
-    assert_eq!(
-        image(&harness, "%MW4"),
-        Value::Word(7),
-        "the new binding is published"
-    );
-    assert_eq!(
-        image(&harness, "%MW0"),
-        Value::Word(99),
-        "a word that another variable covers keeps what the driver wrote"
-    );
-    assert_eq!(
-        image(&harness, "%MB2"),
-        Value::Byte(0x5A),
-        "a byte that no variable covers keeps what the driver wrote"
-    );
-
-    scan(&mut harness);
-    assert_eq!(
-        global(&harness, "seen_m"),
-        Value::Int(99),
-        "the scan loads the written word"
-    );
-    assert_eq!(global(&harness, "seen_g"), Value::Int(7));
-}
-
-/// Spec 11 6.7: an update that binds the same variable to the same address again changes no binding, so
-/// it publishes nothing. What a driver wrote into the word since the first binding survives it.
-#[test]
-fn binding_a_variable_again_to_the_same_marker_address_publishes_nothing() {
-    let mut harness = TestHarness::from_source(LATE_BINDING).expect("fixture compiles");
-    harness
-        .bind_direct("g", "%MW4")
-        .expect("bind the global to a marker word");
-    write_marker_word(&mut harness, "%MW4", 55);
-
-    harness
-        .bind_direct("g", "%MW4")
-        .expect("bind the global again to the same word");
-    assert_eq!(
-        image(&harness, "%MW4"),
-        Value::Word(55),
-        "an unchanged binding is not published again"
-    );
-
-    scan(&mut harness);
-    assert_eq!(
-        global(&harness, "g"),
-        Value::Int(55),
-        "the scan loads the written word"
-    );
-}
-
-/// Spec 11 6.7 and 6.4: only a marker binding is published by the update. An output is published by the
-/// first scan that completes and an input is sampled by the scan that starts, so binding a variable to
-/// either one writes no byte of its image and allocates no marker byte.
-#[test]
-fn binding_a_variable_to_an_input_or_an_output_publishes_nothing() {
-    let mut harness = TestHarness::from_source(LATE_BINDING).expect("fixture compiles");
-
-    harness
-        .bind_direct("g", "%QW2")
-        .expect("bind the global to an output word");
-    harness
-        .bind_direct("h", "%IW2")
-        .expect("bind the global to an input word");
-    assert_eq!(
-        image(&harness, "%QW2"),
-        Value::Word(0),
-        "an output image is published by the first completed scan"
-    );
-    assert_eq!(
-        image(&harness, "%IW2"),
-        Value::Word(0),
-        "an input image is not published at all"
-    );
-    assert!(
-        harness.runtime().io().memory().is_empty(),
-        "no marker byte was allocated or written"
-    );
-
-    scan(&mut harness);
-    assert_eq!(
-        image(&harness, "%QW2"),
-        Value::Word(7),
-        "the scan publishes the output"
-    );
-    assert_eq!(
-        global(&harness, "h"),
-        Value::Int(0),
-        "the scan loads the input image over the variable"
-    );
-}
-
-/// Spec 11 6.7 and 6.4: a hierarchical marker key is outside the flat image but is published and read
-/// like a marker byte. The commit inserts the key with the variable's value, so the next scan finds it.
-/// Pre-fix the key was absent after the binding and the scan failed to load it.
-#[test]
-fn binding_a_variable_to_a_hierarchical_marker_publishes_its_value() {
-    let mut harness = TestHarness::from_source(LATE_BINDING).expect("fixture compiles");
-
-    harness
-        .bind_direct("flag", "%MX1.2.3")
-        .expect("bind the global to a hierarchical marker");
-    assert_eq!(
-        image(&harness, "%MX1.2.3"),
-        Value::Bool(true),
-        "the binding publishes the variable's value under its key"
-    );
-    assert!(
-        harness.runtime().io().memory().is_empty(),
-        "a hierarchical key allocates no flat marker byte"
-    );
-
-    scan(&mut harness);
-    assert_eq!(global(&harness, "flag"), Value::Bool(true));
-    assert_eq!(image(&harness, "%MX1.2.3"), Value::Bool(true));
 }

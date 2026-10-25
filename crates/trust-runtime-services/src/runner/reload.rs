@@ -29,11 +29,11 @@ use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::{ControlLink, MonotonicClock, RunnerWait};
 use trust_runtime_core::retain::RestartMode;
-use trust_runtime_core::vm::RetainApplyEvent;
+use trust_runtime_core::retain::RetainApplyEvent;
 
 use super::online_change::Candidate;
 use super::program::{no_program, Program};
-use super::{EngineLiveValues, ResourceCycle, RetainSource, Runner, RunnerPlatform};
+use super::{DeviceLiveValues, ResourceCycle, RetainSource, Runner, RunnerPlatform};
 use crate::loading::select::{Booted, ScanError};
 
 /// What the loop shows of a program that is being loaded: it is not a reason a restart would be
@@ -84,23 +84,19 @@ pub trait ProgramLoader<P, Y> {
     ///
     /// The device, in this order:
     ///
-    /// 1. prepares the module with the limits that the heap allows now, its room less a reserve it
-    ///    keeps ([`ChangeMemory`](crate::runner::ChangeMemory)), and frees `program` as soon as the
-    ///    module is prepared;
+    /// 1. admits the image as the kernel admits an install (specification 44 §10.2), and checks that
+    ///    its areas, its bookkeeping and its retain capture fit in the heap that remains beside the
+    ///    running program and the image, its room less a reserve it keeps
+    ///    ([`ChangeMemory`](crate::runner::ChangeMemory));
     /// 2. checks the candidate's bindings against the lines of the running program's record
     ///    ([`unwired_binding`](crate::runner::unwired_binding));
-    /// 3. builds the candidate from the running program's state with the engine's replacement
-    ///    ([`replacement`](crate::runner::engine::EngineCycle::replacement)), over the running
-    ///    program's settings and an empty process I/O, so that it claims no line and takes no
-    ///    checkpoint store. The candidate continues the running program's installation generation,
-    ///    keeps its logical time, its process images and its tasks' schedule, and keeps the retained
-    ///    values the running program holds: the retained function-block instances and references
-    ///    stay live when it declares the same retained storage, and the retained values migrate by
-    ///    name otherwise. No checkpoint is read (decisions OC-1 and OC-2);
-    /// 4. checks that the running program's safe state is valid in the candidate
-    ///    ([`check_safe_outputs`](crate::runner::engine::EngineCycle::check_safe_outputs)), and gives
-    ///    the candidate's Live Values the candidate's generation
-    ///    ([`set_generation`](crate::runner::EngineLiveValues::set_generation)).
+    /// 3. builds the candidate from the running program's state by the copy plan it works out from
+    ///    the two images (specification 44 §12.2), over the running program's settings and an empty
+    ///    process I/O, so that it claims no line and takes no checkpoint store. The candidate
+    ///    continues the running program's installation generation and keeps its logical time, its
+    ///    process images and its tasks' schedule. No checkpoint is read (decisions OC-1 and OC-2);
+    /// 4. gives the candidate's Live Values the candidate's generation
+    ///    ([`set_generation`](crate::runner::DeviceLiveValues::set_generation)).
     ///
     /// The call changes nothing of the running program, of `platform` or of the lines: it does not
     /// write an output, claim or release a pin, take the checkpoint flash, or set the values of the
@@ -109,9 +105,9 @@ pub trait ProgramLoader<P, Y> {
     ///
     /// # Errors
     ///
-    /// The reply to the request: the `insufficient memory` refusal with its numbers, a binding that
-    /// has no line, or the error of the preparation, the construction or the values, as a computer
-    /// replies with the error of its transaction. Whatever the call built is dropped.
+    /// The reply to the request: the refusal of the image, the `insufficient memory` refusal with its
+    /// numbers, a binding that has no line, or the error of the copy plan or the values, as a
+    /// computer replies with the error of its transaction. Whatever the call built is dropped.
     fn prepare_change(
         &mut self,
         platform: &mut P,
@@ -120,9 +116,8 @@ pub trait ProgramLoader<P, Y> {
     ) -> Result<Candidate<Y>, String>;
 
     /// The commit of an online change, in the one step that cannot fail: hands the lines and the
-    /// checkpoint store of `running` to the candidate without releasing or claiming a line
-    /// ([`hand_over_to`](crate::runner::engine::EngineCycle::hand_over_to)), and gives `platform` the
-    /// values of the candidate, its Live Values (specification 34 §11.3). The loop makes the candidate
+    /// checkpoint store of `running` to the candidate without releasing or claiming a line, and gives
+    /// `platform` the values of the candidate, its Live Values (specification 34 §11.3). The loop makes the candidate
     /// its program and drops `running` afterwards.
     fn commit_change(&mut self, platform: &mut P, running: &mut Y, candidate: &mut Candidate<Y>);
 }
@@ -131,7 +126,7 @@ pub trait ProgramLoader<P, Y> {
 /// sequence of its container.
 struct Built<Y> {
     loaded: Loaded<Y>,
-    live: EngineLiveValues,
+    live: DeviceLiveValues,
     sequence: u64,
 }
 
@@ -202,6 +197,7 @@ where
                 } = loaded;
                 cycle.attach_hold(self.hold.clone());
                 self.tasks = cycle.tasks();
+                self.programs = cycle.programs();
                 self.live = live;
                 self.cycle = Program::Installed(cycle);
                 self.shell.install.set_loaded(Some(sequence));
@@ -220,8 +216,9 @@ where
     fn unload(&mut self) {
         self.cycle = Program::Missing(SmolStr::new_static(LOADING));
         self.live.clear();
-        self.live = EngineLiveValues::empty();
+        self.live = DeviceLiveValues::empty();
         self.tasks = Vec::new();
+        self.programs = Vec::new();
         let _ = self.shell.with_platform(RunnerPlatform::unload_program);
         self.shell.install.set_loaded(None);
     }
@@ -246,7 +243,7 @@ where
         let (program, live) = self
             .shell
             .with_platform(
-                |platform| -> Result<(Loaded<Y>, EngineLiveValues), String> {
+                |platform| -> Result<(Loaded<Y>, DeviceLiveValues), String> {
                     let program = provider.load(platform, booted, mode)?;
                     Ok((program, platform.live_values().clone()))
                 },

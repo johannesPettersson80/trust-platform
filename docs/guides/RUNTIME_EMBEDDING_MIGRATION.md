@@ -1,287 +1,152 @@
-# Embedding the shared runtime
+# Embedding the runtime
 
-The hosted `Runtime` owns admitted executable state. `RuntimeBuilder` owns
-construction declarations and seeds and cannot execute. The PLC function set is
-unchanged; Rust integrations that used mutable installed storage or type-registry
-references must use the operations below. Specification 34 §4.3.1 defines the
-lifecycle; specification 11 §6.13 defines hosted management behavior.
+A program runs as a `CompiledRuntime`: the project's sources compiled into a program image for
+this computer's CPU (specification 44), admitted against the computer (specification 44 §10.2) and
+run scan by scan with the cycle every truST device runs (specification 44 §8.8). The PLC function
+set is unchanged. Specification 11 §6.13 defines hosted management behavior.
 
-Use source authoring in the full/development composition:
+The bytecode engine and its Rust API are removed: `Runtime`, `Runtime::from_bytes`,
+`CompileSession::build_runtime` and the other `build_runtime*` and `build_bytecode*` methods,
+`RuntimeBuilder::build`, `apply_bytecode_module`, `storage()` and the STBC formats. Code that used
+them builds a program image and loads it, as below.
 
-```rust
-use trust_runtime::{harness::CompileSession, value::{RefSegment, Value}};
+## Build and load a program
 
-let mut runtime = CompileSession::from_source(
-    "VAR_GLOBAL count : INT := 1; END_VAR \
-     PROGRAM Main VAR member : INT := 2; END_VAR END_PROGRAM",
-).build_runtime()?;
-runtime.write_global("count", Value::Int(7))?;
-runtime.write_named_path("Main", &[RefSegment::Field("member".into())], Value::Int(8))?;
-assert_eq!(runtime.storage().get_global("count"), Some(&Value::Int(7)));
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
-
-For manual declarations, use `RuntimeBuilder::register_global` and the program,
-function-block, class and interface registration methods. Type definitions,
-construction seeds, aliases and image bindings belong to that builder. Consume
-it with `build()` only after those inputs are complete. Seeds must fit declared
-storage and types; an undeclared raw storage entry does not define a variable.
-The resulting controller has no `storage_mut()` or `registry_mut()` getter.
-
-Use saved STBC 3.0 for new compiler-free applications in every hosted composition.
-Existing 2.0 artifacts remain supported with their original storage ABI:
+`trust_runtime::native::build` compiles sources into an image with the compiler toolchain
+(specification 44 §4.6). `Toolchain::find` uses the folder that `TRUST_TOOLCHAIN` names, else the
+installed bundle; `trust-runtime toolchain install` installs it. `CompiledRuntime::load` admits
+the image and leaves the program unstarted: a restart starts it, cold, or warm from its retained
+values.
 
 ```rust,no_run
-use trust_runtime::{Runtime, value::{RefSegment, Value}};
+use trust_runtime::harness::SourceFile;
+use trust_runtime::native::{build, Options, Target, Toolchain};
+use trust_runtime::value::{Duration, Value};
+use trust_runtime::{CompiledRuntime, RestartMode};
 
-let bytes = std::fs::read("application.stbc")?;
-let mut runtime = Runtime::from_bytes(&bytes, Default::default())?;
-// These destinations must exist in the admitted application's declarations.
-runtime.write_global("count", Value::Int(7))?;
-runtime.write_named_path("Main", &[RefSegment::Field("member".into())], Value::Int(8))?;
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
+const SOURCE: &str = "
+PROGRAM Main
+VAR
+    count : INT := 1;
+END_VAR
+count := count + 1;
+END_PROGRAM
 
-| Previous installed operation | Replacement |
-|---|---|
-| Raw global assignment | `write_global(name, value)` |
-| Raw instance/member assignment | `write_named_path(root, path, value)` or a checked `write_reference` |
-| Raw engineering-alias assignment | `write_access(alias, value)`; the alias must be admitted and writable |
-| Raw flat/hierarchical process-image mutation | `write_io(address, value)`; extents and bindings remain admitted |
-| Raw type/layout/code edit | Prepare an isolated artifact and use the full controller's `apply_bytecode_module`/online-change boundary |
-| Live registry mutation for watch parsing | Detached debug parsing types; apply writes through the checked controller |
-| Infallible retained snapshot | Exclusive, fallible `retain_snapshot()`; propagate failure rather than save an empty fallback |
+CONFIGURATION Plant
+RESOURCE Cpu ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+";
 
-Ordinary checked writes do not restart or reinitialize the program. Rejected
-requests preserve the destination and do not themselves fault PLC execution.
-Remote/debug requests retain their existing queued write or persistent-force
-timing and report application rejection separately from queue acceptance.
-`retain:` targets resolve retained declarations in their actual globals or
-program fields; no second live retain bank is created.
-
-An alias write goes through the same checked owner as a global write. The alias
-is declared with `VAR_ACCESS` and must be `READ_WRITE`:
-
-```rust
-use trust_runtime::{harness::CompileSession, value::Value};
-
-let mut runtime = CompileSession::from_source(
-    "PROGRAM Main VAR member : INT := 2; END_VAR END_PROGRAM \
-     CONFIGURATION C PROGRAM P : Main; \
-     VAR_ACCESS Engineering : P.member : INT READ_WRITE; END_VAR \
-     END_CONFIGURATION",
-).build_runtime()?;
-runtime.write_access("Engineering", Value::Int(9))?;
-assert_eq!(runtime.read_access("Engineering"), Some(Value::Int(9)));
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
-
-A process-image write takes effect at once, but it is not a persistent override.
-Every cycle publishes each bound output again from its PLC variable. Here the
-bound `lamp` stays FALSE, so the cycle replaces the written TRUE with FALSE. To
-change a bound output for good, change the value the program computes.
-
-```rust
-use trust_runtime::{harness::CompileSession, io::IoAddress, value::Value};
-
-let mut runtime = CompileSession::from_source(
-    "PROGRAM Main VAR lamp AT %QX0.0 : BOOL := FALSE; END_VAR END_PROGRAM",
-).build_runtime()?;
-let lamp = IoAddress::parse("%QX0.0")?;
-runtime.write_io(&lamp, Value::Bool(true))?;
-assert_eq!(runtime.io().read(&lamp)?, Value::Bool(true));
-runtime.execute_cycle()?;
-assert_eq!(runtime.io().read(&lamp)?, Value::Bool(false));
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
-
-To drive the program, write an input that it reads. The next cycle executes with
-that input, and the program's output follows:
-
-```rust
-use trust_runtime::{harness::CompileSession, io::IoAddress, value::Value};
-
-let mut runtime = CompileSession::from_source(
-    "PROGRAM Main VAR button AT %IX0.0 : BOOL; lamp AT %QX0.0 : BOOL; END_VAR \
-     lamp := button; END_PROGRAM",
-).build_runtime()?;
-runtime.write_io(&IoAddress::parse("%IX0.0")?, Value::Bool(true))?;
-runtime.execute_cycle()?;
-assert_eq!(runtime.io().read(&IoAddress::parse("%QX0.0")?)?, Value::Bool(true));
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
-
-Task/resource/image/binding updates in the full controller use a staged,
-resource-only transaction and preserve PLC values and instance identities.
-Code or declared-schema replacement follows the existing warm-restart and
-retain policy. Failure to prepare or bind a candidate leaves the old controller
-installed. Resolve live references again after replacement rather than guessing
-instance IDs from artifact indexes.
-
-A declaration change uses the same boundary. The replacement below adds `added`
-and changes the code. `count` is RETAIN, so it keeps its value by name.
-`transient` is not retained, so it starts again from its declaration. The
-logical time is kept, and the replacement code runs in the next cycle.
-Specification 34 §11.3 defines which retained graphs migrate. An incompatible
-retained object graph is rejected, and the installed controller stays unchanged.
-
-```rust
-use trust_runtime::{harness::CompileSession, value::{Duration, Value}};
-
-let mut runtime = CompileSession::from_source(
-    "VAR_GLOBAL RETAIN count : DINT := DINT#3; END_VAR \
-     VAR_GLOBAL transient : DINT := DINT#4; END_VAR \
-     PROGRAM Main count := count + DINT#1; END_PROGRAM",
-).build_runtime()?;
-runtime.write_global("count", Value::DInt(12))?;
-runtime.write_global("transient", Value::DInt(99))?;
-runtime.set_current_time(Duration::from_millis(35));
-let replacement = CompileSession::from_source(
-    "VAR_GLOBAL RETAIN count : DINT := DINT#3; END_VAR \
-     VAR_GLOBAL transient : DINT := DINT#4; END_VAR \
-     VAR_GLOBAL added : DINT := DINT#7; END_VAR \
-     PROGRAM Main count := count + DINT#2; END_PROGRAM",
-).build_bytecode_module()?;
-runtime.apply_bytecode_module(&replacement, None)?;
-assert_eq!(runtime.storage().get_global("count"), Some(&Value::DInt(12)));
-assert_eq!(runtime.storage().get_global("transient"), Some(&Value::DInt(4)));
-assert_eq!(runtime.storage().get_global("added"), Some(&Value::DInt(7)));
-assert_eq!(runtime.current_time(), Duration::from_millis(35));
-runtime.execute_cycle()?;
-assert_eq!(runtime.storage().get_global("count"), Some(&Value::DInt(14)));
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
-
-A reference belongs to the installation generation of the storage it was taken
-in (specification 34 §11.3). A warm or cold restart and a replacement each
-install the next generation; a resource-only update keeps it. A reference of an
-earlier generation names no state: `storage().read_by_ref_ref` returns `None`,
-and `read_reference`, `write_reference` and `execute_function_block` refuse it
-with `RuntimeError::ReferenceLifetime` before anything changes. Resolve a held
-reference again after a restart or replacement. The hosted `Runtime` does so for
-the references it holds itself: engineering aliases, task function blocks, I/O
-bindings and ADS and OPC UA client points.
-
-```rust
-use trust_runtime::{error::RuntimeError, harness::CompileSession, value::Value, RestartMode};
-
-let mut runtime = CompileSession::from_source(
-    "VAR_GLOBAL count : INT := 1; END_VAR PROGRAM Main END_PROGRAM",
-).build_runtime()?;
-let held = runtime.storage().ref_for_global("count").expect("declared global");
-runtime.restart(RestartMode::Warm)?;
-assert_eq!(runtime.read_reference(&held), Err(RuntimeError::ReferenceLifetime));
-let current = runtime.storage().ref_for_global("count").expect("declared global");
-assert_eq!(current.generation, runtime.storage().generation());
-assert_eq!(runtime.read_reference(&current)?, Value::Int(1));
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
-
-This changes the embedding API:
-
-| Previous | Replacement |
-|---|---|
-| `ValueRef { location, offset: usize, path }` | `ValueRef { location, offset: u32, generation, path }`: the slot index is 32 bits on every target, and `generation` comes from the storage the reference addresses (`VariableStorage::generation()`). Prefer the storage's `ref_for_*` methods, which set both. |
-| `ValueRefView { location, offset, path }` | The view also carries `generation`. `ValueRefView::to_owned()` returns `Result<ValueRef, RuntimeError>`: a slot beyond 32 bits fails with `Overflow`. |
-| `DebugControl::enqueue_instance_write(id, ..)`, `try_enqueue_instance_write`, `force_instance`, `try_force_instance` | The same methods take the generation the instance identity was resolved in first, for example `snapshot.storage.generation()`. A request of an earlier generation is rejected at its scan boundary with `write_rejected`. `DebugControl::generation()` gives the installed generation for a bare identity a client sent. |
-| `ForcedVarTarget::Instance(id, name)` | `ForcedVarTarget::Instance(generation, id, name)`; `release_instance(id, name)` releases the force in any generation. |
-
-`ValueRef` keeps its size on 64-bit targets (40 bytes) and `Value` keeps its size
-on every target.
-
-STBC 1.1 loading requires the full authoring composition's explicit matching
-construction context, `CompileSession::build_runtime_from_bytecode`. It preserves
-the supplied instruction bodies. Source positions are attached only when the
-artifact/source association is verified; providing source text does not replace
-the supplied code or certify unrelated debug locations.
-
-Runtime-only excludes source tooling and product services. Full/development
-include those services and use the same execution owner. Optional prepared
-register plans select an optimization, without changing the IEC function set.
-Native H validation and platform qualification are tracked separately in the
-portability implementation checklist; these examples do not claim passing tests.
-
-
-New source applications use eight-byte TIME/DATE/TOD/DT storage and `SIZEOF`
-on every platform. Their logical range and precision are preserved. Relative
-field offsets are explicit: a field after a TIME at byte zero must start at
-byte eight or later unless shared backing through `STRUCT OVERLAP` is intended.
-Do not shift offsets or reinterpret old saved bytes automatically.
-
-Explicit 1.1/2.0 artifacts retain four-byte short temporal sizes and their
-historic aggregate SIZEOF. A 1.1 import uses matching source construction context;
-its admitted construction archive is 3.0 with a legacy-ABI compatibility flag.
-The unchanged original artifact may be exported until resource or code metadata
-changes. A successful resource update exports the updated admitted compatibility
-container; failed updates preserve the previous archives. Old firmware rejects
-major 3 before installation and must be upgraded to consume new artifacts.
-This is artifact compatibility on every platform, not a different function set.
-
-The external DWORD TIME process-image codec is still unsigned milliseconds with
-checked overflow. It is independent of eight-byte internal temporal storage.
-
-Preparation names a refused built-in import. An artifact whose standard-library
-call or standard function-block template does not match its built-in contract
-(specification 34 §5.2.1) fails with `RuntimeError::ImportUnsupported { import,
-reason }` and the stable code `runtime_import_unsupported`. Before, an unknown name
-failed with `runtime_profile_unsupported` and a mismatched call or template with
-`vm_bytecode_decode`, neither naming the import. A `match` over `RuntimeError` or
-`StableErrorCode` without a wildcard arm needs the new variant. The contracts
-themselves are public in `trust_runtime_core::stdlib::contracts`.
-
-A deployment record (specification 34 §5.1.1) selects the preparation limits of
-one program. `trust_runtime_core::deployment` holds the record
-(`DeploymentRecord::for_program`, `encode`, `decode`), the device descriptor
-(`DeviceDescriptor::hosted()` for a computer) and `admit`, which checks a record
-against a descriptor before any state exists and returns the `PreparationLimits`
-to prepare the program with:
-
-```rust
-use trust_runtime::harness::CompileSession;
-use trust_runtime::runtime_core::deployment::{
-    admit, configuration_identity, DeploymentRecord, DeviceDescriptor,
-};
-use trust_runtime::runtime_core::vm::{PreparationLimits, PreparedModule};
-
-let program = CompileSession::from_source("PROGRAM Main END_PROGRAM").build_bytecode_bytes()?;
-let record = DeploymentRecord::for_program(
-    &program,
-    PreparationLimits::default(),
-    configuration_identity(None, None),
+let toolchain = Toolchain::find()?;
+let target = Target::this_cpu().expect("a CPU that runs program images");
+let work = std::env::temp_dir().join("trust-embedding");
+let built = build(
+    &[SourceFile::with_path("src/main.st", SOURCE)],
+    &Options { target, hooks: true },
+    &toolchain,
+    &work,
 )?;
-let bytes = record.encode()?;
-let limits = admit(&DeploymentRecord::decode(&bytes)?, &program, &DeviceDescriptor::hosted())?;
-let prepared = PreparedModule::from_bytes(&program, limits)?;
-assert_eq!(prepared.limits(), PreparationLimits::default());
+let mut runtime = CompiledRuntime::load(built.image, "Cpu")?;
+runtime.restart(RestartMode::Cold)?;
+runtime.reset_task_timing(Duration::ZERO);
+// The 10 ms task is first due at 10 ms (specification 10 §4.3).
+runtime.set_current_time(Duration::from_millis(10));
+runtime.execute_cycle()?;
+assert_eq!(runtime.read_variable("P.count")?, Value::Int(2));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-This adds to the embedding API:
+`Options::hooks` builds a debug image, whose statements the debugger can stop at; without the
+hooks the build is a release image (specification 44 §13.2). `trust-runtime build` builds the same
+image, signs it (specification 44 §5.11) and writes it as `program.tpi`.
 
-| Addition | Use |
+## Variables and the process image
+
+| Operation | Use |
 |---|---|
-| `RuntimeError::DeploymentRecordInvalid`, `RuntimeError::DeploymentRefused`; `StableErrorCode::RuntimeDeploymentRecordInvalid`, `RuntimeDeploymentRefused` | A malformed record and a refused deployment. A `match` over `RuntimeError` or `StableErrorCode` without a wildcard arm needs the new variants. |
-| `ImportRefusal::ContractVersion { record, runtime }` | A record names another contract version of an import than the runtime has. |
-| `RuntimeBundle::preparation_limits` | The limits of the project's admitted record, or the defaults. A `RuntimeBundle { .. }` literal needs the field. |
-| `CompileSession::build_runtime_from_bytecode_with_limits` | Install bytecode with those limits; `build_runtime_from_bytecode` keeps the defaults. |
-| `BundleBuildReport::deployment_record`, `trust_runtime::deployment` | What the build wrote, and the hosted record file (`deployment-record.bin`). |
+| `read_variable(name)` | The value as the last scan left it. A name is a global, a program instance's variable (`P.count`), or a program variable by its name alone when exactly one program declares it. |
+| `write_variable(name, &value)` | Writes between scans; an untyped integer takes the variable's type (specification 44 §13.3). |
+| `find_variable(name)` | Resolves a name as `read_variable` does, without reading. |
+| `read_io(&address)` / `write_io(&address, value)` | The process image at an address such as `IoAddress::parse("%QX0.0")?`; a write lands between scans, as a simulation writes its inputs. |
+| `snapshot()` | A copy of the program's state as the last scan left it, for other threads: `value(name)`, `variables()`, `programs()`. |
 
-A `STRING` or `WSTRING` without a length is `STRING[80]` or `WSTRING[80]`, and a
-declared length counts UTF-8 bytes or UTF-16 code units (`docs/IEC_DECISIONS.md`
-2026-10-17). In the HIR, `TypeId::STRING` is `Type::String { max_len: Some(80) }`,
-and `TypeRegistry::register_string_with_length(80)` returns `TypeId::STRING` itself.
-An STBC string type whose `max_length` is 0, as earlier producers wrote it, has the
-capacity 80. This changes the embedding API:
+## Online change and restarts
 
-| Previous | Replacement |
+`apply_online_change_bytes(&image)` changes the running program to the program of another image
+(specification 44 §12): the new program takes the running program's values and task schedule, the
+drivers and the retain file. A refusal leaves the running program as it was.
+
+`restart(RestartMode::Cold)` gives every variable its starting value; `restart(RestartMode::Warm)`
+keeps the retained values the program holds (IEC 61131-3 §6.5.6.1).
+
+## Retained values
+
+```rust,no_run
+use trust_runtime::retain::FileRetainStore;
+use trust_runtime::RestartMode;
+# fn demo(runtime: &mut trust_runtime::CompiledRuntime) -> Result<(), Box<dyn std::error::Error>> {
+runtime.set_retain_store(Some(Box::new(FileRetainStore::new("retain.bin"))), None)?;
+runtime.save_retain_store()?;
+// A warm restart from the store restores the saved values; a cold one starts every variable.
+runtime.restart_with_retain_store(RestartMode::Warm)?;
+# Ok(())
+# }
+```
+
+A computer writes the retain file in the format of specification 11 §6.7, the format the bytecode
+engine wrote, so values that the old runtime saved restore (specification 44 §8.8, §15).
+
+## Tests
+
+`trust_runtime::harness::TestHarness` builds sources with the same toolchain and drives the
+program for tests: `from_source` and `from_sources`, `set_input` and `get_output` by name (a
+field `.f` and an element `[i]` within a variable too), `cycle` and `run_cycles`, `advance_time`,
+`restart`, `reload_source` for an online change, `bind_direct` with `set_direct_input` and
+`get_direct_output` for process-image addresses, and `get_access` and `set_access` for
+`VAR_ACCESS` declarations (specification 10 §4.1.2). `runtime()` and `runtime_mut()` give the
+`CompiledRuntime`.
+
+## Deployment records
+
+A deployment record (specification 34 §5.1.1; specification 44 §10.1) names the image a device
+runs. `trust_runtime::deployment::image_record(project, &image)` gives the encoded record of an
+image with the configuration identity of the project's `runtime.toml` and `io.toml`, as
+`trust-runtime build` writes it to `deployment-record.bin`. `trust_runtime_core::deployment`
+holds the record (`DeploymentRecord::decode`, `encode`), the device descriptor
+(`DeviceDescriptor::hosted()` for a computer) and `admit`, which checks a record against an image
+and a descriptor before any state exists:
+
+```rust,no_run
+use trust_runtime::runtime_core::deployment::{admit, DeploymentRecord, DeviceDescriptor};
+# fn demo(project: &std::path::Path, image: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+let bytes = trust_runtime::deployment::image_record(project, image)?;
+admit(&DeploymentRecord::decode(&bytes)?, image, &DeviceDescriptor::hosted())?;
+# Ok(())
+# }
+```
+
+A malformed record fails with `RuntimeError::DeploymentRecordInvalid` and a refused deployment
+with `RuntimeError::DeploymentRefused`.
+
+## Strings
+
+A `STRING` or `WSTRING` without a length is `STRING[80]` or `WSTRING[80]`, and a declared length
+counts UTF-8 bytes or UTF-16 code units (`docs/IEC_DECISIONS.md` 2026-10-17). In the HIR,
+`TypeId::STRING` is `Type::String { max_len: Some(80) }`, and
+`TypeRegistry::register_string_with_length(80)` returns `TypeId::STRING` itself.
+
+| Item | Use |
 |---|---|
-| `trust_runtime_core::value::truncate_string_elements(text, max_len)`, which kept `max_len` characters | `string_capacity_cut(text, wide, capacity)`: the byte length of the longest prefix of whole characters within `capacity` UTF-8 bytes, or UTF-16 code units when `wide`; `None` when the text fits. |
-| `size_of_value` counted the characters of a STRING and two bytes per character of a WSTRING | It counts the UTF-8 bytes of a STRING and two bytes per UTF-16 code unit of a WSTRING. `size_of_type(TypeId::STRING, ..)` is 80 and `size_of_type(TypeId::WSTRING, ..)` is 160. |
-
-This adds to the embedding API:
-
-| Addition | Use |
-|---|---|
-| `RuntimeError::StringCapacityExceeded` | A string function or conversion whose result would be longer than 65,535 bytes or code units. Its stable code is the existing `runtime_string_capacity_exceeded`. A `match` over `RuntimeError` without a wildcard arm needs the new variant. |
-| `trust_runtime_core::value::{string_capacity, check_string_result, DEFAULT_STRING_CAPACITY, MAX_STRING_CAPACITY}` | The capacity of an STBC string type (80 for 0), and the check of a text result against the maximum. |
+| `trust_runtime_core::value::string_capacity_cut(text, wide, capacity)` | The byte length of the longest prefix of whole characters within `capacity` UTF-8 bytes, or UTF-16 code units when `wide`; `None` when the text fits. |
+| `size_of_value`, `size_of_type` | Count the UTF-8 bytes of a STRING and two bytes per UTF-16 code unit of a WSTRING. `size_of_type(TypeId::STRING, ..)` is 80 and `size_of_type(TypeId::WSTRING, ..)` is 160. |
+| `RuntimeError::StringCapacityExceeded` | A string function or conversion whose result would be longer than 65,535 bytes or code units. Its stable code is `runtime_string_capacity_exceeded`. |
+| `trust_runtime_core::value::{check_string_result, DEFAULT_STRING_CAPACITY, MAX_STRING_CAPACITY}` | The check of a text result against the maximum, and the two capacities. |
 | `trust_hir::types::{checked_string_length, StringLengthError, DEFAULT_STRING_LENGTH, MAX_STRING_LENGTH}`, `SymbolTable::register_string_type` | Check a declared length, 1 to 65,535, and register the type of `STRING[n]` or `WSTRING[n]`, which is the built-in type for 80. |
+
+## Dates and times
+
+`TIME`, `LTIME`, `DATE`, `LDATE`, `TOD`, `LTOD`, `DT` and `LDT` take eight bytes on every target
+(specification 44 §6.2).

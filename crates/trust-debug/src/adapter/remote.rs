@@ -76,9 +76,6 @@ pub struct RemoteSession {
     endpoint: RemoteEndpoint,
     token: Option<String>,
     client: ControlClient,
-    /// Whether the runtime runs a compiled program, which evaluates debug expressions in their
-    /// compiled form (specification 11 §6.13.2); asked once, when an expression is first sent.
-    compiled: Option<bool>,
 }
 
 impl RemoteSession {
@@ -88,28 +85,7 @@ impl RemoteSession {
             endpoint,
             token,
             client,
-            compiled: None,
         })
-    }
-
-    /// Whether the runtime runs a compiled program, to which a debug expression goes compiled: its
-    /// `status` names the backend `native`. The answer holds for the session.
-    pub fn compiled(&mut self) -> bool {
-        if let Some(compiled) = self.compiled {
-            return compiled;
-        }
-        let compiled = self
-            .request("status", None)
-            .ok()
-            .and_then(|status| {
-                status
-                    .get("execution_backend")
-                    .and_then(Value::as_str)
-                    .map(|backend| backend == "native")
-            })
-            .unwrap_or(false);
-        self.compiled = Some(compiled);
-        compiled
     }
 
     pub fn endpoint(&self) -> &RemoteEndpoint {
@@ -288,19 +264,6 @@ impl RemoteSession {
             .cloned()
             .unwrap_or_else(|| json!([]));
         serde_json::from_value::<Vec<Variable>>(vars).map_err(|err| err.to_string())
-    }
-
-    pub fn evaluate(
-        &mut self,
-        expression: &str,
-        frame_id: Option<u32>,
-    ) -> RemoteResult<EvaluateResponseBody> {
-        let params = json!({
-            "expression": expression,
-            "frame_id": frame_id,
-        });
-        let payload = self.request("debug.evaluate", Some(params))?;
-        evaluate_body(payload)
     }
 
     /// `debug.evaluate` of the compiled expression `expr`, version 1 (specification 11 §6.13.2).

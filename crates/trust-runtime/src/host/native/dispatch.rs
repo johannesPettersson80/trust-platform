@@ -120,6 +120,33 @@ fn interface_arms<'a>(
     Ok(arms)
 }
 
+/// The Rust name of the assignment attempt to the interface or the class `ty` (`Need::Cast`).
+pub(super) fn cast_function(ty: Ty) -> String {
+    format!("cast_{}", ty.0)
+}
+
+/// The class ids of the laid-out types that the assignment attempt to `target` takes: those that
+/// implement the interface `target`, or are the class `target` or derive from it.
+fn cast_classes(model: &Model<'_>, target: Ty) -> Vec<u32> {
+    let interface = match &model.types.info(target).kind {
+        Kind::Interface => Some(model.types.info(target).name.clone()),
+        _ => None,
+    };
+    model
+        .types
+        .classes()
+        .into_iter()
+        .filter(|(ty, _)| match &interface {
+            Some(interface) => model
+                .types
+                .owner_of(*ty)
+                .is_some_and(|owner| model.types.defs.implements(owner, interface)),
+            None => model.types.upcast(*ty, target).is_some(),
+        })
+        .map(|(_, class)| class)
+        .collect()
+}
+
 /// The methods the dispatchers `needs` call, which the crate must hold.
 pub(super) fn targets(model: &Model<'_>, needs: &[Need]) -> Result<Vec<Need>, NativeError> {
     let mut targets = Vec::new();
@@ -308,6 +335,42 @@ pub(super) fn emit(
                     out,
                     "        other => Err(fault(cx, abi::FaultCode::TypeMismatch, i64::from(other), 0, 0)),\n    }}\n}}\n"
                 );
+            }
+            Need::Cast(target) => {
+                // The reference `r` when the instance it names is of a class `target` takes: an
+                // interface keeps it as it is; a reference of a class's type spans that type, which
+                // the instance's base-first layout holds at the same offset (specification 44 §6.4).
+                let function = cast_function(*target);
+                let info = model.types.info(*target);
+                let taken = match info.kind {
+                    Kind::Interface => {
+                        "abi::RefValue { kind: abi::RefValue::INSTANCE, ..r }".to_string()
+                    }
+                    _ => format!(
+                        "abi::RefValue {{ kind: abi::RefValue::INSTANCE, extent: {}, ..r }}",
+                        info.size
+                    ),
+                };
+                let classes: Vec<String> = cast_classes(model, *target)
+                    .iter()
+                    .map(u32::to_string)
+                    .collect();
+                let _ = writeln!(
+                    out,
+                    "fn {function}(cx: &mut Cx, w: &World<'_>, r: abi::RefValue) -> R<abi::RefValue> {{\n    if r.kind == abi::RefValue::NULL {{\n        return Ok(abi::RefValue::NULL_REF);\n    }}"
+                );
+                if classes.is_empty() {
+                    let _ = writeln!(
+                        out,
+                        "    let _ = (cx, w);\n    Ok(abi::RefValue::NULL_REF)\n}}\n"
+                    );
+                } else {
+                    let _ = writeln!(
+                        out,
+                        "    match w.areas.class_of(cx, &r)? {{\n        {} => Ok({taken}),\n        _ => Ok(abi::RefValue::NULL_REF),\n    }}\n}}\n",
+                        classes.join(" | ")
+                    );
+                }
             }
             Need::Body(ty) => {
                 let dispatcher = body_function(model, *ty);

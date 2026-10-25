@@ -8,10 +8,10 @@ mod configuration;
 
 use super::{
     ApplicationIdentity, Capabilities, Contracts, DeploymentRecord, DeploymentRecordError,
-    ImportKind, LimitKind, NumericContract, ProcessImageSummary, RequestedLimits, RequiredImport,
-    SchedulingProfile, TaskSummary, TimingEvidence, RECORD_MAX_BYTES, RECORD_VERSION,
+    ImportKind, LimitKind, NumericContract, ProcessImageSummary, ProgramVersion, RequestedLimits,
+    RequiredImport, SchedulingProfile, TaskSummary, TimingEvidence, RECORD_MAX_BYTES,
+    RECORD_VERSION,
 };
-use crate::bytecode::BytecodeVersion;
 use crate::crc32;
 use alloc::vec::Vec;
 use smol_str::SmolStr;
@@ -91,9 +91,9 @@ impl DeploymentRecord {
         section(&mut out, APPLICATION, APPLICATION_BYTES, |out| {
             out.extend_from_slice(&application.program_sha256);
             out.extend_from_slice(&application.program_bytes.to_le_bytes());
-            out.extend_from_slice(&application.bytecode_version.major.to_le_bytes());
-            out.extend_from_slice(&application.bytecode_version.minor.to_le_bytes());
-            out.extend_from_slice(&application.bytecode_flags.to_le_bytes());
+            out.extend_from_slice(&application.program_version.major.to_le_bytes());
+            out.extend_from_slice(&application.program_version.minor.to_le_bytes());
+            out.extend_from_slice(&application.program_flags.to_le_bytes());
             out.extend_from_slice(&application.configuration_sha256);
             out.extend_from_slice(&application.retain_schema_sha256);
         });
@@ -287,8 +287,8 @@ fn read_application(reader: &mut Reader<'_>) -> Result<ApplicationIdentity, Erro
     Ok(ApplicationIdentity {
         program_sha256: reader.digest()?,
         program_bytes: reader.u32()?,
-        bytecode_version: BytecodeVersion::new(reader.u16()?, reader.u16()?),
-        bytecode_flags: reader.u32()?,
+        program_version: ProgramVersion::new(reader.u16()?, reader.u16()?),
+        program_flags: reader.u32()?,
         configuration_sha256: reader.digest()?,
         retain_schema_sha256: reader.digest()?,
     })

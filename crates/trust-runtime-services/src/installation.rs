@@ -14,29 +14,29 @@
 //! path to the payloads. [`sequenced_layout`] reads only the header of a container, which is how
 //! `program.active` finds the record of a container too large to hold in memory.
 //!
-//! The program of a container is `program.stbc` (entry kind 1) or a compiled program image (entry
-//! kind 3, specification 44 §10.1), whose first byte the writer puts at a multiple of 64 bytes from
-//! the container's start, so that an image a device reads in place keeps the alignment of its
-//! sections (specification 44 §5.3). A container holds one program and its record; its record names
-//! the program's kind by its version, and admission refuses a container whose kind and record differ.
+//! The program of a container is a compiled program image (entry kind 3, specification 44 §10.1),
+//! whose first byte the writer puts at a multiple of 64 bytes from the container's start, so that an
+//! image a device reads in place keeps the alignment of its sections (specification 44 §5.3). A
+//! container holds one program and its record; its record names the program's kind by its version,
+//! and admission refuses a container whose kind and record differ. A container of the bytecode
+//! engine's `program.stbc` (entry kind 1) still reads, so that admission refuses it by its record's
+//! version with "rebuild the project" (specification 44 §15).
 
 use alloc::vec::Vec;
 use core::fmt;
 use core::ops::Range;
 
-use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{
-    AdmissionRefusal, DeploymentRecord, DeploymentRecordError, DeviceDescriptor,
+    AdmissionRefusal, DeploymentRecord, DeploymentRecordError, DeviceDescriptor, ProgramVersion,
 };
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::vm::PreparationLimits;
 
 /// The magic of version 1: the two payloads and no install sequence.
 pub const MAGIC: [u8; 8] = *b"TRSTA001";
 /// The magic of version 2: the two payloads and the install sequence, under the header CRC-32.
 pub const SEQUENCED_MAGIC: [u8; 8] = *b"TRSTA002";
-/// The entry kind of `program.stbc`.
+/// The entry kind of the bytecode engine's `program.stbc`, which admission refuses.
 pub const PROGRAM_KIND: u32 = 1;
 /// The entry kind of the deployment record.
 pub const RECORD_KIND: u32 = 2;
@@ -112,7 +112,8 @@ impl Version {
 /// What the program of a container is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProgramFormat {
-    /// `program.stbc`, entry kind [`PROGRAM_KIND`].
+    /// The bytecode engine's `program.stbc`, entry kind [`PROGRAM_KIND`], which admission refuses
+    /// (specification 44 §15).
     Bytecode,
     /// A compiled program image, entry kind [`IMAGE_KIND`] (specification 44 §10.1).
     Image,
@@ -652,18 +653,16 @@ pub fn sequenced_layout(
     })
 }
 
-/// An installed application a chip admitted from its `application` region: the program, its
-/// decoded record and the preparation limits the device granted (specification 34 §5.1, §5.1.1).
+/// An installed application a chip admitted from its `application` region: the program and its
+/// decoded record (specification 34 §5.1, §5.1.1).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Admitted<'a> {
     /// What the program is.
     pub format: ProgramFormat,
-    /// The bytes of the program: `program.stbc` or the image.
+    /// The bytes of the program image.
     pub program: &'a [u8],
     /// The deployment record the container holds.
     pub record: DeploymentRecord,
-    /// The preparation limits admission granted; prepare the program with exactly these.
-    pub limits: PreparationLimits,
 }
 
 /// A `TRSTA002` container admitted from a region: the install sequence it holds and what it
@@ -672,7 +671,7 @@ pub struct Admitted<'a> {
 pub struct SequencedAdmitted<'a> {
     /// The install sequence the header holds.
     pub sequence: u64,
-    /// The admitted program, record and limits.
+    /// The admitted program and record.
     pub admitted: Admitted<'a>,
 }
 
@@ -709,7 +708,7 @@ impl core::error::Error for AdmissionError {}
 /// this: every boot admits with [`admit_sequenced`].
 ///
 /// Nothing is constructed on any path: the checks run on the container's bytes alone, and an
-/// admitted container returns the program, its decoded record and the limits to prepare it with.
+/// admitted container returns the program and its decoded record.
 ///
 /// # Errors
 ///
@@ -723,12 +722,11 @@ pub fn admit<'a>(
     device: &DeviceDescriptor,
 ) -> Result<Admitted<'a>, AdmissionError> {
     let installed = decode(region).map_err(AdmissionError::Container)?;
-    let (record, limits) = admit_payloads(&installed, device)?;
+    let record = admit_payloads(&installed, device)?;
     Ok(Admitted {
         format: installed.format,
         program: installed.program,
         record,
-        limits,
     })
 }
 
@@ -766,35 +764,35 @@ pub fn admit_sequenced_bytes<'a>(
         sequence,
         installed,
     } = decode_sequenced_bytes(container).map_err(AdmissionError::Container)?;
-    let (record, limits) = admit_payloads(&installed, device)?;
+    let record = admit_payloads(&installed, device)?;
     Ok(SequencedAdmitted {
         sequence,
         admitted: Admitted {
             format: installed.format,
             program: installed.program,
             record,
-            limits,
         },
     })
 }
 
 /// The admission both versions share: the record is decoded, a record of another kind of program
 /// than the container's is refused as a record of another program, and the core admits the program
-/// with its record against the device.
+/// with its record against the device, which refuses a program of the bytecode engine by its
+/// version.
 fn admit_payloads(
     installed: &Installed<'_>,
     device: &DeviceDescriptor,
-) -> Result<(DeploymentRecord, PreparationLimits), AdmissionError> {
+) -> Result<DeploymentRecord, AdmissionError> {
     let record = DeploymentRecord::decode(installed.record).map_err(AdmissionError::Record)?;
-    let names_image = record.application.bytecode_version == BytecodeVersion::NATIVE_IMAGE;
+    let names_image = record.application.program_version == ProgramVersion::NATIVE_IMAGE;
     if names_image != (installed.format == ProgramFormat::Image) {
         return Err(AdmissionError::Deployment(RuntimeError::DeploymentRefused(
             AdmissionRefusal::ProgramMismatch,
         )));
     }
-    let limits = trust_runtime_core::deployment::admit(&record, installed.program, device)
+    trust_runtime_core::deployment::admit(&record, installed.program, device)
         .map_err(AdmissionError::Deployment)?;
-    Ok((record, limits))
+    Ok(record)
 }
 
 #[cfg(test)]

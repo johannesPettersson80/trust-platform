@@ -35,14 +35,12 @@ use trust_runtime_services::status::{IoDriverStatus, StatusSettings};
 use trust_runtime_services::transfer::TransferSession;
 
 use crate::config::ControlMode;
-use crate::debug::ControlAction;
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
 use crate::scheduler::{ResourceCommand, ResourceState};
 use crate::value::Value;
 use crate::RestartMode;
 
-use super::types::debug_stop_reason_label;
 use super::{
     audit, auth, comm_handlers, control_event_time_now, handlers, status_handlers, ControlRequest,
     ControlResponse, ControlState,
@@ -125,20 +123,14 @@ impl ResourcePort for ControlState {
     }
 
     fn debugger_pause(&self) {
-        match self.debug.compiled() {
-            Some(compiled) => compiled.pause(),
-            None => {
-                let _ = self.debug.apply_action(ControlAction::Pause(None));
-            }
+        if let Some(compiled) = self.debug.compiled() {
+            compiled.pause();
         }
     }
 
     fn debugger_continue(&self) {
-        match self.debug.compiled() {
-            Some(compiled) => compiled.resume(),
-            None => {
-                let _ = self.debug.apply_action(ControlAction::Continue);
-            }
+        if let Some(compiled) = self.debug.compiled() {
+            compiled.resume();
         }
     }
 
@@ -220,7 +212,7 @@ impl StatusPort for ControlState {
     fn status_settings(&self) -> Option<StatusSettings> {
         let settings = self.settings.lock().ok()?;
         Some(StatusSettings {
-            execution_backend: settings.execution_backend.as_str(),
+            execution_backend: crate::execution_backend::EXECUTION_BACKEND,
             execution_backend_source: settings.execution_backend_source.as_str(),
             simulation_enabled: settings.simulation.enabled,
             simulation_time_scale: settings.simulation.time_scale,
@@ -262,7 +254,7 @@ impl StatusPort for ControlState {
 
 impl RecordsPort for ControlState {
     fn debug_hold(&self) -> Option<&'static str> {
-        self.debug.hold_reason().map(debug_stop_reason_label)
+        self.debug.hold_label()
     }
 
     fn control_mode_label(&self) -> Option<String> {

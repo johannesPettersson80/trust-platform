@@ -116,7 +116,7 @@ Si ya configuraste permisos previamente:
 
 ```bash
 # Compilar
-rm -rf program.stbc
+rm -rf program.tpi deployment-record.bin
 trust-runtime build --project . --sources src
 
 # Ejecutar

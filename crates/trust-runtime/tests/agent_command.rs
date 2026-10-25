@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 include!("agent_command/support.rs");
 include!("agent_command/workspace_protocol.rs");
 include!("agent_command/runtime_harness_loop.rs");

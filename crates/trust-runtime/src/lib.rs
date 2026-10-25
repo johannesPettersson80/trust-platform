@@ -38,9 +38,6 @@ pub mod bundle_builder;
 #[cfg(feature = "full")]
 #[path = "host/bundle_template.rs"]
 pub mod bundle_template;
-/// Bytecode metadata configuration helpers.
-#[cfg(feature = "full")]
-pub mod bytecode;
 /// Runtime bundle configuration.
 #[cfg(feature = "full")]
 pub mod config;
@@ -58,7 +55,8 @@ pub(crate) mod datetime {
 #[cfg(feature = "full")]
 #[path = "host/debug/mod.rs"]
 pub mod debug;
-/// The deployment record next to `program.stbc`: written with each program, admitted on load.
+/// The deployment record next to `program.tpi`, written with each program for the devices that
+/// admit a container by it.
 #[cfg(feature = "full")]
 #[path = "host/deployment.rs"]
 pub mod deployment;
@@ -79,11 +77,7 @@ pub mod error {
 #[cfg(feature = "full")]
 #[path = "host/device_link.rs"]
 pub mod device_link;
-/// Expression and statement evaluation.
-#[cfg(feature = "full")]
-#[path = "host/eval/mod.rs"]
-pub mod eval;
-/// Runtime execution backend selection and provenance.
+/// Where the reported execution backend came from.
 #[cfg(feature = "full")]
 #[path = "host/execution_backend.rs"]
 pub mod execution_backend;
@@ -209,25 +203,19 @@ pub mod web;
 mod runtime;
 
 #[cfg(feature = "full")]
-pub(crate) use runtime::types::GlobalInitValue;
 #[cfg(feature = "full")]
 pub use runtime::{
-    BoundGlobal, CompiledRuntime, CompiledState, CompiledVariable, NamedVariable, RestartMode,
-    RetainPolicy, RetainSnapshot, Runtime, RuntimeBuilder, RuntimeMetadata,
+    BoundGlobal, CompiledDebugger, CompiledRuntime, CompiledState, CompiledVariable, NamedVariable,
+    RestartMode, RetainPolicy, RetainSnapshot, RuntimeBuilder, RuntimeMetadata,
 };
 
-#[cfg(not(feature = "full"))]
-#[path = "host/runtime_only.rs"]
-mod runtime_only;
-#[cfg(not(feature = "full"))]
-pub use runtime_only::Runtime;
 #[cfg(not(feature = "full"))]
 pub use trust_runtime_core::retain::{RestartMode, RetainPolicy, RetainSnapshot};
 
 // These are the canonical core records, not alternative hosted semantics.
 #[cfg(not(feature = "full"))]
 pub use trust_runtime_core::{
-    bytecode, memory, program_model, retain, scheduler, stdlib, task, value, watchdog,
+    memory, program_model, retain, scheduler, stdlib, task, value, watchdog,
 };
 /// Direct I/O address records for the source-free hosted composition.
 #[cfg(not(feature = "full"))]
@@ -237,6 +225,3 @@ pub mod io {
 }
 #[path = "host/host_clock.rs"]
 mod host_clock;
-#[cfg(feature = "register-ir")]
-#[path = "runtime/register_environment.rs"]
-mod register_environment;

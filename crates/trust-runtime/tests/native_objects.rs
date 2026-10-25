@@ -558,8 +558,8 @@ END_CONFIGURATION
 
 /// A derived function block inherits every variable of its base (IEC §6.6.7.2.7, §6.6.5), so its
 /// call connects the inputs and outputs it inherits as its own: `Gain := 5` sets the inherited
-/// input, `Bias := 3` its own, and `Out => result` reads the inherited output, 5 × 2 + 3 = 13, in
-/// both engines. Catches a call refused with "expected 0 arguments" or "unknown parameter", which
+/// input, `Bias := 3` its own, and `Out => result` reads the inherited output, 5 × 2 + 3 = 13, on
+/// the kernel and through the test harness. Catches a call refused with "expected 0 arguments" or "unknown parameter", which
 /// trust-hir gave before 23 October 2026, and an inherited input left unset.
 #[test]
 fn a_derived_function_block_call_connects_its_inherited_inputs_and_outputs() {
@@ -646,11 +646,12 @@ END_CONFIGURATION
 /// An in-out of a function block type takes an instance of a derived type that adds no in-out
 /// (IEC §6.6.8.3; additional inputs are allowed, `docs/IEC_DECISIONS.md` 2026-10-23), and a call
 /// through it binds by the instance's class: `Operate(v := m)` sets `m.Open` and gets
-/// `MotorValve.Name`, 2; `Operate(v := plain)` gets `Valve.Name`, 1; in both engines. Catches the
+/// `MotorValve.Name`, 2; `Operate(v := plain)` gets `Valve.Name`, 1; on the kernel and through the
+/// test harness. Catches the
 /// call refused with E205, which trust-hir gave before 23 October 2026, and a call bound by the
 /// in-out's declared type (`viaDerived` 1).
 #[test]
-fn a_base_in_out_takes_a_derived_instance_in_both_engines() {
+fn a_base_in_out_takes_a_derived_instance() {
     let mut program = program(DERIVED_IN_OUT);
     program
         .scan(Duration::from_millis(10), &mut NoHooks)
@@ -721,10 +722,10 @@ END_CONFIGURATION
 
 /// Two values of one interface type compare for equality (IEC §6.6.6.5.1; specification 04 §6 rule
 /// 7): equal when they name the same instance or are both `NULL`, so `same`, `differ` and `nulls`
-/// are TRUE and `mixed` FALSE, in both engines. Catches the comparison refused with E201, which
+/// are TRUE and `mixed` FALSE, on the kernel and through the test harness. Catches the comparison refused with E201, which
 /// trust-hir gave before 23 October 2026, and one that compares the instances' values.
 #[test]
-fn interfaces_compare_for_equality_in_both_engines() {
+fn interfaces_compare_for_equality() {
     let mut program = program(INTERFACE_EQUALITY);
     program
         .scan(Duration::from_millis(10), &mut NoHooks)
@@ -828,15 +829,15 @@ END_CONFIGURATION
 ";
 
 /// `SUPER` binds statically to the base's method and `THIS` stays the own instance (IEC
-/// §6.6.5.7.2, §6.6.5.7.3), whose class `THIS.Name()` binds to dynamically (§6.6.5.6), in both
-/// engines: `z.Advance()` runs `Level3`'s, `Level2`'s and `Level1`'s steps, so `z.trace` is 321, and
+/// §6.6.5.7.2, §6.6.5.7.3), whose class `THIS.Name()` binds to dynamically (§6.6.5.6), on the
+/// kernel and through the test harness: `z.Advance()` runs `Level3`'s, `Level2`'s and `Level1`'s steps, so `z.trace` is 321, and
 /// `THIS.Name()` in `Level1.Advance` is `z`'s, a `Level3`, so 3; `w`, a `Level2`, gives 21 and
 /// `Level1`'s 1; `THIS.Name()` in `A.Run` reached from `B.Run` is `x`'s, so 2. Catches `THIS` bound
 /// to the base part `SUPER` named (`z.named` 1, `x.r` 1), as the bytecode engine did before 23
 /// October 2026, and a `SUPER` taken from the instance instead of the running method's class, which
 /// would call `Level2.Advance` again without end.
 #[test]
-fn this_stays_the_own_instance_through_super_in_both_engines() {
+fn this_stays_the_own_instance_through_super() {
     let mut program = program(SUPER_CHAIN);
     program
         .scan(Duration::from_millis(10), &mut NoHooks)
@@ -882,11 +883,11 @@ END_PROGRAM
 ";
 
 /// A call through an interface that names no instance ends the scan with the error of a null
-/// dereference (specification 10) in the bytecode engine too, as compiled programs report it
+/// dereference (specification 10) through the test harness too, as the kernel reports it
 /// (`a_call_through_null_is_a_null_dereference`). Catches the `type mismatch` the bytecode engine
 /// reported before 24 October 2026.
 #[test]
-fn a_call_through_null_is_a_null_dereference_in_the_bytecode_engine() {
+fn a_call_through_null_is_a_null_dereference_through_the_harness() {
     let mut runtime = trust_runtime::harness::TestHarness::from_source(NULL_CALL)
         .expect("the runtime builds the program");
     runtime.advance_time(Duration::from_millis(10));

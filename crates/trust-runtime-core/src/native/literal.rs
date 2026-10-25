@@ -8,10 +8,10 @@
 
 use super::image::{type_kind as kind, Image, IoBindRecord, SymbolRecord};
 use super::values::{damaged, Types};
-use crate::bytecode::BYTECODE_MAX_TYPE_NESTING;
 use crate::error::RuntimeError;
 use crate::io_address::{IoAddress, IoSize};
 use crate::memory::IoArea;
+use crate::native::values::MAX_TYPE_NESTING;
 use crate::value::Value;
 
 /// `value` typed for a variable of type `type_index` of `image`: `Some` for an integer literal that
@@ -91,7 +91,7 @@ pub(crate) fn for_address(
 /// for any other type.
 fn integer_kind(types: &Types<'_>, index: u32) -> Result<Option<u32>, RuntimeError> {
     let mut index = index;
-    for _ in 0..=BYTECODE_MAX_TYPE_NESTING {
+    for _ in 0..=MAX_TYPE_NESTING {
         let record = types.get(index)?;
         let declared = match record.kind {
             kind::ALIAS => {
@@ -167,11 +167,20 @@ fn bound_type(image: &Image<'_>, address: &IoAddress) -> Result<Option<u32>, Run
     let bindings = image
         .table::<IoBindRecord>()
         .map_err(|_| damaged("I/O binding table"))?;
+    let hierarchical = address.path.len() > 1;
     let Some(binding) = bindings.iter().find(|binding| {
         binding.area == area
             && binding.size == size
-            && binding.byte == address.byte
-            && (size != 0 || binding.bit == address.bit)
+            && if hierarchical {
+                // A hierarchical address is the one its binding's text spells (§5.6).
+                image
+                    .binding_address(binding)
+                    .is_some_and(|bound| bound.path == address.path && bound.bit == address.bit)
+            } else {
+                !binding.is_hierarchical()
+                    && binding.byte == address.byte
+                    && (size != 0 || binding.bit == address.bit)
+            }
     }) else {
         return Ok(None);
     };

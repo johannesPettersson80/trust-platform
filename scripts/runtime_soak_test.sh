@@ -27,8 +27,8 @@ if [ ! -f "$PROJECT/runtime.toml" ]; then
 fi
 ST_RUNTIME="$(resolve_runtime_binary "$ST_RUNTIME")"
 TEMP_SRC_LINK="$(prepare_project_sources_link "$PROJECT")"
-if [ "$BUILD_BEFORE_RUN" = "true" ] || [ ! -f "$PROJECT/program.stbc" ]; then
-  echo "Building project bytecode before soak test..."
+if [ "$BUILD_BEFORE_RUN" = "true" ] || [ ! -f "$PROJECT/program.tpi" ]; then
+  echo "Building the project's program before soak test..."
   "$ST_RUNTIME" build --project "$PROJECT" >/dev/null
 fi
 

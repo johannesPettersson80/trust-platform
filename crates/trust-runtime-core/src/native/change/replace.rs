@@ -5,9 +5,9 @@
 use alloc::vec::Vec;
 
 use crate::error::RuntimeError;
+use crate::native::change::CarriedValueEvent;
 use crate::native::program::{ModuleCode, NativeProgram};
 use crate::value::Duration;
-use crate::vm::CarriedValueEvent;
 
 impl<C: ModuleCode> NativeProgram<'_, C> {
     /// Makes this program, built from its image with its module where the CPU runs it, the

@@ -1,6 +1,6 @@
 /// Drives a runtime with a scheduling clock.
 pub struct ResourceRunner<C: Clock + Clone> {
-    runtime: HostProgram,
+    runtime: CompiledRuntime,
     clock: C,
     cycle_interval: Duration,
     time_scale: u32,
@@ -21,9 +21,9 @@ pub struct ResourceRunner<C: Clock + Clone> {
 
 impl<C: Clock + Clone> ResourceRunner<C> {
     #[must_use]
-    pub fn new(runtime: impl Into<HostProgram>, clock: C, cycle_interval: Duration) -> Self {
+    pub fn new(runtime: CompiledRuntime, clock: C, cycle_interval: Duration) -> Self {
         Self {
-            runtime: runtime.into(),
+            runtime,
             clock,
             cycle_interval,
             time_scale: 1,
@@ -96,24 +96,13 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 
     /// The program the runner runs.
     #[must_use]
-    pub fn program(&self) -> &HostProgram {
+    pub fn program(&self) -> &CompiledRuntime {
         &self.runtime
     }
 
     /// The program the runner runs.
-    pub fn program_mut(&mut self) -> &mut HostProgram {
+    pub fn program_mut(&mut self) -> &mut CompiledRuntime {
         &mut self.runtime
-    }
-
-    /// The program on the bytecode engine, when the runner runs one.
-    #[must_use]
-    pub fn engine(&self) -> Option<&Runtime> {
-        self.runtime.engine()
-    }
-
-    /// The program on the bytecode engine, when the runner runs one.
-    pub fn engine_mut(&mut self) -> Option<&mut Runtime> {
-        self.runtime.engine_mut()
     }
 
     /// The program's time on the scheduler clock: the clock's reading `clock_now` less its reading
@@ -189,13 +178,6 @@ impl<C: Clock + Clone> ResourceRunner<C> {
         self.runtime.execute_cycle()
     }
 
-    /// Execute one cycle with shared global synchronization.
-    pub fn tick_with_shared(&mut self, shared: &SharedGlobals) -> Result<(), RuntimeError> {
-        let now = self.clock.now();
-        self.runtime.set_current_time(now);
-        shared.execute_program_cycle(&mut self.runtime)
-    }
-
     /// Spawn the runner in a dedicated OS thread.
     pub fn spawn(self, name: impl Into<String>) -> Result<ResourceHandle<C>, RuntimeError> {
         let stop = Arc::new(AtomicBool::new(false));
@@ -262,80 +244,6 @@ impl<C: Clock + Clone> ResourceRunner<C> {
             debug,
         })
     }
-
-    /// Spawn the runner with shared global synchronization.
-    pub fn spawn_with_shared(
-        mut self,
-        name: impl Into<String>,
-        shared: SharedGlobals,
-    ) -> Result<ResourceHandle<C>, RuntimeError> {
-        shared.validate_program_destination(&mut self.runtime)?;
-        let stop = Arc::new(AtomicBool::new(false));
-        let state = Arc::new(Mutex::new(ResourceState::Boot));
-        let last_error = Arc::new(Mutex::new(None));
-        let supervision = Arc::new(supervisor::ScanSupervision::new(
-            state.clone(),
-            last_error.clone(),
-        ));
-        let clock = self.clock.clone();
-        let (cmd_tx, cmd_rx) = command_channel();
-        let mut runner = self;
-        runner.command_rx = Some(cmd_rx);
-        let debug = debug_for_new_thread(&runner.runtime);
-
-        let stop_thread = stop.clone();
-        let state_thread = state.clone();
-        let last_error_thread = last_error.clone();
-        let supervision_thread = supervision.clone();
-        let shared_thread = shared.clone();
-
-        let (id_tx, id_rx) = std::sync::mpsc::channel();
-        let builder = thread::Builder::new()
-            .name(name.into())
-            .stack_size(SCAN_THREAD_STACK_BYTES);
-        let thread_init_hook = runner.thread_init_hook.clone();
-        let join = builder
-            .spawn(move || {
-                run_guarded_resource_thread(
-                    thread_init_hook,
-                    id_tx,
-                    state_thread.clone(),
-                    last_error_thread.clone(),
-                    move || {
-                        run_resource_loop_with_shared(
-                            runner,
-                            stop_thread,
-                            state_thread,
-                            last_error_thread,
-                            supervision_thread,
-                            shared_thread,
-                        );
-                    },
-                );
-            })
-            .map_err(|err| RuntimeError::ThreadSpawn(err.to_string().into()))?;
-
-        let thread_id = match id_rx.recv() {
-            Ok(Ok(thread_id)) => thread_id,
-            Ok(Err(err)) => {
-                let _ = join.join();
-                return Err(err);
-            }
-            Err(_) => join.thread().id(),
-        };
-
-        Ok(ResourceHandle {
-            stop,
-            state,
-            last_error,
-            supervision,
-            thread_id,
-            clock,
-            join: Some(join),
-            cmd_tx: cmd_tx.clone(),
-            debug,
-        })
-    }
 }
 
 /// The debugger of `runtime`, ready for a resource thread that is about to start. A stop that
@@ -343,7 +251,7 @@ impl<C: Clock + Clone> ResourceRunner<C> {
 /// outlives its resource is not left inert. This runs on the spawning thread, before any stop
 /// request can reach the new thread (specification 11 section 6.9, "Operations while the debugger
 /// holds the scan").
-fn debug_for_new_thread(runtime: &HostProgram) -> Option<DebugControl> {
+fn debug_for_new_thread(runtime: &CompiledRuntime) -> Option<DebugControl> {
     let debug = runtime.debug_control();
     if let Some(debug) = &debug {
         debug.rearm_after_stop();

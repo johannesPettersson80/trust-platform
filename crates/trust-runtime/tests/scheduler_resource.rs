@@ -1,3 +1,7 @@
+//! A resource runs on a thread of its own and reports its scans.
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::time::Duration as StdDuration;
 
 use trust_runtime::debug::RuntimeEvent;
@@ -17,7 +21,8 @@ END_PROGRAM
 "#;
 
     let mut runtime = TestHarness::from_source(source).unwrap().into_runtime();
-    let debug = runtime.enable_debug();
+    let debug = trust_runtime::debug::DebugControl::new();
+    runtime.set_debug_control(debug.clone());
     let (tx, rx) = std::sync::mpsc::channel();
     debug.set_runtime_sender(tx);
 

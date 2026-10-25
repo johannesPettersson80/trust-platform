@@ -10,6 +10,8 @@
 //! CONFIGURATION binds, and ordinary runtime construction rejects those (spec 22, "Test case
 //! execution"). `oscat_oop_examples.rs` runs them through the test runner. Here every example,
 //! OSCAT included, is checked for a configured resource its parsed sources declare.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 #![cfg(feature = "full")]
 
 use std::fs;
@@ -25,16 +27,23 @@ use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, rende
 use trust_syntax::SyntaxKind;
 
 /// Left out of every copy: earlier builds and tool caches. The copy is built from its sources.
-const SKIPPED_ENTRIES: [&str; 4] = ["program.stbc", "target", ".trust", "node_modules"];
+const SKIPPED_ENTRIES: [&str; 6] = [
+    "program.tpi",
+    "deployment-record.bin",
+    "build",
+    "target",
+    ".trust",
+    "node_modules",
+];
 /// Examples whose trust-lsp.toml depends on a checkout outside this repository, so no copy can be
 /// built here. `openot_telemetry.rs` builds this one's `Main.st` with the vendored OpenOT library
 /// (`tests/fixtures/openot`).
 const EXTERNAL_DEPENDENCY_EXAMPLES: [&str; 1] = ["openot_multi_program"];
 /// Each build uses one core; four workers keep a CI runner responsive.
 const MAX_BUILD_WORKERS: usize = 4;
-/// The launch error for a configured resource the bytecode does not declare (spec 11 §6.7.1).
-/// `artifact::select_resource` produces it, so `play` and `validate` print the same text.
-const UNDECLARED_RESOURCE_ERROR: &str = "resource 'Missing' not found in supplied bytecode";
+/// The launch error for a configured resource the program does not declare (spec 11 §6.7.1) names
+/// the resource, and `play` and `validate` print the same text.
+const UNDECLARED_RESOURCE_ERROR: &str = "resource 'Missing'";
 /// `play` fails in `load_runtime` before it starts anything. The bound only stops a regression that
 /// starts the runtime instead of failing; the test then kills the process and fails.
 const LAUNCH_TIMEOUT: Duration = Duration::from_secs(60);
@@ -148,17 +157,33 @@ fn only_the_oscat_examples_declare_test_programs() {
 }
 
 #[test]
-fn validate_rejects_a_configured_resource_the_bytecode_does_not_declare() {
+fn validate_rejects_a_configured_resource_the_program_does_not_declare() {
     let root = TempRoot::new("undeclared-resource");
     let project = root.path().join("project");
     write_project(&project, DECLARED_RESOURCE_SOURCE, "Missing");
+    // The build refuses the resource the program does not declare (specification 11 §6.8.1d).
+    let build = cli(&["build"], &project);
+    assert!(
+        !build.status.success(),
+        "build must refuse a resource the program does not declare"
+    );
+    let build_error = stderr_text(&build);
+    assert!(
+        build_error.contains(UNDECLARED_RESOURCE_ERROR),
+        "build must name the configured resource; stderr:\n{build_error}"
+    );
+
+    // An image built for the declared resource is refused once runtime.toml names another, from the
+    // name the image carries (specification 44 §5.2).
+    write_project(&project, DECLARED_RESOURCE_SOURCE, "Line1");
     let build = cli(&["build"], &project);
     assert!(build.status.success(), "{}", failure("build", &build));
+    write_project(&project, DECLARED_RESOURCE_SOURCE, "Missing");
 
     let validate = cli(&["validate"], &project);
     assert!(
         !validate.status.success(),
-        "validate must reject a resource the bytecode does not declare"
+        "validate must reject a resource the program does not declare"
     );
     let validate_error = stderr_text(&validate);
     assert!(

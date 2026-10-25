@@ -186,8 +186,8 @@ pub(crate) fn compile_reload_payload(
         }
     };
 
-    let program_path = project_root.join("program.stbc");
-    let bytecode = match std::fs::read(&program_path) {
+    let program_path = project_root.join(trust_runtime::native::PROGRAM_IMAGE_FILE);
+    let image = match std::fs::read(&program_path) {
         Ok(bytes) => bytes,
         Err(error) => {
             return serde_json::to_value(CompileReloadResult {
@@ -204,7 +204,7 @@ pub(crate) fn compile_reload_payload(
                 build: Some(build),
                 reload: None,
             })
-            .context("serialize bytecode-read-failure compile_reload payload");
+            .context("serialize image-read-failure compile_reload payload");
         }
     };
 
@@ -214,7 +214,7 @@ pub(crate) fn compile_reload_payload(
         token,
         "bytecode.reload",
         Some(json!({
-            "bytes": BASE64_STANDARD.encode(bytecode),
+            "bytes": BASE64_STANDARD.encode(image),
         })),
     ) {
         Ok(control) => json!({
@@ -261,7 +261,7 @@ pub(crate) fn project_info_payload(
     let runtime_path = project_root.join("runtime.toml");
     let io_path = project_root.join("io.toml");
     let simulation_path = project_root.join("simulation.toml");
-    let program_path = project_root.join("program.stbc");
+    let program_path = project_root.join(trust_runtime::native::PROGRAM_IMAGE_FILE);
     let manifest_path = inspection
         .manifest_path
         .clone()
@@ -313,7 +313,7 @@ pub(crate) fn project_info_payload(
                 "path": manifest_path.display().to_string(),
                 "exists": inspection.manifest_path.is_some(),
             },
-            "programStbc": {
+            "programImage": {
                 "path": program_path.display().to_string(),
                 "exists": program_path.is_file(),
             },
@@ -544,7 +544,7 @@ fn read_runtime_summary(path: &Path) -> JsonValue {
         Ok(config) => json!({
             "available": true,
             "path": path.display().to_string(),
-            "executionBackend": config.execution_backend.as_str(),
+            "executionBackend": trust_runtime::execution_backend::EXECUTION_BACKEND,
             "controlEndpoint": config.control_endpoint.as_str(),
             "hasControlToken": config.control_auth_token.is_some(),
             "controlDebugEnabled": config.control_debug_enabled,

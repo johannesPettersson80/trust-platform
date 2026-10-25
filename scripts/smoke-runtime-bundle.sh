@@ -37,8 +37,8 @@ if [[ "$DO_GEN" -eq 1 ]]; then
   fi
 fi
 
-if [[ ! -f "$BUNDLE/program.stbc" ]]; then
-  echo "Missing $BUNDLE/program.stbc" >&2
+if [[ ! -f "$BUNDLE/program.tpi" ]]; then
+  echo "Missing $BUNDLE/program.tpi" >&2
   exit 1
 fi
 

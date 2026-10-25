@@ -1,15 +1,10 @@
 //! OPC UA client subsystem owned by the runtime scan cycle.
 
 use crate::error::RuntimeError;
-#[cfg(test)]
-use crate::memory::VariableStorage;
 use crate::opcua::{
-    resolve_opcua_client_bindings, OpcUaClientBridge, OpcUaClientConfig,
-    OpcUaClientConnectionConfig, OpcUaClientConnectionState, OpcUaClientConnectionStatus,
-    OpcUaClientStatusReport, OpcUaClientWorkerThread,
+    OpcUaClientBridge, OpcUaClientConnectionConfig, OpcUaClientConnectionState,
+    OpcUaClientConnectionStatus, OpcUaClientStatusReport, OpcUaClientWorkerThread,
 };
-
-use super::Runtime;
 
 pub(super) struct OpcUaClientSubsystem {
     connections: Vec<OpcUaRuntimeClientConnection>,
@@ -30,25 +25,6 @@ impl OpcUaClientSubsystem {
         }
     }
 
-    pub(super) fn configure(
-        &mut self,
-        runtime: &Runtime,
-        config: &OpcUaClientConfig,
-    ) -> Result<(), RuntimeError> {
-        self.shutdown()?;
-        self.connections.clear();
-        for connection in &config.connections {
-            let bindings = resolve_opcua_client_bindings(runtime, connection)?;
-            let bridge = OpcUaClientBridge::new(bindings).map_err(|err| {
-                RuntimeError::IoTransport(
-                    format!("OPC UA client connection '{}': {err}", connection.name).into(),
-                )
-            })?;
-            self.add_connection(connection.clone(), bridge, None);
-        }
-        Ok(())
-    }
-
     pub(super) fn add_connection(
         &mut self,
         config: OpcUaClientConnectionConfig,
@@ -64,84 +40,6 @@ impl OpcUaClientSubsystem {
 
     pub(super) fn set_deployed_config_hash(&mut self, hash: Option<String>) {
         self.deployed_config_hash = hash;
-    }
-
-    pub(super) fn prepare_rebind(
-        &self,
-        candidate: &crate::Runtime,
-    ) -> Result<Vec<Vec<crate::opcua::OpcUaClientBinding>>, RuntimeError> {
-        self.connections
-            .iter()
-            .map(|connection| resolve_opcua_client_bindings(candidate, &connection.config))
-            .collect()
-    }
-
-    pub(super) fn commit_rebind(&mut self, bindings: Vec<Vec<crate::opcua::OpcUaClientBinding>>) {
-        for (connection, bindings) in self.connections.iter_mut().zip(bindings) {
-            connection.bridge.replace_bindings(bindings);
-        }
-    }
-
-    pub(super) fn connection_count(&self) -> usize {
-        self.connections.len()
-    }
-
-    #[cfg(test)]
-    pub(super) fn apply_inputs(
-        &mut self,
-        storage: &mut VariableStorage,
-        now_ms: u64,
-    ) -> Result<(), RuntimeError> {
-        for connection in &mut self.connections {
-            connection
-                .bridge
-                .apply_inputs(storage, now_ms)
-                .map_err(|err| opcua_runtime_error(&connection.config.name, err))?;
-        }
-        Ok(())
-    }
-
-    #[cfg(test)]
-    pub(super) fn capture_outputs(
-        &mut self,
-        storage: &mut VariableStorage,
-        now_ms: u64,
-    ) -> Result<(), RuntimeError> {
-        for connection in &mut self.connections {
-            connection
-                .bridge
-                .capture_outputs(storage, now_ms)
-                .map_err(|err| opcua_runtime_error(&connection.config.name, err))?;
-        }
-        Ok(())
-    }
-
-    pub(super) fn apply_inputs_with_cycle(
-        &mut self,
-        access: &mut trust_runtime_core::vm::CycleAccess<'_, '_>,
-        now_ms: u64,
-    ) -> Result<(), RuntimeError> {
-        for connection in &mut self.connections {
-            connection
-                .bridge
-                .apply_inputs_with_cycle(access, now_ms)
-                .map_err(|err| opcua_runtime_error(&connection.config.name, err))?;
-        }
-        Ok(())
-    }
-
-    pub(super) fn capture_outputs_with_cycle(
-        &mut self,
-        access: &mut trust_runtime_core::vm::CycleAccess<'_, '_>,
-        now_ms: u64,
-    ) -> Result<(), RuntimeError> {
-        for connection in &mut self.connections {
-            connection
-                .bridge
-                .capture_outputs_with_cycle(access, now_ms)
-                .map_err(|err| opcua_runtime_error(&connection.config.name, err))?;
-        }
-        Ok(())
     }
 
     /// [`Self::apply_inputs_with_cycle`] for a compiled program, after its drivers read the

@@ -1,7 +1,7 @@
 //! The deployment record of an image (specification 44 §10.1): every field from the image's own
 //! tables, so that admission and the loader see what the image holds.
 
-use crate::bytecode::BytecodeVersion;
+use crate::deployment::ProgramVersion;
 use crate::deployment::{
     sha256, Capabilities, DeploymentRecord, NumericContract, ProcessImageSummary,
     SchedulingProfile, TaskSummary, TimingEvidence,
@@ -27,14 +27,14 @@ fn the_record_names_the_image() {
     assert_eq!(record.application.program_sha256, sha256(&bytes));
     assert_eq!(record.application.program_bytes as usize, bytes.len());
     assert_eq!(
-        record.application.bytecode_version,
-        BytecodeVersion::NATIVE_IMAGE
+        record.application.program_version,
+        ProgramVersion::NATIVE_IMAGE
     );
     assert_eq!(
-        record.application.bytecode_version,
-        BytecodeVersion::new(44, 1)
+        record.application.program_version,
+        ProgramVersion::new(44, 1)
     );
-    assert_eq!(record.application.bytecode_flags, 0);
+    assert_eq!(record.application.program_flags, 0);
     assert_eq!(record.application.configuration_sha256, configuration);
     // Nothing is retained: the identity is SHA-256 of no bytes (FIPS 180-4).
     assert_eq!(

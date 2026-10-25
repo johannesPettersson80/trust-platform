@@ -8,11 +8,11 @@
 # Move to your project (or use the example project)
 cd examples/hardware_8do
 
-# Build bytecode
+# Build the program image
 sudo ../../target/release/trust-runtime build --project .
 
 # Confirm output exists
-ls -lh program.stbc
+ls -lh program.tpi
 ```
 
 ### 2. Install the systemd service
@@ -51,7 +51,7 @@ trust-runtime ctl --project . io-write %QX0.0 TRUE
 ┌─────────────────────────────────────────────────────┐
 │  2. BUILD                                            │
 │  $ trust-runtime build --project .                  │
-│  → Generates program.stbc                           │
+│  → Generates program.tpi                            │
 └─────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────┐
@@ -65,7 +65,7 @@ trust-runtime ctl --project . io-write %QX0.0 TRUE
 │  4. AUTO START                                       │
 │  On Linux boot:                                     │
 │  → systemd starts trust-plc.service                │
-│  → trust-runtime loads program.stbc                │
+│  → trust-runtime loads program.tpi                 │
 │  → EtherCAT master initializes                      │
 │  → PLC cycle runs (10ms default)                    │
 │  → StateCharts connect over control socket          │

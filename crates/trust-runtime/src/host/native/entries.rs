@@ -152,12 +152,16 @@ fn initializer_place(
 
 /// The entry points of the module for `target`, written to `source`, the initializations setting
 /// `references`.
+///
+/// # Errors
+///
+/// [`NativeError`] for a function block bound to a task that its program does not hold.
 pub(super) fn entries(
     source: &mut String,
     model: &Model<'_>,
     target: Target,
     references: &[String],
-) -> Vec<Entry> {
+) -> Result<Vec<Entry>, NativeError> {
     let abi = if target == Target::X86_64 {
         "sysv64"
     } else {
@@ -177,6 +181,21 @@ pub(super) fn entries(
             symbol,
             kind: EntryKind::ProgramBody,
             index: u32::try_from(index).unwrap_or(u32::MAX),
+        });
+    }
+    // A function block instance a task runs on its own: its body on the instance, an entry of the
+    // program that holds it (IEC §6.8.2).
+    for (index, block) in model.block_tasks.iter().enumerate() {
+        let symbol = format!("trust_entry_b{index}");
+        let call = block_body(model, block)?;
+        let _ = writeln!(
+            source,
+            "#[allow(unsafe_code)]\n#[unsafe(no_mangle)]\npub extern \"{abi}\" fn {symbol}(cx: *mut Cx) -> u32 {{\n    run(cx, |cx, areas| {{\n        let w = World::new(cx, &areas)?;\n        {call}\n    }})\n}}\n"
+        );
+        entries.push(Entry {
+            symbol,
+            kind: EntryKind::ProgramBody,
+            index: u32::try_from(block.instance).unwrap_or(u32::MAX),
         });
     }
     let initialization = if references.is_empty() {
@@ -203,5 +222,48 @@ pub(super) fn entries(
             index: 0,
         });
     }
-    entries
+    Ok(entries)
+}
+
+/// The call of the body of the function block instance `block` names, in an entry.
+fn block_body(model: &Model<'_>, block: &super::model::BlockTask) -> Result<String, NativeError> {
+    let instance = &model.instances[block.instance];
+    let unknown = || {
+        NativeError::Compile(format!(
+            "{}.{} bound to a task is no function block instance",
+            instance.name,
+            block.path.join(".")
+        ))
+    };
+    let (first, rest) = block.path.split_first().ok_or_else(unknown)?;
+    let program = &model.program_types[instance.program];
+    let (member, retained) = program.member(first).ok_or_else(unknown)?;
+    let owner = if retained { "w.r" } else { "w.p" };
+    let mut place = format!("{owner}.{}.{}", rust_field(&instance.name), member.field());
+    let mut ty = member.ty;
+    for name in rest {
+        let member = model
+            .types
+            .info(ty)
+            .members()
+            .iter()
+            .find(|member| member.name.eq_ignore_ascii_case(name))
+            .ok_or_else(unknown)?;
+        place = format!("{place}.{}", member.field());
+        ty = member.ty;
+    }
+    match &model.types.info(ty).kind {
+        Kind::Fb { def, .. } => Ok(format!(
+            "fb_{}(cx, &w, &{place})",
+            super::types::mangle(def)
+        )),
+        Kind::StdFb(fb) => {
+            let (function, timed) = fb.body();
+            let time = if timed { ", cx.now_ns" } else { "" };
+            Ok(format!(
+                "{{\n            {function}(&{place}{time});\n            Ok(())\n        }}"
+            ))
+        }
+        _ => Err(unknown()),
+    }
 }

@@ -90,79 +90,33 @@ pub(crate) fn openot_st_source_files(main_source: &str) -> Vec<trust_runtime::ha
     sources
 }
 
-pub(crate) fn with_work_charge_log<T, E: std::fmt::Debug>(
-    operation: &str,
-    action: impl FnOnce() -> Result<T, E>,
-) -> Result<T, E> {
-    use trust_runtime_core::vm::diagnostic_timing::{
-        finish_callsite_accounting_log, start_callsite_accounting_log,
-    };
+/// The OpenOT library and `main_source` compiled for this computer, loaded as the harness loads a
+/// program. It needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+pub(crate) fn build_st_runtime(main_source: &str) -> trust_runtime::CompiledRuntime {
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
-    if std::env::var_os("TRUST_OPENOT_WORK_CHARGES").as_deref() != Some(std::ffi::OsStr::new("1")) {
-        return action();
-    }
-    start_callsite_accounting_log();
-    let result = action();
-    let snapshot = finish_callsite_accounting_log();
-    let thread = std::thread::current();
-    let test = thread.name().unwrap_or("unnamed");
-    let consumed_work: u128 = snapshot.work[..snapshot.work_len]
-        .iter()
-        .map(|row| u128::from(row.consumed_units))
-        .sum();
-    eprintln!(
-        "openot-work-charge test={test:?} operation={operation:?} result={:?} work_len={} copy_len={} lifecycle_len={} index_lookup_len={} consumed_work={consumed_work} overflow_count={} recorder_busy={} valid={}",
-        result.as_ref().map(|_| ()),
-        snapshot.work_len,
-        snapshot.copy_len,
-        snapshot.lifecycle_len,
-        snapshot.index_lookup_len,
-        snapshot.overflow_count,
-        snapshot.recorder_busy,
-        snapshot.is_valid(),
-    );
-    eprintln!("openot-attribution-header test={test:?} operation={operation:?} owner_query_len={} array_consumer_len={}", snapshot.owner_queries.len(), snapshot.array_consumers.len());
-    for row in &snapshot.owner_queries {
-        eprintln!("openot-owner-query-row test={test:?} operation={operation:?} {row:?}");
-    }
-    for row in &snapshot.array_consumers {
-        eprintln!("openot-array-consumer-row test={test:?} operation={operation:?} {row:?}");
-    }
-    for row in &snapshot.work[..snapshot.work_len] {
-        eprintln!("openot-work-charge-row test={test:?} operation={operation:?} {row:?}");
-    }
-    for row in &snapshot.index_lookups[..snapshot.index_lookup_len] {
-        eprintln!("openot-index-lookup-row test={test:?} operation={operation:?} {row:?}");
-    }
-    for row in &snapshot.lifecycle[..snapshot.lifecycle_len] {
-        eprintln!("openot-lifecycle-demand-row test={test:?} operation={operation:?} {row:?}");
-    }
-    for row in &snapshot.copies[..snapshot.copy_len] {
-        eprintln!(
-            "openot-copy-admission-row test={test:?} operation={operation:?} variant={} {row:?}",
-            row.value_variant.name(),
-        );
-    }
-    assert!(
-        snapshot.is_valid(),
-        "OpenOT work-charge diagnostic capture is incomplete for {test}/{operation}: overflow_count={}, recorder_busy={}; original outcome: {:?}",
-        snapshot.overflow_count,
-        snapshot.recorder_busy,
-        result.as_ref().map(|_| ()),
-    );
-    result
-}
+    use trust_runtime::native::{build, Options, Target, Toolchain};
 
-pub(crate) fn build_st_runtime(main_source: &str) -> trust_runtime::Runtime {
-    let session =
-        trust_runtime::harness::CompileSession::from_sources(openot_st_source_files(main_source))
-            .label_errors(true);
-    let mut runtime = with_work_charge_log("construct", || session.build_runtime())
-        .unwrap_or_else(|err| panic!("build OpenOT ST runtime: {err}"));
-    let bytecode = session
-        .build_bytecode_bytes()
-        .unwrap_or_else(|err| panic!("build OpenOT ST bytecode: {err}"));
-    with_work_charge_log("install", || runtime.apply_bytecode_bytes(&bytecode, None))
-        .unwrap_or_else(|err| panic!("apply OpenOT ST bytecode: {err}"));
-    runtime
+    static BUILDS: AtomicUsize = AtomicUsize::new(0);
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    let work = std::env::temp_dir().join(format!(
+        "trust-openot-{}-{}",
+        std::process::id(),
+        BUILDS.fetch_add(1, Ordering::Relaxed)
+    ));
+    let built = build(
+        &openot_st_source_files(main_source),
+        &Options {
+            target,
+            hooks: true,
+        },
+        &toolchain,
+        &work,
+    );
+    let _ = std::fs::remove_dir_all(&work);
+    let built = built.unwrap_or_else(|err| panic!("build OpenOT ST program: {err}"));
+    trust_runtime::CompiledRuntime::load(built.image, "RESOURCE")
+        .unwrap_or_else(|err| panic!("load OpenOT ST program: {err}"))
 }

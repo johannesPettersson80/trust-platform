@@ -14,7 +14,6 @@ pub fn run_runtime(
     beginner: bool,
     simulation: bool,
     time_scale: u32,
-    execution_backend: Option<crate::cli::ExecutionBackendArg>,
 ) -> anyhow::Result<()> {
     let restart_mode = validate_runtime_launch_options(&restart, time_scale)?;
     // Where the program comes from, kept for a `restart` that finds the resource Stopped: it loads
@@ -26,8 +25,7 @@ pub fn run_runtime(
         sources,
         ide_shell_mode,
     } = load_runtime(project, config, runtime_root)?;
-    let (selected_execution_backend, selected_execution_backend_source) =
-        select_execution_backend(bundle.as_ref(), &runtime, execution_backend)?;
+    let backend_source = execution_backend_source(bundle.as_ref());
 
     let simulation_requested = simulation;
     let simulation = build_simulation_plan(bundle.as_ref(), simulation, time_scale)?;
@@ -52,9 +50,6 @@ pub fn run_runtime(
     let debug = trust_runtime::debug::DebugControl::new()
         .with_enabled_flag(std::sync::Arc::clone(&debug_enabled));
     let metrics = Arc::new(Mutex::new(RuntimeMetrics::new()));
-    if let Ok(mut guard) = metrics.lock() {
-        guard.set_execution_backend(selected_execution_backend);
-    }
     let io_health = Arc::new(Mutex::new(Vec::new()));
     let wiring = ProgramWiring {
         debug: debug.clone(),
@@ -84,13 +79,7 @@ pub fn run_runtime(
         });
     }
 
-    start_program(
-        &mut runtime,
-        bundle.as_ref(),
-        selected_execution_backend,
-        &wiring,
-        restart_mode,
-    )?;
+    start_program(&mut runtime, bundle.as_ref(), &wiring, restart_mode)?;
     let mut openot_persistence = bundle
         .as_ref()
         .map(start_openot_persistence_service)
@@ -109,12 +98,12 @@ pub fn run_runtime(
         LogLevel::Info,
         "execution_backend_selected",
         json!({
-            "backend": selected_execution_backend.as_str(),
-            "source": selected_execution_backend_source.as_str(),
+            "backend": trust_runtime::execution_backend::EXECUTION_BACKEND,
+            "source": backend_source.as_str(),
         }),
     );
 
-    let metadata = Arc::new(Mutex::new(program_metadata(&runtime)));
+    let metadata = Arc::new(Mutex::new(trust_runtime::RuntimeMetadata::default()));
     // The event store of the project's `runtime.events.capacity`, the computer's default when the
     // project sets none (specification 11, the event store).
     let event_capacity = bundle.as_ref().map_or(EVENT_STORE_CAPACITY, |bundle| {
@@ -169,18 +158,15 @@ pub fn run_runtime(
             warning: simulation_warning.clone(),
             controller: None,
         },
-        selected_execution_backend,
-        selected_execution_backend_source,
+        backend_source,
     );
     let web_config = resolve_web_config(bundle.as_ref(), &initial_settings);
     let settings = Arc::new(Mutex::new(initial_settings));
     let program_reload = ProgramReload {
         source: program_source,
-        execution_backend,
         simulation: simulation_requested,
         time_scale,
         wiring,
-        metadata: metadata.clone(),
         events: events.clone(),
         settings: settings.clone(),
     };
@@ -350,7 +336,6 @@ pub fn run_runtime(
         runtime_id: runtime_id.clone(),
         io_health: io_health.clone(),
         debug_enabled,
-        debug_variables: Arc::new(Mutex::new(trust_runtime::debug::DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(
             hmi_persistence
                 .as_ref()
@@ -504,8 +489,7 @@ pub fn run_runtime(
             simulation_enabled,
             simulation_time_scale,
             startup_hmi_scaffold.as_ref(),
-            selected_execution_backend,
-            selected_execution_backend_source,
+            backend_source,
         );
     }
 
@@ -544,10 +528,7 @@ pub fn run_runtime(
                 opcua_server.as_ref().map(|server| server.endpoint_url()),
                 simulation_enabled,
                 simulation_time_scale,
-                (
-                    selected_execution_backend,
-                    selected_execution_backend_source,
-                ),
+                backend_source,
             );
         }
         logger.log(
@@ -592,8 +573,8 @@ pub fn run_runtime(
                 "opcua_exposed_patterns": bundle.runtime.opcua.expose.len(),
                 "simulation_mode": if simulation_enabled { "simulation" } else { "production" },
                 "simulation_time_scale": simulation_time_scale,
-                "execution_backend": selected_execution_backend.as_str(),
-                "execution_backend_source": selected_execution_backend_source.as_str(),
+                "execution_backend": trust_runtime::execution_backend::EXECUTION_BACKEND,
+                "execution_backend_source": backend_source.as_str(),
             }),
         );
     }
@@ -657,64 +638,12 @@ fn parse_restart_mode(restart: &str) -> anyhow::Result<RestartMode> {
     }
 }
 
-fn load_startup_retain(runtime: &mut Runtime, restart_mode: RestartMode) -> anyhow::Result<()> {
-    if matches!(restart_mode, RestartMode::Warm) {
-        runtime.load_retain_store()?;
-    }
-    Ok(())
-}
-
-/// The backend of the loaded `program`: a project built for this computer runs its program image
-/// (specification 44 §8.8, NX-15), and any other program the backend its bundle or the command line
-/// selects.
-fn select_execution_backend(
+/// Where the execution backend that `status` reports came from: the project's
+/// `runtime.execution_backend`, when it names one.
+fn execution_backend_source(
     bundle: Option<&RuntimeBundle>,
-    program: &trust_runtime::scheduler::HostProgram,
-    cli_override: Option<crate::cli::ExecutionBackendArg>,
-) -> anyhow::Result<(
-    trust_runtime::execution_backend::ExecutionBackend,
-    trust_runtime::execution_backend::ExecutionBackendSource,
-)> {
-    if program.compiled().is_none() {
-        return resolve_execution_backend_selection(bundle, cli_override);
-    }
-    if cli_override.is_some() {
-        anyhow::bail!(
-            "the project runs its program image; `--execution-backend vm` runs a project built with `trust-runtime build --execution-backend vm`"
-        );
-    }
-    Ok((
-        trust_runtime::execution_backend::ExecutionBackend::Native,
-        trust_runtime::execution_backend::ExecutionBackendSource::Default,
-    ))
-}
-
-fn resolve_execution_backend_selection(
-    bundle: Option<&RuntimeBundle>,
-    cli_override: Option<crate::cli::ExecutionBackendArg>,
-) -> anyhow::Result<(
-    trust_runtime::execution_backend::ExecutionBackend,
-    trust_runtime::execution_backend::ExecutionBackendSource,
-)> {
-    if let Some(backend) = cli_override {
-        let backend = match backend {
-            crate::cli::ExecutionBackendArg::Vm => {
-                trust_runtime::execution_backend::ExecutionBackend::BytecodeVm
-            }
-        };
-        return Ok((
-            backend,
-            trust_runtime::execution_backend::ExecutionBackendSource::Flag,
-        ));
-    }
-    if let Some(bundle) = bundle {
-        return Ok((
-            bundle.runtime.execution_backend,
-            bundle.runtime.execution_backend_source,
-        ));
-    }
-    Ok((
-        trust_runtime::execution_backend::ExecutionBackend::BytecodeVm,
-        trust_runtime::execution_backend::ExecutionBackendSource::Default,
-    ))
+) -> trust_runtime::execution_backend::ExecutionBackendSource {
+    bundle.map_or_else(Default::default, |bundle| {
+        bundle.runtime.execution_backend_source
+    })
 }

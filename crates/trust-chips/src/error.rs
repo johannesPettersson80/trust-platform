@@ -34,7 +34,7 @@ pub enum Problem {
         /// The key of the text.
         field: &'static str,
     },
-    /// An `stm32f4` device ID is not a twelve-bit `DEV_ID`.
+    /// An STM32 device ID is not a twelve-bit `DEV_ID`.
     #[error("identity.device_id {device_id:#x} is not 1 to 0xFFF, the twelve bits of DEV_ID")]
     DeviceId {
         /// The device ID the file gives.
@@ -78,7 +78,7 @@ pub enum Problem {
     },
     /// The flash is not in the family's table, or is in both.
     #[error(
-        "the {family} family describes its flash in its own table: memory.flash for stm32f4, memory.spi_flash for esp32"
+        "the {family} family describes its flash in its own table: memory.flash for stm32u5, memory.spi_flash for esp32"
     )]
     FlashKind {
         /// The chip's family.
@@ -186,7 +186,7 @@ pub enum Problem {
     },
     /// The pins are not in the family's key, or are in both.
     #[error(
-        "the {family} family counts its pins in its own key: gpio.ports for stm32f4, gpio.pins for esp32"
+        "the {family} family counts its pins in its own key: gpio.ports for stm32u5, gpio.pins for esp32"
     )]
     GpioKind {
         /// The chip's family.

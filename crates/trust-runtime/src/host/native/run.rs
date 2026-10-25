@@ -3,13 +3,31 @@
 
 use std::sync::Arc;
 
-use trust_plc_abi::kernel::{Entry, Executable};
+use trust_plc_abi::kernel::{wall_clock, with_wall_clock, Entry, Executable, WallClock};
+use trust_plc_abi::{FaultCode, KernelApi};
 use trust_runtime_core::native::program::{
     admit, AdmittedImage, Device, ModuleCode, NativeProgram,
 };
-use trust_runtime_core::native::KERNEL_FUNCTIONS;
+use trust_runtime_core::native::KERNEL_API;
 
 use super::NativeError;
+
+/// The computer's wall clock, which `CURRENT_DT` reads (specification 07, "Runtime Clock Sources"):
+/// `SystemTime` as UTC Unix milliseconds, a positive fraction cut off, neither the runtime's nor a
+/// simulation's clock.
+struct HostClock;
+
+impl WallClock for HostClock {
+    fn unix_millis() -> Result<i64, FaultCode> {
+        let since = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| FaultCode::Overflow)?;
+        i64::try_from(since.as_millis()).map_err(|_| FaultCode::Overflow)
+    }
+}
+
+/// The kernel's functions on a computer: the core's, with the computer's wall clock.
+static HOSTED_FUNCTIONS: KernelApi = with_wall_clock(&KERNEL_API, wall_clock::<HostClock>);
 
 /// A module's code in this process's executable memory.
 pub struct HostCode(Executable);
@@ -34,7 +52,7 @@ pub fn load<'i>(
     let (_, module) = image.module();
     let code = Executable::load(module)
         .map_err(|error| NativeError::Image(format!("the module cannot be mapped: {error}")))?;
-    NativeProgram::new(image, HostCode(code), device, &KERNEL_FUNCTIONS)
+    NativeProgram::new(image, HostCode(code), device, &HOSTED_FUNCTIONS)
         .map_err(|refusal| NativeError::Image(refusal.to_string()))
 }
 
@@ -55,6 +73,6 @@ pub fn load_kept(
     );
     let code = Executable::load(image.image().module().1)
         .map_err(|error| NativeError::Image(format!("the module cannot be mapped: {error}")))?;
-    NativeProgram::keeping(image, HostCode(code), device, &KERNEL_FUNCTIONS)
+    NativeProgram::keeping(image, HostCode(code), device, &HOSTED_FUNCTIONS)
         .map_err(|refusal| NativeError::Image(refusal.to_string()))
 }

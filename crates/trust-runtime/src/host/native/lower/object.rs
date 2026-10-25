@@ -114,6 +114,13 @@ impl<'a> Lowerer<'_, 'a> {
         place: &Place,
         ty: Ty,
     ) -> Result<String, NativeError> {
+        if place.is_overlap_member() {
+            return Err(self.unsupported(
+                node,
+                "a member of a STRUCT OVERLAP as a VAR_IN_OUT or a reference, which no reference \
+                 can name apart from the members that share its bits",
+            ));
+        }
         if place.ty == ty {
             return Ok(place.reference());
         }
@@ -143,36 +150,37 @@ impl<'a> Lowerer<'_, 'a> {
                 let Some((declaring, method)) = defs.method(owner, name) else {
                     return Err(self.unsupported(node, format!("the method {name}")));
                 };
-                let bound = self.bind_arguments(node, &method.params, args)?;
-                let (arguments, outputs) = self.inputs(node, &bound)?;
-                let (function, receiver) = if !exact && defs.overridden_below(owner, name) {
-                    // A derived type overrides it: the instance's class decides (IEC §6.6.8).
-                    Need::Virtual(place.ty, method.name.clone()).add_to(&mut self.needs);
-                    (
-                        virtual_function(self.model, place.ty, &method.name),
-                        place.reference(),
-                    )
-                } else {
-                    let Some(declaring_ty) = self.model.types.by_rust(&declaring.rust()) else {
-                        return Err(
-                            self.unsupported(node, format!("the layout of {}", declaring.name()))
-                        );
+                self.enabled(node, args, method.return_type, want, |this, args, want| {
+                    let bound = this.bind_arguments(node, &method.params, args)?;
+                    let (arguments, outputs) = this.inputs(node, &bound)?;
+                    let (function, receiver) = if !exact && defs.overridden_below(owner, name) {
+                        // A derived type overrides it: the instance's class decides (IEC §6.6.8).
+                        Need::Virtual(place.ty, method.name.clone()).add_to(&mut this.needs);
+                        (
+                            virtual_function(this.model, place.ty, &method.name),
+                            place.reference(),
+                        )
+                    } else {
+                        let Some(declaring_ty) = this.model.types.by_rust(&declaring.rust()) else {
+                            return Err(this
+                                .unsupported(node, format!("the layout of {}", declaring.name())));
+                        };
+                        let receiver = this.as_type(node, &place, declaring_ty)?;
+                        Need::Method(declaring.name().clone(), method.name.clone())
+                            .add_to(&mut this.needs);
+                        (method_function(declaring, method), receiver)
                     };
-                    let receiver = self.as_type(node, &place, declaring_ty)?;
-                    Need::Method(declaring.name().clone(), method.name.clone())
-                        .add_to(&mut self.needs);
-                    (method_function(declaring, method), receiver)
-                };
-                let called = self.emit_call(
-                    node,
-                    &function,
-                    Some(receiver),
-                    arguments,
-                    method.return_type,
-                    &want,
-                )?;
-                self.copy_outputs(outputs)?;
-                Ok(called)
+                    let called = this.emit_call(
+                        node,
+                        &function,
+                        Some(receiver),
+                        arguments,
+                        method.return_type,
+                        &want,
+                    )?;
+                    this.copy_outputs(outputs)?;
+                    Ok(called)
+                })
             }
             Receiver::Interface {
                 reference,
@@ -181,20 +189,22 @@ impl<'a> Lowerer<'_, 'a> {
                 let Some(method) = defs.interface_method(&interface, name) else {
                     return Err(self.unsupported(node, format!("the method {interface}.{name}")));
                 };
-                let bound = self.bind_arguments(node, &method.params, args)?;
-                let (arguments, outputs) = self.inputs(node, &bound)?;
-                Need::Interface(interface.clone(), method.name.clone()).add_to(&mut self.needs);
-                let function = interface_function(&interface, &method.name);
-                let called = self.emit_call(
-                    node,
-                    &function,
-                    Some(format!("&{reference}")),
-                    arguments,
-                    method.return_type,
-                    &want,
-                )?;
-                self.copy_outputs(outputs)?;
-                Ok(called)
+                self.enabled(node, args, method.return_type, want, |this, args, want| {
+                    let bound = this.bind_arguments(node, &method.params, args)?;
+                    let (arguments, outputs) = this.inputs(node, &bound)?;
+                    Need::Interface(interface.clone(), method.name.clone()).add_to(&mut this.needs);
+                    let function = interface_function(&interface, &method.name);
+                    let called = this.emit_call(
+                        node,
+                        &function,
+                        Some(format!("&{reference}")),
+                        arguments,
+                        method.return_type,
+                        &want,
+                    )?;
+                    this.copy_outputs(outputs)?;
+                    Ok(called)
+                })
             }
         }
     }

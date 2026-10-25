@@ -15,7 +15,7 @@ use crate::error::RuntimeError;
 use crate::io::{IoAddress, IoSize};
 use crate::memory::IoArea;
 use crate::value::{Duration, Value};
-use crate::{CompiledRuntime, Runtime};
+use crate::CompiledRuntime;
 
 const MAX_DURATION_MILLIS: u64 = (i64::MAX / 1_000_000) as u64;
 
@@ -132,70 +132,6 @@ struct PendingEffect {
     value: Value,
 }
 
-/// What a simulation reads and writes of the program it is coupled to: its process images by
-/// address, between scans, and the fault it reports (specification 44 §8.8: an interpreted and a
-/// compiled program alike).
-pub trait SimulatedProgram {
-    /// Writes `value` at the process-image `address`.
-    ///
-    /// # Errors
-    ///
-    /// The refusal of an address or a value the image does not take.
-    fn write_io(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError>;
-
-    /// The value at the process-image `address`.
-    ///
-    /// # Errors
-    ///
-    /// The refusal of an address the image does not hold.
-    fn read_io(&self, address: &IoAddress) -> Result<Value, RuntimeError>;
-
-    /// Reports the simulation fault `message` with the program's fault policy.
-    fn simulation_fault(&mut self, message: SmolStr) -> RuntimeError;
-}
-
-impl SimulatedProgram for Runtime {
-    fn write_io(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
-        Runtime::write_io(self, address, value)
-    }
-
-    fn read_io(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
-        self.io().read(address)
-    }
-
-    fn simulation_fault(&mut self, message: SmolStr) -> RuntimeError {
-        Runtime::simulation_fault(self, message)
-    }
-}
-
-impl SimulatedProgram for CompiledRuntime {
-    fn write_io(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
-        CompiledRuntime::write_io(self, address, value)
-    }
-
-    fn read_io(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
-        CompiledRuntime::read_io(self, address)
-    }
-
-    fn simulation_fault(&mut self, message: SmolStr) -> RuntimeError {
-        CompiledRuntime::simulation_fault(self, message)
-    }
-}
-
-impl SimulatedProgram for crate::scheduler::HostProgram {
-    fn write_io(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
-        crate::scheduler::HostProgram::write_io(self, address, value)
-    }
-
-    fn read_io(&self, address: &IoAddress) -> Result<Value, RuntimeError> {
-        crate::scheduler::HostProgram::read_io(self, address)
-    }
-
-    fn simulation_fault(&mut self, message: SmolStr) -> RuntimeError {
-        crate::scheduler::HostProgram::simulation_fault(self, message)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct SimulationController {
     config: SimulationConfig,
@@ -236,10 +172,10 @@ impl SimulationController {
         self.config.time_scale.max(1)
     }
 
-    pub fn apply_pre_cycle<P: SimulatedProgram + ?Sized>(
+    pub fn apply_pre_cycle(
         &mut self,
         now: Duration,
-        runtime: &mut P,
+        runtime: &mut CompiledRuntime,
     ) -> Result<(), RuntimeError> {
         if !self.enabled() {
             return Ok(());
@@ -258,7 +194,7 @@ impl SimulationController {
                             "simulation disturbance failed for {}: {err}",
                             format_io(target)
                         );
-                        return Err(runtime.simulation_fault(msg.into()));
+                        return Err(runtime.simulation_fault(msg));
                     }
                 }
                 SimulationDisturbanceKind::Fault { message } => {
@@ -280,17 +216,17 @@ impl SimulationController {
                     "simulation delayed effect failed for {}: {err}",
                     format_io(&effect.target)
                 );
-                return Err(runtime.simulation_fault(msg.into()));
+                return Err(runtime.simulation_fault(msg));
             }
         }
 
         Ok(())
     }
 
-    pub fn apply_post_cycle<P: SimulatedProgram + ?Sized>(
+    pub fn apply_post_cycle(
         &mut self,
         now: Duration,
-        runtime: &P,
+        runtime: &CompiledRuntime,
     ) -> Result<(), RuntimeError> {
         if !self.enabled() {
             return Ok(());
@@ -373,10 +309,10 @@ impl PhysicsController {
         }
     }
 
-    fn step<P: SimulatedProgram + ?Sized>(
+    fn step(
         &mut self,
         _now: Duration,
-        runtime: &P,
+        runtime: &CompiledRuntime,
     ) -> Result<Vec<PhysicsEffect>, RuntimeError> {
         let dt_s = self.step.as_nanos() as f64 / 1_000_000_000.0;
         let mut effects = Vec::new();
@@ -408,7 +344,7 @@ impl PhysicsJointState {
         }
     }
 
-    fn enabled<P: SimulatedProgram + ?Sized>(&self, runtime: &P) -> Result<bool, RuntimeError> {
+    fn enabled(&self, runtime: &CompiledRuntime) -> Result<bool, RuntimeError> {
         runtime
             .read_io(&self.config.enable_source)
             .map(|value| value_to_bool(&value))

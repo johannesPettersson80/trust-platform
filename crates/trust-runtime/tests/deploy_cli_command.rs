@@ -4,9 +4,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use smol_str::SmolStr;
-use trust_runtime::bundle_builder::build_program_stbc;
+use trust_runtime::bundle_builder::build_program_image;
 use trust_runtime::bundle_template::{build_io_config_auto, render_io_toml, render_runtime_toml};
 use trust_runtime::config::RuntimeBundle;
+use trust_runtime::native::{Target, Toolchain};
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -48,7 +49,11 @@ fn write_bundle(root: &Path) {
         "PROGRAM Main\nVAR\n    Counter : DINT;\nEND_VAR\nCounter := Counter + 1;\nEND_PROGRAM\n",
     )
     .expect("write source");
-    build_program_stbc(root, None).expect("build deploy fixture bytecode");
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    build_program_image(root, None, target, &toolchain, false, true)
+        .expect("build the deploy fixture's program image");
 }
 
 fn enable_nested_protocol_sidecars(root: &Path) {
@@ -205,14 +210,14 @@ fn deploy_rejects_labels_that_escape_the_bundles_directory() {
 }
 
 #[test]
-fn deploy_rejects_invalid_bytecode_before_changing_pointers() {
-    let working_dir = unique_temp_dir("deploy-invalid-bytecode");
+fn deploy_rejects_an_invalid_program_image_before_changing_pointers() {
+    let working_dir = unique_temp_dir("deploy-invalid-image");
     let project = working_dir.join("source-project");
     write_bundle(&project);
-    std::fs::write(project.join("program.stbc"), b"not-bytecode")
-        .expect("corrupt deploy fixture bytecode");
+    std::fs::write(project.join("program.tpi"), b"not-a-program-image")
+        .expect("corrupt deploy fixture program image");
 
-    let output = run_deploy(&working_dir, &project, "deploy-root", "invalid-bytecode");
+    let output = run_deploy(&working_dir, &project, "deploy-root", "invalid-image");
 
     assert!(
         !output.status.success(),
@@ -221,7 +226,7 @@ fn deploy_rejects_invalid_bytecode_before_changing_pointers() {
     assert!(!working_dir.join("deploy-root/current").exists());
     assert!(!working_dir.join("deploy-root/previous").exists());
     assert!(!working_dir
-        .join("deploy-root/bundles/invalid-bytecode")
+        .join("deploy-root/bundles/invalid-image")
         .exists());
     let _ = std::fs::remove_dir_all(working_dir);
 }

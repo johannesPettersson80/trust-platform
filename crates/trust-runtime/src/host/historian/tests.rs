@@ -19,7 +19,6 @@ fn snapshot_with_values(counter: i16, temp: f64, active: bool) -> DebugSnapshot 
     storage.set_global("Active", Value::Bool(active));
     storage.set_global("Label", Value::String(SmolStr::new("Pump-A")));
     DebugSnapshot {
-        storage_abi: Default::default(),
         storage,
         now: PlcDuration::from_millis(1_000),
         compiled: None,
@@ -149,7 +148,6 @@ fn allowlist_mode_records_matching_paths_only() {
     storage.set_global("Temp", Value::LReal(5.0));
     storage.set_retain("Persist", Value::Bool(true));
     let snapshot = DebugSnapshot {
-        storage_abi: Default::default(),
         storage,
         now: PlcDuration::from_millis(500),
         compiled: None,

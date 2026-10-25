@@ -207,21 +207,20 @@ fn hir_and_runtime_authoring_accept_omitted_sourceids_units_and_payload_widths()
 }
 
 #[test]
-fn compile_session_surfaces_openot_validation_failure_instead_of_building_uninstrumented_bytecode()
+fn compile_session_surfaces_openot_validation_failure_instead_of_declaring_uninstrumented_sources()
 {
     let source = explicit_sourceid_collision_source();
     let instrumented = instrument_source_files(std::slice::from_ref(&source));
-    let bytecode =
-        crate::harness::CompileSession::from_sources(vec![source.clone()]).build_bytecode_bytes();
-    let bytecode_len = bytecode.as_ref().map(Vec::len);
+    let declarations =
+        crate::harness::CompileSession::from_sources(vec![source.clone()]).declarations();
 
     assert!(
-            bytecode.is_err(),
-            "OpenOT validation failure must surface through CompileSession instead of building uninstrumented bytecode; \
-             bytecode_len={bytecode_len:?}; unchanged_source={}; contains_producer={}",
-            instrumented[0].text == source.text,
-            instrumented[0].text.contains(PRODUCER_NAME)
-        );
+        declarations.is_err(),
+        "OpenOT validation failure must surface through CompileSession instead of declaring uninstrumented sources; \
+         unchanged_source={}; contains_producer={}",
+        instrumented[0].text == source.text,
+        instrumented[0].text.contains(PRODUCER_NAME)
+    );
 }
 
 #[test]

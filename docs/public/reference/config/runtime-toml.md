@@ -89,7 +89,7 @@ Each task needs:
 
 | Key | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `execution_backend` | string | no | `vm` | Only `vm` is accepted. `interpreter` is explicitly rejected. |
+| `execution_backend` | string | no | none | Selects nothing: every runtime runs the compiled program image. `vm` and `native` load, so a project written before still starts; `interpreter` and any other value are refused. |
 
 ### `[runtime.control]`
 
@@ -110,7 +110,7 @@ Each task needs:
 
 | Key | Type | Required | Default | Notes |
 | --- | --- | --- | --- | --- |
-| `capacity` | integer | no | 1,000 on a computer; on a chip, its chip file's default (200 on the ESP32-C6 and STM32F407) | The newest events the event store keeps, from 1 through 1,000,000. A newer event displaces the oldest. A chip refuses a value above its chip file's maximum (200 on the ESP32-C6 and STM32F407). `status` reports it as `event_capacity`. |
+| `capacity` | integer | no | 1,000 on a computer; on a chip, its chip file's default (200 on the ESP32-C6, 1,000 on the STM32U5A9) | The newest events the event store keeps, from 1 through 1,000,000. A newer event displaces the oldest. A chip refuses a value above its chip file's maximum (200 on the ESP32-C6, 1,000 on the STM32U5A9). `status` reports it as `event_capacity`. |
 
 ### `[runtime.retain]` (retain policy)
 

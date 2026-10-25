@@ -20,7 +20,6 @@
 //! breakpoints and names files from the program's `LINE_TABLE`.
 
 pub mod breakpoint;
-#[cfg(feature = "native")]
 mod compiled;
 pub mod expression;
 pub mod logpoint;
@@ -38,7 +37,6 @@ pub use breakpoint::{
     count_hit, observe_hit, Breakpoint, BreakpointOptions, BreakpointRecord, CountedHit,
     CycleSuppression, HitCondition,
 };
-#[cfg(feature = "native")]
 pub(crate) use compiled::FrameNames;
 pub use requests::{answer, is_debug_operation, BreakpointView, Debugger, StopRecord};
 pub use run::{
@@ -47,6 +45,3 @@ pub use run::{
 };
 pub use sources::LineSources;
 pub use statement::{Span, StatementId};
-
-#[cfg(test)]
-mod variable_pages_contract_tests;

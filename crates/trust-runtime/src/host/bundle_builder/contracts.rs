@@ -3,18 +3,21 @@
 pub(crate) const PROJECT_SETTINGS_FILES: &[&str] =
     &["trust-lsp.toml", ".trust-lsp.toml", "trustlsp.toml"];
 
-/// Build output summary for a bundle.
+/// What a build of a project's program image wrote (specification 44 §4.1).
 #[derive(Debug, Clone)]
 pub struct BundleBuildReport {
-    /// Written bytecode path (program.stbc).
-    pub program_path: PathBuf,
-    /// The program's deployment record: written next to it, or skipped with the reason when
-    /// the runtime cannot prepare the program (specification 34 §5.1.1).
-    pub deployment_record: crate::deployment::RecordWrite,
-    /// The program's memory figure on this computer (specification 34 MEM-12), with the capture of
-    /// the retained values when the project keeps them; `None` when the runtime cannot prepare the
-    /// program, which then has no record either.
-    pub program_memory: Option<crate::metrics::ProgramMemory>,
+    /// The program image.
+    pub image: PathBuf,
+    /// Its deployment record (specification 44 §10.1).
+    pub record: PathBuf,
+    /// Whether the image is a debug image (specification 44 §13.2).
+    pub debug: bool,
+    /// The image's size in bytes.
+    pub image_bytes: usize,
+    /// The memory figure the image carries.
+    pub figure: trust_runtime_core::native::image::MemoryFigure,
+    /// The public key that signed the image, hexadecimal (specification 44 §5.11).
+    pub signer: String,
     /// Hash-bound OpenOT definition generated when the source set declares OpenOT data.
     pub openot_definition_path: Option<PathBuf>,
     /// Source files included in the build.
@@ -23,22 +26,11 @@ pub struct BundleBuildReport {
     pub dependency_roots: Vec<PathBuf>,
     /// Resolved dependency names in deterministic order.
     pub resolved_dependencies: Vec<String>,
+    /// The report, also written as `build/build.json`.
+    pub json: serde_json::Value,
 }
 
-/// In-memory program check summary for a bundle.
-#[derive(Debug, Clone)]
-pub struct BundleCheckReport {
-    /// Encoded bytecode size produced by the in-memory compile.
-    pub bytecode_size: usize,
-    /// Source files included in the check.
-    pub sources: Vec<PathBuf>,
-    /// Resolved dependency roots included in this check.
-    pub dependency_roots: Vec<PathBuf>,
-    /// Resolved dependency names in deterministic order.
-    pub resolved_dependencies: Vec<String>,
-}
-
-/// Project layout summary without building bytecode.
+/// Project layout summary without building the program.
 #[derive(Debug, Clone)]
 pub struct ProjectInspectionReport {
     /// Resolved project source root.

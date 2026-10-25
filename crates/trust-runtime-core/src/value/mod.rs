@@ -8,11 +8,9 @@ pub mod defaults;
 pub mod display;
 pub(crate) mod float_text;
 pub mod layout;
-pub(crate) mod overlap;
 pub mod partial_access;
 mod reference;
 pub mod size;
-mod storage_abi;
 pub mod string_semantics;
 pub mod types;
 
@@ -23,6 +21,5 @@ pub use display::*;
 pub use partial_access::*;
 pub use reference::*;
 pub use size::*;
-pub use storage_abi::StorageAbi;
 pub use string_semantics::*;
 pub use types::*;

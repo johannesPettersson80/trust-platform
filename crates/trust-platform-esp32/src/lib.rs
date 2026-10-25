@@ -1,4 +1,5 @@
-//! ESP32-C6-DevKitC-1 platform services; no scheduler, compiler or VM implementation.
+//! ESP32-C6-DevKitC-1 platform services: the loader of compiled program images and the chip's
+//! adapters; no scheduler or compiler.
 //!
 //! Hardware is available only on bare-metal RISC-V. Host-visible arithmetic and
 //! profiles describe the same clock, watchdog, input polarity and reset-cookie contract.
@@ -12,27 +13,23 @@ pub mod boot_counter;
 pub mod checkpoint;
 mod console_budget;
 pub use console_budget::ConsoleError;
-#[cfg(feature = "native")]
 pub mod compiled_loader;
 mod cookie;
 pub use cookie::{ResetCookie, RUNNING_PHASE, WATCHDOG_PHASE};
 #[cfg(any(test, all(target_arch = "riscv32", target_os = "none")))]
 mod cycle_clock;
-// The fixed-size reset record the C6 keeps in RTC fast memory, shared with the F407 so both
-// chips report the same cause after a reset.
+// The fixed-size reset record the C6 keeps in RTC fast memory, shared with the U5A9 so both chips
+// report the same cause after a reset.
 pub use trust_platform_memory::reset::{ResetCause, ResetRecord};
 mod image;
 pub use image::{decode_image_header, ImageHeader};
 pub mod loader;
 mod platform;
-#[cfg(feature = "native")]
-pub use platform::NativePlatform;
 pub use platform::Platform;
 #[path = "hardware/process_io.rs"]
 pub mod process_io;
 pub mod profile;
 pub mod program_flash;
-pub mod program_memory;
 mod record;
 pub use record::{fail_record, FAIL_RECORD_MAX};
 pub mod usb_service;
@@ -45,5 +42,5 @@ pub use hardware::{
     emergency_halt, Board, BoardError, BoardHardware, BoardParts, Console, Identity, Monotonic,
     ResetControl, UsbLink, Wait, Watchdog,
 };
-#[cfg(all(target_arch = "riscv32", target_os = "none", feature = "native"))]
+#[cfg(all(target_arch = "riscv32", target_os = "none"))]
 pub use hardware::{program_region, C6Code, Line, ProgramCode};

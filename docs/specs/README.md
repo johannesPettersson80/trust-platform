@@ -21,7 +21,7 @@ this directory are explicitly identified and do not become IEC requirements.
 | [09-semantic-rules.md](09-semantic-rules.md) | Cross-cutting semantic validity rules shared by the language specs | trust-hir |
 | [10-runtime-semantics.md](10-runtime-semantics.md) | Runtime value, memory, execution, stdlib, I/O, errors, testing API | trust-runtime |
 | [11-runtime-engine.md](11-runtime-engine.md) | Runtime architecture, clocks, scheduler, process-image and driver integration, retain, launcher, and host composition | trust-runtime |
-| [12-bytecode.md](12-bytecode.md) | STBC container, sections, instruction set, versioning | trust-runtime |
+| [12-bytecode.md](12-bytecode.md) | Superseded by 44: the STBC container the deleted bytecode engine ran, kept as history | — |
 | [13-debug-adapter.md](13-debug-adapter.md) | Debug adapter semantics, breakpoints, variables, reload behavior | trust-debug, trust-runtime |
 | [14-lsp.md](14-lsp.md) | LSP architecture, IDE behavior, protocol, diagnostics, performance | trust-lsp, trust-ide, trust-hir |
 | [15-ladder-diagram.md](15-ladder-diagram.md) | Normative IEC-aligned LD language semantics and conformance rules | trust-runtime, trust-lsp, editors/vscode |
@@ -67,7 +67,7 @@ These specifications are based on:
 - Semantic and error rules
 - Runtime semantics (see `10-runtime-semantics.md`)
 - Runtime engine/platform architecture (see `11-runtime-engine.md`)
-- Bytecode format (see `12-bytecode.md`)
+- Native execution: compiled programs, the program image, the kernel and the toolchain (see `44-native-execution.md`)
 - Debug adapter behavior (see `13-debug-adapter.md`)
 - LSP/IDE behavior (see `14-lsp.md`)
 - Ladder Diagram (LD) normative semantics (see `15-ladder-diagram.md`)
@@ -103,7 +103,7 @@ These specifications are based on:
 
 For runtime behavior, start with `docs/specs/10-runtime-semantics.md`.
 For runtime platform/ops architecture, use `docs/specs/11-runtime-engine.md`.
-For STBC container details, use `docs/specs/12-bytecode.md`.
+For compiled programs, the program image and the toolchain, use `docs/specs/44-native-execution.md`; `docs/specs/12-bytecode.md` is superseded and kept as history.
 For debugging behavior, use `docs/specs/13-debug-adapter.md`.
 For LSP/IDE behavior, use `docs/specs/14-lsp.md`.
 For configuration/resource/task declarations, use `docs/specs/18-configurations-resources-tasks.md`.

@@ -1,5 +1,7 @@
 //! The documented `ctl` workflows, run against the real `trust-runtime play` process: a real
 //! control endpoint, real scans and real I/O. Each test owns one runtime.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 #[path = "support/runtime_process.rs"]
 mod runtime_process;
@@ -218,7 +220,7 @@ fn status_health_tasks_and_config_render_the_documented_summaries() {
     );
 
     let config = runtime.ctl_result(&["config-get"]);
-    assert_eq!(config["runtime.execution_backend"], "vm", "{config}");
+    assert_eq!(config["runtime.execution_backend"], "native", "{config}");
     assert_eq!(
         config["runtime.execution_backend_source"], "default",
         "{config}"

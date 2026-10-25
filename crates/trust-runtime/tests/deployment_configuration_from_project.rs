@@ -1,15 +1,18 @@
 //! Section 7 of the deployment record filled from a project (specification 34 §5.1.1, S1b-3):
 //! `trust-runtime build` reads the project's `runtime.toml` and `io.toml` with the runtime's own
 //! parsers, so a chip receives the settings a computer reads from those files.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use smol_str::SmolStr;
-use trust_runtime::bundle_builder::build_program_stbc;
-use trust_runtime::deployment::{RecordWrite, DEPLOYMENT_RECORD_FILE};
+use trust_runtime::bundle_builder::{build_program_image, BundleBuildReport};
+use trust_runtime::deployment::DEPLOYMENT_RECORD_FILE;
 use trust_runtime::io::{GpioDriver, IoAddress, IoSize};
 use trust_runtime::memory::IoArea;
+use trust_runtime::native::{Target, Toolchain};
 use trust_runtime::runtime_core::deployment::{
     Configuration, ControlMode, DeploymentRecord, GpioInput, GpioOutput, HangAction, IoDriver,
     LogLevel, SafeStateEntry, TaskOverride,
@@ -125,13 +128,18 @@ fn project(name: &str, runtime: Option<&str>, io: Option<&str>) -> PathBuf {
     root
 }
 
+/// `trust-runtime build` of `root` for this computer.
+fn build(root: &std::path::Path) -> anyhow::Result<BundleBuildReport> {
+    let toolchain =
+        Toolchain::find().expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+    let target = Target::this_cpu().expect("a computer target");
+    build_program_image(root, None, target, &toolchain, false, true)
+}
+
 /// The configuration the build wrote into `root`'s record.
 fn built_configuration(root: &std::path::Path) -> Configuration {
-    let report = build_program_stbc(root, None).expect("build the project");
-    let RecordWrite::Written(path) = &report.deployment_record else {
-        panic!("no record written: {:?}", report.deployment_record);
-    };
-    DeploymentRecord::decode(&std::fs::read(path).expect("read the record"))
+    let report = build(root).expect("build the project");
+    DeploymentRecord::decode(&std::fs::read(&report.record).expect("read the record"))
         .expect("the build writes a readable record")
         .configuration
 }
@@ -277,14 +285,8 @@ fn a_setting_the_section_cannot_hold_is_refused_with_its_key() {
          [runtime.fault]\npolicy = \"halt\"\n"
     );
     let root = project("too-long", Some(&runtime), None);
-    let report = build_program_stbc(&root, None).expect("the build reports the refusal");
-    let RecordWrite::Skipped(reason) = &report.deployment_record else {
-        panic!(
-            "the build wrote a record for a value section 7 cannot hold: {:?}",
-            report.deployment_record
-        );
-    };
-    let message = reason.to_string();
+    let error = build(&root).expect_err("the build refuses a value section 7 cannot hold");
+    let message = format!("{error:#}");
     assert!(message.contains("runtime.toml"), "{message}");
     assert!(message.contains("resource.name"), "{message}");
     assert!(message.contains(&name), "{message}");
@@ -306,14 +308,8 @@ address = "%IX0.1.2"
 value = "TRUE"
 "#;
     let root = project("hierarchical", Some(RUNTIME_REQUIRED_ONLY), Some(io));
-    let report = build_program_stbc(&root, None).expect("the build reports the refusal");
-    let RecordWrite::Skipped(reason) = &report.deployment_record else {
-        panic!(
-            "the build wrote a record for a hierarchical address: {:?}",
-            report.deployment_record
-        );
-    };
-    let message = reason.to_string();
+    let error = build(&root).expect_err("the build refuses a hierarchical address");
+    let message = format!("{error:#}");
     assert!(message.contains("io.toml"), "{message}");
     assert!(message.contains("io.safe_state[0].address"), "{message}");
     assert!(message.contains("%IX0.1.2"), "{message}");

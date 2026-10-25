@@ -4,7 +4,6 @@ fn build_runtime_settings(
     default_watchdog: trust_runtime::watchdog::WatchdogPolicy,
     default_fault: trust_runtime::watchdog::FaultPolicy,
     simulation: &SimulationPlan,
-    execution_backend: trust_runtime::execution_backend::ExecutionBackend,
     execution_backend_source: trust_runtime::execution_backend::ExecutionBackendSource,
 ) -> RuntimeSettings {
     let mut settings = if let Some(bundle) = bundle {
@@ -126,7 +125,6 @@ fn build_runtime_settings(
         settings.realtime = bundle.runtime.realtime.clone();
         settings.event_capacity = bundle.runtime.event_store_capacity();
     }
-    settings.execution_backend = execution_backend;
     settings.execution_backend_source = execution_backend_source;
     settings.watchdog_hang_action = bundle
         .map(|bundle| bundle.runtime.watchdog_hang_action)

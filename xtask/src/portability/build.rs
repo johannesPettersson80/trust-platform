@@ -49,7 +49,7 @@ pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result
     let report = artifacts.report.to_str().context("non-UTF-8 report path")?;
     let mut configuration = serde_json::json!({
         "firmware": firmware.name, "target": firmware.target, "profile": "release",
-        "features": firmware.features, "rustflags": flags,
+        "rustflags": flags,
         "binary_rustflags": binary_flags, "manifest": directory.join("Cargo.toml"),
         "status": "started",
         "note": "Path normalization does not claim cross-checkout binary reproducibility."
@@ -66,9 +66,6 @@ pub(super) fn firmware(root: &Path, firmware: &Firmware, report: &str) -> Result
         firmware.bin.as_str(),
         "--message-format=json-render-diagnostics",
     ]);
-    if !firmware.features.is_empty() {
-        command.args(["--features", &firmware.features.join(",")]);
-    }
     command
         .arg("--")
         .args(&binary_flags)
@@ -185,7 +182,7 @@ mod tests {
 
     #[test]
     fn remapping_preserves_all_reviewed_target_flags_and_space_boundaries() {
-        let config = include_str!("../../../firmware/trust-stm32f407/.cargo/config.toml");
+        let config = include_str!("../../../firmware/trust-stm32u5a9/.cargo/config.toml");
         #[cfg(windows)]
         let (root, cargo_home, library, expected) = (
             r"C:\task source",
@@ -209,7 +206,7 @@ mod tests {
             ],
         );
         let flags = flags(
-            &Firmware::parse("stm32f407").unwrap(),
+            &Firmware::parse("stm32u5a9").unwrap(),
             config,
             Path::new(root),
             Path::new(cargo_home),
@@ -232,8 +229,8 @@ mod tests {
 
     #[test]
     fn extra_outliner_pass_is_rejected_before_building_firmware() {
-        let firmware = Firmware::parse("stm32f407").unwrap();
-        let config = include_str!("../../../firmware/trust-stm32f407/.cargo/config.toml");
+        let firmware = Firmware::parse("stm32u5a9").unwrap();
+        let config = include_str!("../../../firmware/trust-stm32u5a9/.cargo/config.toml");
         let mut config: toml::Value = toml::from_str(config).unwrap();
         let target_flags = config["target"][firmware.target.as_str()]["rustflags"]
             .as_array_mut()
@@ -254,7 +251,7 @@ mod tests {
 
     #[test]
     fn specific_path_namespaces_follow_general_roots_and_remain_distinct() {
-        let config = include_str!("../../../firmware/trust-stm32f407/.cargo/config.toml");
+        let config = include_str!("../../../firmware/trust-stm32u5a9/.cargo/config.toml");
         let root = Path::new("task");
         let cargo_home = Path::new("cargo");
         let registries = [
@@ -262,7 +259,7 @@ mod tests {
             cargo_home.join("registry/src/second"),
         ];
         let flags = flags(
-            &Firmware::parse("stm32f407").unwrap(),
+            &Firmware::parse("stm32u5a9").unwrap(),
             config,
             root,
             cargo_home,
@@ -293,9 +290,9 @@ mod tests {
     }
 
     #[test]
-    fn f407_profile_accepts_its_firmware_config_and_requires_the_profile_script() {
-        let firmware = Firmware::parse("stm32f407").unwrap();
-        let config = include_str!("../../../firmware/trust-stm32f407/.cargo/config.toml");
+    fn u5a9_profile_accepts_its_firmware_config_and_requires_the_profile_script() {
+        let firmware = Firmware::parse("stm32u5a9").unwrap();
+        let config = include_str!("../../../firmware/trust-stm32u5a9/.cargo/config.toml");
         let build = |config: &str| {
             flags(
                 &firmware,

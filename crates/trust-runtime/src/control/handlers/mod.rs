@@ -20,7 +20,6 @@ pub(super) fn dispatch(request: &ControlRequest, state: &ControlState) -> Option
         .or_else(|| comm::dispatch(request, state))
         .or_else(|| fleet::dispatch(request, state))
         .or_else(|| io::dispatch(request, state))
-        .or_else(|| debug::dispatch(request, state))
         .or_else(|| variables::dispatch(request, state))
         .or_else(|| program::dispatch(request, state))
 }

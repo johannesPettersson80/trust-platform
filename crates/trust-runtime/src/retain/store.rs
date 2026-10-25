@@ -1,9 +1,3 @@
-impl RetainSnapshot {
-    pub fn from_runtime(runtime: &mut Runtime) -> Result<Self, RuntimeError> {
-        runtime.retain_snapshot()
-    }
-}
-
 static RETAIN_TMP_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 trait RetainTempFile: Write + Send {

@@ -40,12 +40,7 @@ pub fn compile_debug_expression(
 pub fn project_expression_types(
     sources: &[SourceFile],
 ) -> Result<(TypeRegistry, DateTimeProfile), CompileError> {
-    let (lowered, _) = super::build::lower_application_and_frontend(
-        sources,
-        true,
-        crate::value::StorageAbi::UniformTemporal64,
-        false,
-    )?;
+    let (lowered, _) = super::build::lower_application_and_frontend(sources, true, false)?;
     Ok((
         lowered.builder.registry().clone(),
         lowered.builder.profile(),

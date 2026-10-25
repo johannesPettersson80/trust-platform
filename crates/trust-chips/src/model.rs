@@ -62,8 +62,6 @@ pub struct UsbId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Family {
-    /// The STM32F4 chips, driven by `crates/trust-platform-stm32f4`.
-    Stm32f4,
     /// The STM32U5 chips, driven by `crates/trust-platform-stm32u5`.
     Stm32u5,
     /// The RISC-V ESP32 chips, driven by `crates/trust-platform-esp32`.
@@ -75,7 +73,6 @@ impl Family {
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
-            Self::Stm32f4 => "stm32f4",
             Self::Stm32u5 => "stm32u5",
             Self::Esp32 => "esp32",
         }

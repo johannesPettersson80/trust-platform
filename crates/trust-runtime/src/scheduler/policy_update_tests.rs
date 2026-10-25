@@ -10,14 +10,24 @@ use super::{
 use crate::value::Duration;
 use crate::watchdog::{FaultPolicy, WatchdogAction, WatchdogPolicy};
 
-fn fresh_runtime() -> super::HostProgram {
-    crate::RuntimeBuilder::new()
-        .build()
-        .expect("admit the policy fixture")
-        .into()
+/// A compiled program with a retain file, so that each of the three policies applies to it. The
+/// build needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+fn fresh_runtime() -> crate::CompiledRuntime {
+    let mut runtime = crate::harness::TestHarness::from_source("PROGRAM Main\nEND_PROGRAM\n")
+        .expect("build the policy fixture")
+        .into_runtime();
+    let path =
+        std::env::temp_dir().join(format!("trust-policy-update-{}.retain", std::process::id()));
+    runtime
+        .set_retain_store(
+            Some(Box::new(crate::retain::FileRetainStore::new(path))),
+            None,
+        )
+        .expect("set the retain file");
+    runtime
 }
 
-fn policies_of(runtime: &super::HostProgram) -> SchedulerPolicies {
+fn policies_of(runtime: &crate::CompiledRuntime) -> SchedulerPolicies {
     SchedulerPolicies {
         watchdog: runtime.watchdog_policy(),
         fault_policy: runtime.fault_policy(),

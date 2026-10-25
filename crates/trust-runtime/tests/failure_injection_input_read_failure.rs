@@ -4,16 +4,18 @@
 //! "leaves all bound program values unchanged". The first driver writes its bytes into the
 //! shared input image before the second driver fails, so this also proves that
 //! those raw bytes never reach program storage and that no output is committed.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver};
-use trust_runtime::program_model::VarDef;
 use trust_runtime::value::Value;
 use trust_runtime::watchdog::FaultPolicy;
-use trust_runtime::{RetainPolicy, RuntimeBuilder};
+use trust_runtime::CompiledRuntime;
 
 /// Samples the first `%IX` bit from a shared flag and logs every output image.
 #[derive(Debug)]
@@ -63,43 +65,27 @@ impl IoDriver for SecondInputDriver {
     }
 }
 
-fn bool_global(name: &str) -> VarDef {
-    VarDef {
-        name: name.into(),
-        type_id: trust_hir::TypeId::BOOL,
-        initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
-        retain: RetainPolicy::Unspecified,
-        static_storage: false,
-        external: false,
-        in_out: false,
-        constant: false,
-        address: None,
-    }
+/// Two bound inputs (`%IX0.0`, `%IX1.0`) and one bound output (`%QX0.0`).
+fn bound_runtime() -> CompiledRuntime {
+    TestHarness::from_source(
+        r#"
+VAR_GLOBAL
+    first AT %IX0.0 : BOOL;
+    second AT %IX1.0 : BOOL;
+    led AT %QX0.0 : BOOL;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+"#,
+    )
+    .expect("the bound program compiles")
+    .into_runtime()
 }
 
-/// Two bound inputs (`%IX0.0`, `%IX1.0`) and one bound output (`%QX0.0`).
-fn bound_runtime() -> trust_runtime::Runtime {
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(2, 1, 0);
-    builder
-        .register_global(bool_global("first"))
-        .expect("declare first bound input");
-    builder
-        .register_global(bool_global("second"))
-        .expect("declare second bound input");
-    builder
-        .register_global(bool_global("led"))
-        .expect("declare bound output");
-    builder
-        .io_mut()
-        .bind("first", IoAddress::parse("%IX0.0").unwrap());
-    builder
-        .io_mut()
-        .bind("second", IoAddress::parse("%IX1.0").unwrap());
-    builder
-        .io_mut()
-        .bind("led", IoAddress::parse("%QX0.0").unwrap());
-    builder.build().expect("install declared test runtime")
+/// The output image's byte.
+fn output_byte(runtime: &CompiledRuntime) -> Result<Value, RuntimeError> {
+    runtime.read_io(&IoAddress::parse("%QB0").expect("output byte address"))
 }
 
 #[test]
@@ -130,22 +116,16 @@ fn failed_second_input_read_keeps_every_bound_input_and_commits_no_output() {
         }),
     );
     runtime
-        .write_global("led", Value::Bool(true))
+        .write_variable("led", &Value::Bool(true))
         .expect("checked output source");
 
     // Cycle 1: both reads succeed, so every bound value and the output commit.
     runtime
         .execute_cycle()
         .expect("healthy cycle samples both inputs");
-    assert_eq!(
-        runtime.storage().get_global("first"),
-        Some(&Value::Bool(true))
-    );
-    assert_eq!(
-        runtime.storage().get_global("second"),
-        Some(&Value::Bool(true))
-    );
-    assert_eq!(runtime.io().outputs(), &[1u8]);
+    assert_eq!(runtime.read_variable("first"), Ok(Value::Bool(true)));
+    assert_eq!(runtime.read_variable("second"), Ok(Value::Bool(true)));
+    assert_eq!(output_byte(&runtime), Ok(Value::Byte(1)));
     assert_eq!(
         output_images.lock().expect("output log lock").as_slice(),
         &[vec![1u8]]
@@ -156,7 +136,7 @@ fn failed_second_input_read_keeps_every_bound_input_and_commits_no_output() {
     first_value.store(false, Ordering::SeqCst);
     second_fail.store(true, Ordering::SeqCst);
     runtime
-        .write_global("led", Value::Bool(false))
+        .write_variable("led", &Value::Bool(false))
         .expect("checked output source");
     let error = runtime
         .execute_cycle()
@@ -167,18 +147,18 @@ fn failed_second_input_read_keeps_every_bound_input_and_commits_no_output() {
     );
 
     assert_eq!(
-        runtime.storage().get_global("first"),
-        Some(&Value::Bool(true)),
+        runtime.read_variable("first"),
+        Ok(Value::Bool(true)),
         "bound first input keeps the previous cycle value"
     );
     assert_eq!(
-        runtime.storage().get_global("second"),
-        Some(&Value::Bool(true)),
+        runtime.read_variable("second"),
+        Ok(Value::Bool(true)),
         "bound second input keeps the previous cycle value"
     );
     assert_eq!(
-        runtime.io().outputs(),
-        &[1u8],
+        output_byte(&runtime),
+        Ok(Value::Byte(1)),
         "no output image is committed by the failed cycle"
     );
     assert_eq!(
@@ -191,7 +171,7 @@ fn failed_second_input_read_keeps_every_bound_input_and_commits_no_output() {
     assert!(runtime.faulted());
     assert_eq!(
         runtime.last_fault(),
-        Some(&RuntimeError::IoTransport(
+        Some(RuntimeError::IoTransport(
             "second input transport failure".into()
         ))
     );

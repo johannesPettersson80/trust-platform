@@ -1,3 +1,8 @@
+//! The reviewed pause and watchdog trace cases (`DEBUG_PAUSE_001`) on the debugger of compiled
+//! programs (specification 44 §13.2).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -5,11 +10,14 @@ use std::thread;
 use std::time::{Duration as WallDuration, Instant};
 
 use serde_json::json;
-use trust_runtime::debug::{DebugStopReason, RuntimeEvent};
+use trust_runtime::debug::{DebugControl, RuntimeEvent};
 use trust_runtime::harness::TestHarness;
 use trust_runtime::scheduler::{ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::Duration;
 use trust_runtime::watchdog::{WatchdogAction, WatchdogPolicy};
+use trust_runtime::{CompiledDebugger, CompiledRuntime};
+use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
+use trust_runtime_services::protocol::ControlRequest;
 use verification_cases::{
     run_case_file, CaseExecution, CaseRecord, CaseResult, RunConfig, StateProbe, StateSnapshot,
     TraceStep,
@@ -106,10 +114,8 @@ fn statement_pause_observation(
     watchdog_ms: i64,
     dwell_ms: i64,
 ) -> Result<BTreeMap<String, serde_json::Value>, String> {
-    let (runtime, debug) = counter_runtime()?;
-    let (stop_tx, stop_rx) = std::sync::mpsc::channel();
-    debug.set_stop_sender(stop_tx);
-    debug.pause();
+    let (runtime, _debug, debugger) = counter_runtime()?;
+    debugger.pause();
 
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     runner
@@ -118,15 +124,13 @@ fn statement_pause_observation(
     let mut handle = runner
         .spawn("debug-pause-proof")
         .map_err(|error| error.to_string())?;
-    let stop = stop_rx
-        .recv_timeout(WallDuration::from_secs(2))
-        .map_err(|error| format!("runtime did not stop: {error}"))?;
-    if stop.reason != DebugStopReason::Pause {
-        return Err(format!("unexpected stop reason: {:?}", stop.reason));
+    let reason = next_stop(&debugger).ok_or_else(|| "runtime did not stop".to_string())?;
+    if reason != "pause" {
+        return Err(format!("unexpected stop reason: {reason}"));
     }
 
     thread::sleep(WallDuration::from_millis(dwell_ms as u64));
-    debug.continue_run();
+    debugger.resume();
     thread::sleep(WallDuration::from_millis(60));
     let observed = BTreeMap::from([
         (
@@ -139,7 +143,7 @@ fn statement_pause_observation(
         ),
     ]);
     handle.stop();
-    debug.continue_run();
+    debugger.resume();
     handle
         .join()
         .map_err(|_| "statement-pause resource thread panicked".to_string())?;
@@ -150,7 +154,7 @@ fn resource_pause_observation(
     watchdog_ms: i64,
     dwell_ms: i64,
 ) -> Result<BTreeMap<String, serde_json::Value>, String> {
-    let (runtime, debug) = counter_runtime()?;
+    let (runtime, debug, _debugger) = counter_runtime()?;
     let mut runner = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1));
     runner
         .program_mut()
@@ -200,12 +204,42 @@ fn resource_pause_observation(
     Ok(observed)
 }
 
-fn counter_runtime() -> Result<(trust_runtime::Runtime, trust_runtime::debug::DebugControl), String>
-{
-    let mut harness =
-        TestHarness::from_source(COUNTER_SOURCE).map_err(|error| error.to_string())?;
-    let debug = harness.runtime_mut().enable_debug();
-    Ok((harness.into_runtime(), debug))
+fn counter_runtime() -> Result<(CompiledRuntime, DebugControl, CompiledDebugger), String> {
+    let mut runtime = TestHarness::from_source(COUNTER_SOURCE)
+        .map_err(|error| error.to_string())?
+        .into_runtime();
+    let debug = DebugControl::new();
+    runtime.set_debug_control(debug.clone());
+    let debugger = debug
+        .compiled()
+        .ok_or_else(|| "no debugger of the compiled program".to_string())?;
+    Ok((runtime, debug, debugger))
+}
+
+/// The reason of the next stop the debugger records within 2 s; `None` when none arrives.
+fn next_stop(debugger: &CompiledDebugger) -> Option<String> {
+    let request = ControlRequest {
+        id: 1,
+        r#type: "debug.stops".to_string(),
+        params: None,
+        auth: None,
+        request_id: None,
+    };
+    let deadline = Instant::now() + WallDuration::from_secs(2);
+    loop {
+        let answer = serde_json::to_value(debugger.answer(&request, IoSnapshotRead::Missing))
+            .expect("a response serializes");
+        if let Some(stop) = answer["result"]["stops"]
+            .as_array()
+            .and_then(|stops| stops.first())
+        {
+            return stop["reason"].as_str().map(str::to_string);
+        }
+        if Instant::now() >= deadline {
+            return None;
+        }
+        thread::sleep(WallDuration::from_millis(2));
+    }
 }
 
 fn watchdog_policy(timeout_ms: i64) -> WatchdogPolicy {

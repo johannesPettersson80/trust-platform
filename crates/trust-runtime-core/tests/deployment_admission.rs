@@ -1,27 +1,88 @@
-//! Admission of a deployment record (spec 34 §5.1.1, DEPLOY-04, LOAD-07, LOAD-09): the checks
-//! run in the specified order before any state exists, each refusal names its numbers, and an
-//! admitted record prepares the program with exactly the limits it requests.
+//! Admission of a deployment record (spec 34 §5.1.1, DEPLOY-04, LOAD-07, LOAD-09; spec 44 §10.1
+//! and §10.2, step 1): the checks run in the specified order before any state exists, each
+//! refusal names its numbers, and admission reads the program only as the bytes the record
+//! describes.
 
-use trust_runtime_core::bytecode::{BytecodeVersion, BYTECODE_MAX_CONTAINER_BYTES};
 use trust_runtime_core::deployment::{
-    admit, admit_memory, AdmissionRefusal, ApplicationIdentity, Capabilities, Contracts,
-    DeploymentRecord, DeviceDescriptor, ImportKind, LimitKind, NumericContract,
-    ProcessImageSummary, RequestedLimits, RequiredImport, SchedulingProfile, TimingEvidence,
+    admit, sha256, AdmissionRefusal, ApplicationIdentity, Capabilities, Configuration, Contracts,
+    DeploymentRecord, DeviceDescriptor, ImportKind, LimitKind, NativeTarget, NumericContract,
+    ProcessImageSummary, ProgramVersion, RequestedLimits, RequiredImport, SchedulingProfile,
+    TimingEvidence,
 };
 use trust_runtime_core::error::{ImportRefusal, RuntimeError, StableErrorCode};
-use trust_runtime_core::vm::{MemoryFigure, PreparationLimits, PreparedModule, VM_MAX_CALL_DEPTH};
+use trust_runtime_core::native::image::Target;
 
-const PROGRAM: &[u8] =
-    include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
-const CLOCK: &[u8] =
-    include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/clock-v2.stbc");
+/// The bytes a record describes. Admission compares them with the record's length and SHA-256 and
+/// never reads them as a program, so they need not be an image.
+const PROGRAM: &[u8] = b"the bytes of one program image";
+/// The bytes of another program, of another length.
+const OTHER: &[u8] = b"the bytes of another program image";
 
-fn record_of(program: &[u8], limits: PreparationLimits) -> DeploymentRecord {
-    DeploymentRecord::for_program(program, limits, [0; 32])
-        .expect("the saved fixture is admitted under these limits")
+/// The program versions of a device that runs compiled program images (spec 44 §10.1).
+const IMAGES: &[ProgramVersion] = &[ProgramVersion::NATIVE_IMAGE];
+
+/// A computer that runs program images, whatever CPU runs the test.
+fn computer() -> DeviceDescriptor {
+    DeviceDescriptor {
+        program_versions: IMAGES,
+        ..DeviceDescriptor::hosted()
+    }
 }
 
-fn refusal(result: Result<PreparationLimits, RuntimeError>) -> AdmissionRefusal {
+/// The record of `program` as spec 44 §10.1 describes an image's: its SHA-256 and length, the
+/// version 44.1 with no flags, `cooperative-resource-v1`, numeric contract 1, no timing evidence, no
+/// capability, the bytes of its process image (one input, one output and one marker byte) as its
+/// only request, and no import.
+fn record_of(program: &[u8]) -> DeploymentRecord {
+    DeploymentRecord {
+        application: ApplicationIdentity {
+            program_sha256: sha256(program),
+            program_bytes: u32::try_from(program.len()).unwrap(),
+            program_version: ProgramVersion::NATIVE_IMAGE,
+            program_flags: 0,
+            configuration_sha256: [0; 32],
+            retain_schema_sha256: [0; 32],
+        },
+        contracts: Contracts {
+            scheduling_profile: SchedulingProfile::COOPERATIVE_RESOURCE_V1,
+            numeric_contract: NumericContract::V1,
+            timing_evidence: TimingEvidence::UNQUALIFIED,
+            capabilities: Capabilities::NONE,
+        },
+        limits: RequestedLimits {
+            max_process_image_bytes: 3,
+            ..limits_of(0)
+        },
+        process_image: ProcessImageSummary {
+            input_bytes: 1,
+            output_bytes: 1,
+            marker_bytes: 1,
+            bindings: 3,
+        },
+        tasks: Vec::new(),
+        imports: Vec::new(),
+        configuration: Configuration::default(),
+    }
+}
+
+/// Every limit at `value`.
+fn limits_of(value: u64) -> RequestedLimits {
+    RequestedLimits {
+        max_artifact_bytes: value,
+        max_preparation_bytes: value,
+        max_preparation_work: value,
+        max_validation_scratch_bytes: value,
+        max_validation_work: value,
+        max_construction_values: value,
+        max_construction_bytes: value,
+        max_process_image_bytes: value,
+        max_work: value,
+        max_construction_work: value,
+        max_call_depth: value,
+    }
+}
+
+fn refusal(result: Result<(), RuntimeError>) -> AdmissionRefusal {
     match result {
         Err(RuntimeError::DeploymentRefused(reason)) => reason,
         other => panic!("expected a refused deployment, got {other:?}"),
@@ -45,38 +106,33 @@ fn set(limits: &mut RequestedLimits, kind: LimitKind, value: u64) {
     *field = value;
 }
 
+/// Spec 34 HOST-02 and spec 44 §4.4 and NX-15: a computer has no maximum for any limit, keeps the
+/// newest 1,000 events by default and admits at most 1,000,000, has no application slot and no
+/// maximum of program memory, and runs program images of its own CPU with a task stack of 1 MiB and
+/// the default budget of 1,000,000 statements per activation (NX-10); on a CPU no module targets
+/// it runs no program.
 #[test]
-fn a_computer_runs_source_free_stbc_with_the_engine_maxima() {
+fn a_computer_runs_program_images_without_maxima() {
     let unbounded = u64::try_from(usize::MAX).unwrap();
+    let native = Target::this_cpu().map(|target| NativeTarget {
+        target,
+        task_stack_bytes: 1_048_576,
+        max_statements: 1_000_000,
+    });
     assert_eq!(
         DeviceDescriptor::hosted(),
         DeviceDescriptor {
-            bytecode_versions: &[
-                BytecodeVersion::SOURCE_FREE_V2,
-                BytecodeVersion::SOURCE_FREE
-            ],
+            program_versions: if native.is_some() { IMAGES } else { &[] },
             scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
             numeric_contracts: &[NumericContract::V1],
             timing_evidence: TimingEvidence::UNQUALIFIED,
             capabilities: Capabilities::WALL_CLOCK,
-            maxima: RequestedLimits {
-                max_artifact_bytes: u64::try_from(BYTECODE_MAX_CONTAINER_BYTES).unwrap(),
-                max_preparation_bytes: unbounded,
-                max_preparation_work: unbounded,
-                max_validation_scratch_bytes: unbounded,
-                max_validation_work: unbounded,
-                max_construction_values: unbounded,
-                max_construction_bytes: unbounded,
-                max_process_image_bytes: unbounded,
-                max_work: unbounded,
-                max_construction_work: unbounded,
-                max_call_depth: u64::try_from(VM_MAX_CALL_DEPTH).unwrap(),
-            },
+            maxima: limits_of(unbounded),
             event_store_default: 1_000,
             event_store_max: 1_000_000,
             application_slot_bytes: None,
             program_memory_bytes: None,
-            native: None,
+            native,
         }
     );
 }
@@ -89,9 +145,9 @@ fn admission_refuses_an_event_capacity_above_the_device_maximum() {
     // treats 0 as a capacity above the maximum.
     let device = DeviceDescriptor {
         event_store_max: 200,
-        ..DeviceDescriptor::hosted()
+        ..computer()
     };
-    let mut record = record_of(PROGRAM, PreparationLimits::default());
+    let mut record = record_of(PROGRAM);
     record.configuration.event_capacity = 201;
     let reason = refusal(admit(&record, PROGRAM, &device));
     assert_eq!(
@@ -108,46 +164,24 @@ fn admission_refuses_an_event_capacity_above_the_device_maximum() {
     record.configuration.event_capacity = 200;
     assert_eq!(
         admit(&record, PROGRAM, &device),
-        Ok(PreparationLimits::default()),
+        Ok(()),
         "a capacity at the maximum is admitted"
     );
     record.configuration.event_capacity = 0;
     assert_eq!(
         admit(&record, PROGRAM, &device),
-        Ok(PreparationLimits::default()),
+        Ok(()),
         "0 keeps the device's default"
     );
 }
 
 #[test]
-fn an_admitted_record_prepares_the_program_with_exactly_its_limits() {
-    let limits = PreparationLimits {
-        max_call_depth: 8,
-        max_work: 50_000,
-        max_process_image_bytes: 64,
-        ..PreparationLimits::default()
-    };
-    let record = record_of(PROGRAM, limits);
-    let admitted = admit(&record, PROGRAM, &DeviceDescriptor::hosted()).unwrap();
-    assert_eq!(admitted, limits);
-    let prepared = PreparedModule::from_bytes(PROGRAM, admitted).unwrap();
-    assert_eq!(prepared.limits(), limits);
-    // Both saved fixtures, and the default request of `trust-runtime build`, fit a computer.
-    for program in [PROGRAM, CLOCK] {
-        let record = record_of(program, PreparationLimits::default());
-        assert_eq!(
-            admit(&record, program, &DeviceDescriptor::hosted()),
-            Ok(PreparationLimits::default())
-        );
-    }
-}
-
-#[test]
 fn a_record_admits_only_the_program_it_describes() {
-    let record = record_of(PROGRAM, PreparationLimits::default());
-    let device = DeviceDescriptor::hosted();
+    let record = record_of(PROGRAM);
+    let device = computer();
+    assert_eq!(admit(&record, PROGRAM, &device), Ok(()));
     assert_eq!(
-        refusal(admit(&record, CLOCK, &device)),
+        refusal(admit(&record, OTHER, &device)),
         AdmissionRefusal::ProgramMismatch
     );
     let mut same_length = PROGRAM.to_vec();
@@ -157,7 +191,7 @@ fn a_record_admits_only_the_program_it_describes() {
         refusal(admit(&record, &same_length, &device)),
         AdmissionRefusal::ProgramMismatch
     );
-    let error = admit(&record, CLOCK, &device).unwrap_err();
+    let error = admit(&record, OTHER, &device).unwrap_err();
     assert_eq!(
         error.stable_code(),
         StableErrorCode::RuntimeDeploymentRefused
@@ -171,23 +205,42 @@ fn a_record_admits_only_the_program_it_describes() {
 
 #[test]
 fn each_contract_and_capability_is_checked_against_the_device() {
-    let record = record_of(PROGRAM, PreparationLimits::default());
-    let hosted = DeviceDescriptor::hosted();
+    let record = record_of(PROGRAM);
+    let device = computer();
 
-    let three_only = DeviceDescriptor {
-        bytecode_versions: &[BytecodeVersion::SOURCE_FREE],
-        ..hosted.clone()
+    // Spec 44 §10.1: a device whose descriptor does not name 44.1 refuses an image, and a device
+    // that runs images refuses an STBC program with its version (§15: "rebuild the project").
+    let no_images = DeviceDescriptor {
+        program_versions: &[],
+        ..computer()
     };
-    let reason = refusal(admit(&record, PROGRAM, &three_only));
+    let reason = refusal(admit(&record, PROGRAM, &no_images));
     assert_eq!(
         reason,
-        AdmissionRefusal::BytecodeVersion { major: 2, minor: 0 }
+        AdmissionRefusal::ProgramVersion {
+            major: 44,
+            minor: 1
+        }
     );
-    assert_eq!(reason.to_string(), "the device does not run STBC 2.0");
+    assert_eq!(
+        reason.to_string(),
+        "the device does not run compiled program images"
+    );
+    let mut stbc = record.clone();
+    stbc.application.program_version = ProgramVersion::new(3, 0);
+    let reason = refusal(admit(&stbc, PROGRAM, &device));
+    assert_eq!(
+        reason,
+        AdmissionRefusal::ProgramVersion { major: 3, minor: 0 }
+    );
+    assert_eq!(
+        reason.to_string(),
+        "the program is STBC 3.0, which this runtime does not run: rebuild the project"
+    );
 
     let mut profile = record.clone();
     profile.contracts.scheduling_profile = SchedulingProfile(2);
-    let reason = refusal(admit(&profile, PROGRAM, &hosted));
+    let reason = refusal(admit(&profile, PROGRAM, &device));
     assert_eq!(
         reason,
         AdmissionRefusal::SchedulingProfile(SchedulingProfile(2))
@@ -200,13 +253,13 @@ fn each_contract_and_capability_is_checked_against_the_device() {
     let mut numeric = record.clone();
     numeric.contracts.numeric_contract = NumericContract(2);
     assert_eq!(
-        refusal(admit(&numeric, PROGRAM, &hosted)),
+        refusal(admit(&numeric, PROGRAM, &device)),
         AdmissionRefusal::NumericContract(NumericContract(2))
     );
 
     let mut timing = record.clone();
     timing.contracts.timing_evidence = TimingEvidence::MEASURED_QUALIFIED;
-    let reason = refusal(admit(&timing, PROGRAM, &hosted));
+    let reason = refusal(admit(&timing, PROGRAM, &device));
     assert_eq!(
         reason,
         AdmissionRefusal::TimingEvidence {
@@ -219,13 +272,15 @@ fn each_contract_and_capability_is_checked_against_the_device() {
         "the record requires measured-qualified timing evidence, the device has unqualified"
     );
 
-    // A clock program needs the wall clock that CURRENT_DT reads.
-    let clock = record_of(CLOCK, PreparationLimits::default());
+    // A program that reads the wall clock of CURRENT_DT needs it.
+    let mut clock = record.clone();
+    clock.contracts.capabilities = Capabilities::WALL_CLOCK;
+    assert_eq!(admit(&clock, PROGRAM, &device), Ok(()));
     let without_clock = DeviceDescriptor {
         capabilities: Capabilities::NONE,
-        ..hosted.clone()
+        ..computer()
     };
-    let reason = refusal(admit(&clock, CLOCK, &without_clock));
+    let reason = refusal(admit(&clock, PROGRAM, &without_clock));
     assert_eq!(
         reason,
         AdmissionRefusal::Capability(Capabilities::WALL_CLOCK)
@@ -237,20 +292,28 @@ fn each_contract_and_capability_is_checked_against_the_device() {
     let mut unknown = record.clone();
     unknown.contracts.capabilities = Capabilities(0b100);
     assert_eq!(
-        refusal(admit(&unknown, PROGRAM, &hosted)).to_string(),
+        refusal(admit(&unknown, PROGRAM, &device)).to_string(),
         "the device lacks capability bit 2"
     );
 }
 
 #[test]
 fn every_import_needs_a_contract_of_the_same_version() {
-    let record = record_of(PROGRAM, PreparationLimits::default());
-    let hosted = DeviceDescriptor::hosted();
+    let record = record_of(PROGRAM);
+    let device = computer();
     let with_import = |import: RequiredImport| {
         let mut changed = record.clone();
         changed.imports.push(import);
-        admit(&changed, PROGRAM, &hosted)
+        admit(&changed, PROGRAM, &device)
     };
+    assert_eq!(
+        with_import(RequiredImport {
+            kind: ImportKind::FunctionBlock,
+            name: "TON".into(),
+            contract_version: 1,
+        }),
+        Ok(())
+    );
     assert_eq!(
         with_import(RequiredImport {
             kind: ImportKind::Function,
@@ -285,9 +348,12 @@ fn every_import_needs_a_contract_of_the_same_version() {
             reason: ImportRefusal::NoContract,
         })
     );
-    let mut version = record.clone();
-    version.imports[1].contract_version = 2;
-    let error = admit(&version, PROGRAM, &hosted).unwrap_err();
+    let error = with_import(RequiredImport {
+        kind: ImportKind::FunctionBlock,
+        name: "TON".into(),
+        contract_version: 2,
+    })
+    .unwrap_err();
     assert_eq!(
         error,
         RuntimeError::ImportUnsupported {
@@ -311,32 +377,34 @@ fn every_import_needs_a_contract_of_the_same_version() {
 
 #[test]
 fn no_requested_limit_may_exceed_the_device_maximum() {
-    let record = record_of(PROGRAM, PreparationLimits::default());
+    let mut record = record_of(PROGRAM);
+    record.limits = limits_of(5);
     for (kind, requested) in record.limits.values() {
-        let mut device = DeviceDescriptor::hosted();
-        set(&mut device.maxima, kind, requested - 1);
+        assert_eq!(requested, 5, "{kind}");
+        let mut device = computer();
+        set(&mut device.maxima, kind, 4);
         assert_eq!(
             refusal(admit(&record, PROGRAM, &device)),
             AdmissionRefusal::Limit {
                 limit: kind,
-                requested,
-                maximum: requested - 1,
+                requested: 5,
+                maximum: 4,
             },
             "{kind}"
         );
-        set(&mut device.maxima, kind, requested);
+        set(&mut device.maxima, kind, 5);
         assert_eq!(
             admit(&record, PROGRAM, &device),
-            Ok(PreparationLimits::default()),
+            Ok(()),
             "{kind} at its maximum"
         );
     }
-    let mut deep = record.clone();
+    let mut deep = record_of(PROGRAM);
     deep.limits.max_call_depth = 2048;
+    let mut device = computer();
+    device.maxima.max_call_depth = 1024;
     assert_eq!(
-        admit(&deep, PROGRAM, &DeviceDescriptor::hosted())
-            .unwrap_err()
-            .to_string(),
+        admit(&deep, PROGRAM, &device).unwrap_err().to_string(),
         "deployment refused: the record requests max_call_depth 2048, the device allows at most \
          1024"
     );
@@ -344,11 +412,11 @@ fn no_requested_limit_may_exceed_the_device_maximum() {
 
 #[test]
 fn the_program_and_its_record_must_fit_the_application_slot() {
-    let record = record_of(PROGRAM, PreparationLimits::default());
+    let record = record_of(PROGRAM);
     let needed = u64::try_from(PROGRAM.len() + record.encoded_len()).unwrap();
     let device = DeviceDescriptor {
         application_slot_bytes: Some(needed - 1),
-        ..DeviceDescriptor::hosted()
+        ..computer()
     };
     let reason = refusal(admit(&record, PROGRAM, &device));
     assert_eq!(
@@ -368,82 +436,46 @@ fn the_program_and_its_record_must_fit_the_application_slot() {
     );
     let exact = DeviceDescriptor {
         application_slot_bytes: Some(needed),
-        ..DeviceDescriptor::hosted()
+        ..computer()
     };
-    assert_eq!(
-        admit(&record, PROGRAM, &exact),
-        Ok(PreparationLimits::default())
-    );
-}
-
-#[test]
-fn a_memory_figure_above_the_devices_program_memory_is_refused_with_both_numbers() {
-    // Specification 34 MEM-12 and §5.1.1: after preparation and before anything is constructed, a
-    // device refuses a program whose memory figure is more than the memory it has for programs,
-    // naming both numbers; a device without a maximum, a computer, admits every figure. Worked by
-    // hand: the parts 1,000 + 200 + 300 + 100 + 400 make 2,000 bytes, and 2,050 with the 50 bytes of
-    // the capture of the retained values, which count only when the runtime keeps them. The wrong
-    // behaviour: the capture counted for a program whose retained values are not kept (2,000 bytes
-    // refused on a device that has 2,000), a figure equal to the memory refused, or a computer that
-    // refuses a figure.
-    let figure = MemoryFigure {
-        program: 1_000,
-        persistent_block: 200,
-        activation_stack: 300,
-        operand_stack: 100,
-        engine: 400,
-        retain_capture: 50,
-    };
-    let device = |bytes| DeviceDescriptor {
-        program_memory_bytes: Some(bytes),
-        ..DeviceDescriptor::hosted()
-    };
-    assert_eq!(admit_memory(&figure, false, &device(2_000)), Ok(()));
-    assert_eq!(admit_memory(&figure, true, &device(2_050)), Ok(()));
-    let refused = admit_memory(&figure, true, &device(2_000)).unwrap_err();
-    assert_eq!(
-        refused,
-        RuntimeError::DeploymentRefused(AdmissionRefusal::Memory {
-            needed: 2_050,
-            available: 2_000,
-        })
-    );
-    assert_eq!(
-        refused.to_string(),
-        "deployment refused: the program needs 2050 bytes of memory, the device has 2000 for \
-         programs"
-    );
-    assert_eq!(
-        admit_memory(&figure, true, &DeviceDescriptor::hosted()),
-        Ok(())
-    );
+    assert_eq!(admit(&record, PROGRAM, &exact), Ok(()));
 }
 
 #[test]
 fn the_first_failed_check_in_the_specified_order_refuses() {
-    let mut record = record_of(CLOCK, PreparationLimits::default());
+    let mut record = record_of(PROGRAM);
+    record.contracts.capabilities = Capabilities::WALL_CLOCK;
+    record.imports.push(RequiredImport {
+        kind: ImportKind::FunctionBlock,
+        name: "TON".into(),
+        contract_version: 1,
+    });
     // Break every check from 2 to 8 at once on a strict device, then repair them in order.
-    let device = DeviceDescriptor {
-        bytecode_versions: &[BytecodeVersion::SOURCE_FREE],
+    let mut device = DeviceDescriptor {
+        program_versions: &[],
         capabilities: Capabilities::NONE,
         application_slot_bytes: Some(1),
-        ..DeviceDescriptor::hosted()
+        ..computer()
     };
+    device.maxima.max_call_depth = 1024;
     record.contracts.scheduling_profile = SchedulingProfile(9);
     record.contracts.numeric_contract = NumericContract(9);
     record.contracts.timing_evidence = TimingEvidence::ANALYTICALLY_SUPPORTED;
     record.imports[0].contract_version = 9;
     record.limits.max_call_depth = 4096;
-    let check = |record: &DeploymentRecord| admit(record, CLOCK, &device).unwrap_err();
+    let check = |record: &DeploymentRecord| admit(record, PROGRAM, &device).unwrap_err();
     assert_eq!(
         check(&record),
-        RuntimeError::DeploymentRefused(AdmissionRefusal::BytecodeVersion { major: 2, minor: 0 })
+        RuntimeError::DeploymentRefused(AdmissionRefusal::ProgramVersion {
+            major: 44,
+            minor: 1
+        })
     );
     let device = DeviceDescriptor {
-        bytecode_versions: &[BytecodeVersion::SOURCE_FREE_V2],
+        program_versions: IMAGES,
         ..device
     };
-    let check = |record: &DeploymentRecord| admit(record, CLOCK, &device).unwrap_err();
+    let check = |record: &DeploymentRecord| admit(record, PROGRAM, &device).unwrap_err();
     assert_eq!(
         check(&record),
         RuntimeError::DeploymentRefused(AdmissionRefusal::SchedulingProfile(SchedulingProfile(9)))
@@ -467,7 +499,7 @@ fn the_first_failed_check_in_the_specified_order_refuses() {
         capabilities: Capabilities::WALL_CLOCK,
         ..device
     };
-    let check = |record: &DeploymentRecord| admit(record, CLOCK, &device).unwrap_err();
+    let check = |record: &DeploymentRecord| admit(record, PROGRAM, &device).unwrap_err();
     assert!(matches!(
         check(&record),
         RuntimeError::ImportUnsupported {
@@ -493,35 +525,16 @@ fn the_first_failed_check_in_the_specified_order_refuses() {
 
 #[test]
 fn admission_refuses_before_the_program_is_read() {
-    // The supplied bytes are no STBC at all; the record describes exactly them. Admission
-    // refuses on its own numbers, so it ran before any decoding, preparation or construction.
-    let program = b"not an STBC artifact";
-    let record = DeploymentRecord {
-        application: ApplicationIdentity {
-            program_sha256: trust_runtime_core::deployment::sha256(program),
-            program_bytes: u32::try_from(program.len()).unwrap(),
-            bytecode_version: BytecodeVersion::SOURCE_FREE,
-            bytecode_flags: 1,
-            configuration_sha256: [0; 32],
-            retain_schema_sha256: [0; 32],
-        },
-        contracts: Contracts {
-            scheduling_profile: SchedulingProfile::COOPERATIVE_RESOURCE_V1,
-            numeric_contract: NumericContract::V1,
-            timing_evidence: TimingEvidence::UNQUALIFIED,
-            capabilities: Capabilities::NONE,
-        },
-        limits: RequestedLimits {
-            max_call_depth: 1_000_000,
-            ..RequestedLimits::from_preparation(&PreparationLimits::default())
-        },
-        process_image: ProcessImageSummary::default(),
-        tasks: Vec::new(),
-        imports: Vec::new(),
-        configuration: trust_runtime_core::deployment::Configuration::default(),
-    };
+    // The supplied bytes are no program image at all; the record describes exactly them.
+    // Admission refuses on its own numbers, so it ran before the image was parsed, checked or
+    // loaded.
+    let program = b"not a program image";
+    let mut record = record_of(program);
+    record.limits.max_call_depth = 1_000_000;
+    let mut device = computer();
+    device.maxima.max_call_depth = 1024;
     assert!(matches!(
-        admit(&record, program, &DeviceDescriptor::hosted()),
+        admit(&record, program, &device),
         Err(RuntimeError::DeploymentRefused(AdmissionRefusal::Limit {
             limit: LimitKind::CallDepth,
             ..

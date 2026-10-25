@@ -11,7 +11,6 @@
 //! and, for version 1, without the length, payload checksum and trailer.
 
 mod reader;
-mod view;
 
 use alloc::{boxed::Box, format, sync::Arc, vec::Vec};
 
@@ -19,7 +18,6 @@ use smol_str::SmolStr;
 
 use crate::collections::OrderedMap as IndexMap;
 use crate::error::RuntimeError;
-use crate::memory::view::ValueView;
 use crate::retain::RetainSnapshot;
 use crate::value::{
     ArrayValue, DateTimeValue, DateValue, Duration, EnumValue, LDateTimeValue, LDateValue,
@@ -27,10 +25,8 @@ use crate::value::{
 };
 
 use self::reader::RetainReader;
-use self::view::encode_view;
 
 pub use self::reader::encode_string;
-pub(crate) use self::view::view_is_retainable;
 
 /// The four-byte magic at the start of every retain file.
 const RETAIN_MAGIC: &[u8; 4] = b"STRN";
@@ -143,42 +139,6 @@ impl<'a> PayloadWriter<'a> {
     pub fn entry_pieces(&mut self, pieces: &[&str], value: &Value) -> Result<(), RuntimeError> {
         self.encode_name_pieces(pieces);
         encode_value(self.out, value)?;
-        self.count += 1;
-        Ok(())
-    }
-
-    /// Append one named retained value that the store holds as `view`: a view of the `Value` tree is
-    /// encoded as [`entry`](Self::entry) encodes it, and a view of cells is encoded from its cells, its
-    /// text buffers and its compound members without building a `Value`, to the same bytes
-    /// (specification 11 §6.7; C1-9d2b-2).
-    ///
-    /// # Errors
-    ///
-    /// As [`entry`](Self::entry), and the refusal of a cell the view's type does not hold.
-    pub(crate) fn entry_view(
-        &mut self,
-        name: &str,
-        view: &ValueView<'_>,
-    ) -> Result<(), RuntimeError> {
-        encode_string(self.out, name);
-        encode_view(self.out, view)?;
-        self.count += 1;
-        Ok(())
-    }
-
-    /// Append one retained value held as `view`, whose name is the concatenation of `pieces`, as
-    /// [`entry_pieces`](Self::entry_pieces) appends a `Value`.
-    ///
-    /// # Errors
-    ///
-    /// As [`entry_view`](Self::entry_view).
-    pub(crate) fn entry_view_pieces(
-        &mut self,
-        pieces: &[&str],
-        view: &ValueView<'_>,
-    ) -> Result<(), RuntimeError> {
-        self.encode_name_pieces(pieces);
-        encode_view(self.out, view)?;
         self.count += 1;
         Ok(())
     }
@@ -331,10 +291,6 @@ pub fn decode_snapshot_payload_v3(payload: &[u8]) -> Result<RetainSnapshot, Runt
     reader.expect_finished("retain v3 payload")?;
     Ok(snapshot)
 }
-
-/// The same payload rule under the name the shared VM engine's explicit checkpoint asks for
-/// (`vm/engine/cycle.rs`); it is the one decoder, not a second one.
-pub(crate) use self::decode_snapshot_payload_v3 as decode_snapshot_payload_bytes;
 
 /// The one-byte wire tag that precedes every retained value.
 ///
@@ -545,21 +501,7 @@ fn encode_value(out: &mut Vec<u8>, value: &Value) -> Result<(), RuntimeError> {
                 encode_string(out, name.as_str());
                 encode_value(out, field)?;
             }
-            match struct_value.encode_physical_checkpoint().map_err(|error| {
-                RuntimeError::RetainStore(
-                    format!("cannot encode physical retain checkpoint: {error}").into(),
-                )
-            })? {
-                Some(checkpoint) => {
-                    out.push(PHYSICAL_CHECKPOINT);
-                    let len = u32::try_from(checkpoint.len()).map_err(|_| {
-                        RuntimeError::RetainStore("physical retain checkpoint is too large".into())
-                    })?;
-                    out.extend_from_slice(&len.to_le_bytes());
-                    out.extend_from_slice(&checkpoint);
-                }
-                None => out.push(NO_PHYSICAL_CHECKPOINT),
-            }
+            out.push(NO_PHYSICAL_CHECKPOINT);
         }
         Value::Enum(enum_value) => encode_enumeration(
             out,
@@ -699,18 +641,15 @@ fn decode_value(
                 let value = decode_value(reader, physical_checkpoints)?;
                 fields.insert(name, value);
             }
-            let value = StructValue::from_untyped_parts(type_name, fields);
-            let value = if physical_checkpoints {
+            if physical_checkpoints {
                 match reader.read_u8()? {
-                    0 => value,
-                    1 => {
+                    NO_PHYSICAL_CHECKPOINT => {}
+                    // The bit-level backing of an overlapping structure, which the bytecode engine
+                    // wrote; the members carry the values, which a restore writes by name
+                    // (specification 44 §11).
+                    PHYSICAL_CHECKPOINT => {
                         let len = reader.read_u32()? as usize;
-                        let checkpoint = reader.read_bytes(len)?;
-                        value.with_physical_checkpoint(checkpoint).map_err(|_| {
-                            RuntimeError::RetainCorruption(
-                                "invalid physical struct checkpoint".into(),
-                            )
-                        })?
+                        reader.read_bytes(len)?;
                     }
                     _ => {
                         return Err(RuntimeError::RetainCorruption(
@@ -718,10 +657,8 @@ fn decode_value(
                         ));
                     }
                 }
-            } else {
-                value
-            };
-            Value::Struct(Arc::new(value))
+            }
+            Value::Struct(Arc::new(StructValue::from_untyped_parts(type_name, fields)))
         }
         x if x == ValueTag::Enum as u8 => {
             let type_name = SmolStr::new(reader.read_string()?);

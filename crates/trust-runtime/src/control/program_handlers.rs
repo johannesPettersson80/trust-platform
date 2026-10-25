@@ -4,7 +4,6 @@ use crate::security::AccessRole;
 use serde_json::json;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
-use trust_runtime_services::debug::replies;
 use trust_runtime_services::loading::reload as reload_rules;
 
 use super::resource_queue::queue_refusal;
@@ -13,28 +12,6 @@ use super::{ControlResponse, ControlState};
 
 // `pause`, `resume`, `restart` and `shutdown` follow the shared resource rules
 // (`trust_runtime_services::resource::operations`), which the shared request pipeline answers.
-
-#[derive(Debug, Clone, Copy)]
-pub(super) enum StepKind {
-    In,
-    Over,
-    Out,
-}
-
-/// A step is armed only while the debugger holds the scan, in either control mode.
-/// Without a hold the request is refused before anything is armed.
-pub(super) fn handle_step(id: u64, state: &ControlState, kind: StepKind) -> ControlResponse {
-    if !state.debug.accepts_step() {
-        return ControlResponse::error(id, replies::STEP_REQUIRES_HOLD.into());
-    }
-    let action = match kind {
-        StepKind::In => crate::debug::ControlAction::StepIn(None),
-        StepKind::Over => crate::debug::ControlAction::StepOver(None),
-        StepKind::Out => crate::debug::ControlAction::StepOut(None),
-    };
-    let _ = state.debug.apply_action(action);
-    replies::stepping(id)
-}
 
 /// The shared `shutdown` reply, for the in-crate tests that call it directly.
 #[cfg(test)]
@@ -72,9 +49,8 @@ pub(super) const RELOAD_WAIT: ReloadWait = ReloadWait {
 /// How a reload request's wait ended.
 #[derive(Debug)]
 pub(super) enum ReloadOutcome {
-    /// The scan thread took the request and reported its commit or preparation result. Boxed,
-    /// because the metadata is far larger than the other outcomes.
-    Applied(Box<Result<Option<crate::RuntimeMetadata>, RuntimeError>>),
+    /// The scan thread took the request and reported its commit or admission result.
+    Applied(Result<(), RuntimeError>),
     /// The request was withdrawn before the scan thread took it, so it is never applied.
     Withdrawn,
     /// The scan thread dropped the request unapplied, because it stopped first.
@@ -109,17 +85,17 @@ pub(super) fn reload_on_resource(
 /// A reload that was taken already reports its own result.
 pub(super) fn await_reload(
     claim: &ReloadClaim,
-    replies: &Receiver<Result<Option<crate::RuntimeMetadata>, RuntimeError>>,
+    replies: &Receiver<Result<(), RuntimeError>>,
     wait: ReloadWait,
 ) -> ReloadOutcome {
     match replies.recv_timeout(wait.take) {
-        Ok(result) => ReloadOutcome::Applied(Box::new(result)),
+        Ok(result) => ReloadOutcome::Applied(result),
         Err(RecvTimeoutError::Timeout) => {
             if claim.withdraw() {
                 return ReloadOutcome::Withdrawn;
             }
             match replies.recv_timeout(wait.commit) {
-                Ok(result) => ReloadOutcome::Applied(Box::new(result)),
+                Ok(result) => ReloadOutcome::Applied(result),
                 Err(_) => ReloadOutcome::Unknown,
             }
         }
@@ -135,23 +111,16 @@ pub(super) fn await_reload(
 
 fn reload_reply(id: u64, outcome: ReloadOutcome, state: &ControlState) -> ControlResponse {
     let outcome = match outcome {
-        ReloadOutcome::Applied(result) => match *result {
-            Ok(metadata) => reload_rules::ReloadOutcome::Applied(metadata),
+        ReloadOutcome::Applied(result) => match result {
+            Ok(()) => reload_rules::ReloadOutcome::Applied(()),
             Err(err) => reload_rules::ReloadOutcome::Failed(err.to_string()),
         },
         ReloadOutcome::Withdrawn => reload_rules::ReloadOutcome::Withdrawn,
         ReloadOutcome::Stopped => reload_rules::ReloadOutcome::Stopped,
         ReloadOutcome::Unknown => reload_rules::ReloadOutcome::Unknown,
     };
-    // An applied reload stores its metadata and refreshes the ADS server before the reply, as it
-    // always has; a compiled program has no metadata of the bytecode engine to store. The rules
-    // own the reply text; the stores stay with the control state.
-    reload_rules::reply(id, outcome, |metadata| {
-        if let Some(metadata) = metadata
-            && let Ok(mut guard) = state.metadata.lock()
-        {
-            *guard = metadata;
-        }
+    // An applied reload refreshes the ADS server before the reply. The rules own the reply text.
+    reload_rules::reply(id, outcome, |()| {
         super::ads_handlers::refresh_ads_server_runtime_after_online_change(state)
     })
 }

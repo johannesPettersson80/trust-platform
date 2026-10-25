@@ -20,7 +20,7 @@ use trust_runtime_core::native::stop::Stop;
 use trust_runtime_core::ports::MonotonicClock;
 
 use super::super::debugger::{Boundary, StatementStart, StopPoints};
-use super::super::engine::held_time::HeldTime;
+use super::super::held_time::HeldTime;
 use super::super::hold::{CompiledHeld, CompiledHold};
 use crate::debug::{FrameNames, LineSources};
 use crate::status::IoDriverStatus;

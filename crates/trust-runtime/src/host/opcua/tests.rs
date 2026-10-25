@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::NamedGlobals;
 use crate::value::{EnumValue, Value};
 use smol_str::SmolStr;
 
@@ -202,16 +203,20 @@ fn persistent_worker_applies_subscription_updates_without_reconnecting_per_scan(
         .emit_sample(&point, Value::Real(22.5), 10);
     worker.tick(10).expect("drain update");
     assert_eq!(
-        storage.get_global("line1_temp"),
+        storage.0.get("line1_temp"),
         Some(&Value::Real(0.0)),
         "worker callbacks must not mutate runtime storage mid-scan"
     );
 
-    bridge.apply_inputs(&mut storage, 11).expect("apply input");
-    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(22.5)));
+    bridge
+        .apply_inputs_compiled(&mut storage, 11)
+        .expect("apply input");
+    assert_eq!(storage.0.get("line1_temp"), Some(&Value::Real(22.5)));
 
     worker.tick(20).expect("second worker tick");
-    bridge.apply_inputs(&mut storage, 21).expect("second scan");
+    bridge
+        .apply_inputs_compiled(&mut storage, 21)
+        .expect("second scan");
     assert_eq!(
         worker.transport().connect_count,
         1,
@@ -324,11 +329,11 @@ fn opcua_client_rejects_non_finite_subscription_values_before_storage() {
         worker.transport_mut().emit_wire_sample(&point, variant);
         worker.tick(10).expect("drain rejected update");
         bridge
-            .apply_inputs(&mut storage, 11)
+            .apply_inputs_compiled(&mut storage, 11)
             .expect("faulted point is skipped");
 
         assert_eq!(
-            storage.get_global("line1_temp"),
+            storage.0.get("line1_temp"),
             Some(&initial_value),
             "{case_name}: rejected input must leave PLC storage unchanged"
         );
@@ -380,12 +385,12 @@ fn persistent_worker_batches_writes_without_reconnecting_per_write() {
         .emit_sample(&point, Value::Real(10.0), 10);
     worker.tick(10).expect("drain baseline");
     bridge
-        .apply_inputs(&mut storage, 11)
+        .apply_inputs_compiled(&mut storage, 11)
         .expect("apply baseline");
 
     write_global(&mut storage, "line1_setpoint", Value::Real(31.0));
     bridge
-        .capture_outputs(&mut storage, 12)
+        .capture_outputs_compiled(&mut storage, 12)
         .expect("queue first write");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -401,7 +406,7 @@ fn persistent_worker_batches_writes_without_reconnecting_per_write() {
 
     write_global(&mut storage, "line1_setpoint", Value::Real(44.0));
     bridge
-        .capture_outputs(&mut storage, 13)
+        .capture_outputs_compiled(&mut storage, 13)
         .expect("queue second write");
     worker.tick(13).expect("publish second write");
 
@@ -432,7 +437,7 @@ fn persistent_worker_rejected_write_marks_point_without_reconnecting() {
     worker.tick(0).expect("connect");
     write_global(&mut storage, "line1_setpoint", Value::Real(31.0));
     bridge
-        .capture_outputs(&mut storage, 12)
+        .capture_outputs_compiled(&mut storage, 12)
         .expect("queue write");
     assert_eq!(
         bridge.pending_write("line1_setpoint"),
@@ -492,9 +497,9 @@ fn persistent_worker_marks_stale_then_recovers_on_subscription_update() {
     worker.tick(61).expect("recover from subscription update");
     assert_eq!(bridge.state(), OpcUaClientConnectionState::Connected);
     bridge
-        .apply_inputs(&mut storage, 62)
+        .apply_inputs_compiled(&mut storage, 62)
         .expect("apply recovered value");
-    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(12.0)));
+    assert_eq!(storage.0.get("line1_temp"), Some(&Value::Real(12.0)));
 }
 
 #[test]
@@ -555,9 +560,9 @@ fn persistent_worker_recreates_subscription_after_server_restart() {
         .emit_sample(&point, Value::Real(18.0), 10);
     worker.tick(10).expect("initial subscription update");
     bridge
-        .apply_inputs(&mut storage, 11)
+        .apply_inputs_compiled(&mut storage, 11)
         .expect("apply initial value");
-    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(18.0)));
+    assert_eq!(storage.0.get("line1_temp"), Some(&Value::Real(18.0)));
 
     worker
         .transport_mut()
@@ -582,9 +587,9 @@ fn persistent_worker_recreates_subscription_after_server_restart() {
         .tick(2_110)
         .expect("post-restart subscription update");
     bridge
-        .apply_inputs(&mut storage, 2_111)
+        .apply_inputs_compiled(&mut storage, 2_111)
         .expect("apply post-restart value");
-    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(19.0)));
+    assert_eq!(storage.0.get("line1_temp"), Some(&Value::Real(19.0)));
 }
 
 #[test]
@@ -637,9 +642,9 @@ fn persistent_worker_uses_recovery_hook_to_reestablish_subscriptions() {
         .tick(2_110)
         .expect("post-recovery subscription update");
     bridge
-        .apply_inputs(&mut storage, 2_111)
+        .apply_inputs_compiled(&mut storage, 2_111)
         .expect("apply post-recovery value");
-    assert_eq!(storage.get_global("line1_temp"), Some(&Value::Real(21.0)));
+    assert_eq!(storage.0.get("line1_temp"), Some(&Value::Real(21.0)));
 }
 
 #[test]
@@ -791,13 +796,11 @@ impl OpcUaClientTransport for MockOpcUaClientTransport {
     }
 }
 
-fn storage_with_opcua_globals(globals: Vec<(&str, Value)>) -> crate::memory::VariableStorage {
-    // Bridge cache/copyback tests need no executable controller or schema mutation.
-    let mut storage = crate::memory::VariableStorage::new();
-    for (name, value) in globals {
-        storage.set_global(SmolStr::new(name), value);
-    }
-    storage
+/// A program's globals, held apart from it: the bridge cache/copyback tests need no executable
+/// controller, and reach the globals by name as a scan's boundaries reach a compiled program's
+/// variables (specification 44 §13.3).
+fn storage_with_opcua_globals(globals: Vec<(&'static str, Value)>) -> NamedGlobals {
+    NamedGlobals(globals.into_iter().collect())
 }
 
 fn opcua_connection(points: Vec<OpcUaClientPointConfig>) -> OpcUaClientConnectionConfig {
@@ -831,24 +834,24 @@ fn opcua_point(
     }
 }
 
+/// The bindings of `points`, each to the global of its name, which `storage` declares.
 fn opcua_bindings(
-    storage: &crate::memory::VariableStorage,
+    storage: &NamedGlobals,
     points: &[OpcUaClientPointConfig],
 ) -> Vec<OpcUaClientBinding> {
     points
         .iter()
-        .map(|point| OpcUaClientBinding {
-            point: point.clone(),
-            target: crate::runtime::BoundGlobal::Engine(
-                storage
-                    .ref_for_global(point.var.as_str())
-                    .expect("global ref"),
-            ),
+        .map(|point| {
+            assert!(storage.0.contains_key(point.var.as_str()), "global ref");
+            OpcUaClientBinding {
+                point: point.clone(),
+                target: crate::runtime::BoundGlobal(point.var.clone()),
+            }
         })
         .collect()
 }
 
-fn write_global(storage: &mut crate::memory::VariableStorage, name: &str, value: Value) {
-    let reference = storage.ref_for_global(name).expect("global ref");
-    assert!(storage.write_by_ref(reference, value));
+fn write_global(storage: &mut NamedGlobals, name: &str, value: Value) {
+    let slot = storage.0.get_mut(name).expect("global ref");
+    *slot = value;
 }

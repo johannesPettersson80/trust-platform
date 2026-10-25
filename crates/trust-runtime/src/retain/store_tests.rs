@@ -181,210 +181,6 @@ fn file_retain_store_replaces_snapshot_atomically() {
     remove_test_directory(&path);
 }
 
-const PHYSICAL_RETAIN_SOURCE: &str = r#"
-TYPE
-    Inner : STRUCT
-        low AT %B0 : BYTE;
-        high AT %B2 : BYTE;
-    END_STRUCT;
-    OuterType : STRUCT OVERLAP
-        raw AT %B0 : DWORD;
-        signed AT %B0 : DINT;
-        inner AT %B0 : Inner;
-    END_STRUCT;
-END_TYPE
-VAR_GLOBAL RETAIN outer : OuterType; END_VAR
-PROGRAM Main END_PROGRAM
-"#;
-
-fn write_debug_lvalue(runtime: &mut Runtime, name: &str, value: Value) {
-    let mut registry = runtime.registry().clone();
-    let target = crate::harness::parse_debug_lvalue_with_abi(
-        name,
-        &mut registry,
-        runtime.profile(),
-        &[],
-        runtime.prepared().storage_abi(),
-    )
-    .expect("debug lvalue");
-    runtime.write_lvalue(&target, value, None).unwrap();
-}
-
-fn read_debug_lvalue(runtime: &mut Runtime, name: &str) -> Value {
-    let mut registry = runtime.registry().clone();
-    let target = crate::harness::parse_debug_lvalue_with_abi(
-        name,
-        &mut registry,
-        runtime.profile(),
-        &[],
-        runtime.prepared().storage_abi(),
-    )
-    .expect("debug lvalue");
-    runtime.read_lvalue(&target, None).unwrap()
-}
-
-#[test]
-fn file_retain_v3_roundtrip_preserves_hidden_physical_bytes_through_warm_restart() {
-    use crate::{harness::CompileSession, value::StorageAbi, RestartMode};
-
-    let path = test_path("physical-v3-roundtrip");
-    let mut runtime = CompileSession::from_source(PHYSICAL_RETAIN_SOURCE)
-        .build_runtime()
-        .unwrap();
-    assert_eq!(
-        runtime.prepared().storage_abi(),
-        StorageAbi::UniformTemporal64
-    );
-    write_debug_lvalue(&mut runtime, "outer.raw", Value::DWord(0xFFCC_BBAA));
-    let snapshot = runtime.retain_snapshot().unwrap();
-    let Some(Value::Struct(value)) = snapshot.values().get("outer") else {
-        panic!("retained physical root");
-    };
-    let checkpoint = value.encode_physical_checkpoint().unwrap().unwrap();
-    for position in [0, 4] {
-        let mut malformed = checkpoint.clone();
-        malformed[position] = u8::MAX;
-        assert!(
-            (**value)
-                .clone()
-                .with_physical_checkpoint(&malformed)
-                .is_err(),
-            "corrupt checkpoint framing/ABI must be rejected"
-        );
-    }
-    runtime.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    runtime.save_retain_store().unwrap();
-    let bytes = fs::read(&path).unwrap();
-    assert_eq!(u16::from_le_bytes([bytes[4], bytes[5]]), RETAIN_VERSION);
-
-    let mut restored = CompileSession::from_source(PHYSICAL_RETAIN_SOURCE)
-        .build_runtime()
-        .unwrap();
-    restored.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    restored
-        .restart_with_retain_store(RestartMode::Warm)
-        .unwrap();
-    assert_eq!(
-        read_debug_lvalue(&mut restored, "outer.raw"),
-        Value::DWord(0xFFCC_BBAA)
-    );
-    write_debug_lvalue(&mut restored, "outer.inner.low", Value::Byte(0x11));
-    assert_eq!(
-        read_debug_lvalue(&mut restored, "outer.raw"),
-        Value::DWord(0xFFCC_BB11),
-        "the unnamed middle byte must survive the durable restart"
-    );
-    remove_test_directory(&path);
-}
-
-#[test]
-fn file_retain_v3_preserves_a_standalone_nested_physical_value() {
-    use crate::{harness::CompileSession, RestartMode};
-
-    let source = r#"
-TYPE
-    Inner : STRUCT
-        low AT %B0 : BYTE;
-        high AT %B2 : BYTE;
-    END_STRUCT;
-    OuterType : STRUCT OVERLAP
-        raw AT %B0 : DWORD;
-        inner AT %B0 : Inner;
-    END_STRUCT;
-END_TYPE
-VAR_GLOBAL outer : OuterType; target : OuterType; END_VAR
-VAR_GLOBAL RETAIN saved : Inner; END_VAR
-PROGRAM Main END_PROGRAM
-"#;
-    let path = test_path("physical-v3-nested-standalone");
-    let mut runtime = CompileSession::from_source(source).build_runtime().unwrap();
-    write_debug_lvalue(&mut runtime, "outer.raw", Value::DWord(0x00CC_BBAA));
-    let copied = read_debug_lvalue(&mut runtime, "outer.inner");
-    write_debug_lvalue(&mut runtime, "saved", copied);
-    let snapshot = runtime.retain_snapshot().unwrap();
-    assert!(snapshot.values().contains_key("saved"));
-    assert!(!snapshot.values().contains_key("outer"));
-    runtime.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    runtime.save_retain_store().unwrap();
-
-    let mut restored = CompileSession::from_source(source).build_runtime().unwrap();
-    restored.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    restored
-        .restart_with_retain_store(RestartMode::Warm)
-        .unwrap();
-    let copied = read_debug_lvalue(&mut restored, "saved");
-    write_debug_lvalue(&mut restored, "target.inner", copied);
-    assert_eq!(
-        read_debug_lvalue(&mut restored, "target.raw"),
-        Value::DWord(0x00CC_BBAA),
-        "the retained child gap must survive without retaining its physical parent"
-    );
-    remove_test_directory(&path);
-}
-
-#[test]
-fn retain_manager_persists_hidden_physical_only_changes() {
-    use crate::harness::CompileSession;
-
-    let source = r#"
-TYPE
-    Inner : STRUCT
-        low AT %B0 : BYTE;
-        high AT %B2 : BYTE;
-    END_STRUCT;
-    OuterType : STRUCT OVERLAP
-        raw AT %B0 : DWORD;
-        inner AT %B0 : Inner;
-    END_STRUCT;
-END_TYPE
-VAR_GLOBAL outer : OuterType; END_VAR
-VAR_GLOBAL RETAIN saved : Inner; END_VAR
-PROGRAM Main END_PROGRAM
-"#;
-    let mut runtime = CompileSession::from_source(source).build_runtime().unwrap();
-    write_debug_lvalue(&mut runtime, "outer.raw", Value::DWord(0x00CC_BBAA));
-    let copied = read_debug_lvalue(&mut runtime, "outer.inner");
-    write_debug_lvalue(&mut runtime, "saved", copied);
-    let first = runtime.retain_snapshot().unwrap();
-
-    write_debug_lvalue(&mut runtime, "outer.raw", Value::DWord(0x00CC_DDAA));
-    let copied = read_debug_lvalue(&mut runtime, "outer.inner");
-    write_debug_lvalue(&mut runtime, "saved", copied);
-    let second = runtime.retain_snapshot().unwrap();
-    assert_eq!(first, second, "logical named fields are unchanged");
-    let (Some(Value::Struct(first_value)), Some(Value::Struct(second_value))) =
-        (first.values().get("saved"), second.values().get("saved"))
-    else {
-        panic!("retained nested structure")
-    };
-    assert!(!first_value.physical_checkpoint_eq(second_value));
-
-    let path = test_path("physical-only-dirty-save");
-    let store = FileRetainStore::new(&path);
-    let mut manager = RetainManager::default();
-    manager.configure(
-        Some(Box::new(FileRetainStore::new(&path))),
-        Some(Duration::ZERO),
-        Duration::ZERO,
-    );
-    manager.mark_dirty();
-    manager.save_snapshot(first, Duration::ZERO).unwrap();
-    manager.mark_dirty();
-    manager
-        .save_snapshot(second.clone(), Duration::from_nanos(1))
-        .unwrap();
-
-    let persisted = store.load().unwrap();
-    let Some(Value::Struct(persisted)) = persisted.values().get("saved") else {
-        panic!("persisted nested structure")
-    };
-    let Some(Value::Struct(second)) = second.values().get("saved") else {
-        panic!("second nested structure")
-    };
-    assert!(persisted.physical_checkpoint_eq(second));
-    remove_test_directory(&path);
-}
-
 #[test]
 fn retain_manager_persists_signed_zero_representation_changes() {
     let path = test_path("signed-zero-dirty-save");
@@ -454,78 +250,6 @@ fn retain_manager_persists_snapshot_entry_order_changes() {
 }
 
 #[test]
-fn file_retain_rejects_incompatible_temporal_checkpoint_without_mutation() {
-    use crate::{
-        bytecode::BytecodeVersion,
-        harness::CompileSession,
-        value::{Duration, StorageAbi},
-        RestartMode,
-    };
-
-    let plain = "TYPE OverlayType : STRUCT elapsed : TIME; raw : LINT; END_STRUCT; END_TYPE VAR_GLOBAL RETAIN overlay : OverlayType; END_VAR PROGRAM Main END_PROGRAM";
-    let legacy_context = "TYPE OverlayType : STRUCT OVERLAP elapsed AT %B0 : TIME; raw AT %B0 : LINT; END_STRUCT; END_TYPE VAR_GLOBAL RETAIN overlay : OverlayType; END_VAR PROGRAM Main END_PROGRAM";
-    let legacy_module = CompileSession::from_source(plain)
-        .build_bytecode_module_for_version(BytecodeVersion::LEGACY)
-        .unwrap();
-    let context = CompileSession::from_source(legacy_context);
-    let mut old = context
-        .build_runtime_from_bytecode(&legacy_module, None)
-        .unwrap();
-    assert_eq!(old.prepared().storage_abi(), StorageAbi::LegacyTemporal32);
-    write_debug_lvalue(&mut old, "overlay.raw", Value::LInt(0x0000_0001_0000_0001));
-    let path = test_path("physical-temporal-abi");
-    old.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    old.save_retain_store().unwrap();
-
-    let mut current = CompileSession::from_source(legacy_context)
-        .build_runtime()
-        .unwrap();
-    assert_eq!(
-        current.prepared().storage_abi(),
-        StorageAbi::UniformTemporal64
-    );
-    current.set_current_time(Duration::from_millis(27));
-    let before = current.storage().get_global("overlay").cloned().unwrap();
-    current.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    assert!(current
-        .restart_with_retain_store(RestartMode::Warm)
-        .is_err());
-    assert_eq!(current.storage().get_global("overlay"), Some(&before));
-    assert_eq!(current.current_time(), Duration::from_millis(27));
-    assert!(!current.faulted());
-    remove_test_directory(&path);
-}
-
-#[test]
-fn file_retain_rejects_changed_physical_geometry_without_mutation() {
-    use crate::{harness::CompileSession, value::Duration, RestartMode};
-
-    let old_source = "TYPE OverlayType : STRUCT OVERLAP whole AT %B0 : DWORD; low AT %B0 : WORD; END_STRUCT; END_TYPE VAR_GLOBAL RETAIN overlay : OverlayType; END_VAR PROGRAM Main END_PROGRAM";
-    let changed_source = "TYPE OverlayType : STRUCT OVERLAP whole AT %B0 : DWORD; low AT %B2 : WORD; END_STRUCT; END_TYPE VAR_GLOBAL RETAIN overlay : OverlayType; END_VAR PROGRAM Main END_PROGRAM";
-    let path = test_path("physical-geometry-change");
-    let mut old = CompileSession::from_source(old_source)
-        .build_runtime()
-        .unwrap();
-    write_debug_lvalue(&mut old, "overlay.whole", Value::DWord(0x1122_3344));
-    old.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    old.save_retain_store().unwrap();
-
-    let mut current = CompileSession::from_source(changed_source)
-        .build_runtime()
-        .unwrap();
-    current.set_current_time(Duration::from_millis(19));
-    let before = current.storage().get_global("overlay").cloned().unwrap();
-    current.set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
-    assert!(current
-        .restart_with_retain_store(RestartMode::Warm)
-        .is_err());
-    assert_eq!(current.storage().get_global("overlay"), Some(&before));
-    assert_eq!(current.current_time(), Duration::from_millis(19));
-    assert!(!current.faulted());
-    remove_test_directory(&path);
-}
-
-#[test]
 fn file_retain_v1_and_v2_structures_remain_readable_as_logical_values() {
     fn old_struct_file(version: u16) -> Vec<u8> {
         let mut payload = Vec::new();
@@ -561,7 +285,6 @@ fn file_retain_v1_and_v2_structures_remain_readable_as_logical_values() {
             panic!("legacy structure value");
         };
         assert_eq!(value.fields().get("member"), Some(&Value::DInt(42)));
-        assert_eq!(value.encode_physical_checkpoint().unwrap(), None);
         remove_test_directory(&path);
     }
 }
@@ -699,6 +422,8 @@ fn retain_manager_retries_failed_save_without_a_new_dirty_mark() {
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
+// The recovery tests run the program of `RECOVERY_SOURCE`, which needs the toolchain of
+// specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 const RECOVERY_SOURCE: &str = r#"
 VAR_GLOBAL RETAIN
     count : DINT := DINT#5;
@@ -780,7 +505,8 @@ fn warm_restart_store_faults_name_the_stage_and_keep_running_state() {
         let mut harness = recovery_harness();
         harness
             .runtime_mut()
-            .set_retain_store(Some(Box::new(faulting)), None);
+            .set_retain_store(Some(Box::new(faulting)), None)
+            .expect("the retain store is set");
         assert_eq!(harness.get_output("count"), Some(Value::DInt(77)));
         assert_eq!(harness.runtime().cycle_counter(), 2);
 
@@ -839,7 +565,8 @@ fn cold_restart_with_a_failing_store_opens_nothing_and_reinitializes_retained_va
     let mut harness = recovery_harness();
     harness
         .runtime_mut()
-        .set_retain_store(Some(Box::new(faulting)), None);
+        .set_retain_store(Some(Box::new(faulting)), None)
+        .expect("the retain store is set");
     assert_eq!(harness.get_output("count"), Some(Value::DInt(77)));
 
     harness
@@ -890,7 +617,8 @@ fn rename_fault_before_warm_restart_leaves_the_last_good_checkpoint_to_restore()
     let mut harness = recovery_harness();
     harness
         .runtime_mut()
-        .set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None);
+        .set_retain_store(Some(Box::new(FileRetainStore::new(&path))), None)
+        .expect("the retain store is set");
     assert_eq!(harness.get_output("count"), Some(Value::DInt(77)));
     harness
         .restart_with_retain(RestartMode::Warm)

@@ -16,7 +16,6 @@ use core::fmt;
 use trust_runtime_core::deployment::{DeploymentRecord, DeviceDescriptor};
 use trust_runtime_core::ports::ProgramStore;
 use trust_runtime_core::retain::checkpoint::{FlashError, Slot};
-use trust_runtime_core::vm::PreparationLimits;
 
 use super::read_padded;
 use crate::installation::{
@@ -87,7 +86,8 @@ pub struct Booted {
     pub sequence: u64,
     /// The slot that holds the container.
     pub slot: Slot,
-    /// What the program is: `program.stbc` or a compiled program image (specification 44 §10.1).
+    /// What the program is: a compiled program image (specification 44 §10.1); admission refuses
+    /// any other.
     pub format: ProgramFormat,
     /// The bytes of the program: where they lie in the slot when the platform reads its flash in
     /// place (specification 34 MEM-14, the program image in place), else read into memory with the
@@ -95,9 +95,6 @@ pub struct Booted {
     pub program: Cow<'static, [u8]>,
     /// The deployment record the container holds.
     pub record: DeploymentRecord,
-    /// The preparation limits admission granted; prepare the program with the device's own limits,
-    /// which are at most these.
-    pub limits: PreparationLimits,
 }
 
 /// Why the store selects no installed program at boot (specification 34 §5.1, DEPLOY-03). Its text
@@ -303,7 +300,6 @@ pub fn boot(
             format: admitted.format,
             program: Cow::Borrowed(admitted.program),
             record: admitted.record,
-            limits: admitted.limits,
         });
     }
     let needed = newest.header.total_len as usize;
@@ -313,12 +309,7 @@ pub fn boot(
     let mut bytes = read_container(store, newest)?;
     let SequencedAdmitted { sequence, admitted } =
         installation::admit_sequenced(&bytes, device).map_err(SelectError::Refused)?;
-    let (format, record, limits, program) = (
-        admitted.format,
-        admitted.record,
-        admitted.limits,
-        admitted.program,
-    );
+    let (format, record, program) = (admitted.format, admitted.record, admitted.program);
     let start = offset_in(&bytes, program);
     let end = start + program.len();
     bytes.truncate(end);
@@ -329,7 +320,6 @@ pub fn boot(
         format,
         program: Cow::Owned(bytes),
         record,
-        limits,
     })
 }
 

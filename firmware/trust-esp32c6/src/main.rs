@@ -8,17 +8,14 @@
 //! (specification 34 STATE-08, Appendix D.2); then the memory the C6 has for programs, measured with
 //! the loop built; then the installed application, which the loop loads as a `restart` that finds a
 //! newer container does: the header of each of the two program slots read, the committed container
-//! with the highest install sequence read once and admitted against the C6's descriptor, the program
-//! prepared, the record's GPIO lines claimed by pin name, each output driven to its initial value
-//! before it becomes an output, and the program constructed and started (with `mode = "file"`, warm
-//! from the newest committed checkpoint); then the runner serves the control link over USB. The same
-//! loader builds the candidate of an online change (`bytecode.reload`, specification 34 §11.3): it is
-//! prepared within the heap's room less a reserve while the running program stays installed, and the
-//! commit hands it the running program's lines.
-//!
-//! With the feature `native` the firmware runs compiled program images instead (specification 44 §15):
-//! the same loop, program store and boot, with the loader of compiled programs, whose module runs
-//! where its image lies in the mapped slot, and a descriptor that admits images only.
+//! with the highest install sequence read once and admitted against the C6's descriptor, its compiled
+//! program image checked and its module copied into the program region (specification 44 §10), the
+//! record's GPIO lines claimed by pin name, each output driven to its initial value before it becomes
+//! an output, and the program started (with `mode = "file"`, warm from the newest committed
+//! checkpoint); then the runner serves the control link over USB. The same loader builds the candidate
+//! of an online change (`bytecode.reload`, specification 34 §11.3, specification 44 §12): its image is
+//! checked and its areas fit in the heap's room less a reserve while the running program stays
+//! installed, and the commit hands it the running program's lines.
 //!
 //! With no valid application, or one that cannot start, the same loop stays Stopped and serves the
 //! link with the reason (design §1.1, R2), so that a program can be installed over the link: the
@@ -40,51 +37,30 @@ use alloc::boxed::Box;
 use core::fmt::Write;
 
 use smol_str::SmolStr;
-#[cfg(feature = "native")]
 use trust_platform_esp32::compiled_loader::{
     compiled_install_check, CompiledLoader, CompiledProgramCycle,
 };
 use trust_platform_esp32::loader::{default_event_capacity, program_memory_bytes};
-#[cfg(not(feature = "native"))]
-use trust_platform_esp32::loader::{install_check, Esp32Loader};
 use trust_platform_esp32::process_io::GpioIo;
 use trust_platform_esp32::profile::{runtime_id, transfer_session, PROGRAM_STEP_BYTES};
-#[cfg(not(feature = "native"))]
-use trust_platform_esp32::profile::{MAIN_STACK, STBC_BYTES};
-#[cfg(not(feature = "native"))]
-use trust_platform_esp32::program_memory::ProgramCycle;
-#[cfg(not(feature = "native"))]
-use trust_platform_esp32::Platform;
 use trust_platform_esp32::{emergency_halt, Board, Monotonic, UsbLink, Wait, Watchdog};
-#[cfg(feature = "native")]
-use trust_platform_esp32::{C6Code, NativePlatform, ProgramCode};
+use trust_platform_esp32::{C6Code, Platform, ProgramCode};
 use trust_runtime_core::deployment::ControlMode;
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, ProgramStore};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_services::chip::platform::status_settings;
-#[cfg(not(feature = "native"))]
-use trust_runtime_services::runner::engine::DeviceMemory;
-use trust_runtime_services::runner::{EngineLiveValues, Runner};
-#[cfg(feature = "native")]
-use trust_runtime_services::status::StatusSettings;
+use trust_runtime_services::runner::{DeviceLiveValues, Runner};
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
 /// Bytes the reset record keeps for a panic's location.
 const LOCATION_BYTES: usize = 32;
 
-/// The C6's platform: the interpreter's, or with `native` the platform whose descriptor admits
-/// compiled program images.
-#[cfg(not(feature = "native"))]
+/// The C6's platform.
 type ChipPlatform = Platform<Watchdog>;
-#[cfg(feature = "native")]
-type ChipPlatform = NativePlatform<Watchdog>;
 
-/// The program the loader builds: a prepared module on the interpreter, or with `native` a compiled
-/// program whose module runs where its image lies.
-#[cfg(not(feature = "native"))]
-type ChipCycle = ProgramCycle<ChipClock, GpioIo>;
-#[cfg(feature = "native")]
+/// The program the loader builds: a compiled program whose module runs from the program region, or
+/// where its image lies when the region has no room for it.
 type ChipCycle = CompiledProgramCycle<ChipClock, GpioIo, C6Code>;
 
 /// The C6's resource loop: the USB link, the wait, the program the loader builds, the platform and
@@ -142,22 +118,13 @@ fn main() -> ! {
 
     // The platform starts with the values of a chip that has no application: it reports `production`,
     // the record's default (specification 11 §6.9). The loader sets those of the installed record.
-    // `status` names the backend that runs the programs: the interpreter's `vm`, or `native` for
-    // compiled program images (specification 44 §13.3).
-    #[cfg(not(feature = "native"))]
-    let settings = status_settings();
-    #[cfg(feature = "native")]
-    let settings = StatusSettings {
-        execution_backend: "native",
-        ..status_settings()
-    };
     let platform = ChipPlatform::new(
         parts.watchdog,
         SmolStr::new_static("Controller"),
-        settings,
+        status_settings(),
         false,
         ControlMode::Production,
-        EngineLiveValues::empty(),
+        DeviceLiveValues::empty(),
         last_reset,
         runtime_id(parts.identity.mac),
     );
@@ -166,23 +133,8 @@ fn main() -> ! {
     // It also builds the candidate of an online change (specification 34 §11.3).
     let largest_payload =
         usize::try_from(checkpoint_reader.geometry().max_payload_len()).unwrap_or(usize::MAX);
-    #[cfg(not(feature = "native"))]
-    let (loader, retained_check) = {
-        let device_memory = DeviceMemory {
-            region_bytes: STBC_BYTES,
-            heap_bytes: memory::HEAP.capacity(),
-            call_depth: MAIN_STACK.call_depth(),
-        };
-        (
-            Esp32Loader::new(parts.hardware, clock, device_memory, heap_room)
-                .with_allocator_operations(allocator_operations),
-            install_check(checkpoint_reader, device_memory, heap_room),
-        )
-    };
-    // A compiled program's install checks that the newest checkpoint restores into the new image
-    // through its retain map (specification 44 §11); the store's own check then admits the image as
-    // the kernel does.
-    #[cfg(feature = "native")]
+    // An install checks that the newest checkpoint restores into the new image through its retain
+    // map (specification 44 §11); the store's own check then admits the image as the kernel does.
     let (loader, retained_check) = (
         CompiledLoader::new(parts.hardware, ProgramCode, clock, heap_room)
             .with_allocator_operations(allocator_operations),
@@ -214,7 +166,7 @@ fn main() -> ! {
     let program_memory = program_memory_bytes(heap_room(), largest_payload);
     let _ = runner.with_platform(|platform| platform.set_program_memory(program_memory));
     // The installed application: the committed container with the highest install sequence, admitted,
-    // prepared and started warm. One that cannot start leaves the loop Stopped with the reason.
+    // loaded and started warm. One that cannot start leaves the loop Stopped with the reason.
     runner.boot(RestartMode::Warm);
 
     // The watchdog runs from here: building the program took far more time than any pass of the loop,

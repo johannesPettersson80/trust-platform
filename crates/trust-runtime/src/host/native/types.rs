@@ -13,206 +13,16 @@ use trust_hir::symbols::ParamDirection;
 use trust_hir::types::TypeRegistry;
 use trust_hir::{Type, TypeId};
 use trust_runtime_core::native::image::{
-    type_kind, SYMBOL_CONSTANT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_IN_OUT, SYMBOL_OUTPUT,
+    SYMBOL_CONSTANT, SYMBOL_INPUT, SYMBOL_INSTANCE, SYMBOL_IN_OUT, SYMBOL_OUTPUT,
 };
 
 pub(super) use super::classes::{Defs, Owner};
 pub(super) use super::std_blocks::StdFb;
 use super::NativeError;
 
-/// An elementary type (IEC §6.4.2, Table 10).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum Elem {
-    Bool,
-    SInt,
-    Int,
-    DInt,
-    LInt,
-    USInt,
-    UInt,
-    UDInt,
-    ULInt,
-    Real,
-    LReal,
-    Byte,
-    Word,
-    DWord,
-    LWord,
-    Time,
-    LTime,
-    Date,
-    LDate,
-    Tod,
-    LTod,
-    Dt,
-    Ldt,
-    Char,
-    WChar,
-}
+mod elem;
 
-impl Elem {
-    /// The elementary type of a registry type, when it is one.
-    fn of(ty: &Type) -> Option<Self> {
-        Some(match ty {
-            Type::Bool => Self::Bool,
-            Type::SInt => Self::SInt,
-            Type::Int => Self::Int,
-            Type::DInt => Self::DInt,
-            Type::LInt => Self::LInt,
-            Type::USInt => Self::USInt,
-            Type::UInt => Self::UInt,
-            Type::UDInt => Self::UDInt,
-            Type::ULInt => Self::ULInt,
-            Type::Real => Self::Real,
-            Type::LReal => Self::LReal,
-            Type::Byte => Self::Byte,
-            Type::Word => Self::Word,
-            Type::DWord => Self::DWord,
-            Type::LWord => Self::LWord,
-            Type::Time => Self::Time,
-            Type::LTime => Self::LTime,
-            Type::Date => Self::Date,
-            Type::LDate => Self::LDate,
-            Type::Tod => Self::Tod,
-            Type::LTod => Self::LTod,
-            Type::Dt => Self::Dt,
-            Type::Ldt => Self::Ldt,
-            Type::Char => Self::Char,
-            Type::WChar => Self::WChar,
-            _ => return None,
-        })
-    }
-
-    /// The bytes of a value.
-    pub(super) fn size(self) -> u32 {
-        match self {
-            Self::Bool | Self::SInt | Self::USInt | Self::Byte | Self::Char => 1,
-            Self::Int | Self::UInt | Self::Word | Self::WChar => 2,
-            Self::DInt | Self::UDInt | Self::DWord | Self::Real => 4,
-            _ => 8,
-        }
-    }
-
-    /// The Rust type of a value: `bool` for `BOOL`, the integer or float of the declared size,
-    /// `i64` nanoseconds for every temporal type (specification 10's storage).
-    pub(super) fn rust(self) -> &'static str {
-        match self {
-            Self::Bool => "bool",
-            Self::SInt => "i8",
-            Self::Int => "i16",
-            Self::DInt => "i32",
-            Self::LInt
-            | Self::Time
-            | Self::LTime
-            | Self::Date
-            | Self::LDate
-            | Self::Tod
-            | Self::LTod
-            | Self::Dt
-            | Self::Ldt => "i64",
-            Self::USInt | Self::Byte | Self::Char => "u8",
-            Self::UInt | Self::Word | Self::WChar => "u16",
-            Self::UDInt | Self::DWord => "u32",
-            Self::ULInt | Self::LWord => "u64",
-            Self::Real => "f32",
-            Self::LReal => "f64",
-        }
-    }
-
-    /// The Rust type a value is stored as: a `BOOL` as a byte, 0 or 1 (specification 44 §6.2).
-    pub(super) fn stored(self) -> &'static str {
-        match self {
-            Self::Bool => "u8",
-            other => other.rust(),
-        }
-    }
-
-    /// The type table's kind (specification 44 §5.8).
-    pub(super) fn kind(self) -> u32 {
-        match self {
-            Self::Bool => type_kind::BOOL,
-            Self::SInt => type_kind::SINT,
-            Self::Int => type_kind::INT,
-            Self::DInt => type_kind::DINT,
-            Self::LInt => type_kind::LINT,
-            Self::USInt => type_kind::USINT,
-            Self::UInt => type_kind::UINT,
-            Self::UDInt => type_kind::UDINT,
-            Self::ULInt => type_kind::ULINT,
-            Self::Real => type_kind::REAL,
-            Self::LReal => type_kind::LREAL,
-            Self::Byte => type_kind::BYTE,
-            Self::Word => type_kind::WORD,
-            Self::DWord => type_kind::DWORD,
-            Self::LWord => type_kind::LWORD,
-            Self::Time => type_kind::TIME,
-            Self::LTime => type_kind::LTIME,
-            Self::Date => type_kind::DATE,
-            Self::LDate => type_kind::LDATE,
-            Self::Tod => type_kind::TOD,
-            Self::LTod => type_kind::LTOD,
-            Self::Dt => type_kind::DT,
-            Self::Ldt => type_kind::LDT,
-            Self::Char => type_kind::CHAR,
-            Self::WChar => type_kind::WCHAR,
-        }
-    }
-
-    /// The IEC name.
-    pub(super) fn name(self) -> &'static str {
-        match self {
-            Self::Bool => "BOOL",
-            Self::SInt => "SINT",
-            Self::Int => "INT",
-            Self::DInt => "DINT",
-            Self::LInt => "LINT",
-            Self::USInt => "USINT",
-            Self::UInt => "UINT",
-            Self::UDInt => "UDINT",
-            Self::ULInt => "ULINT",
-            Self::Real => "REAL",
-            Self::LReal => "LREAL",
-            Self::Byte => "BYTE",
-            Self::Word => "WORD",
-            Self::DWord => "DWORD",
-            Self::LWord => "LWORD",
-            Self::Time => "TIME",
-            Self::LTime => "LTIME",
-            Self::Date => "DATE",
-            Self::LDate => "LDATE",
-            Self::Tod => "TIME_OF_DAY",
-            Self::LTod => "LTIME_OF_DAY",
-            Self::Dt => "DATE_AND_TIME",
-            Self::Ldt => "LDATE_AND_TIME",
-            Self::Char => "CHAR",
-            Self::WChar => "WCHAR",
-        }
-    }
-
-    pub(super) fn is_signed(self) -> bool {
-        matches!(self, Self::SInt | Self::Int | Self::DInt | Self::LInt)
-    }
-
-    pub(super) fn is_unsigned(self) -> bool {
-        matches!(self, Self::USInt | Self::UInt | Self::UDInt | Self::ULInt)
-    }
-
-    pub(super) fn is_bits(self) -> bool {
-        matches!(self, Self::Byte | Self::Word | Self::DWord | Self::LWord)
-    }
-
-    pub(super) fn is_integer(self) -> bool {
-        self.is_signed() || self.is_unsigned()
-    }
-
-    pub(super) fn is_real(self) -> bool {
-        matches!(self, Self::Real | Self::LReal)
-    }
-
-    pub(super) fn is_duration(self) -> bool {
-        matches!(self, Self::Time | Self::LTime)
-    }
-}
+pub(super) use elem::Elem;
 
 /// A type of the program's type table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -248,10 +58,12 @@ pub(super) enum Kind {
     Str(u32),
     /// `WSTRING[n]`.
     WStr(u32),
-    /// An enumeration of the base type, with its values.
+    /// An enumeration of the base type, with its values; with `named`, a type with named values
+    /// of an integer type, which holds every value of its base (specification 02 §3.2).
     Enum {
         base: Elem,
         values: Vec<(SmolStr, i64)>,
+        named: bool,
     },
     /// A subrange of the base type.
     Subrange {
@@ -264,9 +76,28 @@ pub(super) enum Kind {
         elem: Ty,
         dims: Vec<(i64, i64)>,
     },
+    /// An array whose bounds a caller supplies, `ARRAY[*]` of `rank` dimensions (IEC §6.5.3;
+    /// specification 03 §6): a parameter is a view of the caller's array (`abi::Open`), a
+    /// reference to one holds the bounds beside the reference (`abi::OpenRef`); no variable holds
+    /// one itself.
+    Open {
+        elem: Ty,
+        rank: usize,
+    },
     Struct {
         members: Vec<Member>,
     },
+    /// A `STRUCT OVERLAP` (IEC §6.4.4.7.2; specification 02 §3.6; specification 44 §6.2): its
+    /// members over one byte backing, each at the byte its relative address names, a `BOOL` at
+    /// its bit of that byte (`bits`, in member order), so that a write through one member is read
+    /// through every member that shares its bits.
+    Overlap {
+        members: Vec<Member>,
+        bits: Vec<Option<u8>>,
+    },
+    /// A `BOOL` member of a `STRUCT OVERLAP` that takes bit n of its byte, as the type table lists
+    /// it (specification 44 §5.8); the generated code reaches it as a `BOOL`.
+    Bit(u8),
     /// A user function block or class: its definition's name, its variables (its base's first, by
     /// the path to them), its base's type, its class id (0 for a type that needs none) and whether it
     /// is a class, which has no body (specification 44 §6.4).
@@ -281,9 +112,11 @@ pub(super) enum Kind {
     Interface,
     StdFb(StdFb),
     /// A reference to a variable of the target type: `REF_TO`, and the `VAR_IN_OUT` of a function
-    /// block, which holds a reference to its argument (IEC §6.4.4.10; specification 44 §6.4, §7.3).
+    /// block, which holds a reference to its argument (IEC §6.4.4.10; specification 44 §6.4, §7.3);
+    /// with `pointer`, a `POINTER TO`, which `ADR` gives (specification 02 §4.2).
     Ref {
         target: Ty,
+        pointer: bool,
     },
 }
 
@@ -325,14 +158,18 @@ impl TypeInfo {
     }
 }
 
-/// A name in capitals, which is how generated Rust names a member or a variable.
+/// A name in capitals, which is how generated Rust names a member or a variable; a namespace's
+/// `.` as `__`, which no IEC identifier holds.
 pub(super) fn rust_field(name: &str) -> String {
-    name.to_ascii_uppercase()
+    mangle(name)
 }
 
-/// A qualified IEC name as a Rust identifier: capitals, `.` as `__`.
+/// A qualified IEC name as a Rust identifier: capitals, `.` as `__`, and the `::` of a static's
+/// hidden name (`__STAT::Owner::name`) as `__`.
 pub(super) fn mangle(name: &str) -> String {
-    name.to_ascii_uppercase().replace('.', "__")
+    name.to_ascii_uppercase()
+        .replace("::", "__")
+        .replace('.', "__")
 }
 
 fn align_up(value: u32, alignment: u32) -> u32 {
@@ -373,6 +210,9 @@ pub(super) struct Types<'a> {
     by_rust: HashMap<String, Ty>,
     /// The types with a class id, by id less one.
     pub(super) class_ids: Vec<Ty>,
+    /// The bit offset of each member of a structure with relatively located members, `AT %B2`
+    /// or `AT %X3.1`, in member order; `None` for a member without one (IEC §6.4.4.7).
+    pub(super) relative: HashMap<Ty, Vec<Option<u64>>>,
 }
 
 impl<'a> Types<'a> {
@@ -384,6 +224,7 @@ impl<'a> Types<'a> {
             by_registry: HashMap::new(),
             by_rust: HashMap::new(),
             class_ids: Vec::new(),
+            relative: HashMap::new(),
         }
     }
 
@@ -413,6 +254,20 @@ impl<'a> Types<'a> {
         self.of(id)
     }
 
+    /// The bytes `SIZEOF` gives for the type `hir` of a file whose symbols are `symbols`
+    /// (specification 29 §1), in a program for a target whose addresses take `pointer_bytes`.
+    pub(super) fn size_of_hir(
+        &mut self,
+        symbols: &trust_hir::symbols::SymbolTable,
+        hir: TypeId,
+        pointer_bytes: u64,
+    ) -> Result<u64, NativeError> {
+        let id = crate::harness::import_hir_type_to_runtime(&mut self.registry, symbols, hir)
+            .map_err(|error| NativeError::Compile(error.to_string()))?;
+        trust_runtime_core::value::size_of_type_for_target(id, &self.registry, pointer_bytes)
+            .map_err(|error| NativeError::Compile(format!("SIZEOF: {error:?}")))
+    }
+
     /// The type whose Rust type is `rust`, when it is laid out.
     pub(super) fn by_rust(&self, rust: &str) -> Option<Ty> {
         self.by_rust.get(rust).copied()
@@ -429,12 +284,13 @@ impl<'a> Types<'a> {
             Kind::Subrange { .. } => format!("subrange {}", info.name),
             // Every reference is a `RefValue`; its target makes it a type of its own, as an
             // interface's name does.
-            Kind::Ref { target } => format!("ref {}", target.0),
+            Kind::Ref { target, pointer } => format!("ref {pointer} {}", target.0),
             Kind::Interface => format!("interface {}", info.name),
             // Arrays of one storage are different types when their elements or their bounds differ:
             // `ARRAY[0..31]` and `ARRAY[1..32] OF INT` index differently, and arrays of two
             // enumerations of one base hold different values.
             Kind::Array { elem, dims } => format!("array {} {dims:?}", elem.0),
+            Kind::Open { elem, rank } => format!("open {} {rank}", elem.0),
             _ => info.rust.clone(),
         };
         if let Some(ty) = self.by_rust.get(&key) {
@@ -476,15 +332,65 @@ impl<'a> Types<'a> {
         })
     }
 
-    /// The reference to a variable of type `target` (specification 44 §7.3): 16 bytes.
+    /// The reference to a variable of type `target` (specification 44 §7.3): 16 bytes, and the
+    /// bounds of an open array's dimensions after them.
     pub(super) fn reference(&mut self, target: Ty) -> Ty {
         let name = SmolStr::new(format!("REF_TO {}", self.info(target).name));
+        let (size, align, rust) = self.reference_storage(target);
         self.intern(TypeInfo {
-            kind: Kind::Ref { target },
-            size: 16,
-            align: 4,
+            kind: Kind::Ref {
+                target,
+                pointer: false,
+            },
+            size,
+            align,
             name,
-            rust: "Cell<abi::RefValue>".into(),
+            rust,
+        })
+    }
+
+    /// The bytes, the alignment and the Rust type of a reference to `target`: a `RefValue`, or for
+    /// an open array an `abi::OpenRef`, which holds its bounds too (specification 44 §7.3).
+    fn reference_storage(&self, target: Ty) -> (u32, u32, String) {
+        match self.info(target).kind {
+            Kind::Open { rank, .. } => (
+                16 + 16 * u32::try_from(rank).unwrap_or(u32::MAX / 32),
+                8,
+                format!("abi::OpenRef<{rank}>"),
+            ),
+            _ => (16, 4, "Cell<abi::RefValue>".into()),
+        }
+    }
+
+    /// The array of `rank` dimensions of `elem` whose bounds a caller supplies (`ARRAY[*]`).
+    fn open(&mut self, elem: Ty, rank: usize) -> Ty {
+        let info = self.info(elem);
+        let stars = vec!["*"; rank].join(", ");
+        let name = SmolStr::new(format!("ARRAY[{stars}] OF {}", info.name));
+        let rust = format!("abi::Open<'_, {}, {rank}>", info.rust);
+        self.intern(TypeInfo {
+            kind: Kind::Open { elem, rank },
+            size: 0,
+            align: 1,
+            name,
+            rust,
+        })
+    }
+
+    /// The type of a `POINTER TO` the target type: a reference of kind pointer (specification 02
+    /// §4.2; specification 44 §6.2), 16 bytes.
+    pub(super) fn pointer(&mut self, target: Ty) -> Ty {
+        let name = SmolStr::new(format!("POINTER TO {}", self.info(target).name));
+        let (size, align, rust) = self.reference_storage(target);
+        self.intern(TypeInfo {
+            kind: Kind::Ref {
+                target,
+                pointer: true,
+            },
+            size,
+            align,
+            name,
+            rust,
         })
     }
 
@@ -548,6 +454,7 @@ impl<'a> Types<'a> {
                     kind: Kind::Enum {
                         base,
                         values: values.clone(),
+                        named: self.registry.is_named_value_type(id),
                     },
                     size: base.size(),
                     align: base.size(),
@@ -571,6 +478,16 @@ impl<'a> Types<'a> {
                     name: SmolStr::new(format!("{}({lower}..{upper})", base.name())),
                     rust: format!("Cell<{}>", base.stored()),
                 }))
+            }
+            Type::Array {
+                element,
+                dimensions,
+            } if dimensions
+                .iter()
+                .any(|(lower, upper)| *lower == 0 && *upper == i64::MAX) =>
+            {
+                let elem = self.of(*element)?;
+                Ok(self.open(elem, dimensions.len()))
             }
             Type::Array {
                 element,
@@ -604,32 +521,185 @@ impl<'a> Types<'a> {
                 }))
             }
             Type::Struct { name, fields } => {
+                let reserved = self.reserve(id, name);
                 if self.registry.is_overlapping_struct_type(id) {
-                    return Err(NativeError::unsupported(format!("STRUCT OVERLAP {name}")));
+                    return self.overlap(reserved, name, fields);
                 }
                 let mut laid = Vec::with_capacity(fields.len());
                 for field in fields {
                     laid.push((field.name.clone(), self.of(field.type_id)?, 0));
                 }
                 let (members, size, align) = lay_out(laid, self);
-                Ok(self.intern(TypeInfo {
-                    kind: Kind::Struct { members },
-                    size,
-                    align,
-                    name: name.clone(),
-                    rust: format!("S_{}", mangle(name)),
-                }))
+                let relative: Vec<Option<u64>> = fields
+                    .iter()
+                    .map(|field| field.address.as_deref().and_then(relative_bit))
+                    .collect();
+                let ty = self.define(
+                    reserved,
+                    TypeInfo {
+                        kind: Kind::Struct { members },
+                        size,
+                        align,
+                        name: name.clone(),
+                        rust: format!("S_{}", mangle(name)),
+                    },
+                );
+                if relative.iter().any(Option::is_some) {
+                    self.relative.insert(ty, relative);
+                }
+                Ok(ty)
             }
             Type::FunctionBlock { name } | Type::Class { name } => self.function_block(name),
             Type::Reference { target } => {
                 let target = self.of(*target)?;
                 Ok(self.reference(target))
             }
-            Type::Pointer { .. } => Err(NativeError::unsupported("POINTER TO".into())),
-            Type::Union { name, .. } => Err(NativeError::unsupported(format!("UNION {name}"))),
+            Type::Pointer { target } => {
+                let target = self.of(*target)?;
+                Ok(self.pointer(target))
+            }
+            // A union holds each variant as a member of its own, which a write of another variant
+            // leaves as it is (specification 02 §3.7; specification 44 §6.2).
+            Type::Union { name, variants } => {
+                let reserved = self.reserve(id, name);
+                let mut laid = Vec::with_capacity(variants.len());
+                for variant in variants {
+                    laid.push((variant.name.clone(), self.of(variant.type_id)?, 0));
+                }
+                let (members, size, align) = lay_out(laid, self);
+                Ok(self.define(
+                    reserved,
+                    TypeInfo {
+                        kind: Kind::Struct { members },
+                        size,
+                        align,
+                        name: name.clone(),
+                        rust: format!("S_{}", mangle(name)),
+                    },
+                ))
+            }
             Type::Interface { name } => self.interface(name),
             other => Err(NativeError::unsupported(format!("the type {other:?}"))),
         }
+    }
+
+    /// A `STRUCT OVERLAP`: each member at the bits its relative address names, a `BOOL` one bit
+    /// and every other elementary value whole bytes from a byte on, over a backing of the bytes up
+    /// to the end of the last member, aligned to 1 (specification 02 §3.6; specification 34
+    /// MEM-12). Members of other types are refused.
+    fn overlap(
+        &mut self,
+        reserved: Ty,
+        name: &SmolStr,
+        fields: &[trust_hir::types::StructField],
+    ) -> Result<Ty, NativeError> {
+        let mut members = Vec::with_capacity(fields.len());
+        let mut bits = Vec::with_capacity(fields.len());
+        let mut size = 0u32;
+        for field in fields {
+            let refused = |what: &str| {
+                NativeError::unsupported(format!(
+                    "the member {} of STRUCT OVERLAP {name}, {what}",
+                    field.name
+                ))
+            };
+            let ty = self.of(field.type_id)?;
+            let Some(elem) = self.info(ty).scalar() else {
+                return Err(refused("which is no elementary value"));
+            };
+            let at = field
+                .address
+                .as_deref()
+                .and_then(relative_bit)
+                .ok_or_else(|| refused("which has no relative address"))?;
+            let byte = u32::try_from(at / 8).map_err(|_| refused("which lies past 4 GiB"))?;
+            #[allow(clippy::cast_possible_truncation)]
+            let bit = (at % 8) as u8;
+            let (bit, bytes) = if elem == Elem::Bool {
+                self.bit(bit);
+                (Some(bit), 1)
+            } else if bit == 0 {
+                (None, self.info(ty).size)
+            } else {
+                return Err(refused("which does not start at a byte"));
+            };
+            size = size.max(
+                byte.checked_add(bytes)
+                    .ok_or_else(|| refused("which lies past 4 GiB"))?,
+            );
+            members.push(Member {
+                name: field.name.clone(),
+                ty,
+                offset: byte,
+                flags: 0,
+                via: SmolStr::default(),
+            });
+            bits.push(bit);
+        }
+        Ok(self.define(
+            reserved,
+            TypeInfo {
+                kind: Kind::Overlap { members, bits },
+                size,
+                align: 1,
+                name: name.clone(),
+                rust: format!("S_{}", mangle(name)),
+            },
+        ))
+    }
+
+    /// The type of the structure `name`, registry type `id`, before its members are laid out, so
+    /// that a member that refers to it (`next : REF_TO Node`) finds it; [`Self::define`] gives it
+    /// its layout.
+    fn reserve(&mut self, id: TypeId, name: &SmolStr) -> Ty {
+        let ty = self.intern(TypeInfo {
+            kind: Kind::Struct {
+                members: Vec::new(),
+            },
+            size: 0,
+            align: 1,
+            name: name.clone(),
+            rust: format!("S_{}", mangle(name)),
+        });
+        self.by_registry.insert(id, ty);
+        ty
+    }
+
+    /// Gives the reserved type `ty` its layout `info`.
+    fn define(&mut self, ty: Ty, info: TypeInfo) -> Ty {
+        if let Some(entry) = self.entries.get_mut(ty.0 as usize) {
+            *entry = info;
+        }
+        ty
+    }
+
+    /// The type of a `BOOL` member of a `STRUCT OVERLAP` at bit `bit` of its byte, as the type
+    /// table lists it (specification 44 §5.8).
+    pub(super) fn bit(&mut self, bit: u8) -> Ty {
+        self.intern(TypeInfo {
+            kind: Kind::Bit(bit),
+            size: 1,
+            align: 1,
+            name: SmolStr::new_static("BOOL"),
+            rust: format!("Bit{bit}"),
+        })
+    }
+
+    /// The members of the `STRUCT OVERLAP` of `members` and `bits` as the symbol and type tables
+    /// list them: a `BOOL` member as the type of its bit.
+    pub(super) fn overlap_members(
+        &mut self,
+        members: &[Member],
+        bits: &[Option<u8>],
+    ) -> Vec<Member> {
+        members
+            .iter()
+            .zip(bits)
+            .map(|(member, bit)| Member {
+                ty: bit.map_or(member.ty, |bit| self.bit(bit)),
+                ..member.clone()
+            })
+            .collect()
     }
 
     fn function_block(&mut self, name: &SmolStr) -> Result<Ty, NativeError> {
@@ -654,6 +724,7 @@ impl<'a> Types<'a> {
         first: Option<(SmolStr, Ty, u8)>,
     ) -> Result<Vec<(SmolStr, Ty, u8)>, NativeError> {
         let mut fields: Vec<(SmolStr, Ty, u8)> = first.into_iter().collect();
+        let edges = self.defs.edge_inputs(owner.name());
         for param in owner.params() {
             let ty = self.of(param.type_id)?;
             if param.direction == ParamDirection::In && self.info(ty).kind.is_instance() {
@@ -670,6 +741,13 @@ impl<'a> Types<'a> {
                 ParamDirection::InOut => (self.reference(ty), SYMBOL_IN_OUT),
             };
             fields.push((param.name.clone(), ty, flags));
+            // An edge-qualified input's trigger, which the body reads (IEC §6.5.2.2).
+            if let Some(edge) = edges
+                .iter()
+                .find(|edge| edge.name.eq_ignore_ascii_case(&param.name))
+            {
+                fields.push((edge_trigger_name(&param.name), self.edge_trigger(edge), 0));
+            }
         }
         for var in owner.vars() {
             if var.external {
@@ -682,8 +760,65 @@ impl<'a> Types<'a> {
             }
             fields.push((var.name.clone(), ty, flags));
         }
+        // A method's `VAR_STAT` variables live in the instance, one of each per instance and method
+        // (specification 01 §3), under their hidden names.
+        for method in owner.methods() {
+            for local in &method.static_locals {
+                let ty = self.of(local.type_id)?;
+                let mut flags = if local.constant { SYMBOL_CONSTANT } else { 0 };
+                if matches!(self.info(ty).kind, Kind::Fb { .. } | Kind::StdFb(_)) {
+                    flags |= SYMBOL_INSTANCE;
+                }
+                fields.push((
+                    method_static_name(owner.name(), &method.name, &local.name),
+                    ty,
+                    flags,
+                ));
+            }
+        }
         Ok(fields)
     }
+}
+
+/// The bit offset a relative member address (`%B2`, `%W4`, `%X3.1`) gives, from the start of its
+/// structure (IEC §6.4.4.7); `None` for an absolute address (`%IX0.0`, `%Q*`).
+fn relative_bit(address: &str) -> Option<u64> {
+    let rest = address.trim().strip_prefix('%')?;
+    let (unit, offset) = rest.split_at(1);
+    if !matches!(unit, "X" | "B" | "W" | "D" | "L") {
+        return None;
+    }
+    let (byte, bit) = match offset.split_once('.') {
+        Some((byte, bit)) if unit == "X" => (byte, bit.parse::<u64>().ok().filter(|bit| *bit < 8)?),
+        Some(_) => return None,
+        None => (offset, 0),
+    };
+    Some(byte.parse::<u64>().ok()? * 8 + bit)
+}
+
+/// The hidden name of the trigger of edge-qualified input `input`, a member beside it, which no
+/// IEC name can be (no identifier begins with `__`).
+pub(super) fn edge_trigger_name(input: &str) -> SmolStr {
+    SmolStr::new(format!("__TRIG_{input}"))
+}
+
+impl Types<'_> {
+    /// The type of the trigger of `edge`: `R_TRIG` for `R_EDGE`, `F_TRIG` for `F_EDGE`.
+    pub(super) fn edge_trigger(&mut self, edge: &crate::program_model::EdgeInput) -> Ty {
+        self.std_fb(match edge.qualifier {
+            trust_hir::symbols::EdgeQualifier::Rising => StdFb::RTrig,
+            trust_hir::symbols::EdgeQualifier::Falling => StdFb::FTrig,
+        })
+    }
+}
+
+/// The hidden name of the `VAR_STAT` variable `local` of method `method` of `owner`, a member of
+/// its instances.
+pub(super) fn method_static_name(owner: &SmolStr, method: &SmolStr, local: &SmolStr) -> SmolStr {
+    crate::program_model::static_storage_name(
+        &crate::program_model::method_static_storage_owner(owner, method),
+        local,
+    )
 }
 
 #[cfg(test)]
@@ -698,8 +833,13 @@ mod tests {
     #[test]
     fn members_lie_at_their_natural_alignment() {
         let registry = TypeRegistry::new();
-        let (blocks, classes, interfaces) = (IndexMap::new(), IndexMap::new(), IndexMap::new());
-        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces));
+        let (blocks, classes, interfaces, edges) = (
+            IndexMap::new(),
+            IndexMap::new(),
+            IndexMap::new(),
+            IndexMap::new(),
+        );
+        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces, &edges));
         let name = types.string(16);
         let level = types.elem(Elem::Real);
         let hold = types.elem(Elem::Time);
@@ -720,8 +860,13 @@ mod tests {
     #[test]
     fn strings_take_their_length_and_capacity() {
         let registry = TypeRegistry::new();
-        let (blocks, classes, interfaces) = (IndexMap::new(), IndexMap::new(), IndexMap::new());
-        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces));
+        let (blocks, classes, interfaces, edges) = (
+            IndexMap::new(),
+            IndexMap::new(),
+            IndexMap::new(),
+            IndexMap::new(),
+        );
+        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces, &edges));
         let five = types.string(5);
         assert_eq!(types.info(five).size, 8);
         assert_eq!(
@@ -736,8 +881,13 @@ mod tests {
     #[test]
     fn standard_function_blocks_take_the_library_layout() {
         let registry = TypeRegistry::new();
-        let (blocks, classes, interfaces) = (IndexMap::new(), IndexMap::new(), IndexMap::new());
-        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces));
+        let (blocks, classes, interfaces, edges) = (
+            IndexMap::new(),
+            IndexMap::new(),
+            IndexMap::new(),
+            IndexMap::new(),
+        );
+        let mut types = Types::new(registry, Defs::new(&blocks, &classes, &interfaces, &edges));
         let ton = types.std_fb(StdFb::Ton);
         assert_eq!(types.info(ton).size, 48);
         let members = types.std_fb_members(StdFb::Ton);

@@ -62,14 +62,16 @@ pub(super) fn control_state_named_with_audit(
     audit_tx: Option<Sender<ControlAuditEvent>>,
 ) -> Arc<ControlState> {
     let mut harness = TestHarness::from_source(source).expect("build test harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = trust_runtime::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness.cycle();
 
     let snapshot = trust_runtime::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: trust_runtime::memory::VariableStorage::new(),
         now: harness.runtime().current_time(),
-        compiled: None,
+        compiled: Some(Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
@@ -119,7 +121,7 @@ pub(super) fn control_state_named_with_audit(
         transfers: trust_runtime::control::new_transfer_session(),
         debug,
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
+        metadata: Arc::new(Mutex::new(trust_runtime::RuntimeMetadata::default())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -145,7 +147,6 @@ pub(super) fn control_state_named_with_audit(
         runtime_id: SmolStr::new(resource_name),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
         hmi_persistence: None,
         hmi_descriptor,

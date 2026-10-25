@@ -9,7 +9,7 @@ use trust_runtime::native::{
     build, load, Device, HostCode, NativeProgram, Options, Target, Toolchain,
 };
 use trust_runtime::value::{Duration, Value};
-use trust_runtime_core::vm::CarriedValueEvent;
+use trust_runtime_core::native::change::CarriedValueEvent;
 
 /// The running program. Three scans of it leave `c.count` 6, `total` 3, `speed` 30, `big` 70,000,
 /// `mode` `Run` (number 1), `levels` [3, 6, 9, 12, 15], `name` 'pump', `gone` 9 and `i` 6.

@@ -119,7 +119,7 @@ trust-runtime build --project examples/vendor_library_stubs --sources .
 Tutorial regression checks:
 
 ```bash
-cargo test -p trust-runtime tutorial_examples_parse_typecheck_and_compile_to_bytecode
+cargo test -p trust-runtime tutorial_examples_parse_typecheck_and_compile
 cargo test -p trust-runtime st_test_cli_command
 cargo test -p trust-runtime --test communication_examples_cli
 ./scripts/runtime_motion_example_bench_gate.sh

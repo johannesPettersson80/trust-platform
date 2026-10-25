@@ -53,18 +53,21 @@ fn instrument_program_block(block: &str, annotations: &[Annotation]) -> String {
         return block.to_string();
     };
 
+    // The generated declarations stand on the line of the first `END_VAR` and the generated
+    // calls on the line of `END_PROGRAM`, so that every line of the source keeps its number for
+    // diagnostics, breakpoints and stepping (specification 27 §10.3).
     let mut out = String::new();
     for (idx, line) in lines.iter().enumerate() {
         if idx == var_end {
             for declaration in hidden_declarations(annotations) {
-                out.push_str(&declaration);
-                out.push('\n');
+                out.push_str(declaration.trim());
+                out.push(' ');
             }
         }
         if idx == end_program {
             for statement in hidden_statements(annotations) {
-                out.push_str(&statement);
-                out.push('\n');
+                out.push_str(&statement.trim().replace('\n', " "));
+                out.push(' ');
             }
         }
         out.push_str(line);

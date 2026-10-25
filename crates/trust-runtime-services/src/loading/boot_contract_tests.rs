@@ -18,7 +18,7 @@ use super::install::{begin, check, InstallError, Progress};
 use super::select::{boot, previous, SelectError};
 use crate::installation::{AdmissionError, InstallationError};
 use crate::tests::program_store::{
-    committed_image, device, packed_container, transfer_of, FlashOp, FlashProbe, PROGRAM,
+    committed_image, device, packed_container, program, transfer_of, FlashOp, FlashProbe,
     SLOT_BYTES,
 };
 
@@ -67,12 +67,13 @@ fn the_highest_committed_sequence_boots_in_either_slot() {
     let booted = boot(&mut flash.store(), &device(), ROOM).expect("a first flash boots");
     assert_eq!(booted.sequence, 1, "a first flash has sequence 1");
     assert_eq!(
-        booted.program, PROGRAM,
+        booted.program,
+        program(),
         "the boot hands over the program alone"
     );
     assert_eq!(
         booted.record.application.program_sha256,
-        sha256(PROGRAM),
+        sha256(program()),
         "and the record the container holds"
     );
 
@@ -110,11 +111,12 @@ fn the_highest_committed_sequence_boots_in_either_slot() {
 fn a_damaged_newest_container_refuses_the_boot() {
     // Specification 34 §5.1 and DEPLOY-03 (decision Q12): the newest committed container fails its
     // payload check, so the boot is refused with `no installed program: <reason>`, and the older
-    // container in the other slot is not started in its place. Byte 60 is the first byte of the
-    // program payload of a `TRSTA002` container. Wrong behaviour caught: a boot that falls back to the
-    // other slot; a refusal without its reason; a reason that repeats `no installed program`.
+    // container in the other slot is not started in its place. Byte 64 is the first byte of the
+    // image of a `TRSTA002` container, the payload of entry kind 3 (specification 44 §10.1). Wrong
+    // behaviour caught: a boot that falls back to the other slot; a refusal without its reason; a
+    // reason that repeats `no installed program`.
     let mut newest = committed_image(2, RetainMode::None);
-    newest[60] ^= 0x01;
+    newest[64] ^= 0x01;
     let flash = flash_with(
         &committed_image(1, RetainMode::None),
         Some(newest.as_slice()),
@@ -124,16 +126,16 @@ fn a_damaged_newest_container_refuses_the_boot() {
     assert_eq!(
         error,
         SelectError::Refused(AdmissionError::Container(
-            InstallationError::PayloadChecksum(1)
+            InstallationError::PayloadChecksum(3)
         ))
     );
     assert_eq!(
         error.to_string(),
-        "no installed program: the CRC-32 of entry kind 1 does not match"
+        "no installed program: the CRC-32 of entry kind 3 does not match"
     );
     assert_eq!(
         error.reason().to_string(),
-        "the CRC-32 of entry kind 1 does not match",
+        "the CRC-32 of entry kind 3 does not match",
         "a device without a program names this reason when it refuses a restart"
     );
 }
@@ -142,8 +144,8 @@ fn a_damaged_newest_container_refuses_the_boot() {
 fn a_container_longer_than_the_room_refuses_the_boot_with_its_numbers() {
     // Specification 34 §5.1: a container longer than the memory the boot has for it refuses the boot
     // before anything is read, with the container's length and the room. The container is 60 header
-    // bytes and its two payloads. Wrong behaviour caught: a bound that is one byte off; a boot that
-    // reads a container the memory cannot hold.
+    // bytes, the zeros to the image at byte 64, and its two payloads. Wrong behaviour caught: a
+    // bound that is one byte off; a boot that reads a container the memory cannot hold.
     let image = committed_image(1, RetainMode::None);
     let flash = flash_with(&image, None);
     let room = image.len() - 1;
@@ -266,9 +268,9 @@ fn a_trsta001_container_is_not_committed() {
 fn a_check_that_could_not_run_is_not_a_failure_to_restore_retained_values() {
     // Specification 11 §6.7.1 and 34 §11.2 (decision G13): a retained-value error of the check is the
     // retained values that cannot be restored, with the warm start's own error; any other error of the
-    // check means that it could not run, for example because the new program could not be built, and it
-    // keeps its own text. Wrong behaviour caught: a candidate that cannot be built reported as retained
-    // values that cannot be restored.
+    // check means that it could not run, for example because the heap cannot hold the newest
+    // checkpoint's payload (`RuntimeError::Overflow`), and it keeps its own text. Wrong behaviour
+    // caught: a check that could not run reported as retained values that cannot be restored.
     let container = transfer_of(RetainMode::None);
     let restore = check(&container, &device(), |_| {
         Err(RuntimeError::RetainMigration(
@@ -282,14 +284,12 @@ fn a_check_that_could_not_run_is_not_a_failure_to_restore_retained_values() {
         "the retained values cannot be restored: retain migration error 'invalid retained value for 'r''"
     );
 
-    let build = check(&container, &device(), |_| {
-        Err(RuntimeError::PreparationLimit)
-    })
-    .expect_err("the program cannot be built");
-    assert!(matches!(build, InstallError::RetainCheck(_)));
+    let no_room = check(&container, &device(), |_| Err(RuntimeError::Overflow))
+        .expect_err("the check has no room for the checkpoint");
+    assert!(matches!(no_room, InstallError::RetainCheck(_)));
     assert_eq!(
-        build.to_string(),
-        "the retained-value check could not run: preparation resource limit exceeded"
+        no_room.to_string(),
+        "the retained-value check could not run: arithmetic overflow"
     );
 }
 
@@ -311,7 +311,7 @@ fn a_platform_that_reads_its_flash_in_place_boots_the_program_where_it_lies() {
         matches!(booted.program, Cow::Borrowed(_)),
         "the program stays where it lies"
     );
-    assert_eq!(booted.program, PROGRAM);
+    assert_eq!(booted.program, program());
     let reads: Vec<usize> = flash
         .ops()
         .iter()

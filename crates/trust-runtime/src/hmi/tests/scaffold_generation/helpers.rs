@@ -22,8 +22,28 @@ fn write_file(path: &Path, content: &str) {
 }
 
 fn metadata_for_source(source: &str) -> RuntimeMetadata {
-    let harness = TestHarness::from_source(source).expect("build harness");
-    harness.runtime().metadata_snapshot()
+    CompileSession::from_source(source)
+        .declarations()
+        .expect("declare the source")
+        .metadata()
+        .clone()
+}
+
+/// The metadata and the starting values of `sources`, as `trust-runtime hmi` scaffolds from the
+/// project's declarations (specification 44 §6.7).
+fn declared_metadata_and_snapshot(
+    sources: Vec<HarnessSourceFile>,
+) -> (RuntimeMetadata, crate::debug::DebugSnapshot) {
+    let declarations = CompileSession::from_sources(sources)
+        .declarations()
+        .expect("declare the sources");
+    let metadata = declarations.metadata().clone();
+    let snapshot = crate::debug::DebugSnapshot {
+        storage: declarations.storage().clone(),
+        now: crate::value::Duration::ZERO,
+        compiled: None,
+    };
+    (metadata, snapshot)
 }
 
 fn scaffold_from_sources(root: &Path, style: &str, sources: &[(&str, &str)]) -> HmiScaffoldSummary {
@@ -31,16 +51,7 @@ fn scaffold_from_sources(root: &Path, style: &str, sources: &[(&str, &str)]) -> 
         .iter()
         .map(|(path, text)| HarnessSourceFile::with_path(*path, *text))
         .collect::<Vec<_>>();
-    let runtime = CompileSession::from_sources(compile_sources)
-        .build_runtime()
-        .expect("build runtime");
-    let metadata = runtime.metadata_snapshot();
-    let snapshot = crate::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-        compiled: None,
-    };
+    let (metadata, snapshot) = declared_metadata_and_snapshot(compile_sources);
     let loaded = sources
         .iter()
         .map(|(path, text)| (PathBuf::from(path), (*text).to_string()))
@@ -67,16 +78,7 @@ fn scaffold_from_sources_with_mode(
         .iter()
         .map(|(path, text)| HarnessSourceFile::with_path(*path, *text))
         .collect::<Vec<_>>();
-    let runtime = CompileSession::from_sources(compile_sources)
-        .build_runtime()
-        .expect("build runtime");
-    let metadata = runtime.metadata_snapshot();
-    let snapshot = crate::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-        compiled: None,
-    };
+    let (metadata, snapshot) = declared_metadata_and_snapshot(compile_sources);
     let loaded = sources
         .iter()
         .map(|(path, text)| (PathBuf::from(path), (*text).to_string()))

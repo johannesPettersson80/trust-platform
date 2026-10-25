@@ -21,11 +21,17 @@
 //!
 //! The driver does not generate a scan under a debugger hold, which waits inside the cycle until the
 //! hold is released (`debugger_hold_operations.rs` covers it with a second thread); a pause or a retain
-//! save of a faulted resource, which the specifications do not define; `clear_fault`, whose only
-//! effect the last test of this file pins; and stale handles across replacement (scope C).
+//! save of a faulted resource, which the specifications do not define; and stale handles across
+//! replacement (scope C).
+//!
+//! The compiled debugger answers no query of a pause armed between scans, so the `held` observable is
+//! the driver's record of the pause it armed and resumed, and the installed module changes exactly
+//! when an online change commits, which the driver counts.
 //!
 //! The seed is fixed, so a run replays the same sequences. `PROPTEST_CASES` overrides the default of
 //! 64 cases. A failing case is saved in the `proptest-regressions` store and replayed first.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 #![cfg(feature = "full")]
 
@@ -44,7 +50,8 @@ use proptest::strategy::Union;
 use proptest::test_runner::{FileFailurePersistence, RngSeed};
 use trust_runtime::debug::{DebugControl, ForcedVarTarget};
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::{bytecode_bytes_from_source, TestHarness};
+use trust_runtime::harness::{SourceFile, TestHarness};
+use trust_runtime::native::{build, Options, Target, Toolchain};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::{RestartMode, RetainSnapshot};
@@ -117,8 +124,8 @@ out_bit := n >= INT#4;
 END_PROGRAM
 "#;
 
-/// Bytes that do not decode as bytecode.
-const MALFORMED_BYTECODE: [u8; 4] = [0x00, 0x01, 0x02, 0x03];
+/// Bytes that do not decode as a program image.
+const MALFORMED_IMAGE: [u8; 4] = [0x00, 0x01, 0x02, 0x03];
 
 /// The compiled candidate, built once per test binary.
 struct Candidates {
@@ -127,8 +134,25 @@ struct Candidates {
 
 fn candidates() -> &'static Candidates {
     static CANDIDATES: OnceLock<Candidates> = OnceLock::new();
-    CANDIDATES.get_or_init(|| Candidates {
-        b: bytecode_bytes_from_source(SOURCE_B).expect("candidate B compiles"),
+    CANDIDATES.get_or_init(|| {
+        let toolchain = Toolchain::find()
+            .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+        let target = Target::this_cpu().expect("a computer target");
+        let work =
+            std::env::temp_dir().join(format!("trust-lifecycle-candidate-{}", std::process::id()));
+        let built = build(
+            &[SourceFile::new(SOURCE_B)],
+            &Options {
+                target,
+                hooks: true,
+            },
+            &toolchain,
+            &work,
+        );
+        let _ = std::fs::remove_dir_all(&work);
+        Candidates {
+            b: built.expect("candidate B compiles").image,
+        }
     })
 }
 
@@ -148,61 +172,76 @@ impl RetainStore for MemoryStore {
     }
 }
 
-/// The installed controller under test, its debugger handle and its durable store.
+/// The installed controller under test, its debugger handle and its durable store, with the pause
+/// the driver armed and the online changes that committed.
 struct Sut {
     harness: TestHarness,
     debug: DebugControl,
     store: Arc<Mutex<RetainSnapshot>>,
+    armed: bool,
+    installs: usize,
 }
 
 impl Sut {
     fn new() -> Self {
         let mut harness = TestHarness::from_source(SOURCE_A).expect("program A compiles");
         let runtime = harness.runtime_mut();
-        let debug = runtime.enable_debug();
+        let debug = DebugControl::new();
+        runtime.set_debug_control(debug.clone());
         let store = Arc::new(Mutex::new(RetainSnapshot::default()));
-        runtime.set_retain_store(
-            Some(Box::new(MemoryStore {
-                content: Arc::clone(&store),
-            })),
-            None,
-        );
+        runtime
+            .set_retain_store(
+                Some(Box::new(MemoryStore {
+                    content: Arc::clone(&store),
+                })),
+                None,
+            )
+            .expect("the retain store is set");
         Self {
             harness,
             debug,
             store,
+            armed: false,
+            installs: 0,
         }
     }
 
     /// Run one operation. The flag tells whether the installed module changed.
     fn apply(&mut self, op: Op) -> (Result<(), RuntimeError>, bool) {
-        let before = installed_identity(&self.harness);
+        let before = self.installs;
         let result = self.run(op);
-        let after = installed_identity(&self.harness);
-        (result, before != after)
+        (result, before != self.installs)
     }
 
     fn run(&mut self, op: Op) -> Result<(), RuntimeError> {
         let runtime = self.harness.runtime_mut();
         match op {
             Op::Scan => runtime.execute_cycle(),
-            Op::WriteI(value) => runtime.write_global("i", Value::Int(value)),
-            Op::WriteD(value) => runtime.write_global("d", Value::Int(value)),
-            Op::WriteLamp(value) => runtime.write_global("lamp", Value::Bool(value)),
+            Op::WriteI(value) => runtime.write_variable("i", &Value::Int(value)),
+            Op::WriteD(value) => runtime.write_variable("d", &Value::Int(value)),
+            Op::WriteLamp(value) => runtime.write_variable("lamp", &Value::Bool(value)),
             Op::EnqueueI(value) => {
-                self.debug.enqueue_global_write("i", Value::Int(value));
+                self.debug
+                    .try_enqueue_global_write("i", Value::Int(value))
+                    .expect("the write queue has room");
                 Ok(())
             }
             Op::EnqueueD(value) => {
-                self.debug.enqueue_global_write("d", Value::Int(value));
+                self.debug
+                    .try_enqueue_global_write("d", Value::Int(value))
+                    .expect("the write queue has room");
                 Ok(())
             }
             Op::ForceI(value) => {
-                self.debug.force_global("i", Value::Int(value));
+                self.debug
+                    .try_force_global("i", Value::Int(value))
+                    .expect("the force queue has room");
                 Ok(())
             }
             Op::ForceD(value) => {
-                self.debug.force_global("d", Value::Int(value));
+                self.debug
+                    .try_force_global("d", Value::Int(value))
+                    .expect("the force queue has room");
                 Ok(())
             }
             Op::ReleaseI => {
@@ -214,25 +253,38 @@ impl Sut {
                 Ok(())
             }
             Op::Pause => {
-                self.debug.pause();
+                self.debug
+                    .compiled()
+                    .expect("the runtime set its compiled debugger")
+                    .pause();
+                self.armed = true;
                 Ok(())
             }
             Op::Resume => {
-                self.debug.continue_run();
+                self.debug
+                    .compiled()
+                    .expect("the runtime set its compiled debugger")
+                    .resume();
+                self.armed = false;
                 Ok(())
             }
             Op::RestartWarm => runtime.restart(RestartMode::Warm),
             Op::RestartCold => runtime.restart(RestartMode::Cold),
             Op::RestartWarmFromStore => runtime.restart_with_retain_store(RestartMode::Warm),
             Op::SaveStore => runtime.save_retain_store(),
-            Op::OnlineChangeB => runtime
-                .apply_online_change_bytes(&candidates().b, None)
-                .map(|_| ()),
-            Op::OnlineChangeMalformed => runtime
-                .apply_online_change_bytes(&MALFORMED_BYTECODE, None)
-                .map(|_| ()),
+            Op::OnlineChangeB => {
+                let result = runtime.apply_online_change_bytes(&candidates().b);
+                if result.is_ok() {
+                    self.installs += 1;
+                }
+                result
+            }
+            Op::OnlineChangeMalformed => runtime.apply_online_change_bytes(&MALFORMED_IMAGE),
             Op::AdvanceTime(ms) => {
-                runtime.advance_time(Duration::from_millis(ms));
+                let now = runtime.current_time().as_nanos();
+                runtime.set_current_time(Duration::from_nanos(
+                    now + Duration::from_millis(ms).as_nanos(),
+                ));
                 Ok(())
             }
         }
@@ -246,8 +298,8 @@ impl Sut {
             ident: int_output(&self.harness, "ident")?,
             cycles: runtime.cycle_counter(),
             faulted: runtime.faulted(),
-            last_fault: runtime.last_fault().map(fault_of),
-            held: self.debug.is_paused(),
+            last_fault: runtime.last_fault().as_ref().map(fault_of),
+            held: self.armed,
             time_ms: runtime.current_time().as_millis(),
             r: int_output(&self.harness, "r")?,
             g_r: int_output(&self.harness, "g_r")?,
@@ -264,11 +316,6 @@ impl Sut {
             store,
         })
     }
-}
-
-/// The address of the installed, admitted module. It changes only when a replacement is installed.
-fn installed_identity(harness: &TestHarness) -> usize {
-    harness.runtime().prepared() as *const _ as usize
 }
 
 fn int_output(harness: &TestHarness, name: &str) -> Result<i16, String> {
@@ -326,7 +373,7 @@ fn outcome_of(error: &RuntimeError) -> Outcome {
         RuntimeError::ResourceFaulted => Outcome::ResourceFaulted,
         RuntimeError::DivisionByZero => Outcome::DivisionByZero,
         RuntimeError::SubrangeViolation { .. } => Outcome::SubrangeViolation,
-        RuntimeError::Bytecode { .. } => Outcome::BytecodeRejected,
+        RuntimeError::InvalidBundle(_) => Outcome::BytecodeRejected,
         _ => Outcome::CandidateRejected,
     }
 }
@@ -816,25 +863,4 @@ fn faulting_scan_does_not_publish_a_located_variable() {
         Op::RestartCold,
         Op::Scan,
     ]);
-}
-
-/// The bookkeeping of the fault latch alone: the fault is cleared and no value, output or time changes.
-/// The test does not scan after the clear. What a scan does after the clear is pinned by
-/// `failure_injection_warm_restart_state.rs`: it continues the old program and applies what was
-/// accepted while faulted.
-#[test]
-fn clear_fault_changes_only_the_fault_latch() {
-    let mut sut = Sut::new();
-    let mut model = Model::initial();
-    apply_checked(&mut sut, &mut model, Op::WriteD(0), 0).expect("the write is accepted");
-    apply_checked(&mut sut, &mut model, Op::Scan, 1).expect("the scan latches the fault");
-    sut.harness.runtime_mut().clear_fault();
-    let mut expected = model.view();
-    expected.faulted = false;
-    expected.last_fault = None;
-    assert_eq!(
-        sut.view().expect("the controller can be read"),
-        expected,
-        "clear_fault changes only the fault latch"
-    );
 }

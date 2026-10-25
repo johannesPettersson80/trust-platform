@@ -94,7 +94,7 @@ fn status_reports_identity_modes_settings_and_platform_blocks() {
     assert_eq!(value["debug_enabled"], json!(true));
     assert_eq!(value["control_mode"], json!("production"));
     assert_eq!(value["debug_hold"], Value::Null);
-    assert_eq!(value["execution_backend"], json!("vm"));
+    assert_eq!(value["execution_backend"], json!("native"));
     assert_eq!(value["execution_backend_source"], json!("default"));
     assert_eq!(value["simulation_mode"], json!("production"));
     assert_eq!(value["simulation_enabled"], json!(false));
@@ -129,7 +129,7 @@ fn status_reports_identity_modes_settings_and_platform_blocks() {
             "scan_allocations": null,
             "program_memory": null,
             "profiling": {"enabled": false, "top": []},
-            "execution_backend": "vm",
+            "execution_backend": "native",
         })
     );
 }
@@ -164,7 +164,7 @@ fn status_reports_the_programs_memory_figure_and_null_without_a_program() {
     // capture is then 0, and 30,106 + 86 = 30,192 when it keeps them. The wrong behaviour: the
     // capture counted for a runtime that keeps no retained values, a part reported under another's
     // name, or a figure of zero for a runtime without a program.
-    let figure = trust_runtime_core::vm::MemoryFigure {
+    let figure = crate::metrics::MemoryFigure {
         program: 18_232,
         persistent_block: 460,
         activation_stack: 5_418,
@@ -505,7 +505,7 @@ fn the_frequent_reads_write_the_text_their_values_write() {
         services: 4,
     });
     host.metrics.program_memory = Some(crate::metrics::ProgramMemory {
-        figure: trust_runtime_core::vm::MemoryFigure {
+        figure: crate::metrics::MemoryFigure {
             program: 18_232,
             persistent_block: 460,
             activation_stack: 5_418,

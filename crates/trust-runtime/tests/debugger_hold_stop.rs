@@ -8,20 +8,28 @@
 //! run the scan on the resource thread, as the runtime does, and observe it from the test thread;
 //! `Held::ended_by_stop` releases the hold by hand only when the stop request alone failed to, so a
 //! failed assertion never leaves a scan waiting.
+//!
+//! The debugger is the debugger of compiled programs, through the control protocol's debug
+//! operations (specification 44 §13.2): each hold is read from `debug.stops`.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
-use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration as WallDuration, Instant};
 
-use trust_runtime::debug::{DebugBreakpoint, DebugControl, DebugStop, DebugStopReason};
+use serde_json::{json, Value as Json};
+use trust_runtime::debug::DebugControl;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::harness::TestHarness;
+use trust_runtime::harness::SourceFile;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
+use trust_runtime::native::{build, Options, Target, Toolchain};
 use trust_runtime::retain::RetainStore;
 use trust_runtime::scheduler::{ResourceHandle, ResourceRunner, ResourceState, StdClock};
 use trust_runtime::value::{Duration, Value};
-use trust_runtime::{RestartMode, RetainSnapshot, Runtime};
+use trust_runtime::{CompiledDebugger, CompiledRuntime, RestartMode, RetainSnapshot};
+use trust_runtime_services::live_values::io_requests::IoSnapshotRead;
+use trust_runtime_services::protocol::ControlRequest;
 
 /// The longest a fixture waits for a stop event, so a missing hold fails instead of blocking.
 const WAIT: WallDuration = WallDuration::from_secs(5);
@@ -47,6 +55,72 @@ kept := kept + DINT#1;
 lamp := TRUE;
 END_PROGRAM
 "#;
+
+/// The path the program's source has, which the breakpoint requests name.
+const PATH: &str = "src/main.st";
+
+/// The program of [`SOURCE`] at [`PATH`], built once for this computer with debug hooks and loaded.
+fn load() -> CompiledRuntime {
+    static IMAGE: OnceLock<Vec<u8>> = OnceLock::new();
+    let image = IMAGE.get_or_init(|| {
+        let toolchain = Toolchain::find()
+            .expect("TRUST_TOOLCHAIN names the toolchain of specification 44 §4.6");
+        let work = std::env::temp_dir().join(format!("trust-hold-stop-{}", std::process::id()));
+        let built = build(
+            &[SourceFile::with_path(PATH, SOURCE)],
+            &Options {
+                target: Target::this_cpu().expect("a computer target"),
+                hooks: true,
+            },
+            &toolchain,
+            &work,
+        )
+        .expect("the program compiles");
+        let _ = std::fs::remove_dir_all(&work);
+        built.image
+    });
+    CompiledRuntime::load(image.clone(), "RESOURCE").expect("the image loads")
+}
+
+/// The JSON of the debugger's answer to the debug operation `kind` with `params`.
+fn ask(debugger: &CompiledDebugger, kind: &str, params: Option<Json>) -> Json {
+    let request = ControlRequest {
+        id: 1,
+        r#type: kind.to_string(),
+        params,
+        auth: None,
+        request_id: None,
+    };
+    serde_json::to_value(debugger.answer(&request, IoSnapshotRead::Missing))
+        .expect("a response serializes")
+}
+
+/// The stops the debugger recorded since the last read.
+fn stops(debugger: &CompiledDebugger) -> Vec<Json> {
+    ask(debugger, "debug.stops", None)["result"]["stops"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// The reason of the next stop the debugger records within `WAIT`; `None` when none arrives.
+fn next_stop(debugger: &CompiledDebugger) -> Option<String> {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        if let Some(stop) = stops(debugger).first() {
+            return stop["reason"].as_str().map(str::to_string);
+        }
+        if Instant::now() >= deadline {
+            return None;
+        }
+        thread::sleep(WallDuration::from_millis(2));
+    }
+}
+
+/// Whether the debugger holds the scan.
+fn paused(debugger: &CompiledDebugger) -> bool {
+    ask(debugger, "debug.state", None)["result"]["paused"] == json!(true)
+}
 
 /// Waits until `condition` holds or `deadline` passes, and returns whether it held.
 fn wait_until(deadline: Instant, mut condition: impl FnMut() -> bool) -> bool {
@@ -128,13 +202,13 @@ impl Probes {
 }
 
 /// The runtime of the tests: a debug control, a recording output driver, the stop policy
-/// `lamp := FALSE`, a recording retain store and the retained `kept`.
-fn fixture() -> (Runtime, DebugControl, Probes) {
+/// `lamp := FALSE`, a recording retain store and the retained `kept`, started cold.
+fn fixture() -> (CompiledRuntime, DebugControl, Probes) {
     let writes = Arc::new(Mutex::new(Vec::new()));
     let saved = Arc::new(Mutex::new(Vec::new()));
-    let mut harness = TestHarness::from_source(SOURCE).expect("fixture compiles");
-    let runtime = harness.runtime_mut();
-    let debug = runtime.enable_debug();
+    let mut runtime = load();
+    let debug = DebugControl::new();
+    runtime.set_debug_control(debug.clone());
     runtime.add_io_driver(
         "recorder",
         Box::new(RecordingDriver {
@@ -147,38 +221,55 @@ fn fixture() -> (Runtime, DebugControl, Probes) {
         Value::Bool(false),
     ));
     runtime.set_io_safe_state(safe_state);
-    runtime.set_retain_store(
-        Some(Box::new(RecordingStore {
-            saved: Arc::clone(&saved),
-        })),
-        None,
-    );
-    (harness.into_runtime(), debug, Probes { writes, saved })
+    runtime
+        .set_retain_store(
+            Some(Box::new(RecordingStore {
+                saved: Arc::clone(&saved),
+            })),
+            None,
+        )
+        .expect("the retain store takes the program's retained values");
+    // A loaded program is not started (`CompiledRuntime::load`): it starts as trust-runtime starts
+    // the program it loads once its adapters are set, a new process cold (specification 11 §6.9,
+    // `restart`), and the cold restart gives every variable its starting value (specification 44
+    // §6.7): `kept` 7, which the first scan makes 8.
+    runtime
+        .restart_with_retain_store(RestartMode::Cold)
+        .expect("the cold start");
+    (runtime, debug, Probes { writes, saved })
 }
 
-/// The statement boundary that the source line containing `needle` resolves to.
-fn breakpoint_on(runtime: &Runtime, needle: &str) -> DebugBreakpoint {
-    let line: u32 = SOURCE
-        .lines()
-        .position(|line| line.contains(needle))
-        .unwrap_or_else(|| panic!("the source has no line containing {needle}"))
-        .try_into()
-        .expect("the source has fewer than u32::MAX lines");
-    let location = runtime
-        .resolve_breakpoint_location(SOURCE, 0, line, 0)
-        .unwrap_or_else(|| panic!("the source line for {needle} has no statement boundary"));
-    DebugBreakpoint::new(location)
+/// The debugger of the compiled program `debug` controls.
+fn debugger_of(debug: &DebugControl) -> CompiledDebugger {
+    debug.compiled().expect("the compiled program's debugger")
+}
+
+/// Sets the breakpoints of [`PATH`] on the zero-based source lines that contain `needles`.
+fn set_breakpoints(debugger: &CompiledDebugger, needles: &[&str]) {
+    let lines: Vec<usize> = needles
+        .iter()
+        .map(|needle| {
+            SOURCE
+                .lines()
+                .position(|line| line.contains(needle))
+                .unwrap_or_else(|| panic!("the source has no line containing {needle}"))
+        })
+        .collect();
+    let answer = ask(
+        debugger,
+        "breakpoints.set",
+        Some(json!({ "source": PATH, "lines": lines })),
+    );
+    assert_eq!(answer["ok"], json!(true), "{answer}");
 }
 
 /// A resource whose scan the debugger holds, with the leave-behind of the hold.
 struct Held {
     handle: ResourceHandle<StdClock>,
-    debug: DebugControl,
+    debugger: CompiledDebugger,
     probes: Probes,
-    /// The stop of the hold, or the timeout when the scan never waited.
-    hold: Result<DebugStop, mpsc::RecvTimeoutError>,
-    /// The stop events, kept so the channel of the hold stays open.
-    events: mpsc::Receiver<DebugStop>,
+    /// The reason of the stop of the hold, or `None` when the scan never waited.
+    hold: Option<String>,
 }
 
 impl Held {
@@ -190,46 +281,41 @@ impl Held {
             self.handle.state() == ResourceState::Stopped
         });
         if !ended {
-            self.debug.continue_run();
+            self.debugger.resume();
         }
         self.handle.join().expect("the resource thread ends");
         ended
     }
 }
 
-/// Spawns the resource with `debug`, then returns once the hold's stop has arrived.
-fn start(runtime: Runtime, debug: DebugControl, probes: Probes, name: &str) -> Held {
-    let (stop_tx, events) = mpsc::channel();
-    debug.set_stop_sender(stop_tx);
+/// Spawns the resource that `debugger` debugs, then returns once the hold's stop has been recorded.
+fn start(runtime: CompiledRuntime, debugger: CompiledDebugger, probes: Probes, name: &str) -> Held {
     let handle = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
         .spawn(name)
         .expect("spawn the resource");
-    let hold = events.recv_timeout(WAIT);
+    let hold = next_stop(&debugger);
     Held {
         handle,
-        debug,
+        debugger,
         probes,
         hold,
-        events,
     }
 }
 
 /// A resource held at a debug-mode pause requested before it starts.
 fn spawn_paused(name: &str) -> Held {
     let (runtime, debug, probes) = fixture();
-    debug.pause();
-    start(runtime, debug, probes, name)
+    let debugger = debugger_of(&debug);
+    debugger.pause();
+    start(runtime, debugger, probes, name)
 }
 
 /// A resource held at the first of `needles`' statement boundaries.
 fn spawn_at_breakpoints(name: &str, needles: &[&str]) -> Held {
     let (runtime, debug, probes) = fixture();
-    let breakpoints = needles
-        .iter()
-        .map(|needle| breakpoint_on(&runtime, needle))
-        .collect();
-    debug.set_breakpoints_for_file(0, breakpoints);
-    start(runtime, debug, probes, name)
+    let debugger = debugger_of(&debug);
+    set_breakpoints(&debugger, needles);
+    start(runtime, debugger, probes, name)
 }
 
 /// Spec 11 section 6.9 and spec 13 "Pause": a stop ends a breakpoint hold without a resume. The
@@ -238,16 +324,16 @@ fn spawn_at_breakpoints(name: &str, needles: &[&str]) -> Held {
 #[test]
 fn a_stop_ends_a_breakpoint_hold_and_the_scan_finishes() {
     let mut held = spawn_at_breakpoints("stop-breakpoint-hold", &["kept := kept + DINT#1;"]);
-    let held_by_debugger = held.debug.is_paused();
+    let held_by_debugger = paused(&held.debugger);
 
     held.handle.stop();
     let ended = held.ended_by_stop();
 
-    let stop = held
-        .hold
-        .as_ref()
-        .expect("the scan waits at its breakpoint");
-    assert_eq!(stop.reason, DebugStopReason::Breakpoint);
+    assert_eq!(
+        held.hold.as_deref(),
+        Some("breakpoint"),
+        "the scan waits at its breakpoint"
+    );
     assert!(
         held_by_debugger,
         "the breakpoint holds the scan when the stop is requested"
@@ -278,15 +364,14 @@ fn a_stop_ends_a_breakpoint_hold_and_the_scan_finishes() {
 fn a_stop_during_a_step_is_not_delayed_by_the_step() {
     let mut held = spawn_at_breakpoints("stop-during-step", &["kept := kept + DINT#1;"]);
     assert_eq!(
-        held.hold
-            .as_ref()
-            .expect("the scan waits at its breakpoint")
-            .reason,
-        DebugStopReason::Breakpoint
+        held.hold.as_deref(),
+        Some("breakpoint"),
+        "the scan waits at its breakpoint"
     );
-    assert!(held.debug.is_paused(), "the breakpoint holds the scan");
+    assert!(paused(&held.debugger), "the breakpoint holds the scan");
 
-    held.debug.step();
+    let step = ask(&held.debugger, "step_in", None);
+    assert_eq!(step["ok"], json!(true), "{step}");
     held.handle.stop();
     let ended = held.ended_by_stop();
 
@@ -312,16 +397,14 @@ fn after_a_stop_no_breakpoint_holds_the_scan_again() {
         &["kept := kept + DINT#1;", "lamp := TRUE;"],
     );
     assert_eq!(
-        held.hold
-            .as_ref()
-            .expect("the scan waits at its breakpoint")
-            .reason,
-        DebugStopReason::Breakpoint
+        held.hold.as_deref(),
+        Some("breakpoint"),
+        "the scan waits at its breakpoint"
     );
 
     held.handle.stop();
     let ended = held.ended_by_stop();
-    let further = held.events.try_recv();
+    let further = stops(&held.debugger);
 
     assert!(
         ended,
@@ -336,8 +419,8 @@ fn after_a_stop_no_breakpoint_holds_the_scan_again() {
     );
     assert_eq!(held.probes.last_image(), Some(vec![0u8]));
     assert!(
-        further.is_err(),
-        "no second breakpoint stop is emitted after the stop request"
+        further.is_empty(),
+        "no second breakpoint stop is emitted after the stop request: {further:?}"
     );
 }
 
@@ -347,12 +430,12 @@ fn after_a_stop_no_breakpoint_holds_the_scan_again() {
 #[test]
 fn a_hold_without_a_stop_still_waits_for_resume() {
     let mut held = spawn_paused("hold-without-stop");
-    let stop = held
-        .hold
-        .as_ref()
-        .expect("the scan waits at a statement boundary");
-    assert_eq!(stop.reason, DebugStopReason::Pause);
-    assert!(held.debug.is_paused(), "the debugger holds the scan");
+    assert_eq!(
+        held.hold.as_deref(),
+        Some("pause"),
+        "the scan waits at a statement boundary"
+    );
+    assert!(paused(&held.debugger), "the debugger holds the scan");
 
     thread::sleep(HOLD_DWELL);
     assert_eq!(
@@ -367,11 +450,11 @@ fn a_hold_without_a_stop_still_waits_for_resume() {
     );
     assert_eq!(held.handle.last_error(), None);
     assert!(
-        held.debug.is_paused(),
+        paused(&held.debugger),
         "the debugger still holds the scan after the dwell"
     );
 
-    held.debug.continue_run();
+    held.debugger.resume();
     let committed = wait_until(Instant::now() + WAIT, || !held.probes.images().is_empty());
     held.handle.stop();
     held.handle.join().expect("the resource thread ends");
@@ -397,39 +480,35 @@ fn a_hold_without_a_stop_still_waits_for_resume() {
 #[test]
 fn a_program_started_again_after_a_stop_is_held_by_the_debugger_again() {
     let (runtime, debug, _probes) = fixture();
-    let breakpoint = breakpoint_on(&runtime, "kept := kept + DINT#1;");
-    debug.set_breakpoints_for_file(0, vec![breakpoint]);
-    let (stop_tx, events) = mpsc::channel();
-    debug.set_stop_sender(stop_tx);
+    let debugger = debugger_of(&debug);
+    set_breakpoints(&debugger, &["kept := kept + DINT#1;"]);
     let restart: Arc<Mutex<Option<RestartMode>>> = Arc::new(Mutex::new(None));
     let mut handle = ResourceRunner::new(runtime, StdClock::new(), Duration::from_millis(1))
         .with_restart_signal(Arc::clone(&restart))
         .spawn("stop-then-hold-again")
         .expect("spawn the resource");
-    let first = events.recv_timeout(WAIT);
+    let first = next_stop(&debugger);
 
     handle.control().stop_program();
     let stopped = wait_until(Instant::now() + WAIT, || {
         handle.state() == ResourceState::Stopped
     });
     *restart.lock().expect("restart signal") = Some(RestartMode::Cold);
-    let second = events.recv_timeout(WAIT);
+    let second = next_stop(&debugger);
     // Release whatever holds, so that a failed assertion never leaves a scan waiting.
     handle.stop();
-    debug.continue_run();
+    debugger.resume();
     handle.join().expect("the resource thread ends");
 
     assert_eq!(
-        first
-            .expect("the first scan stops at the breakpoint")
-            .reason,
-        DebugStopReason::Breakpoint
+        first.as_deref(),
+        Some("breakpoint"),
+        "the first scan stops at the breakpoint"
     );
     assert!(stopped, "the program stops without a resume");
     assert_eq!(
-        second
-            .expect("the restarted program's scan stops at the breakpoint again")
-            .reason,
-        DebugStopReason::Breakpoint
+        second.as_deref(),
+        Some("breakpoint"),
+        "the restarted program's scan stops at the breakpoint again"
     );
 }

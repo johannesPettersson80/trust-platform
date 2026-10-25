@@ -1,17 +1,11 @@
 //! The variables of a function's or a method's frame and the `VAR_TEMP` of a function block start
 //! at each call at their declared initial value or at their type's default (IEC §6.5.1, §6.5.2.1,
-//! Table 13 3d; specification 44 §6.7): the values are worked out by hand, and the same program
-//! runs in lockstep with the runtime.
+//! Table 13 3d; specification 44 §6.7): the values are worked out by hand.
 //!
 //! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
-#[path = "support/native_lockstep.rs"]
-#[allow(dead_code)]
-mod native_lockstep;
-
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use native_lockstep::compare_sources;
 use trust_runtime::harness::SourceFile;
 use trust_runtime::native::{
     build, load, Device, NativeProgram, NoHooks, Options, Target, Toolchain,
@@ -203,13 +197,4 @@ fn frames_start_at_each_call_at_their_initial_values() {
     };
     let table: Vec<i64> = table.elements().iter().map(number).collect();
     assert_eq!(table, [1, 2, 9, 9, 9, 9]);
-}
-
-/// The same program in lockstep with the runtime, which starts frames the same way.
-#[test]
-fn frames_start_as_the_runtime_starts_them() {
-    match compare_sources("frames", &[SourceFile::new(FRAMES)], 10, 20) {
-        Ok(matched) => println!("frames: {matched} values matched over 20 scans"),
-        Err(divergence) => panic!("frames: {divergence}"),
-    }
 }

@@ -1,18 +1,17 @@
 //! Fixed ESP32-C6-DevKitC-1 profile: the D.2 constants and the pure decisions built on them.
 use crate::cookie::{ResetCookie, WATCHDOG_PHASE};
 use crate::program_flash::SLOT_BYTES;
-use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
-    Capabilities, DeviceDescriptor, NativeTarget, NumericContract, RequestedLimits,
+    Capabilities, DeviceDescriptor, NativeTarget, NumericContract, ProgramVersion, RequestedLimits,
     SchedulingProfile, TimingEvidence,
 };
 use trust_runtime_core::native::image::Target;
-use trust_runtime_services::runner::engine::DeviceStack;
+use trust_runtime_services::runner::DeviceStack;
 use trust_runtime_services::transfer::TransferSession;
 
 /// CPU clock from `CpuClock::max()` on ESP32-C6 (160 MHz); the PCCR rate matches it.
 pub const CPU_HZ: u32 = 160_000_000;
-/// Fixture sampling period in microseconds; shared runtime scheduling remains engine-owned.
+/// Fixture sampling period in microseconds; the resource loop schedules the program's tasks.
 pub const SCAN_PERIOD_US: u64 = 10_000;
 /// CPU cycles in one scan period at [`CPU_HZ`] (10 ms).
 pub const CYCLES_PER_SCAN: u32 = 1_600_000;
@@ -64,30 +63,26 @@ pub const CHECKPOINT_STEP_BYTES: usize = 256;
 pub const PROGRAM_STEP_BYTES: usize = 256;
 
 /// The device descriptor admission reads for the C6 (specification 34 §5.1.1, COMPAT-02 and
-/// TARGET-03): the STBC versions it prepares, its scheduling profile and numeric contract, its
-/// timing evidence, no platform capability, the maxima for each preparation limit, its event
-/// store's default and maximum, and its application slot.
+/// TARGET-03; specification 44 §10.2): the compiled program image as the only program format, its
+/// scheduling profile and numeric contract, its timing evidence, no platform capability, no maximum
+/// for the record's limits but the process image, which the image's checks bound, its event store's
+/// default and maximum, its application slot, and what it offers compiled programs
+/// ([`NATIVE_TARGET`]).
 ///
-/// Appendix H has no maxima keys for the preparation limits yet ("Appendix H gains the keys for
-/// its maxima with the chip's firmware"), so those maxima are trust-runtime's hosted maxima until
-/// the chip file names them; the host test `the_device_descriptor_matches_the_chip_file` pins
-/// that, the application slot and the event store. The event store's default and maximum are the
-/// `[events]` table of `chips/esp32c6.toml` (200 and 200). The application slot is one program slot
-/// of the program store, not the whole `application` region: an install writes one slot (specification
-/// 34 §5.1). The C6 has no wall clock until slice T6, so it supplies no capability and admission
-/// refuses a program that calls `CURRENT_DT`.
+/// The event store's default and maximum are the `[events]` table of `chips/esp32c6.toml` (200 and
+/// 200). The application slot is one program slot of the program store, not the whole
+/// `application` region: an install writes one slot (specification 34 §5.1). The C6 has no wall
+/// clock until slice T6, so it supplies no capability and admission refuses a program that calls
+/// `CURRENT_DT`.
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
-    bytecode_versions: &[
-        BytecodeVersion::SOURCE_FREE_V2,
-        BytecodeVersion::SOURCE_FREE,
-    ],
+    program_versions: &[ProgramVersion::NATIVE_IMAGE],
     scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
     numeric_contracts: &[NumericContract::V1],
     timing_evidence: TimingEvidence::UNQUALIFIED,
     capabilities: Capabilities::NONE,
-    // The hosted maxima of `DeviceDescriptor::hosted`: the 64 MiB artifact
-    // (`BYTECODE_MAX_CONTAINER_BYTES`) and 1,024 call levels (`VM_MAX_CALL_DEPTH`), with no
-    // maximum for the other limits. On a 32-bit target admission clamps them to the address range.
+    // The maxima of the chip file (`chips/esp32c6.toml`). An image requests the bytes of its process
+    // images and 0 for every other limit (specification 44 §10.1), and its own checks bound it
+    // (§10.2).
     maxima: RequestedLimits {
         max_artifact_bytes: 64 * 1024 * 1024,
         max_preparation_bytes: u64::MAX,
@@ -113,26 +108,18 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     application_slot_bytes: Some(SLOT_BYTES as u64),
     // Measured at boot, before the first program loads (`Platform::set_program_memory`).
     program_memory_bytes: None,
-    // The C6's interpreter runs no compiled program image; the native firmware's descriptor
-    // does (specification 44 §15).
-    native: None,
+    native: Some(NATIVE_TARGET),
 };
 
-/// The C6's main stack (specification 34 MEM-03 and Appendix D.2; owner, 21 October 2026, "Stack
-/// decides"): the call levels it holds are the C6's call depth.
+/// The C6's main stack (specification 34 MEM-03 and Appendix D.2; specification 44 §8.5).
 ///
 /// - The window is 78 KiB of the 85,980-byte esp-hal stack region below 0x4086_E610, so that the
 ///   region keeps the 4 KiB margin above the window that the linker guard and the build require.
-/// - The C1-25 bench measured, with the window over the whole region, the high-water of installing
-///   programs whose chains of nested function blocks need 2, 3, 4 and 6 call levels: 46,296,
-///   52,440, 58,584 and 70,872 bytes, so each call level adds 6,144 bytes and the path takes
-///   46,296 − 2 × 6,144 = 34,008 bytes before its first level. The install is the deepest path: the
-///   boot and the online change of the same programs stayed 6,752 and 3,376 bytes below it.
-/// - The window holds (79,872 − 2,048 − 34,008) / 6,144 = 7 call levels.
+/// - The C1-25 bench measured the deepest path of the firmware before a program runs at 34,008 bytes
+///   (the install of a program).
 pub const MAIN_STACK: DeviceStack = DeviceStack {
     window_bytes: 78 * 1024,
     base_bytes: 34_008,
-    level_bytes: 6_144,
 };
 
 /// The bytes of the C6's program region (specification 44 §10.3, §12.3): RAM the C6 executes, which
@@ -140,10 +127,10 @@ pub const MAIN_STACK: DeviceStack = DeviceStack {
 /// online change, whose module runs where it lies. 192 KiB holds the pasteurizer's installed module
 /// (43,810 bytes with debug hooks) and its changed image (90,200 bytes), and later two changed images
 /// at once, as a change of a changed program needs; a module the region has no room for runs where
-/// it lies in its slot. The region is the linker's `.trust_code` section; in the firmware that runs
-/// compiled programs it, the main heap's added 64 KiB and the main stack's region share the RAM that
-/// the interpreter's RAM code took, and the stack's region keeps more than the 82 KiB that its window
-/// and margin need (`stack_guard.x`, the build report's `stack.region_bytes`).
+/// it lies in its slot. The region is the linker's `.trust_code` section; it, the main heap's added
+/// 64 KiB and the main stack's region share the RAM that the bytecode engine's RAM code took, and the
+/// stack's region keeps more than the 82 KiB that its window and margin need (`stack_guard.x`, the
+/// build report's `stack.region_bytes`).
 pub const PROGRAM_CODE_BYTES: usize = 192 * 1024;
 
 /// What the C6 offers compiled programs (specification 44 §10.2 and NX-10): the RV32IMAC module
@@ -152,19 +139,8 @@ pub const PROGRAM_CODE_BYTES: usize = 192 * 1024;
 /// that the base measured, leaves to the module; and the default statement budget of 1,000,000.
 pub const NATIVE_TARGET: NativeTarget = NativeTarget {
     target: Target::Rv32imac,
-    task_stack_bytes: (MAIN_STACK.window_bytes
-        - DeviceStack::HEADROOM_BYTES
-        - MAIN_STACK.base_bytes) as u64,
+    task_stack_bytes: MAIN_STACK.task_stack_bytes() as u64,
     max_statements: 1_000_000,
-};
-
-/// The descriptor of the C6 when its firmware runs compiled program images (specification 44 §15):
-/// [`DEVICE_DESCRIPTOR`] with the compiled-image version as the only program version, so that an
-/// STBC program is refused with its version, and with [`NATIVE_TARGET`].
-pub const NATIVE_DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
-    bytecode_versions: &[BytecodeVersion::NATIVE_IMAGE],
-    native: Some(NATIVE_TARGET),
-    ..DEVICE_DESCRIPTOR
 };
 
 /// The capacity of the C6's heap, in bytes: its three regions, the 32,832-byte main heap, the 64 KiB

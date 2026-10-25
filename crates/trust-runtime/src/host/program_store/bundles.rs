@@ -12,48 +12,17 @@ use super::{io_error, publish_atomic, refused, StoreError, NAME_SEQUENCE};
 use crate::config::RuntimeConfig;
 use crate::deployment::DEPLOYMENT_RECORD_FILE;
 
-/// The program of a bundle.
-pub(super) const PROGRAM_FILE: &str = "program.stbc";
-
-/// The file of a program image of the computer, which it runs in place of `program.stbc`
-/// (specification 44 §8.8, NX-15).
+/// The file of a bundle's program, the computer's program image (specification 44 §8.8, NX-15).
 pub(super) const IMAGE_FILE: &str = crate::native::PROGRAM_IMAGE_FILE;
 
-/// The file `program` is kept in: a program image's (specification 44 §5.2), or the bytecode's.
-pub(super) fn program_file(program: &[u8]) -> &'static str {
-    if program.starts_with(&trust_runtime_core::native::image::MAGIC) {
-        IMAGE_FILE
-    } else {
-        PROGRAM_FILE
-    }
-}
-
-/// Whether `path`, a bundle-relative path, is a program file.
+/// Whether `path`, a bundle-relative path, is the program file.
 pub(super) fn is_program_file(path: &str) -> bool {
-    path == PROGRAM_FILE || path == IMAGE_FILE
+    path == IMAGE_FILE
 }
 
-/// The program file of the folder `dir`, as the computer starts it: the image first.
+/// The program file of the folder `dir`, when it has one.
 pub(super) fn program_path(dir: &Path) -> Option<PathBuf> {
-    [IMAGE_FILE, PROGRAM_FILE]
-        .into_iter()
-        .map(|file| dir.join(file))
-        .find(|path| path.is_file())
-}
-
-/// Removes from `dir` the program file of the other kind than the one `program` is kept in, so that
-/// the program written is the one the computer starts (specification 44 §8.8, NX-15).
-pub(super) fn remove_other_program(dir: &Path, program: &[u8]) -> Result<(), StoreError> {
-    let other = if program_file(program) == IMAGE_FILE {
-        PROGRAM_FILE
-    } else {
-        IMAGE_FILE
-    };
-    match fs::remove_file(dir.join(other)) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(io_error(format!("remove {other}"), error)),
-    }
+    Some(dir.join(IMAGE_FILE)).filter(|path| path.is_file())
 }
 
 /// A new label for a deployment, unique within this process and across restarts: the time, the
@@ -172,9 +141,8 @@ pub fn copy_bundle(source: &Path, dest: &Path, runtime: &RuntimeConfig) -> Resul
     result
 }
 
-/// Copies the files that every bundle carries: `runtime.toml` and its program, `program.tpi` or
-/// `program.stbc`, and the optional `io.toml`, `simulation.toml`, deployment record and `src`
-/// folder.
+/// Copies the files that every bundle carries: `runtime.toml` and its program, `program.tpi`, and
+/// the optional `io.toml`, `simulation.toml`, deployment record and `src` folder.
 pub(super) fn copy_bundle_files(source: &Path, dest: &Path) -> Result<(), StoreError> {
     fs::create_dir_all(dest)
         .map_err(|error| io_error(format!("create bundle '{}'", dest.display()), error))?;
@@ -185,7 +153,6 @@ pub(super) fn copy_bundle_files(source: &Path, dest: &Path) -> Result<(), StoreE
         &dest.join("simulation.toml"),
     )?;
     copy_optional_file(&source.join(IMAGE_FILE), &dest.join(IMAGE_FILE))?;
-    copy_optional_file(&source.join(PROGRAM_FILE), &dest.join(PROGRAM_FILE))?;
     if program_path(dest).is_none() {
         return Err(refused(format!(
             "bundle '{}' holds no program",

@@ -69,8 +69,10 @@ Set the External runtime control endpoint in `trust-lsp.toml` or in VS Code (Run
 
 ## Troubleshooting
 
-- **Missing runtime.toml / io.toml / program.stbc**  
+- **Missing runtime.toml / io.toml**  
   Run `trust-runtime` to auto‑create a project folder, then use the Setup wizard in the Web UI.
+- **Missing program.tpi**  
+  Run `trust-runtime build --project <project-folder>` to build the program image.
 - **No GPIO on laptop**  
   Use the `loopback` driver in the wizard.
 - **Control token required**  

@@ -19,7 +19,6 @@ mod parameters;
 mod registration;
 pub(crate) mod selection;
 pub(crate) mod string;
-pub(crate) mod text_kernels;
 /// Date/time standard-function bindings and supplied-clock adapters.
 pub mod time;
 pub(crate) mod validate;
@@ -92,11 +91,6 @@ impl StandardLibrary {
             functions: IndexMap::default(),
             defaults: true,
         }
-    }
-
-    /// Shared descriptors require no per-module heap allocation or registry construction.
-    pub(crate) fn preparation_demand() -> (usize, usize) {
-        (0, 1)
     }
 
     fn register_descriptors(
@@ -198,20 +192,6 @@ impl StandardLibrary {
         }
     }
 
-    /// The built-in function `name`, in any case, when the library has its defaults and no custom
-    /// registration replaces it (C1-12): the engine then runs a text function on borrowed texts.
-    pub(crate) fn builtin(&self, name: &str) -> Option<&'static StdFunctionRef<'static>> {
-        if !self.defaults
-            || self
-                .functions
-                .keys()
-                .any(|registered| registered.eq_ignore_ascii_case(name))
-        {
-            return None;
-        }
-        registration::get(name)
-    }
-
     /// Call a standard function by name.
     pub fn call(&self, name: &str, args: &[Value]) -> Result<Value, RuntimeError> {
         if let Some(entry) = self.get(name) {
@@ -222,23 +202,5 @@ impl StandardLibrary {
             return result;
         }
         Err(RuntimeError::UndefinedFunction(name.into()))
-    }
-}
-
-impl crate::memory::figure::HeapBytes for StandardLibrary {
-    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
-        count.of(&self.functions);
-    }
-}
-
-impl crate::memory::figure::HeapBytes for StdFunction {
-    fn add_heap(&self, count: &mut crate::memory::figure::HeapCount) {
-        match &self.params {
-            StdParams::Fixed(names) => count.of(names),
-            StdParams::Variadic { fixed, prefix, .. } => {
-                count.of(fixed);
-                count.of(prefix);
-            }
-        }
     }
 }

@@ -2,6 +2,8 @@
 //! specification 11 sections 6.6 and 6.9). The thread keeps serving commands in the Stopped state,
 //! a `restart` starts the installed program again, and only an exit request ends the thread. Every
 //! wait is bounded, so a broken interleaving fails the test instead of hanging it.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 mod concurrency_support;
 
@@ -21,7 +23,7 @@ use trust_runtime::scheduler::{
 };
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::HangAction;
-use trust_runtime::{RestartMode, RuntimeBuilder};
+use trust_runtime::RestartMode;
 
 use concurrency_support::{dint, snapshot, stop_and_join, wait_until, WAIT};
 
@@ -109,7 +111,7 @@ fn installing_loader(source: &'static str, modes: Arc<Mutex<Vec<RestartMode>>>) 
             .expect("the installed program compiles")
             .into_runtime();
         next.restart(mode)?;
-        *slot = next.into();
+        *slot = next;
         Ok(StartedProgram {
             cycle_interval: Duration::from_millis(1),
             time_scale: 1,
@@ -292,9 +294,12 @@ fn a_stop_drops_the_restart_queued_before_it_and_a_restart_after_it_starts_the_p
     // runs in the Stopped state.
     let (entered_tx, entered_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
-    let mut builder = RuntimeBuilder::new();
-    builder.io_mut().resize(1, 0, 0);
-    let mut runtime = builder.build().expect("install the declared test runtime");
+    // One input bit, so the input image has the byte the held driver reads.
+    let mut runtime = TestHarness::from_source(
+        "VAR_GLOBAL sensor AT %IX0.0 : BOOL; END_VAR PROGRAM Main END_PROGRAM",
+    )
+    .expect("install the declared test runtime")
+    .into_runtime();
     runtime.add_io_driver(
         "held-read",
         Box::new(HeldFirstRead {

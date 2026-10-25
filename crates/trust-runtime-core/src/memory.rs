@@ -15,33 +15,6 @@ pub enum MemoryLocation {
     Io(IoArea),
     /// Retain area (persistent across warm restart).
     Retain,
-    /// A target in a flat block (specification 34 MEM-12; C1-11d): the reference's `offset` is the
-    /// target's byte offset in the block of `region`, and `type_id` its type. `elements` is the
-    /// element count of the path the reference was taken through, which a copy of the reference
-    /// is charged by, as the value store charged the copy of the path (TIME-08; C1-19e).
-    Flat {
-        /// The block that holds the target.
-        region: layout::LayoutRegion,
-        /// The element count of the path the reference was taken through.
-        elements: u16,
-        /// The target's `TYPE_TABLE` type.
-        type_id: u32,
-    },
-}
-
-/// A location is eight bytes on every target, so a flat reference is no larger than a path one.
-const _: () = assert!(core::mem::size_of::<MemoryLocation>() == 8);
-
-impl MemoryLocation {
-    /// The element count of the path a flat reference was taken through, which its copies are
-    /// charged by (TIME-08; C1-11d), and 0 for any other location.
-    #[must_use]
-    pub fn flat_elements(&self) -> usize {
-        match self {
-            Self::Flat { elements, .. } => usize::from(*elements),
-            _ => 0,
-        }
-    }
 }
 
 /// I/O area identifiers per IEC 61131-3.
@@ -83,13 +56,6 @@ impl Generation {
     pub fn next(self) -> Option<Self> {
         self.0.checked_add(1).map(Self)
     }
-}
-
-/// VM owner metadata for a live execution activation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ExecutionFrameOwner {
-    pub(crate) pou_id: u32,
-    pub(crate) runtime_instance: Option<InstanceId>,
 }
 
 #[cfg(test)]
@@ -134,16 +100,11 @@ mod identity_tests {
 #[cfg(feature = "std")]
 use crate::collections::LookupMap as FxHashMap;
 use crate::collections::OrderedMap as IndexMap;
-use crate::value::{
-    materialize_value_path, read_value_path_borrowed, PartialAccess, RefPath, RefSegment, Value,
-    ValueRef,
-};
+use crate::value::{materialize_value_path, read_value_path_borrowed, RefPath, RefSegment, Value};
 use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use cache::StorageCache as RwLock;
 use smol_str::SmolStr;
-
-pub use self::access::{AccessBinding, AccessMap};
 
 /// A local variable frame for function/method calls.
 #[derive(Debug, Clone)]
@@ -169,9 +130,8 @@ struct RecursiveInstanceFieldResolution {
     offset: usize,
 }
 
-/// Storage for runtime variables (specification 34 §6.2): the values half, the activation half
-/// and the identities. The cell store (C1-9a, [`crate::memory::regions::CellStorage`]) shares the
-/// activation half and the identities; the values half is deleted at C1-19.
+/// Storage for the values the build evaluates initial values with (specification 44 §6.7): the
+/// values half, the activation half and the identities.
 #[derive(Debug, Default, Clone)]
 pub struct VariableStorage {
     values: ValueStore,
@@ -199,8 +159,6 @@ struct ValueStore {
 #[derive(Debug, Default, Clone)]
 struct ActivationStore {
     frames: Vec<LocalFrame>,
-    execution_frames: live::LiveEntries<FrameId, ExecutionActivation>,
-    execution_frame_limit: Option<usize>,
     instances: InstanceMap,
     next_frame_id: u32,
 }
@@ -232,8 +190,7 @@ impl Identities {
     }
 
     /// Record that `id` was issued and the counter now holds `following`. An instance at or above
-    /// the entry floor is live in the current top-level entry, so [`Identities::begin_entry`]
-    /// reissues the identities of the entry only once none of them is live.
+    /// the entry floor is live in the current top-level entry.
     fn issue(&mut self, id: InstanceId, following: u32) {
         self.next_instance_id = following;
         if id.0 >= self.entry_instance_floor {
@@ -253,31 +210,11 @@ impl Identities {
         }
     }
 
-    /// Begin a top-level execution entry (specification 34 §4.3.1, HOST-02). The identities issued
-    /// since the previous entry began are issued again when none of their instances is still live;
-    /// otherwise the entry starts above them. A live instance's identity is never issued again.
-    fn begin_entry(&mut self) {
-        if self.entry_instances_live == 0 {
-            self.next_instance_id = self.entry_instance_floor;
-        } else {
-            self.start_entry_at_counter();
-        }
-    }
-
     /// Start the entry floor at the counter, with no instance live above it.
     fn start_entry_at_counter(&mut self) {
         self.entry_instance_floor = self.next_instance_id;
         self.entry_instances_live = 0;
     }
-}
-
-/// One reserved activation identity, with locals and engine metadata sharing
-/// the same monotonically ordered registry entry.
-#[derive(Debug, Clone, Default)]
-struct ExecutionActivation {
-    locals: Option<Vec<Value>>,
-    active: bool,
-    owner: Option<ExecutionFrameOwner>,
 }
 
 impl Clone for ValueStore {
@@ -311,6 +248,7 @@ impl Clone for ValueStore {
 use cache::recover_read_lock;
 #[cfg(feature = "std")]
 mod cache;
+#[cfg(any(test, not(feature = "std")))]
 mod live;
 
 #[cfg(feature = "std")]
@@ -318,39 +256,13 @@ pub type InstanceMap = FxHashMap<InstanceId, InstanceData>;
 #[cfg(not(feature = "std"))]
 pub type InstanceMap = live::LiveEntries<InstanceId, InstanceData>;
 
-mod access;
-/// The cell arm of the store-access seam: the reads over the cell store (specification 34 §6.2,
-/// MEM-10; C1-9b).
-pub mod cell_access;
-/// The decoded value of one leaf and one region's flat block (specification 34 §6.2, MEM-12).
-pub mod cells;
-mod execution_frames;
-/// The bytes of heap that a prepared program holds, counted from its own tables (specification 34
-/// MEM-12, MEM-14).
-pub(crate) mod figure;
-/// The bytes of one leaf of a flat block: every variable at its declared size, with no tag
-/// (specification 34 MEM-12).
-pub mod flat;
 mod frames;
-mod instance_table;
 mod instances;
-/// Prepared layouts of the flat blocks (specification 34 §6.2, MEM-12).
-pub mod layout;
 mod references;
-/// The persistent flat block of the bounded value store and its reference table, reserved once
-/// from the prepared layouts (specification 34 §6.2, MEM-12, C1-9a).
-pub mod regions;
-pub(crate) use references::PreparedStorageWrite;
 mod storage;
-/// The store-access seam the engine reaches variable storage through
-/// (specification 34 §6.2, MEM-10).
-pub mod view;
 
 #[cfg(all(test, feature = "std"))]
 mod tests;
 
 #[cfg(test)]
 mod live_tests;
-
-#[cfg(test)]
-mod bounded_identity_tests;

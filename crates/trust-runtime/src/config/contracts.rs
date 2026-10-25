@@ -7,7 +7,8 @@ pub struct RuntimeConfig {
     /// compiled program runs at most (specification 44 NX-10); 1,000,000 when the project sets
     /// none.
     pub max_statements_per_scan: u32,
-    pub execution_backend: ExecutionBackend,
+    /// Whether `runtime.execution_backend` came from the project; every value it may take runs the
+    /// compiled program (specification 44 §15).
     pub execution_backend_source: ExecutionBackendSource,
     pub control_endpoint: SmolStr,
     pub control_auth_token: Option<SmolStr>,
@@ -537,13 +538,9 @@ pub struct RuntimeBundle {
     pub opcua_client: Option<crate::opcua::OpcUaClientConfig>,
     pub opcua_client_config_hash: Option<String>,
     pub simulation: Option<SimulationConfig>,
-    pub bytecode: Vec<u8>,
-    /// The limits to prepare `bytecode` with: those of the admitted deployment record next to
-    /// it, or the hosted defaults without one (specification 34 HOST-02).
-    pub preparation_limits: trust_runtime_core::vm::PreparationLimits,
-    /// The project's program image, `program.tpi`, when the project holds one: the computer runs
-    /// it in place of `bytecode`, which is then empty (specification 44 §8.8, NX-15).
-    pub image: Option<Vec<u8>>,
+    /// The project's program image, `program.tpi`, which the computer runs (specification 44 §8.8,
+    /// NX-15).
+    pub image: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]

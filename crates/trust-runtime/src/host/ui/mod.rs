@@ -23,7 +23,7 @@ use ratatui::{
 };
 
 use crate::bundle::detect_bundle_path;
-use crate::bundle_builder::build_program_stbc;
+use crate::bundle_builder::build_program_image;
 use crate::config::RuntimeBundle;
 use crate::control::ControlEndpoint;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;

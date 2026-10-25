@@ -24,7 +24,6 @@ use trust_runtime_core::retain::checkpoint::{
 use trust_runtime_core::retain::codec::decode_snapshot_payload_v3;
 use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::value::Duration;
-use trust_runtime_core::vm::{CycleAccess, RuntimeState};
 use trust_runtime_core::watchdog::RetainMode;
 
 /// The checkpoint configuration of an installed program (specification 34 §10).
@@ -85,9 +84,7 @@ impl RetainStore {
         })
     }
 
-    /// Reserves the capture for a program's largest retained payload, `bytes`
-    /// ([`PreparedModule::retained_payload_bytes`](trust_runtime_core::vm::PreparedModule::retained_payload_bytes)):
-    /// the staged payload and the one a save leaves the next capture, so that no capture grows them
+    /// Reserves the capture for a program's largest retained payload, `bytes`: the staged payload and the one a save leaves the next capture, so that no capture grows them
     /// (specification 34 MEM-09), and the program's memory figure counts them (MEM-12). The room
     /// already reserved is kept. A store that persists nothing captures nothing and reserves nothing.
     ///
@@ -108,26 +105,17 @@ impl RetainStore {
         self.persister.is_some()
     }
 
-    /// Captures the finished scan's retained values at the pre-output-sample checkpoint and offers
-    /// them to the persister, so a save begins when the project's interval says it is due and the
-    /// image changed (specification 34 §10, specification 11 §6.7).
-    ///
-    /// # Errors
-    ///
-    /// The [`RuntimeError::RetainStore`] of a save that did not begin, or of one an earlier step
-    /// latched: the caller fails this scan with it before physical outputs.
-    pub fn capture(&mut self, access: &mut CycleAccess<'_, '_>) -> Result<(), RuntimeError> {
-        let now = access.logical_time();
-        self.capture_with(now, |capture| access.capture_retain(capture))
-    }
-
-    /// [`capture`](Self::capture) for a program that refills the capture itself with `fill`, at the
-    /// scan's logical time `now`: a compiled program writes its retained values from its retain area
+    /// Captures the finished scan's retained values at the pre-output-sample checkpoint, at the
+    /// scan's logical time `now`, and offers them to the persister, so a save begins when the
+    /// project's interval says it is due and the image changed (specification 34 §10, specification
+    /// 11 §6.7). `fill` writes the program's retained values into the capture from its retain area
     /// (specification 44 §11).
     ///
     /// # Errors
     ///
-    /// As [`capture`](Self::capture), and the error of `fill`.
+    /// The [`RuntimeError::RetainStore`] of a save that did not begin, or of one an earlier step
+    /// latched: the caller fails this scan with it before physical outputs; and the error of
+    /// `fill`.
     pub fn capture_with(
         &mut self,
         now: Duration,
@@ -158,7 +146,7 @@ impl RetainStore {
     /// Advances a pending checkpoint by at most one log step, with the platform's per-step program
     /// budget (specification 34 §10). The resource loop calls it between scans, never inside one. A
     /// failed step latches a retain-store failure, which the next scan's
-    /// [`capture`](Self::capture) hands to the scan.
+    /// [`capture_with`](Self::capture_with) hands to the scan.
     pub fn step(&mut self) {
         let Some(persister) = self.persister.as_mut() else {
             return;
@@ -167,25 +155,15 @@ impl RetainStore {
         let _ = persister.step(self.program_budget);
     }
 
-    /// Captures the values the program holds now and completes the pending checkpoint and the
-    /// newest image, all steps at once, so the save completes before the resource reports Stopped
-    /// (specification 34 §10, specification 11 §6.7).
+    /// Captures the values the program holds now, at the logical time `now` of its last scan, and
+    /// completes the pending checkpoint and the newest image, all steps at once, so the save
+    /// completes before the resource reports Stopped (specification 34 §10, specification 11 §6.7;
+    /// specification 44 §11).
     ///
     /// # Errors
     ///
-    /// The [`RuntimeError::RetainStore`] of a save that did not complete; the newest committed
-    /// checkpoint stays readable.
-    pub fn save(&mut self, state: &mut RuntimeState<'_>) -> Result<(), RuntimeError> {
-        let now = state.current_time();
-        self.save_with(now, |capture| state.capture_retain(capture))
-    }
-
-    /// [`save`](Self::save) for a program that refills the capture itself with `fill`, at the
-    /// logical time `now` of its last scan (specification 44 §11).
-    ///
-    /// # Errors
-    ///
-    /// As [`save`](Self::save), and the error of `fill`.
+    /// The [`RuntimeError::RetainStore`] of a save that did not complete, the newest committed
+    /// checkpoint staying readable; and the error of `fill`.
     pub fn save_with(
         &mut self,
         now: Duration,
@@ -209,7 +187,7 @@ impl RetainStore {
     /// The checkpoint's payload is the bare STRN v3 payload the shared codec writes, so it is
     /// decoded by the shared payload rule; the persister keeps it as the image last written when it
     /// was written for the installed program's identity, and an unchanged image is then not written
-    /// again ([`RetainStore::capture`]).
+    /// again (`RetainStore::capture`).
     ///
     /// # Errors
     ///
@@ -233,7 +211,6 @@ impl RetainStore {
 /// 11 §6.7; specification 44 §11, §8.8): a chip's checkpoint log over its flash ([`RetainStore`]), or
 /// a computer's retain file. The cycle captures through it after the output sample, advances a
 /// pending save between scans, saves at a stop and recovers the newest values at a warm restart.
-#[cfg(feature = "native")]
 pub trait CycleRetain {
     /// Whether the store persists the retained values; one that does not saves nothing.
     fn persists(&self) -> bool;
@@ -282,7 +259,6 @@ pub trait CycleRetain {
     fn recover(&mut self) -> Result<RetainSnapshot, RuntimeError>;
 }
 
-#[cfg(feature = "native")]
 impl CycleRetain for RetainStore {
     fn persists(&self) -> bool {
         RetainStore::persists(self)

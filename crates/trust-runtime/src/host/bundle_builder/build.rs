@@ -1,75 +1,189 @@
-/// Compile bundle sources into `program.stbc`, which becomes the project's program: a program image
-/// of an earlier build, which a computer would run in its place, is removed (specification 44
-/// NX-15).
-pub fn build_program_stbc(
+/// Builds the project's program image for `target` with `toolchain` (specification 44 §4.1, §8.8).
+/// The image for this computer, `for_this_computer`, is the project's program, `program.tpi` with
+/// its deployment record `deployment-record.bin` (NX-15); an image for another target goes into the
+/// build folder as `program.<triple>.tpi` with `deployment-record.<triple>.bin`. The project's
+/// `[build] debug` chooses a debug or a release image (§13.2), the image is signed with the
+/// project's key or the user's own (§5.11) before its record names its bytes (§10.1), and
+/// `build/build.json` gets the report. The generated crate stays in the build folder with
+/// `emit_source`. A source set that declares OpenOT data gets its hash-bound
+/// `openot-definition.json` too.
+pub fn build_program_image(
     bundle_root: &Path,
     sources_root: Option<&Path>,
+    target: crate::native::Target,
+    toolchain: &crate::native::Toolchain,
+    emit_source: bool,
+    for_this_computer: bool,
 ) -> anyhow::Result<BundleBuildReport> {
-    let compiled = compile_bundle_sources(bundle_root, sources_root)?;
-    fs::create_dir_all(bundle_root)?;
-    let program_path = bundle_root.join("program.stbc");
-    fs::write(&program_path, &compiled.bytes)?;
-    let image_path = bundle_root.join(crate::native::PROGRAM_IMAGE_FILE);
-    match fs::remove_file(&image_path) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => {
-            return Err(error).with_context(|| format!("remove {}", image_path.display()));
-        }
+    use crate::native::{build, debug_hooks, project_key, sign, triple, Options};
+    let layout = inspect_project_layout(bundle_root, sources_root)?;
+    let files = collect_project_sources_labelled(bundle_root, sources_root)?;
+    if files.is_empty() {
+        anyhow::bail!(
+            "no source files found in {} (expected .st/.pou files)",
+            layout.sources_root.display()
+        );
     }
-    // The program's deployment record goes next to it (spec 34 §5.1.1).
-    let deployment_record = crate::deployment::write_record(bundle_root, &compiled.bytes)
-        .with_context(|| {
-            format!(
-                "write {}",
-                bundle_root
-                    .join(crate::deployment::DEPLOYMENT_RECORD_FILE)
-                    .display()
-            )
-        })?;
-    // The program's memory figure on this computer (spec 34 MEM-12), when the runtime prepares it.
-    let program_memory = match &deployment_record {
-        crate::deployment::RecordWrite::Written(_) => Some(crate::deployment::program_memory(
-            bundle_root,
-            &compiled.bytes,
-        )?),
-        crate::deployment::RecordWrite::Skipped(_) => None,
-    };
-    let openot_definition_path = if let Some(definition) = compiled.openot_definition {
-        let path = bundle_root.join("openot-definition.json");
-        let mut definition_bytes = serde_json::to_vec_pretty(&definition)
-            .context("serialize compiled OpenOT definition")?;
-        definition_bytes.push(b'\n');
-        fs::write(&path, definition_bytes)
-            .with_context(|| format!("write {}", path.display()))?;
-        Some(path)
+    let debug = debug_hooks(bundle_root)?;
+    let build_folder = bundle_root.join("build");
+    let work = build_folder.join("native").join(triple(target));
+    let mut built = build(
+        &files,
+        &Options {
+            target,
+            hooks: debug,
+        },
+        toolchain,
+        &work,
+    )?;
+    check_configured_resource(bundle_root, built.resource.as_deref())?;
+    let key = project_key(bundle_root)?;
+    sign(&mut built.image, &key)?;
+    let signer = hex::encode(key.verifying_key().as_bytes());
+    let (image, record) = if for_this_computer {
+        (
+            bundle_root.join(crate::native::PROGRAM_IMAGE_FILE),
+            bundle_root.join(crate::deployment::DEPLOYMENT_RECORD_FILE),
+        )
     } else {
-        None
+        (
+            build_folder.join(format!("program.{}.tpi", triple(target))),
+            build_folder.join(format!("deployment-record.{}.bin", triple(target))),
+        )
     };
-
+    fs::create_dir_all(&build_folder)?;
+    fs::write(&image, &built.image).with_context(|| format!("write {}", image.display()))?;
+    fs::write(
+        &record,
+        crate::deployment::image_record(bundle_root, &built.image)?,
+    )
+    .with_context(|| format!("write {}", record.display()))?;
+    if !emit_source {
+        let _ = fs::remove_file(work.join("module.rs"));
+    }
+    let openot_definition_path = write_openot_definition(bundle_root, &files)?;
+    let figure = built.figure;
+    let source_paths = |paths: &[PathBuf]| {
+        paths
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+    };
+    let json = serde_json::json!({
+        "version": 1,
+        "command": "build",
+        "status": "ok",
+        "project": bundle_root.display().to_string(),
+        "source_count": layout.sources.len(),
+        "sources": source_paths(&layout.sources),
+        "dependency_roots": source_paths(&layout.dependency_roots),
+        "resolved_dependencies": layout.resolved_dependencies,
+        "target": triple(target),
+        "debug": debug,
+        "image": image.display().to_string(),
+        "image_bytes": built.image.len(),
+        "signer": signer,
+        "record": record.display().to_string(),
+        "memory_figure": {
+            "areas": figure.areas,
+            "stack": figure.stack,
+            "bookkeeping": figure.bookkeeping,
+            "retain_capture": figure.retain_capture,
+            "total": figure.total,
+            "call_level": figure.call_level,
+        },
+        "flash": {
+            "code": figure.code,
+            "rodata": figure.rodata,
+            "init": figure.init,
+        },
+    });
+    fs::write(
+        build_folder.join("build.json"),
+        serde_json::to_string_pretty(&json)? + "\n",
+    )?;
     Ok(BundleBuildReport {
-        program_path,
-        deployment_record,
-        program_memory,
+        image,
+        record,
+        debug,
+        image_bytes: built.image.len(),
+        figure,
+        signer,
         openot_definition_path,
-        sources: compiled.sources,
-        dependency_roots: compiled.dependency_roots,
-        resolved_dependencies: compiled.resolved_dependencies,
+        sources: layout.sources,
+        dependency_roots: layout.dependency_roots,
+        resolved_dependencies: layout.resolved_dependencies,
+        json,
     })
 }
 
-/// Compile bundle sources in memory without writing `program.stbc`.
-pub fn check_program_stbc(
+/// Refuses a project whose `runtime.toml` names another resource than the `RESOURCE` its program
+/// declares, compared without regard to case (specification 11 §6.7.1): an image runs the one
+/// resource it was built from. A program without a `CONFIGURATION`, `declared` `None`, runs under
+/// the name the project gives it, and so does a project without `runtime.toml`.
+fn check_configured_resource(bundle_root: &Path, declared: Option<&str>) -> anyhow::Result<()> {
+    let Some(declared) = declared else {
+        return Ok(());
+    };
+    let runtime_toml = bundle_root.join("runtime.toml");
+    if !runtime_toml.is_file() {
+        return Ok(());
+    }
+    let configured = crate::config::RuntimeConfig::load(&runtime_toml)?.resource_name;
+    if configured.eq_ignore_ascii_case(declared) {
+        return Ok(());
+    }
+    anyhow::bail!(
+        "resource '{configured}' of runtime.toml is not the RESOURCE the program declares ('{declared}')"
+    )
+}
+
+/// Writes the hash-bound OpenOT definition of `files` as `openot-definition.json`, when the source
+/// set declares OpenOT data.
+fn write_openot_definition(
+    bundle_root: &Path,
+    files: &[SourceFile],
+) -> anyhow::Result<Option<PathBuf>> {
+    let definition = match crate::openot_authoring::definition_json_from_sources(files) {
+        Ok(definition) => definition,
+        Err(error) if error == "no OpenOT declaration attributes found" => return Ok(None),
+        Err(error) => {
+            return Err(anyhow::Error::msg(error))
+                .context("generate OpenOT definition from compiled source set");
+        }
+    };
+    let path = bundle_root.join("openot-definition.json");
+    let mut bytes =
+        serde_json::to_vec_pretty(&definition).context("serialize compiled OpenOT definition")?;
+    bytes.push(b'\n');
+    fs::write(&path, bytes).with_context(|| format!("write {}", path.display()))?;
+    Ok(Some(path))
+}
+
+/// Checks the project's sources without the toolchain: the build's front and its generator run for
+/// this computer's CPU, as a build for it would (specification 44 §4.1), and nothing is written.
+pub fn check_program(
     bundle_root: &Path,
     sources_root: Option<&Path>,
-) -> anyhow::Result<BundleCheckReport> {
-    let compiled = compile_bundle_sources(bundle_root, sources_root)?;
-    Ok(BundleCheckReport {
-        bytecode_size: compiled.bytes.len(),
-        sources: compiled.sources,
-        dependency_roots: compiled.dependency_roots,
-        resolved_dependencies: compiled.resolved_dependencies,
-    })
+) -> anyhow::Result<ProjectInspectionReport> {
+    let layout = inspect_project_layout(bundle_root, sources_root)?;
+    let files = collect_project_sources_labelled(bundle_root, sources_root)?;
+    if files.is_empty() {
+        anyhow::bail!(
+            "no source files found in {} (expected .st/.pou files)",
+            layout.sources_root.display()
+        );
+    }
+    let target = crate::native::Target::this_cpu()
+        .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+    crate::native::generate_source(
+        &files,
+        &crate::native::Options {
+            target,
+            hooks: false,
+        },
+    )?;
+    Ok(layout)
 }
 
 /// Collect compile sources for a project, including any local package dependencies.
@@ -116,7 +230,7 @@ pub fn collect_project_sources_labelled(
     Ok(sources)
 }
 
-/// Inspect project sources/dependencies without building bytecode.
+/// Inspect project sources/dependencies without building the program.
 pub fn inspect_project_layout(
     bundle_root: &Path,
     sources_root: Option<&Path>,
@@ -176,59 +290,6 @@ pub fn resolve_sources_root(
         "invalid project folder '{}': missing src/ directory",
         bundle_root.display()
     );
-}
-
-struct CompiledBundleSources {
-    bytes: Vec<u8>,
-    openot_definition: Option<serde_json::Value>,
-    sources: Vec<PathBuf>,
-    dependency_roots: Vec<PathBuf>,
-    resolved_dependencies: Vec<String>,
-}
-
-fn compile_bundle_sources(
-    bundle_root: &Path,
-    sources_root: Option<&Path>,
-) -> anyhow::Result<CompiledBundleSources> {
-    let sources_root = resolve_sources_root(bundle_root, sources_root)?;
-
-    let dependencies = resolve_local_dependencies(bundle_root)?;
-    let mut source_roots = vec![sources_root.clone()];
-    for dependency in &dependencies {
-        source_roots.push(preferred_dependency_sources_root(&dependency.path));
-    }
-
-    let (sources, source_paths) = collect_sources(&source_roots)?;
-    if sources.is_empty() {
-        anyhow::bail!(
-            "no source files found in {} (expected .st/.pou files)",
-            sources_root.display()
-        );
-    }
-
-    let openot_definition = match crate::openot_authoring::definition_json_from_sources(&sources) {
-        Ok(definition) => Some(definition),
-        Err(error) if error == "no OpenOT declaration attributes found" => None,
-        Err(error) => {
-            return Err(anyhow::Error::msg(error))
-                .context("generate OpenOT definition from compiled source set");
-        }
-    };
-    let session = CompileSession::from_sources(sources);
-    let bytes = session.build_bytecode_bytes()?;
-    Ok(CompiledBundleSources {
-        bytes,
-        openot_definition,
-        sources: source_paths,
-        dependency_roots: dependencies
-            .iter()
-            .map(|dependency| dependency.path.clone())
-            .collect(),
-        resolved_dependencies: dependencies
-            .iter()
-            .map(|dependency| dependency.name.clone())
-            .collect(),
-    })
 }
 
 fn preferred_dependency_sources_root(path: &Path) -> PathBuf {

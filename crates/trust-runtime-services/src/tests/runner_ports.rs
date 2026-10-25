@@ -1,56 +1,360 @@
 //! Platform ports for the resource loop's contract tests: a control link, a wait and a clock that
-//! the test drives, a process I/O that the test reads and fails, and the board probe program
-//! (`portability/f401/gpio.stbc`) on the shared engine cycle ([`crate::runner::engine`]) behind
-//! the cycle port with the failures a test injects; the platform is in
-//! [`super::runner_platform`].
+//! the test drives, a process I/O that the test reads and fails, and the board probe compiled
+//! (specification 44): its image written here by hand and a stand-in module written against the
+//! kernel interface, on the compiled cycle ([`crate::runner::CompiledCycle`]) behind the cycle port
+//! with the failures a test injects; the platform is in [`super::runner_platform`].
+//!
+//! The board probe is this program; the stand-in module runs its body:
+//!
+//! ```text
+//! VAR_GLOBAL
+//!     probe_depth : INT := INT#1;
+//! END_VAR
+//!
+//! PROGRAM Gpio
+//! VAR
+//!     button AT %IX0.0 : BOOL;
+//!     led AT %QX0.0 : BOOL;
+//!     depth_result : INT;
+//! END_VAR
+//! led := button;
+//! CASE probe_depth OF
+//!     2: depth_result := INT#2;
+//!     3: depth_result := INT#3;
+//!     4: depth_result := INT#4;
+//! ELSE
+//!     depth_result := INT#1;
+//! END_CASE;
+//! END_PROGRAM
+//!
+//! CONFIGURATION BoardProbe
+//! RESOURCE Controller ON PLC
+//! TASK Scan (INTERVAL := T#10ms, PRIORITY := 0);
+//! PROGRAM Plant WITH Scan : Gpio;
+//! END_RESOURCE
+//! END_CONFIGURATION
+//! ```
 
 use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 use alloc::rc::Rc;
 use alloc::string::{String, ToString};
+use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::time::Duration;
 
 use smol_str::SmolStr;
+use trust_plc_abi::kernel::Entry;
+use trust_plc_abi::module::run;
+use trust_plc_abi::{Cx, AREA_GLOBALS, AREA_INSTANCES};
+use trust_runtime_core::cycle::CycleHooks;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::Generation;
+use trust_runtime_core::native::image::{
+    type_kind, AreaRecord, CodeImage, EntryKind, EntryRecord, FileRecord, ImageWriter,
+    IoBindRecord, MemoryFigure, RetainRecord, SectionId, StmtRecord, StringPool, SymbolRecord,
+    Target, TaskRecord, TypeRecord, AREA_HAS_INIT, NONE, SYMBOL_DIRECT, SYMBOL_PROGRAM,
+};
+use trust_runtime_core::native::live::io_bindings;
+use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
+use trust_runtime_core::native::KERNEL_FUNCTIONS;
 use trust_runtime_core::ports::{
     ControlLink, LinkFrame, MonotonicClock, MonotonicInstant, PeerClass, PortError, RunnerWait,
     TimeSpan, WakeReason, WakeToken,
 };
-use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::retain::{RestartMode, RetainApplyEvent};
 use trust_runtime_core::value::{self, Value};
-use trust_runtime_core::vm::{
-    CycleAccess, CycleHooks, CyclePhase, PreparedModule, RetainApplyEvent,
-};
 use trust_runtime_core::watchdog::{FaultPolicy, WatchdogPolicy};
 
 pub(crate) use super::runner_platform::TestPlatform;
 use crate::cycle_step::{StepOutcome, StepRefusal, StepRequest};
-use crate::debug::LineSources;
 use crate::events::EVENT_STORE_CAPACITY;
-use crate::runner::engine::{
-    device_limits, CycleSettings, DeviceMemory, DeviceServices, EngineCycle, ProcessIo,
-};
 use crate::runner::{
-    DebugView, EngineLiveValues, HoldHandle, ResourceCycle, RetainSource, Runner, TaskDescriptor,
+    CompiledCycle, CompiledView, CycleSettings, DeviceLiveValues, HoldHandle, ProcessIo,
+    ResourceCycle, RetainSource, Runner, TaskDescriptor,
 };
 use crate::status::IoDriverStatus;
 
-/// The board probe: `led := button` in task `Scan` every 10 ms on resource `Controller`.
-pub(crate) const GPIO: &[u8] =
-    include_bytes!("../../../trust-runtime/tests/fixtures/portability/f401/gpio.stbc");
+/// The code offset of the board probe's body in its stand-in module.
+const BODY: u32 = 0;
+/// The code offset of the board probe's cold initialization, which does nothing.
+const COLD_INIT: u32 = 16;
 
-/// The application region and heap of today's chips (16 KiB and 72 KiB), whose admission limits
-/// the board fixture's runs proved on both, and the 7 call levels the ESP32-C6's main stack holds
-/// (specification 34 D.2).
-pub(crate) const CHIP_MEMORY: DeviceMemory = DeviceMemory {
-    region_bytes: 16 * 1024,
-    heap_bytes: 72 * 1024,
-    call_depth: 7,
-};
+macro_rules! entry {
+    ($name:ident, $body:expr) => {
+        #[cfg(target_arch = "x86_64")]
+        extern "sysv64" fn $name(cx: *mut Cx) -> u32 {
+            run(cx, $body)
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        extern "C" fn $name(cx: *mut Cx) -> u32 {
+            run(cx, $body)
+        }
+    };
+}
+
+// The body of `Gpio`: `led := button`, then `depth_result` from `probe_depth`. `probe_depth` is
+// bytes 0 and 1 of the globals; `button`, `led` and `depth_result` are bytes 0, 1 and 2 to 3 of the
+// instance `Plant`.
+entry!(probe_body, |cx, areas| {
+    let globals: &[Cell<u8>; 8] = areas.view(cx, AREA_GLOBALS)?;
+    let plant: &[Cell<u8>; 8] = areas.view(cx, AREA_INSTANCES)?;
+    plant[1].set(plant[0].get());
+    let depth = i16::from_le_bytes([globals[0].get(), globals[1].get()]);
+    let result = if (2..=4).contains(&depth) { depth } else { 1 };
+    let [low, high] = result.to_le_bytes();
+    plant[2].set(low);
+    plant[3].set(high);
+    Ok(())
+});
+
+entry!(nothing, |_, _| Ok(()));
+
+/// The board probe's stand-in module: its body at [`BODY`] and its cold initialization at
+/// [`COLD_INIT`].
+pub(crate) struct ProbeCode;
+
+impl ModuleCode for ProbeCode {
+    fn entry(&self, offset: u32) -> Option<Entry> {
+        match offset {
+            BODY => Some(Entry::from_fn(probe_body)),
+            COLD_INIT => Some(Entry::from_fn(nothing)),
+            _ => None,
+        }
+    }
+}
+
+/// The type indices of the board probe's image.
+const BOOL_TYPE: u32 = 0;
+const INT_TYPE: u32 = 1;
+const PROGRAM_TYPE: u32 = 2;
+
+/// The board probe's image for this computer's CPU: the instance `Plant` of `Gpio` in the task
+/// `Scan` of 10 ms at priority 0; the globals of 8 bytes, `probe_depth` starting at 1; the instance
+/// area of 8 bytes; one byte of `%I` and one of `%Q`, with `Plant.button` bound to `%IX0.0` and
+/// `Plant.led` to `%QX0.0`; the file `gpio.st` and no statement table.
+pub(crate) fn board_probe_image() -> Vec<u8> {
+    let mut strings = StringPool::new();
+    let scan = strings.add("Scan");
+    let gpio = strings.add("Gpio");
+    let label = strings.add("gpio.st");
+    let mut writer = ImageWriter::new(
+        Target::this_cpu().unwrap_or(Target::X86_64),
+        u16::try_from(trust_plc_abi::INTERFACE_VERSION).expect("the interface version is a u16"),
+    );
+    board_probe_layout(&mut writer, scan, gpio);
+    board_probe_symbols(&mut writer, &mut strings);
+    // `Plant.button` (symbol 1) at `%IX0.0` and `Plant.led` (symbol 3) at `%QX0.0`.
+    let bit = |symbol, area| IoBindRecord {
+        symbol,
+        area,
+        size: 0,
+        byte: 0,
+        bit: 0,
+        kind: 0,
+        flags: 0,
+    };
+    writer.table(&[bit(1, 1), bit(3, 2)], &[]);
+    writer.table::<StmtRecord>(&[], &[]);
+    writer.table::<RetainRecord>(&[], &[]);
+    writer.table(
+        &[FileRecord {
+            label,
+            source_offset: NONE,
+            source_length: 0,
+        }],
+        &[],
+    );
+    writer.section(
+        SectionId::MemFig,
+        MemoryFigure {
+            areas: 18,
+            stack: 64,
+            bookkeeping: 24,
+            total: 106,
+            ..MemoryFigure::default()
+        }
+        .bytes()
+        .to_vec(),
+    );
+    writer.section(SectionId::Strings, strings.into_bytes());
+    writer.finish().expect("the board probe's image builds")
+}
+
+/// Writes the module of [`board_probe_image`] and its entry, area, task and type tables, with the
+/// globals' starting memory: the task `scan` and the program type `gpio`.
+fn board_probe_layout(writer: &mut ImageWriter, scan: u32, gpio: u32) {
+    writer.module(CodeImage {
+        code: vec![0; 64],
+        rodata: Vec::new(),
+        rodata_distance: 64,
+    });
+    writer.table(
+        &[
+            EntryRecord {
+                kind: EntryKind::ProgramBody as u32,
+                index: 0,
+                code_offset: BODY,
+            },
+            EntryRecord {
+                kind: EntryKind::ColdInit as u32,
+                index: 0,
+                code_offset: COLD_INIT,
+            },
+        ],
+        &[],
+    );
+    let area = |id: u8, length: u64, flags: u32| AreaRecord {
+        id: u32::from(id),
+        length,
+        alignment: 8,
+        flags,
+        init_offset: 0,
+    };
+    writer.table(
+        &[
+            area(1, 1, 0),
+            area(2, 1, 0),
+            area(3, 0, 0),
+            area(AREA_GLOBALS, 8, AREA_HAS_INIT),
+            area(5, 0, 0),
+            area(AREA_INSTANCES, 8, 0),
+        ],
+        &[],
+    );
+    // The globals' starting memory: `probe_depth` is INT#1.
+    writer.section(SectionId::Init, vec![1, 0, 0, 0, 0, 0, 0, 0]);
+    writer.table(
+        &[TaskRecord {
+            name: scan,
+            interval_ns: 10_000_000,
+            priority: 0,
+            single: NONE,
+            program_count: 1,
+            program_first: 0,
+            flags: 0,
+        }],
+        &0u32.to_le_bytes(),
+    );
+    writer.table(
+        &[
+            TypeRecord {
+                kind: type_kind::BOOL,
+                name: 0,
+                size: 1,
+                alignment: 1,
+                detail: 0,
+                count: 0,
+            },
+            TypeRecord {
+                kind: type_kind::INT,
+                name: 0,
+                size: 2,
+                alignment: 2,
+                detail: 0,
+                count: 0,
+            },
+            TypeRecord {
+                kind: type_kind::PROGRAM,
+                name: gpio,
+                size: 8,
+                alignment: 8,
+                detail: 0,
+                count: 0,
+            },
+        ],
+        &[],
+    );
+}
+
+/// Writes the symbol table of [`board_probe_image`].
+fn board_probe_symbols(writer: &mut ImageWriter, strings: &mut StringPool) {
+    // The symbols sorted by canonical name: the program root first, then its variables, then the
+    // global. A variable's parent is the program root, symbol 0.
+    let mut variable =
+        |canonical: &str, display: &str, ty, area, flags, offset, size, parent| SymbolRecord {
+            canonical: strings.add(canonical),
+            display: strings.add(display),
+            type_index: ty,
+            area,
+            flags,
+            offset,
+            size,
+            parent,
+            pou: NONE,
+        };
+    let symbols = [
+        // The program root carries the instance's number, 0 (specification 44 §5.7).
+        SymbolRecord {
+            pou: 0,
+            ..variable(
+                "PLANT",
+                "Plant",
+                PROGRAM_TYPE,
+                AREA_INSTANCES,
+                SYMBOL_PROGRAM,
+                0,
+                8,
+                NONE,
+            )
+        },
+        variable(
+            "PLANT.BUTTON",
+            "Plant.button",
+            BOOL_TYPE,
+            AREA_INSTANCES,
+            SYMBOL_DIRECT,
+            0,
+            1,
+            0,
+        ),
+        variable(
+            "PLANT.DEPTH_RESULT",
+            "Plant.depth_result",
+            INT_TYPE,
+            AREA_INSTANCES,
+            0,
+            2,
+            2,
+            0,
+        ),
+        variable(
+            "PLANT.LED",
+            "Plant.led",
+            BOOL_TYPE,
+            AREA_INSTANCES,
+            SYMBOL_DIRECT,
+            1,
+            1,
+            0,
+        ),
+        variable(
+            "PROBE_DEPTH",
+            "probe_depth",
+            INT_TYPE,
+            AREA_GLOBALS,
+            0,
+            0,
+            2,
+            NONE,
+        ),
+    ];
+    writer.table(&symbols, &[]);
+}
+
+/// The device the board probe is admitted on: this computer's CPU, room enough for its memory and
+/// its stack, and the default statement budget (specification 44 NX-10).
+fn probe_device() -> Device {
+    Device {
+        target: Target::this_cpu().unwrap_or(Target::X86_64),
+        program_memory: 1 << 20,
+        task_stack: 1 << 20,
+        max_statements: 1_000_000,
+        trusted_keys: &[],
+    }
+}
 
 /// A span of `value` milliseconds.
 pub(crate) fn ms(value: u64) -> Duration {
@@ -262,15 +566,6 @@ impl TestLink {
         self.send_bytes(request.to_string().as_bytes(), PeerClass::Local);
     }
 
-    /// Queues `request` from a local client, which reaches the loop when the clock reaches `at`.
-    pub(crate) fn send_at(&self, request: &serde_json::Value, at: Duration) {
-        self.state.borrow_mut().incoming.push_back((
-            request.to_string().into_bytes(),
-            PeerClass::Local,
-            at,
-        ));
-    }
-
     /// Queues raw frame bytes from `peer`.
     pub(crate) fn send_bytes(&self, frame: &[u8], peer: PeerClass) {
         self.state
@@ -327,12 +622,9 @@ impl ControlLink for TestLink {
     }
 }
 
-/// What the engine cycle asked of the process I/O, in order, among the engine phases that a
-/// [`PhaseRecorder`] saw.
+/// What the compiled cycle asked of the process I/O, in order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum IoStep {
-    /// An engine phase.
-    Phase(CyclePhase),
     /// The inputs were read.
     ReadInputs,
     /// The publication drove this output image.
@@ -378,11 +670,6 @@ impl TestIo {
     pub(crate) fn take_steps(&self) -> Vec<IoStep> {
         core::mem::take(&mut self.state.borrow_mut().steps)
     }
-
-    /// A scan observer that records each engine phase among the process I/O's steps.
-    pub(crate) fn phases(&self) -> PhaseRecorder {
-        PhaseRecorder(Rc::clone(&self.state))
-    }
 }
 
 impl ProcessIo for TestIo {
@@ -416,20 +703,6 @@ impl ProcessIo for TestIo {
     }
 }
 
-/// A scan observer that records the engine phases among the process I/O's steps.
-pub(crate) struct PhaseRecorder(Rc<RefCell<IoState>>);
-
-impl CycleHooks for PhaseRecorder {
-    fn on_phase(
-        &mut self,
-        phase: CyclePhase,
-        _access: &mut CycleAccess<'_, '_>,
-    ) -> Result<(), RuntimeError> {
-        self.0.borrow_mut().steps.push(IoStep::Phase(phase));
-        Ok(())
-    }
-}
-
 /// What the loop asked of the installed program, in order. Times are logical times.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum CycleCall {
@@ -455,9 +728,12 @@ pub(crate) struct CycleScript {
     pub(crate) cycle_interval: value::Duration,
     /// The next scans fail with these errors without running.
     pub(crate) failing_scans: VecDeque<RuntimeError>,
-    /// Time that passes before a scan's work starts, so the engine can miss its deadline.
+    /// Time that passes before a scan's work starts, so the program can miss its deadline.
     pub(crate) stall: Duration,
-    /// Time that passes after a scan's work, inside the scan.
+    /// Time a debugger hold takes after a scan's work, inside the scan: it passes on the clock
+    /// and is held time, which is no active time (specification 11 §6.6).
+    pub(crate) held: Duration,
+    /// Time that passes after a scan's work and its hold, inside the scan.
     pub(crate) scan_time: Duration,
     /// The next restarts fail with these errors and change nothing.
     pub(crate) failing_restarts: VecDeque<RuntimeError>,
@@ -478,6 +754,7 @@ impl Default for CycleScript {
             cycle_interval: value::Duration::from_millis(10),
             failing_scans: VecDeque::new(),
             stall: Duration::ZERO,
+            held: Duration::ZERO,
             scan_time: Duration::ZERO,
             failing_restarts: VecDeque::new(),
             safe_outputs_error: None,
@@ -490,37 +767,17 @@ impl Default for CycleScript {
     }
 }
 
-/// The board probe on the shared engine cycle, behind the cycle port: it records what the loop
-/// asks and injects the script's failures in front of the engine cycle.
+/// The board probe on the compiled cycle, behind the cycle port: it records what the loop asks and
+/// injects the script's failures in front of the cycle.
 pub(crate) struct ScriptedCycle<'a> {
-    engine: EngineCycle<'a, TestClock, TestIo>,
+    cycle: CompiledCycle<'a, TestClock, TestIo, ProbeCode>,
     clock: TestClock,
     script: Rc<RefCell<CycleScript>>,
     /// The loop's pass for a held scan, which the loop gave the cycle: kept to prove, at every
     /// scan, that the loop calls the cycle with no cell of its own borrowed.
     hold: Option<HoldHandle>,
-}
-
-impl<'a> ScriptedCycle<'a> {
-    /// The engine cycle `engine` behind the script, which records what the loop asks of it: the
-    /// program a loader built (specification 34 STATE-08).
-    pub(crate) fn new(
-        engine: EngineCycle<'a, TestClock, TestIo>,
-        clock: TestClock,
-        script: Rc<RefCell<CycleScript>>,
-    ) -> Self {
-        Self {
-            engine,
-            clock,
-            script,
-            hold: None,
-        }
-    }
-
-    /// The engine cycle behind the script, for a test that reads the program's values.
-    pub(crate) fn engine(&self) -> &EngineCycle<'a, TestClock, TestIo> {
-        &self.engine
-    }
+    /// The holds the script made, beside the compiled cycle's own.
+    held: TimeSpan,
 }
 
 /// The span of a logical time, for the calls the test compares.
@@ -530,31 +787,35 @@ fn since_start(time: value::Duration) -> Duration {
 
 impl ResourceCycle for ScriptedCycle<'_> {
     fn tasks(&self) -> Vec<TaskDescriptor> {
-        self.engine.tasks()
+        self.cycle.tasks()
+    }
+
+    fn programs(&self) -> Vec<SmolStr> {
+        self.cycle.programs()
     }
 
     fn cycle_interval(&self) -> value::Duration {
-        self.engine.cycle_interval()
+        self.cycle.cycle_interval()
     }
 
     fn watchdog(&self) -> WatchdogPolicy {
-        self.engine.watchdog()
+        self.cycle.watchdog()
     }
 
     fn fault_policy(&self) -> FaultPolicy {
-        self.engine.fault_policy()
+        self.cycle.fault_policy()
     }
 
     fn held_time(&self) -> TimeSpan {
-        self.engine.held_time()
+        self.cycle.held_time().saturating_add(self.held)
     }
 
     fn allocator_operations(&self) -> Option<u32> {
-        self.engine.allocator_operations()
+        self.cycle.allocator_operations()
     }
 
     fn last_scan_allocations(&self) -> Option<u64> {
-        self.engine.last_scan_allocations()
+        self.cycle.last_scan_allocations()
     }
 
     fn run_scan(
@@ -569,7 +830,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
                 "a cell of the loop is borrowed when the loop runs a scan"
             );
         }
-        let (stall, scan_time) = {
+        let (stall, held, scan_time) = {
             let mut script = self.script.borrow_mut();
             script.calls.push(CycleCall::Scan {
                 now: since_start(now),
@@ -578,10 +839,12 @@ impl ResourceCycle for ScriptedCycle<'_> {
             if let Some(error) = script.failing_scans.pop_front() {
                 return Err(error);
             }
-            (script.stall, script.scan_time)
+            (script.stall, script.held, script.scan_time)
         };
         self.clock.advance(stall);
-        let result = self.engine.run_scan(now, deadline, observer);
+        let result = self.cycle.run_scan(now, deadline, observer);
+        self.clock.advance(held);
+        self.held = self.held.saturating_add(TimeSpan::new(held));
         self.clock.advance(scan_time);
         if let Some(hold) = &self.hold {
             assert!(
@@ -597,7 +860,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
             .borrow_mut()
             .calls
             .push(CycleCall::Latch(fault.to_string()));
-        self.engine.latch_fault(fault);
+        self.cycle.latch_fault(fault);
     }
 
     fn apply_safe_outputs(&mut self) -> Result<(), RuntimeError> {
@@ -608,7 +871,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
         };
         match injected {
             Some(error) => Err(error),
-            None => self.engine.apply_safe_outputs(),
+            None => self.cycle.apply_safe_outputs(),
         }
     }
 
@@ -620,7 +883,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
         };
         match injected {
             Some(error) => Err(error),
-            None => self.engine.save_retain(),
+            None => self.cycle.save_retain(),
         }
     }
 
@@ -634,7 +897,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
         if let Some(error) = script.failing_restarts.pop_front() {
             return Err(error);
         }
-        let mut events = self.engine.restart(mode, source)?;
+        let mut events = self.cycle.restart(mode, source)?;
         events.append(&mut script.restart_events);
         Ok(events)
     }
@@ -644,7 +907,7 @@ impl ResourceCycle for ScriptedCycle<'_> {
             .borrow_mut()
             .calls
             .push(CycleCall::TaskTiming(since_start(now)));
-        self.engine.reset_task_timing(now);
+        self.cycle.reset_task_timing(now);
     }
 
     fn step(
@@ -653,24 +916,24 @@ impl ResourceCycle for ScriptedCycle<'_> {
         restart_at: value::Duration,
         deadline: Option<MonotonicInstant>,
     ) -> Result<StepOutcome, StepRefusal> {
-        self.engine.step(request, restart_at, deadline)
+        self.cycle.step(request, restart_at, deadline)
     }
 
     fn generation(&self) -> Generation {
-        self.engine.generation()
+        self.cycle.generation()
     }
 
     fn io_drivers(&self) -> Vec<IoDriverStatus> {
-        self.engine.io_drivers()
+        self.cycle.io_drivers()
     }
 
     fn attach_hold(&mut self, hold: HoldHandle) {
         self.hold = Some(hold.clone());
-        self.engine.attach_hold(hold);
+        self.cycle.attach_hold(hold);
     }
 
-    fn debug_view(&self) -> Option<DebugView<'_>> {
-        self.engine.debug_view()
+    fn compiled_view(&self) -> Option<CompiledView<'_>> {
+        self.cycle.compiled_view()
     }
 }
 
@@ -687,15 +950,10 @@ pub(crate) struct Fixture {
     pub(crate) io: TestIo,
     pub(crate) script: Rc<RefCell<CycleScript>>,
     /// The Live Values the runner applies and the platform answers from.
-    pub(crate) live: Rc<EngineLiveValues>,
-    /// The program and the execution services live for the rest of the test run, as a firmware
-    /// keeps them, so that the debugger can find the program's statement starts.
-    prepared: &'static PreparedModule,
-    /// The program's line table and file labels, when it has a line table.
-    sources: Option<&'static LineSources>,
-    services: &'static DeviceServices<TestClock>,
-    /// Whether a loop started from this fixture lets the debugger hold its scans.
-    debugger: bool,
+    pub(crate) live: DeviceLiveValues,
+    /// The board probe's image, which lives for the rest of the test run, as a chip keeps its
+    /// program where it lies.
+    image: &'static [u8],
 }
 
 impl Fixture {
@@ -707,63 +965,21 @@ impl Fixture {
 
     /// The board probe on a link that moves frames of up to `max_frame_len` bytes.
     pub(crate) fn with_frames_of(max_frame_len: usize) -> Self {
-        Self::installing(GPIO, max_frame_len)
-    }
-
-    /// The program `artifact`, admitted as a chip admits it, at time zero; the link moves
-    /// frames of up to 4,096 bytes.
-    pub(crate) fn with_program(artifact: &[u8]) -> Self {
-        Self::installing(artifact, 4_096)
-    }
-
-    fn installing(artifact: &[u8], max_frame_len: usize) -> Self {
         let clock = TestClock::default();
-        let prepared: &'static PreparedModule = Box::leak(Box::new(
-            PreparedModule::from_bytes(artifact, device_limits(CHIP_MEMORY))
-                .expect("the program is admitted"),
-        ));
-        let live = Rc::new(
-            EngineLiveValues::for_prepared(
-                prepared,
-                alloc::vec![None; prepared.io_bindings().len()],
-            )
-            .expect("the program's retained names bind"),
-        );
-        let sources = LineSources::read(artifact, &device_limits(CHIP_MEMORY))
-            .expect("the program's line table reads")
-            .map(|sources| &*Box::leak(Box::new(sources)));
+        let image: &'static [u8] = Box::leak(board_probe_image().into_boxed_slice());
+        let admitted = admit(image, &probe_device()).expect("the board probe is admitted");
+        let (bindings, names) = io_bindings(&admitted).expect("the board probe's bindings read");
+        let live = DeviceLiveValues::for_compiled(bindings, names)
+            .expect("the board probe's Live Values bind");
         Self {
             wait: TestWait::new(clock.clone()),
             link: TestLink::new(max_frame_len, clock.clone()),
             io: TestIo::new(clock.clone()),
             script: Rc::new(RefCell::new(CycleScript::default())),
             live,
-            services: Box::leak(Box::new(DeviceServices::new(clock.clone()))),
-            prepared,
-            sources,
+            image,
             clock,
-            debugger: false,
         }
-    }
-
-    /// The execution services of every loop this fixture starts.
-    pub(crate) fn services(&self) -> &'static DeviceServices<TestClock> {
-        self.services
-    }
-
-    /// The fixture with the debugger attached to the program of every loop it starts: the program
-    /// is held at the statement starts of its `LINE_TABLE` when the debugger says so.
-    pub(crate) fn with_debugger(mut self) -> Self {
-        self.debugger = true;
-        self
-    }
-
-    /// Queues `request` to reach the link when the clock reaches `at`, as a host sends it, and
-    /// wakes the wait then, as the link's interrupt does. An advancing wait ([`TestWait::advance_time`])
-    /// sleeps through the time.
-    pub(crate) fn arrive_at(&self, at: Duration, request: &serde_json::Value) {
-        self.link.send_at(request, at);
-        self.wait.at(at, || {});
     }
 
     /// A loop that has just started the program, with the test platform; what the loop asked of
@@ -822,16 +1038,16 @@ impl Fixture {
         runner
     }
 
-    /// The program started on the shared engine cycle with the script's settings, as the
-    /// composition starts it at power-on, and the loop built at the clock's current time, with
-    /// the computer's default event store.
+    /// The program started on the compiled cycle with the script's settings, as the composition
+    /// starts it at power-on, and the loop built at the clock's current time, with the computer's
+    /// default event store.
     pub(crate) fn power_on(&self, platform: TestPlatform) -> TestRunner<'_> {
         self.power_on_with_capacity(platform, EVENT_STORE_CAPACITY)
     }
 
-    /// The program started on the shared engine cycle with the script's settings, as the
-    /// composition starts it at power-on, and the loop built at the clock's current time with an
-    /// event store of `event_capacity`.
+    /// The program started on the compiled cycle with the script's settings, as the composition
+    /// starts it at power-on, and the loop built at the clock's current time with an event store
+    /// of `event_capacity`.
     pub(crate) fn power_on_with_capacity(
         &self,
         platform: TestPlatform,
@@ -840,7 +1056,7 @@ impl Fixture {
         self.start_with_link(self.link.clone(), platform, event_capacity, false)
     }
 
-    /// The program started on the shared engine cycle and then restarted warm, as the composition
+    /// The program started on the compiled cycle and then restarted warm, as the composition
     /// starts a program that keeps retained values, and the loop built at the clock's current time
     /// with the test platform. The restart installed the next generation of the program's state
     /// before the loop was built; what the loop asked of the program at power-on is taken already.
@@ -855,9 +1071,9 @@ impl Fixture {
         runner
     }
 
-    /// The program started on the shared engine cycle with the script's settings, as the
-    /// composition starts it at power-on, and the loop built over `link` at the clock's current
-    /// time with an event store of `event_capacity`. `restarted_warm` restarts the program warm
+    /// The program started on the compiled cycle with the script's settings, as the composition
+    /// starts it at power-on, and the loop built over `link` at the clock's current time with an
+    /// event store of `event_capacity`. `restarted_warm` restarts the program warm
     /// before the loop is built, as the composition does for a program that keeps retained values.
     fn start_with_link<L>(
         &self,
@@ -869,9 +1085,9 @@ impl Fixture {
     where
         L: ControlLink + 'static,
     {
-        // The runner applies the Live Values of the prepared program, so the platform answers the
+        // The runner applies the Live Values of the program's bindings, so the platform answers the
         // control requests from the same queues and snapshot.
-        platform.live_values = Rc::clone(&self.live);
+        platform.live_values = self.live.clone();
         platform.clock = Some(self.clock.clone());
         let settings = {
             let script = self.script.borrow();
@@ -882,24 +1098,24 @@ impl Fixture {
                 safe_outputs: script.safe_outputs.clone(),
             }
         };
-        let mut engine =
-            EngineCycle::start(self.prepared, self.services, self.io.clone(), settings)
+        let device = probe_device();
+        let admitted = admit(self.image, &device).expect("the board probe is admitted");
+        let program = NativeProgram::new(admitted, ProbeCode, &device, &KERNEL_FUNCTIONS)
+            .expect("the board probe is built");
+        let mut cycle =
+            CompiledCycle::start(program, self.io.clone(), settings, self.clock.clone())
                 .expect("the board probe starts");
         if restarted_warm {
-            engine
+            cycle
                 .restart(RestartMode::Warm, RetainSource::Checkpoint)
                 .expect("the board probe restarts warm");
         }
-        let engine = if self.debugger {
-            engine.with_debugger(self.sources)
-        } else {
-            engine
-        };
         let cycle = ScriptedCycle {
-            engine,
+            cycle,
             clock: self.clock.clone(),
             script: Rc::clone(&self.script),
             hold: None,
+            held: TimeSpan::ZERO,
         };
         Runner::new(
             link,

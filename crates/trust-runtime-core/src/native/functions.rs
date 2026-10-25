@@ -18,6 +18,10 @@ impl RealReader for RuntimeReals {
 }
 
 /// The functions of the kernel (specification 44 §8.2, §13): a stop goes to the debugger of the
-/// call, when the program's cycle gave it one, no write is queued, and a text reads as the
-/// runtime reads it.
-pub static KERNEL_FUNCTIONS: KernelApi = with_debugger(read_real::<RuntimeReals>);
+/// call, when the program's cycle gave it one, no write is queued, a text reads as the runtime
+/// reads it, and no wall clock is read; a platform with a wall clock adds its own
+/// (`trust_plc_abi::kernel::with_wall_clock`).
+pub const KERNEL_API: KernelApi = with_debugger(read_real::<RuntimeReals>);
+
+/// [`KERNEL_API`] where a static is needed.
+pub static KERNEL_FUNCTIONS: KernelApi = KERNEL_API;

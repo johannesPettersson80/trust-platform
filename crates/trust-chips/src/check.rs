@@ -20,7 +20,7 @@ const PINS_PER_PORT: u32 = 16;
 /// Whether a family is one of the STM32 families. Their chips share the rules that name the
 /// pins, the flash, the vectors and the device ID (specification 34, Appendix H.5).
 const fn is_stm32(family: Family) -> bool {
-    matches!(family, Family::Stm32f4 | Family::Stm32u5)
+    matches!(family, Family::Stm32u5)
 }
 
 impl ChipFile {

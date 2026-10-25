@@ -703,9 +703,13 @@ sysfs_base = "/tmp/gpio"
             }],
             health: IoDriverHealth::Ok,
         };
-        let mut builder = crate::RuntimeBuilder::new();
-        builder.io_mut().resize(0, 1, 0);
-        let mut runtime = builder.build().expect("install GPIO output image");
+        // A program with a one-byte output image; the build needs the toolchain of specification
+        // 44 §4.6 at `TRUST_TOOLCHAIN`.
+        let mut runtime = crate::harness::TestHarness::from_source(
+            "VAR_GLOBAL lamp AT %QX0.0 : BOOL; END_VAR PROGRAM Main END_PROGRAM",
+        )
+        .expect("build the GPIO output program")
+        .into_runtime();
         runtime.add_io_driver("gpio", Box::new(driver));
         runtime.set_io_safe_state(crate::io::IoSafeState {
             outputs: vec![(
@@ -722,7 +726,10 @@ sysfs_base = "/tmp/gpio"
             writes.lock().expect("recording backend lock").as_slice(),
             &[(27, true)]
         );
-        assert_eq!(runtime.io().outputs(), &[1]);
+        assert_eq!(
+            runtime.read_io(&IoAddress::parse("%QX0.0").expect("output address")),
+            Ok(crate::value::Value::Bool(true))
+        );
     }
 }
 

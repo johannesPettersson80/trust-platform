@@ -183,7 +183,6 @@ mod tests {
                 assert!(baseline.lines().any(|line| line == expected), "{expected}");
             }
         }
-        assert_eq!(StandardLibrary::preparation_demand(), (0, 1));
         assert_behavior_corpus(&library);
     }
 

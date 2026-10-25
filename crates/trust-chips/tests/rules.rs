@@ -4,7 +4,6 @@
 
 use trust_chips::{ChipFile, Family, Problem};
 
-const F407: &str = include_str!("../../../chips/stm32f407.toml");
 const C6: &str = include_str!("../../../chips/esp32c6.toml");
 const U5: &str = include_str!("../../../chips/stm32u5a9.toml");
 
@@ -61,10 +60,6 @@ fn edited(
     ChipFile::parse(name, &text).map_err(|error| error.problem)
 }
 
-fn f407(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
-    edited("stm32f407", F407, edit)
-}
-
 fn c6(edit: impl FnOnce(&mut toml::Table)) -> Result<ChipFile, Problem> {
     edited("esp32c6", C6, edit)
 }
@@ -83,14 +78,14 @@ fn toml_message(result: Result<ChipFile, Problem>) -> String {
 
 #[test]
 fn both_real_files_are_accepted_and_survive_a_rewrite() {
-    assert_eq!(f407(|_| {}).err(), None);
+    assert_eq!(u5(|_| {}).err(), None);
     assert_eq!(c6(|_| {}).err(), None);
-    assert_eq!(f407(|_| {}).ok(), ChipFile::parse("stm32f407", F407).ok());
+    assert_eq!(u5(|_| {}).ok(), ChipFile::parse("stm32u5a9", U5).ok());
 }
 
 #[test]
 fn an_unknown_key_is_refused_in_every_table() {
-    let message = toml_message(f407(|file| {
+    let message = toml_message(u5(|file| {
         file.insert("colour".to_owned(), "blue".into());
     }));
     assert!(message.contains("unknown field `colour`"), "{message}");
@@ -109,11 +104,11 @@ fn an_unknown_key_is_refused_in_every_table() {
         "interfaces",
         "gpio",
         "gpio.ports#0",
-        "gpio.reserved#5",
+        "gpio.reserved#4",
         "firmware",
         "sources",
     ] {
-        let message = toml_message(f407(|file| set(file, path, "colour", "blue")));
+        let message = toml_message(u5(|file| set(file, path, "colour", "blue")));
         assert!(
             message.contains("unknown field `colour`"),
             "{path}: {message}"
@@ -136,13 +131,13 @@ fn an_unknown_key_is_refused_in_every_table() {
 
 #[test]
 fn a_missing_key_a_wrong_type_or_a_word_outside_a_closed_list_is_refused() {
-    let message = toml_message(f407(|file| remove(file, "identity", "device_id")));
+    let message = toml_message(u5(|file| remove(file, "identity", "device_id")));
     assert!(message.contains("missing field `device_id`"), "{message}");
     let message = toml_message(c6(|file| remove(file, "interfaces", "dac")));
     assert!(message.contains("missing field `dac`"), "{message}");
-    toml_message(f407(|file| set(file, "clock", "max_hz", "fast")));
-    toml_message(f407(|file| set(file, "clock", "max_hz", -1_i64)));
-    toml_message(f407(|file| {
+    toml_message(u5(|file| set(file, "clock", "max_hz", "fast")));
+    toml_message(u5(|file| set(file, "clock", "max_hz", -1_i64)));
+    toml_message(u5(|file| {
         set(file, "identity.usb_bootloader", "vid", 0x1_0000_i64);
     }));
     for (path, key, word) in [
@@ -150,10 +145,10 @@ fn a_missing_key_a_wrong_type_or_a_word_outside_a_closed_list_is_refused() {
         ("processor", "fpu", "half"),
         ("gpio.reserved#0", "reason", "led"),
     ] {
-        let message = toml_message(f407(|file| set(file, path, key, word)));
+        let message = toml_message(u5(|file| set(file, path, key, word)));
         assert!(message.contains("unknown variant"), "{word}: {message}");
     }
-    let message = toml_message(f407(|file| {
+    let message = toml_message(u5(|file| {
         set(file, "firmware", "components", vec!["engine", "printer"]);
     }));
     assert!(message.contains("unknown variant `printer`"), "{message}");
@@ -162,13 +157,13 @@ fn a_missing_key_a_wrong_type_or_a_word_outside_a_closed_list_is_refused() {
 #[test]
 fn the_name_is_the_files_name_in_small_letters_and_digits() {
     assert_eq!(
-        ChipFile::parse("esp32c6", F407).map_err(|error| error.problem),
+        ChipFile::parse("esp32c6", U5).map_err(|error| error.problem),
         Err(Problem::NameMismatch {
-            found: "stm32f407".to_owned()
+            found: "stm32u5a9".to_owned()
         })
     );
-    for name in ["STM32F407", "stm32-f407", "stm32f407 "] {
-        let result = edited(name, F407, |file| set(file, "identity", "name", name));
+    for name in ["STM32U5A9", "stm32-u5a9", "stm32u5a9 "] {
+        let result = edited(name, U5, |file| set(file, "identity", "name", name));
         assert_eq!(result, Err(Problem::BadName), "{name:?}");
     }
 }
@@ -181,16 +176,22 @@ fn texts_the_format_requires_are_not_empty() {
         ("processor", "isa", "processor.isa"),
         ("memory.ram#1", "name", "memory.ram.name"),
         ("firmware", "bin", "firmware.bin"),
-        ("sources", "measured_on", "sources.measured_on"),
     ] {
         assert_eq!(
-            f407(|file| set(file, path, key, " ")),
+            u5(|file| set(file, path, key, " ")),
             Err(Problem::Empty { field }),
             "{field}"
         );
     }
+    // The C6's values were measured, so its file says where.
     assert_eq!(
-        f407(|file| set(file, "interfaces", "can", vec!["CAN1", ""])),
+        c6(|file| set(file, "sources", "measured_on", " ")),
+        Err(Problem::Empty {
+            field: "sources.measured_on"
+        })
+    );
+    assert_eq!(
+        u5(|file| set(file, "interfaces", "can", vec!["CAN1", ""])),
         Err(Problem::Empty {
             field: "interfaces.can"
         })
@@ -198,17 +199,17 @@ fn texts_the_format_requires_are_not_empty() {
 }
 
 #[test]
-fn an_stm32f4_device_id_has_the_twelve_bits_of_dev_id() {
-    for device_id in [0_i64, 0x1413] {
+fn an_stm32_device_id_has_the_twelve_bits_of_dev_id() {
+    for device_id in [0_i64, 0x1481] {
         assert_eq!(
-            f407(|file| set(file, "identity", "device_id", device_id)),
+            u5(|file| set(file, "identity", "device_id", device_id)),
             Err(Problem::DeviceId {
                 device_id: u32::try_from(device_id).expect("a u32")
             })
         );
     }
     assert_eq!(
-        f407(|file| set(file, "identity", "device_id", 0xFFF_i64)).err(),
+        u5(|file| set(file, "identity", "device_id", 0xFFF_i64)).err(),
         None
     );
     // An ESP32 chip ID has no such limit.
@@ -220,25 +221,25 @@ fn an_stm32f4_device_id_has_the_twelve_bits_of_dev_id() {
 
 #[test]
 fn the_firmware_clock_and_the_crystals_lie_within_the_chips_limits() {
-    for firmware_hz in [168_000_001_i64, 0] {
+    for firmware_hz in [160_000_001_i64, 0] {
         assert_eq!(
-            f407(|file| set(file, "clock", "firmware_hz", firmware_hz)),
+            u5(|file| set(file, "clock", "firmware_hz", firmware_hz)),
             Err(Problem::FirmwareClock {
                 firmware_hz: u32::try_from(firmware_hz).expect("a u32"),
-                max_hz: 168_000_000
+                max_hz: 160_000_000
             })
         );
     }
     assert_eq!(
-        f407(|file| set(file, "clock", "firmware_hz", 84_000_000_i64)).err(),
+        u5(|file| set(file, "clock", "firmware_hz", 80_000_000_i64)).err(),
         None
     );
-    for crystal_min_hz in [27_000_000_i64, 0] {
+    for crystal_min_hz in [49_000_000_i64, 0] {
         assert_eq!(
-            f407(|file| set(file, "clock", "crystal_min_hz", crystal_min_hz)),
+            u5(|file| set(file, "clock", "crystal_min_hz", crystal_min_hz)),
             Err(Problem::CrystalRange {
                 min_hz: u32::try_from(crystal_min_hz).expect("a u32"),
-                max_hz: 26_000_000
+                max_hz: 48_000_000
             })
         );
     }
@@ -248,7 +249,7 @@ fn the_firmware_clock_and_the_crystals_lie_within_the_chips_limits() {
 fn the_rust_target_is_of_the_familys_architecture() {
     let riscv = "riscv32imac-unknown-none-elf";
     assert_eq!(
-        f407(|file| set(file, "processor", "rust_target", riscv)),
+        u5(|file| set(file, "processor", "rust_target", riscv)),
         Err(Problem::TargetFamily {
             target: riscv.to_owned()
         })
@@ -265,20 +266,20 @@ fn the_rust_target_is_of_the_familys_architecture() {
 #[test]
 fn the_rust_target_agrees_with_the_fpu_and_the_instruction_set() {
     let hard_float = || Problem::TargetFpu {
-        target: "thumbv7em-none-eabihf".to_owned(),
+        target: "thumbv8m.main-none-eabihf".to_owned(),
     };
     assert_eq!(
-        f407(|file| set(file, "processor", "fpu", "none")),
+        u5(|file| set(file, "processor", "fpu", "none")),
         Err(hard_float())
     );
-    let soft_float = "thumbv7em-none-eabi";
+    let soft_float = "thumbv8m.main-none-eabi";
     assert_eq!(
-        f407(|file| set(file, "processor", "rust_target", soft_float)),
+        u5(|file| set(file, "processor", "rust_target", soft_float)),
         Err(Problem::TargetFpu {
             target: soft_float.to_owned()
         })
     );
-    let without_fpu = f407(|file| {
+    let without_fpu = u5(|file| {
         set(file, "processor", "rust_target", soft_float);
         set(file, "processor", "fpu", "none");
     });
@@ -318,10 +319,10 @@ fn each_family_describes_its_flash_in_its_own_table() {
         ))
     };
     let stm32 = Err(Problem::FlashKind {
-        family: Family::Stm32f4,
+        family: Family::Stm32u5,
     });
-    assert_eq!(f407(|file| set(file, "memory", "spi_flash", spi())), stm32);
-    let moved = f407(|file| {
+    assert_eq!(u5(|file| set(file, "memory", "spi_flash", spi())), stm32);
+    let moved = u5(|file| {
         remove(file, "memory", "flash");
         set(file, "memory", "spi_flash", spi());
     });
@@ -336,21 +337,21 @@ fn each_family_describes_its_flash_in_its_own_table() {
 #[test]
 fn the_sectors_add_up_to_the_flash_below_4_gib() {
     assert_eq!(
-        f407(|file| set(file, "memory.flash", "kib", 2048_i64)),
+        u5(|file| set(file, "memory.flash", "kib", 8192_i64)),
         Err(Problem::SectorSum {
-            sum_kib: 1024,
-            flash_kib: 2048
+            sum_kib: 4096,
+            flash_kib: 8192
         })
     );
     assert_eq!(
-        f407(|file| set(file, "memory.flash.sectors#2", "count", 6_i64)),
+        u5(|file| set(file, "memory.flash.sectors#0", "count", 256_i64)),
         Err(Problem::SectorSum {
-            sum_kib: 896,
-            flash_kib: 1024
+            sum_kib: 2048,
+            flash_kib: 4096
         })
     );
     assert_eq!(
-        f407(|file| set(file, "memory.flash", "start", 0xFFF8_0000_i64)),
+        u5(|file| set(file, "memory.flash", "start", 0xFFF8_0000_i64)),
         Err(Problem::AddressRange {
             what: "memory.flash".to_owned()
         })
@@ -366,23 +367,23 @@ fn no_memory_region_or_erase_unit_is_empty() {
     };
     let none: Vec<toml::Value> = Vec::new();
     assert_eq!(
-        f407(|file| set(file, "memory.flash.sectors#0", "count", 0_i64)),
+        u5(|file| set(file, "memory.flash.sectors#0", "count", 0_i64)),
         zero("memory.flash.sectors")
     );
     assert_eq!(
-        f407(|file| set(file, "memory.flash", "sectors", none.clone())),
+        u5(|file| set(file, "memory.flash", "sectors", none.clone())),
         zero("memory.flash")
     );
     assert_eq!(
-        f407(|file| set(file, "memory", "ram", none)),
+        u5(|file| set(file, "memory", "ram", none)),
         zero("memory.ram")
     );
     assert_eq!(
-        f407(|file| set(file, "memory.ram#2", "kib", 0_i64)),
-        zero("memory.ram CCM")
+        u5(|file| set(file, "memory.ram#2", "kib", 0_i64)),
+        zero("memory.ram SRAM3")
     );
     assert_eq!(
-        f407(|file| set(file, "layout.application", "kib", 0_i64)),
+        u5(|file| set(file, "layout.application", "kib", 0_i64)),
         zero("layout.application")
     );
     assert_eq!(
@@ -398,34 +399,35 @@ fn no_memory_region_or_erase_unit_is_empty() {
 #[test]
 fn ram_regions_are_distinct_below_4_gib_and_apart_from_the_flash() {
     assert_eq!(
-        f407(|file| set(file, "memory.ram#2", "start", 0x2001_0000_i64)),
+        u5(|file| set(file, "memory.ram#2", "start", 0x2001_0000_i64)),
         Err(Problem::RamOverlap {
             first: "SRAM1".to_owned(),
-            second: "CCM".to_owned()
+            second: "SRAM3".to_owned()
         })
     );
     assert_eq!(
-        f407(|file| set(file, "memory.ram#1", "name", "SRAM1")),
+        u5(|file| set(file, "memory.ram#1", "name", "SRAM1")),
         Err(Problem::Duplicate {
             list: "memory.ram",
             entry: "SRAM1".to_owned()
         })
     );
     assert_eq!(
-        f407(|file| set(file, "memory.ram#2", "start", 0x0800_0000_i64)),
+        u5(|file| set(file, "memory.ram#2", "start", 0x0800_0000_i64)),
         Err(Problem::FlashOverlapsRam {
-            ram: "CCM".to_owned()
+            ram: "SRAM3".to_owned()
         })
     );
     assert_eq!(
-        f407(|file| set(file, "memory.ram#2", "start", 0xFFFF_8000_i64)),
+        u5(|file| set(file, "memory.ram#2", "start", 0xFFFF_8000_i64)),
         Err(Problem::AddressRange {
-            what: "memory.ram CCM".to_owned()
+            what: "memory.ram SRAM3".to_owned()
         })
     );
-    // A region that ends at the last byte of the address space lies below 4 GiB.
+    // A region that ends at the last byte of the address space lies below 4 GiB: the 16 KiB of
+    // SRAM4 from 0xFFFF_C000.
     assert_eq!(
-        f407(|file| set(file, "memory.ram#2", "start", 0xFFFF_0000_i64)).err(),
+        u5(|file| set(file, "memory.ram#4", "start", 0xFFFF_C000_i64)).err(),
         None
     );
 }
@@ -434,11 +436,11 @@ fn ram_regions_are_distinct_below_4_gib_and_apart_from_the_flash() {
 fn the_layout_has_the_regions_of_its_family_and_no_others() {
     let region = |text: &str| toml::Value::Table(table(text));
     assert_eq!(
-        f407(|file| remove(file, "layout", "vectors")),
+        u5(|file| remove(file, "layout", "vectors")),
         Err(Problem::MissingRegion { region: "vectors" })
     );
     assert_eq!(
-        f407(|file| set(
+        u5(|file| set(
             file,
             "layout",
             "bootloader",
@@ -462,30 +464,32 @@ fn the_layout_has_the_regions_of_its_family_and_no_others() {
 
 #[test]
 fn a_layout_region_lies_inside_the_flash_on_erase_unit_boundaries() {
-    // Past the end of the flash, and before its start.
+    // Past the end of the flash: 4,096 KiB from 0x0800_2000 end at 0x0840_2000, after the flash's
+    // end at 0x0840_0000; and before its start.
     assert_eq!(
-        f407(|file| set(file, "layout.firmware", "kib", 976_i64)),
+        u5(|file| set(file, "layout.firmware", "kib", 4096_i64)),
         Err(Problem::RegionOutsideFlash { region: "firmware" })
     );
     assert_eq!(
-        f407(|file| set(file, "layout.application", "start", 0x07FF_C000_i64)),
+        u5(|file| set(file, "layout.application", "start", 0x07FF_C000_i64)),
         Err(Problem::RegionOutsideFlash {
             region: "application"
         })
     );
-    // Half of a 16 KiB sector, and the firmware ending in the middle of a 128 KiB sector.
+    // Half of an 8 KiB page, and the firmware ending at 0x081F_F000, in the middle of a page.
     assert_eq!(
-        f407(|file| set(file, "layout.application", "kib", 8_i64)),
+        u5(|file| set(file, "layout.application", "kib", 4_i64)),
         Err(Problem::RegionNotAligned {
             region: "application"
         })
     );
     assert_eq!(
-        f407(|file| set(file, "layout.firmware", "kib", 896_i64)),
+        u5(|file| set(file, "layout.firmware", "kib", 2036_i64)),
         Err(Problem::RegionNotAligned { region: "firmware" })
     );
+    // One page shorter, the firmware ends on a page at 0x081F_E000.
     assert_eq!(
-        f407(|file| set(file, "layout.firmware", "kib", 704_i64)).err(),
+        u5(|file| set(file, "layout.firmware", "kib", 2032_i64)).err(),
         None
     );
     // SPI flash is erased in 4 KiB units from offset 0.
@@ -500,7 +504,7 @@ fn a_layout_region_lies_inside_the_flash_on_erase_unit_boundaries() {
 #[test]
 fn layout_regions_do_not_overlap_and_the_chip_starts_from_the_first() {
     assert_eq!(
-        f407(|file| set(file, "layout.checkpoint_b", "start", 0x0800_8000_i64)),
+        u5(|file| set(file, "layout.checkpoint_b", "start", 0x083F_8000_i64)),
         Err(Problem::RegionsOverlap {
             first: "checkpoint_a",
             second: "checkpoint_b"
@@ -513,9 +517,12 @@ fn layout_regions_do_not_overlap_and_the_chip_starts_from_the_first() {
             second: "application"
         })
     );
-    // The vectors must start at the first byte of flash; sector 1, now unused, is a bound address
-    // where they are refused.
-    let moved = f407(|file| set(file, "layout.vectors", "start", 0x0800_4000_i64));
+    // The vectors must start at the first byte of flash; the page at 0x081F_E000, which a firmware
+    // one page shorter leaves unused, is a bound address where they are refused.
+    let moved = u5(|file| {
+        set(file, "layout.firmware", "kib", 2032_i64);
+        set(file, "layout.vectors", "start", 0x081F_E000_i64);
+    });
     assert_eq!(moved, Err(Problem::BootRegion { region: "vectors" }));
     let late = c6(|file| {
         set(file, "layout.bootloader", "start", 0x1000_i64);
@@ -640,7 +647,7 @@ fn the_program_slots_are_named_in_pairs_of_one_size_inside_application() {
 #[test]
 fn each_interface_list_names_each_peripheral_once() {
     assert_eq!(
-        f407(|file| set(
+        u5(|file| set(
             file,
             "interfaces",
             "uart",
@@ -656,10 +663,10 @@ fn each_interface_list_names_each_peripheral_once() {
 #[test]
 fn each_family_counts_its_pins_in_its_own_key() {
     let stm32 = Err(Problem::GpioKind {
-        family: Family::Stm32f4,
+        family: Family::Stm32u5,
     });
-    assert_eq!(f407(|file| set(file, "gpio", "pins", 140_i64)), stm32);
-    assert_eq!(f407(|file| remove(file, "gpio", "ports")), stm32);
+    assert_eq!(u5(|file| set(file, "gpio", "pins", 140_i64)), stm32);
+    assert_eq!(u5(|file| remove(file, "gpio", "ports")), stm32);
     let port_a = toml::Value::Array(vec![toml::Value::Table(table("port = \"A\"\npins = 16"))]);
     assert_eq!(
         c6(|file| set(file, "gpio", "ports", port_a)),
@@ -673,7 +680,7 @@ fn each_family_counts_its_pins_in_its_own_key() {
 fn ports_are_letters_a_to_k_with_1_to_16_pins_listed_once() {
     for port in ["L", "AB", "a", ""] {
         assert_eq!(
-            f407(|file| set(file, "gpio.ports#8", "port", port)),
+            u5(|file| set(file, "gpio.ports#8", "port", port)),
             Err(Problem::BadPort {
                 port: port.to_owned()
             }),
@@ -682,7 +689,7 @@ fn ports_are_letters_a_to_k_with_1_to_16_pins_listed_once() {
     }
     for pins in [0_i64, 17] {
         assert_eq!(
-            f407(|file| set(file, "gpio.ports#8", "pins", pins)),
+            u5(|file| set(file, "gpio.ports#8", "pins", pins)),
             Err(Problem::BadPort {
                 port: "I".to_owned()
             }),
@@ -690,7 +697,7 @@ fn ports_are_letters_a_to_k_with_1_to_16_pins_listed_once() {
         );
     }
     assert_eq!(
-        f407(|file| set(file, "gpio.ports#8", "port", "A")),
+        u5(|file| set(file, "gpio.ports#8", "port", "A")),
         Err(Problem::Duplicate {
             list: "gpio.ports",
             entry: "A".to_owned()
@@ -700,9 +707,9 @@ fn ports_are_letters_a_to_k_with_1_to_16_pins_listed_once() {
 
 #[test]
 fn a_reserved_pin_is_a_pin_of_the_chip_listed_once() {
-    for pin in ["PI12", "PJ0", "PA16", "pa2", "PA02", "PA", "GPIO2"] {
+    for pin in ["PJ12", "PK0", "PA16", "pa2", "PA02", "PA", "GPIO2"] {
         assert_eq!(
-            f407(|file| set(file, "gpio.reserved#0", "pin", pin)),
+            u5(|file| set(file, "gpio.reserved#0", "pin", pin)),
             Err(Problem::BadPin {
                 pin: pin.to_owned()
             }),
@@ -710,7 +717,7 @@ fn a_reserved_pin_is_a_pin_of_the_chip_listed_once() {
         );
     }
     assert_eq!(
-        f407(|file| set(file, "gpio.reserved#0", "pin", "PI11")).err(),
+        u5(|file| set(file, "gpio.reserved#0", "pin", "PJ11")).err(),
         None
     );
     for pin in ["GPIO31", "GPIO012", "12", "PA2", "gpio12"] {
@@ -727,10 +734,10 @@ fn a_reserved_pin_is_a_pin_of_the_chip_listed_once() {
         None
     );
     assert_eq!(
-        f407(|file| set(file, "gpio.reserved#1", "pin", "PA2")),
+        u5(|file| set(file, "gpio.reserved#1", "pin", "PA11")),
         Err(Problem::Duplicate {
             list: "gpio.reserved",
-            entry: "PA2".to_owned()
+            entry: "PA11".to_owned()
         })
     );
     assert_eq!(
@@ -748,31 +755,31 @@ fn the_firmware_is_a_crate_under_firmware_that_holds_the_engine() {
         "crates/trust-runtime",
         "firmware/",
         "firmware/../crates/trust-runtime",
-        "/firmware/trust-stm32f407",
-        "firmware\\trust-stm32f407",
-        "firmware//trust-stm32f407",
+        "/firmware/trust-stm32u5a9",
+        "firmware\\trust-stm32u5a9",
+        "firmware//trust-stm32u5a9",
     ] {
         assert_eq!(
-            f407(|file| set(file, "firmware", "crate", path)),
+            u5(|file| set(file, "firmware", "crate", path)),
             Err(Problem::FirmwareCrate {
                 path: path.to_owned()
             }),
             "{path}"
         );
     }
-    let nested = "firmware/stm32/trust-stm32f407";
+    let nested = "firmware/stm32/trust-stm32u5a9";
     assert_eq!(
-        f407(|file| set(file, "firmware", "crate", nested)).err(),
+        u5(|file| set(file, "firmware", "crate", nested)).err(),
         None
     );
     for components in [vec!["control"], Vec::new()] {
         assert_eq!(
-            f407(|file| set(file, "firmware", "components", components)),
+            u5(|file| set(file, "firmware", "components", components)),
             Err(Problem::NoEngine)
         );
     }
     assert_eq!(
-        f407(|file| set(
+        u5(|file| set(
             file,
             "firmware",
             "components",
@@ -789,29 +796,31 @@ fn the_firmware_is_a_crate_under_firmware_that_holds_the_engine() {
 fn the_sources_name_their_documents_and_where_values_were_measured() {
     let none: Vec<&str> = Vec::new();
     assert_eq!(
-        f407(|file| set(file, "sources", "documents", none.clone())),
+        u5(|file| set(file, "sources", "documents", none)),
         Err(Problem::NoDocuments)
     );
     assert_eq!(
-        f407(|file| set(file, "sources", "documents", vec!["DS8626", "DS8626"])),
+        u5(|file| set(file, "sources", "documents", vec!["DS13543", "DS13543"])),
         Err(Problem::Duplicate {
             list: "sources.documents",
-            entry: "DS8626".to_owned()
+            entry: "DS13543".to_owned()
         })
     );
+    // Nothing was measured on a U5A9 yet, so its file names neither measured values nor where they
+    // were measured; a measured value needs the place, and the place needs a measured value.
     assert_eq!(
-        f407(|file| remove(file, "sources", "measured_on")),
+        u5(|file| set(file, "sources", "measured", vec!["identity.model"])),
         Err(Problem::MeasuredOn)
     );
     assert_eq!(
-        f407(|file| set(file, "sources", "measured", none.clone())),
+        u5(|file| set(file, "sources", "measured_on", "the owner's bench")),
         Err(Problem::MeasuredOn)
     );
-    let unmeasured = f407(|file| {
-        set(file, "sources", "measured", none);
-        remove(file, "sources", "measured_on");
+    let measured = u5(|file| {
+        set(file, "sources", "measured", vec!["identity.model"]);
+        set(file, "sources", "measured_on", "the owner's bench");
     });
-    assert_eq!(unmeasured.err(), None);
+    assert_eq!(measured.err(), None);
 }
 
 #[test]
@@ -824,7 +833,7 @@ fn a_source_path_names_a_key_of_the_file_outside_sources() {
         "",
     ] {
         assert_eq!(
-            f407(|file| uncheck(file, path)),
+            u5(|file| uncheck(file, path)),
             Err(Problem::UnknownSourcePath {
                 path: path.to_owned()
             }),
@@ -832,17 +841,17 @@ fn a_source_path_names_a_key_of_the_file_outside_sources() {
         );
     }
     // A key in every entry of an array of tables, a key of an inline table, and a whole table.
-    for path in ["memory.ram.dma", "layout.vectors.start", "gpio"] {
-        assert_eq!(f407(|file| uncheck(file, path)).err(), None, "{path}");
+    for path in ["memory.ram.start", "layout.vectors.start", "firmware"] {
+        assert_eq!(u5(|file| uncheck(file, path)).err(), None, "{path}");
     }
 }
 
 #[test]
 fn a_source_path_is_listed_once_and_not_inside_another() {
-    // Measured and unchecked at once; a table whose keys are listed; a key of a listed table.
-    for path in ["identity.device_id", "interfaces", "memory.flash"] {
+    // Listed twice; a table whose keys are listed; a key of a listed table.
+    for path in ["identity.device_id", "interfaces", "gpio.ports.port"] {
         assert_eq!(
-            f407(|file| uncheck(file, path)),
+            u5(|file| uncheck(file, path)),
             Err(Problem::RepeatedSourcePath {
                 path: path.to_owned()
             }),

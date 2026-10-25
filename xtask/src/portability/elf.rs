@@ -5,10 +5,7 @@ use object::{Object, ObjectSection, ObjectSymbol};
 use serde_json::{json, Value};
 
 mod reader;
-mod stm32f407;
 mod stm32u5a9;
-
-const FLASH_GROWTH_TARGET: u64 = 16 * 1024;
 
 fn contained(start: u64, bytes: u64, region: &std::ops::Range<u64>) -> bool {
     start >= region.start
@@ -17,14 +14,9 @@ fn contained(start: u64, bytes: u64, region: &std::ops::Range<u64>) -> bool {
             .is_some_and(|end| end <= region.end)
 }
 
-fn meets_flash_growth_target(free_bytes: u64) -> bool {
-    free_bytes >= FLASH_GROWTH_TARGET
-}
-
 /// Inspects a linked image with the policy of its board, and records the board in the report.
 pub(super) fn inspect(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
     let mut report = match board.board {
-        Board::Stm32f407gDisc1 => stm32f407::inspect(board, bytes)?,
         Board::Esp32c6Devkitc1 => inspect_esp32c6(board, bytes)?,
         Board::RiverdiRvt50hqsnwc00B => stm32u5a9::inspect(board, bytes)?,
     };
@@ -65,12 +57,7 @@ struct Esp32c6Image {
     stack_end: Option<u64>,
     /// Size of the firmware's allocator arena, when the symbol is present.
     heap_arena_bytes: Option<u64>,
-    /// Addresses of every copy of the VM dispatch loop (spec 34 D.2: it executes from HP SRAM).
-    dispatch_addresses: Vec<u64>,
 }
-
-/// The VM dispatch loop's v0-mangled path; the length prefixes keep the match exact.
-const C6_DISPATCH_SYMBOL: &str = "18trust_runtime_core2vm8dispatch20execute_with_buffers";
 
 fn c6_window(start: u64, bytes: u64) -> Option<&'static str> {
     [
@@ -186,11 +173,6 @@ fn inspect_esp32c6(board: &BoardProfile, bytes: &[u8]) -> Result<Value> {
             .symbols()
             .find(|s| s.name().is_ok_and(|name| name.contains("HEAP_MEMORY")))
             .map(|s| s.size()),
-        dispatch_addresses: file
-            .symbols()
-            .filter(|s| s.name().is_ok_and(|name| name.contains(C6_DISPATCH_SYMBOL)))
-            .map(|s| s.address())
-            .collect(),
     };
     let mut report = check_esp32c6(board, &image)?;
     report["firmware_sha256"] = super::digest(bytes).into();
@@ -280,18 +262,6 @@ fn check_esp32c6(board: &BoardProfile, image: &Esp32c6Image) -> Result<Value> {
         c6_window(end, stack_region_bytes) == Some("hp_sram"),
         "stack region lies outside HP SRAM"
     );
-    // From flash the interpreter stalled on code fetches; scan-time code must execute from RAM.
-    ensure!(
-        !image.dispatch_addresses.is_empty(),
-        "the VM dispatch loop symbol is missing from the image"
-    );
-    ensure!(
-        image
-            .dispatch_addresses
-            .iter()
-            .all(|&address| contained(address, 1, &C6_HP_SRAM)),
-        "the VM dispatch loop does not execute from HP SRAM"
-    );
     let ram_code_bytes = image
         .sections
         .iter()
@@ -313,7 +283,6 @@ fn check_esp32c6(board: &BoardProfile, image: &Esp32c6Image) -> Result<Value> {
         "stack_headroom_minimum_bytes": board.stack_headroom_bytes,
         "heap_arena_bytes": image.heap_arena_bytes,
         "ram_code_bytes": ram_code_bytes,
-        "dispatch_loop_in_hp_sram": true,
         "application_partition_bytes": board.application_bytes,
         "load_segments": segments,
         "sections": sections,
@@ -350,7 +319,6 @@ mod tests {
             stack_start: Some(0x4086_e610),
             stack_end: Some(0x4080_50d8),
             heap_arena_bytes: None,
-            dispatch_addresses: vec![0x4080_0100],
         }
     }
 
@@ -361,21 +329,6 @@ mod tests {
         image.stack_start = Some(C6_STACK_TOP + 0x100);
         let error = check_esp32c6(&board, &image).unwrap_err().to_string();
         assert!(error.contains("fixed stack top"), "{error}");
-    }
-
-    #[test]
-    fn c6_requires_the_dispatch_loop_in_hp_sram() {
-        let board = BoardProfile::esp32c6_devkitc_1().unwrap();
-        let mut image = c6_image();
-        image.dispatch_addresses = vec![0x4080_0100, 0x4201_0400];
-        let error = check_esp32c6(&board, &image).unwrap_err().to_string();
-        assert!(error.contains("does not execute from HP SRAM"), "{error}");
-        image.dispatch_addresses.clear();
-        let error = check_esp32c6(&board, &image).unwrap_err().to_string();
-        assert!(error.contains("missing"), "{error}");
-        image.dispatch_addresses = vec![0x4080_0100];
-        let report = check_esp32c6(&board, &image).unwrap();
-        assert_eq!(report["dispatch_loop_in_hp_sram"], true);
     }
 
     #[test]

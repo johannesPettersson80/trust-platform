@@ -19,8 +19,8 @@ critical-section = "1.2.0"
 trust-runtime-core.workspace = true
 trust-runtime-services.workspace = true
 # The kernel interface: the C6 calls a compiled program's module from its program code region or
-# where its image lies (specification 44 §10.3); only the feature `native` uses it.
-trust-plc-abi = { workspace = true, optional = true }
+# where its image lies (specification 44 §10.3).
+trust-plc-abi = { workspace = true }
 
 # The shared reset record the adapter keeps in persistent RTC fast memory, so the C6 and the F407
 # store the same record.
@@ -31,14 +31,7 @@ trust-platform-memory.workspace = true
 smol_str.workspace = true
 serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }
 
-[features]
-# Compiled programs (specification 44 §15): the loader of program images and the program code region,
-# for the firmware that runs them.
-native = ["dep:trust-plc-abi", "trust-runtime-services/native"]
-
 # The host test tests/chip_file.rs compares the profile with chips/esp32c6.toml. A dev-dependency
 # is resolved only for this workspace's own tests, never for a firmware build.
 [dev-dependencies]
-# The heap test measures a prepared module part by part (spec 34 MEM-12).
-trust-runtime-core = { workspace = true, features = ["footprint"] }
 trust-chips.workspace = true

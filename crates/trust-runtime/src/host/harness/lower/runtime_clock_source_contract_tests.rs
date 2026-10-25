@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::harness::{CompileSession, TestHarness};
@@ -18,7 +20,7 @@ fn dt_ticks(harness: &TestHarness, name: &str) -> i64 {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("invalid runtime-clock source must fail compilation"),
         Err(error) => error.to_string(),
     }
@@ -203,28 +205,4 @@ fn runtime_clock_source_rejects_current_dt_result_in_wrong_family() {
         normalized.contains("assign") || normalized.contains("type"),
         "DT-to-TIME assignment must fail with a type diagnostic: {error}"
     );
-}
-
-#[test]
-fn runtime_clock_source_emits_bytecode_module_and_bytes() {
-    let session = CompileSession::from_source(
-        r#"
-PROGRAM Main
-VAR elapsed : TIME; stamp : DT; END_VAR
-elapsed := TIME();
-stamp := CURRENT_DT();
-END_PROGRAM
-"#,
-    );
-    let module = session
-        .build_bytecode_module()
-        .expect("runtime-clock source must emit a bytecode module");
-    assert!(
-        !module.sections.is_empty(),
-        "runtime-clock source must retain executable bytecode"
-    );
-    let bytes = session
-        .build_bytecode_bytes()
-        .expect("runtime-clock source must emit encoded bytecode");
-    assert!(!bytes.is_empty(), "encoded bytecode must not be empty");
 }

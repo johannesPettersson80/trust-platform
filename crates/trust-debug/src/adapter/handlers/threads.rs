@@ -8,50 +8,41 @@ use crate::protocol::{Request, Thread, ThreadsResponseBody};
 use super::super::{DebugAdapter, DispatchOutcome};
 
 impl DebugAdapter {
+    /// The threads of the program: one per task of the project's declarations, numbered as the
+    /// runtime numbers them, and one more for the programs outside every task (specification 13,
+    /// "Multi-Task Thread Model"); one thread when the project's tasks are unknown.
     pub(in crate::adapter) fn projected_threads(&self) -> Vec<Thread> {
-        if self.remote_session.is_some() {
+        let metadata = self.session.metadata();
+        let tasks = metadata.tasks();
+        if tasks.is_empty() {
             return vec![Thread {
                 id: 1,
                 name: "MainTask".to_string(),
             }];
         }
-
-        let tasks = self.session.metadata().tasks();
-        let mut threads = Vec::new();
-        if tasks.is_empty() {
-            threads.push(Thread {
-                id: 1,
-                name: "Main".to_string(),
-            });
-        } else {
-            threads.extend(tasks.iter().enumerate().map(|(idx, task)| {
-                let id = self
-                    .session
-                    .metadata()
-                    .task_thread_id(&task.name)
-                    .unwrap_or(idx as u32 + 1);
-                Thread {
-                    id,
-                    name: task.name.to_string(),
-                }
-            }));
-            if self.session.metadata().has_background_programs() {
-                let fallback = threads
-                    .iter()
-                    .map(|thread| thread.id)
-                    .max()
-                    .unwrap_or(0)
-                    .saturating_add(1);
-                let id = self
-                    .session
-                    .metadata()
-                    .background_thread_id()
-                    .unwrap_or(fallback);
+        let mut threads: Vec<Thread> = Vec::new();
+        for (index, task) in tasks.iter().enumerate() {
+            let id = metadata
+                .task_thread_id(&task.name)
+                .unwrap_or(index as u32 + 1);
+            if threads.iter().all(|thread| thread.id != id) {
                 threads.push(Thread {
                     id,
-                    name: "Background".to_string(),
+                    name: task.name.to_string(),
                 });
             }
+        }
+        if metadata.has_background_programs() {
+            let fallback = threads
+                .iter()
+                .map(|thread| thread.id)
+                .max()
+                .unwrap_or(0)
+                .saturating_add(1);
+            threads.push(Thread {
+                id: metadata.background_thread_id().unwrap_or(fallback),
+                name: "Background".to_string(),
+            });
         }
         threads
     }

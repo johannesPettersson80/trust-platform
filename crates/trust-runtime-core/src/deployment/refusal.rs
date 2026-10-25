@@ -72,7 +72,7 @@ impl fmt::Display for DeploymentRecordError {
 
 impl core::error::Error for DeploymentRecordError {}
 
-/// One preparation limit of a deployment record, named as the `PreparationLimits` field.
+/// One limit of a deployment record, named as the bytecode engine's preparation named it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LimitKind {
     /// `max_artifact_bytes`.
@@ -115,7 +115,7 @@ impl LimitKind {
         Self::CallDepth,
     ];
 
-    /// The `PreparationLimits` field this limit sets.
+    /// The limit's name.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
@@ -147,11 +147,12 @@ impl fmt::Display for LimitKind {
 pub enum AdmissionRefusal {
     /// The supplied program's length or SHA-256 differs from the record's.
     ProgramMismatch,
-    /// The device does not run the program's STBC version.
-    BytecodeVersion {
-        /// STBC major version.
+    /// The device does not run the version of the program's format: an STBC program of the
+    /// bytecode engine, or an image on a device that runs none.
+    ProgramVersion {
+        /// Major version.
         major: u16,
-        /// STBC minor version.
+        /// Minor version.
         minor: u16,
     },
     /// The device does not run the scheduling/I/O profile.
@@ -204,15 +205,17 @@ impl fmt::Display for AdmissionRefusal {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ProgramMismatch => formatter.write_str("the record describes another program"),
-            Self::BytecodeVersion { major, minor }
-                if crate::bytecode::BytecodeVersion::new(*major, *minor)
-                    == crate::bytecode::BytecodeVersion::NATIVE_IMAGE =>
+            Self::ProgramVersion { major, minor }
+                if super::ProgramVersion::new(*major, *minor)
+                    == super::ProgramVersion::NATIVE_IMAGE =>
             {
                 formatter.write_str("the device does not run compiled program images")
             }
-            Self::BytecodeVersion { major, minor } => {
-                write!(formatter, "the device does not run STBC {major}.{minor}")
-            }
+            Self::ProgramVersion { major, minor } => write!(
+                formatter,
+                "the program is STBC {major}.{minor}, which this runtime does not run: rebuild the \
+                 project"
+            ),
             Self::SchedulingProfile(profile) => write!(
                 formatter,
                 "the device does not run the scheduling profile {profile}"

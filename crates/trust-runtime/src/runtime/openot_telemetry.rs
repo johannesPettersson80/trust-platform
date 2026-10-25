@@ -5,7 +5,6 @@ use crate::error::RuntimeError;
 mod imp {
     use super::*;
     use crate::config::{OpenOtTelemetryFenceMode, OpenOtTelemetrySource};
-    use crate::memory::VariableStorage;
     use crate::value::Value;
     use open_ot_carriage::registry::{EVENT_HEARTBEAT, SYSTEM_SOURCE_ID};
     use open_ot_carriage::wire::{validate_record, Record, CRC_LEN, HEADER_LEN};
@@ -83,25 +82,6 @@ mod imp {
                 .map(StFbProducerState::new)
                 .collect();
             Ok(())
-        }
-
-        #[cfg(test)]
-        #[must_use]
-        pub(crate) fn is_enabled(&self) -> bool {
-            self.publisher.is_some()
-        }
-
-        pub(crate) fn publish(
-            &mut self,
-            cycle_counter: u64,
-            storage: &VariableStorage,
-        ) -> Result<(), RuntimeError> {
-            match self.source {
-                OpenOtTelemetrySource::Heartbeat => self.publish_heartbeat(cycle_counter),
-                OpenOtTelemetrySource::StFb => {
-                    self.publish_st_fb(&|path| read_st_fb_outputs(storage, path))
-                }
-            }
         }
 
         /// [`Self::publish`] for a compiled program, whose producers' outputs are read by their
@@ -405,49 +385,6 @@ mod imp {
         producer_parts(path)?;
         producer_snapshot(path, &|field| {
             program.read_named(format!("{path}.{field}").as_str()).ok()
-        })
-    }
-
-    fn read_st_fb_outputs(
-        storage: &VariableStorage,
-        path: &str,
-    ) -> Result<StFbProducerSnapshot, RuntimeError> {
-        let (program, producer) = producer_parts(path)?;
-
-        let program_id = match storage.get_global(program) {
-            Some(Value::Instance(id)) => *id,
-            Some(other) => {
-                return Err(telemetry_message(format!(
-                    "producer path '{path}' expected program '{program}' to be an instance, got {}",
-                    value_type_name(other)
-                )));
-            }
-            None => {
-                return Err(telemetry_message(format!(
-                    "producer path '{path}' program '{program}' was not found"
-                )));
-            }
-        };
-
-        let producer_id = match storage.get_instance_var_recursive(program_id, producer) {
-            Some(Value::Instance(id)) => *id,
-            Some(other) => {
-                return Err(telemetry_message(format!(
-                    "producer path '{path}' expected '{producer}' to be an FB instance, got {}",
-                    value_type_name(other)
-                )));
-            }
-            None => {
-                return Err(telemetry_message(format!(
-                    "producer path '{path}' field '{producer}' was not found"
-                )));
-            }
-        };
-
-        producer_snapshot(path, &|field| {
-            storage
-                .get_instance_var_recursive(producer_id, field)
-                .cloned()
         })
     }
 
@@ -779,14 +716,6 @@ mod imp {
         #[must_use]
         pub(crate) fn is_enabled(&self) -> bool {
             false
-        }
-
-        pub(crate) fn publish(
-            &mut self,
-            _cycle_counter: u64,
-            _storage: &crate::memory::VariableStorage,
-        ) -> Result<(), RuntimeError> {
-            Ok(())
         }
 
         pub(crate) fn publish_compiled(

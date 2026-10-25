@@ -8,10 +8,10 @@ use std::sync::Mutex;
 use std::time::Instant;
 
 use smol_str::SmolStr;
+use trust_runtime_core::cycle::{CycleHooks, CyclePhase};
 use trust_runtime_core::io_image::{FlatImages, PreparedIoBinding};
 use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
-use trust_runtime_core::vm::{CycleHooks, CyclePhase};
 use trust_runtime_services::live_values::io_snapshot::value_type_name;
 use trust_runtime_services::runner::TaskDescriptor;
 
@@ -19,6 +19,7 @@ use super::super::ads_subsystem::AdsSubsystem;
 use super::super::metrics_subsystem::MetricsSubsystem;
 use super::super::opcua_client_subsystem::OpcUaClientSubsystem;
 use super::tags::{apply_input_tags, capture_output_tags, ExtraImages, TagLink};
+use super::CompiledDebugger;
 use crate::debug::{DebugControl, RuntimeEvent};
 use crate::error::RuntimeError;
 use crate::io::{IoSnapshot, IoSnapshotEntry, IoSnapshotValue};
@@ -28,6 +29,8 @@ use crate::value::Duration;
 pub(super) struct HostedCompiledScan<'a> {
     pub(super) metrics: &'a MetricsSubsystem,
     pub(super) debug: Option<DebugControl>,
+    /// The program's debugger, which takes the thread of each task that starts.
+    pub(super) debugger: Option<&'a CompiledDebugger>,
     /// The ADS and OPC UA clients, whose samples reach the program after its inputs and whose
     /// outputs leave it after its scan.
     pub(super) ads: &'a mut AdsSubsystem,
@@ -36,6 +39,8 @@ pub(super) struct HostedCompiledScan<'a> {
     pub(super) tags: &'a [TagLink],
     pub(super) extra: &'a Mutex<ExtraImages>,
     pub(super) tasks: &'a [TaskDescriptor],
+    /// The program instance of each entry of the image, by which a program call is recorded.
+    pub(super) programs: &'a [SmolStr],
     /// The process-image bindings and their declared names, for the I/O snapshot.
     pub(super) bindings: &'a [PreparedIoBinding],
     pub(super) binding_names: &'a [Option<SmolStr>],
@@ -43,6 +48,12 @@ pub(super) struct HostedCompiledScan<'a> {
     pub(super) generation: Generation,
     pub(super) task_timer: Option<Instant>,
     pub(super) program_timer: Option<Instant>,
+    /// The deadline of the scan's output commit, which the watchdog arms; past it the drivers are
+    /// not written (specification 10 §4.7, step 6). A debugger's hold during the scan moves it on
+    /// by the hold's time, which no watchdog counts.
+    pub(super) output_deadline: Option<Instant>,
+    /// The debugger's total hold time when the scan started.
+    pub(super) held_at_start: std::time::Duration,
 }
 
 /// Task `index` of `tasks`.
@@ -130,21 +141,6 @@ impl HostedCompiledScan<'_> {
 }
 
 impl CycleHooks for HostedCompiledScan<'_> {
-    fn has_program_hooks(&self) -> bool {
-        true
-    }
-
-    fn program_started(&mut self, _name: &str) {
-        self.program_timer = self.metrics.start_timer();
-    }
-
-    fn program_finished(&mut self, name: &str) {
-        if let Some(start) = self.program_timer.take() {
-            self.metrics
-                .record_profile_call("program", name, start.elapsed());
-        }
-    }
-
     fn on_compiled_phase(
         &mut self,
         phase: CyclePhase,
@@ -154,7 +150,6 @@ impl CycleHooks for HostedCompiledScan<'_> {
         match phase {
             CyclePhase::CycleStart => {
                 if let Some(debug) = &self.debug {
-                    debug.begin_cycle();
                     debug.push_runtime_event(RuntimeEvent::CycleStart {
                         cycle: self.cycle,
                         time: now,
@@ -175,8 +170,10 @@ impl CycleHooks for HostedCompiledScan<'_> {
             CyclePhase::TaskStart(index) => {
                 let task = task(self.tasks, index)?;
                 self.task_timer = self.metrics.start_timer();
+                if let Some(debugger) = self.debugger {
+                    debugger.set_thread(self.task_thread(index));
+                }
                 if let Some(debug) = &self.debug {
-                    debug.set_current_thread(self.task_thread(index));
                     debug.push_runtime_event(RuntimeEvent::TaskStart {
                         name: task.name.clone(),
                         priority: task.priority,
@@ -197,19 +194,43 @@ impl CycleHooks for HostedCompiledScan<'_> {
                     });
                 }
             }
-            CyclePhase::BackgroundStart(_) => {
-                if let Some(debug) = &self.debug {
-                    debug.set_current_thread(self.background_thread());
+            CyclePhase::BackgroundStart => {
+                if let Some(debugger) = self.debugger {
+                    debugger.set_thread(self.background_thread());
+                }
+            }
+            CyclePhase::ProgramStart(_) => self.program_timer = self.metrics.start_timer(),
+            // Each invoked program is a call of its instance, a faulted one too (specification 11,
+            // runtime metrics).
+            CyclePhase::ProgramEnd(entry) => {
+                if let Some(start) = self.program_timer.take()
+                    && let Some(name) = self.programs.get(entry).filter(|name| !name.is_empty())
+                {
+                    self.metrics.record_call("program", name, start.elapsed());
                 }
             }
             CyclePhase::AfterOutputSample => {
+                let held = self
+                    .debug
+                    .as_ref()
+                    .map_or(
+                        std::time::Duration::ZERO,
+                        DebugControl::watchdog_pause_elapsed,
+                    )
+                    .saturating_sub(self.held_at_start);
+                if self
+                    .output_deadline
+                    .map(|deadline| deadline.checked_add(held).unwrap_or(deadline))
+                    .is_some_and(|deadline| Instant::now() >= deadline)
+                {
+                    return Err(RuntimeError::WatchdogTimeout);
+                }
                 if let Some(debug) = &self.debug {
                     debug.push_io_snapshot(self.io_snapshot(images, debug));
                 }
             }
             CyclePhase::BeforeInputSample
-            | CyclePhase::AfterInputSample
-            | CyclePhase::BackgroundEnd(_)
+            | CyclePhase::BackgroundEnd
             | CyclePhase::BeforeOutputSample
             | CyclePhase::CycleEnd => {}
         }
@@ -260,8 +281,7 @@ mod tests {
         let metrics = MetricsSubsystem::new();
         let bindings = [PreparedIoBinding {
             address: crate::io::IoAddress::parse("%MW0").expect("an address"),
-            ref_idx: 0,
-            type_id: None,
+            symbol: 0,
             codec: IoValueCodec {
                 wire_type: Some(ConversionType::Int),
                 ..IoValueCodec::default()
@@ -274,17 +294,21 @@ mod tests {
         let scan = HostedCompiledScan {
             metrics: &metrics,
             debug: None,
+            debugger: None,
             ads: &mut ads,
             opcua: &mut opcua,
             tags: &[],
             extra: &extra,
             tasks: &[],
+            programs: &[],
             bindings: &bindings,
             binding_names: &names,
             cycle: 7,
             generation: Generation::FIRST,
             task_timer: None,
             program_timer: None,
+            output_deadline: None,
+            held_at_start: std::time::Duration::ZERO,
         };
         let images = FlatImages {
             memory: vec![0xFE, 0xFF],

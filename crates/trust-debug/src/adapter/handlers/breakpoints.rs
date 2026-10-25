@@ -5,11 +5,9 @@
 
 use serde_json::Value;
 
-use trust_runtime::debug::location_to_line_col;
-
 use crate::protocol::{
-    Breakpoint, BreakpointLocation, BreakpointLocationsArguments, BreakpointLocationsResponseBody,
-    Request, SetBreakpointsArguments, SetBreakpointsResponseBody, SourceBreakpoint,
+    Breakpoint, BreakpointLocationsArguments, BreakpointLocationsResponseBody, Request,
+    SetBreakpointsArguments, SetBreakpointsResponseBody, SourceBreakpoint,
 };
 
 use super::super::{AttachBreakpoints, DebugAdapter, DispatchOutcome};
@@ -40,9 +38,10 @@ impl DebugAdapter {
             };
         };
 
-        // A launch or an attach that waits for the configuration keeps the breakpoints until its
-        // program runs, the launch's on whichever runtime it starts (specification 44 NX-16).
-        if self.remote_session.is_none() && self.launch_state.has_pending_launch() {
+        // Until a launch or an attach connects to a runtime, the breakpoints are kept, and the
+        // runtime the session starts takes them (specification 13, session lifecycle; specification
+        // 44 NX-16).
+        if self.remote_session.is_none() {
             let body = self.record_attach_breakpoints(args);
             return DispatchOutcome {
                 responses: vec![self.ok_response(&request, Some(body))],
@@ -60,26 +59,10 @@ impl DebugAdapter {
             .map(|items| items.len())
             .or_else(|| args.lines.as_ref().map(|items| items.len()))
             .unwrap_or(0);
-        let known_source = if self.remote_session.is_some() {
-            true
-        } else {
-            self.session.source_file_for_path(source_path).is_some()
-        };
-        let mut events = vec![self.debug_output_message(format!(
-            "[trust-debug] setBreakpoints: path={} requested={} known_source={} configured={} pending_launch={}",
-            source_path,
-            requested,
-            known_source,
-            self.launch_state.is_configured(),
-            self.launch_state.has_pending_launch()
+        let events = vec![self.debug_output_message(format!(
+            "[trust-debug] setBreakpoints: path={source_path} requested={requested}"
         ))];
-
         let body = self.set_breakpoints(args);
-        if self.remote_session.is_none()
-            && let Some(report) = self.session.take_breakpoint_report()
-        {
-            events.push(self.debug_output_message(report));
-        }
         DispatchOutcome {
             responses: vec![self.ok_response(&request, Some(body))],
             events,
@@ -129,24 +112,6 @@ impl DebugAdapter {
                 .push(AttachBreakpoints { args, ids });
         }
         SetBreakpointsResponseBody { breakpoints }
-    }
-
-    /// Sets the breakpoints kept while a launch was pending on the program the bytecode engine's
-    /// simulator loaded, each source's in the order asked, and returns a `breakpoint` event for
-    /// each with the id its pending answer gave it (specification 13, session lifecycle).
-    pub(in crate::adapter) fn apply_pending_breakpoints_locally(&mut self) -> Vec<Value> {
-        let mut events = Vec::new();
-        for AttachBreakpoints { args, ids } in core::mem::take(&mut self.attach_breakpoints) {
-            let answered = self.set_breakpoints(args).breakpoints;
-            for (breakpoint, id) in answered.into_iter().zip(ids) {
-                let breakpoint = Breakpoint {
-                    id: Some(id),
-                    ..breakpoint
-                };
-                events.push(self.breakpoint_event("changed", breakpoint));
-            }
-        }
-        events
     }
 
     /// Sends the breakpoints kept while the attach was pending to the runtime the attach connected
@@ -274,35 +239,7 @@ impl DebugAdapter {
             None => None,
         };
 
-        if let Some(remote) = self.remote_session.as_mut() {
-            let response = remote.breakpoint_locations(
-                path,
-                runtime_line,
-                runtime_column,
-                runtime_end_line,
-                runtime_end_column,
-            );
-            let body = match response {
-                Ok(mut body) => {
-                    for breakpoint in &mut body.breakpoints {
-                        breakpoint.line = self.to_client_line(breakpoint.line);
-                        if let Some(column) = breakpoint.column.as_mut() {
-                            *column = self.to_client_column(*column);
-                        }
-                    }
-                    body
-                }
-                Err(_) => BreakpointLocationsResponseBody {
-                    breakpoints: Vec::new(),
-                },
-            };
-            return DispatchOutcome {
-                responses: vec![self.ok_response(&request, Some(body))],
-                ..DispatchOutcome::default()
-            };
-        }
-
-        let Some(source_file) = self.session.source_file_for_path(path) else {
+        let Some(remote) = self.remote_session.as_mut() else {
             let body = BreakpointLocationsResponseBody {
                 breakpoints: Vec::new(),
             };
@@ -311,84 +248,27 @@ impl DebugAdapter {
                 ..DispatchOutcome::default()
             };
         };
-
-        let Some(line) = self.to_runtime_line(args.line) else {
-            return DispatchOutcome {
-                responses: vec![self.error_response(&request, "invalid line")],
-                ..DispatchOutcome::default()
-            };
-        };
-        let column = match args.column {
-            Some(column) => match self.to_runtime_column(column) {
-                Some(col) => Some(col),
-                None => {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, "invalid column")],
-                        ..DispatchOutcome::default()
-                    };
+        let response = remote.breakpoint_locations(
+            path,
+            runtime_line,
+            runtime_column,
+            runtime_end_line,
+            runtime_end_column,
+        );
+        let body = match response {
+            Ok(mut body) => {
+                for breakpoint in &mut body.breakpoints {
+                    breakpoint.line = self.to_client_line(breakpoint.line);
+                    if let Some(column) = breakpoint.column.as_mut() {
+                        *column = self.to_client_column(*column);
+                    }
                 }
-            },
-            None => None,
-        };
-        let end_line = match args.end_line {
-            Some(end_line) => match self.to_runtime_line(end_line) {
-                Some(end) => Some(end),
-                None => {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, "invalid end line")],
-                        ..DispatchOutcome::default()
-                    };
-                }
-            },
-            None => None,
-        };
-        let end_column = match args.end_column {
-            Some(end_column) => match self.to_runtime_column(end_column) {
-                Some(end) => Some(end),
-                None => {
-                    return DispatchOutcome {
-                        responses: vec![self.error_response(&request, "invalid end column")],
-                        ..DispatchOutcome::default()
-                    };
-                }
-            },
-            None => None,
-        };
-
-        let mut breakpoints = Vec::new();
-        if let Some(locations) = self
-            .session
-            .metadata()
-            .statement_locations(source_file.file_id)
-        {
-            let max_line = end_line.unwrap_or(line);
-            for location in locations {
-                let (loc_line, loc_col) = location_to_line_col(&source_file.text, location);
-                if loc_line < line || loc_line > max_line {
-                    continue;
-                }
-                if let Some(min_col) = column
-                    && loc_line == line
-                    && loc_col < min_col
-                {
-                    continue;
-                }
-                if let Some(max_col) = end_column
-                    && loc_line == max_line
-                    && loc_col > max_col
-                {
-                    continue;
-                }
-                breakpoints.push(BreakpointLocation {
-                    line: self.to_client_line(loc_line),
-                    column: Some(self.to_client_column(loc_col)),
-                    end_line: None,
-                    end_column: None,
-                });
+                body
             }
-        }
-
-        let body = BreakpointLocationsResponseBody { breakpoints };
+            Err(_) => BreakpointLocationsResponseBody {
+                breakpoints: Vec::new(),
+            },
+        };
         DispatchOutcome {
             responses: vec![self.ok_response(&request, Some(body))],
             ..DispatchOutcome::default()

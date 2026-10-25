@@ -13,41 +13,18 @@ use smol_str::SmolStr;
 use trust_runtime::config::{IoConfig, RuntimeConfig};
 use trust_runtime::control::{ControlEndpoint, SourceFile as ControlSourceFile};
 use trust_runtime::harness::SourceFile;
-use trust_runtime::native::{build, debug_hooks, triple, NativeError, Options, Target, Toolchain};
+use trust_runtime::native::{build, debug_hooks, triple, Options, Target, Toolchain};
 use trust_runtime::scheduler::{ResourceHandle, ResourceRunner, StartGate, StdClock};
 use trust_runtime::value::Duration;
 use trust_runtime::{CompiledRuntime, RestartMode};
 
-use crate::protocol::{LaunchArguments, OutputEventBody, ReloadArguments, Request};
+use crate::protocol::{LaunchArguments, ReloadArguments, Request};
 use crate::session::SourceOptionsUpdate;
 
 use super::control_bridge::{default_control_endpoint, DebugControlServer, ServedProgram};
 use super::launch::{launch_control_auth_token, launch_control_endpoint, launch_runtime_root};
 use super::remote::{RemoteEndpoint, RemoteSession};
 use super::{DebugAdapter, DispatchOutcome};
-
-/// Why a launch runs its program on the bytecode engine instead (specification 44 NX-16).
-pub(super) enum EngineReason {
-    /// No toolchain is installed (specification 44 §4.6).
-    NoToolchain(String),
-    /// The project has a construct the native build does not compile yet (NX-15).
-    NotCompiledYet(String),
-}
-
-impl EngineReason {
-    /// What the debug console says.
-    pub(super) fn message(&self) -> String {
-        match self {
-            Self::NoToolchain(detail) => format!(
-                "the simulator runs the program on the bytecode engine: no toolchain to compile it \
-                 ({detail})"
-            ),
-            Self::NotCompiledYet(detail) => {
-                format!("the simulator runs the program on the bytecode engine: {detail}")
-            }
-        }
-    }
-}
 
 /// The launch's sources as the native build takes them, each labelled by its path in the project
 /// folder `root`, as `trust-runtime build` labels them (specification 44 §5.3).
@@ -63,36 +40,26 @@ fn labelled(root: &Path, sources: &[(String, String)]) -> Vec<SourceFile> {
 }
 
 /// The project's image built from `sources` as `trust-runtime build` builds it, a debug image
-/// unless `[build] debug` says otherwise (specification 44 §13.2), in the project's build folder;
-/// or why the launch runs the bytecode engine.
+/// unless `[build] debug` says otherwise (specification 44 §13.2), in the project's build folder,
+/// with the toolchain of §4.6.
 ///
 /// # Errors
 ///
-/// The error of sources that do not compile, or of a build that fails.
-pub(super) fn build_image(
-    root: &Path,
-    sources: &[(String, String)],
-) -> Result<Result<Vec<u8>, EngineReason>, String> {
-    let toolchain = match Toolchain::find() {
-        Ok(toolchain) => toolchain,
-        Err(error) => return Ok(Err(EngineReason::NoToolchain(error.to_string()))),
-    };
+/// No toolchain, sources that do not compile, or a build that fails.
+pub(super) fn build_image(root: &Path, sources: &[(String, String)]) -> Result<Vec<u8>, String> {
+    let toolchain = Toolchain::find().map_err(|error| error.to_string())?;
     let target = Target::this_cpu()
         .ok_or_else(|| String::from("this computer's CPU runs no compiled program"))?;
     let hooks = debug_hooks(root).map_err(|error| error.to_string())?;
     let work = root.join("build").join("simulator").join(triple(target));
-    match build(
+    build(
         &labelled(root, sources),
         &Options { target, hooks },
         &toolchain,
         &work,
-    ) {
-        Ok(built) => Ok(Ok(built.image)),
-        Err(error @ NativeError::Unsupported { .. }) => {
-            Ok(Err(EngineReason::NotCompiledYet(error.to_string())))
-        }
-        Err(error) => Err(error.to_string()),
-    }
+    )
+    .map(|built| built.image)
+    .map_err(|error| error.to_string())
 }
 
 /// The compiled program a launch runs: its scheduler, which waits for [`Self::open`], and the
@@ -216,8 +183,7 @@ impl DebugAdapter {
     /// The launch of `program` compiled for this computer (specification 44 NX-16): the image is
     /// built and started with its control server, the adapter connects to it as an attach does,
     /// the breakpoints set while the launch was pending reach it, `stopOnEntry` pauses it, and its
-    /// scheduler then starts. `Err` gives why the program runs on the bytecode engine instead, with
-    /// the events so far.
+    /// scheduler then starts.
     pub(super) fn launch_compiled(
         &mut self,
         request: &Request<Value>,
@@ -225,17 +191,16 @@ impl DebugAdapter {
         program: &str,
         stop_on_entry: bool,
         mut events: Vec<Value>,
-    ) -> Result<DispatchOutcome, (EngineReason, Vec<Value>)> {
+    ) -> DispatchOutcome {
         let root = launch_root(args, program);
         let sources = match self.session.launch_sources(program) {
             Ok(sources) => sources,
-            Err(error) => return Ok(self.launch_failed(request, events, &error.to_string())),
+            Err(error) => return self.launch_failed(request, events, &error.to_string()),
         };
         let image = match build_image(&root, &sources) {
-            Ok(Ok(image)) => image,
-            Ok(Err(reason)) => return Err((reason, events)),
+            Ok(image) => image,
             Err(error) => {
-                return Ok(self.launch_failed(request, events, &format!("the build: {error}")));
+                return self.launch_failed(request, events, &format!("the build: {error}"));
             }
         };
         let endpoint = match launch_control_endpoint(args) {
@@ -243,7 +208,7 @@ impl DebugAdapter {
                 Ok(endpoint) => endpoint,
                 Err(error) => {
                     let message = format!("control endpoint error: {error}");
-                    return Ok(self.launch_failed(request, events, &message));
+                    return self.launch_failed(request, events, &message);
                 }
             },
             None => default_control_endpoint(),
@@ -258,14 +223,14 @@ impl DebugAdapter {
             token.clone(),
         ) {
             Ok(simulator) => simulator,
-            Err(error) => return Ok(self.launch_failed(request, events, &error)),
+            Err(error) => return self.launch_failed(request, events, &error),
         };
         let remote = match RemoteSession::connect(remote_endpoint(&endpoint), token) {
             Ok(remote) => remote,
             Err(error) => {
                 simulator.stop();
                 let message = format!("connecting to the simulator: {error}");
-                return Ok(self.launch_failed(request, events, &message));
+                return self.launch_failed(request, events, &message);
             }
         };
         self.remote_session = Some(remote);
@@ -284,11 +249,11 @@ impl DebugAdapter {
             simulator.open();
         }
         self.start_remote_polling();
-        Ok(DispatchOutcome {
+        DispatchOutcome {
             responses: vec![self.ok_response::<Value>(request, None)],
             events,
             ..DispatchOutcome::default()
-        })
+        }
     }
 
     /// The failed answer of a launch, which keeps none of the breakpoints that waited for it.
@@ -304,20 +269,6 @@ impl DebugAdapter {
             events,
             ..DispatchOutcome::default()
         }
-    }
-
-    /// `text` in the debug console.
-    pub(super) fn console_message(&self, text: String) -> Value {
-        self.event(
-            "output",
-            Some(OutputEventBody {
-                output: format!("{text}\n"),
-                category: Some("console".to_string()),
-                source: None,
-                line: None,
-                column: None,
-            }),
-        )
     }
 
     /// `stReload` of a compiled launch (specification 44 NX-16): the project is built again from
@@ -346,18 +297,12 @@ impl DebugAdapter {
             .session
             .launch_sources(&program)
             .map_err(|error| error.to_string())?;
-        let image = match build_image(&root, &sources)? {
-            Ok(image) => image,
-            Err(reason) => return Err(reason.message()),
-        };
+        let image = build_image(&root, &sources)?;
         let remote = self
             .remote_session
             .as_mut()
             .ok_or_else(|| String::from("not connected to the simulator"))?;
-        remote.reload_program(&image)?;
-        self.watch_cache.clear();
-        self.variable_handles.clear();
-        Ok(())
+        remote.reload_program(&image)
     }
 
     /// Stops a compiled launch's program and closes its control server.

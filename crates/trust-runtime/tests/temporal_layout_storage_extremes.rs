@@ -1,16 +1,15 @@
 //! Storage round trip of every temporal type at the signed 64-bit boundaries (spec 10 §2.5 and
-//! spec 12 §4.1: logical temporal values keep the signed 64-bit domain under both storage ABIs;
-//! only SIZEOF and physical widths change). Values are written, copied by an assignment in the
-//! cycle, and read back exactly.
+//! spec 12 §4.1: logical temporal values keep the signed 64-bit domain). Values are written,
+//! copied by an assignment in the cycle, and read back exactly.
+//!
+//! The test needs the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 #![cfg(feature = "full")]
 use trust_runtime::{
-    bytecode::BytecodeVersion,
-    harness::CompileSession,
+    harness::TestHarness,
     value::{
         DateTimeValue, DateValue, Duration, LDateTimeValue, LDateValue, LTimeOfDayValue,
         TimeOfDayValue, Value,
     },
-    Runtime,
 };
 
 const SOURCE: &str = r#"
@@ -61,32 +60,24 @@ fn typed(kind: usize, value: i64) -> Value {
     }
 }
 
-fn install(source: &str, version: BytecodeVersion) -> Runtime {
-    let session = CompileSession::from_source(source);
-    let module = session.build_bytecode_module_for_version(version).unwrap();
-    if version == BytecodeVersion::LEGACY {
-        session.build_runtime_from_bytecode(&module, None).unwrap()
-    } else {
-        Runtime::from_bytes(&module.encode().unwrap(), Default::default()).unwrap()
-    }
-}
-
 #[test]
-fn every_temporal_type_keeps_the_extreme_64_bit_values_through_storage_in_both_abis() {
-    for version in [BytecodeVersion::LEGACY, BytecodeVersion::SOURCE_FREE] {
-        let mut runtime = install(SOURCE, version);
-        for value in [i64::MIN, -1, 0, 1, i64::MAX] {
-            for (kind, (input, _)) in NAMES.iter().enumerate() {
-                runtime.write_global(input, typed(kind, value)).unwrap();
-            }
-            runtime.execute_cycle().unwrap();
-            for (kind, (_, output)) in NAMES.iter().enumerate() {
-                assert_eq!(
-                    runtime.storage().get_global(output),
-                    Some(&typed(kind, value)),
-                    "{version:?} {output} {value}"
-                );
-            }
+fn every_temporal_type_keeps_the_extreme_64_bit_values_through_storage() {
+    let mut harness = TestHarness::from_source(SOURCE).unwrap();
+    for value in [i64::MIN, -1, 0, 1, i64::MAX] {
+        for (kind, (input, _)) in NAMES.iter().enumerate() {
+            harness
+                .runtime_mut()
+                .write_variable(input, &typed(kind, value))
+                .unwrap();
+        }
+        let result = harness.cycle();
+        assert!(result.errors.is_empty(), "{value}: {:?}", result.errors);
+        for (kind, (_, output)) in NAMES.iter().enumerate() {
+            assert_eq!(
+                harness.runtime().read_variable(output),
+                Ok(typed(kind, value)),
+                "{output} {value}"
+            );
         }
     }
 }

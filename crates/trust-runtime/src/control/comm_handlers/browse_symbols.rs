@@ -238,19 +238,18 @@ fn browse_local_project_symbols(
     };
     let sources = collect_project_source_files(project_root, None)
         .map_err(|error| format!("failed to collect project sources: {error}"))?;
-    let runtime = CompileSession::from_sources(sources)
-        .build_runtime()
+    let declarations = CompileSession::from_sources(sources)
+        .declarations()
         .map_err(|error| format!("failed to compile project globals: {error}"))?;
-    let mut children = runtime
+    let registry = declarations.metadata().registry();
+    let mut children = declarations
         .globals()
-        .iter()
-        .map(|(name, meta)| SymbolTreeNode {
+        .map(|(name, type_id)| SymbolTreeNode {
             id: format!("local:symbol:{}", sanitize_id(name.as_str())),
             name: name.to_string(),
             path: format!("global.{name}"),
-            type_label: runtime
-                .registry()
-                .type_name(meta.type_id)
+            type_label: registry
+                .type_name(type_id)
                 .map(|name| name.to_string())
                 .unwrap_or_else(|| "UNKNOWN".to_string()),
             node_id: None,

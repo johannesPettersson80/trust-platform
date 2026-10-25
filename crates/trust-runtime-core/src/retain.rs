@@ -9,6 +9,26 @@ use smol_str::SmolStr;
 
 use crate::value::Value;
 
+/// What a restore of retained values observed, reported after the restore applied (specification
+/// 11 §6.7).
+#[derive(Debug, Clone, PartialEq)]
+pub enum RetainApplyEvent {
+    /// A saved key no longer names a declared destination.
+    Orphan {
+        /// Saved symbolic checkpoint key.
+        name: SmolStr,
+    },
+    /// A retained value was converted to the current admitted representation.
+    Migrated {
+        /// Saved symbolic checkpoint key.
+        name: SmolStr,
+        /// Original persisted representation.
+        before: Value,
+        /// Canonical admitted representation.
+        after: Value,
+    },
+}
+
 /// Retentive behavior for variables.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RetainPolicy {

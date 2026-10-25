@@ -174,7 +174,6 @@ mod tests {
         let mut storage = VariableStorage::new();
         storage.set_global("setpoint", Value::Real(0.0));
         crate::debug::DebugSnapshot {
-            storage_abi: Default::default(),
             storage,
             now: Duration::from_millis(10),
             compiled: None,

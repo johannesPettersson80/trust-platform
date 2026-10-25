@@ -21,26 +21,6 @@ impl IoInterface {
         &self.bindings
     }
 
-    /// Inspect authoring-only hierarchical seed values for artifact production.
-    /// Order is unspecified; the producer must choose its deterministic record
-    /// order. Installed views cannot expose or modify this construction store.
-    pub(crate) fn hierarchical_seeds(
-        &self,
-    ) -> impl Iterator<Item = Result<(IoAddress, &Value), RuntimeError>> {
-        self.hierarchical
-            .iter()
-            .map(|(key, value)| key.address().map(|address| (address, value)))
-    }
-
-    /// Transfer only the immutable presentation schema to installed composition.
-    /// Its live process images are owned by the shared engine.
-    pub(crate) fn clear_authoring_images(&mut self) {
-        self.inputs = Vec::new();
-        self.outputs = Vec::new();
-        self.memory = Vec::new();
-        self.hierarchical = Default::default();
-    }
-
     /// Resize the process image buffers.
     pub fn resize(&mut self, inputs: usize, outputs: usize, memory: usize) {
         self.try_resize(inputs, outputs, memory)
@@ -164,32 +144,6 @@ impl IoInterface {
         Ok(snapshot)
     }
 
-    /// Attach an admitted source-free wire codec to immutable hosted presentation
-    /// metadata. `value_type` is a separately resolved optional authoring identity,
-    /// never the artifact's numeric TYPE_TABLE index.
-    pub(crate) fn bind_prepared_ref(
-        &mut self,
-        reference: ValueRef,
-        address: IoAddress,
-        codec: trust_runtime_core::io_image::IoValueCodec,
-        value_type: Option<TypeId>,
-        display_name: Option<SmolStr>,
-    ) {
-        self.push_binding(
-            IoBinding {
-                target: IoTarget::Reference(reference),
-                address,
-                value_type,
-                display_name,
-                source: None,
-            },
-            IoBindingCodec {
-                prepared: Some(codec),
-                ..IoBindingCodec::default()
-            },
-        );
-    }
-
     pub fn bind(&mut self, name: impl Into<SmolStr>, address: IoAddress) {
         let name = name.into();
         self.push_binding(
@@ -311,17 +265,6 @@ impl IoInterface {
         self.binding_codecs.push(codec);
     }
 
-    /// Bind the reference targets again, in binding order, after a restart constructed a
-    /// new installation generation (specification 34 §11.3). Addresses, codecs, names and
-    /// provenance are unchanged.
-    pub(crate) fn rebind_references(&mut self, references: Vec<ValueRef>) {
-        for (binding, reference) in self.bindings.iter_mut().zip(references) {
-            if let IoTarget::Reference(target) = &mut binding.target {
-                *target = reference;
-            }
-        }
-    }
-
     pub fn set_binding_sources<F>(&mut self, mut source_for: F)
     where
         F: FnMut(&IoAddress) -> Option<SmolStr>,
@@ -439,25 +382,6 @@ mod interface_contract_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn authoring_hierarchical_seeds_keep_values_and_release_on_binding_freeze() {
-        let mut interface = IoInterface::new();
-        let address = IoAddress::parse("%IX2.4.7").unwrap();
-        interface.write(&address, Value::Bool(true)).unwrap();
-        {
-            let seeds = interface
-                .hierarchical_seeds()
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap();
-            assert_eq!(seeds.len(), 1);
-            assert_eq!(seeds[0].0, address);
-            assert_eq!(seeds[0].1, &Value::Bool(true));
-            assert_eq!(interface.read(&address), Ok(Value::Bool(true)));
-        }
-        interface.clear_authoring_images();
-        assert_eq!(interface.hierarchical_seeds().count(), 0);
-    }
 
     #[test]
     fn snapshot_carries_optional_binding_source() {

@@ -18,8 +18,8 @@ successful `git init` exit status.
 The guided CLI, browser setup, and automatic first-run wizard must leave a
 coherent runnable project rather than a collection of independently valid
 files. A selected resource name and cycle interval are applied to
-`runtime.toml`, the setup-owned `src/config.st`, and the rebuilt `program.stbc`
-as one prepared change. The complete source set must compile before these
+`runtime.toml`, the setup-owned `src/config.st`, and the rebuilt program image
+`program.tpi` as one prepared change. The complete source set must compile before these
 artifacts are replaced. A cycle interval of zero, an invalid or reserved IEC
 identifier, or a source/build failure rejects the setup instead of writing a
 known-invalid runtime configuration.
@@ -30,7 +30,7 @@ punctuation-only names use `Res`; a leading digit or reserved keyword is
 prefixed with `Res`. This generation rule is product scaffolding that consumes
 the IEC identifier contract; it is not an IEC decision or deviation.
 
-Wizard bytecode generation recursively discovers `.st` and `.pou` files using
+The wizard's build recursively discovers `.st` and `.pou` files using
 ASCII case-insensitive extensions, deterministic path order, and literal
 filesystem names. It includes resolved local project dependencies and
 propagates directory/file-read failures. Selecting system I/O removes an
@@ -38,7 +38,8 @@ existing project `io.toml` regular file or symbolic link, including a dangling
 link, but rejects a directory or unsupported filesystem object at that path.
 Automatic setup migrates a legacy `sources/` tree to `src/` before discovery,
 removes only the exact obsolete generated `io.st` template, and compiles the
-migrated project plus resolved local dependencies into validated bytecode.
+migrated project plus resolved local dependencies into a program image that
+this computer admits (specification 44 §10.2).
 
 Remote browser setup tokens contain 128 bits from the operating-system secure
 random source. If that source fails, setup aborts before binding the server; it
@@ -71,8 +72,9 @@ contracts, not IEC decisions or deviations.
 
 The first eight single-file programs under `examples/tutorials/` and the
 standalone `examples/tutorials/09_simulation_coupling/` project are shipped
-product artifacts. Every Structured Text source must compile through both the
-in-process runtime harness and the current source-to-bytecode path. Tutorial 09
+product artifacts. Every Structured Text source must build into a program image
+for this computer through the in-process test harness (specification 10
+§11.1). Tutorial 09
 must also pass `trust-runtime check --project` from its checked-in project root,
 including its runtime and I/O configuration, so the documented Runtime Panel
 flow works without repository-root fallback. Success requires these paths to
@@ -107,15 +109,15 @@ arbitrary-language conformance claim:
 - the plant demo configuration retains its reviewed resource, task, program,
   and directly represented I/O bindings;
 - the reviewed EtherCAT, Mitsubishi GX Works3, PLCopen ST-complete, and Siemens
-  SCL project examples parse, type-check, and lower to bytecode;
-- every visual example companion/runtime pair compiles through both the
-  runtime and source-to-bytecode paths, and at least one such pair exists; and
+  SCL project examples parse, type-check, and lower;
+- every visual example companion/runtime pair builds into a program image for
+  this computer, and at least one such pair exists; and
 - every tracked Structured Text example in the repository example corpus
   parses without diagnostics.
 
 Fixture discovery, copying, and filesystem setup are test preconditions. The
 product oracle is the bounded tracked corpus and the named build, validation,
-parse, type-check, and bytecode outcomes; it does not certify arbitrary vendor
+parse, type-check, and program-image outcomes; it does not certify arbitrary vendor
 projects or every IEC language partition.
 
 ## Source Discovery
@@ -162,13 +164,13 @@ The selected declaration is then invoked at its own boundary:
 `TEST_PROGRAM` as a program and `TEST_FUNCTION_BLOCK` as a function-block
 instance.
 
-With `--execution-backend native` the tests run compiled for this computer
-(specification 44 §14.2), as a debug or a release image as the project's
-`[build] debug` chooses (specification 44 §13.2). Without `--execution-backend`
-they run compiled when the toolchain of specification 44 §4.6 is installed, as
-`trust-runtime build` builds, and on the bytecode engine otherwise or when the
-project has a construct the native build does not compile yet, which the
-command notes; `--execution-backend bytecode` keeps the bytecode engine. With `--device <port> --target <target>` they run
+The tests run compiled for this computer (specification 44 §14.2), in one
+program image that holds every discovered test program as an instance no task
+runs, as a debug or a release image as the project's `[build] debug` chooses
+(specification 44 §13.2). They need the toolchain of specification 44 §4.6,
+named by `TRUST_TOOLCHAIN` or installed; without it the command fails with the
+advice to install it. A project with a construct the native build does not
+compile yet fails with the build's diagnostic. With `--device <port> --target <target>` they run
 on that device instead: the same image, compiled for the target, is installed
 once over the device's control link, and each selected test runs by one
 `cycle.step` that restarts the program cold and runs its test program's body

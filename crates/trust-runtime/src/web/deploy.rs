@@ -17,12 +17,16 @@ use trust_runtime_services::resource::replies::{hung_refusal, resource_not_runni
 use crate::config::{validate_io_toml_text, validate_runtime_toml_text};
 use crate::deployment::program_store::{self, Payload, PayloadFile};
 use crate::error::RuntimeError;
+use crate::native::PROGRAM_IMAGE_FILE as IMAGE_FILE;
 use crate::scheduler::ResourceState;
 
 #[derive(Debug, Deserialize)]
 pub struct DeployRequest {
     pub runtime_toml: Option<String>,
     pub io_toml: Option<String>,
+    /// The program image `program.tpi`, base64 (specification 44 §8.8).
+    pub program_tpi_b64: Option<String>,
+    /// The bytecode engine's `program.stbc`, which this runtime refuses (specification 44 §15).
     pub program_stbc_b64: Option<String>,
     pub sources: Option<Vec<DeploySource>>,
     pub signature: Option<DeploySignature>,
@@ -132,8 +136,16 @@ pub fn apply_deploy(
 }
 
 /// The files a deploy request brings, in the order the store writes them: `runtime.toml`,
-/// `io.toml`, `program.stbc` (decoded from base64), then the sources under `src/`.
+/// `io.toml`, `program.tpi` (decoded from base64), then the sources under `src/`. A request that
+/// brings the bytecode engine's `program.stbc` is refused, as a project that holds it is
+/// (specification 44 §15).
 fn deploy_payload(request: &DeployRequest) -> Result<Payload, RuntimeError> {
+    if request.program_stbc_b64.is_some() {
+        return Err(RuntimeError::ControlError(
+            "program_stbc_b64 holds the bytecode engine's program.stbc, which this runtime does not run: rebuild the project and deploy its program.tpi as program_tpi_b64"
+                .into(),
+        ));
+    }
     let mut files = Vec::new();
     if let Some(runtime_toml) = &request.runtime_toml {
         files.push(payload_file(
@@ -144,11 +156,11 @@ fn deploy_payload(request: &DeployRequest) -> Result<Payload, RuntimeError> {
     if let Some(io_toml) = &request.io_toml {
         files.push(payload_file("io.toml", io_toml.as_bytes().to_vec()));
     }
-    if let Some(program_b64) = &request.program_stbc_b64 {
+    if let Some(program_b64) = &request.program_tpi_b64 {
         let bytes = STANDARD.decode(program_b64.trim()).map_err(|err| {
-            RuntimeError::ControlError(format!("decode program.stbc: {err}").into())
+            RuntimeError::ControlError(format!("decode {IMAGE_FILE}: {err}").into())
         })?;
-        files.push(payload_file("program.stbc", bytes));
+        files.push(payload_file(IMAGE_FILE, bytes));
     }
     for source in request.sources.iter().flatten() {
         let rel = normalize_source_path_for_bundle(&source.path).ok_or_else(|| {
@@ -291,8 +303,8 @@ fn deploy_payload_sha256(request: &DeployRequest) -> String {
     hash_field(&mut hasher, "io_toml", request.io_toml.as_deref());
     hash_field(
         &mut hasher,
-        "program_stbc_b64",
-        request.program_stbc_b64.as_deref(),
+        "program_tpi_b64",
+        request.program_tpi_b64.as_deref(),
     );
 
     let mut sources = request.sources.clone().unwrap_or_default();

@@ -16,7 +16,6 @@ use trust_runtime::config::{
 use trust_runtime::control::{
     ControlAuditEvent, ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry,
 };
-use trust_runtime::debug::DebugVariableHandles;
 use trust_runtime::discovery::{DiscoveryEntry, DiscoveryState};
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;

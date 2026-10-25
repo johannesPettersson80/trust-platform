@@ -8,12 +8,12 @@ disconnected tools.
     `LSP` = Language Server Protocol.
     `DAP` = Debug Adapter Protocol.
     `HIR` = High-level Intermediate Representation.
-    `.stbc` = Structured Text Bytecode bundle.
+    `.tpi` = program image: the project compiled into native code for one CPU.
 
 ![How truST fits together](../assets/images/architecture/workflow-overview.svg)
 
 *Figure:* Source files move through Build+Validate into artifacts
-(`program.stbc`, `runtime.toml`, `io.toml`, `hmi/`), and the same runtime then
+(`program.tpi`, `runtime.toml`, `io.toml`, `hmi/`), and the same runtime then
 serves I/O drivers, the browser IDE at `/ide`, and HMI/control pages at
 `/hmi`.
 
@@ -32,7 +32,8 @@ same project semantics and execution model instead of inventing separate paths.
 
 ### 2. Runtime and control
 
-- `trust-runtime` builds `program.stbc` and executes the bytecode VM
+- `trust-runtime build` compiles the project into a program image (`program.tpi`) of native
+  code, and `trust-runtime` runs it with the same kernel every truST device runs
 - runtime configuration comes from `runtime.toml`, `io.toml`, `simulation.toml`, and `hmi/`
 - control, reload, status, and testing interfaces are exposed through CLI, web
   UI, and agent methods
@@ -71,7 +72,7 @@ The main shared contracts are:
 
 - the project layout (`src/`, config files, `hmi/`)
 - semantic analysis from the compiler/language stack
-- bytecode generation and runtime execution
+- compilation into a program image and runtime execution
 - deterministic cycle stepping for tests and automation
 - machine-readable control and agent APIs
 

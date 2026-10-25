@@ -12,8 +12,9 @@ use trust_plc_abi::{Cx, Fault, FaultCode, AREA_INSTANCES};
 
 use super::*;
 use crate::native::image::{
-    type_kind, CodeImage, FileRecord, ImageWriter, MemoryFigure, RetainRecord, SectionId,
-    StmtRecord, StringPool, Target, TypeRecord, AREA_HAS_INIT, SYMBOL_PROGRAM,
+    type_kind, AreaRecord, CodeImage, FileRecord, ImageWriter, IoBindRecord, MemoryFigure,
+    RetainRecord, SectionId, StmtRecord, StringPool, Target, TaskRecord, TypeRecord, AREA_HAS_INIT,
+    SYMBOL_PROGRAM,
 };
 
 const MS: i64 = 1_000_000;
@@ -91,6 +92,7 @@ pub(crate) fn output_bit() -> IoBindRecord {
         size: 0,
         byte: 0,
         bit: 1,
+        kind: 0,
         flags: 0,
     }
 }
@@ -340,6 +342,7 @@ fn a_device_refuses_a_binding_outside_its_process_image() {
         size,
         byte,
         bit,
+        kind: 0,
         flags: 0,
     };
     for (size, byte, bit, inside) in [
@@ -435,6 +438,7 @@ fn a_start_publishes_the_marker_variables_and_keeps_the_image() {
         size: 1,
         byte: 0,
         bit: 0,
+        kind: 0,
         flags: 0,
     };
     let bytes = image_with(0, 100, 50, device.target, count_at_mb0, 2, 0);
@@ -513,6 +517,7 @@ fn a_recursion_takes_the_depth_its_task_stack_holds() {
         size: 0,
         byte: 0,
         bit: 1,
+        kind: 0,
         flags: 0,
     };
     let bytes = image_with(48, 100, 1000, device.target, out, 0, 512);
@@ -522,7 +527,7 @@ fn a_recursion_takes_the_depth_its_task_stack_holds() {
     let result = program.scan(Duration::from_nanos(10 * MS), &mut NoHooks);
     assert_eq!(
         result,
-        Err(crate::vm::VmTrap::CallStackOverflow.into_runtime_error())
+        Err(crate::error::RuntimeError::call_depth_exceeded())
     );
     assert_eq!(program.value("MAIN.COUNT"), Some(Value::USInt(12)));
     let again = program.scan(Duration::from_nanos(20 * MS), &mut NoHooks);

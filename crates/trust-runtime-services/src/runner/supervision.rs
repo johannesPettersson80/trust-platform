@@ -8,16 +8,17 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
+use trust_runtime_core::native::change::CarriedValueEvent;
 use trust_runtime_core::ports::{
     ControlLink, MonotonicClock, MonotonicInstant, RunnerWait, TimeSpan,
 };
 use trust_runtime_core::retain::RestartMode;
+use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::scheduler::ResourceState;
 use trust_runtime_core::value;
-use trust_runtime_core::vm::{operations_between, CarriedValueEvent, RetainApplyEvent};
 use trust_runtime_core::watchdog::FaultDecision;
 
-use super::engine::LiveValuesHooks;
+use super::live::LiveValuesHooks;
 use super::observer::ScanObserver;
 use super::{span, ResourceCycle, RetainSource, Runner, RunnerPlatform};
 use crate::events::{retain_apply_event, RuntimeEvent};
@@ -248,12 +249,13 @@ where
         // The holds that run inside the scan are no active time (spec 11 §6.6), so the loop reads
         // them before and after the scan.
         let held_before = self.cycle.held_time();
-        // The scan's allocator operations are read around the cycle's work; the engine's own are
+        // The scan's allocator operations are read around the cycle's work; the program's own are
         // the engine's, the rest the services' (specification 34, "The allocation count").
         let operations_before = self.cycle.allocator_operations();
         let result = {
             let mut observer = ScanObserver::new(
                 &self.tasks,
+                &self.programs,
                 &self.shell.records,
                 &self.clock,
                 &self.shell.debug,
@@ -275,7 +277,9 @@ where
             self.cycle.allocator_operations(),
             self.cycle.last_scan_allocations(),
         ) {
-            let services = u64::from(operations_between(before, after)).saturating_sub(engine);
+            // The count is kept in 32 bits that wrap: the operations between two readings are their
+            // wrapping difference.
+            let services = u64::from(after.wrapping_sub(before)).saturating_sub(engine);
             self.shell
                 .records
                 .record(|metrics| metrics.record_scan_allocations(engine, services));

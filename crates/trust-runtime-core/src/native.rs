@@ -19,8 +19,9 @@ pub mod program;
 mod record;
 pub mod retain;
 pub mod signature;
+mod start;
 pub mod stop;
 mod values;
 pub mod variables;
 
-pub use functions::{RuntimeReals, KERNEL_FUNCTIONS};
+pub use functions::{RuntimeReals, KERNEL_API, KERNEL_FUNCTIONS};

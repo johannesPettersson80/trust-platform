@@ -27,13 +27,12 @@ use super::logpoint::LogRecord;
 use super::options::{OptionsError, WireOptions};
 use super::paging::{ChildKind, Page};
 use super::projection::{file_name_of, DebugSource, DebugVariableHandles};
-use super::reads::{self, Located, ReadState};
+use super::reads::Located;
 use super::replies::{self, StopPlace};
 use super::run::{StepKind, StopReason};
 use super::sources::LineSources;
 use super::statement::Span;
 use crate::live_values::io_requests::IoSnapshotRead;
-use crate::live_values::io_snapshot::IoSnapshot;
 use crate::protocol::{ControlRequest, ControlResponse};
 
 /// The parameters of `breakpoints.set` and `breakpoints.clear`.
@@ -135,18 +134,9 @@ pub struct BreakpointView {
 /// What the debug operations read and change on a runtime that holds no source text (specification
 /// 34, ARCH-11 and SERVICE-06). The runtime's resource loop implements it over its own debugger.
 pub trait Debugger {
-    /// The program's `LINE_TABLE` and file labels, or `None` for a program that has no
-    /// `LINE_TABLE`, which cannot be debugged (specification 11 §6.13.3).
+    /// The program's statement table and file labels, or `None` for a program that has none,
+    /// which cannot be debugged (specification 11 §6.13.3).
     fn sources(&self) -> Option<&LineSources>;
-
-    /// The state a read answers from: the halted state while the debugger holds the scan, and
-    /// otherwise the state of the last scan that ended (specification 11 §6.13.1).
-    ///
-    /// # Errors
-    ///
-    /// The error text of a read that has no state to answer from, `no snapshot available`
-    /// before the first scan ends.
-    fn read_state(&self) -> Result<ReadState<'_>, String>;
 
     /// The published I/O snapshot, which the I/O scope lists.
     fn io_snapshot(&self) -> IoSnapshotRead;
@@ -194,14 +184,10 @@ pub trait Debugger {
     /// Runs `operation` on the variable handles of the current stop.
     fn with_handles(&self, operation: &mut dyn FnMut(&mut DebugVariableHandles));
 
-    /// A compiled program's memory, while the debugger holds its scan and between scans
-    /// (specification 44 §13.2); `None` for the interpreter's program, which
-    /// [`Self::read_state`] answers for. A compiled program's stack, scopes and variables are read
-    /// through it.
-    #[cfg(feature = "native")]
-    fn program_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory> {
-        None
-    }
+    /// The program's memory, while the debugger holds its scan and between scans once a scan has
+    /// ended (specification 44 §13.2), through which its stack, scopes and variables are read;
+    /// `None` before that (specification 11 §6.13.1).
+    fn program_memory(&self) -> Option<&dyn trust_runtime_core::native::memory::ProgramMemory>;
 
     /// Why the program cannot be debugged at all, when it cannot: a compiled release image, which
     /// has no statement hooks (specification 44 §13.2). `None` for a debuggable program.
@@ -257,7 +243,6 @@ pub fn answer(request: &ControlRequest, debugger: &dyn Debugger) -> ControlRespo
         if !debugger.evaluates_expressions() {
             return replies::expressions_unavailable(id);
         }
-        #[cfg(feature = "native")]
         if let Some(memory) = debugger.program_memory() {
             return super::compiled::evaluate(id, kind, request.params.as_ref(), memory);
         }
@@ -271,27 +256,18 @@ pub fn answer(request: &ControlRequest, debugger: &dyn Debugger) -> ControlRespo
     match kind {
         "debug.state" => state(id, debugger, sources),
         "debug.stops" => stops(id, debugger, sources),
-        "debug.stack" => {
-            #[cfg(feature = "native")]
-            if let Some(memory) = debugger.program_memory() {
-                return super::compiled::stack(id, memory, debugger, sources);
-            }
-            stack(id, debugger, sources)
-        }
-        "debug.scopes" => {
-            #[cfg(feature = "native")]
-            if let Some(memory) = debugger.program_memory() {
-                return super::compiled::scopes(id, params, memory, debugger, sources);
-            }
-            scopes(id, params, debugger, sources)
-        }
-        "debug.variables" => {
-            #[cfg(feature = "native")]
-            if let Some(memory) = debugger.program_memory() {
-                return super::compiled::variables(id, params, memory, debugger);
-            }
-            variables(id, params, debugger)
-        }
+        "debug.stack" => match debugger.program_memory() {
+            Some(memory) => super::compiled::stack(id, memory, debugger, sources),
+            None => failed(id, replies::NO_SNAPSHOT),
+        },
+        "debug.scopes" => match debugger.program_memory() {
+            Some(memory) => super::compiled::scopes(id, params, memory, debugger, sources),
+            None => failed(id, replies::NO_SNAPSHOT),
+        },
+        "debug.variables" => match debugger.program_memory() {
+            Some(memory) => super::compiled::variables(id, params, memory, debugger),
+            None => failed(id, replies::NO_SNAPSHOT),
+        },
         "debug.breakpoint_locations" => breakpoint_locations(id, params, sources),
         "breakpoints.set" => breakpoints_set(id, params, debugger, sources),
         "breakpoints.clear" => breakpoints_clear(id, params, debugger, sources),
@@ -375,116 +351,6 @@ fn stops(id: u64, debugger: &dyn Debugger, sources: &LineSources) -> ControlResp
         })
         .collect::<Vec<_>>();
     replies::stops(id, &stops, &logs)
-}
-
-fn stack(id: u64, debugger: &dyn Debugger, sources: &LineSources) -> ControlResponse {
-    let state = match debugger.read_state() {
-        Ok(state) => state,
-        Err(error) => return failed(id, error),
-    };
-    let fallback = debugger
-        .last_stop()
-        .and_then(|stop| located(sources, stop.statement));
-    let frames = reads::stack_frames(
-        &state.frames,
-        |frame| {
-            debugger
-                .frame_span(frame)
-                .and_then(|statement| located(sources, statement))
-        },
-        fallback.as_ref(),
-    );
-    replies::stack(id, &frames)
-}
-
-fn scopes(
-    id: u64,
-    params: Option<&serde_json::Value>,
-    debugger: &dyn Debugger,
-    sources: &LineSources,
-) -> ControlResponse {
-    let params: DebugScopesParams = match parse(params) {
-        Ok(params) => params,
-        Err(error) => return failed(id, error),
-    };
-    let state = match debugger.read_state() {
-        Ok(state) => state,
-        Err(error) => return failed(id, error),
-    };
-    let frame = FrameId(params.frame_id);
-    if !state.frames.iter().any(|candidate| candidate.id == frame) {
-        return failed(id, replies::unknown_frame(params.frame_id));
-    }
-    let place = debugger
-        .frame_span(frame)
-        .or_else(|| debugger.last_stop().map(|stop| stop.statement))
-        .and_then(|statement| located(sources, statement));
-    let has_io = match debugger.io_snapshot() {
-        IoSnapshotRead::Published(io) => {
-            !(io.inputs.is_empty() && io.outputs.is_empty() && io.memory.is_empty())
-        }
-        IoSnapshotRead::Missing => false,
-        IoSnapshotRead::Unavailable => return failed(id, "I/O snapshot unavailable"),
-    };
-    let mut reply = None;
-    debugger.with_handles(&mut |handles| {
-        let scopes = reads::scopes(handles, state.storage, frame, place.as_ref(), has_io);
-        reply = Some(if handles.take_overflow() {
-            handles.clear();
-            replies::handles_full(id)
-        } else {
-            replies::scopes(id, &scopes)
-        });
-    });
-    reply.unwrap_or_else(|| failed(id, "debug variables unavailable"))
-}
-
-fn variables(
-    id: u64,
-    params: Option<&serde_json::Value>,
-    debugger: &dyn Debugger,
-) -> ControlResponse {
-    let params: DebugVariablesParams = match parse(params) {
-        Ok(params) => params,
-        Err(error) => return failed(id, error),
-    };
-    let page = params.page();
-    let state = match debugger.read_state() {
-        Ok(state) => state,
-        Err(error) => return failed(id, error),
-    };
-    let io: Option<IoSnapshot> = match debugger.io_snapshot() {
-        IoSnapshotRead::Published(io) => Some(io),
-        IoSnapshotRead::Missing => None,
-        IoSnapshotRead::Unavailable => return failed(id, "I/O snapshot unavailable"),
-    };
-    let mut reply = None;
-    debugger.with_handles(&mut |handles| {
-        // The handle is out of the table while its members are listed, because listing hands out
-        // their handles, and it is back under its own identifier afterwards. A listing that the
-        // bound refuses is rolled back, so the table is as it was (specification 11 §6.13.3).
-        reply = Some(match handles.take(params.variables_reference) {
-            Some(handle) => {
-                let mark = handles.mark();
-                let members = reads::variables(&state, &handle, io.as_ref(), handles, page);
-                handles.restore(params.variables_reference, handle);
-                if handles.take_overflow() {
-                    handles.rollback(mark);
-                    replies::handles_full(id)
-                } else {
-                    match members {
-                        Ok(variables) => replies::variables(id, &variables),
-                        Err(error) => failed(id, error),
-                    }
-                }
-            }
-            None => failed(
-                id,
-                alloc::format!("unknown variables reference {}", params.variables_reference),
-            ),
-        });
-    });
-    reply.unwrap_or_else(|| failed(id, "debug variables unavailable"))
 }
 
 fn breakpoint_locations(

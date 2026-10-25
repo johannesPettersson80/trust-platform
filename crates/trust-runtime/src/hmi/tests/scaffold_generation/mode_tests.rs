@@ -15,17 +15,10 @@ END_PROGRAM
         HmiScaffoldMode::Reset,
         false,
     );
-    let compile_sources = [HarnessSourceFile::with_path("sources/main.st", source)];
-    let runtime = CompileSession::from_sources(compile_sources.to_vec())
-        .build_runtime()
-        .expect("build runtime");
-    let metadata = runtime.metadata_snapshot();
-    let snapshot = crate::debug::DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: runtime.storage().clone(),
-        now: runtime.current_time(),
-        compiled: None,
-    };
+    let (metadata, snapshot) = declared_metadata_and_snapshot(vec![HarnessSourceFile::with_path(
+        "sources/main.st",
+        source,
+    )]);
     let refs = [HmiSourceRef {
         path: Path::new("sources/main.st"),
         text: source,

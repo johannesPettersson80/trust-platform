@@ -36,14 +36,6 @@ mod cli {
         Tap,
         Json,
     }
-
-    /// What runs the tests: the bytecode engine, or the project compiled for this computer
-    /// (specification 44).
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-    pub enum TestBackend {
-        Bytecode,
-        Native,
-    }
 }
 
 #[derive(Debug, Parser)]
@@ -108,11 +100,6 @@ enum Command {
         /// Enable CI-friendly behavior (`human` output defaults to `junit`).
         #[arg(long, action = clap::ArgAction::SetTrue)]
         ci: bool,
-        /// What runs the tests: `native`, the project compiled for this computer with the toolchain
-        /// at `TRUST_TOOLCHAIN`, or `bytecode`. Without it, `native` when the toolchain is
-        /// installed, else `bytecode`.
-        #[arg(long = "execution-backend", value_enum)]
-        execution_backend: Option<cli::TestBackend>,
         /// The serial port of a device that runs the tests compiled for its `--target`, or
         /// `tcp://<host>:<port>` of a bridge to that port (specification 44 §14.2).
         #[arg(long, requires = "target")]
@@ -177,18 +164,10 @@ fn run() -> anyhow::Result<()> {
             timeout,
             output,
             ci,
-            execution_backend,
             device,
             target,
         } => {
-            let toolchain = trust_runtime::native::Toolchain::find();
-            let runner =
-                test::TestRunner::of(execution_backend, device.zip(target), toolchain.is_ok())?;
-            if let (None, Err(error)) = (execution_backend, &toolchain)
-                && runner == test::TestRunner::Bytecode
-            {
-                eprintln!("note: {error}: running the tests on the bytecode engine");
-            }
+            let runner = test::TestRunner::of(device.zip(target));
             test::run_test(project, filter, list, timeout, output, ci, runner)
         }
     }

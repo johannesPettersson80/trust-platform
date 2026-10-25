@@ -15,12 +15,7 @@ fn qualified_live_write_commits_one_generation_and_preserves_readonly_rejection(
             notification_mode: AdsNotificationMode::OnChange,
             allow_retain_read: false,
         },
-        target: BoundGlobal::Engine(ValueRef {
-            location: crate::memory::MemoryLocation::Global,
-            offset: 0,
-            generation: crate::memory::Generation::FIRST,
-            path: Vec::new(),
-        }),
+        target: BoundGlobal("point".into()),
         quality_target: None,
         retain: false,
     };

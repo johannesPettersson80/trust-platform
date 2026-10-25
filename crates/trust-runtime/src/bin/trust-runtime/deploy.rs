@@ -29,6 +29,8 @@ include!("deploy/helpers.rs");
 
 #[cfg(test)]
 mod tests {
+    //! The tests that build a program image need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
     use super::*;
 
     include!("deploy/tests.rs");

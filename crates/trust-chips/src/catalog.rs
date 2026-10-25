@@ -7,8 +7,7 @@ use crate::{ChipFileError, Problem};
 
 /// The chip files of the chips whose firmware crate is in the repository, each with its name, in the
 /// catalog's order.
-const FILES: [(&str, &str); 3] = [
-    ("stm32f407", include_str!("../../../chips/stm32f407.toml")),
+const FILES: [(&str, &str); 2] = [
     ("esp32c6", include_str!("../../../chips/esp32c6.toml")),
     ("stm32u5a9", include_str!("../../../chips/stm32u5a9.toml")),
 ];

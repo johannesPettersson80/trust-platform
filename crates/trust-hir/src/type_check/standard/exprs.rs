@@ -43,6 +43,9 @@ impl<'a> TypeChecker<'a> {
         {
             if let Some(type_id) = self.resolve_sizeof_type_ref(&type_ref) {
                 self.validate_sizeof_target_type(type_id, node.text_range());
+                // The compiled-program generator reads the operand's type, of which SIZEOF is the
+                // size (specification 44 §3).
+                self.record_expression_type(&type_ref, type_id);
             } else {
                 self.diagnostics.error(
                     DiagnosticCode::UndefinedType,
@@ -60,6 +63,7 @@ impl<'a> TypeChecker<'a> {
             match self.resolve_sizeof_expr_target_type(&expr) {
                 Ok(type_id) => {
                     self.validate_sizeof_target_type(type_id, expr.text_range());
+                    self.record_expression_type(&expr, type_id);
                 }
                 Err(SizeOfOperandError::UnknownName(name)) => {
                     self.diagnostics.error(

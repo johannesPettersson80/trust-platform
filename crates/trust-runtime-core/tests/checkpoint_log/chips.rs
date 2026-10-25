@@ -1,25 +1,22 @@
-//! The checkpoint slots of the supported chips, read from their chip files (specification 34
-//! Appendix H), with the program unit of each chip's flash.
+//! The checkpoint slots of the ESP32-C6, read from its chip file (specification 34 Appendix H), with
+//! the program unit of its flash.
 
 use trust_runtime_core::retain::checkpoint::FlashGeometry;
 
-const STM32F407: &str = include_str!("../../../../chips/stm32f407.toml");
 const ESP32C6: &str = include_str!("../../../../chips/esp32c6.toml");
 
-/// The STM32F407 programs 32-bit words, the parallelism of its 2.7 to 3.6 V supply (RM0090).
-const STM32F407_PROGRAM_UNIT: u32 = 4;
 /// `esp-storage` 0.10.0 writes the ESP32-C6's flash in 4-byte words (`FlashStorage::WRITE_SIZE`).
 const ESP32C6_PROGRAM_UNIT: u32 = 4;
 
 /// A checkpoint slot as a chip file places it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Region {
-    /// A bus address on the STM32F407, a flash offset on the ESP32-C6.
+    /// A flash offset.
     pub start: u32,
     pub len: u32,
     /// The erase unit at the slot's start.
     pub erase_unit: u32,
-    /// The number of that erase unit in the flash: the sector number on the STM32F407.
+    /// The number of that erase unit in the flash.
     pub first_unit: u32,
 }
 
@@ -47,30 +44,9 @@ impl ChipFlash {
     }
 }
 
-/// The STM32F407 and the ESP32-C6.
-pub fn chips() -> [ChipFlash; 2] {
-    [stm32f407(), esp32c6()]
-}
-
-fn stm32f407() -> ChipFlash {
-    let flash_start = table_value(STM32F407, "[memory.flash]", "start");
-    let sectors = sector_runs(STM32F407);
-    let slot = |key| {
-        let (start, len) = layout_region(STM32F407, key);
-        let (number, sector_start, sector_len) = sector_at(flash_start, &sectors, start);
-        assert_eq!(sector_start, start, "{key} does not start on a sector");
-        Region {
-            start,
-            len,
-            erase_unit: sector_len,
-            first_unit: number,
-        }
-    };
-    ChipFlash {
-        name: "stm32f407",
-        program_unit: STM32F407_PROGRAM_UNIT,
-        slots: [slot("checkpoint_a"), slot("checkpoint_b")],
-    }
+/// The chips whose checkpoint slots the log is checked on: the ESP32-C6.
+pub fn chips() -> [ChipFlash; 1] {
+    [esp32c6()]
 }
 
 fn esp32c6() -> ChipFlash {
@@ -116,33 +92,6 @@ fn table_value(file: &str, table: &str, key: &str) -> u32 {
             (name.trim() == key).then(|| number(value.trim()))
         })
         .unwrap_or_else(|| panic!("the chip file has no {key} in {table}"))
-}
-
-/// The flash sectors as runs of `(count, bytes)`, in address order.
-fn sector_runs(file: &str) -> Vec<(u32, u32)> {
-    file.lines()
-        .map(str::trim)
-        .skip_while(|line| !line.starts_with("sectors = ["))
-        .skip(1)
-        .take_while(|line| !line.starts_with(']'))
-        .map(|line| (field(line, "count"), field(line, "kib") * 1024))
-        .collect()
-}
-
-/// The sector that holds `address`: its number, start and length.
-fn sector_at(flash_start: u32, runs: &[(u32, u32)], address: u32) -> (u32, u32, u32) {
-    let mut start = flash_start;
-    let mut number = 0;
-    for &(count, len) in runs {
-        for _ in 0..count {
-            if (start..start + len).contains(&address) {
-                return (number, start, len);
-            }
-            start += len;
-            number += 1;
-        }
-    }
-    panic!("no sector holds {address:#x}");
 }
 
 /// The number after `name =` in an inline table such as `{ start = 0x0800_8000, kib = 16 }`.

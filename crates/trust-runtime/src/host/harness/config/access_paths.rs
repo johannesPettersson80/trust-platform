@@ -127,9 +127,12 @@ fn resolve_access_parts(
         .collect();
 
     for (pos, name) in name_positions {
-        let mut value_ref = if let Some(reference) = runtime.storage().ref_for_global(name.as_ref())
+        // The place by the program's symbols: a global by its name, a program's variable as
+        // `Program.Variable`.
+        let (mut value_ref, root) = if let Some(reference) =
+            runtime.storage().ref_for_global(name.as_ref())
         {
-            reference
+            (reference, name.to_string())
         } else {
             let mut matched = None;
             for program in runtime.programs().values() {
@@ -144,13 +147,14 @@ fn resolve_access_parts(
                     matched = None;
                     break;
                 }
-                matched = Some(reference);
+                matched = Some((reference, format!("{}.{name}", program.name)));
             }
-            let Some(reference) = matched else {
+            let Some(matched) = matched else {
                 continue;
             };
-            reference
+            matched
         };
+        let mut symbol = Some((root, Vec::new()));
         let mut current_value = runtime
             .storage()
             .read_by_ref(value_ref.clone())
@@ -161,9 +165,13 @@ fn resolve_access_parts(
         for part in &parts[pos + 1..] {
             match part {
                 AccessPart::Index(indices) => {
-                    value_ref.path.push(crate::value::RefSegment::Index(
+                    let segment = crate::value::RefSegment::Index(
                         crate::value::ref_indices_from_iter(indices.iter().copied()),
-                    ));
+                    );
+                    if let Some((_, path)) = symbol.as_mut() {
+                        path.push(segment.clone());
+                    }
+                    value_ref.path.push(segment);
                     current_value = runtime
                         .storage()
                         .read_by_ref(value_ref.clone())
@@ -172,6 +180,15 @@ fn resolve_access_parts(
                 }
                 AccessPart::Name(field) => {
                     if let Value::Instance(id) = current_value {
+                        // A member of a function block instance is a symbol of its own, unless an
+                        // array or a structure holds the instance.
+                        symbol = symbol.and_then(|(mut root, path)| {
+                            path.is_empty().then(|| {
+                                root.push('.');
+                                root.push_str(field);
+                                (root, path)
+                            })
+                        });
                         value_ref = runtime
                             .storage()
                             .ref_for_instance(id, field.as_ref())
@@ -186,6 +203,9 @@ fn resolve_access_parts(
                             .cloned()
                             .ok_or_else(|| CompileError::new("invalid access path"))?;
                     } else {
+                        if let Some((_, path)) = symbol.as_mut() {
+                            path.push(crate::value::RefSegment::Field(field.clone()));
+                        }
                         value_ref
                             .path
                             .push(crate::value::RefSegment::Field(field.clone()));
@@ -207,6 +227,7 @@ fn resolve_access_parts(
         return Ok(ResolvedAccess::Variable {
             reference: value_ref,
             partial,
+            symbol: symbol.map(|(root, path)| (SmolStr::new(root), path)),
         });
     }
 

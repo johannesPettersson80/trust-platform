@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use crate::error::RuntimeError;
 use crate::harness::{CompileSession, TestHarness};
 use crate::value::Value;
@@ -13,7 +15,7 @@ fn run_output(source: &str, name: &str) -> Value {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_bytecode_module() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("statement fixture must fail"),
         Err(error) => error.to_string(),
     }
@@ -659,8 +661,9 @@ END_PROGRAM
 }
 
 #[test]
-fn statement_lowering_contract_jmp_is_rejected_at_bytecode_publication() {
-    let error = compile_error(
+fn statement_lowering_contract_jmp_skips_to_its_label() {
+    // Specification 06 §13: the jump skips `result := 9`, so the label's statement leaves 1.
+    let value = run_output(
         r#"
 PROGRAM Main
 VAR
@@ -671,11 +674,9 @@ result := INT#9;
 Done: result := INT#1;
 END_PROGRAM
 "#,
+        "result",
     );
-    assert!(
-        error.contains("unsupported C5 edge-case lowering path"),
-        "{error}"
-    );
+    assert_eq!(value, Value::Int(1));
 }
 
 #[test]

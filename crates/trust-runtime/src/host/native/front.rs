@@ -109,13 +109,8 @@ impl Front {
     /// [`NativeError::Compile`] with every error trust-hir reports, labelled by file.
     pub(super) fn analyze(sources: &[SourceFile], tests: &[SmolStr]) -> Result<Self, NativeError> {
         // The declarations only: the statements are generated from the syntax tree (§3).
-        let (lowered, frontend) = lower_application_and_frontend(
-            sources,
-            true,
-            crate::value::StorageAbi::UniformTemporal64,
-            false,
-        )
-        .map_err(|error| NativeError::Compile(error.to_string()))?;
+        let (lowered, frontend) = lower_application_and_frontend(sources, true, false)
+            .map_err(|error| NativeError::Compile(error.to_string()))?;
         // The configuration as the runtime prepares it for its own build: a project without a
         // CONFIGURATION runs each PROGRAM as one instance of its name, without a task, and the
         // program types and instances are resolved and checked by the same rules (specification

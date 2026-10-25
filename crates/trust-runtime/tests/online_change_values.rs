@@ -7,30 +7,29 @@
 //! retained or not; a changed declaration keeps what fits; a reference names the same variable or
 //! becomes NULL; a constant takes the new program's value; each variable that does not keep its value
 //! as it was is recorded as an event, at most 32 of them and then their count.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
 
 use trust_runtime::debug::{DebugControl, RuntimeEvent};
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{bytecode_bytes_from_source, TestHarness};
-use trust_runtime::runtime_core::vm::CarriedValueEvent;
+use trust_runtime::harness::TestHarness;
+use trust_runtime::runtime_core::native::change::CarriedValueEvent;
 use trust_runtime::value::{Duration, Value};
 
-/// A harness running `source` on the bytecode VM, after a cold start.
+/// A harness running the compiled program of `source`, after a cold start.
 fn installed(source: &str) -> TestHarness {
     let mut harness = TestHarness::from_source(source).expect("the program compiles");
-    let bytes = bytecode_bytes_from_source(source).expect("the program builds");
-    harness
-        .runtime_mut()
-        .apply_bytecode_bytes(&bytes, None)
-        .expect("the program installs");
-    harness
-        .runtime_mut()
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("the VM runs it");
     harness
         .runtime_mut()
         .restart(trust_runtime::RestartMode::Cold)
         .expect("the program starts");
     harness
+}
+
+/// A debug control attached to the harness's runtime, which receives its events.
+fn debugged(harness: &mut TestHarness) -> DebugControl {
+    let debug = DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
+    debug
 }
 
 /// Runs one scan, which must succeed.
@@ -41,35 +40,26 @@ fn scan(harness: &mut TestHarness) {
 
 /// Changes the installed program to `source` online.
 fn change(harness: &mut TestHarness, source: &str) {
-    let bytes = bytecode_bytes_from_source(source).expect("the new program builds");
     harness
-        .runtime_mut()
-        .apply_online_change_bytes(&bytes, None)
+        .reload_source(source)
         .expect("the online change is applied");
 }
 
 /// The value of the variable `name` of the program instance `program`, or of the global `name`.
 fn value(harness: &TestHarness, program: Option<&str>, name: &str) -> Option<Value> {
-    let storage = harness.runtime().storage();
-    match program {
-        Some(program) => match storage.get_global(program) {
-            Some(Value::Instance(id)) => storage.get_instance_var(*id, name).cloned(),
-            _ => None,
-        },
-        None => storage.get_global(name).cloned(),
-    }
+    let path = match program {
+        Some(program) => format!("{program}.{name}"),
+        None => name.to_string(),
+    };
+    harness.runtime().read_variable(&path).ok()
 }
 
 /// The value of member `member` of the function-block instance `block` of program `program`.
 fn member(harness: &TestHarness, program: &str, block: &str, member: &str) -> Option<Value> {
-    let storage = harness.runtime().storage();
-    let Some(Value::Instance(program)) = storage.get_global(program) else {
-        return None;
-    };
-    let Some(Value::Instance(block)) = storage.get_instance_var(*program, block) else {
-        return None;
-    };
-    storage.get_instance_var(*block, member).cloned()
+    harness
+        .runtime()
+        .read_variable(&format!("{program}.{block}.{member}"))
+        .ok()
 }
 
 /// The events of the variables an online change did not give their running values as they were.
@@ -146,7 +136,7 @@ fn an_online_change_keeps_every_variable_at_the_same_place() {
     // values (plain 0, text 'a', g_plain 2), an instance built anew (count 0), and an event for a
     // variable that kept its value.
     let mut harness = installed(COUNTING);
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
     for _ in 0..3 {
         harness.advance_time(Duration::from_millis(10));
         scan(&mut harness);
@@ -267,7 +257,7 @@ fn a_changed_declaration_keeps_what_fits() {
     // by its number (Blue), an array copied by position (table [1, 2, 3]), a structure reset as a whole
     // (st.y 0), and a converted value without an event.
     let mut harness = installed(DECLARATIONS);
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
     harness.advance_time(Duration::from_millis(10));
     scan(&mut harness);
     let _ = debug.drain_runtime_events();
@@ -310,13 +300,15 @@ fn a_changed_declaration_keeps_what_fits() {
             converted("P1.a"),
             not_kept("P1.b"),
             converted("P1.b2"),
-            not_kept("P1.s"),
-            converted("P1.t"),
-            not_kept("P1.lim"),
             converted("P1.e"),
-            converted("P1.table"),
+            not_kept("P1.lim"),
+            not_kept("P1.s"),
             new("P1.st.z"),
-        ]
+            converted("P1.t"),
+            converted("P1.table"),
+        ],
+        "the events in the order of the new symbol table, by name in capitals (specification 11 \
+         §6.7.1)"
     );
 }
 
@@ -403,7 +395,7 @@ fn a_reference_names_the_same_variable_or_becomes_null() {
     // still names the old program's storage (its first dereference would fault), a reference to a
     // removed variable left dangling, and a member reference that loses its instance.
     let mut harness = installed(REFERENCES);
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
     harness.advance_time(Duration::from_millis(10));
     scan(&mut harness);
     let _ = debug.drain_runtime_events();
@@ -412,12 +404,13 @@ fn a_reference_names_the_same_variable_or_becomes_null() {
     assert_eq!(
         carried_events(&debug),
         [
-            new("seen_r"),
-            new("seen_pc"),
-            new("q_null"),
             CarriedValueEvent::Cleared { name: "q".into() },
+            new("q_null"),
+            new("seen_pc"),
+            new("seen_r"),
         ],
-        "the new globals in declaration order, then the reference cleared once every instance is known"
+        "the events in the order of the new symbol table, by name in capitals (specification 11 \
+         §6.7.1)"
     );
 
     harness.advance_time(Duration::from_millis(10));
@@ -478,14 +471,18 @@ fn the_events_of_one_change_are_bounded() {
         format!("VAR_GLOBAL\n    base : INT;\n{}END_VAR\n\nPROGRAM Main\nbase := base + 1;\nEND_PROGRAM\n", globals(count))
     };
     let mut harness = installed(&source(0));
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
     harness.advance_time(Duration::from_millis(10));
     scan(&mut harness);
     let _ = debug.drain_runtime_events();
 
     change(&mut harness, &source(40));
+    // The first 32 in the order of the new symbol table, by name in capitals (specification 11
+    // §6.7.1): g0, g1, g10 to g19, g2, g20 to g29, g3, g30 to g37; g38, g39 and g4 to g9 are the 8.
+    let mut names: Vec<String> = (0..40).map(|index| format!("g{index}")).collect();
+    names.sort_by_key(|name| name.to_ascii_uppercase());
     let mut expected: Vec<CarriedValueEvent> =
-        (0..32).map(|index| new(&format!("g{index}"))).collect();
+        names.iter().take(32).map(|name| new(name)).collect();
     expected.push(CarriedValueEvent::More { count: 8 });
     assert_eq!(carried_events(&debug), expected);
     assert_eq!(value(&harness, None, "base"), Some(Value::Int(1)));
@@ -525,7 +522,7 @@ fn an_instance_keeps_its_members_by_name_when_its_block_changes() {
     // starts at 9, and the events name c.count as converted and c.limit as new. Wrong behaviour
     // caught: an instance of a changed block built anew (count 0, delta 1).
     let mut harness = installed(BLOCK);
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = debugged(&mut harness);
     for _ in 0..3 {
         harness.advance_time(Duration::from_millis(10));
         scan(&mut harness);

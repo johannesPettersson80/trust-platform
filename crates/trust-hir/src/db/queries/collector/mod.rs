@@ -13,7 +13,6 @@ mod variables;
 
 pub(super) struct SymbolCollector<'a> {
     table: SymbolTable,
-    temporal_storage: TemporalStorage,
     diagnostics: DiagnosticBuilder,
     pending_types: Vec<PendingType>,
     /// Parent symbol stack for nested declarations.
@@ -32,15 +31,9 @@ impl<'a> SymbolCollector<'a> {
         Self::build(Some(project_types))
     }
 
-    pub(super) fn with_temporal_storage(mut self, storage: TemporalStorage) -> Self {
-        self.temporal_storage = storage;
-        self
-    }
-
     fn build(project_types: Option<&'a dyn ProjectTypeProvider>) -> Self {
         Self {
             table: SymbolTable::new(),
-            temporal_storage: TemporalStorage::default(),
             diagnostics: DiagnosticBuilder::new(),
             pending_types: Vec::new(),
             parent_stack: Vec::new(),
@@ -96,9 +89,8 @@ impl<'a> SymbolCollector<'a> {
         table: SymbolTable,
         root: &SyntaxNode,
         project_roots: &[SyntaxNode],
-        temporal_storage: TemporalStorage,
     ) -> (SymbolTable, Vec<Diagnostic>) {
-        let mut collector = Self::build(None).with_temporal_storage(temporal_storage);
+        let mut collector = Self::build(None);
         collector.table = table;
         collector.check_variable_initializer_constant_expressions(root);
         collector.phase_access_and_config(root);

@@ -1,62 +1,50 @@
+//! Behaviour locks of the runtime core: the watchdog and fault policy decisions, the watchdog's
+//! safe-state contract, a fixture program's image and values, and the cycle boundary's order of
+//! input reads, program runs and output writes.
+//!
+//! The tests that run a program need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::sync::{Arc, Mutex};
 
 use trust_runtime::error::RuntimeError;
-use trust_runtime::eval::expr::{Expr, LValue};
-use trust_runtime::eval::stmt::Stmt;
-use trust_runtime::execution_backend::ExecutionBackend;
-use trust_runtime::harness::{CompileSession, SourceFile};
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
-use trust_runtime::task::{ProgramDef, TaskConfig};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::{
     FaultAction, FaultDecision, FaultPolicy, FaultSubsystem, WatchdogAction, WatchdogPolicy,
     WatchdogSubsystem,
 };
-use trust_runtime::{RestartMode, Runtime, RuntimeBuilder};
+use trust_runtime::{CompiledRuntime, RestartMode};
 
 const FIXTURE_SOURCE: &str = include_str!("fixtures/runtime_core_behavior_lock/program.st");
-const FIXTURE_PATH: &str = "fixtures/runtime_core_behavior_lock/program.st";
 
-fn compile_fixture_session() -> CompileSession {
-    CompileSession::from_sources(vec![SourceFile::with_path(FIXTURE_PATH, FIXTURE_SOURCE)])
-}
-
-fn fixture_bytecode() -> Vec<u8> {
-    compile_fixture_session()
-        .build_bytecode_bytes()
-        .expect("build behavior-lock bytecode fixture")
-}
-
-fn runtime_with_fixture(bytes: &[u8]) -> Runtime {
-    let mut runtime = compile_fixture_session()
-        .build_runtime()
-        .expect("build runtime for behavior-lock fixture");
-    runtime
-        .apply_bytecode_bytes(bytes, None)
-        .expect("load behavior-lock bytecode fixture");
-    runtime
-        .set_execution_backend(ExecutionBackend::BytecodeVm)
-        .expect("select bytecode VM");
+fn runtime_with_fixture() -> CompiledRuntime {
+    let mut runtime = TestHarness::from_source(FIXTURE_SOURCE)
+        .expect("build runtime for behavior-lock fixture")
+        .into_runtime();
     runtime
         .restart(RestartMode::Cold)
         .expect("cold restart behavior-lock runtime");
     runtime
 }
 
-fn main_instance_id(runtime: &Runtime) -> trust_runtime::memory::InstanceId {
-    match runtime.storage().get_global("Main") {
-        Some(Value::Instance(id)) => *id,
-        other => panic!("expected Main program instance, got {other:?}"),
-    }
+fn main_var(runtime: &CompiledRuntime, name: &str) -> Value {
+    runtime
+        .read_variable(&format!("Main.{name}"))
+        .unwrap_or_else(|error| panic!("missing Main.{name}: {error}"))
 }
 
-fn main_var(runtime: &Runtime, name: &str) -> Value {
-    let main_id = main_instance_id(runtime);
-    runtime
-        .storage()
-        .get_instance_var(main_id, name)
-        .cloned()
-        .unwrap_or_else(|| panic!("missing Main.{name}"))
+/// The `len` bytes of the output image from `%QB0`.
+fn output_bytes(runtime: &CompiledRuntime, len: usize) -> Vec<u8> {
+    (0..len)
+        .map(|byte| {
+            let address = IoAddress::parse(&format!("%QB{byte}")).expect("an output byte");
+            match runtime.read_io(&address) {
+                Ok(Value::Byte(value)) => value,
+                other => panic!("%QB{byte}: {other:?}"),
+            }
+        })
+        .collect()
 }
 
 fn struct_field<'a>(value: &'a Value, field: &str) -> &'a Value {
@@ -78,14 +66,14 @@ fn assert_array(value: &Value, expected: &[Value]) {
     assert_eq!(array.elements(), expected);
 }
 
-fn set_input_bit(runtime: &mut Runtime, value: bool) {
+fn set_input_bit(runtime: &mut CompiledRuntime, value: bool) {
     let address = IoAddress::parse("%IX0.0").expect("parse input address");
     runtime
         .write_io(&address, Value::Bool(value))
         .expect("write input image");
 }
 
-fn execute_fixture_cycle(runtime: &mut Runtime, input: bool) {
+fn execute_fixture_cycle(runtime: &mut CompiledRuntime, input: bool) {
     set_input_bit(runtime, input);
     runtime.execute_cycle().expect("execute fixture cycle");
 }
@@ -148,95 +136,57 @@ impl IoDriver for BoundaryDriver {
     }
 }
 
-fn cycle_boundary_runtime() -> Runtime {
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(1, 1, 0);
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "in".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "out_a".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "out_b".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "trigger".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(false))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
+/// `in` copied to `out_a` by `P1` and to `out_b` by `P2`, both in one event task that a rising edge
+/// of `trigger` starts; `trigger` is set, so the next scan runs both.
+const CYCLE_BOUNDARY: &str = r#"
+CONFIGURATION C
+VAR_GLOBAL
+    in AT %IX0.0 : BOOL;
+    out_a AT %QX0.0 : BOOL;
+    out_b AT %QX0.1 : BOOL;
+    trigger : BOOL;
+END_VAR
+RESOURCE R ON PLC
+    TASK T (SINGLE := trigger, PRIORITY := 0);
+    PROGRAM I1 WITH T : P1;
+    PROGRAM I2 WITH T : P2;
+END_RESOURCE
+END_CONFIGURATION
 
-    runtime.register_program(assign_program("P1", "out_a"));
-    runtime.register_program(assign_program("P2", "out_b"));
+PROGRAM P1
+out_a := in;
+END_PROGRAM
 
-    runtime
-        .io_mut()
-        .bind("in", IoAddress::parse("%IX0.0").expect("input address"));
-    runtime
-        .io_mut()
-        .bind("out_a", IoAddress::parse("%QX0.0").expect("output address"));
-    runtime
-        .io_mut()
-        .bind("out_b", IoAddress::parse("%QX0.1").expect("output address"));
+PROGRAM P2
+out_b := in;
+END_PROGRAM
+"#;
 
-    runtime.register_task(TaskConfig {
-        name: "T".into(),
-        interval: trust_runtime::value::Duration::ZERO,
-        single: Some("trigger".into()),
-        priority: 0,
-        programs: vec!["P1".into(), "P2".into()],
-        fb_instances: Vec::new(),
-    });
-    let mut runtime = runtime.build().expect("install declared test runtime");
+fn cycle_boundary_runtime() -> CompiledRuntime {
+    let mut runtime = TestHarness::from_source(CYCLE_BOUNDARY)
+        .expect("install declared test runtime")
+        .into_runtime();
     runtime
-        .write_global("trigger", Value::Bool(true))
+        .write_variable("trigger", &Value::Bool(true))
         .expect("checked event trigger");
     runtime
 }
 
-fn runtime_with_watchdog_safe_state(action: WatchdogAction) -> Runtime {
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(0, 1, 0);
+/// A program with one output bit, so the output image has the byte the safe state writes.
+const ONE_OUTPUT: &str = "
+VAR_GLOBAL
+    lamp AT %QX0.0 : BOOL;
+END_VAR
+
+PROGRAM Main
+END_PROGRAM
+";
+
+fn runtime_with_watchdog_safe_state(action: WatchdogAction) -> CompiledRuntime {
     let address = IoAddress::parse("%QX0.0").expect("safe-state output address");
-    let mut runtime = runtime.build().expect("install declared test runtime");
+    let mut runtime = TestHarness::from_source(ONE_OUTPUT)
+        .expect("install declared test runtime")
+        .into_runtime();
     runtime
         .write_io(&address, Value::Bool(true))
         .expect("write initial output state");
@@ -250,20 +200,6 @@ fn runtime_with_watchdog_safe_state(action: WatchdogAction) -> Runtime {
         action,
     });
     runtime
-}
-
-fn assign_program(name: &str, target: &str) -> ProgramDef {
-    ProgramDef {
-        name: name.into(),
-        vars: Vec::new(),
-        temps: Vec::new(),
-        using: Vec::new(),
-        body: vec![Stmt::Assign {
-            target: LValue::Name(target.into()),
-            value: Expr::Name("in".into()),
-            location: None,
-        }],
-    }
 }
 
 #[test]
@@ -429,8 +365,8 @@ fn watchdog_timeout_preserves_fault_snapshot_and_safe_state_contract() {
 
         assert_eq!(err, RuntimeError::WatchdogTimeout);
         assert!(runtime.faulted(), "{action:?} must fault the runtime");
-        assert_eq!(runtime.last_fault(), Some(&RuntimeError::WatchdogTimeout));
-        assert_eq!(runtime.io().outputs(), expected_outputs.as_slice());
+        assert_eq!(runtime.last_fault(), Some(RuntimeError::WatchdogTimeout));
+        assert_eq!(output_bytes(&runtime, 1), expected_outputs);
         assert_eq!(
             runtime
                 .execute_cycle()
@@ -441,31 +377,15 @@ fn watchdog_timeout_preserves_fault_snapshot_and_safe_state_contract() {
 }
 
 #[test]
-fn stable_bytecode_fixture_loads_on_runtime_core_path() {
-    let bytes = fixture_bytecode();
-    assert!(!bytes.is_empty(), "bytecode fixture must not be empty");
-
-    let runtime = runtime_with_fixture(&bytes);
-
-    assert_eq!(runtime.execution_backend(), ExecutionBackend::BytecodeVm);
-    assert!(
-        !runtime.faulted(),
-        "fresh fixture runtime must not be faulted"
-    );
-    assert!(runtime.last_fault().is_none(), "fresh fixture has no fault");
-}
-
-#[test]
 fn vm_fixture_execution_image_status_and_values_are_stable() {
-    let bytes = fixture_bytecode();
-    let mut first = runtime_with_fixture(&bytes);
-    let mut second = runtime_with_fixture(&bytes);
+    let mut first = runtime_with_fixture();
+    let mut second = runtime_with_fixture();
 
     execute_fixture_cycle(&mut first, true);
     execute_fixture_cycle(&mut second, true);
 
-    assert_eq!(first.io().outputs(), second.io().outputs());
-    assert_eq!(first.io().outputs(), &[0x01, 0x00, 0x34, 0x12]);
+    assert_eq!(output_bytes(&first, 4), output_bytes(&second, 4));
+    assert_eq!(output_bytes(&first, 4), [0x01, 0x00, 0x34, 0x12]);
     assert_eq!(first.cycle_counter(), 1);
     assert_eq!(second.cycle_counter(), 1);
     assert!(
@@ -504,21 +424,7 @@ fn vm_fixture_execution_image_status_and_values_are_stable() {
     assert_eq!(struct_field(&payload, "count"), &Value::DInt(12));
     assert_eq!(struct_field(&payload, "flag"), &Value::Bool(true));
 
-    match main_var(&first, "ref_count") {
-        Value::Reference(Some(_)) => {}
-        other => panic!("expected live reference, got {other:?}"),
-    }
-
-    match main_var(&first, "fb") {
-        Value::Instance(id) => {
-            let out = first
-                .storage()
-                .get_instance_var(id, "OUT")
-                .unwrap_or_else(|| panic!("missing Bump.OUT for instance {id:?}"));
-            assert_eq!(out, &Value::DInt(13));
-        }
-        other => panic!("expected FB instance, got {other:?}"),
-    }
+    assert_eq!(main_var(&first, "fb.OUT"), Value::DInt(13));
 
     assert_eq!(main_var(&first, "retained_count"), Value::DInt(18));
 
@@ -543,15 +449,9 @@ fn cycle_boundary_latches_inputs_once_and_commits_outputs_after_ready_programs()
     let trace = trace.lock().expect("cycle trace lock");
     assert_eq!(trace.events, ["driver:read", "driver:write"]);
     assert_eq!(trace.writes, [("driver".to_string(), vec![0x03])]);
-    assert_eq!(runtime.io().outputs(), &[0x03]);
-    assert_eq!(
-        runtime.storage().get_global("out_a"),
-        Some(&Value::Bool(true))
-    );
-    assert_eq!(
-        runtime.storage().get_global("out_b"),
-        Some(&Value::Bool(true))
-    );
+    assert_eq!(output_bytes(&runtime, 1), [0x03]);
+    assert_eq!(runtime.read_variable("out_a"), Ok(Value::Bool(true)));
+    assert_eq!(runtime.read_variable("out_b"), Ok(Value::Bool(true)));
 }
 
 #[test]

@@ -1,3 +1,8 @@
+//! The panic containment cases: a panic in an input driver, in a driver taking the safe outputs
+//! and in the resource thread itself is contained as a `ResourcePanic` fault.
+//!
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -7,11 +12,12 @@ use std::time::{Duration as WallDuration, Instant};
 
 use serde_json::json;
 use trust_runtime::error::RuntimeError;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::io::{IoAddress, IoDriver, IoSafeState};
 use trust_runtime::scheduler::{Clock, ResourceRunner, ResourceState};
 use trust_runtime::value::{Duration, Value};
 use trust_runtime::watchdog::FaultPolicy;
-use trust_runtime::RuntimeBuilder;
+use trust_runtime::CompiledRuntime;
 use verification_cases::{
     check_case_expectation, check_trace_fields, run_case_file, CaseExecution, CaseRecord,
     CaseResult, ObservedOperation, RunConfig, StateProbe, StateSnapshot, TraceStep,
@@ -142,12 +148,19 @@ fn run_panic_case(case: &CaseRecord, probe: &mut PanicProbe) -> Result<CaseExecu
     })
 }
 
+/// The compiled program of `source`, loaded.
+fn compiled(source: &str) -> Result<CompiledRuntime, String> {
+    TestHarness::from_source(source)
+        .map(TestHarness::into_runtime)
+        .map_err(|error| error.to_string())
+}
+
 fn input_driver_panic_observation(
     restart_policy: bool,
 ) -> Result<BTreeMap<String, serde_json::Value>, String> {
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(1, 0, 0);
-    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
+    // One input bit, so the input image has the byte the driver reads.
+    let mut runtime =
+        compiled("VAR_GLOBAL sensor AT %IX0.0 : BOOL; END_VAR PROGRAM Main END_PROGRAM")?;
     runtime.add_io_driver("panic-input", Box::new(PanickingReadDriver));
     if restart_policy {
         runtime.set_fault_policy(FaultPolicy::Restart);
@@ -172,24 +185,9 @@ fn input_driver_panic_observation(
 
 fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>, String> {
     let writes = Arc::new(Mutex::new(Vec::new()));
-    let mut runtime = RuntimeBuilder::new();
-    runtime.io_mut().resize(0, 1, 0);
-    runtime
-        .register_global(trust_runtime::program_model::VarDef {
-            name: "out".into(),
-            type_id: trust_hir::TypeId::BOOL,
-            initializer: Some(trust_runtime::eval::expr::Expr::Literal(Value::Bool(true))),
-            retain: trust_runtime::RetainPolicy::Unspecified,
-            static_storage: false,
-            external: false,
-            in_out: false,
-            constant: false,
-            address: None,
-        })
-        .expect("declare test global");
     let address = IoAddress::parse("%QX0.0").map_err(|error| error.to_string())?;
-    runtime.io_mut().bind("out", address.clone());
-    let mut runtime = runtime.build().map_err(|error| error.to_string())?;
+    let mut runtime =
+        compiled("VAR_GLOBAL out AT %QX0.0 : BOOL := TRUE; END_VAR PROGRAM Main END_PROGRAM")?;
     runtime.add_io_driver(
         "panic-recorder",
         Box::new(PanickingRecordingDriver {
@@ -229,9 +227,7 @@ fn safe_output_panic_observation() -> Result<BTreeMap<String, serde_json::Value>
 
 fn outer_thread_panic_observation() -> Result<BTreeMap<String, serde_json::Value>, String> {
     let runner = ResourceRunner::new(
-        RuntimeBuilder::new()
-            .build()
-            .map_err(|error| error.to_string())?,
+        compiled("PROGRAM Main END_PROGRAM")?,
         PanicOnFirstSleepClock::new(),
         Duration::from_millis(1),
     );

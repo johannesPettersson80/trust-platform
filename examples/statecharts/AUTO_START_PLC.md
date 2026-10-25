@@ -31,7 +31,7 @@ sudo trust-runtime setup --force
 ├── src/                          # ST source files
 │   ├── main.st
 │   └── statechart_handler.st
-├── program.stbc                  # compiled bytecode
+├── program.tpi                   # compiled program image
 ├── runtime.toml                  # runtime configuration
 ├── io.toml                       # EtherCAT / I/O configuration
 └── trust-lsp.toml                # project configuration
@@ -103,7 +103,7 @@ value = "FALSE"
 ```bash
 cd /opt/trust/production
 sudo trust-runtime build --project .
-ls -lh program.stbc
+ls -lh program.tpi
 ```
 
 ## Configure a systemd Service

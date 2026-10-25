@@ -5,7 +5,7 @@ use crate::error::RuntimeError;
 use super::Value;
 
 /// The capacity of a `STRING` or `WSTRING` declared without a length (`docs/IEC_DECISIONS.md`
-/// 2026-10-17). An STBC string type whose `max_length` is 0 has this capacity.
+/// 2026-10-17). A string type whose `max_length` is 0 has this capacity.
 pub const DEFAULT_STRING_CAPACITY: u16 = 80;
 
 /// The implementer maximum of IEC 61131-3 Ed.3 §6.4.2.2: the longest text a string function may
@@ -18,9 +18,8 @@ pub fn string_element_count(text: &str) -> usize {
     text.chars().count()
 }
 
-/// The capacity of an STBC `STRING` or `WSTRING` type: its `max_length`, or
-/// [`DEFAULT_STRING_CAPACITY`] for 0, which earlier producers wrote for a declaration without a
-/// length.
+/// The capacity of a `STRING` or `WSTRING` type: its `max_length`, or [`DEFAULT_STRING_CAPACITY`]
+/// for 0, which a declaration without a length has.
 #[must_use]
 pub const fn string_capacity(max_length: u16) -> u16 {
     if max_length == 0 {

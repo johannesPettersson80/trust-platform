@@ -173,15 +173,6 @@ fn harness_io_contract_wire_extent_uses_codec_widths_and_relative_gaps() {
     assert_eq!(type_size_bytes(located, &registry).unwrap(), 12);
     assert_eq!(type_size_bytes(located_array, &registry).unwrap(), 24);
     assert_eq!(crate::value::size_of_type(located, &registry).unwrap(), 16);
-    assert_eq!(
-        crate::value::size_of_type_with_abi(
-            located,
-            &registry,
-            crate::value::StorageAbi::LegacyTemporal32
-        )
-        .unwrap(),
-        8
-    );
     let unbounded = registry.register("Text", Type::String { max_len: None });
     assert_compile_error(type_size_bytes(unbounded, &registry), "unsupported size");
 }

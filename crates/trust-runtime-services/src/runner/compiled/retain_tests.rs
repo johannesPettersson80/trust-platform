@@ -1,18 +1,20 @@
 //! A compiled program's retained values through the chip's checkpoint log (specification 44 §11;
 //! specification 34 §10; specification 11 §6.7), with a stand-in module written against the kernel
-//! interface over the RAM checkpoint flash of the engine cycle's retain tests.
+//! interface over a RAM checkpoint flash.
 //!
 //! The image: `MAIN` in the task `Fast` of 10 ms; its body counts the retained global
 //! `Batches : USINT := 3`, byte 0 of the retain area, once per activation.
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::vec;
 use alloc::vec::Vec;
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 
 use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
 use trust_plc_abi::module::run;
 use trust_plc_abi::{Cx, AREA_RETAIN};
+use trust_runtime_core::cycle::CycleHooks;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::native::image::{
     type_kind, AreaRecord, CodeImage, EntryKind, EntryRecord, FileRecord, ImageWriter,
@@ -22,16 +24,16 @@ use trust_runtime_core::native::image::{
 };
 use trust_runtime_core::native::program::{admit, Device, ModuleCode, NativeProgram};
 use trust_runtime_core::ports::{CheckpointStore, MonotonicClock, MonotonicInstant};
-use trust_runtime_core::retain::checkpoint::CheckpointIdentity;
+use trust_runtime_core::retain::checkpoint::{
+    CheckpointFlash, CheckpointIdentity, FlashError, FlashGeometry, Slot,
+};
 use trust_runtime_core::retain::RestartMode;
 use trust_runtime_core::value::{Duration, Value};
-use trust_runtime_core::vm::CycleHooks;
 use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 
 use super::CompiledCycle;
-use crate::runner::cycle::{ResourceCycle, RetainSource};
-use crate::runner::engine::{CycleSettings, ProcessIo};
-use crate::runner::retain_contract_tests::{f407, RamFlash};
+use crate::runner::cycle::{CycleSettings, ResourceCycle, RetainSource};
+use crate::runner::process_io::ProcessIo;
 use crate::runner::{newest_checkpoint, RetainConfig};
 use crate::status::IoDriverStatus;
 
@@ -223,6 +225,66 @@ impl ProcessIo for NoLines {
     }
 }
 
+/// The checkpoint slots of these tests: one 16 KiB erase unit each, programmed in 4-byte units.
+fn slots() -> FlashGeometry {
+    FlashGeometry::new(4, 16_384, 16_384).expect("the checkpoint geometry")
+}
+
+/// A RAM checkpoint flash: erasing fills a unit with 0xFF and programming ANDs whole units, as the
+/// real flash does. A clone shares the bytes, as the flash a power-on finds again.
+#[derive(Clone)]
+struct RamFlash {
+    geometry: FlashGeometry,
+    /// The two slots' bytes; a blank flash reads 0xFF.
+    bytes: Rc<RefCell<Vec<u8>>>,
+}
+
+impl RamFlash {
+    /// A blank flash of `geometry`.
+    fn new(geometry: FlashGeometry) -> Self {
+        Self {
+            geometry,
+            bytes: Rc::new(RefCell::new(vec![0xFF; 2 * geometry.slot_len() as usize])),
+        }
+    }
+
+    /// Where `slot` starts in the two slots' bytes.
+    fn slot_base(&self, slot: Slot) -> usize {
+        match slot {
+            Slot::A => 0,
+            Slot::B => self.geometry.slot_len() as usize,
+        }
+    }
+}
+
+impl CheckpointFlash for RamFlash {
+    fn geometry(&self) -> FlashGeometry {
+        self.geometry
+    }
+
+    fn read(&mut self, slot: Slot, offset: u32, bytes: &mut [u8]) -> Result<(), FlashError> {
+        let base = self.slot_base(slot) + offset as usize;
+        bytes.copy_from_slice(&self.bytes.borrow()[base..base + bytes.len()]);
+        Ok(())
+    }
+
+    fn program(&mut self, slot: Slot, offset: u32, bytes: &[u8]) -> Result<(), FlashError> {
+        let base = self.slot_base(slot) + offset as usize;
+        let mut flash = self.bytes.borrow_mut();
+        for (index, byte) in bytes.iter().enumerate() {
+            flash[base + index] &= *byte;
+        }
+        Ok(())
+    }
+
+    fn erase(&mut self, slot: Slot, offset: u32) -> Result<(), FlashError> {
+        let base = self.slot_base(slot) + offset as usize;
+        let end = base + self.geometry.erase_unit() as usize;
+        self.bytes.borrow_mut()[base..end].fill(0xFF);
+        Ok(())
+    }
+}
+
 /// A clock that stays at its start; no scan of these tests has a deadline.
 struct Still;
 
@@ -308,7 +370,7 @@ fn batches(cycle: &CompiledCycle<'_, Still, NoLines, Module>) -> Option<Value> {
 #[test]
 fn a_stop_saves_and_the_next_power_on_restores() {
     let bytes = image();
-    let flash = RamFlash::new(f407());
+    let flash = RamFlash::new(slots());
     let mut cycle = power_on(&bytes, &flash, Duration::from_secs(3600));
     // Activations at 10, 20 and 30 ms count 3 to 6.
     scans(&mut cycle, &[0, 10, 20, 30]);
@@ -335,7 +397,7 @@ fn a_stop_saves_and_the_next_power_on_restores() {
 #[test]
 fn a_due_save_survives_a_power_cut() {
     let bytes = image();
-    let flash = RamFlash::new(f407());
+    let flash = RamFlash::new(slots());
     let mut cycle = power_on(&bytes, &flash, Duration::ZERO);
     scans(&mut cycle, &[0, 10, 20]);
     assert_eq!(batches(&cycle), Some(Value::USInt(5)));

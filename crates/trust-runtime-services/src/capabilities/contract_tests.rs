@@ -4,10 +4,9 @@
 
 use serde_json::json;
 use smol_str::SmolStr;
-use trust_runtime_core::bytecode::BytecodeVersion;
 use trust_runtime_core::deployment::{
-    Capabilities, DeviceDescriptor, NumericContract, RequestedLimits, SchedulingProfile,
-    TimingEvidence,
+    Capabilities, DeviceDescriptor, NumericContract, ProgramVersion, RequestedLimits,
+    SchedulingProfile, TimingEvidence,
 };
 
 use super::{LastReset, ResetCauseName};
@@ -18,7 +17,8 @@ use crate::tests::runner_ports::{Fixture, TestPlatform};
 
 const NETWORK: Option<&str> = Some("127.0.0.1:9000");
 
-/// A chip's descriptor: the C6's STBC versions, scheduling profile, numeric contract, timing
+/// A chip's descriptor: the C6's program format, the compiled program image (specification 44
+/// §10.1), its scheduling profile, numeric contract, timing
 /// evidence and no capability (specification 34 §5.1.1 and TARGET-03), the chip file's application
 /// slot (`[layout] application`, 6112 KiB, that is 6,258,688 bytes) and its event store (`[events]`,
 /// 200 by default and 200 at most). Its bounded maxima are distinct fixture values, and three are
@@ -26,10 +26,7 @@ const NETWORK: Option<&str> = Some("127.0.0.1:9000");
 /// unbounded limit as a number fails the literal comparison below.
 fn chip_descriptor() -> DeviceDescriptor {
     DeviceDescriptor {
-        bytecode_versions: &[
-            BytecodeVersion::SOURCE_FREE_V2,
-            BytecodeVersion::SOURCE_FREE,
-        ],
+        program_versions: &[ProgramVersion::NATIVE_IMAGE],
         scheduling_profiles: &[SchedulingProfile::COOPERATIVE_RESOURCE_V1],
         numeric_contracts: &[NumericContract::V1],
         timing_evidence: TimingEvidence::UNQUALIFIED,
@@ -84,7 +81,7 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
     assert_eq!(
         reply["result"],
         json!({
-            "bytecode_versions": ["2.0", "3.0"],
+            "program_versions": ["44.1"],
             "scheduling_profiles": ["cooperative-resource-v1"],
             "numeric_contracts": ["1"],
             "timing_evidence": "unqualified",
@@ -137,14 +134,14 @@ fn capabilities_is_read_only_for_a_viewer() {
         response.error
     );
     let result = response.result.expect("capabilities result");
-    // A computer's descriptor: STBC 2.0 and 3.0, and compiled program images (44.1) on an x86-64
-    // or AArch64 CPU (specification 34 COMPAT-02; specification 44 §4.4, §8.8).
+    // A computer's descriptor: compiled program images (44.1) on an x86-64 or AArch64 CPU, and no
+    // program on another (specification 34 COMPAT-02; specification 44 §4.4, §8.8).
     let versions = if cfg!(any(target_arch = "x86_64", target_arch = "aarch64")) {
-        json!(["2.0", "3.0", "44.1"])
+        json!(["44.1"])
     } else {
-        json!(["2.0", "3.0"])
+        json!([])
     };
-    assert_eq!(result["bytecode_versions"], versions);
+    assert_eq!(result["program_versions"], versions);
     assert_eq!(result["last_reset"], json!(null));
     assert!(
         result.get("access").is_none(),

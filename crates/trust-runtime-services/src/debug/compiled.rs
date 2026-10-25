@@ -75,7 +75,7 @@ pub(super) fn stack(
         .and_then(|stop| located(sources, stop.statement));
     let frames = memory.frames();
     if frames.is_empty() {
-        return replies::stack(id, &reads::stack_frames(&[], |_| None, fallback.as_ref()));
+        return replies::stack(id, &reads::main_frame(fallback.as_ref()));
     }
     let reader = Reader::new(memory);
     let mut listed = Vec::with_capacity(frames.len());

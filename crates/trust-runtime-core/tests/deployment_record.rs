@@ -1,30 +1,14 @@
-//! The deployment record (spec 34 §5.1.1): its version-1 layout, what it says about a program,
-//! its identities, and that a reader refuses every malformed record with the reason.
+//! The deployment record (spec 34 §5.1.1): its version-1 layout, its identities, and that a reader
+//! refuses every malformed record with the reason.
 
-use trust_runtime_core::bytecode::{
-    BytecodeModule, BytecodeVersion, SectionData, SectionId, StorageDeclaration,
-};
 use trust_runtime_core::crc32;
 use trust_runtime_core::deployment::{
-    configuration_identity, retain_schema_identity, sha256, ApplicationIdentity, Capabilities,
-    Configuration, Contracts, DeploymentRecord, DeploymentRecordError, ImportKind, NumericContract,
-    ProcessImageSummary, RequestedLimits, RequiredImport, SchedulingProfile, TaskSummary,
+    configuration_identity, sha256, ApplicationIdentity, Capabilities, Configuration, Contracts,
+    DeploymentRecord, DeploymentRecordError, ImportKind, NumericContract, ProcessImageSummary,
+    ProgramVersion, RequestedLimits, RequiredImport, SchedulingProfile, TaskSummary,
     TimingEvidence, RECORD_MAX_BYTES, RECORD_VERSION,
 };
 use trust_runtime_core::error::{RuntimeError, StableErrorCode};
-use trust_runtime_core::vm::PreparationLimits;
-
-const PROGRAM: &[u8] =
-    include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/program-v2.stbc");
-const CLOCK: &[u8] =
-    include_bytes!("../../trust-runtime/tests/fixtures/portability/stbc-2.0/clock-v2.stbc");
-
-const CONFIGURATION: [u8; 32] = [0x5A; 32];
-
-fn record_of(program: &[u8]) -> DeploymentRecord {
-    DeploymentRecord::for_program(program, PreparationLimits::default(), CONFIGURATION)
-        .expect("the saved fixture is admitted under the hosted defaults")
-}
 
 fn import(kind: ImportKind, name: &str, contract_version: u16) -> RequiredImport {
     RequiredImport {
@@ -40,8 +24,8 @@ fn sample() -> DeploymentRecord {
         application: ApplicationIdentity {
             program_sha256: [0x11; 32],
             program_bytes: 0x0102_0304,
-            bytecode_version: BytecodeVersion::SOURCE_FREE,
-            bytecode_flags: 0x0000_0001,
+            program_version: ProgramVersion::NATIVE_IMAGE,
+            program_flags: 0x0000_0001,
             configuration_sha256: [0x22; 32],
             retain_schema_sha256: [0x33; 32],
         },
@@ -51,10 +35,20 @@ fn sample() -> DeploymentRecord {
             timing_evidence: TimingEvidence::MEASURED_QUALIFIED,
             capabilities: Capabilities::WALL_CLOCK,
         },
-        limits: RequestedLimits::from_preparation(&PreparationLimits {
-            max_call_depth: 7,
-            ..PreparationLimits::default()
-        }),
+        // Each limit its position in the limits section, 1 to 11.
+        limits: RequestedLimits {
+            max_artifact_bytes: 1,
+            max_preparation_bytes: 2,
+            max_preparation_work: 3,
+            max_validation_scratch_bytes: 4,
+            max_validation_work: 5,
+            max_construction_values: 6,
+            max_construction_bytes: 7,
+            max_process_image_bytes: 8,
+            max_work: 9,
+            max_construction_work: 10,
+            max_call_depth: 11,
+        },
         process_image: ProcessImageSummary {
             input_bytes: 4,
             output_bytes: 2,
@@ -163,29 +157,29 @@ fn a_record_round_trips_through_the_version_1_layout() {
     // included. Its layout is pinned byte by byte in `deployment_configuration.rs`.
     assert_eq!(lengths, [108, 8, 88, 16, 4 + 2 * 16, 4 + 3 * 4 + names, 42]);
 
-    // Section 1: program SHA-256 and length, STBC version and flags, the two identities.
+    // Section 1: program SHA-256 and length, program version (44.1) and flags, the two
+    // identities.
     let application = &parts[0].2;
     assert_eq!(&application[0..32], &[0x11; 32]);
     assert_eq!(u32_at(application, 32), 0x0102_0304);
-    assert_eq!(u16_at(application, 36), 3);
-    assert_eq!(u16_at(application, 38), 0);
+    assert_eq!(u16_at(application, 36), 44);
+    assert_eq!(u16_at(application, 38), 1);
     assert_eq!(u32_at(application, 40), 1);
     assert_eq!(&application[44..76], &[0x22; 32]);
     assert_eq!(&application[76..108], &[0x33; 32]);
     // Section 2: profile, numeric contract, timing evidence, reserved, capabilities.
     assert_eq!(parts[1].2, [1, 0, 1, 0, 1, 0, 1, 0]);
-    // Section 3: the limits in `PreparationLimits` order; call depth is the last.
+    // Section 3: the eleven limits as 64-bit values in their order, from max_artifact_bytes to
+    // max_call_depth.
     let limits = &parts[2].2;
-    assert_eq!(
-        u64::from_le_bytes(limits[80..88].try_into().unwrap()),
-        7,
-        "max_call_depth"
-    );
-    assert_eq!(
-        u64::from_le_bytes(limits[0..8].try_into().unwrap()),
-        u64::try_from(PreparationLimits::default().max_artifact_bytes).unwrap(),
-        "max_artifact_bytes"
-    );
+    for (index, value) in (1..=11_u64).enumerate() {
+        let at = index * 8;
+        assert_eq!(
+            u64::from_le_bytes(limits[at..at + 8].try_into().unwrap()),
+            value,
+            "limit {value}"
+        );
+    }
     // Section 4: the image sizes and the binding count.
     assert_eq!(parts[3].2, [4, 0, 0, 0, 2, 0, 0, 0, 8, 0, 0, 0, 3, 0, 0, 0]);
     // Section 5: two tasks; the event task has flag bit 0.
@@ -201,111 +195,6 @@ fn a_record_round_trips_through_the_version_1_layout() {
     let decoded = DeploymentRecord::decode(&bytes).unwrap();
     assert_eq!(decoded, record);
     assert_eq!(decoded.encode().unwrap(), bytes);
-}
-
-#[test]
-fn a_record_describes_the_program_it_was_built_for() {
-    let limits = PreparationLimits {
-        max_work: 123_456,
-        ..PreparationLimits::default()
-    };
-    let record = DeploymentRecord::for_program(PROGRAM, limits, CONFIGURATION).unwrap();
-    let module = BytecodeModule::decode(PROGRAM).unwrap();
-    assert_eq!(
-        record.application,
-        ApplicationIdentity {
-            program_sha256: sha256(PROGRAM),
-            program_bytes: u32::try_from(PROGRAM.len()).unwrap(),
-            bytecode_version: BytecodeVersion::SOURCE_FREE_V2,
-            bytecode_flags: module.flags,
-            configuration_sha256: CONFIGURATION,
-            retain_schema_sha256: retain_schema_identity(&module).unwrap(),
-        }
-    );
-    assert_eq!(
-        record.contracts,
-        Contracts {
-            scheduling_profile: SchedulingProfile::COOPERATIVE_RESOURCE_V1,
-            numeric_contract: NumericContract::V1,
-            timing_evidence: TimingEvidence::UNQUALIFIED,
-            capabilities: Capabilities::NONE,
-        }
-    );
-    assert_eq!(record.limits, RequestedLimits::from_preparation(&limits));
-    assert_eq!(
-        record.configuration,
-        Configuration::default(),
-        "`for_program` writes the empty configuration of section 7"
-    );
-    let Some(SectionData::ResourceMeta(meta)) = module.section(SectionId::ResourceMeta) else {
-        panic!("the fixture has resource metadata");
-    };
-    let resource = &meta.resources[0];
-    let bindings = match module.section(SectionId::IoMap) {
-        Some(SectionData::IoMap(map)) => map.bindings.len(),
-        _ => 0,
-    };
-    assert_eq!(
-        record.process_image,
-        ProcessImageSummary {
-            input_bytes: resource.inputs_size,
-            output_bytes: resource.outputs_size,
-            marker_bytes: resource.memory_size,
-            bindings: u32::try_from(bindings).unwrap(),
-        }
-    );
-    // `TASK Periodic (INTERVAL := T#25ms, PRIORITY := 0)`.
-    assert_eq!(
-        record.tasks,
-        [TaskSummary {
-            interval_nanos: 25_000_000,
-            priority: 0,
-            event: false,
-        }]
-    );
-    // `DINT_TO_INT(...)` and the `TON` instance; the user FB `Counter` is not a built-in.
-    assert_eq!(
-        record.imports,
-        [
-            import(ImportKind::Function, "DINT_TO_INT", 1),
-            import(ImportKind::FunctionBlock, "TON", 1),
-        ]
-    );
-    let bytes = record.encode().unwrap();
-    assert_eq!(DeploymentRecord::decode(&bytes).unwrap(), record);
-}
-
-#[test]
-fn a_program_reading_the_wall_clock_requires_it() {
-    let record = record_of(CLOCK);
-    assert_eq!(record.contracts.capabilities, Capabilities::WALL_CLOCK);
-    assert_eq!(
-        record.imports,
-        [
-            import(ImportKind::Function, "CURRENT_DT", 1),
-            import(ImportKind::Function, "TIME", 1),
-        ]
-    );
-}
-
-#[test]
-fn a_program_the_runtime_cannot_prepare_gets_no_record() {
-    assert!(matches!(
-        DeploymentRecord::for_program(
-            b"not a program",
-            PreparationLimits::default(),
-            CONFIGURATION
-        ),
-        Err(RuntimeError::Bytecode { .. } | RuntimeError::BytecodeCause(_))
-    ));
-    let small = PreparationLimits {
-        max_artifact_bytes: PROGRAM.len() - 1,
-        ..PreparationLimits::default()
-    };
-    assert_eq!(
-        DeploymentRecord::for_program(PROGRAM, small, CONFIGURATION),
-        Err(RuntimeError::PreparationLimit)
-    );
 }
 
 #[test]
@@ -347,58 +236,8 @@ fn the_identities_are_sha_256_over_their_defined_bytes() {
 }
 
 #[test]
-fn the_retain_schema_follows_the_retained_declarations_only() {
-    let module = BytecodeModule::decode(PROGRAM).unwrap();
-    let identity = retain_schema_identity(&module).unwrap();
-    assert_eq!(retain_schema_identity(&module).unwrap(), identity);
-    assert_ne!(
-        retain_schema_identity(&BytecodeModule::decode(CLOCK).unwrap()).unwrap(),
-        identity
-    );
-    let Some(SectionData::StorageLayout(layout)) = module.section(SectionId::StorageLayout) else {
-        panic!("the fixture has a storage layout");
-    };
-    // `activations` is the fixture's one RETAIN variable; `counter` is not retained.
-    let retained = layout
-        .entries
-        .iter()
-        .position(|declaration| declaration.retain == 1)
-        .expect("a RETAIN variable");
-    let ordinary = layout
-        .entries
-        .iter()
-        .position(|declaration| declaration.retain == 0 && declaration.type_id == Some(0))
-        .expect("a variable that is not retained");
-    let edit = |index: usize, change: fn(&mut StorageDeclaration)| {
-        let mut changed = module.clone();
-        let Some(SectionData::StorageLayout(layout)) =
-            changed.section_mut(SectionId::StorageLayout)
-        else {
-            panic!("the fixture has a storage layout");
-        };
-        change(&mut layout.entries[index]);
-        retain_schema_identity(&changed).unwrap()
-    };
-    assert_ne!(
-        edit(retained, |declaration| declaration.retain = 3),
-        identity,
-        "RETAIN and PERSISTENT are different schemas"
-    );
-    assert_ne!(
-        edit(retained, |declaration| declaration.retain = 0),
-        identity,
-        "a variable that is no longer retained leaves the schema"
-    );
-    assert_eq!(
-        edit(ordinary, |declaration| declaration.type_id = Some(1)),
-        identity,
-        "a variable that is not retained is not part of the schema"
-    );
-}
-
-#[test]
 fn every_changed_byte_and_every_shorter_length_is_refused() {
-    let bytes = record_of(PROGRAM).encode().unwrap();
+    let bytes = sample().encode().unwrap();
     let mut accepted = Vec::new();
     for index in 0..bytes.len() {
         let mut mutated = bytes.clone();

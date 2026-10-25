@@ -206,7 +206,6 @@ pub(super) fn project_inputs(state: &SalsaState) -> ProjectInputs {
 pub(super) struct SourceInput {
     #[returns(ref)]
     pub(super) text: String,
-    pub(super) temporal_storage: TemporalStorage,
 }
 
 #[salsa::input]
@@ -294,9 +293,7 @@ pub(super) fn file_symbols_query(
         project_files: files.as_ref(),
         catalog: catalog.as_ref(),
     };
-    let (symbols, _) = SymbolCollector::with_project_types(&provider)
-        .with_temporal_storage(*input.temporal_storage(db))
-        .collect(&root);
+    let (symbols, _) = SymbolCollector::with_project_types(&provider).collect(&root);
     Arc::new(symbols)
 }
 
@@ -321,7 +318,6 @@ pub(super) fn project_symbol_tables_query(
         cancellation_checkpoint(db);
         let root = SyntaxNode::new_root(parse_green(db, input).clone());
         let (symbols, _) = SymbolCollector::with_project_types(&provider)
-            .with_temporal_storage(*input.temporal_storage(db))
             .collect_with_project_const_roots(&root, &const_roots);
         project_tables.insert(file_id, Arc::new(symbols));
     }
@@ -401,16 +397,10 @@ pub(super) fn analyze_query(
         .collect();
     let (mut symbols, mut diagnostics, pending_types) =
         SymbolCollector::with_project_types(&provider)
-            .with_temporal_storage(*target_input.temporal_storage(db))
             .collect_for_project_with_const_roots(&root, &const_roots);
     merge_project_symbols(file_id, &mut symbols, project_tables.as_ref());
     let (checked_symbols, access_config_diagnostics) =
-        SymbolCollector::validate_project_after_merge(
-            symbols,
-            &root,
-            &const_roots,
-            *target_input.temporal_storage(db),
-        );
+        SymbolCollector::validate_project_after_merge(symbols, &root, &const_roots);
     symbols = checked_symbols;
     diagnostics.extend(access_config_diagnostics);
 

@@ -40,7 +40,7 @@ use crate::ports::{
     AccessPort, AuditRecord, AuditSink, ExtensionDispatch, ProgramControl, StatusPort,
 };
 use crate::protocol::{ControlRequest, ControlResponse};
-use crate::runner::{EngineLiveValues, RunnerPlatform};
+use crate::runner::{DeviceLiveValues, RunnerPlatform};
 use crate::status::{
     absent_realtime_profile, disabled_openot_persistence, IoDriverStatus, StatusSettings,
 };
@@ -77,7 +77,7 @@ pub struct ProgramValues {
     pub control_mode: ControlMode,
     /// The Live Values of the program, which the runner applies and the `io.*`, `set` and `var.*`
     /// operations answer from.
-    pub live: EngineLiveValues,
+    pub live: DeviceLiveValues,
 }
 
 /// A chip's platform for the single-thread resource loop: the ports of [`ChipPlatform`] over the chip's
@@ -93,7 +93,7 @@ pub struct ChipPlatform<C, W> {
     control_mode: ControlMode,
     /// The Live Values the runner applies at its cycle phases and the `io.*`, `set` and `var.*`
     /// operations answer from (specification 11, "Live Values"; specification 34 §4.3.1).
-    live: EngineLiveValues,
+    live: DeviceLiveValues,
     /// The reset the boot reports, for the `capabilities` reply (specification 11, the runtime device
     /// capabilities contract), built by [`ChipPlatform::boot_last_reset`].
     last_reset: LastReset,
@@ -110,7 +110,7 @@ pub struct ChipPlatform<C, W> {
 impl<C: ChipProfile, W> ChipPlatform<C, W> {
     /// A platform over `watchdog` that reports `resource_name`, the runtime `settings`, whether the
     /// debug surface is `debug_enabled` and the record's `control_mode`, with the Live Values `live` of
-    /// the installed program (or [`EngineLiveValues::empty`] for a chip without one), the `last_reset`
+    /// the installed program (or [`DeviceLiveValues::empty`] for a chip without one), the `last_reset`
     /// the boot reports, and the chip's stable `runtime_id`.
     #[must_use]
     #[allow(
@@ -123,7 +123,7 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
         settings: StatusSettings,
         debug_enabled: bool,
         control_mode: ControlMode,
-        live: EngineLiveValues,
+        live: DeviceLiveValues,
         last_reset: LastReset,
         runtime_id: SmolStr,
     ) -> Self {
@@ -211,12 +211,12 @@ impl<C: ChipProfile, W> ChipPlatform<C, W> {
     }
 }
 
-/// The runtime settings `status` reports for a chip: the VM backend, production control and no
-/// simulation (specification 11, `status`).
+/// The runtime settings `status` reports for a chip: compiled programs, production control and no
+/// simulation (specification 11, `status`; specification 44 §13.3).
 #[must_use]
 pub fn status_settings() -> StatusSettings {
     StatusSettings {
-        execution_backend: "vm",
+        execution_backend: "native",
         execution_backend_source: "default",
         simulation_enabled: false,
         simulation_time_scale: 1,
@@ -358,7 +358,7 @@ impl<C, W: HardwareWatchdog> HardwareWatchdog for ChipPlatform<C, W> {
 }
 
 impl<C: ChipProfile, W: HardwareWatchdog> RunnerPlatform for ChipPlatform<C, W> {
-    fn live_values(&self) -> &EngineLiveValues {
+    fn live_values(&self) -> &DeviceLiveValues {
         &self.live
     }
 
@@ -370,7 +370,7 @@ impl<C: ChipProfile, W: HardwareWatchdog> RunnerPlatform for ChipPlatform<C, W> 
     /// The Live Values of the program that ended give way to those of no program, so that their
     /// memory is free for the next program (specification 34 STATE-08).
     fn unload_program(&mut self) {
-        self.live = EngineLiveValues::empty();
+        self.live = DeviceLiveValues::empty();
     }
 }
 
@@ -481,7 +481,7 @@ mod tests {
             status_settings(),
             false,
             ControlMode::Production,
-            EngineLiveValues::empty(),
+            DeviceLiveValues::empty(),
             last_reset,
             SmolStr::new_static("test-chip-01"),
         )

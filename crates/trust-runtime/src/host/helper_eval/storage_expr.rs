@@ -8,24 +8,21 @@ use trust_hir::types::TypeRegistry;
 use indexmap::IndexMap;
 
 use crate::error::RuntimeError;
-use crate::memory::InstanceId;
-#[cfg(test)]
-use crate::memory::VariableStorage;
+use crate::memory::{InstanceId, VariableStorage};
 use crate::program_model::{
     apply_binary, apply_unary, ArgValue, BinaryOp, CallArg, Expr, SizeOfTarget,
 };
 use crate::stdlib::{conversions, StandardLibrary, StdParams};
 use crate::value::{
     checked_array_offset_i64, parse_partial_access, read_partial_access, read_string_element,
-    ref_indices_from_iter, size_of_type_with_abi, ArrayValue, DateTimeProfile, PartialAccessError,
+    ref_indices_from_iter, size_of_type, ArrayValue, DateTimeProfile, PartialAccessError,
     RefSegment, SizeOfError, StructValue, Value, ValueRef,
 };
-use trust_runtime_core::memory::view::{materialize_ref_value, StoreAccess};
 
 use super::storage_lvalue::read_storage_lvalue_with_types;
 
 pub(super) fn eval_storage_expr_with_types(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -57,8 +54,9 @@ pub(super) fn eval_storage_expr_with_types(
         Expr::Super => {
             let current = current_instance.ok_or(RuntimeError::TypeMismatch)?;
             storage
-                .instance_parent(current)
-                .map_err(|error| error.into_runtime_error())?
+                .get_instance(current)
+                .ok_or(RuntimeError::NullReference)?
+                .parent
                 .map(Value::Instance)
                 .ok_or(RuntimeError::TypeMismatch)
         }
@@ -203,10 +201,9 @@ pub(super) fn eval_storage_expr_with_types(
                 expr,
             )?;
             match value {
-                Value::Reference(Some(reference)) => {
-                    materialize_ref_value(storage, reference.as_view())
-                        .ok_or(RuntimeError::NullReference)
-                }
+                Value::Reference(Some(reference)) => storage
+                    .materialize_by_ref_ref(&reference)
+                    .ok_or(RuntimeError::NullReference),
                 Value::Reference(None) => Err(RuntimeError::NullReference),
                 _ => Err(RuntimeError::TypeMismatch),
             }
@@ -215,7 +212,7 @@ pub(super) fn eval_storage_expr_with_types(
 }
 
 fn resolve_lvalue_reference(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -330,7 +327,7 @@ fn resolve_lvalue_reference(
 }
 
 fn resolve_name_reference(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     current_instance: Option<InstanceId>,
     name: &SmolStr,
 ) -> Option<ValueRef> {
@@ -346,7 +343,7 @@ fn resolve_name_reference(
 }
 
 fn eval_struct_initializer(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -377,7 +374,7 @@ fn eval_struct_initializer(
 }
 
 fn eval_array_initializer_elements(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -402,7 +399,7 @@ fn eval_array_initializer_elements(
 
 #[allow(clippy::too_many_arguments)]
 fn eval_array_initializer_element(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -473,7 +470,7 @@ fn array_repeat_group(expr: &Expr) -> Result<Option<(usize, &[CallArg])>, Runtim
 }
 
 fn eval_call(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -544,7 +541,7 @@ fn call_target_name(expr: &Expr) -> Option<SmolStr> {
 }
 
 fn eval_positional_args(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -557,7 +554,7 @@ fn eval_positional_args(
 }
 
 fn read_arg_value(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -580,7 +577,7 @@ fn read_arg_value(
 }
 
 fn bind_stdlib_named_args(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -622,7 +619,7 @@ fn bind_stdlib_named_args(
 }
 
 fn bind_stdlib_named_args_fixed(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -669,7 +666,7 @@ fn bind_stdlib_named_args_fixed(
 
 #[allow(clippy::too_many_arguments)]
 fn bind_stdlib_named_args_variadic(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     profile: &DateTimeProfile,
     current_instance: Option<InstanceId>,
@@ -778,7 +775,7 @@ fn bind_stdlib_named_args_variadic(
 }
 
 fn eval_size_of(
-    _storage: &impl StoreAccess,
+    _storage: &VariableStorage,
     registry: &EvaluationTypes<'_>,
     _profile: &DateTimeProfile,
     _current_instance: Option<InstanceId>,
@@ -786,37 +783,48 @@ fn eval_size_of(
     target: &SizeOfTarget,
 ) -> Result<Value, RuntimeError> {
     let size = match target {
-        SizeOfTarget::Type(type_id) => size_of_type_with_abi(*type_id, registry, registry.abi)
-            .map_err(size_error_to_runtime)?,
+        SizeOfTarget::Type(type_id) => {
+            size_of_type(*type_id, registry).map_err(size_error_to_runtime)?
+        }
     };
     let size = i32::try_from(size).map_err(|_| RuntimeError::Overflow)?;
     Ok(Value::DInt(size))
 }
 
 fn read_name(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     current_instance: Option<InstanceId>,
     name: &SmolStr,
 ) -> Result<Value, RuntimeError> {
-    if let Some(view) = storage.read_local(name.as_ref()) {
-        return storage.materialize(&view);
+    if let Some(value) = storage.get_local(name.as_ref()) {
+        return Ok(value.clone());
     }
     if let Some(instance_id) = current_instance
-        && let Ok(view) = storage.read_instance_field(instance_id, name.as_ref())
+        && let Some(value) = read_instance_field(storage, instance_id, name.as_ref())
     {
-        return storage.materialize(&view);
+        return Ok(value);
     }
-    if let Some(view) = storage.read_global(name.as_ref()) {
-        return storage.materialize(&view);
+    if let Some(value) = storage.get_global(name.as_ref()) {
+        return Ok(value.clone());
     }
-    if let Some(view) = storage.read_retain(name.as_ref()) {
-        return storage.materialize(&view);
+    if let Some(value) = storage.get_retain(name.as_ref()) {
+        return Ok(value.clone());
     }
     Err(RuntimeError::UndefinedVariable(name.clone()))
 }
 
+/// The member `name` of instance `instance` or of one of its parents.
+fn read_instance_field(
+    storage: &VariableStorage,
+    instance: InstanceId,
+    name: &str,
+) -> Option<Value> {
+    let reference = storage.ref_for_instance_recursive(instance, name)?;
+    storage.materialize_by_ref_ref(&reference)
+}
+
 fn read_field(
-    storage: &impl StoreAccess,
+    storage: &VariableStorage,
     target: Value,
     field: &SmolStr,
 ) -> Result<Value, RuntimeError> {
@@ -828,12 +836,8 @@ fn read_field(
             .field(field.as_str())
             .cloned()
             .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
-        Value::Instance(id) => {
-            let view = storage
-                .read_instance_field(id, field.as_ref())
-                .map_err(|_| RuntimeError::UndefinedField(field.clone()))?;
-            storage.materialize(&view)
-        }
+        Value::Instance(id) => read_instance_field(storage, id, field.as_ref())
+            .ok_or_else(|| RuntimeError::UndefinedField(field.clone())),
         _ => Err(RuntimeError::TypeMismatch),
     }
 }

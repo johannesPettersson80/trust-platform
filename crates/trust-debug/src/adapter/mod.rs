@@ -1,8 +1,12 @@
-//! Debug adapter module map.
+//! Debug adapter module map. The adapter debugs a runtime over its control protocol: the program a
+//! launch compiles and starts in this process (specification 44 NX-16), or one an attach connects
+//! to.
 //! - core: main loop, dispatch, protocol events
 //! - handlers: DAP request handlers by area
-//! - variables: variable/evaluate/set logic
+//! - variables: variable/evaluate/set requests
 //! - io: IO state/write handling
+//! - remote, stop_remote: the control protocol client and its stop polling
+//! - simulator, control_bridge: the launch's program and its control server
 //! - protocol_io: message framing + logging
 //! - launch: launch argument helpers
 //! - util: small shared helpers
@@ -13,19 +17,15 @@ mod core;
 mod handlers;
 mod io;
 mod launch;
-mod paused;
 mod protocol_io;
 mod remote;
 mod simulator;
-mod stop;
 mod stop_remote;
 mod util;
 mod variables;
 
 #[cfg(test)]
 mod compiled_evaluate_tests;
-#[cfg(test)]
-mod mqtt_install_enum_value_type_tests;
 #[cfg(test)]
 mod remote_value_type_tests;
 // The simulator's control server listens on a Unix socket in this test.
@@ -43,43 +43,14 @@ use std::time::Instant;
 
 use serde_json::Value;
 
-use trust_runtime::eval::expr::Expr;
-use trust_runtime::memory::{FrameId, InstanceId};
-use trust_runtime::value::{ArrayValue, StructValue, ValueRef};
-
 use crate::protocol::{
     AttachArguments, IoStateEventBody, LaunchArguments, Request, SetBreakpointsArguments,
 };
 use crate::runtime::DebugRuntime;
 
-use self::control_bridge::DebugControlServer;
-use self::core::DebugRunner;
-use self::paused::PausedStateView;
 use self::remote::RemoteSession;
 use self::stop_remote::RemoteStopPoller;
 use self::variables::ExpressionTypes;
-
-#[derive(Debug, Clone)]
-enum VariableHandle {
-    Locals(FrameId),
-    Globals,
-    Retain,
-    Instances,
-    Instance(InstanceId),
-    Struct(StructValue),
-    Array(ArrayValue),
-    Reference(ValueRef),
-    IoRoot,
-    IoInputs,
-    IoOutputs,
-    IoMemory,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-struct LaunchActions {
-    pause_after_launch: bool,
-    start_runner_after_launch: bool,
-}
 
 #[derive(Debug)]
 struct PendingLaunch {
@@ -113,7 +84,6 @@ struct AttachBreakpoints {
 enum LaunchState {
     AwaitingConfig { pending: Option<PendingStart> },
     Configured,
-    PostLaunch { actions: LaunchActions },
 }
 
 impl Default for LaunchState {
@@ -124,7 +94,7 @@ impl Default for LaunchState {
 
 impl LaunchState {
     fn is_configured(&self) -> bool {
-        matches!(self, Self::Configured | Self::PostLaunch { .. })
+        matches!(self, Self::Configured)
     }
 
     fn has_pending_launch(&self) -> bool {
@@ -138,13 +108,6 @@ impl LaunchState {
                 pending: Some(PendingStart::Attach(_))
             }
         )
-    }
-
-    fn pending_actions(&self) -> LaunchActions {
-        match self {
-            Self::PostLaunch { actions } => *actions,
-            _ => LaunchActions::default(),
-        }
     }
 
     fn pending_since(&self) -> Option<Instant> {
@@ -174,21 +137,6 @@ impl LaunchState {
 
     fn set_configured(&mut self) {
         *self = Self::Configured;
-    }
-
-    fn set_post_launch(&mut self, actions: LaunchActions) {
-        *self = Self::PostLaunch { actions };
-    }
-
-    fn take_actions(&mut self) -> LaunchActions {
-        match self {
-            Self::PostLaunch { actions } => {
-                let taken = *actions;
-                *self = Self::Configured;
-                taken
-            }
-            _ => LaunchActions::default(),
-        }
     }
 }
 
@@ -229,14 +177,6 @@ impl CoordinateConverter {
     fn to_runtime_column(self, column: u32) -> Option<u32> {
         column.checked_sub(self.column_offset)
     }
-
-    fn default_line(&self) -> u32 {
-        self.line_offset
-    }
-
-    fn default_column(&self) -> u32 {
-        self.column_offset
-    }
 }
 
 /// Minimal debug adapter wrapper around a debug session.
@@ -247,14 +187,9 @@ pub struct DebugAdapter {
     remote_breakpoints: Arc<Mutex<HashMap<u32, u64>>>,
     next_seq: Arc<AtomicU32>,
     coordinate: CoordinateConverter,
-    variable_handles: HashMap<u32, VariableHandle>,
-    next_variable_ref: u32,
-    watch_cache: HashMap<String, Expr>,
     /// The project's types with which debug expressions are compiled for a runtime that runs a
     /// compiled program, and when they were loaded.
     expression_types: Option<ExpressionTypes>,
-    runner: Option<DebugRunner>,
-    control_server: Option<DebugControlServer>,
     /// The launch's program compiled for this computer, which the adapter debugs through
     /// `remote_session` (specification 44 NX-16).
     simulator: Option<simulator::Simulator>,

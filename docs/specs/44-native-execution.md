@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.21 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.23 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -16,7 +16,12 @@
   completes the checks at install, §10.2, and has the tools sign with the user's own key unless the
   project names one, so that no private key lies in a project folder, §5.11; 0.21 makes the toolchain
   bundle exact and has the tools install it into truST's data folder, which the extension and
-  `trust-runtime` share, §4.6),
+  `trust-runtime` share, §4.6; 0.22 deletes the bytecode engine and the STM32F407 firmware, §15
+  (the owner, 24 October 2026: "n11, delete it"), and accepts the comparison with RuSTy at the
+  numbers measured, §14.3 (the owner, 24 October 2026: "n12, its approved. we can optimize
+  later"); 0.23 compiles the constructs the deleted engine ran and records the format additions
+  they need, Appendix B, under the owner's "do what's most professional for a plc runtime" of
+  22 October 2026, for the owner to confirm),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -90,9 +95,10 @@ specifications; the standard functions and function blocks (their semantics and 
 implementations, moved into the program library, §6.9); the flat memory areas and their layout rules
 (§7); the I/O drivers and process image; the retain store and checkpoint log; the program store and
 its slots; the control link and protocol; Live Values, the debugger and VS Code; the ST test corpus.
-Removed after parity (§15): the STBC format and encoder, the device's decoder, validator and
-preparer, the virtual machine and its compact, kinded and register paths, the legacy formats
-(checklist C8), and the engine-internal tests of those parts.
+Removed at M4 (§15, 24 October 2026): the STBC format and encoder, the device's decoder, validator
+and preparer, the virtual machine and its compact, kinded and register paths, the legacy formats
+(checklist C8), the engine-internal tests of those parts, and the STM32F407 firmware and its
+adapter, which ran the bytecode engine only.
 
 ## 2. Terms
 
@@ -137,8 +143,8 @@ The build's steps and their outputs:
    recorded of them: the type of every expression and the symbol every name, member and call resolved
    to (`FileAnalysis::resolved_symbols`), so that it resolves no name itself. The declarations (types,
    POUs, variables, configuration, tasks) come from the harness's lowering, which for this build
-   lowers no statement: what the bytecode build refuses in a statement does not stop this build. The
-   program model carries no expression types and is not the generator's input.
+   lowers no statement. The program model carries no expression types and is not the generator's
+   input.
 2. **Layout.** The generator lays out every variable in its area by the rules of §7.2 and assigns
    every statement an id in source order.
 3. **Generation.** The generator writes one Rust crate: the areas as `#[repr(C)]` types, every POU as
@@ -150,8 +156,8 @@ The build's steps and their outputs:
 5. **Image.** The image builder extracts the module's code and read-only data, computes the
    starting memory (§7.4), writes the tables, computes the memory figure (§10.4) and reserves the
    image's signature (§5.11), which the tools that deploy the image fill in.
-6. **Record.** The deployment record of specification 34 §5.1.1 is written as today, naming the
-   image's hash instead of the bytecode's.
+6. **Record.** The deployment record of specification 34 §5.1.1 is written, naming the image's
+   hash (§10.1).
 
 ## 4. The build and the toolchain
 
@@ -311,12 +317,11 @@ or that none is installed (`--json`: `{"installed": <bool>, "folder": <path or n
 
 **When.** `trust-runtime build`, and every command that builds as it does (`play`, `run` of a
 project without a program, `fleet start`), installs the bundle when it finds none, saying so on
-the standard error; a build for this computer whose install fails builds `program.stbc` with the
-reason, until the bytecode build is deleted (§15), and a build for a device fails with it. The
-extension, before a debug launch, asks `trust-runtime toolchain status` and, when no toolchain is
-installed, runs `trust-runtime toolchain install --json` with its progress shown; when the
-install fails, the launch runs as it would without the toolchain (NX-16) and the extension offers
-"Install toolchain from file". The commands "truST: Install Toolchain" and "truST: Install
+the standard error; a build whose install fails fails with its reason. The extension, before a
+debug launch, asks `trust-runtime toolchain status` and, when no toolchain is installed, runs
+`trust-runtime toolchain install --json` with its progress shown; when the install fails, the
+launch goes on, its build fails with the reason (NX-16), and the extension offers "Install
+toolchain from file". The commands "truST: Install Toolchain" and "truST: Install
 Toolchain from File" install it at any time.
 
 ## 5. The program image
@@ -345,8 +350,8 @@ pool at an offset, every offset is relative to the start of the image.
 | 96 | 16 | Program library hash: the first 16 bytes of the SHA-256 of `<library> <triple>`, the program library the module linked as the toolchain's `LIBRARY` file names it (`trust-plc-lib <version>`, §4.6) and the target triple of §4.4 |
 | 112 | 4 | Section count |
 | 116 | 4 | Offset of the section table |
-| 120 | 4 | Flags: bit 0 set when the image has no statement hooks, a release image (§13.2); the other bits zero |
-| 124 | 4 | Reserved, zero |
+| 120 | 4 | Flags: bit 0 set when the image has no statement hooks, a release image (§13.2); bit 1 set when the program reads the platform's wall clock (`CURRENT_DT`, §8.2), so its deployment record requires the capability (§10.1; specification 34 §5.2); the other bits zero |
+| 124 | 4 | The offset plus one in `STRINGS` of the `RESOURCE` name the program's `CONFIGURATION` declares; zero when it declares none. A computer refuses to run the image, at `play` and `validate`, for a `runtime.toml` that names another resource, compared without regard to case, as specification 10 §4.7 selects resources; a program without a `CONFIGURATION`, or with the placeholder resource `RESOURCE`, runs under the name it is given |
 
 ### 5.3 Sections
 
@@ -407,9 +412,19 @@ programs, specification 10 §4) form the record with priority `0xFFFF_FFFF`. The
 test image (specification 22) are program instances with their entries, which no record lists: a
 test's invocation (`cycle.step`'s `run`) runs one, and no start of the image does. `IOBIND` carries one
 record per `VAR_CONFIG` binding and each `AT %…` declaration: symbol index (4), direct address
-as specification 10 §9.2 parses it (area 1, size 1, byte offset 4, bit 1, reserved 1), flags (4).
-The kernel builds its process image and task state from these records as it does today from
-`RESOURCE_META`.
+as specification 10 §9.2 parses it (area 1, size 1, byte offset 4, bit 1, kind 1), flags (4).
+A hierarchical address (`%IX1.2.3`, IEC §6.5.5.2) binds one elementary variable: its kind is 1 and
+the byte offset's place holds the offset in `STRINGS` of the address as the declaration spells it.
+Its value lies in a slot of the kernel's hierarchical image, 8 bytes per such binding, which no
+driver fills: Live Values and a test write and read it by its address, the scan samples and
+publishes it as it does an image's, and an online change carries the values at the addresses both
+programs bind. The kernel refuses, before a scan samples anything, an input or marker value that is
+no declared value of its variable's enumeration (`IoDriver`, specification 32 §5).
+A located structure or array is one record per leaf, each at its own address (specification 10
+§2.5): the flags carry the leaf's codec in bits 0 to 7, 0 for its bytes as they are and 1 for a
+`TIME` that the wire carries as a double word of unsigned whole milliseconds, and the leaf's offset
+in its variable from bit 8. The kernel builds its process image and task state from these records
+as it does today from `RESOURCE_META`.
 
 ### 5.7 Symbol table
 
@@ -459,8 +474,14 @@ or 0), size (4), alignment (4), detail offset (4, into a type detail list), coun
 list holds, per kind: an enumeration's values (name offset, value i64); a subrange's base type and
 bounds (i64, i64); an array's element type and dimensions (lower, upper i64 each); a structure's,
 union's, FB's or class's members (name offset, type index, byte offset, flags); a string's
-capacity; a reference's target type; an alias's base type. The table carries enough for a tool to
-format and write any variable without the sources.
+capacity; a reference's target type; an alias's base type. A `STRUCT OVERLAP` lists its members at
+the byte offsets their relative addresses name, so that members share bytes, and a `BOOL` member
+that takes one bit of its byte has a `BOOL` record whose count is that bit plus one (any other
+record's count of an elementary type is 0); a type with named values of an integer type is its
+base's record under its own name (specification 02 §3.2); an open array (`ARRAY[*]`) has the
+sentinel bounds `(0, i64::MAX)` in each dimension, and a reference or a pointer to one takes 16 + 16
+× rank bytes, the bounds of the array it names after the reference (§7.3). The table carries
+enough for a tool to format and write any variable without the sources.
 
 ### 5.9 Statement table
 
@@ -543,6 +564,7 @@ the kernel interface.
 | Enumeration (§6.4.4.2) | the base integer type | | values checked on assignment from an integer |
 | Subrange (§6.4.4.4) | the base type | | bounds checked on every assignment (§6.5) |
 | `ARRAY` (§6.4.4.5) | `[T; n]`, nested for several dimensions | n × size | bounds checked (§6.5) |
+| `ARRAY[*]` (§6.5.3) | a parameter: `abi::Open`, the caller's elements and bounds; a reference or a pointer to one: `abi::OpenRef<R>` | a reference 16 + 16 × R | indexed against the bounds it carries; no variable holds one itself (specification 03 §6) |
 | `STRUCT` (§6.4.4.6) | `#[repr(C)] struct` with explicit padding fields | §7.2 | |
 | `STRUCT OVERLAP` (§6.4.4.7) | a byte-backed `#[repr(C)]` struct with bit accessors | §7.2 | |
 | `UNION` (specification 02 §3.7) | a struct holding each variant as a member | | as MEM-12 keeps it |
@@ -661,7 +683,12 @@ loop's bounds keep it inside the array's. No other writer exists: requests and f
 variables at cycle boundaries only (specification 11, the variable mutation contract), and tasks do
 not preempt one another (§16). A debug image reads the variable where it lies, since the debugger
 may write it at any statement. Partial access to `ANY_BIT` (`x.%X3`, IEC §6.6.1.3) is a masked
-read-modify-write. Direct addresses (IEC §6.5.5) are offsets into the input, output and marker
+read-modify-write: bit, byte, word and double word n are counted from the least significant end, and
+a write changes only the selected bits. A call's `EN` and `ENO` follow specification 10 §7.5: `EN`, when the call
+names it, is evaluated first, and a call it disables evaluates no other actual, runs no body,
+leaves an instance as it was, gives its declared type's default and writes `FALSE` to a connected
+`ENO`; in an enabled call `EN` reads `TRUE` and `ENO` starts `TRUE` in the callee, which may set it
+`FALSE`, and reaches a connected `ENO` as an output does. Direct addresses (IEC §6.5.5) are offsets into the input, output and marker
 areas, computed at build; an address outside the configured process image is a build error.
 
 ### 6.7 Initialization (IEC §6.5.1, §6.5.6)
@@ -688,8 +715,8 @@ image, so that the first scan's sample finds the variable's starting or retained
 (specification 11 §6.7, "Directly represented variables at restart").
 
 The build works the starting memory out from the declarations, with the runtime's evaluator of
-initial values on the engineering computer and without constructing or running the program (no
-bytecode build, §15): a variable's initial value, evaluated as a constant expression that may name a
+initial values on the engineering computer and without constructing or running the program: a
+variable's initial value, evaluated as a constant expression that may name a
 constant, which the build works out first in declaration order, else its type's default; an
 instance's variables from its type's declarations, its base's first, an initial value given to the
 instance's variable (IEC Table 14, `T1 : TON := (PT := T#1s)`) in place of a declared one, and its
@@ -811,7 +838,9 @@ strings as length and bytes, `STRUCT OVERLAP` and `UNION` as there. An instance 
 lies as its base's instance first, then its own variables (§6.4); the interpreter's flat store keeps
 an instance's own variables first, which no compiled program reads. New here: the generator emits
 the layout as Rust types and asserts it (§6.3), and a `BOOL` in an array or structure takes 1 byte
-(no packing of bits), as MEM-12 says. `SIZEOF` is specification 29's.
+(no packing of bits), as MEM-12 says. `SIZEOF` is specification 29's, a constant the build works out
+for the target: a reference or a pointer takes the target's address width, 4 bytes on the chips and
+8 on a 64-bit computer.
 
 ### 7.3 References
 
@@ -907,25 +936,35 @@ pub struct KernelApi {
     pub stop: StopFn,          // a breakpoint hit, a pause or a step: returns 0 to continue, else the fault to raise
     pub debug_write: DebugWriteFn, // applies queued Live Values writes to one variable at a safe point
     pub read_real: ReadRealFn, // reads the real a text spells, as the runtime reads it
+    pub wall_clock: WallClockFn, // reads the platform's wall clock, CURRENT_DT
 }
 #[repr(C)] pub struct FaultRecord { pub code: u32, pub stmt: u32, pub detail: [i64; 3] }
 ```
 
-`StopFn` is `fn(*mut Cx, u32) -> u32`, `DebugWriteFn` `fn(*mut Cx, u32) -> u32` and `ReadRealFn`
-`fn(*mut Cx, *const u8, u32, *mut f64) -> u32`, in the convention §4.4 names. `read_real` reads the
+`StopFn` is `fn(*mut Cx, u32) -> u32`, `DebugWriteFn` `fn(*mut Cx, u32) -> u32`, `ReadRealFn`
+`fn(*mut Cx, *const u8, u32, *mut f64) -> u32` and `WallClockFn` `fn(*mut Cx, *mut i64) -> u32`, in
+the convention §4.4 names. `read_real` reads the
 real of `STRING_TO_REAL` and `STRING_TO_LREAL` from the text the program library copied, trimmed and
 took the separators out of (§6.8), with the runtime's own reader, so that a text reads alike in the
 bytecode engine and on every kernel; that reader cannot be compiled into a module, which must not be
-able to panic (§8.6). It returns 0 and the value, or the fault's code (`TypeMismatch`). The
-interface is version 4 since `Cx` carries the call frames of a debug image (§13.2, 24 October
-2026); version 3 added the call depth of §6.4 (the owner, 23 October 2026);
+able to panic (§8.6). It returns 0 and the value, or the fault's code (`TypeMismatch`).
+`wall_clock` gives `CURRENT_DT()` the platform's wall clock (specification 07, "Runtime Clock
+Sources"; specification 34 §5.2): the UTC Unix time in whole milliseconds, a `DT` as specification
+10 encodes it, or `Overflow` for a time before the epoch or past `i64::MAX` milliseconds. A computer
+reads its system clock; a device without a wall clock never runs a program that reads one, since
+the program's header says it does (§5.2, flags bit 1), its deployment record requires the
+capability and admission refuses it (§10.2), so its kernel's function only returns
+`ModuleInternal`. The interface is version 5 since `wall_clock` (25 October 2026, N11: the bytecode
+engine's `CURRENT_DT` moved into compiled programs); version 4 since `Cx` carries the call frames of
+a debug image (§13.2, 24 October 2026); version 3 added the call depth of §6.4 (the owner, 23 October
+2026);
 version 2 added `read_real` (version 1 had two functions; the owner approved version 2 on 23 October
 2026). A module records a fault in `Cx::fault` (its code, the statement and up to three numbers: the
 index and the bounds, the value and the bounds) and returns its code; no kernel function is called
 for it. A statement looks at its breakpoint bit only while `armed` is set, so a statement costs a
 store of its id, a decrement of the budget and two branches when no debugger is armed.
 
-Three functions are the whole interface a scan can call. Everything else a program needs (time,
+Four functions are the whole interface a scan can call. Everything else a program needs (time,
 inputs, outputs, markers, retain) is memory the kernel prepared before the scan. The kernel calls
 the module only through the entry table.
 
@@ -1007,7 +1046,7 @@ the I/O snapshot is published after the output sample, and the drivers drive the
 ends the scan before any output is driven and stays latched until a restart. The loop's observers
 see the cycle's start, the input sample, each task's overruns, start and end, the output sample and
 the cycle's end in the engine's order (`CycleHooks::on_compiled_phase`), so `status`, `tasks.stats`,
-the allocation count and the overrun events report a compiled program as they report STBC. The resource
+the allocation count and the overrun events report a compiled program's scans. The resource
 keeps its sampling grid (specification 10 §4.3): the next cycle is one interval after the nominal
 start of the previous one, not after its actual start, so a late wake does not cost an activation;
 the reference workload lost one 10 ms activation in about 200 cycles on the C6 before this was so.
@@ -1021,22 +1060,19 @@ order, its faults, its outputs, the Live Values writes and forces (§13.3), the 
 retained values (§11), the debugger's holds (§13.2), an online change (§12) and a stepped scan
 (specification 11 §6.8.1) are the same code on every device. The computer gives the cycle its
 ports, as a chip's firmware does: its process I/O, the drivers of `io.toml`, which read the input
-image and drive the output image as they do for the bytecode engine; its monotonic clock; its store
-of the retained values, the retain file of specification 11 §6.7, written as the bytecode engine
-writes it, so that a checkpoint of either restores into the other (§11); the hold of its debugger;
-and its count of allocator operations.
+image and drive the output image; its monotonic clock; its store of the retained values, the retain
+file of specification 11 §6.7, in the format the bytecode engine wrote, so that a checkpoint it
+wrote restores (§11, §15); the hold of its debugger; and its count of allocator operations.
 
 What the operating system gives a computer stays the computer's, unchanged: the scan thread and its
 scheduler (specification 10 §4, 11 §6.2: the cycle grid, the watchdog, the fault policy and its
 automatic restarts, pause, stop and start, the time scale of a simulation), the resource commands
 it takes between scans, the control server, the web pages, the HMI and the protocol servers on their
 own threads, and the program store on disk (specification 34 §5.1). The debugger holds a scan on the
-scan thread itself, and the other threads go on serving the control link meanwhile, as they do for
-the bytecode engine.
+scan thread itself, and the other threads go on serving the control link meanwhile.
 
 Each completed scan publishes the program's state for the other threads when one of them asks for
-it, as the bytecode engine publishes its storage: a copy of the program's areas, with the image
-they belong to and the logical time of the scan. A server reads a variable from the copy through the
+it: a copy of the program's areas, with the image they belong to and the logical time of the scan. A server reads a variable from the copy through the
 symbol and type tables (§13.3); no copy decodes every variable. The HMI, the ADS and OPC UA servers
 and the historian read that copy and publish what they publish of an interpreted program: the HMI
 each program instance's variables and each global but an instance, by the same ids and paths; the
@@ -1044,10 +1080,10 @@ servers the globals; the historian each variable by its full name, a structure's
 array's elements by their paths and an instance by its members. The ADS and OPC UA clients bind each
 point to the global of its name, checked when the connection starts against the global's type (an
 enumeration by its size, as the type table names no base type) or, for OPC UA, its present value,
-and exchange it at the boundaries of the scan where the bytecode engine does: a sample is written
-after the drivers read the inputs, and an output is read after the scan. The OpenOT telemetry reads
+and exchange it at the boundaries of the scan: a sample is written after the drivers read the
+inputs, and an output is read after the scan. The OpenOT telemetry reads
 each producer's outputs by their full names (`Main.Producer.ScanRecordCount`) after the scan, and
-the output commit deadline is checked after it, as on the bytecode engine. An MQTT tag mapping
+the output commit deadline is checked after it. An MQTT tag mapping
 (specification 32) binds a program instance's variable, `Instance.Variable`, by its name: a variable
 the program binds at a process-image address of the mapping's direction keeps that address, and any
 other takes the next address past the program's own process image, in bytes that the drivers read
@@ -1058,22 +1094,21 @@ past it is refused, and the changed program runs after a restart.
 
 **NX-15. The program a computer runs.** `trust-runtime build` without `--target` builds the image of
 the computer's own CPU (§4.1) and writes it as the project's program, `program.tpi`, with its
-deployment record `deployment-record.bin`, where the project kept `program.stbc`; `--target` writes a
-device's image into the build folder as §4.1 says. `trust-runtime run` and `play` load `program.tpi`
+deployment record `deployment-record.bin`; `--target` writes a device's image into the build folder
+as §4.1 says. `trust-runtime run` and `play` load `program.tpi`
 and admit it against the computer's device (§10.2): its CPU, a program memory without a maximum, a
 task stack of 1 MiB, within the 2 MiB of the scan thread, and the statement budget of
 `[resource] max_statements_per_scan` (NX-10). A `program.install` of a container whose program entry
 is an image (§10.1) writes the same two files, in the project folder or as a new bundle of the
 program store; a `bytecode.reload` with an image changes the running program online (§12). An image
 of another CPU is refused with §10.2's target text, so the project is built again on the computer
-that runs it. Until the bytecode engine is deleted (§15), a project with `program.stbc` and no
-`program.tpi` still runs on the bytecode engine, `trust-runtime build --execution-backend vm` still
-writes `program.stbc`, and so does `trust-runtime build` on a computer without the toolchain
-(§4.6) and for a project with a construct the generator does not compile yet (NX-09), which it says
-so, naming the construct, so that a project that ran before still runs; `status` reports `execution_backend: "native"` for a compiled program. The
-computer runs the program the project's last build wrote: a build of `program.stbc` removes an
-earlier `program.tpi`, which would run in its place, and `trust-runtime fleet start` builds the
-project as `trust-runtime build` does.
+that runs it. A project that holds the bytecode engine's `program.stbc` and no `program.tpi` is
+refused with "the project holds program.stbc of the bytecode engine, which this runtime does not
+run: rebuild the project with `trust-runtime build --project <dir>`" (§15); a construct the
+generator does not compile yet fails the build with its diagnostic, naming the construct (NX-09).
+`status` reports `execution_backend: "native"`, and `runtime.execution_backend` in `runtime.toml`
+selects nothing: `vm` and `native` load, as a project written before may name them, and any other
+value is refused. `trust-runtime fleet start` builds the project as `trust-runtime build` does.
 
 ### 8.9 The simulator
 
@@ -1083,7 +1118,7 @@ trust-runtime runs it (NX-14), and debugs it as an `attach` debugs a runtime. Th
 project as `trust-runtime build` builds it (§4.1; `[build] debug` chooses a debug or a release
 image, §13.2), from the sources the launch names (its program's folder or `runtimeRoot` and its
 globs), each labelled by its path in that folder (§5.3). The image stays in the project's build
-folder: a simulation leaves the project's program (`program.tpi`, `program.stbc`) as it was. The
+folder: a simulation leaves the project's program (`program.tpi`) as it was. The
 adapter runs the image in its own process with a computer's ports, as trust-runtime does: the
 resource's scan thread and scheduler at the project's cycle interval (`runtime.toml`, else 10 ms),
 the drivers of `io.toml`, retained values kept in memory for the session, and the control server
@@ -1098,10 +1133,9 @@ new image (§12), keeping a pause as specification 13 keeps it; a build or a cha
 the running program as it was and says why. Watch expressions, `evaluate`, breakpoint conditions and
 logpoints keep working: the adapter compiles them into the portable form of specification 11
 §6.13.2, which the runtime evaluates against the published state through the symbol table (§13.2),
-so the simulator never does less than the bytecode engine's simulator did. Until the bytecode
-engine is deleted (§15), a computer without the toolchain (§4.6), and a project with a construct the
-native build does not compile yet (NX-15), launches the program on the bytecode engine, and the
-adapter says which and why in the debug console.
+so the simulator never does less than the bytecode engine's simulator did. A launch on a computer
+without the toolchain installs it first (§4.6); a build that fails, for a construct the generator
+does not compile yet too (NX-15), ends the launch with its diagnostic in the debug console.
 
 ## 9. Determinism and numerics
 
@@ -1139,8 +1173,9 @@ The image's deployment record (specification 34 §5.1.1) comes from the image's 
 (`DeploymentRecord::for_image`): the image's SHA-256 and length, the version 44.1, which no STBC
 decoder reads and which names a compiled image; a retain-schema identity over the retained
 variables' canonical names and types in the retain map's order; the image's process image and tasks;
-`cooperative-resource-v1`, numeric contract 1, no timing evidence and no capability; no preparation
-limit and no import. The build fills its configuration section from `runtime.toml` and `io.toml`
+`cooperative-resource-v1`, numeric contract 1, no timing evidence, and the platform wall clock
+when the header says that the program reads it (§5.2, flags bit 1), else no capability; no
+preparation limit and no import. The build fills its configuration section from `runtime.toml` and `io.toml`
 as for STBC and writes it as `build/deployment-record.<triple>.bin`. Admission refuses a container
 whose kind and record disagree as a record of another program (`ProgramMismatch`); a device whose
 descriptor does not name 44.1 refuses an image ("the device does not run compiled program images"),
@@ -1212,9 +1247,12 @@ above the image that runs (C6 bench, 24 October 2026: with the 128 KiB region of
 the data heap, the largest block a running C6 had for an upload was about 74 KB, so the debug image
 could not be changed online and no change could follow a change). The region and the heap's data
 regions share the RAM the interpreter's firmware gave to its RAM code: the firmware keeps its own
-RAM code list (`ld/rwtext_hook_native.x`: the kernel's scan path and the loop around it, about 44 KB
-instead of the interpreter's 105 KB), its main heap takes 64 KiB more, and an install while the
-resource is stopped is written into the program store as it arrives (specification 34 §5.1).
+RAM code list (`ld/rwtext_hook.x`: the kernel's scan path and the loop around it, 42,668 bytes on
+25 October 2026 instead of the interpreter's 105 KB; building a program and its cold and warm
+restarts, `native::start`, run once per install or restart and stay in flash), its main heap takes
+64 KiB more, and an install while the resource is stopped is written into the program store as it
+arrives (specification 34 §5.1). The main stack keeps its 78 KiB window plus 4 KiB (specification
+34 D.2): the stack region was 91,536 bytes on 25 October 2026.
 
 ### 10.4 The memory figure
 
@@ -1409,8 +1447,8 @@ applying writes at the safe point, the production-mode hold rules) and returns.
 
 **Release images** (the owner, 23 October 2026, "make sure its professional and that we dont take
 short cuts"). The project setting `[build] debug` in the project's `trust-lsp.toml` (specification
-14), `true` when it is absent, chooses the image that `trust-runtime build --target`, `bench project
---execution-backend native` and `trust-dev test --execution-backend native` compile, so a project's
+14), `true` when it is absent, chooses the image that `trust-runtime build`, `bench project` and
+`trust-dev test` compile, so a project's
 tests run the kind of image it deploys, as CODESYS's and TwinCAT's debug and release builds do; the
 conformance suite's cases are debug images. With `debug = false` the generator emits no statement
 hook: no statement records its number in `cx.stmt`, and none counts against the budget, which the
@@ -1487,8 +1525,9 @@ too; and `instance:<id>:<member>` by the member's symbol under the instance whos
 queued variable writes are applied at the cycle start, before the program runs, in arrival order,
 and then every active variable force; the queued image writes and the forces of the input and
 marker images after the drivers read the inputs, before the program samples them, so that a forced
-input holds over the physical one; and the output image's forces after the scan, before the
-outputs reach the drivers and the snapshot. An integer the request carries is an untyped literal
+input holds over the physical one; and the forces of the marker and output images again after the
+scan, with the variable forces, before the outputs reach the drivers and the snapshot, so that a
+forced marker reads its forced value between scans (specification 11 §6.9.2). An integer the request carries is an untyped literal
 (specification 11, "An admitted integer is an untyped literal"): it takes the declared integer or
 bit-string type of its variable, through aliases and subranges, or at a process-image address the
 type of the variable bound there, else the bit string of the address's width, whose bits the image
@@ -1519,42 +1558,40 @@ fault and event of the corpus; bit-identical outputs across targets (§9); the d
 tests; SCHED-05's trace.
 
 The repository's conformance suite (`conformance/`) runs on a computer's kernel with
-`trust-runtime conformance --execution-backend native`: each runtime case is built into an image
-for the computer and run cycle by cycle with the restarts, times, inputs and watches of its
-manifest, and its trace must equal the expected artifact the bytecode engine wrote, byte for byte.
+`trust-runtime conformance`: each runtime case is built into an image for the computer and run
+cycle by cycle with the restarts, times, inputs and watches of its manifest, and its trace must
+equal its expected artifact, byte for byte; the artifacts are those the bytecode engine wrote.
 A name in a manifest resolves as the test harness resolves it: a global by its name, a qualified
 path by its full name, and a program variable by its name alone when one program declares it. On a
 device the suite runs through the control request `cycle.step` (specification 11 §6.8.1):
-`trust-runtime conformance --execution-backend native --device <port> --target <target>` builds
+`trust-runtime conformance --device <port> --target <target>` builds
 each case for the device's target, installs it, and steps it cycle by cycle over the device's
 control link, the first step's cold restart loading it; its trace must equal the same expected
 artifact (owner, 23 October 2026).
 
-`trust-dev test --execution-backend native` runs a project's tests compiled for the computer
-(specification 22, the test POUs), and so does `trust-dev test` without the option where the
-toolchain is installed (§4.6, as `trust-runtime build` builds, NX-15, the bytecode engine standing
-in for a construct the generator does not compile yet): one image, a debug or a release image as the project's `[build]
-debug` chooses (§13.2), holds every `TEST_PROGRAM` as an instance of its name that no task runs, and
-each test runs after a cold restart, its program's body once, as the bytecode runner runs it
-(`NativeProgram::run_instance`); a test passes, fails with the runtime's message of its failed
-assertion, or ends with its error. The assertions are compiled as the runtime's functions decide
-them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs through a test program the runner adds
-to the image, which holds one instance of it and calls its body once, as the bytecode runner runs a
-temporary instance of it. On a device the tests run through `cycle.step` (specification 11 §6.8.1):
-`trust-dev test --execution-backend native --device <port> --target <target>` builds the same image
+`trust-dev test` runs a project's tests compiled for the computer (specification 22, the test
+POUs), with the toolchain, which it installs as `trust-runtime build` does (§4.6, NX-15): one
+image, a debug or a release image as the project's `[build] debug` chooses (§13.2), holds every
+`TEST_PROGRAM` as an instance of its name that no task runs, and each test runs after a cold
+restart, its program's body once (`NativeProgram::run_instance`); a test passes, fails with the
+runtime's message of its failed assertion, or ends with its error. The assertions are compiled as
+the runtime's functions decide them (specification 07, MP-014). A `TEST_FUNCTION_BLOCK` runs
+through a test program the runner adds to the image, which holds one instance of it and calls its
+body once. On a device the tests run through `cycle.step` (specification 11 §6.8.1):
+`trust-dev test --device <port> --target <target>` builds the same image
 for the device's target, installs it, and runs each test by one step that restarts the program cold
 and runs the test program's body (`run`); the device finds the body by the instance's number in its
 root symbol (§5.7).
 
-A project compiled and the same project in the runtime run in lockstep at the project's cycle
-interval, and every variable the image names a value of is compared after every scan
-(`tests/native_compare.rs`). Where the runtime departs from the standard, a compiled program does
-what the standard says and the comparison of such a program is not a pass criterion: inside a
-method reached through `SUPER`, the runtime binds a call through `THIS` to the base's method, as
-its base part is an instance of its own there, where IEC §6.6.8.5 binds it to the instance's class;
-it ends the scan of a call through a `NULL` interface with a type mismatch, where the call is a
-null dereference (specification 10); and it ends the scan of a `STRING` character above U+00FF
-read as a `CHAR` with a null dereference, where specification 02 §6 makes it an overflow.
+Until the bytecode engine's deletion (§15), a project compiled and the same project in the
+runtime ran in lockstep at the project's cycle interval, and every variable the image names a
+value of was compared after every scan. Where the runtime departed from the standard, a compiled
+program does what the standard says: inside a method reached through `SUPER`, a call through
+`THIS` binds to the instance's class (IEC §6.6.8.5), where the runtime bound it to the base's
+method; a call through a `NULL` interface is a null dereference (specification 10), where the
+runtime ended the scan with a type mismatch; and a `STRING` character above U+00FF read as a
+`CHAR` is an overflow (specification 02 §6), where the runtime ended the scan with a null
+dereference.
 
 ### 14.3 Against RuSTy
 
@@ -1567,6 +1604,17 @@ checks, which RuSTy does not make. On 23 October 2026 the pasteurizer's control 
 activation as a release image and 221 to 231 ns as a debug image, against RuSTy's 140 ns; with the
 checks of 0.12 (§6.5, §6.6) it took 141, 151 and 140 ns in three runs, against RuSTy's 141, 140 and
 140 ns, the median of 360,000 activations each, which the timer resolves to about 10 ns.
+
+The acceptance was measured on 24 October 2026 (the one list's N12) and not met: the pasteurizer's
+control task took 149 to 150 ns per activation as a release image against RuSTy's 140 ns, about 7 %
+slower, in five alternating runs of 360,000 activations pinned to one CPU; its memory figure was
+9,410 bytes against RuSTy's 5,628 bytes of data, bss and measured stack, truST's areas being the
+smaller (2,469 against 2,772 bytes) and its stack bound carrying the flat 4 KiB for kernel functions
+of §8.5; and 22 OSCAT examples that both compile took 1,151 ns in the sum of their medians against
+RuSTy's 839, most of the difference the kernel's binding of the seven areas at each activation and,
+in the mathematical ones, the portable `libm` of NX-12 against the C library. The owner accepted
+these numbers on 24 October 2026 ("n12, its approved. we can optimize later"); the optimizations are
+later work (§16).
 
 ### 14.4 Milestones
 
@@ -1584,20 +1632,31 @@ specification between milestones needs a written reason and the owner's approval
 
 ## 15. Migration and deletion
 
-1. The new kernel and generator are built beside the old engine in the same crates behind the
-   feature `native` until M4; CI runs both against the corpus in M2 and M3 and compares outputs.
-2. At M4 the old execution layer is deleted in one change: `trust-runtime-core/src/bytecode`,
-   `src/vm` with its compact, kinded and register paths, the preparation tables, the STBC encoder
-   in `trust-runtime/src/bytecode`, `LegacyTemporal32` and the legacy loaders (checklist C8),
-   the bytecode fixtures, and the tests of those parts. Specification 12 is marked superseded by
-   this document; specification 34's superseded sections get a note pointing here.
+1. The new kernel and generator were built beside the old engine in the same crates behind the
+   feature `native` until M4; CI ran both against the corpus in M2 and M3 and compared outputs.
+2. The old execution layer was deleted in one change on 24 October 2026 (the one list's N11; the
+   owner, "n11, delete it"): `trust-runtime-core/src/bytecode`, `src/vm` with its compact, kinded
+   and register paths, the preparation tables, the STBC encoder in `trust-runtime/src/bytecode`,
+   `LegacyTemporal32` and the legacy loaders (checklist C8), the services' engine runner, the
+   bytecode fixtures, and the tests of those parts, the comparisons with the engine among them;
+   with them the STM32F407 firmware, its adapter and the shared fixture, which ran the engine only
+   and have no native target (§1). The `--execution-backend` options went with the engine;
+   `runtime.execution_backend` still loads with `vm` or `native` and selects nothing (NX-15).
+   Specification 12 is marked superseded by this document; specification 34's superseded sections
+   carry a note pointing here.
 3. Checkpoints written by the old runtime restore into the new kernel (§11); a `TRSTA002` container
-   with STBC is refused at boot with "rebuild the project", never run.
+   with STBC is refused at boot with "rebuild the project", never run, and so is a project folder
+   that holds `program.stbc` and no `program.tpi` on a computer (NX-15), and a web deployment that
+   carries it (specification 11).
 4. The `examples/vat_pasteurizer` project and this specification are committed at M0; nothing of
    the old loading work after `4de1a57df` is continued.
 
 ## 16. Later work, outside this version
 
+- The optimizations of §14.3 (the owner, 24 October 2026, "we can optimize later"): a kernel call
+  that binds no area, the areas held so that an activation needs no re-binding; the memory figure
+  with each called kernel function's measured stack need instead of the flat 4 KiB of §8.5; and the
+  mathematical functions measured against NX-12's requirement of the same bits on every device.
 - Preemptive task scheduling with priorities (IEC §6.8.2 allows preemptive and non-preemptive
   scheduling; v1 is non-preemptive as today), one stack per task, I/O consistency per task, and the
   control requests served in a context that the tasks preempt, so that a request no longer delays a
@@ -1652,3 +1711,5 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.17 | 24 October 2026 | Computers (the one list's N8). §8.8: NX-14, trust-runtime on Linux, Windows and macOS runs a compiled program with the chips' `CompiledCycle` and the computer's ports (the `io.toml` drivers, its clock, the bytecode engine's retain file, its debugger, holding on the scan thread), keeping its scan thread, scheduler, control plane, servers and program store; each scan publishes a copy of the areas with the image for the other threads. NX-15, the program a computer runs: `program.tpi` with `deployment-record.bin` in the project, written by `trust-runtime build` without `--target`, loaded by `run` and `play`, installed by `program.install`; until §15, `program.stbc` still runs, and a computer without the toolchain builds it and says so; the services that reach variables by name refuse a compiled program until they read the symbol table. |
 | 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
+| 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner is asked to confirm (§14.4). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
+| 0.22 | 24 October 2026 | The bytecode engine deleted and the RuSTy comparison accepted (the one list's N11 and N12; the owner, 24 October 2026: "n11, delete it" and "n12, its approved. we can optimize later"; the three decisions reported with them, the user's signing key in truST's configuration folder, no signature check without a trust list and the shared toolchain folder, drew no objection). §15: the old execution layer, the services' engine runner, the comparisons with the engine and the STM32F407 firmware with its adapter and the shared fixture are deleted; a project, a container or a web deployment that brings STBC is refused with "rebuild the project". NX-06, §3, §4.6, §7.4, §8.7, NX-14, NX-15, NX-16 and §13.2 no longer describe the time before the deletion: a build without the toolchain installs it and otherwise fails with the reason, `trust-runtime build`, `bench project` and `trust-dev test` take no backend option, and `runtime.execution_backend` selects nothing. §14.2: the lockstep comparison with the engine ended with the engine (below). §14.3: the measured numbers, not met, and their acceptance; §16: the optimizations. |

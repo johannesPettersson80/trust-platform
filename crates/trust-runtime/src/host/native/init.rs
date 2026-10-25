@@ -14,7 +14,7 @@ use trust_hir::TypeId;
 use super::model::{AreaLayout, Model};
 use super::types::{Elem, Kind, Ty};
 use super::NativeError;
-use crate::harness::LoweredApplication;
+use crate::harness::{AccessPart, AccessPath, LoweredApplication};
 use crate::memory::VariableStorage;
 use crate::program_model::Expr;
 use crate::value::Value;
@@ -69,11 +69,33 @@ pub(super) fn starting_memory(
         .iter()
         .map(|global| (global.name.clone(), global.ty, global.retained))
         .collect();
+    // A function's `VAR_STAT` variables are globals of hidden names (`model::globals`).
+    let statics: Vec<(SmolStr, TypeId, Option<Expr>)> = lowered
+        .builder
+        .functions()
+        .values()
+        .flat_map(|function| {
+            function.static_locals.iter().map(|local| {
+                (
+                    crate::program_model::static_storage_name(&function.name, &local.name),
+                    local.type_id,
+                    local.initializer.clone(),
+                )
+            })
+        })
+        .collect();
     for (name, ty, retained) in fields {
-        let Some(global) = declared
+        let (type_id, initializer) = if let Some(global) = declared
             .iter()
             .find(|global| global.name.eq_ignore_ascii_case(&name))
-        else {
+        {
+            (global.type_id, global.initializer.clone())
+        } else if let Some((_, type_id, initializer)) = statics
+            .iter()
+            .find(|(local, _, _)| local.eq_ignore_ascii_case(&name))
+        {
+            (*type_id, initializer.clone())
+        } else {
             continue;
         };
         let (offset, bytes) = if retained {
@@ -81,14 +103,13 @@ pub(super) fn starting_memory(
         } else {
             (field_offset(&model.area_g, &name)?, &mut globals)
         };
-        let initializer = global.initializer.as_ref();
         start.write(
             model,
             bytes,
             offset as usize,
             ty,
-            global.type_id,
-            initializer,
+            type_id,
+            initializer.as_ref(),
             &name,
         )?;
     }
@@ -129,6 +150,28 @@ pub(super) fn starting_memory(
             )?;
         }
     }
+    // A `VAR_CONFIG` initial value overrides the program's for the variable, member or element it
+    // names (specification 02 §3.5; IEC §6.8.1).
+    let configured: Vec<_> = lowered
+        .configuration
+        .iter()
+        .flat_map(|configuration| configuration.config_inits.iter())
+        .filter_map(|init| match (&init.path, &init.initializer) {
+            (AccessPath::Parts(parts), Some(initializer)) => {
+                Some((parts.clone(), init.type_id, initializer.clone()))
+            }
+            _ => None,
+        })
+        .collect();
+    for (parts, type_id, initializer) in configured {
+        let (area, offset, ty, name) = configured_place(model, &parts)?;
+        let bytes = match area {
+            Area::Globals => &mut globals,
+            Area::Retain => &mut retain,
+            Area::Instances => &mut instances,
+        };
+        start.write(model, bytes, offset, ty, type_id, Some(&initializer), &name)?;
+    }
     let markers = vec![0u8; model.images[2] as usize];
     Ok(StartingMemory {
         markers,
@@ -136,6 +179,111 @@ pub(super) fn starting_memory(
         retain,
         instances,
     })
+}
+
+/// The area a variable lies in.
+enum Area {
+    Globals,
+    Retain,
+    Instances,
+}
+
+/// The area, offset, type and name of the variable a `VAR_CONFIG` path names: a program
+/// instance's variable or a global, then its members and elements (IEC §6.8.1).
+fn configured_place(
+    model: &Model<'_>,
+    parts: &[AccessPart],
+) -> Result<(Area, usize, Ty, String), NativeError> {
+    let names_none =
+        |path: &str| NativeError::Compile(format!("VAR_CONFIG {path} names no variable"));
+    let Some(AccessPart::Name(first)) = parts.first() else {
+        return Err(NativeError::unsupported(
+            "a VAR_CONFIG path of no name".into(),
+        ));
+    };
+    let mut name = first.to_string();
+    let (area, mut offset, mut ty, rest) = if let Some(instance) = model
+        .instances
+        .iter()
+        .find(|instance| instance.name.eq_ignore_ascii_case(first))
+    {
+        let Some(AccessPart::Name(variable)) = parts.get(1) else {
+            return Err(names_none(&name));
+        };
+        name = format!("{name}.{variable}");
+        let Some((member, retained)) = model.program_types[instance.program].member(variable)
+        else {
+            return Err(names_none(&name));
+        };
+        let (area, base) = if retained {
+            (Area::Retain, field_offset(&model.area_r, &instance.name)?)
+        } else {
+            (
+                Area::Instances,
+                field_offset(&model.area_p, &instance.name)?,
+            )
+        };
+        (
+            area,
+            base as usize + member.offset as usize,
+            member.ty,
+            &parts[2..],
+        )
+    } else if let Some(global) = model.global(first) {
+        let (area, base) = if global.retained {
+            (Area::Retain, field_offset(&model.area_r, &global.name)?)
+        } else {
+            (Area::Globals, field_offset(&model.area_g, &global.name)?)
+        };
+        (area, base as usize, global.ty, &parts[1..])
+    } else {
+        return Err(names_none(&name));
+    };
+    for part in rest {
+        match part {
+            AccessPart::Name(member_name) => {
+                name = format!("{name}.{member_name}");
+                let Some(member) = model
+                    .types
+                    .info(ty)
+                    .members()
+                    .iter()
+                    .find(|member| member.name.eq_ignore_ascii_case(member_name))
+                else {
+                    return Err(names_none(&name));
+                };
+                offset += member.offset as usize;
+                ty = member.ty;
+            }
+            AccessPart::Index(indexes) => {
+                name = format!("{name}{indexes:?}");
+                let Kind::Array { elem, dims } = model.types.info(ty).kind.clone() else {
+                    return Err(names_none(&name));
+                };
+                if indexes.len() != dims.len() {
+                    return Err(names_none(&name));
+                }
+                let mut flat = 0usize;
+                for ((lower, upper), index) in dims.iter().zip(indexes) {
+                    if index < lower || index > upper {
+                        return Err(NativeError::Compile(format!(
+                            "VAR_CONFIG {name} lies outside its array"
+                        )));
+                    }
+                    let length = usize::try_from(upper - lower + 1).unwrap_or(0);
+                    flat = flat * length + usize::try_from(index - lower).unwrap_or(0);
+                }
+                offset += flat * model.types.info(elem).size as usize;
+                ty = elem;
+            }
+            AccessPart::Partial(_) => {
+                return Err(NativeError::unsupported(format!(
+                    "the initial value of the partial access VAR_CONFIG {name}"
+                )));
+            }
+        }
+    }
+    Ok((area, offset, ty, name))
 }
 
 fn field_offset(layout: &AreaLayout, name: &str) -> Result<u32, NativeError> {
@@ -150,6 +298,28 @@ struct Start {
     constants: VariableStorage,
 }
 
+/// The bytes, at the program's layout, of a frame variable of `ty`, named `name`, that holds a
+/// function block instance: its members at their initial values, `initializer`'s where it gives
+/// them, and its class id, as the starting memory lays such a variable out (specification 44 §6.7).
+///
+/// # Errors
+///
+/// As the starting memory: an initial value the build cannot work out.
+pub(super) fn instance_bytes(
+    model: &mut Model<'_>,
+    ty: Ty,
+    type_id: TypeId,
+    initializer: Option<&Expr>,
+    name: &str,
+) -> Result<Vec<u8>, NativeError> {
+    let start = Start {
+        constants: model.builder.storage().clone(),
+    };
+    let mut bytes = vec![0u8; model.types.info(ty).size as usize];
+    start.write(model, &mut bytes, 0, ty, type_id, initializer, name)?;
+    Ok(bytes)
+}
+
 impl Start {
     /// The value a variable of trust-hir's type `type_id`, named `name`, starts at: its initial
     /// value `initializer`, else its type's default.
@@ -161,12 +331,10 @@ impl Start {
         name: &str,
     ) -> Result<Value, NativeError> {
         let builder = model.builder;
-        let abi = crate::value::StorageAbi::default();
         match initializer {
-            Some(expr) => crate::harness::initializer::evaluate_initializer_with_abi(
+            Some(expr) => crate::harness::initializer::evaluate_initializer(
                 &self.constants,
                 builder.registry(),
-                abi,
                 builder.initializer_catalog(),
                 &builder.profile(),
                 None,
@@ -174,10 +342,9 @@ impl Start {
                 expr,
                 type_id,
             ),
-            None => crate::harness::initializer::default_value_for_type_id_with_abi(
+            None => crate::harness::initializer::default_value_for_type_id(
                 &self.constants,
                 builder.registry(),
-                abi,
                 builder.initializer_catalog(),
                 &builder.profile(),
                 None,
@@ -295,6 +462,16 @@ impl Start {
                     .filter(|var| !var.external && !var.in_out)
                     .map(|var| (var.name.clone(), var.type_id, var.initializer.clone())),
             )
+            // Its methods' `VAR_STAT` variables, members of hidden names (`Types::own_members`).
+            .chain(owner.methods().iter().flat_map(|method| {
+                method.static_locals.iter().map(|local| {
+                    (
+                        super::types::method_static_name(owner.name(), &method.name, &local.name),
+                        local.type_id,
+                        local.initializer.clone(),
+                    )
+                })
+            }))
             .collect();
         for (variable, type_id, initializer) in declared {
             // A variable the instance does not hold (a `VAR_TEMP`) lies in a frame.
@@ -352,10 +529,9 @@ impl Start {
                     "{name} has no variable {variable}"
                 )));
             };
-            let value = crate::helper_eval::eval_storage_expr_with_abi(
+            let value = crate::helper_eval::eval_storage_expr_with_stdlib(
                 &self.constants,
                 builder.registry(),
-                crate::value::StorageAbi::default(),
                 &builder.profile(),
                 None,
                 Some(builder.stdlib()),
@@ -492,6 +668,9 @@ fn encode(
             }
             Ok(())
         }
+        // A `STRUCT OVERLAP` starts at zero: no member has an initial value (specification 02
+        // §3.6; IEC §6.4.4.7.2).
+        (Kind::Overlap { .. }, _) => Ok(()),
         (kind, value) => Err(NativeError::Compile(format!(
             "a starting value {value:?} for a {kind:?}"
         ))),

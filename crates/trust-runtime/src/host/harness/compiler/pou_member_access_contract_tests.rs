@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+
 use crate::harness::{CompileSession, TestHarness};
 use crate::value::Value;
 
@@ -10,7 +12,7 @@ fn run(source: &str) -> TestHarness {
 }
 
 fn compile_error(source: &str) -> String {
-    match CompileSession::from_source(source).build_runtime() {
+    match CompileSession::from_source(source).declarations() {
         Ok(_) => panic!("member-access fixture must fail"),
         Err(error) => error.to_string(),
     }

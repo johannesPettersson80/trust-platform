@@ -17,15 +17,6 @@ pub(super) fn launch_program_path(args: &LaunchArguments) -> Option<String> {
         .map(|value| value.to_string())
 }
 
-/// The execution backend the launch asks for: `vm` keeps the bytecode engine, as
-/// `trust-runtime run --execution-backend vm` does (specification 44 NX-16).
-pub(super) fn launch_execution_backend(args: &LaunchArguments) -> Option<String> {
-    args.additional
-        .get("executionBackend")
-        .and_then(|value| value.as_str())
-        .map(|value| value.to_string())
-}
-
 pub(super) fn launch_stop_on_entry(args: &LaunchArguments) -> bool {
     args.additional
         .get("stopOnEntry")

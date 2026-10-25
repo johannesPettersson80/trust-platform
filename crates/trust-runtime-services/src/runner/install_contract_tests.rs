@@ -21,15 +21,14 @@ use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::retain::checkpoint::Slot;
 use trust_runtime_core::retain::RetainSnapshot;
 use trust_runtime_core::value::Value as Retained;
-use trust_runtime_core::vm::PreparationLimits;
 use trust_runtime_core::watchdog::RetainMode;
 
-use super::{check_retained_values, Runner};
+use super::{check_image_retained_values, Runner};
 use crate::events::EVENT_STORE_CAPACITY;
 use crate::loading::select::boot;
 use crate::tests::program_store::{
-    committed_image, device, transfer_of, transfer_with, CheckpointProbe, FlashOp, FlashProbe,
-    PROGRAM,
+    committed_image, device, program, retaining_transfer, transfer_of, CheckpointProbe, FlashOp,
+    FlashProbe,
 };
 use crate::tests::runner_ports::{Fixture, TestPlatform, TestRunner};
 use crate::transfer::{TransferSession, PART_BYTES};
@@ -134,8 +133,8 @@ fn header_reads() -> Vec<FlashOp> {
     ]
 }
 
-/// A checkpoint whose `@program/Plant/activations` is `value`: the program fixture declares
-/// `activations` as a retained `DINT` in its program `Plant`.
+/// A checkpoint whose `@program/Plant/activations` is `value`: the retaining image declares
+/// `activations` as a retained `DINT` of its program `Plant`.
 fn checkpoint_of(value: Retained) -> CheckpointProbe {
     let mut snapshot = RetainSnapshot::default();
     snapshot.insert("@program/Plant/activations", value);
@@ -171,7 +170,7 @@ impl Rig {
         self.stopped(platform)
             .with_transfers(TransferSession::new(BOOT, 65_536, 8_192))
             .with_program_store(self.flash.store(), move |admitted| {
-                check_retained_values(&mut checkpoints, admitted)
+                check_image_retained_values(&mut checkpoints, admitted)
             })
     }
 
@@ -333,8 +332,8 @@ fn an_install_commits_one_step_per_pass_and_replies_installed_after_the_last() {
             "result": {
                 "status": "installed",
                 "sequence": 1,
-                "program_sha256": hex(&sha256(PROGRAM)),
-                "bytes": PROGRAM.len(),
+                "program_sha256": hex(&sha256(program())),
+                "bytes": program().len(),
             },
             "audit_id": format!("audit-{requests}"),
         })]
@@ -440,7 +439,7 @@ fn a_reset_after_any_commit_step_boots_the_previous_program() {
             booted.sequence, 1,
             "a reset after {index} steps of the second install boots the first program"
         );
-        assert_eq!(booted.program, PROGRAM);
+        assert_eq!(booted.program, program());
     }
     let mut store = FlashProbe::from_slots(last.clone()).store();
     let booted = boot(&mut store, &device(), ROOM).expect("the committed install boots");
@@ -507,7 +506,7 @@ fn the_chip_refuses_an_install_whose_retained_values_cannot_be_restored_before_a
     let checkpoints = checkpoint_of(Retained::Bool(true));
     let rig = Rig::new(FlashProbe::erased(), checkpoints.clone());
     let mut runner = rig.runner();
-    let container = transfer_of(RetainMode::File);
+    let container = retaining_transfer(RetainMode::File);
     let transfer = rig.upload(&mut runner, &container);
     let refused = rig
         .ports
@@ -543,7 +542,11 @@ fn the_chip_installs_when_its_retained_values_restore() {
     // checkpoint holds.
     let rig = Rig::new(FlashProbe::erased(), checkpoint_of(Retained::Int(7)));
     let mut runner = rig.runner();
-    let reply = rig.install(&mut runner, &transfer_of(RetainMode::File), INSTALL_ID);
+    let reply = rig.install(
+        &mut runner,
+        &retaining_transfer(RetainMode::File),
+        INSTALL_ID,
+    );
     assert_eq!(reply["ok"], json!(true), "the install commits: {reply}");
     assert_eq!(reply["result"]["status"], json!("installed"));
     assert_eq!(rig.flash.slots()[0][..8], *b"TRSTA002");
@@ -556,7 +559,11 @@ fn a_program_that_keeps_no_retained_values_installs_whatever_the_checkpoint_hold
     // behaviour caught: a check that ignores the retain mode of the new program.
     let rig = Rig::new(FlashProbe::erased(), checkpoint_of(Retained::Bool(true)));
     let mut runner = rig.runner();
-    let reply = rig.install(&mut runner, &transfer_of(RetainMode::None), INSTALL_ID);
+    let reply = rig.install(
+        &mut runner,
+        &retaining_transfer(RetainMode::None),
+        INSTALL_ID,
+    );
     assert_eq!(reply["ok"], json!(true), "the install commits: {reply}");
 }
 
@@ -571,7 +578,7 @@ fn a_damaged_checkpoint_refuses_the_install_as_retained_values_that_cannot_be_re
     checkpoints.damage(84);
     let rig = Rig::new(FlashProbe::erased(), checkpoints);
     let mut runner = rig.runner();
-    let container = transfer_of(RetainMode::File);
+    let container = retaining_transfer(RetainMode::File);
     let transfer = rig.upload(&mut runner, &container);
     let refused = rig
         .ports
@@ -580,32 +587,6 @@ fn a_damaged_checkpoint_refuses_the_install_as_retained_values_that_cannot_be_re
     assert_eq!(
         refused["error"],
         json!("the retained values cannot be restored: retain corruption 'newest checkpoint payload fails its check'")
-    );
-    assert_eq!(rig.flash.ops(), Vec::<FlashOp>::new());
-}
-
-#[test]
-fn a_program_that_cannot_be_built_for_the_check_has_its_own_refusal() {
-    // Specification 11 §6.7.1 and 34 §11.2 (decision G13): a new program that cannot be built to try
-    // its warm start is refused with the check's own error, not as retained values that cannot be
-    // restored. The record asks for an artifact limit of one byte, which admission grants (it is below
-    // the device's maximum) and preparation exceeds. Wrong behaviour caught: the build failure under
-    // the prefix `the retained values cannot be restored`.
-    let rig = Rig::new(FlashProbe::erased(), checkpoint_of(Retained::Int(7)));
-    let mut runner = rig.runner();
-    let limits = PreparationLimits {
-        max_artifact_bytes: 1,
-        ..PreparationLimits::default()
-    };
-    let container = transfer_with(RetainMode::File, &limits);
-    let transfer = rig.upload(&mut runner, &container);
-    let refused = rig
-        .ports
-        .call(&mut runner, &install_request(INSTALL_ID, &transfer));
-    assert_eq!(refused["ok"], json!(false));
-    assert_eq!(
-        refused["error"],
-        json!("the retained-value check could not run: preparation resource limit exceeded")
     );
     assert_eq!(rig.flash.ops(), Vec::<FlashOp>::new());
 }

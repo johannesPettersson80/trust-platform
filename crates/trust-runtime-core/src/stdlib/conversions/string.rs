@@ -2,7 +2,6 @@ use super::ConversionType;
 use crate::error::RuntimeError;
 use crate::value::{check_string_result, Value};
 use alloc::string::{String, ToString};
-use core::fmt::Write;
 
 pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Value, RuntimeError> {
     let text = match value {
@@ -45,55 +44,6 @@ pub(super) fn convert_to_string(value: &Value, dst: ConversionType) -> Result<Va
         }
         _ => Err(RuntimeError::TypeMismatch),
     }
-}
-
-/// [`convert_to_string`], its text appended to `out` instead of a new value (C1-12): `true` for a
-/// `WSTRING`.
-pub(super) fn convert_to_string_into(
-    value: &Value,
-    dst: ConversionType,
-    out: &mut String,
-) -> Result<bool, RuntimeError> {
-    let wide = match dst {
-        ConversionType::String => false,
-        ConversionType::WString => true,
-        _ => return Err(RuntimeError::TypeMismatch),
-    };
-    let start = out.len();
-    let formatted = match value {
-        Value::String(text) => write!(out, "{text}"),
-        Value::WString(text) => write!(out, "{text}"),
-        Value::Char(code) => write!(out, "{}", char::from(*code)),
-        Value::WChar(code) => write!(
-            out,
-            "{}",
-            core::char::from_u32(u32::from(*code)).ok_or(RuntimeError::TypeMismatch)?
-        ),
-        Value::SInt(number) => write!(out, "{number}"),
-        Value::Int(number) => write!(out, "{number}"),
-        Value::DInt(number) => write!(out, "{number}"),
-        Value::LInt(number) => write!(out, "{number}"),
-        Value::USInt(number) => write!(out, "{number}"),
-        Value::UInt(number) => write!(out, "{number}"),
-        Value::UDInt(number) => write!(out, "{number}"),
-        Value::ULInt(number) => write!(out, "{number}"),
-        Value::Byte(number) => write!(out, "{number}"),
-        Value::Word(number) => write!(out, "{number}"),
-        Value::DWord(number) => write!(out, "{number}"),
-        Value::LWord(number) => write!(out, "{number}"),
-        Value::Real(number) => {
-            crate::value::float_text::real_into(f64::from(*number), out);
-            Ok(())
-        }
-        Value::LReal(number) => {
-            crate::value::float_text::real_into(*number, out);
-            Ok(())
-        }
-        _ => return Err(RuntimeError::TypeMismatch),
-    };
-    formatted.map_err(|_| RuntimeError::InvalidExecutionState)?;
-    check_string_result(&out[start..], wide)?;
-    Ok(wide)
 }
 
 pub(super) fn string_input(value: &Value) -> Result<&str, RuntimeError> {

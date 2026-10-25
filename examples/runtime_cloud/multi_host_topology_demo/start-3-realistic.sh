@@ -32,7 +32,7 @@ ensure_bootstrapped_projects() {
   local missing=0
   for id in "${runtime_ids[@]}"; do
     local project_dir="${ROOT}/runtime-${id}"
-    if [[ ! -f "${project_dir}/runtime.toml" || ! -f "${project_dir}/io.toml" || ! -f "${project_dir}/program.stbc" ]]; then
+    if [[ ! -f "${project_dir}/runtime.toml" || ! -f "${project_dir}/io.toml" || ! -f "${project_dir}/program.tpi" ]]; then
       echo "[start-3] missing or incomplete project: ${project_dir}"
       missing=1
       continue

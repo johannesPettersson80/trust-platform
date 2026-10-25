@@ -17,10 +17,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use trust_runtime_core::deployment::sha256;
 use trust_runtime_core::error::RuntimeError;
-use trust_runtime_core::vm::PreparedModule;
 use trust_runtime_services::ports::{ProgramIdentities, ProgramIdentity};
 
-use super::{admitted_limits, write_record, RecordWrite, DEPLOYMENT_RECORD_FILE};
+use super::DEPLOYMENT_RECORD_FILE;
 use crate::config::RuntimeConfig;
 
 #[path = "program_store/bundles.rs"]
@@ -43,10 +42,7 @@ pub use links::{
 };
 pub use retained::check_retained;
 
-use bundles::{
-    copy_bundle_files, copy_sidecars, is_program_file, program_file, program_path,
-    remove_other_program, PROGRAM_FILE,
-};
+use bundles::{copy_bundle_files, copy_sidecars, is_program_file, program_path, IMAGE_FILE};
 use links::pointer_state;
 
 /// The folder of a store's bundles.
@@ -258,7 +254,7 @@ pub fn scratch_path(path: &Path, role: &str) -> PathBuf {
 /// # Errors
 ///
 /// The payload is empty or names a path outside the bundle; the program is refused by its record,
-/// its admission or its dry-run preparation; a bundle or link cannot be read or written; or the
+/// or its admission; a bundle or link cannot be read or written; or the
 /// label is the bundle of a link.
 pub fn deploy(
     project: &Path,
@@ -279,12 +275,12 @@ pub fn deploy(
 ///
 /// # Errors
 ///
-/// As [`deploy`]: the program is refused by its record, its admission or its dry-run preparation, or
+/// As [`deploy`]: the program is refused by its record or its admission, or
 /// a bundle, link or file cannot be read or written.
 pub fn install(project: &Path, program: &[u8]) -> Result<ProgramIdentity, StoreError> {
     let payload = Payload {
         files: vec![PayloadFile {
-            path: program_file(program).to_string(),
+            path: IMAGE_FILE.to_string(),
             bytes: program.to_vec(),
         }],
     };
@@ -337,12 +333,8 @@ fn build_stage(
     copy_bundle_files(base, stage)?;
     write_payload(stage, payload)?;
     if let Some(program) = payload.program() {
-        remove_other_program(stage, program)?;
+        admit(stage, program)?;
     }
-    let record = payload
-        .program()
-        .map(|program| admit(stage, program))
-        .transpose()?;
     let runtime = RuntimeConfig::load(stage.join("runtime.toml"))?;
     copy_sidecars(base, stage, &runtime)?;
     write_atomic(
@@ -350,7 +342,7 @@ fn build_stage(
         format!("{sequence}\n").as_bytes(),
     )
     .map_err(|error| io_error(format!("write {SEQUENCE_FILE}"), error))?;
-    Ok(written_names(payload, record.as_ref()))
+    Ok(written_names(payload))
 }
 
 /// The install sequence a new bundle takes: one more than the newest of the bundles `current` and
@@ -384,14 +376,10 @@ fn deploy_in_place(project: &Path, payload: &Payload) -> Result<Deployed, StoreE
     admit_in_place(project, payload)?;
     write_payload(project, payload)?;
     if let Some(program) = payload.program() {
-        remove_other_program(project, program)?;
+        write_program_record(project, program)?;
     }
-    let record = payload
-        .program()
-        .map(|program| write_program_record(project, program))
-        .transpose()?;
     Ok(Deployed {
-        written: written_names(payload, record.as_ref()),
+        written: written_names(payload),
         sequence: 0,
     })
 }
@@ -416,7 +404,7 @@ fn admit_in_scratch(
     program: &[u8],
 ) -> Result<(), StoreError> {
     stage_configuration(scratch, project, payload)?;
-    admit(scratch, program).map(|_| ())
+    admit(scratch, program)
 }
 
 /// Makes the folder `scratch` hold the configuration the project will have: the payload's
@@ -444,39 +432,24 @@ fn stage_configuration(
 }
 
 /// Writes the record of `program` into `dir`, which holds the runtime and I/O configuration that the
-/// record describes, and admits the program: the record's admission against the hosted device, then
-/// a dry-run preparation with the limits it grants (specification 34 §5.1.1; DEPLOY-04). A refused
-/// program is an error, and the caller writes nothing the runtime starts from.
-fn admit(dir: &Path, program: &[u8]) -> Result<RecordWrite, StoreError> {
-    let record = write_program_record(dir, program)?;
-    if program_file(program) == bundles::IMAGE_FILE {
-        // A program image is admitted on this computer as the runtime admits it at its start
-        // (specification 44 §10.2, §8.8).
-        let device = crate::native::runtime_device()
-            .map_err(|error| refused(error.to_string()))?
-            .ok_or_else(|| refused("this computer's CPU runs no program image"))?;
-        trust_runtime_core::native::program::admit(program, &device)
-            .map_err(|refusal| refused(format!("the program image is refused: {refusal}")))?;
-        return Ok(record);
+/// record describes, and admits the program on this computer as the runtime admits it at its start
+/// (specification 34 §5.1.1, DEPLOY-04; specification 44 §10.2, §8.8). A refused program is an
+/// error, and the caller writes nothing the runtime starts from.
+fn admit(dir: &Path, program: &[u8]) -> Result<(), StoreError> {
+    if !program.starts_with(&trust_runtime_core::native::image::MAGIC) {
+        return Err(refused(
+            "the program is not a program image, which this runtime runs: rebuild the project",
+        ));
     }
-    let limits = admitted_limits(dir, program)?;
-    PreparedModule::from_bytes(program, limits)
-        .map_err(|error| refused(format!("the program does not prepare: {error}")))?;
-    Ok(record)
+    write_program_record(dir, program)?;
+    crate::native::admit_on_this_computer(program).map_err(|error| refused(error.to_string()))
 }
 
-/// Writes the deployment record of `program` into `dir`: a program image's own record
-/// (specification 44 §10.1), or the bytecode's.
-fn write_program_record(dir: &Path, program: &[u8]) -> Result<RecordWrite, StoreError> {
-    if program_file(program) != bundles::IMAGE_FILE {
-        return write_record(dir, program)
-            .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error));
-    }
-    let path = dir.join(DEPLOYMENT_RECORD_FILE);
+/// Writes the deployment record of the program image `program` into `dir` (specification 44 §10.1).
+fn write_program_record(dir: &Path, program: &[u8]) -> Result<(), StoreError> {
     let record = super::image_record(dir, program)?;
-    write_atomic(&path, &record)
-        .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error))?;
-    Ok(RecordWrite::Written(path))
+    write_atomic(&dir.join(DEPLOYMENT_RECORD_FILE), &record)
+        .map_err(|error| io_error(format!("write {DEPLOYMENT_RECORD_FILE}"), error))
 }
 
 /// Writes every payload file into `dir`, each through a temporary file and a rename.
@@ -493,12 +466,12 @@ fn write_payload(dir: &Path, payload: &Payload) -> Result<(), StoreError> {
     Ok(())
 }
 
-/// The paths a deployment wrote, with the record after the program when the record was written.
-fn written_names(payload: &Payload, record: Option<&RecordWrite>) -> Vec<String> {
+/// The paths a deployment wrote, with the record after the program.
+fn written_names(payload: &Payload) -> Vec<String> {
     let mut written = Vec::new();
     for file in &payload.files {
         written.push(file.path.clone());
-        if is_program_file(&file.path) && matches!(record, Some(RecordWrite::Written(_))) {
+        if is_program_file(&file.path) {
             written.push(DEPLOYMENT_RECORD_FILE.to_string());
         }
     }
@@ -582,7 +555,7 @@ fn rollback_previous(plan: &RollbackPlan) -> Result<(), StoreError> {
 /// bundle that `current` names and the one that `previous` names, each with its install sequence, the
 /// SHA-256 and the length of its program; a member is `None` when its bundle cannot be read, and the
 /// result is `None` when `current` names no bundle. Any other folder has no store: its own
-/// `program.stbc` is the active program, with no previous one (see `plain_identity`).
+/// `program.tpi` is the active program, with no previous one (see `plain_identity`).
 #[must_use]
 pub fn identities(project: &Path) -> Option<ProgramIdentities> {
     let Some(root) = store_root(project) else {
@@ -603,14 +576,11 @@ pub fn identities(project: &Path) -> Option<ProgramIdentities> {
 }
 
 /// The program of a folder with no store, as the runtime starts it (specification 34 §11.2): its own
-/// `program.stbc`, with sequence 0 and its SHA-256 and length. It is reported when its deployment record
-/// admits it, or when it has no record, since the runtime then starts it with the default limits. A
-/// program that its record does not admit does not start, so nothing is reported for it.
+/// `program.tpi`, with sequence 0 and its SHA-256 and length; none when the deployment record beside
+/// it does not admit it, as the runtime then starts none.
 fn plain_identity(project: &Path) -> Option<ProgramIdentity> {
     let program = fs::read(program_path(project)?).ok()?;
-    if program_file(&program) == PROGRAM_FILE {
-        admitted_limits(project, &program).ok()?;
-    }
+    crate::deployment::admit_project_image(project, &program).ok()?;
     Some(ProgramIdentity {
         sequence: 0,
         program_sha256: sha256(&program),

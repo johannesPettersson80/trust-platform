@@ -1,7 +1,6 @@
 //! Agent-facing runtime validation helpers.
 
 use serde_json::{json, Value as JsonValue};
-use trust_runtime::bytecode::BytecodeModule;
 use trust_runtime::config::RuntimeBundle;
 use trust_runtime::control::ControlEndpoint;
 use trust_runtime::io::IoDriverRegistry;
@@ -22,13 +21,9 @@ pub(crate) fn validate_json_payload(bundle: std::path::PathBuf) -> anyhow::Resul
             .validate(driver.name.as_str(), &driver.params)
             .map_err(anyhow::Error::from)?;
     }
-    let module = BytecodeModule::decode(&bundle.bytecode)?;
-    module.validate()?;
-    let metadata = module.metadata()?;
-    let _resource = metadata
-        .resource(bundle.runtime.resource_name.as_str())
-        .or_else(|| metadata.primary_resource())
-        .ok_or_else(|| anyhow::anyhow!("bytecode metadata missing resource definitions"))?;
+    // The program image is admitted as the computer admits it at its start (specification 44
+    // §10.2, §8.8).
+    trust_runtime::native::admit_on_this_computer(&bundle.image)?;
     let io_drivers = bundle
         .io
         .drivers

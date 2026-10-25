@@ -16,6 +16,7 @@ mod entries;
 mod frame_init;
 mod front;
 mod init;
+mod located;
 mod lower;
 mod model;
 mod module;
@@ -72,6 +73,52 @@ pub fn runtime_device() -> Result<Option<Device>, NativeError> {
         trusted_keys,
         ..device
     }))
+}
+
+/// Admits `image` on this computer as trust-runtime admits the program it is given at its start
+/// (specification 44 §10.2, §8.8): this computer's device, with the keys of its `device.toml`.
+///
+/// # Errors
+///
+/// [`NativeError::Image`] on a CPU that runs no program image and for an image the device refuses,
+/// and [`NativeError::Signing`] when the computer's trusted keys cannot be read.
+pub fn admit_on_this_computer(image: &[u8]) -> Result<(), NativeError> {
+    let device = runtime_device()?
+        .ok_or_else(|| NativeError::Image(String::from("this computer's CPU runs none")))?;
+    trust_runtime_core::native::program::admit(image, &device)
+        .map_err(|refusal| NativeError::Image(format!("refused: {refusal}")))?;
+    Ok(())
+}
+
+/// Refuses `image` for the resource `configured`, the name a computer's `runtime.toml` gives, when
+/// the image's program declares another `RESOURCE` in its `CONFIGURATION`, compared without regard
+/// to case: an image runs the resource it was built from (specification 10 §4.7, specification 44
+/// §5.2). A program that declares no `CONFIGURATION`, or the legacy placeholder named `RESOURCE`,
+/// runs under the name it is given.
+///
+/// # Errors
+///
+/// [`crate::error::RuntimeError::InvalidConfig`] naming both resources;
+/// [`crate::error::RuntimeError::InvalidBundle`] for an image that does not parse.
+pub fn check_resource(image: &[u8], configured: &str) -> Result<(), crate::error::RuntimeError> {
+    use crate::error::RuntimeError;
+    let parsed = Image::parse(image)
+        .map_err(|error| RuntimeError::InvalidBundle(error.to_string().into()))?;
+    match parsed.resource_name() {
+        Some(declared)
+            if !declared.eq_ignore_ascii_case(configured)
+                && !declared.eq_ignore_ascii_case("RESOURCE") =>
+        {
+            Err(RuntimeError::InvalidConfig(
+                format!(
+                    "resource '{configured}' of runtime.toml is not the RESOURCE the program \
+                     declares ('{declared}')"
+                )
+                .into(),
+            ))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// The target `name` names: a device, a CPU, a Rust target triple or `host`, this computer's CPU
@@ -172,6 +219,9 @@ pub struct Build {
     pub source: String,
     /// The memory figure the image carries.
     pub figure: MemoryFigure,
+    /// The name of the `RESOURCE` the program declares; `None` for a program without a
+    /// `CONFIGURATION`, which runs under the name its project gives it (specification 11 §6.7.1).
+    pub resource: Option<smol_str::SmolStr>,
 }
 
 /// The generated crate of `sources`, without compiling it.
@@ -236,7 +286,12 @@ pub fn build_with_tests(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
-    let front = front::Front::analyze(sources, tests)?;
+    // The OpenOT authoring of annotated variables is compiled with the program, and a build whose
+    // authoring does not validate fails (specification 27 §10.3, §10.4); the header's hash is of
+    // the sources as written.
+    let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
+        .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
+    let front = front::Front::analyze(&instrumented, tests)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry, tests)?;
@@ -263,6 +318,8 @@ pub fn build_with_tests(
     writer.source_hash = sources_hash(sources);
     // An image without statement hooks is a release image, and its header says so (§13.2).
     writer.release = !options.hooks;
+    // A program that reads the wall clock needs a device that has one (§5.2).
+    writer.wall_clock = model.wall_clock;
     writer.build_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
@@ -301,5 +358,10 @@ pub fn build_with_tests(
         instances,
         source: generated.source,
         figure,
+        resource: front
+            .lowered
+            .configuration
+            .as_ref()
+            .and_then(|configuration| configuration.resource_name.clone()),
     })
 }

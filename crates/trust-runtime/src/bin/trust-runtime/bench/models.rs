@@ -71,8 +71,6 @@ struct ProjectBenchReport {
     histogram: Vec<HistogramBucket>,
     budget_overruns: u64,
     watched_globals: BTreeMap<String, serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    vm_profile: Option<VmProfileReport>,
     /// The time of each task's activations, which the native backend measures.
     #[serde(skip_serializing_if = "Option::is_none")]
     tasks: Option<Vec<TaskLatencyReport>>,
@@ -122,113 +120,6 @@ struct InitBenchReport {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct VmProfileFallbackReasonReport {
-    reason: String,
-    count: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmProfileHotBlockReport {
-    pou_id: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pou_name: Option<String>,
-    block_id: u32,
-    start_pc: u32,
-    hits: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmProfileRefOpReport {
-    load_ref: u64,
-    store_ref: u64,
-    load_ref_addr: u64,
-    ref_field: u64,
-    ref_index: u64,
-    load_dynamic: u64,
-    store_dynamic: u64,
-    instance_field_lookups: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmProfileCallOpReport {
-    frame_pushes: u64,
-    frame_pops: u64,
-    function_block_call_entries: u64,
-    parameter_bindings: u64,
-    output_copy_backs: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmProfileValueOpReport {
-    const_load_clones: u64,
-    register_read_clones: u64,
-    register_read_moves: u64,
-    read_value_clones: u64,
-    binding_expr_clones: u64,
-    output_value_clones: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmTier1SpecializedExecutorCompileFailureReasonReport {
-    reason: String,
-    count: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmTier1SpecializedExecutorReport {
-    enabled: bool,
-    hot_block_threshold: u64,
-    cache_capacity: usize,
-    cached_blocks: usize,
-    compile_attempts: u64,
-    compile_successes: u64,
-    compile_failures: u64,
-    compile_failure_reasons: Vec<VmTier1SpecializedExecutorCompileFailureReasonReport>,
-    cache_evictions: u64,
-    block_executions: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmRegisterPreparationReport {
-    pou_count: usize,
-    lowered_pous: usize,
-    lowering_failures: usize,
-    specialized_blocks: usize,
-    specialization_failures: usize,
-    specialization_failure_reasons: Vec<VmTier1SpecializedExecutorCompileFailureReasonReport>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmRegisterLoweringCacheReport {
-    enabled: bool,
-    cache_capacity: usize,
-    cached_entries: usize,
-    hits: u64,
-    misses: u64,
-    hit_ratio: f64,
-    build_errors: u64,
-    cache_evictions: u64,
-    invalidations: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct VmProfileReport {
-    register_preparation: VmRegisterPreparationReport,
-    register_programs_executed: u64,
-    register_program_fallbacks: u64,
-    fallback_reasons: Vec<VmProfileFallbackReasonReport>,
-    hot_blocks: Vec<VmProfileHotBlockReport>,
-    ref_ops: VmProfileRefOpReport,
-    call_ops: VmProfileCallOpReport,
-    value_ops: VmProfileValueOpReport,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    profiling_overhead_ratio: Option<f64>,
-    register_lowering_cache: VmRegisterLoweringCacheReport,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tier1_specialized_executor: Option<VmTier1SpecializedExecutorReport>,
-}
-
-#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "benchmark", content = "report")]
 #[allow(clippy::large_enum_variant)]
 enum BenchReport {
@@ -271,7 +162,6 @@ struct ProjectBenchWorkload {
     samples: usize,
     warmup_cycles: usize,
     watch: Vec<String>,
-    enable_tier1: bool,
 }
 
 impl ProjectBenchWorkload {
@@ -280,7 +170,6 @@ impl ProjectBenchWorkload {
         samples: usize,
         warmup_cycles: usize,
         watch: Vec<String>,
-        enable_tier1: bool,
     ) -> anyhow::Result<Self> {
         if samples == 0 {
             anyhow::bail!("--samples must be greater than zero");
@@ -293,7 +182,6 @@ impl ProjectBenchWorkload {
             samples,
             warmup_cycles,
             watch,
-            enable_tier1,
         })
     }
 }

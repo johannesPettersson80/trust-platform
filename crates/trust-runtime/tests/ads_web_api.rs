@@ -1,3 +1,5 @@
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
+
 use std::collections::VecDeque;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -11,7 +13,7 @@ use serde_json::json;
 use smol_str::SmolStr;
 use trust_runtime::config::{ControlMode, WebAuthMode, WebConfig};
 use trust_runtime::control::{ControlState, HmiRuntimeDescriptor, SourceFile, SourceRegistry};
-use trust_runtime::debug::{DebugSnapshot, DebugVariableHandles};
+use trust_runtime::debug::DebugSnapshot;
 use trust_runtime::error::RuntimeError;
 use trust_runtime::harness::TestHarness;
 use trust_runtime::metrics::RuntimeMetrics;
@@ -391,13 +393,15 @@ PROGRAM Main
 END_PROGRAM
 "#;
     let mut harness = TestHarness::from_source(source).expect("build harness");
-    let debug = harness.runtime_mut().enable_debug();
+    let debug = trust_runtime::debug::DebugControl::new();
+    harness.runtime_mut().set_debug_control(debug.clone());
     harness.cycle();
     let snapshot = DebugSnapshot {
-        storage_abi: Default::default(),
-        storage: harness.runtime().storage().clone(),
+        storage: Default::default(),
         now: harness.runtime().current_time(),
-        compiled: None,
+        compiled: Some(Arc::new(
+            harness.runtime().snapshot().expect("the program's state"),
+        )),
     };
 
     let (resource, cmd_rx) = ResourceControl::stub(StdClock::new());
@@ -464,7 +468,7 @@ END_PROGRAM
         transfers: trust_runtime::control::new_transfer_session(),
         debug,
         resource,
-        metadata: Arc::new(Mutex::new(harness.runtime().metadata_snapshot())),
+        metadata: Arc::new(Mutex::new(trust_runtime::RuntimeMetadata::default())),
         sources,
         io_snapshot: Arc::new(Mutex::new(None)),
         io_snapshot_seen_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),
@@ -490,7 +494,6 @@ END_PROGRAM
         runtime_id: SmolStr::new("test-runtime-id"),
         io_health: Arc::new(Mutex::new(Vec::new())),
         debug_enabled: Arc::new(AtomicBool::new(true)),
-        debug_variables: Arc::new(Mutex::new(DebugVariableHandles::new())),
         hmi_live: Arc::new(Mutex::new(trust_runtime::hmi::HmiLiveState::default())),
         hmi_persistence: None,
         hmi_descriptor,

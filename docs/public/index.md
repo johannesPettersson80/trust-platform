@@ -40,7 +40,7 @@ truST keeps the important state in reviewable project files:
 - `runtime.toml`
 - `io.toml`
 - `hmi/`
-- generated bundles such as `program.stbc`
+- generated build artifacts such as the program image `program.tpi`
 - interchange artifacts such as PLCopen XML
 
 That is the point of [One Project, Every Surface](concepts/one-project.md):

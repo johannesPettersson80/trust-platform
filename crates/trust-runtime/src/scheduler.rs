@@ -14,8 +14,6 @@ use crate::error::RuntimeError;
 use crate::value::Duration;
 use crate::value::Value;
 use crate::CompiledRuntime;
-use crate::Runtime;
-use crate::RuntimeMetadata;
 
 pub use trust_runtime_core::scheduler::ResourceState;
 
@@ -40,7 +38,6 @@ use trust_runtime_services::resource::supervisor::{
 
 include!("scheduler/clock.rs");
 include!("scheduler/model.rs");
-include!("scheduler/program.rs");
 include!("scheduler/runner_api.rs");
 include!("scheduler/runner_loop.rs");
 include!("scheduler/handle_shared.rs");

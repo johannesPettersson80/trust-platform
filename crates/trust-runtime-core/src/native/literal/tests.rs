@@ -63,6 +63,7 @@ fn image() -> Vec<u8> {
             size: 2,
             byte: 0,
             bit: 0,
+            kind: 0,
             flags: 0,
         }],
         &[],

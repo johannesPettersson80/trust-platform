@@ -1,12 +1,11 @@
-//! Logical-time scheduling contract at the portable readiness and timer-step boundary.
+//! Logical-time scheduling contract at the portable readiness boundary.
 //!
 //! Sources: spec 11 section 6.2 (task readiness and overrun accounting), spec 10 section 4.3
-//! (nominal-deadline rule), spec 34 SCHED-05 and COMPAT-06, and spec 08 section 5 (timer runtime
-//! boundary). Every instant is an explicit logical sample; no wall clock or sleep is involved.
+//! (nominal-deadline rule), spec 34 SCHED-05 and COMPAT-06. Every instant is an explicit logical
+//! sample; no wall clock or sleep is involved.
 //! Expected release samples are computed from the nominal deadlines written in each test, never by
 //! calling the scheduler under test.
 
-use trust_runtime_core::stdlib::fbs::{Tof, Ton, Tp};
 use trust_runtime_core::task::{evaluate_task_readiness, TaskReadiness, TaskState};
 use trust_runtime_core::value::Duration;
 
@@ -235,71 +234,4 @@ fn held_single_suppresses_periodic_work_and_release_reports_the_first_pending_de
         }
     );
     assert_eq!(state.last_run, ms(40));
-}
-
-#[test]
-fn timer_steps_ignore_negative_elapsed_contributions_and_normalize_negative_presets() {
-    // Spec 08 section 5: a negative or backward contribution adds zero and never reduces ET;
-    // PT <= 0 is normalized to zero.
-    let pt = ms(10);
-
-    let mut ton = Ton::new();
-    let out = ton.step(true, pt, ms(-5));
-    assert!(!out.q);
-    assert_eq!(out.et, Duration::ZERO);
-    let out = ton.step(true, pt, ms(4));
-    assert!(!out.q);
-    assert_eq!(out.et, ms(4));
-    let out = ton.step(true, pt, ms(-1));
-    assert_eq!(out.et, ms(4), "a backward contribution leaves ET unchanged");
-    let out = ton.step(true, pt, ms(6));
-    assert!(out.q);
-    assert_eq!(out.et, ms(10));
-
-    let mut tp = Tp::new();
-    let out = tp.step(true, pt, ms(-5));
-    assert!(out.q, "the pulse started on the rising edge");
-    assert_eq!(out.et, Duration::ZERO);
-    let out = tp.step(true, pt, ms(-5));
-    assert!(out.q);
-    assert_eq!(out.et, Duration::ZERO);
-
-    let mut tof = Tof::new();
-    let out = tof.step(true, pt, Duration::ZERO);
-    assert!(out.q);
-    let out = tof.step(false, pt, ms(-5));
-    assert!(out.q, "the off-delay has not expired");
-    assert_eq!(out.et, Duration::ZERO);
-
-    let out = Ton::new().step(true, ms(-3), Duration::ZERO);
-    assert!(out.q, "a negative preset completes at zero");
-    assert_eq!(out.et, Duration::ZERO);
-}
-
-#[test]
-fn tp_expiry_on_a_low_sample_holds_pt_until_the_next_low_sample() {
-    // Spec 08 section 5: ET counts up while Q is TRUE and stops at PT. The call that completes the
-    // pulse returns Q FALSE and ET PT even when it samples IN FALSE; the first later executed call
-    // sampling IN FALSE resets ET to zero and rearms edge detection.
-    let pt = ms(10);
-    let mut tp = Tp::new();
-    let out = tp.step(true, pt, ms(4));
-    assert!(out.q);
-    assert_eq!(out.et, ms(4));
-
-    let expiry = tp.step(false, pt, ms(6));
-    assert!(!expiry.q, "the completing call returns Q FALSE");
-    assert_eq!(expiry.et, pt, "the completing call holds ET at PT");
-
-    let later_low = tp.step(false, pt, ms(1));
-    assert!(!later_low.q);
-    assert_eq!(
-        later_low.et,
-        Duration::ZERO,
-        "the first later low sample resets ET"
-    );
-
-    let restarted = tp.step(true, pt, ms(2));
-    assert!(restarted.q, "a later rising edge starts a new pulse");
-    assert_eq!(restarted.et, ms(2));
 }

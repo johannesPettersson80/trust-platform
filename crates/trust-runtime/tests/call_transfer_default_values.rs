@@ -1,16 +1,16 @@
 //! Saved artifact: nested structure and array defaults are materialized as runtime values at every
 //! cold initialization (spec 34 §5.4 LOAD-11).
+//!
+//! The tests need the toolchain of specification 44 §4.6 at TRUST_TOOLCHAIN.
 
-use trust_runtime::harness::CompileSession;
+use trust_runtime::harness::TestHarness;
 use trust_runtime::value::Value;
-use trust_runtime::{RestartMode, Runtime};
+use trust_runtime::{CompiledRuntime, RestartMode};
 
-fn global(runtime: &Runtime, name: &str) -> Value {
+fn global(runtime: &CompiledRuntime, name: &str) -> Value {
     runtime
-        .storage()
-        .get_global(name)
-        .cloned()
-        .unwrap_or_else(|| panic!("missing global {name}"))
+        .read_variable(name)
+        .unwrap_or_else(|error| panic!("missing global {name}: {error}"))
 }
 
 fn struct_field(value: &Value, name: &str) -> Value {
@@ -31,7 +31,7 @@ fn array_elements(value: &Value) -> Vec<Value> {
     array.elements().to_vec()
 }
 
-fn assert_declared_defaults(runtime: &Runtime) {
+fn assert_declared_defaults(runtime: &CompiledRuntime) {
     let pair = global(runtime, "pair");
     assert_eq!(struct_field(&pair, "first"), Value::Int(3));
     assert_eq!(struct_field(&pair, "second"), Value::Int(9));
@@ -58,13 +58,9 @@ pair.first := INT#100;
 rows[1].second := INT#50;
 END_PROGRAM
 "#;
-    let bytes = CompileSession::from_source(source)
-        .build_bytecode_module()
-        .unwrap()
-        .encode()
-        .unwrap();
-    let mut runtime =
-        Runtime::from_bytes(&bytes, Default::default()).expect("saved artifact constructs state");
+    let mut runtime = TestHarness::from_source(source)
+        .expect("the program compiles and its image loads")
+        .into_runtime();
     assert_declared_defaults(&runtime);
 
     runtime.execute_cycle().unwrap();

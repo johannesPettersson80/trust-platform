@@ -1,5 +1,5 @@
 //! Apply the queued Live Values writes and the active forces at the cooperative cycle boundaries
-//! (specification 11, "Live Values"; specification 34 §4.3.1 and §8).
+//! (specification 11, "Live Values"; specification 34 §4.3.1 and §8; specification 44 §13.3).
 //!
 //! A control surface queues writes and forces in [`super::queues`]; this module owns the order in
 //! which a scan applies them and how a refusal is handled, so a chip and trust-runtime run the
@@ -8,25 +8,17 @@
 //! with no snapshot copy. A target's text is built only when a request is refused, and the
 //! composing platform turns that refusal into its own report; a refused force is withdrawn so its
 //! value is not applied again.
-//!
-//! The queued lvalue writes need the platform's HIR expression evaluation, which the core does not
-//! carry, so [`cycle_start`] applies them through a caller-supplied writer. Everything else,
-//! including retained-name resolution, is shared.
 
 use alloc::format;
 
 use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
-#[cfg(feature = "native")]
 use trust_runtime_core::memory::IoArea;
 use trust_runtime_core::memory::{Generation, InstanceId};
-#[cfg(feature = "native")]
 use trust_runtime_core::native::variables::CompiledVariables;
-use trust_runtime_core::value::{Duration, Value, ValueRef};
-use trust_runtime_core::vm::CycleAccess;
+use trust_runtime_core::value::{Duration, Value};
 
 use super::queues::{ForcedVarTarget, LiveValueQueues, PendingVarTarget, PendingVarWrite};
-use super::retained_names::{self, RetainedNames};
 
 /// Reports a Live Values request that a scan boundary refused. The platform turns it into its own
 /// report; trust-runtime pushes its `WriteRejected` event with this target text and time.
@@ -67,159 +59,15 @@ pub fn forced_var_label(target: &ForcedVarTarget) -> SmolStr {
     }
 }
 
-/// Apply the queued Live Values writes at the cycle start, before the scheduler runs a program, in
-/// arrival order: the variable and reference writes, then the lvalue writes through `write_lvalue`.
-///
-/// A refused request is passed to `sink` and the drain continues; a deadline or resource error
-/// faults the enclosing cycle and stops the drain.
-///
-/// # Errors
-///
-/// The deadline or resource error of a request that must fault the enclosing cycle.
-pub fn cycle_start<T, S>(
-    queues: &mut LiveValueQueues<T>,
-    names: &RetainedNames,
-    access: &mut CycleAccess<'_, '_>,
-    sink: &mut S,
-    mut write_lvalue: impl FnMut(&mut CycleAccess<'_, '_>, &T, Value) -> Result<(), RuntimeError>,
-) -> Result<(), RuntimeError>
-where
-    T: core::fmt::Debug,
-    S: WriteSink,
-{
-    for write in queues.pending_var_writes.drain(..) {
-        let PendingVarWrite { target, value } = write;
-        if let Err(error) = apply_pending_var(access, names, &target, value) {
-            let operational = is_cycle_operational_error(&error);
-            sink.refused(&pending_var_label(&target), &error, access.logical_time());
-            if operational {
-                return Err(error);
-            }
-        }
-    }
-    for write in queues.pending_lvalue_writes.drain(..) {
-        let result = if write.frame_id.is_some() {
-            Err(RuntimeError::ReferenceLifetime)
-        } else {
-            write_lvalue(access, &write.target, write.value)
-        };
-        if let Err(error) = result {
-            let operational = is_cycle_operational_error(&error);
-            sink.refused(
-                &format!("{:?}", write.target),
-                &error,
-                access.logical_time(),
-            );
-            if operational {
-                return Err(error);
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Apply the queued one-shot I/O writes and then every active force before the input sample, as
-/// the boundary does today.
-///
-/// # Errors
-///
-/// The deadline or resource error of a request that must fault the enclosing cycle.
-pub fn io_writes_and_forces<T, S>(
-    queues: &mut LiveValueQueues<T>,
-    names: &RetainedNames,
-    access: &mut CycleAccess<'_, '_>,
-    sink: &mut S,
-) -> Result<(), RuntimeError>
-where
-    S: WriteSink,
-{
-    for (address, value) in queues.io_writes.drain(..) {
-        if let Err(error) = access.write_admitted_image(&address, value) {
-            let operational = is_cycle_operational_error(&error);
-            sink.refused(&format!("{address:?}"), &error, access.logical_time());
-            if operational {
-                return Err(error);
-            }
-        }
-    }
-    forces(queues, names, access, sink)
-}
-
-/// Apply every active force to its destination, in the order the targets were first forced. A
-/// refused force is withdrawn from its queue so its value is not applied again.
-///
-/// # Errors
-///
-/// The deadline or resource error of a force that must fault the enclosing cycle.
-pub fn forces<T, S>(
-    queues: &mut LiveValueQueues<T>,
-    names: &RetainedNames,
-    access: &mut CycleAccess<'_, '_>,
-    sink: &mut S,
-) -> Result<(), RuntimeError>
-where
-    S: WriteSink,
-{
-    // Each queue holds at most one entry per target, so the refused entry is the one at `index`.
-    let mut index = 0;
-    while index < queues.forced_io.len() {
-        let result = access.write_admitted_image(
-            &queues.forced_io[index].0,
-            queues.forced_io[index].1.clone(),
-        );
-        match result {
-            Ok(()) => index += 1,
-            Err(error) => {
-                let label = format!("{:?}", queues.forced_io[index].0);
-                let operational = is_cycle_operational_error(&error);
-                if !operational {
-                    queues.forced_io.remove(index);
-                }
-                sink.refused(&label, &error, access.logical_time());
-                if operational {
-                    return Err(error);
-                }
-            }
-        }
-    }
-    let mut index = 0;
-    while index < queues.forced_vars.len() {
-        let result = apply_forced_var(
-            access,
-            names,
-            &queues.forced_vars[index].target,
-            queues.forced_vars[index].value.clone(),
-        );
-        match result {
-            Ok(()) => index += 1,
-            Err(error) => {
-                let label = forced_var_label(&queues.forced_vars[index].target);
-                let operational = is_cycle_operational_error(&error);
-                if !operational {
-                    queues.forced_vars.remove(index);
-                }
-                sink.refused(&label, &error, access.logical_time());
-                if operational {
-                    return Err(error);
-                }
-            }
-        }
-    }
-    Ok(())
-}
-
 /// The queued variable writes and the active variable forces of a compiled program at its cycle
-/// start, before the program runs (specification 44 §13.3), as [`cycle_start`] and [`forces`] apply
-/// them to the engine: the writes in arrival order through the program's symbol table, then every
-/// force in the order the targets were first forced. A target the program does not hold, or an
-/// instance identity of another generation than `generation`, is refused as the engine refuses it;
-/// a refused force is withdrawn. A debugger's expression write waits for the debugger of compiled
-/// programs and is refused.
+/// start, before the program runs (specification 44 §13.3): the writes in arrival order through the
+/// program's symbol table, then every force as [`compiled_forces`] applies it. A target the program
+/// does not hold, or an instance identity of another generation than `generation`, is refused. A
+/// debugger's expression write is refused.
 ///
 /// # Errors
 ///
 /// The deadline or resource error of a request that must fault the enclosing cycle.
-#[cfg(feature = "native")]
 pub fn compiled_cycle_start<T, S>(
     queues: &mut LiveValueQueues<T>,
     generation: Generation,
@@ -256,6 +104,30 @@ where
     for write in queues.pending_lvalue_writes.drain(..) {
         sink.refused(&format!("{:?}", write.target), &unsupported, time);
     }
+    compiled_forces(queues, generation, variables, time, sink)
+}
+
+/// The active variable forces of a compiled program, in the order the targets were first forced,
+/// through the program's symbol table: at the cycle start, after the queued writes, and again after
+/// the scan's last task, before the outputs are sampled, so that a forced variable holds its value
+/// between scans and a forced output variable reaches its output whatever the program wrote
+/// (specification 10 §4.7, steps 2 and 6). A target the program does not hold, or an instance
+/// identity of another generation than `generation`, is refused, and the refused force is withdrawn.
+///
+/// # Errors
+///
+/// The deadline or resource error of a request that must fault the enclosing cycle.
+pub fn compiled_forces<T, S>(
+    queues: &mut LiveValueQueues<T>,
+    generation: Generation,
+    variables: &mut dyn CompiledVariables,
+    time: Duration,
+    sink: &mut S,
+) -> Result<(), RuntimeError>
+where
+    T: core::fmt::Debug,
+    S: WriteSink,
+{
     // Each queue holds at most one entry per target, so the refused entry is the one at `index`.
     let mut index = 0;
     while index < queues.forced_vars.len() {
@@ -288,13 +160,12 @@ where
 /// The queued one-shot process-image writes and the active forces of the images `areas` of a
 /// compiled program (specification 44 §13.3): the writes, in arrival order, of an input or marker
 /// address after the drivers read the inputs and before the program samples them, and the forces
-/// of `areas` then; the output image's forces after the scan, before the outputs reach the drivers.
-/// A refused force is withdrawn.
+/// of `areas` then; the marker and output images' forces again after the scan, with the variable
+/// forces, before the outputs reach the drivers. A refused force is withdrawn.
 ///
 /// # Errors
 ///
 /// The deadline or resource error of a request that must fault the enclosing cycle.
-#[cfg(feature = "native")]
 pub fn compiled_images<T, S>(
     queues: &mut LiveValueQueues<T>,
     areas: &[IoArea],
@@ -346,7 +217,6 @@ where
 
 /// Writes `value` to the compiled program's retained variable `label`; a key the retain map does
 /// not hold is refused as the engine refuses a retained label it does not resolve.
-#[cfg(feature = "native")]
 fn compiled_retained(
     variables: &mut dyn CompiledVariables,
     label: &str,
@@ -361,7 +231,6 @@ fn compiled_retained(
 /// Writes `value` to member `name` of the compiled program's instance `id`, an identity resolved
 /// in generation `at`; another installed generation, or an instance or member the program does not
 /// hold, is refused as the engine refuses it (specification 34 §4.3.1).
-#[cfg(feature = "native")]
 fn compiled_member(
     variables: &mut dyn CompiledVariables,
     generation: Generation,
@@ -381,74 +250,5 @@ fn compiled_member(
     }
 }
 
-fn apply_pending_var(
-    access: &mut CycleAccess<'_, '_>,
-    names: &RetainedNames,
-    target: &PendingVarTarget,
-    value: Value,
-) -> Result<(), RuntimeError> {
-    match target {
-        PendingVarTarget::Global(name) => access.write_admitted_global(name, value),
-        PendingVarTarget::Retain(name) => write_retained(access, names, name, value),
-        PendingVarTarget::Instance(generation, id, name) => {
-            instance_reference(access, *generation, *id, name)
-                .and_then(|reference| access.write_admitted_reference(reference.as_view(), value))
-        }
-        // A local of a paused frame is not reachable from the scan; the queued write is refused.
-        PendingVarTarget::Local(_, _) => Err(RuntimeError::ReferenceLifetime),
-    }
-}
-
-fn apply_forced_var(
-    access: &mut CycleAccess<'_, '_>,
-    names: &RetainedNames,
-    target: &ForcedVarTarget,
-    value: Value,
-) -> Result<(), RuntimeError> {
-    match target {
-        ForcedVarTarget::Global(name) => access.write_admitted_global(name, value),
-        ForcedVarTarget::Retain(name) => write_retained(access, names, name, value),
-        ForcedVarTarget::Instance(generation, id, name) => {
-            instance_reference(access, *generation, *id, name)
-                .and_then(|reference| access.write_admitted_reference(reference.as_view(), value))
-        }
-    }
-}
-
-/// Resolve a declared retained label and write the literal-admitted value to it. The label lookup
-/// is bookkeeping under TIME-08, so it is charged before it runs.
-fn write_retained(
-    access: &mut CycleAccess<'_, '_>,
-    names: &RetainedNames,
-    name: &str,
-    value: Value,
-) -> Result<(), RuntimeError> {
-    access
-        .charge_management_name(name)
-        .and_then(|()| {
-            retained_names::retained_reference(names, &*access, name)
-                .ok_or(RuntimeError::ReferenceLifetime)
-        })
-        .and_then(|reference| access.write_admitted_reference(reference.as_view(), value))
-}
-
-/// Resolve a staged request that names an instance by identity. The identity belongs to the
-/// generation the request was resolved in; another installed generation rejects it, so a restart
-/// or replacement in between cannot redirect it to the instance that now has that identity
-/// (specification 34 §4.3.1).
-fn instance_reference(
-    access: &CycleAccess<'_, '_>,
-    generation: Generation,
-    id: InstanceId,
-    name: &str,
-) -> Result<ValueRef, RuntimeError> {
-    if generation != access.generation() {
-        return Err(RuntimeError::ReferenceLifetime);
-    }
-    access
-        .ref_for_instance_recursive(id, name)
-        .ok_or(RuntimeError::ReferenceLifetime)
-}
-
-#[cfg(all(test, feature = "native"))]
+#[cfg(test)]
 mod compiled_tests;

@@ -11,6 +11,16 @@ fn temp_dir(prefix: &str) -> PathBuf {
     dir
 }
 
+/// Builds the project at `root` for this computer, as `trust-runtime build` does: the program image
+/// `program.tpi` with its deployment record (specification 44 §8.8, NX-15). The build needs the
+/// toolchain of specification 44 §4.6 at `TRUST_TOOLCHAIN`.
+fn build(root: &Path) -> anyhow::Result<BundleBuildReport> {
+    let toolchain = crate::native::Toolchain::find()?;
+    let target = crate::native::Target::this_cpu()
+        .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
+    build_program_image(root, None, target, &toolchain, false, true)
+}
+
 fn write_file(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("create parent dir");
@@ -113,13 +123,19 @@ version = "2.0.0"
 "#,
     );
 
-    let report = build_program_stbc(&root, None).expect("build should pass");
-    assert!(report.program_path.exists());
+    let report = build(&root).expect("build should pass");
+    assert!(report.image.exists());
     assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
     assert!(report.sources.iter().any(|path| path.ends_with("lib.st")));
     assert_eq!(
         report.resolved_dependencies,
         vec!["LibA".to_string(), "LibB".to_string()]
+    );
+    // `build --ci` reports the same: the project's main.st and each dependency's lib.st.
+    assert_eq!(report.json["source_count"], serde_json::json!(3));
+    assert_eq!(
+        report.json["resolved_dependencies"],
+        serde_json::json!(["LibA", "LibB"])
     );
 
     let inspection = inspect_project_layout(&root, None).expect("inspection should pass");
@@ -150,8 +166,8 @@ fn build_accepts_cross_file_root_global_struct_field_access() {
     let root = temp_dir("trust-runtime-build-cross-file-global-struct");
     write_cross_file_global_struct_project(&root);
 
-    let report = build_program_stbc(&root, None).expect("build should pass");
-    assert!(report.program_path.exists());
+    let report = build(&root).expect("build should pass");
+    assert!(report.image.exists());
     assert!(report
         .sources
         .iter()
@@ -169,17 +185,56 @@ fn build_accepts_cross_file_root_global_struct_field_access() {
 fn build_emits_hash_bound_openot_definition_for_the_compiled_sources() {
     let root = temp_dir("trust-runtime-build-openot-definition");
     let library_sources = [
-        ("openot_control_block.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_control_block.st.txt")),
-        ("openot_crc32c.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_crc32c.st.txt")),
-        ("openot_lifecycle.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_lifecycle.st.txt")),
-        ("openot_message.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_message.st.txt")),
-        ("openot_producer.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_producer.st.txt")),
-        ("openot_records_dropped.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_records_dropped.st.txt")),
-        ("openot_ring256_producer.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring256_producer.st.txt")),
-        ("openot_ring.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring.st.txt")),
-        ("openot_source_high_water.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_source_high_water.st.txt")),
-        ("openot_value_state.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_value_state.st.txt")),
-        ("openot_wire_encode.st", include_str!("../../../tests/fixtures/openot/iec61131/src/openot_wire_encode.st.txt")),
+        (
+            "openot_control_block.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_control_block.st.txt"),
+        ),
+        (
+            "openot_crc32c.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_crc32c.st.txt"),
+        ),
+        (
+            "openot_lifecycle.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_lifecycle.st.txt"),
+        ),
+        (
+            "openot_message.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_message.st.txt"),
+        ),
+        (
+            "openot_producer.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_producer.st.txt"),
+        ),
+        (
+            "openot_records_dropped.st",
+            include_str!(
+                "../../../tests/fixtures/openot/iec61131/src/openot_records_dropped.st.txt"
+            ),
+        ),
+        (
+            "openot_ring256_producer.st",
+            include_str!(
+                "../../../tests/fixtures/openot/iec61131/src/openot_ring256_producer.st.txt"
+            ),
+        ),
+        (
+            "openot_ring.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_ring.st.txt"),
+        ),
+        (
+            "openot_source_high_water.st",
+            include_str!(
+                "../../../tests/fixtures/openot/iec61131/src/openot_source_high_water.st.txt"
+            ),
+        ),
+        (
+            "openot_value_state.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_value_state.st.txt"),
+        ),
+        (
+            "openot_wire_encode.st",
+            include_str!("../../../tests/fixtures/openot/iec61131/src/openot_wire_encode.st.txt"),
+        ),
     ];
     for (name, source) in library_sources {
         write_file(&root.join("src").join(name), source);
@@ -196,7 +251,7 @@ END_PROGRAM
 "#,
     );
 
-    build_program_stbc(&root, None).expect("build should pass");
+    build(&root).expect("build should pass");
 
     let definition_path = root.join("openot-definition.json");
     let bytes = fs::read(&definition_path).expect("build must emit OpenOT definition");
@@ -214,7 +269,7 @@ END_PROGRAM
 }
 
 #[test]
-fn check_compiles_without_writing_program_stbc() {
+fn check_compiles_without_writing_the_program_image() {
     let root = temp_dir("trust-runtime-check-no-write");
     write_root_source(&root);
     write_dependency_source(&root.join("deps/lib-a"), "DepDouble");
@@ -226,13 +281,12 @@ LibA = "deps/lib-a"
 "#,
     );
 
-    let report = check_program_stbc(&root, None).expect("check should pass");
-    assert!(report.bytecode_size > 0);
+    let report = check_program(&root, None).expect("check should pass");
     assert!(report.sources.iter().any(|path| path.ends_with("main.st")));
     assert_eq!(report.resolved_dependencies, vec!["LibA".to_string()]);
     assert!(
-        !root.join("program.stbc").exists(),
-        "check must not write program.stbc"
+        !root.join(crate::native::PROGRAM_IMAGE_FILE).exists(),
+        "check must not write the program image"
     );
 
     fs::remove_dir_all(root).ok();
@@ -250,7 +304,7 @@ Missing = "deps/missing"
 "#,
     );
 
-    let err = build_program_stbc(&root, None).expect_err("build should fail");
+    let err = build(&root).expect_err("build should fail");
     let message = err.to_string();
     assert!(message.contains("dependency 'Missing' path does not exist"));
 
@@ -287,7 +341,7 @@ LibA = { path = "../lib-a" }
 "#,
     );
 
-    let err = build_program_stbc(&root, None).expect_err("build should fail");
+    let err = build(&root).expect_err("build should fail");
     let message = err.to_string();
     assert!(message.contains("cyclic dependency detected"));
 
@@ -315,7 +369,7 @@ version = "2.0.0"
 "#,
     );
 
-    let err = build_program_stbc(&root, None).expect_err("build should fail");
+    let err = build(&root).expect_err("build should fail");
     let message = err.to_string();
     assert!(message.contains("requested version 1.0.0"));
 
@@ -365,16 +419,16 @@ version = "1.0.0"
 "#,
     );
 
-    let first = build_program_stbc(&root, None).expect("first build");
+    let first = build(&root).expect("first build");
     let first_bytes =
-        fs::read(generated_output_path!(&first.program_path, &root)).expect("read first program");
-    let second = build_program_stbc(&root, None).expect("second build");
+        fs::read(generated_output_path!(&first.image, &root)).expect("read first program");
+    let second = build(&root).expect("second build");
     let second_bytes =
-        fs::read(generated_output_path!(&second.program_path, &root)).expect("read second program");
+        fs::read(generated_output_path!(&second.image, &root)).expect("read second program");
 
     assert_eq!(first.resolved_dependencies, second.resolved_dependencies);
     assert_eq!(first.sources, second.sources);
-    assert_eq!(first_bytes, second_bytes);
+    assert_eq!(reproducible(&first_bytes), reproducible(&second_bytes));
 
     fs::remove_dir_all(root).ok();
 }
@@ -425,23 +479,63 @@ fn native_build_labels_each_source_relative_to_the_project_root() {
     let _ = fs::remove_dir_all(&root);
 }
 
-/// Specification 44 NX-15: the project's program is what its last build wrote. A project that holds
-/// a program image from an earlier build, which a computer runs in place of `program.stbc`, loses it
-/// when its STBC is built, so the computer runs the program just built. Catches a stale image that
-/// runs instead of the new STBC.
+/// Specification 11 §6.7.1: an image runs the one resource it was built from, so a project whose
+/// `runtime.toml` names another resource than its program's `RESOURCE` is not built, and the names
+/// compare without regard to case. Catches a build that writes an image the project then runs under
+/// a resource its program does not declare.
 #[test]
-fn build_removes_an_earlier_program_image() {
-    let root = temp_dir("trust-runtime-build-replaces-image");
+fn build_refuses_a_runtime_resource_that_is_not_the_program_resource() {
+    let root = temp_dir("trust-runtime-build-resource");
     write_file(
         &root.join("src/main.st"),
-        "PROGRAM Main\nVAR\n    y : INT;\nEND_VAR\ny := 1;\nEND_PROGRAM\n",
+        r#"
+PROGRAM Main
+END_PROGRAM
+CONFIGURATION Plant
+RESOURCE Line ON PLC
+    TASK Fast (INTERVAL := T#10ms, PRIORITY := 1);
+    PROGRAM P WITH Fast : Main;
+END_RESOURCE
+END_CONFIGURATION
+"#,
     );
-    let image = root.join(crate::native::PROGRAM_IMAGE_FILE);
-    fs::write(&image, b"TRSTI001 an earlier build").expect("write the earlier image");
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&"Other".into(), 10),
+    );
+    let error = build(&root).expect_err("another resource is refused");
+    assert!(
+        error
+            .to_string()
+            .contains("resource 'Other' of runtime.toml is not the RESOURCE the program declares"),
+        "{error}"
+    );
+    assert!(
+        !root.join(crate::native::PROGRAM_IMAGE_FILE).exists(),
+        "a refused build writes no program"
+    );
 
-    build_program_stbc(&root, None).expect("build should pass");
-    assert!(root.join("program.stbc").is_file());
-    assert!(!image.exists(), "the earlier program image must be gone");
-
+    write_file(
+        &root.join("runtime.toml"),
+        &crate::bundle_template::render_runtime_toml(&"LINE".into(), 10),
+    );
+    build(&root).expect("the program's RESOURCE builds in any case");
     fs::remove_dir_all(root).ok();
+}
+
+/// The bytes of program image `image` that two builds of one project share (specification 44
+/// NX-07): all but the build time in the header, the header's checksum over it and the signature.
+fn reproducible(image: &[u8]) -> Vec<u8> {
+    use trust_runtime_core::native::image::{Image, SectionId};
+    let mut bytes = image.to_vec();
+    bytes[8..12].fill(0);
+    bytes[24..32].fill(0);
+    if let Some(sign) = Image::parse(image)
+        .expect("the program image parses")
+        .section(SectionId::Sign)
+    {
+        let start = sign.offset as usize;
+        bytes[start..start + sign.length as usize].fill(0);
+    }
+    bytes
 }
