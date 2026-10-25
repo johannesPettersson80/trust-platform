@@ -1,550 +1,312 @@
-// Input-path conditions stay off the output path, and the reported health combines both paths
-// (specification 32 section 8; specification 11, safe-state handoff confirmation). Included into
-// `io::mqtt::tests`, which supplies `packet`, `params`, `MockState`, `MockFactory` and the imports.
+//! The driver's two paths (specification 32 §8; specification 11, safe-state handoff
+//! confirmation), through the broker stand-in: stale or missing input stays off the output path,
+//! a lost link marks both and starts the backoff, a typed-output preflight failure is a publish
+//! condition that only a publication clears, and the reported health is the more severe path.
 
-/// A driver on `line/in` and `line/out` with a 60 s reconnect window, so a backoff started during
-/// a test cannot expire inside it.
-fn split_health_driver(state: Arc<Mutex<MockState>>, on_error: &str) -> MqttIoDriver {
-    MqttIoDriver::from_params_with_factory(
-        &params(&format!(
-            r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-topic_out = "line/out"
-on_error = "{on_error}"
-reconnect_ms = 60000
-"#
-        )),
-        Arc::new(MockFactory {
-            state,
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        }),
-    )
-    .expect("construct mqtt driver")
+use std::time::Instant;
+
+use super::broker::{Answer, Broker};
+use super::safe_state_cases::runtime_with_safe_state;
+use super::{at, degraded, eventually, faulted, faulted_with, read_fresh, start, SCAN_WAIT};
+use crate::error::RuntimeError;
+use crate::io::{IoDriver, IoDriverHealth};
+
+/// The stale read's error.
+fn not_fresh() -> Result<(), RuntimeError> {
+    Err(RuntimeError::IoFreshness("mqtt input not fresh".into()))
 }
 
-fn published(state: &Arc<Mutex<MockState>>) -> Vec<(SmolStr, Vec<u8>)> {
-    state
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .published
-        .clone()
+/// A broker and a driver on `line/in` and `line/out` under `on_error`, with a backoff of 60 s, so
+/// that a backoff started during a test cannot end inside it, its session running and its first
+/// message, 7, read.
+fn split_health_driver(on_error: &str) -> (Broker, super::MqttIoDriver) {
+    let broker = Broker::start();
+    let mut driver = start(&at(
+        &broker,
+        &format!(
+            "topic_in = \"line/in\"\ntopic_out = \"line/out\"\non_error = \"{on_error}\"\n\
+             reconnect_ms = 60000"
+        ),
+    ));
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+    broker.deliver(&[("line/in", &[7])]);
+    let mut inputs = [0_u8; 1];
+    eventually("first message", || {
+        driver.read_inputs(&mut inputs).is_ok() && inputs == [7]
+    });
+    (broker, driver)
 }
 
-/// Stale input on a connected link faults the reported health under `fault`, but it starts no
-/// backoff and leaves the output path alone.
+/// Stale input on a connected link faults the reported health under `fault`, but starts no backoff
+/// and leaves the output path `Ok`: the next write publishes at once (specification 32 §8: "a
+/// connected session stays connected, starts no backoff and keeps publishing outputs"). Catches a
+/// stale read that holds the outputs back or that unconfirms a safe state.
 #[test]
 fn fault_policy_stale_input_on_connected_link_leaves_output_path_healthy() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7])]),
-        ..MockState::default()
-    }));
-    let mut driver = split_health_driver(Arc::clone(&state), "fault");
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-    assert_eq!(inputs, [7]);
-    driver.write_outputs(&[1]).expect("first publish");
+    let (broker, mut driver) = split_health_driver("fault");
+    assert_eq!(driver.write_outputs(&[1]), Ok(()));
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-
-    // No new payload arrives inside the freshness window.
-    let error = driver
-        .read_inputs(&mut inputs)
-        .expect_err("stale input must fault under the fault policy");
-    assert!(matches!(error, RuntimeError::IoFreshness(_)), "{error}");
-    assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
+    let mut inputs = [7_u8];
+    assert_eq!(driver.read_inputs(&mut inputs), not_fresh());
+    assert_eq!(driver.health(), faulted("mqtt input not fresh"));
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-
-    // The stale read holds no worker time, so the next write publishes at once. A backoff would
-    // fail it inside the 60 s window.
-    driver
-        .write_outputs(&[2])
-        .expect("write after stale input must publish without backoff");
+    assert_eq!(driver.write_outputs(&[2]), Ok(()));
+    broker.wait_for("both images", |record| record.publishes.len() == 2);
     assert_eq!(
-        published(&state),
-        vec![
-            (SmolStr::new("line/out"), vec![1]),
-            (SmolStr::new("line/out"), vec![2]),
-        ]
+        broker.record(|record| record.published("line/out")),
+        [vec![1], vec![2]]
     );
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
 }
 
-/// The same stale input under `warn` degrades the reported health only; the output path stays `Ok`.
+/// The same stale input under `warn` degrades the reported health only, with `mqtt input not
+/// fresh`; the output path stays `Ok` and the next write publishes. Catches a warned stale read
+/// that reaches the output path.
 #[test]
 fn warn_policy_stale_input_on_connected_link_degrades_reported_health_only() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7])]),
-        ..MockState::default()
-    }));
-    let mut driver = split_health_driver(Arc::clone(&state), "warn");
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-    driver.write_outputs(&[1]).expect("first publish");
-
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn keeps the stale snapshot");
+    let (broker, mut driver) = split_health_driver("warn");
+    assert_eq!(driver.write_outputs(&[1]), Ok(()));
+    let mut inputs = [0_u8];
+    assert_eq!(driver.read_inputs(&mut inputs), Ok(()));
+    assert_eq!(inputs, [7]);
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-
-    let health = driver.health();
-    assert!(
-        matches!(&health, IoDriverHealth::Degraded { error } if error.contains("not fresh")),
-        "{health:?}"
-    );
-
-    driver
-        .write_outputs(&[2])
-        .expect("write after stale input must publish");
+    assert_eq!(driver.health(), degraded("mqtt input not fresh"));
+    assert_eq!(driver.write_outputs(&[2]), Ok(()));
+    broker.wait_for("both images", |record| record.publishes.len() == 2);
     assert_eq!(
-        published(&state),
-        vec![
-            (SmolStr::new("line/out"), vec![1]),
-            (SmolStr::new("line/out"), vec![2]),
-        ]
+        broker.record(|record| record.published("line/out")),
+        [vec![1], vec![2]]
     );
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
 }
 
-/// A lost link still starts backoff, and a write inside the backoff window does not connect again.
+/// A lost link starts the backoff and marks the output path: a broker that closes the connection
+/// before its CONNACK fails the first write with the backoff and its cause, the next write with
+/// the backoff too, and no second connection is tried within the 60 s of `reconnect_ms`
+/// (specification 32 §8). Catches a write that reconnects at once, and a failure that leaves the
+/// output path `Ok`.
 #[test]
 fn lost_link_still_starts_backoff_and_marks_the_output_path() {
-    let attempts = Arc::new(AtomicUsize::new(0));
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-topic_out = "line/out"
-on_error = "fault"
-reconnect_ms = 60000
-"#,
-        ),
-        Arc::new(MockFactory {
-            state: Arc::new(Mutex::new(MockState::default())),
-            attempts: Arc::clone(&attempts),
-            fail_first: false,
-            always_fail: true,
-        }),
-    )
-    .expect("construct mqtt driver");
-
-    let first = driver
-        .write_outputs(&[1])
-        .expect_err("a failed connect must fault the write");
-    assert!(first.to_string().contains("connect failed"), "{first}");
-
-    let second = driver
-        .write_outputs(&[2])
-        .expect_err("a write inside the backoff window must not reconnect");
-    let second_detail = second.to_string();
-    assert!(
-        second_detail.contains("mqtt reconnect backoff active"),
-        "{second_detail}"
-    );
-    assert!(matches!(
-        driver.output_health(),
-        IoDriverHealth::Faulted { .. }
+    let broker = Broker::start();
+    broker.answer_always(Some(Answer::Close));
+    let mut driver = start(&at(
+        &broker,
+        "topic_out = \"line/out\"\nreconnect_ms = 60000",
     ));
-    assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    eventually("failed connect", || {
+        faulted_with(&driver.health(), "mqtt connect failed: ")
+    });
+    let backoff = "mqtt reconnect backoff active (mqtt connect failed: the broker closed the \
+                   connection)";
+    assert_eq!(
+        driver.write_outputs(&[1]),
+        Err(RuntimeError::IoTransport(backoff.into()))
+    );
+    assert_eq!(
+        driver.write_outputs(&[2]),
+        Err(RuntimeError::IoTransport(backoff.into()))
+    );
+    assert_eq!(driver.output_health(), faulted(backoff));
+    assert_eq!(broker.record(|record| record.accepted), 1);
 }
 
-/// A typed-output preflight failure on a connected link sets health per policy but starts no
-/// backoff, so the next valid write publishes at once.
+/// A typed-output preflight failure on a connected link follows the policy but starts no backoff,
+/// so the next valid write publishes at once (specification 32 §8). Catches a preflight failure
+/// treated as a lost connection.
 #[test]
 fn typed_output_preflight_failure_on_connected_link_does_not_start_backoff() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        ..MockState::default()
-    }));
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-on_error = "fault"
-reconnect_ms = 60000
-
-[[output_points]]
-topic = "line/out"
-image_offset = 4
-data_type = "u16"
-payload_format = "binary_le"
-"#,
-        ),
-        Arc::new(MockFactory {
-            state: Arc::clone(&state),
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        }),
-    )
-    .expect("construct mqtt driver");
-
-    let error = driver
-        .write_outputs(&[1])
-        .expect_err("an image too short for the typed point must fail the write");
-    let detail = error.to_string();
-    assert!(
-        detail.contains("image range 4..6 exceeds process image size 1"),
-        "{detail}"
-    );
-    assert!(matches!(
-        driver.output_health(),
-        IoDriverHealth::Faulted { .. }
+    let broker = Broker::start();
+    let mut driver = start(&at(
+        &broker,
+        "reconnect_ms = 60000\n[[output_points]]\ntopic = \"line/out\"\nimage_offset = 4\n\
+         data_type = \"u16\"\npayload_format = \"binary_le\"\n",
     ));
-
-    driver
-        .write_outputs(&[1, 2, 3, 4, 5, 6])
-        .expect("a valid write after a preflight failure must publish at once");
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+    let text = "mqtt point image range 4..6 exceeds process image size 1";
     assert_eq!(
-        published(&state),
-        vec![(SmolStr::new("line/out"), vec![5, 6])]
+        driver.write_outputs(&[1]),
+        Err(RuntimeError::IoTransport(text.into()))
+    );
+    assert_eq!(driver.output_health(), faulted(text));
+    assert_eq!(driver.write_outputs(&[1, 2, 3, 4, 5, 6]), Ok(()));
+    broker.wait_for("valid image", |record| !record.publishes.is_empty());
+    assert_eq!(
+        broker.record(|record| record.published("line/out")),
+        [vec![5, 6]]
     );
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
 }
 
-/// An input-only driver publishes nothing, so its output path is always healthy: a lost link is an
-/// input condition only, and a safe-state handoff through it is confirmed.
+/// A driver that only reads, a lowered read mapping, has nothing to deliver, so its output path is
+/// always `Ok`: a lost link is an input condition alone, and a write succeeds (specification 32 §8:
+/// a direction the configuration disables is always healthy). Catches a safe state unconfirmed by a
+/// driver without outputs.
 #[test]
 fn input_only_driver_output_path_stays_healthy_while_its_link_is_down() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", b"7".to_vec())]),
-        ..MockState::default()
-    }));
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-on_error = "fault"
-reconnect_ms = 60000
-mappings = [
-  { tag = "MainInstance.Level", topic = "line/in", direction = "read" }
-]
-
-[[input_points]]
-topic = "line/in"
-image_offset = 0
-data_type = "u16"
-"#,
-        ),
-        Arc::new(MockFactory {
-            state: Arc::clone(&state),
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        }),
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 2];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
+    let broker = Broker::start();
+    let mut driver = start(&at(
+        &broker,
+        "reconnect_ms = 60000\nmappings = [\n  { tag = \"MainInstance.Level\", topic = \
+         \"line/in\", direction = \"read\" }\n]\n[[input_points]]\ntopic = \"line/in\"\n\
+         image_offset = 0\ndata_type = \"u16\"\n",
+    ));
+    broker.wait_for("subscription", |record| record.subscriptions == ["line/in"]);
+    broker.deliver(&[("line/in", b"7")]);
+    let mut inputs = [0_u8; 2];
+    assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
     assert_eq!(inputs, [7, 0]);
     assert_eq!(driver.health(), IoDriverHealth::Ok);
-
-    // The link drops. The input path faults; the output path stays Ok because this driver has
-    // no outputs to deliver.
-    state.lock().unwrap_or_else(|e| e.into_inner()).connected = false;
-    let error = driver
-        .read_inputs(&mut inputs)
-        .expect_err("a lost link must fault the read under the fault policy");
-    assert!(matches!(error, RuntimeError::IoFreshness(_)), "{error}");
-    assert!(matches!(driver.health(), IoDriverHealth::Faulted { .. }));
+    broker.close_connection();
+    let lost =
+        "mqtt reconnect backoff active (mqtt disconnected: the broker closed the connection)";
+    eventually("lost link in a read", || {
+        driver.read_inputs(&mut inputs) == Err(RuntimeError::IoFreshness(lost.into()))
+    });
+    assert_eq!(driver.health(), faulted(lost));
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-
-    driver
-        .write_outputs(&[0])
-        .expect("an input-only driver writes nothing");
+    assert_eq!(driver.write_outputs(&[0]), Ok(()));
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
 }
 
-/// After a stale read, the safe-state handoff is confirmed when the safe output publishes, because
-/// the stale input never reached the output path.
+/// After a stale read the safe state is confirmed when its image is handed off, because stale input
+/// never reaches the output path (specification 11: input-path conditions never unconfirm a
+/// safe-state handoff). The test builds a program, so it needs the toolchain of specification 44
+/// §4.6 at `TRUST_TOOLCHAIN`. Catches a safe state unconfirmed by stale input.
 #[test]
 fn safe_state_after_stale_input_is_confirmed_when_the_safe_output_publishes() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7])]),
-        ..MockState::default()
-    }));
-    let mut driver = split_health_driver(Arc::clone(&state), "fault");
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-    assert!(
-        driver.read_inputs(&mut inputs).is_err(),
-        "stale input must fault under the fault policy"
-    );
-
-    // A program with a one-byte output image; the build needs the toolchain of specification 44
-    // §4.6 at `TRUST_TOOLCHAIN`.
-    let mut runtime = crate::harness::TestHarness::from_source(
-        "VAR_GLOBAL out AT %QB0 : BYTE; END_VAR PROGRAM Main END_PROGRAM",
-    )
-    .expect("build the MQTT output program")
-    .into_runtime();
-    let mut safe_state = crate::io::IoSafeState::default();
-    safe_state.outputs.push((
-        crate::io::IoAddress::parse("%QB0").expect("safe-state output byte"),
-        crate::value::Value::Byte(0x5a),
-    ));
-    runtime.set_io_safe_state(safe_state);
-    runtime.add_io_driver("mqtt-stale-input", Box::new(driver));
-
+    let (broker, mut driver) = split_health_driver("fault");
+    let mut inputs = [0_u8];
+    assert_eq!(driver.read_inputs(&mut inputs), not_fresh());
+    let mut runtime = runtime_with_safe_state(driver, "mqtt-stale-input");
     runtime
         .apply_io_safe_state()
         .expect("stale input must not unconfirm the safe state");
+    broker.wait_for("safe state", |record| !record.publishes.is_empty());
     assert_eq!(
-        published(&state),
-        vec![(SmolStr::new("line/out"), vec![0x5a])]
+        broker.record(|record| record.published("line/out")),
+        [vec![0x5A]]
     );
 }
 
-/// Without a worker, output health is `Ok` while the link is connected, whatever the reported
-/// health says, and it becomes the driver's health once the link is lost.
+/// The output path follows the link, not the reported health: under `warn` a stale read degrades
+/// the health and leaves the output path `Ok`, and a lost link degrades the output path too. The
+/// computer's earlier driver proved this without its worker; with the shared exchange the worker
+/// is the transport, and the rule holds for the one driver there is. Catches an output path that
+/// follows input conditions, or that misses a lost link.
 #[test]
-fn sync_driver_output_health_follows_the_link_not_the_reported_health() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7])]),
-        ..MockState::default()
-    }));
-    let config = MqttIoConfig::from_params(&params(
-        r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-on_error = "warn"
-"#,
-    ))
-    .expect("parse MQTT config");
-    let mut driver = MqttIoDriver::new_sync_for_worker(
-        config,
-        Arc::new(MockFactory {
-            state: Arc::clone(&state),
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        }),
-    );
-
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn keeps the stale snapshot");
-    assert!(matches!(driver.health(), IoDriverHealth::Degraded { .. }));
+fn the_output_path_follows_the_link_not_the_reported_health() {
+    let (broker, mut driver) = split_health_driver("warn");
+    let mut inputs = [0_u8];
+    assert_eq!(driver.read_inputs(&mut inputs), Ok(()));
+    assert_eq!(driver.health(), degraded("mqtt input not fresh"));
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-
-    state.lock().unwrap_or_else(|e| e.into_inner()).connected = false;
-    driver
-        .read_inputs(&mut inputs)
-        .expect("warn degrades a lost link");
-    assert!(matches!(
-        driver.output_health(),
-        IoDriverHealth::Degraded { .. }
-    ));
+    broker.close_connection();
+    eventually("lost link in the output path", || {
+        driver.output_health() == degraded("mqtt disconnected: the broker closed the connection")
+    });
 }
 
-/// A stale read returns at once: the freshness check takes what has arrived and does not wait for
-/// more (specification 32 section 8), so the fault is reported well inside the scan bound.
+/// A stale read under `fault` returns at once with `mqtt input not fresh`: the read takes what has
+/// arrived and waits for nothing (specification 32 §8). Catches a read that waits for a message.
 #[test]
 fn stale_read_under_fault_returns_at_once_with_not_fresh() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7])]),
-        ..MockState::default()
-    }));
-    let mut driver = split_health_driver(Arc::clone(&state), "fault");
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-
+    let (_broker, mut driver) = split_health_driver("fault");
+    let mut inputs = [0_u8];
     let started = Instant::now();
-    let error = driver
-        .read_inputs(&mut inputs)
-        .expect_err("stale input must fault under the fault policy");
+    let result = driver.read_inputs(&mut inputs);
     let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND / 2,
-        "a stale read must not wait for a payload, elapsed={elapsed:?}"
-    );
-    assert!(matches!(error, RuntimeError::IoFreshness(_)), "{error}");
-    assert!(
-        error.to_string().contains("mqtt input not fresh"),
-        "{error}"
-    );
+    assert!(elapsed < SCAN_WAIT / 2, "the stale read took {elapsed:?}");
+    assert_eq!(result, not_fresh());
 }
 
-/// A publish after a stale read clears only the output path. The reported health stays faulted with
-/// the freshness detail until a fresh read (specification 32 section 8).
+/// A publication after a stale read clears only the output path: the reported health stays
+/// faulted with `mqtt input not fresh` until a fresh read (specification 32 §8). Catches a publish
+/// that hides stale input.
 #[test]
 fn reported_health_keeps_stale_input_after_a_publish_until_a_fresh_read() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7])]),
-        ..MockState::default()
-    }));
-    let mut driver = split_health_driver(Arc::clone(&state), "fault");
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-    assert!(
-        driver.read_inputs(&mut inputs).is_err(),
-        "stale input must fault under the fault policy"
-    );
-    driver
-        .write_outputs(&[1])
-        .expect("publish after stale input");
-
+    let (broker, mut driver) = split_health_driver("fault");
+    let mut inputs = [0_u8];
+    assert_eq!(driver.read_inputs(&mut inputs), not_fresh());
+    assert_eq!(driver.write_outputs(&[1]), Ok(()));
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-    let health = driver.health();
-    assert!(
-        matches!(&health, IoDriverHealth::Faulted { error } if error.contains("not fresh")),
-        "{health:?}"
-    );
-
-    state
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .payloads
-        .push_back(packet("line/in", vec![8]));
-    driver.read_inputs(&mut inputs).expect("fresh payload");
+    assert_eq!(driver.health(), faulted("mqtt input not fresh"));
+    broker.deliver(&[("line/in", &[8])]);
+    assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
     assert_eq!(inputs, [8]);
     assert_eq!(driver.health(), IoDriverHealth::Ok);
 }
 
-/// An output handoff issued right after a stale read completes at once: the stale read holds no
-/// worker time, so the handoff is never reported as pending.
+/// A write right after a stale read is handed off at once and is not reported as pending: the
+/// stale read holds no worker time (specification 32 §8). Catches a handoff held behind a read.
 #[test]
 fn handoff_right_after_a_stale_read_is_not_held_as_pending() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![7])]),
-        ..MockState::default()
-    }));
-    let mut driver = split_health_driver(Arc::clone(&state), "fault");
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-    assert!(
-        driver.read_inputs(&mut inputs).is_err(),
-        "stale input must fault under the fault policy"
-    );
-
+    let (broker, mut driver) = split_health_driver("fault");
+    let mut inputs = [0_u8];
+    assert_eq!(driver.read_inputs(&mut inputs), not_fresh());
     let started = Instant::now();
-    driver
-        .write_outputs(&[2])
-        .expect("a handoff after a stale read must not report pending");
+    assert_eq!(driver.write_outputs(&[2]), Ok(()));
     let elapsed = started.elapsed();
-
-    assert!(
-        elapsed < MQTT_WORKER_SCAN_WAIT_BOUND,
-        "a handoff after a stale read must not wait out the bound, elapsed={elapsed:?}"
-    );
+    assert!(elapsed < SCAN_WAIT, "the write took {elapsed:?}");
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-    assert_eq!(published(&state), vec![(SmolStr::new("line/out"), vec![2])]);
+    broker.wait_for("image", |record| !record.publishes.is_empty());
+    assert_eq!(
+        broker.record(|record| record.published("line/out")),
+        [vec![2]]
+    );
 }
 
-/// A link loss seen by a read is cleared by one fresh read once the link is back, with no publish.
-/// A typed-output preflight failure is a publish condition: reads leave it reported until a
-/// successful publish clears it (specification 32 section 8).
+/// A link loss that a read sees faults the output path; once the session runs again the link
+/// condition is gone, without a publication ("a connection condition clears as soon as any
+/// operation finds the link up"). A typed-output preflight failure is a publish condition: the
+/// reads after it leave it, and only a publication clears it (specification 32 §8). While the link
+/// is down the broker closes each connection, so that the driver, with its backoff of 1 ms, cannot
+/// reconnect before the read sees the loss. Catches a link condition that outlives the link, and a
+/// preflight failure that a read clears.
 #[test]
 fn fresh_read_clears_a_recovered_link_but_a_preflight_failure_waits_for_a_publish() {
-    let state = Arc::new(Mutex::new(MockState {
-        connected: true,
-        payloads: VecDeque::from([packet("line/in", vec![1])]),
-        ..MockState::default()
-    }));
-    let mut driver = MqttIoDriver::from_params_with_factory(
-        &params(
-            r#"
-broker = "127.0.0.1:1883"
-topic_in = "line/in"
-on_error = "fault"
-reconnect_ms = 1
-
-[[output_points]]
-topic = "line/out"
-image_offset = 4
-data_type = "u16"
-payload_format = "binary_le"
-"#,
-        ),
-        Arc::new(MockFactory {
-            state: Arc::clone(&state),
-            attempts: Arc::new(AtomicUsize::new(0)),
-            fail_first: false,
-            always_fail: false,
-        }),
-    )
-    .expect("construct mqtt driver");
-
-    let mut inputs = [0u8; 1];
-    driver.read_inputs(&mut inputs).expect("fresh payload");
-    assert_eq!(driver.output_health(), IoDriverHealth::Ok);
-
-    // The link drops, and a read sees it.
-    state.lock().unwrap_or_else(|e| e.into_inner()).connected = false;
-    let error = driver
-        .read_inputs(&mut inputs)
-        .expect_err("a lost link must fault the read under the fault policy");
-    assert!(matches!(error, RuntimeError::IoFreshness(_)), "{error}");
-    assert!(matches!(
-        driver.output_health(),
-        IoDriverHealth::Faulted { .. }
+    let broker = Broker::start();
+    let mut driver = start(&at(
+        &broker,
+        "topic_in = \"line/in\"\nreconnect_ms = 1\n[[output_points]]\ntopic = \"line/out\"\n\
+         image_offset = 4\ndata_type = \"u16\"\npayload_format = \"binary_le\"\n",
     ));
-
-    // The link recovers. The 1 ms reconnect window has passed, so one fresh read observes the link
-    // up and clears the link condition, with no publish.
-    thread::sleep(StdDuration::from_millis(5));
-    {
-        let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
-        guard.connected = true;
-        guard.payloads.push_back(packet("line/in", vec![2]));
-    }
-    driver
-        .read_inputs(&mut inputs)
-        .expect("fresh payload after recovery");
+    broker.wait_for("subscription", |record| record.subscriptions.len() == 1);
+    broker.deliver(&[("line/in", &[1])]);
+    let mut inputs = [0_u8];
+    assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
 
-    // A typed-output preflight failure is a publish condition, so the reads that follow leave it
-    // reported.
-    let error = driver
-        .write_outputs(&[1])
-        .expect_err("an image too short for the typed point must fail the write");
-    let detail = error.to_string();
-    assert!(
-        detail.contains("image range 4..6 exceeds process image size 1"),
-        "{detail}"
-    );
-    assert!(matches!(
-        driver.output_health(),
-        IoDriverHealth::Faulted { .. }
-    ));
+    broker.answer_always(Some(Answer::Close));
+    broker.close_connection();
+    eventually("lost link in a read", || {
+        driver.read_inputs(&mut inputs).is_err()
+            && matches!(driver.output_health(), IoDriverHealth::Faulted { .. })
+    });
 
-    state
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .payloads
-        .push_back(packet("line/in", vec![3]));
-    driver
-        .read_inputs(&mut inputs)
-        .expect("fresh payload with no publish");
-    let reported = match driver.output_health() {
-        IoDriverHealth::Faulted { error } => error.to_string(),
-        other => panic!("a read must not clear the preflight failure: {other:?}"),
-    };
-    assert!(
-        reported.contains("image range 4..6 exceeds process image size 1"),
-        "{reported}"
-    );
-
-    // Only a successful publish clears it.
-    driver
-        .write_outputs(&[1, 2, 3, 4, 5, 6])
-        .expect("a valid write must publish");
+    broker.answer_always(None);
+    broker.wait_for("subscription of a new session", |record| {
+        record.subscriptions.len() == 2
+    });
+    broker.deliver(&[("line/in", &[2])]);
+    assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
+    assert_eq!(inputs, [2]);
     assert_eq!(driver.output_health(), IoDriverHealth::Ok);
+
+    let text = "mqtt point image range 4..6 exceeds process image size 1";
     assert_eq!(
-        published(&state),
-        vec![(SmolStr::new("line/out"), vec![5, 6])]
+        driver.write_outputs(&[1]),
+        Err(RuntimeError::IoTransport(text.into()))
+    );
+    assert_eq!(driver.output_health(), faulted(text));
+    broker.deliver(&[("line/in", &[3])]);
+    assert_eq!(read_fresh(&mut driver, &mut inputs), Ok(()));
+    assert_eq!(driver.output_health(), faulted(text));
+
+    assert_eq!(driver.write_outputs(&[1, 2, 3, 4, 5, 6]), Ok(()));
+    assert_eq!(driver.output_health(), IoDriverHealth::Ok);
+    broker.wait_for("valid image", |record| !record.publishes.is_empty());
+    assert_eq!(
+        broker.record(|record| record.published("line/out")),
+        [vec![5, 6]]
     );
 }

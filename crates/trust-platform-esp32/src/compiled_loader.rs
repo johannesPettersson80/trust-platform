@@ -55,8 +55,8 @@ use trust_runtime_services::loading::select::Booted;
 use trust_runtime_services::ports::StatusPort;
 use trust_runtime_services::runner::{
     address_text, check_image_retained_values, debug_reserve_bytes, unwired_binding, Candidate,
-    ChangeMemory, CompiledCycle, DeviceLiveValues, Loaded, ProcessIo, ProgramLoader, ResourceCycle,
-    RetainSource,
+    ChangeMemory, CheckpointBuffer, CompiledCycle, DeviceLiveValues, Loaded, ProcessIo,
+    ProgramLoader, ResourceCycle, RetainSource,
 };
 use trust_runtime_services::settings::RuntimeSettings;
 
@@ -123,6 +123,9 @@ pub struct CompiledLoader<H, M, C> {
     /// The checkpoint store's largest payload, which the memory for programs keeps beside a program
     /// ([`program_memory_bytes`]).
     largest_payload: usize,
+    /// The checkpoint payload buffer taken at boot, which the loader lends to each program that
+    /// keeps retained values; `None` when the boot's heap had no block for it.
+    checkpoint_buffer: Option<CheckpointBuffer>,
 }
 
 impl<H, M, C> CompiledLoader<H, M, C> {
@@ -138,15 +141,32 @@ impl<H, M, C> CompiledLoader<H, M, C> {
             running: None,
             allocator_operations: None,
             largest_payload: 0,
+            checkpoint_buffer: None,
         }
     }
 
-    /// This loader, which keeps `bytes`, the checkpoint store's largest payload, beside each program
-    /// when it measures the memory for programs at a load, as the boot does (specification 34 MEM-12).
+    /// This loader, which takes the checkpoint store's payload buffer of `bytes`, its largest
+    /// payload, now, at boot, and lends it to each program that keeps retained values, so that no
+    /// program's start asks a fragmented heap for a block that large (specification 34 MEM-12). A
+    /// boot heap without the block leaves each program to take its own, kept beside it when the
+    /// memory for programs is measured.
     #[must_use]
     pub fn with_checkpoint_payload(mut self, bytes: usize) -> Self {
         self.largest_payload = bytes;
+        self.checkpoint_buffer = CheckpointBuffer::reserve(bytes);
         self
+    }
+
+    /// The bytes the memory for programs keeps aside for the checkpoint buffer
+    /// ([`program_memory_bytes`]): none when the loader took it at boot, its largest payload
+    /// otherwise.
+    #[must_use]
+    pub fn payload_kept_aside(&self) -> usize {
+        if self.checkpoint_buffer.is_some() {
+            0
+        } else {
+            self.largest_payload
+        }
     }
 
     /// This loader, whose programs count their scans' allocator operations with `operations`, the
@@ -202,7 +222,7 @@ where
         // The memory for programs now, as the boot measures it (specification 34 MEM-12): in a
         // running loop what the services hold can leave less than at boot, and a program that does
         // not fit it is refused rather than loaded into a heap that runs out.
-        let now = u64::try_from(program_memory_bytes(room, self.largest_payload)).ok();
+        let now = u64::try_from(program_memory_bytes(room, self.payload_kept_aside())).ok();
         let descriptor = platform.device_descriptor();
         // A program whose record enables debugging keeps a buffer of stops beside its memory figure,
         // which the memory it is checked against leaves room for.
@@ -237,7 +257,12 @@ where
         }
         let retains = config.retain_mode == RetainMode::File;
         let retain = if retains {
-            Some(retain_config(&mut self.hardware, &config, identity)?)
+            Some(retain_config(
+                &mut self.hardware,
+                &config,
+                identity,
+                self.checkpoint_buffer.clone(),
+            )?)
         } else {
             None
         };
@@ -249,7 +274,11 @@ where
         let io = self.hardware.claim_lines(&config)?;
         let after = (self.room)();
         let needed = ONLINE_CHANGE_WORKING_MEMORY_BYTES
-            .saturating_add(if retains { self.largest_payload } else { 0 })
+            .saturating_add(if retains {
+                self.payload_kept_aside()
+            } else {
+                0
+            })
             .saturating_add(usize::try_from(debug).unwrap_or(usize::MAX))
             .saturating_add(io.reserved_bytes(program.outputs.len()));
         if after < needed {

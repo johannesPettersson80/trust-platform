@@ -1727,6 +1727,7 @@ pub fn trust_runtime_core::retain::checkpoint::CheckpointLog<F>::step(&mut self,
 pub struct trust_runtime_core::retain::checkpoint::CheckpointPersister<F>
 impl<F: trust_runtime_core::retain::checkpoint::CheckpointFlash> trust_runtime_core::retain::checkpoint::CheckpointPersister<F>
 pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::finish(&mut self, capture: &mut trust_runtime_core::retain::capture::RetainCapture, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::into_payload(self) -> alloc::vec::Vec<u8>
 pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::is_writing(&self) -> bool
 pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::new(log: trust_runtime_core::retain::checkpoint::CheckpointLog<F>, identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity, image_bytes: usize) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::offer(&mut self, capture: &mut trust_runtime_core::retain::capture::RetainCapture, now: trust_runtime_core::value::Duration) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
@@ -1735,6 +1736,7 @@ pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::recover_w
 pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::step(&mut self, max_program_bytes: usize) -> core::result::Result<trust_runtime_core::retain::checkpoint::Step, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::take_failure(&mut self) -> core::option::Option<trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::takes_capture(&self, capture: &trust_runtime_core::retain::capture::RetainCapture, now: trust_runtime_core::value::Duration) -> bool
+pub fn trust_runtime_core::retain::checkpoint::CheckpointPersister<F>::with_payload(log: trust_runtime_core::retain::checkpoint::CheckpointLog<F>, identity: trust_runtime_core::retain::checkpoint::CheckpointIdentity, payload: alloc::vec::Vec<u8>) -> Self
 pub struct trust_runtime_core::retain::checkpoint::FlashGeometry
 impl trust_runtime_core::retain::checkpoint::FlashGeometry
 pub const fn trust_runtime_core::retain::checkpoint::FlashGeometry::commit_len(self) -> u32

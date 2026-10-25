@@ -279,6 +279,11 @@ impl C6Net {
         self.network.client(server, port, queue_bytes)
     }
 
+    /// Gives the socket of a dropped driver's `link` back at once (`Network::release_client`).
+    pub(crate) fn release_client(&mut self, link: &ClientLink) {
+        self.network.release_client(link);
+    }
+
     /// Joins the network, and joins it again after a loss: at once at boot, then after the waits of
     /// [`retry::wait_us`].
     fn drive_station(&mut self, now: u64, cx: &mut Context<'_>, up: bool) {

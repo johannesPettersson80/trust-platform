@@ -14,7 +14,7 @@ use trust_runtime_core::ports::CheckpointStore;
 use trust_runtime_core::retain::checkpoint::{CheckpointFlash, CheckpointIdentity};
 use trust_runtime_core::value::Duration;
 use trust_runtime_core::watchdog::RetainMode;
-use trust_runtime_services::runner::{CycleSettings, ProcessIo, RetainConfig};
+use trust_runtime_services::runner::{CheckpointBuffer, CycleSettings, ProcessIo, RetainConfig};
 
 use crate::profile::{CHECKPOINT_STEP_BYTES, DEVICE_DESCRIPTOR};
 
@@ -61,11 +61,12 @@ pub const ONLINE_CHANGE_WORKING_MEMORY_BYTES: usize = 8 * 1024;
 /// gives it, and before any container is read, less what the chip keeps beside any program besides
 /// its loop. That is the working memory of an online change
 /// ([`ONLINE_CHANGE_WORKING_MEMORY_BYTES`]), which also holds the program's Live Values and services,
-/// and the checkpoint store's payload buffer, the `largest_payload` that a checkpoint slot takes,
-/// which a warm start also reads the newest checkpoint into.
+/// and `kept_aside`, the checkpoint store's payload buffer when the chip has not taken it at boot
+/// (the largest payload a checkpoint slot takes, which a warm start also reads the newest
+/// checkpoint into), or 0 when it has, as its bytes are no longer free.
 #[must_use]
-pub fn program_memory_bytes(free: usize, largest_payload: usize) -> usize {
-    free.saturating_sub(ONLINE_CHANGE_WORKING_MEMORY_BYTES.saturating_add(largest_payload))
+pub fn program_memory_bytes(free: usize, kept_aside: usize) -> usize {
+    free.saturating_sub(ONLINE_CHANGE_WORKING_MEMORY_BYTES.saturating_add(kept_aside))
 }
 
 /// The checkpoint store of a program whose record keeps retained values, over the checkpoint flash of
@@ -75,6 +76,7 @@ pub(crate) fn retain_config<H: ProgramHardware>(
     hardware: &mut H,
     config: &Configuration,
     identity: CheckpointIdentity,
+    buffer: Option<CheckpointBuffer>,
 ) -> Result<RetainConfig, String> {
     let flash = hardware.checkpoint_flash()?;
     // The largest payload one slot takes: a retained image is saved whole or not at all.
@@ -90,6 +92,7 @@ pub(crate) fn retain_config<H: ProgramHardware>(
         identity,
         save_interval: config.retain_save_interval,
         image_bytes,
+        buffer,
     })
 }
 

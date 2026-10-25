@@ -1,9 +1,10 @@
-//! The Sparkplug B outbound profile (specification 32 §9): its topics, its `sparkplug` table and
-//! the protobuf bytes of its payloads, worked out by hand from the Sparkplug B `Payload` message:
-//! field 1 timestamp, 2 metric, 3 seq; a metric's field 1 name, 3 timestamp, 4 data type, 10
-//! `int_value`, 11 `long_value`, 12 `float_value` and 14 `boolean_value`. A key is the field
-//! number times 8 plus the wire type: 0x08 timestamp, 0x12 metric, 0x18 seq, 0x0A name, 0x18
-//! metric timestamp, 0x20 data type, 0x50 int, 0x58 long, 0x65 float and 0x70 Boolean.
+//! The Sparkplug B edge node profile (specification 32 §9; Eclipse Sparkplug 3.0.0): its topics,
+//! its `sparkplug` table, the protobuf bytes of its payloads and the rebirth request it reads,
+//! worked out by hand from the Sparkplug B `Payload` message: field 1 timestamp, 2 metric, 3 seq;
+//! a metric's field 1 name, 3 timestamp, 4 data type, 7 `is_null`, 10 `int_value`, 11
+//! `long_value`, 12 `float_value` and 14 `boolean_value`. A key is the field number times 8 plus
+//! the wire type: 0x08 timestamp, 0x12 metric, 0x18 seq, 0x0A name, 0x18 metric timestamp, 0x20
+//! data type, 0x38 `is_null`, 0x50 int, 0x58 long, 0x65 float and 0x70 Boolean.
 
 use alloc::format;
 use alloc::string::String;
@@ -12,7 +13,9 @@ use alloc::vec::Vec;
 
 use smol_str::SmolStr;
 
-use crate::io_drivers::mqtt::sparkplug::{encode_nbirth, encode_ndata, encode_ndeath};
+use crate::io_drivers::mqtt::sparkplug::{
+    encode_nbirth, encode_ndata, encode_ndeath, is_rebirth_request,
+};
 use crate::io_drivers::mqtt::{MqttParams, OutputPoint, PayloadFormat, PointType, SparkplugParams};
 use crate::io_drivers::ParamsError;
 
@@ -74,6 +77,7 @@ fn the_topics_follow_the_namespace_the_group_and_the_node() {
     assert_eq!(node().nbirth_topic(), "spBv1.0/trust/NBIRTH/runtime-a");
     assert_eq!(node().ndata_topic(), "spBv1.0/trust/NDATA/runtime-a");
     assert_eq!(node().ndeath_topic(), "spBv1.0/trust/NDEATH/runtime-a");
+    assert_eq!(node().ncmd_topic(), "spBv1.0/trust/NCMD/runtime-a");
 }
 
 /// An NDATA of a `u16` metric `s` scaled by 0.5 with offset 10 holds the raw value (60 − 10) ÷
@@ -161,39 +165,90 @@ fn each_type_takes_its_value_field() {
     );
 }
 
-/// The NBIRTH holds `bdSeq` (`UInt64`, `long_value` 7) and then each metric's name and data type
-/// without a value; the NDEATH holds `bdSeq` alone and seq 0, as trust-runtime writes them; a
-/// `bdSeq` of 300 takes the varint 0xAC 0x02. Catches a birth without `bdSeq`, a death whose
-/// `bdSeq` differs from the birth's, and a metric left out of the birth.
+/// The `bdSeq` metric of the session 7 at timestamp `ts`: name, timestamp, data type `Int64` (4,
+/// as Sparkplug 3.0 gives it), `long_value` 7.
+fn bd_seq_7(ts: u8) -> [u8; 13] {
+    [
+        0x0A, 0x05, b'b', b'd', b'S', b'e', b'q', 0x18, ts, 0x20, 0x04, 0x58, 0x07,
+    ]
+}
+
+/// The `Node Control/Rebirth` metric of an NBIRTH at timestamp `ts`: its 20-byte name, data type
+/// `Boolean` (11), `boolean_value` false.
+fn rebirth_false(ts: u8) -> Vec<u8> {
+    let mut metric = vec![0x0A, 0x14];
+    metric.extend_from_slice(b"Node Control/Rebirth");
+    metric.extend_from_slice(&[0x18, ts, 0x20, 0x0B, 0x70, 0x00]);
+    metric
+}
+
+/// The NBIRTH holds `bdSeq` (13 bytes), then `Node Control/Rebirth` with false (28 bytes), then
+/// each output point's metric: with the newest output image its value, `int_value` 100 for the
+/// image 100, 0, and without one `is_null` (0x38 0x01), and last its sequence number
+/// (tck-id-payloads-nbirth-bdseq, -nbirth-rebirth-req). The NDEATH holds `bdSeq` alone and no
+/// sequence number (tck-id-payloads-ndeath-seq); `bdSeq` 255, the largest, takes the varint 0xFF
+/// 0x01. Catches a birth without `bdSeq` or the rebirth metric, a death with a sequence number, a
+/// birth metric without a value or a null, and `bdSeq` as `UInt64`.
 #[test]
 fn the_birth_and_the_death_hold_bd_seq() {
-    let bd_seq = [
-        0x0A, 0x05, b'b', b'd', b'S', b'e', b'q', 0x18, 0x01, 0x20, 0x08, 0x58, 0x07,
-    ];
-    let mut birth = vec![0x08, 0x01, 0x12, 0x0D];
-    birth.extend_from_slice(&bd_seq);
-    birth.extend_from_slice(&[
-        0x12, 0x07, 0x0A, 0x01, b's', 0x18, 0x01, 0x20, 0x06, 0x18, 0x00,
-    ]);
-    assert_eq!(
-        encode_nbirth(&node(), &[metric("s", PointType::U16)], 0, 1),
+    let point = [metric("s", PointType::U16)];
+    let birth = |value: &[u8]| {
+        let mut birth = vec![0x08, 0x01, 0x12, 0x0D];
+        birth.extend_from_slice(&bd_seq_7(0x01));
+        birth.extend_from_slice(&[0x12, 0x1C]);
+        birth.extend_from_slice(&rebirth_false(0x01));
+        birth.extend_from_slice(&[0x12, 0x09, 0x0A, 0x01, b's', 0x18, 0x01, 0x20, 0x06]);
+        birth.extend_from_slice(value);
+        birth.extend_from_slice(&[0x18, 0x00]);
         birth
+    };
+    assert_eq!(encode_nbirth(&point, None, 7, 0, 1), birth(&[0x38, 0x01]));
+    assert_eq!(
+        encode_nbirth(&point, Some(&[100, 0]), 7, 0, 1),
+        birth(&[0x50, 0x64])
     );
     let mut death = vec![0x08, 0x01, 0x12, 0x0D];
-    death.extend_from_slice(&bd_seq);
-    death.extend_from_slice(&[0x18, 0x00]);
-    assert_eq!(encode_ndeath(&node(), 1), death);
-    let later = SparkplugParams {
-        birth_death_seq: 300,
-        ..node()
-    };
+    death.extend_from_slice(&bd_seq_7(0x01));
+    assert_eq!(encode_ndeath(7, 1), death);
     assert_eq!(
-        encode_ndeath(&later, 0),
+        encode_ndeath(255, 0),
         vec![
             0x08, 0x00, 0x12, 0x0E, 0x0A, 0x05, b'b', b'd', b'S', b'e', b'q', 0x18, 0x00, 0x20,
-            0x08, 0x58, 0xAC, 0x02, 0x18, 0x00,
+            0x04, 0x58, 0xFF, 0x01,
         ]
     );
+}
+
+/// A rebirth request is a metric named `Node Control/Rebirth` with the Boolean value true in an
+/// NCMD payload (tck-id-operational-behavior-data-commands-rebirth-name): the request at timestamp
+/// 5, also behind a field the request does not read (a 32-bit field 7, key 0x3D), asks for one;
+/// the same metric with false, another metric with true, a metric without a name, and a payload
+/// cut short ask for none. Catches any NCMD taken as a rebirth, and a parser that reads past the
+/// end of a payload from the network.
+#[test]
+fn a_rebirth_request_is_node_control_rebirth_true() {
+    let request = |name: &[u8], value: u8| {
+        let mut metric = vec![0x0A, u8::try_from(name.len()).expect("a short name")];
+        metric.extend_from_slice(name);
+        metric.extend_from_slice(&[0x20, 0x0B, 0x70, value]);
+        let mut payload = vec![0x08, 0x05, 0x12, u8::try_from(metric.len()).expect("short")];
+        payload.extend_from_slice(&metric);
+        payload
+    };
+    let rebirth = request(b"Node Control/Rebirth", 1);
+    assert!(is_rebirth_request(&rebirth));
+    let mut behind = vec![0x3D, 0x00, 0x00, 0x80, 0x3F];
+    behind.extend_from_slice(&rebirth);
+    assert!(is_rebirth_request(&behind));
+    assert!(!is_rebirth_request(&request(b"Node Control/Rebirth", 0)));
+    assert!(!is_rebirth_request(&request(
+        b"Node Control/Next Server",
+        1
+    )));
+    assert!(!is_rebirth_request(&[
+        0x12, 0x06, 0x10, 0x05, 0x20, 0x0B, 0x70, 0x01
+    ]));
+    assert!(!is_rebirth_request(&rebirth[..rebirth.len() - 3]));
 }
 
 /// The `sparkplug` table takes its keys trimmed, with `spBv1.0` and `3.0.0` as the only namespace
@@ -250,7 +305,12 @@ fn the_sparkplug_table_is_checked() {
         (
             r#"{"birth_death_seq":-1,"edge_node_id":"n","group_id":"g"}"#,
             "sparkplug.birth_death_seq",
-            String::from("must be an integer from 0 to 9223372036854775807, not -1"),
+            String::from("must be an integer from 0 to 255, not -1"),
+        ),
+        (
+            r#"{"birth_death_seq":256,"edge_node_id":"n","group_id":"g"}"#,
+            "sparkplug.birth_death_seq",
+            String::from("must be an integer from 0 to 255, not 256"),
         ),
         ("5", "sparkplug", String::from("must be a table, not 5")),
     ] {
@@ -258,12 +318,13 @@ fn the_sparkplug_table_is_checked() {
     }
 }
 
-/// The profile publishes output points only, needs at least one, and keeps its session, which an
-/// empty client identifier cannot (specification 32 §9; MQTT 3.1.1, MQTT-3.1.3-7). Catches input
-/// points that the profile would never read, a birth without metrics, and a CONNECT that a broker
-/// must refuse.
+/// The profile publishes output points only and needs at least one (specification 32 §9). Its
+/// session is clean, as Sparkplug 3.0 requires (tck-id-principles-persistence-clean-session-311),
+/// so an empty client identifier is taken, for the broker to assign one (MQTT-3.1.3-6). Catches
+/// input points that the profile would never read, a birth without metrics, and an empty client
+/// identifier refused for a session that no longer persists.
 #[test]
-fn the_profile_takes_outputs_only_and_a_client_identifier() {
+fn the_profile_takes_outputs_only() {
     let table = r#""sparkplug":{"edge_node_id":"n","group_id":"g"}"#;
     let output = r#""output_points":[{"data_type":"u16","image_offset":0,"topic":"s"}]"#;
     let input = r#""input_points":[{"data_type":"u16","image_offset":0,"topic":"in"}]"#;
@@ -283,11 +344,8 @@ fn the_profile_takes_outputs_only_and_a_client_identifier() {
         )
     );
     assert_eq!(
-        MqttParams::from_json(&format!(r#"{{{local},"client_id":"",{output},{table}}}"#)),
-        refused(
-            "client_id",
-            "must not be empty with Sparkplug, whose session is not clean (MQTT 3.1.1, \
-             MQTT-3.1.3-7)"
-        )
+        MqttParams::from_json(&format!(r#"{{{local},"client_id":"",{output},{table}}}"#))
+            .map(|params| params.client_id),
+        Ok(Some(SmolStr::new("")))
     );
 }

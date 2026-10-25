@@ -70,6 +70,9 @@ struct Shared {
     queue_bytes: usize,
     /// Since when a link that its driver closed and let go is closing.
     closing_since: Option<u64>,
+    /// Whether the link's socket holds a connection, as the last pump found it: also one that
+    /// closes in order after its driver closed the link.
+    connected: bool,
     /// The driver asked for a new connection, which the next poll makes.
     connect_due: bool,
     status: LinkStatus,
@@ -109,6 +112,14 @@ impl ClientLink {
         shared.connect_due = false;
         shared.status = LinkStatus::Idle;
         shared.received.clear();
+    }
+
+    /// Whether the link's socket still holds a connection, as the network's last poll found it:
+    /// after [`Self::close`] it does until the connection has closed in order, which a driver that
+    /// is dropped waits for before it gives the link back ([`crate::Network::release_client`]).
+    #[must_use]
+    pub fn holds_connection(&self) -> bool {
+        self.0.borrow().connected
     }
 
     /// What became of the connection.
@@ -216,6 +227,7 @@ impl Clients {
             wanted: false,
             queue_bytes,
             closing_since: None,
+            connected: false,
             connect_due: false,
             status: LinkStatus::Idle,
             to_send: VecDeque::with_capacity(queue_bytes),
@@ -255,7 +267,29 @@ impl Clients {
             } else if pass.connect(*handle, &mut shared) {
                 carry(pass.sockets.get_mut::<tcp::Socket>(*handle), &mut shared);
             }
+            shared.connected = pass.sockets.get::<tcp::Socket>(*handle).is_open();
         }
+    }
+
+    /// Gives the socket of `link` back at once, with its buffers: a connection that has not ended
+    /// is abandoned, which its server finds at its own timeout. The link stays closed; the driver
+    /// drops it.
+    pub(crate) fn release(&mut self, sockets: &mut SocketSet<'static>, link: &ClientLink) {
+        self.links.retain(|(held, handle)| {
+            if !Rc::ptr_eq(&held.0, &link.0) {
+                return true;
+            }
+            let mut shared = held.0.borrow_mut();
+            shared.wanted = false;
+            shared.connect_due = false;
+            shared.connected = false;
+            shared.status = LinkStatus::Idle;
+            shared.to_send.clear();
+            shared.received.clear();
+            sockets.get_mut::<tcp::Socket>(*handle).abort();
+            sockets.remove(*handle);
+            false
+        });
     }
 
     /// Gives back the socket of each link that no driver holds any more once its connection has

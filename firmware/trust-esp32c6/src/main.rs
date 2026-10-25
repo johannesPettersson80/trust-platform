@@ -204,12 +204,15 @@ fn main() -> ! {
         usize::try_from(checkpoint_reader.geometry().max_payload_len()).unwrap_or(usize::MAX);
     // An install checks that the newest checkpoint restores into the new image through its retain
     // map (specification 44 §11); the store's own check then admits the image as the kernel does.
+    // The loader takes the checkpoint store's payload buffer now, before the loop and any
+    // program, and lends it to each program that keeps retained values (specification 34 MEM-12).
     let (loader, retained_check) = (
         CompiledLoader::new(parts.hardware, ProgramCode, clock, heap_room)
             .with_allocator_operations(allocator_operations)
             .with_checkpoint_payload(largest_payload),
         compiled_install_check(checkpoint_reader),
     );
+    let kept_aside = loader.payload_kept_aside();
 
     // The loop is built before any program (specification 34 STATE-08, Appendix D.2): its receive
     // buffer, its event store and its boxes are taken from the heap first, so that no program's blocks
@@ -232,9 +235,9 @@ fn main() -> ! {
     );
     // The memory the C6 has for a program (specification 34 MEM-12, Appendix D.2): the heap's free bytes
     // with the loop built and before any container is read, less the working memory of an online change
-    // and the checkpoint store's buffer. The descriptor reports it, and a program whose memory figure is
-    // more is refused at its install and at its load.
-    let program_memory = program_memory_bytes(heap_room(), largest_payload);
+    // (the checkpoint store's buffer is taken already). The descriptor reports it, and a program whose
+    // memory figure is more is refused at its install and at its load.
+    let program_memory = program_memory_bytes(heap_room(), kept_aside);
     let _ = runner.with_platform(|platform| platform.set_program_memory(program_memory));
     // The installed application: the committed container with the highest install sequence, admitted,
     // loaded and started warm. One that cannot start leaves the loop Stopped with the reason.

@@ -10,6 +10,7 @@ mod params;
 mod payload;
 mod points;
 mod sparkplug;
+mod sparkplug_session;
 
 use alloc::vec::Vec;
 

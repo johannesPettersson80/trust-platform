@@ -13,6 +13,9 @@
 //! that scan before physical outputs.
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::vec::Vec;
+use core::cell::RefCell;
 
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::ports::CheckpointStore;
@@ -40,6 +43,43 @@ pub struct RetainConfig {
     pub save_interval: Duration,
     /// The admitted retain image size, reserving the persister's payload buffer.
     pub image_bytes: usize,
+    /// The payload buffer that the platform lends the persister for the program's life, or `None`
+    /// for the persister to reserve one of `image_bytes`.
+    pub buffer: Option<CheckpointBuffer>,
+}
+
+/// The checkpoint payload buffer that a chip takes once, at boot, for the largest payload, and lends
+/// to each program that keeps retained values; the program's store gives it back when the program
+/// ends (specification 34 MEM-12). A program's start then never asks a heap that the programs
+/// before it fragmented for a block that large: the loop's own buffers are taken first for the same
+/// reason.
+#[derive(Clone)]
+pub struct CheckpointBuffer(Rc<RefCell<Option<Vec<u8>>>>);
+
+impl CheckpointBuffer {
+    /// A buffer of `bytes`, or `None` when the heap has no block that large.
+    #[must_use]
+    pub fn reserve(bytes: usize) -> Option<Self> {
+        let mut buffer = Vec::new();
+        buffer.try_reserve_exact(bytes).ok()?;
+        Some(Self(Rc::new(RefCell::new(Some(buffer)))))
+    }
+
+    /// Whether a program holds the buffer now.
+    #[must_use]
+    pub fn is_lent(&self) -> bool {
+        self.0.borrow().is_none()
+    }
+
+    /// The buffer for a program; `None` while another holds it.
+    fn lend(&self) -> Option<Vec<u8>> {
+        self.0.borrow_mut().take()
+    }
+
+    /// Takes the buffer back from a program that ended.
+    fn give_back(&self, buffer: Vec<u8>) {
+        *self.0.borrow_mut() = Some(buffer);
+    }
 }
 
 /// A chip's retained values and the checkpoint log they are saved to (specification 34 §10).
@@ -50,6 +90,8 @@ pub struct RetainStore {
     persister: Option<CheckpointPersister<OwnedFlash>>,
     /// The most bytes one persister step may program between two scans.
     program_budget: usize,
+    /// The lender of the persister's payload buffer, which takes it back when the store ends.
+    lender: Option<CheckpointBuffer>,
 }
 
 impl RetainStore {
@@ -67,20 +109,29 @@ impl RetainStore {
                 capture: RetainCapture::new(),
                 persister: None,
                 program_budget,
+                lender: None,
             });
         }
         let log =
             CheckpointLog::open(OwnedFlash(config.store.flash)).map_err(RuntimeError::from)?;
         let mut capture = RetainCapture::new();
         capture.configure(Some(config.save_interval), Duration::ZERO);
+        let persister = match &config.buffer {
+            Some(lender) => {
+                let payload = lender.lend().ok_or_else(|| {
+                    RuntimeError::RetainStore(
+                        "the checkpoint buffer is held by another program".into(),
+                    )
+                })?;
+                CheckpointPersister::with_payload(log, config.identity, payload)
+            }
+            None => CheckpointPersister::new(log, config.identity, config.image_bytes)?,
+        };
         Ok(Self {
             capture,
-            persister: Some(CheckpointPersister::new(
-                log,
-                config.identity,
-                config.image_bytes,
-            )?),
+            persister: Some(persister),
             program_budget,
+            lender: config.buffer,
         })
     }
 
@@ -261,6 +312,15 @@ pub trait CycleRetain {
     ///
     /// The [`RuntimeError`] of saved values that do not read, which fails the warm start.
     fn recover(&mut self) -> Result<RetainSnapshot, RuntimeError>;
+}
+
+impl Drop for RetainStore {
+    /// Gives a lent payload buffer back for the next program.
+    fn drop(&mut self) {
+        if let (Some(lender), Some(persister)) = (&self.lender, self.persister.take()) {
+            lender.give_back(persister.into_payload());
+        }
+    }
 }
 
 impl CycleRetain for RetainStore {

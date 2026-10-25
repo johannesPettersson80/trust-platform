@@ -247,6 +247,14 @@ impl Network {
             .add(&mut self.sockets, server, port, queue_bytes)
     }
 
+    /// Gives the socket of `link` back at once, as a driver does when it is dropped after it closed
+    /// the link and its connection ended ([`ClientLink::holds_connection`]), so that the program
+    /// loaded next finds the memory free; a connection that has not ended is abandoned, which its
+    /// server finds at its own timeout.
+    pub fn release_client(&mut self, link: &ClientLink) {
+        self.clients.release(&mut self.sockets, link);
+    }
+
     /// When the stack's work is next due, a retransmission or a lease, in microseconds on the
     /// chip's clock. None while the link is down: no frame can leave then, and the link's coming
     /// up wakes the loop.

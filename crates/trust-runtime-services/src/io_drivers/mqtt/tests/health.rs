@@ -4,7 +4,6 @@
 //! alive.
 
 use alloc::format;
-use alloc::vec;
 
 use trust_runtime_core::error::RuntimeError;
 
@@ -251,77 +250,4 @@ fn the_debug_of_the_exchange_hides_the_password() {
         .any(|window| window == b"hunter2"));
     let shown = format!("{exchange:?}");
     assert!(!shown.contains("hunter2"), "{shown}");
-}
-
-/// With Sparkplug B the CONNECT keeps the session (clean session 0, as trust-runtime sets it) and
-/// carries the NDEATH as its will at quality of service 0; after the CONNACK the NBIRTH, sequence
-/// 0, goes before any NDATA; each NDATA takes the next sequence number, and an image that does not
-/// convert publishes nothing and takes none (specification 32 §9). Payloads hold timestamp 0 while
-/// the clock is not set. Catches data before birth, a will that is not the NDEATH, and a gap in
-/// the sequence from a failed preflight.
-#[test]
-fn a_sparkplug_session_births_before_data_and_counts_its_sequence() {
-    let mut exchange = exchange_of(concat!(
-        r#"{"broker":"127.0.0.1:1883","client_id":"edge","mappings":[],"#,
-        r#""output_points":[{"data_type":"u16","image_offset":0,"metric_name":"s","#,
-        r#""topic":"legacy/s"}],"sparkplug":{"birth_death_seq":7,"edge_node_id":"n","#,
-        r#""group_id":"g"}}"#
-    ));
-    let (connect, after_connack) = connect(&mut exchange, 0);
-    // bdSeq: name, timestamp 0, data type UInt64 (8), long value 7.
-    let bd_seq = [
-        0x0A, 0x05, b'b', b'd', b'S', b'e', b'q', 0x18, 0x00, 0x20, 0x08, 0x58, 0x07,
-    ];
-    let mut death = vec![0x08, 0x00, 0x12, 0x0D];
-    death.extend_from_slice(&bd_seq);
-    death.extend_from_slice(&[0x18, 0x00]);
-    let mut expected = vec![
-        0x10, 57, 0x00, 0x04, b'M', b'Q', b'T', b'T', 0x04, 0x04, 0x00, 0x05,
-    ];
-    expected.extend_from_slice(b"\x00\x04edge\x00\x12spBv1.0/g/NDEATH/n\x00\x13");
-    expected.extend_from_slice(&death);
-    assert_eq!(connect, expected);
-    let mut birth = vec![0x08, 0x00, 0x12, 0x0D];
-    birth.extend_from_slice(&bd_seq);
-    birth.extend_from_slice(&[
-        0x12, 0x07, 0x0A, 0x01, b's', 0x18, 0x00, 0x20, 0x06, 0x18, 0x00,
-    ]);
-    assert_eq!(after_connack, publish("spBv1.0/g/NBIRTH/n", &birth));
-    let ndata = |value: u8, seq: u8| {
-        publish(
-            "spBv1.0/g/NDATA/n",
-            &[
-                0x08, 0x00, 0x12, 0x09, 0x0A, 0x01, b's', 0x18, 0x00, 0x20, 0x06, 0x50, value,
-                0x18, seq,
-            ],
-        )
-    };
-    assert_eq!(exchange.write_outputs(1, &[100, 0]), Ok(()));
-    assert_eq!(take(&mut exchange, 1), ndata(100, 1));
-    assert_eq!(
-        exchange.write_outputs(2, &[1]),
-        Err(RuntimeError::IoTransport(
-            "mqtt point image range 0..2 exceeds process image size 1".into()
-        ))
-    );
-    assert_eq!(exchange.outgoing(), [0u8; 0]);
-    assert_eq!(exchange.write_outputs(3, &[5, 0]), Ok(()));
-    assert_eq!(take(&mut exchange, 3), ndata(5, 2));
-}
-
-/// Once the clock is set, Sparkplug B timestamps are the milliseconds since the Unix epoch: set to
-/// 1,000 at 0 ms, an NDATA at 5 ms carries 1,005, the varint 0xED 0x07. Catches the monotonic time
-/// sent as the wall time, and a clock that does not advance.
-#[test]
-fn sparkplug_timestamps_follow_the_set_clock() {
-    let mut exchange = exchange_of(concat!(
-        r#"{"broker":"127.0.0.1:1883","client_id":"edge","mappings":[],"#,
-        r#""output_points":[{"data_type":"u16","image_offset":0,"metric_name":"s","#,
-        r#""topic":"legacy/s"}],"sparkplug":{"edge_node_id":"n","group_id":"g"}}"#
-    ));
-    connect(&mut exchange, 0);
-    exchange.set_clock(0, 1_000);
-    assert_eq!(exchange.write_outputs(5, &[100, 0]), Ok(()));
-    let ndata = take(&mut exchange, 5);
-    assert_eq!(ndata[21..24], [0x08, 0xED, 0x07]);
 }

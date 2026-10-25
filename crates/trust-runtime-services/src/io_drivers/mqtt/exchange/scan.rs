@@ -183,6 +183,12 @@ impl MqttExchange {
             Ok(_) => {
                 self.handoff_end = Some(self.outgoing.len());
                 self.paths.publish = IoDriverHealth::Ok;
+                if self.params.sparkplug.is_some() {
+                    // The values a rebirth's NBIRTH carries.
+                    let last = self.last_image.get_or_insert_with(Vec::new);
+                    last.clear();
+                    last.extend_from_slice(image);
+                }
             }
             Err(text) => self.paths.publish = self.policy_health(&text),
         }

@@ -86,13 +86,32 @@ impl<F: CheckpointFlash> CheckpointPersister<F> {
                 .into(),
             )
         })?;
-        Ok(Self {
+        Ok(Self::with_payload(log, identity, payload))
+    }
+
+    /// A persister over `log` that writes checkpoints for `identity` into `payload`, a buffer its
+    /// caller reserved for the largest payload, such as the one a chip takes once at boot and lends
+    /// to each program (specification 34 MEM-12). The buffer's bytes are cleared.
+    #[must_use]
+    pub fn with_payload(
+        log: CheckpointLog<F>,
+        identity: CheckpointIdentity,
+        mut payload: Vec<u8>,
+    ) -> Self {
+        payload.clear();
+        Self {
             log,
             identity,
             payload,
             writing: false,
             failure: None,
-        })
+        }
+    }
+
+    /// The payload buffer, which its lender lends again to the next program.
+    #[must_use]
+    pub fn into_payload(self) -> Vec<u8> {
+        self.payload
     }
 
     /// Whether a checkpoint has begun and not committed.

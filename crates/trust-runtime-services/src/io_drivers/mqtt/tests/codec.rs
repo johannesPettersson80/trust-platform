@@ -7,9 +7,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::io_drivers::mqtt::codec::{
-    decode, decode_remaining_length, encode_connect, encode_publish, encode_remaining_length,
-    encode_subscribe, Connect, ConnectReturnCode, DecodeError, EncodeError, Incoming, Will,
-    DISCONNECT, PINGREQ,
+    decode, decode_remaining_length, encode_connect, encode_puback, encode_publish,
+    encode_remaining_length, encode_subscribe, encode_subscribe_at_least_once, Connect,
+    ConnectReturnCode, DecodeError, EncodeError, Incoming, Will, DISCONNECT, PINGREQ,
 };
 
 /// The remaining length `length` as the encoder writes it.
@@ -112,6 +112,7 @@ fn connect_carries_the_flags_and_the_fields_in_the_order_of_the_standard() {
             topic: "w",
             message: &[0xAA],
             retain: true,
+            at_least_once: false,
         }),
         username: Some("u"),
         password: Some(b"p"),
@@ -131,6 +132,18 @@ fn connect_carries_the_flags_and_the_fields_in_the_order_of_the_standard() {
             0x00, 0x01, b'p', // password
         ])
     );
+    // Sparkplug B's will: at quality of service 1 (bits 3 and 4 = 01), not retained, in a clean
+    // session: flags 0x02 | 0x04 | 0x08 = 0x0E.
+    let sparkplug = Connect {
+        will: Some(Will {
+            topic: "w",
+            message: &[0xAA],
+            retain: false,
+            at_least_once: true,
+        }),
+        ..PLAIN
+    };
+    assert_eq!(encode_connect(&sparkplug).expect("a CONNECT")[9], 0x0E);
 }
 
 /// CONNECT refuses what MQTT 3.1.1 forbids: a password without a user name (MQTT-3.1.2-22), an
@@ -173,6 +186,7 @@ fn connect_refuses_what_mqtt_3_1_1_forbids() {
                 topic: "a/#",
                 message: &[],
                 retain: false,
+                at_least_once: false,
             }),
             ..PLAIN
         }),
@@ -228,6 +242,14 @@ fn publish_subscribe_pingreq_and_disconnect_are_laid_out_as_the_standard_says() 
             0x82, 0x08, 0x00, 0x01, 0x00, 0x03, b'a', b'/', b'b', 0x00
         ])
     );
+    // Sparkplug B's NCMD subscription asks for quality of service 1, its last byte.
+    assert_eq!(
+        encode_subscribe_at_least_once(1, "a/b"),
+        Ok(vec![
+            0x82, 0x08, 0x00, 0x01, 0x00, 0x03, b'a', b'/', b'b', 0x01
+        ])
+    );
+    assert_eq!(encode_puback(0x1234), [0x40, 0x02, 0x12, 0x34]);
     assert_eq!(encode_subscribe(0, "a/b"), Err(EncodeError::ZeroPacketId));
     assert_eq!(encode_subscribe(1, ""), Err(EncodeError::EmptyTopicFilter));
     for topic in ["a/+", "#", ""] {
@@ -293,8 +315,23 @@ fn the_decoder_reads_the_packets_a_broker_sends() {
                 topic: "t",
                 payload: &[0x07, 0x08],
                 retain: true,
+                packet_id: None,
             },
             7
+        )))
+    );
+    // At quality of service 1, here with DUP (flags 0x0A), the packet identifier 0x1234 follows
+    // the topic name, and the rest is the message.
+    assert_eq!(
+        decode(&[0x3A, 0x07, 0x00, 0x01, b't', 0x12, 0x34, 0x07, 0x08], 10),
+        Ok(Some((
+            Incoming::Publish {
+                topic: "t",
+                payload: &[0x07, 0x08],
+                retain: false,
+                packet_id: Some(0x1234),
+            },
+            9
         )))
     );
     assert_eq!(
@@ -328,8 +365,8 @@ fn the_decoder_waits_for_a_whole_packet() {
 /// specification 32 §10), the fixed header as soon as its first byte has come, and a remaining
 /// length above the limit before the rest arrives: 0x30 0x81 0x50 announces 1 + 80 × 128 =
 /// 10,241 bytes. Catches a malformed packet taken as data, a reserved flag ignored, a PUBLISH at
-/// quality of service 1 taken without its acknowledgement, and a client that buffers a packet
-/// larger than its limit.
+/// quality of service 2, which the client never asks for, a PUBLISH at 1 without its packet
+/// identifier or with identifier 0, and a client that buffers a packet larger than its limit.
 #[test]
 fn the_decoder_refuses_malformed_packets_with_typed_errors() {
     let cases: &[(&[u8], DecodeError)] = &[
@@ -366,8 +403,16 @@ fn the_decoder_refuses_malformed_packets_with_typed_errors() {
             DecodeError::SessionPresentOnRefusal(5),
         ),
         (
-            &[0x32, 0x05, 0x00, 0x01, b't', 0x00, 0x01],
-            DecodeError::UnexpectedQos(1),
+            &[0x34, 0x05, 0x00, 0x01, b't', 0x00, 0x01],
+            DecodeError::UnexpectedQos(2),
+        ),
+        (
+            &[0x32, 0x05, 0x00, 0x01, b't', 0x00, 0x00],
+            DecodeError::ZeroPacketId,
+        ),
+        (
+            &[0x32, 0x04, 0x00, 0x01, b't', 0x00],
+            DecodeError::FieldPastEnd("PUBLISH"),
         ),
         (
             &[0x36, 0x03, 0x00, 0x01, b't'],
@@ -444,8 +489,12 @@ fn return_codes_and_decoder_errors_read_as_words() {
         "unexpected PUBACK"
     );
     assert_eq!(
-        DecodeError::UnexpectedQos(1).to_string(),
-        "PUBLISH at QoS 1 on a QoS 0 subscription"
+        DecodeError::UnexpectedQos(2).to_string(),
+        "PUBLISH at QoS 2, above the QoS 1 the client subscribes at"
+    );
+    assert_eq!(
+        DecodeError::ZeroPacketId.to_string(),
+        "PUBLISH at QoS 1 with packet identifier 0"
     );
 }
 

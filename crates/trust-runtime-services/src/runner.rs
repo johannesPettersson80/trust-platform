@@ -107,7 +107,7 @@ pub use online_change::{address_text, unwired_binding, Candidate, ChangeMemory};
 pub use process_io::ProcessIo;
 pub use reload::{Loaded, ProgramLoader};
 pub use retain::CycleRetain;
-pub use retain::{RetainConfig, RetainStore};
+pub use retain::{CheckpointBuffer, RetainConfig, RetainStore};
 pub use stack::DeviceStack;
 pub use state::event_store_bytes;
 pub use supervision::unfinished_load_reason;

@@ -1,7 +1,7 @@
 //! The MQTT 3.1.1 packets of the `mqtt` driver's client (OASIS MQTT Version 3.1.1, 29 October
 //! 2014; specification 32 §10 for the remaining length): the client encodes CONNECT, PUBLISH at
-//! quality of service 0, SUBSCRIBE, PINGREQ and DISCONNECT, and decodes the CONNACK, PUBLISH,
-//! SUBACK and PINGRESP that a broker sends it, the packets trust-runtime's client exchanges.
+//! quality of service 0, SUBSCRIBE at 0 or 1, PUBACK, PINGREQ and DISCONNECT, and decodes the
+//! CONNACK, PUBLISH at 0 or 1, SUBACK and PINGRESP that a broker sends it.
 //!
 //! [`decode`] takes the bytes that have arrived so far: it answers `Ok(None)` until a whole packet
 //! is there, and refuses a malformed packet as soon as its bytes show it, with a [`DecodeError`].
@@ -17,6 +17,13 @@ pub const PINGREQ: [u8; 2] = [0xC0, 0x00];
 
 /// DISCONNECT (§3.14): its fixed header, with remaining length 0.
 pub const DISCONNECT: [u8; 2] = [0xE0, 0x00];
+
+/// PUBACK (§3.4) of the PUBLISH at quality of service 1 with the packet identifier `packet_id`.
+#[must_use]
+pub fn encode_puback(packet_id: u16) -> [u8; 4] {
+    let [high, low] = packet_id.to_be_bytes();
+    [0x40, 0x02, high, low]
+}
 
 /// The longest string or binary field: its length takes two bytes (§1.5.3).
 const MAX_FIELD: usize = 65_535;
@@ -62,6 +69,9 @@ pub struct Will<'a> {
     pub message: &'a [u8],
     /// The will retain flag.
     pub retain: bool,
+    /// The will at quality of service 1, at least once, instead of 0 (§3.1.2.6), as Sparkplug B's
+    /// NDEATH is.
+    pub at_least_once: bool,
 }
 
 /// The return code of a CONNACK (§3.2.2.3, Table 3.1).
@@ -135,7 +145,7 @@ pub enum Incoming<'a> {
         /// The return code.
         return_code: ConnectReturnCode,
     },
-    /// PUBLISH at quality of service 0 (§3.3).
+    /// PUBLISH at quality of service 0 or 1 (§3.3).
     Publish {
         /// The topic name.
         topic: &'a str,
@@ -143,6 +153,9 @@ pub enum Incoming<'a> {
         payload: &'a [u8],
         /// The retain flag: the message was retained by the broker.
         retain: bool,
+        /// At quality of service 1, the packet identifier that the client's PUBACK names
+        /// ([`encode_puback`]); `None` at 0.
+        packet_id: Option<u16>,
     },
     /// SUBACK (§3.9).
     SubAck {
@@ -188,9 +201,11 @@ pub enum DecodeError {
         /// The low four bits of its first byte.
         flags: u8,
     },
-    /// A PUBLISH at quality of service 1 or 2: the client subscribes at 0, so a broker sends 0
-    /// (§3.8.4).
+    /// A PUBLISH at quality of service 2: the client subscribes at 1 at most, so a broker sends 1
+    /// at most (§3.8.4).
     UnexpectedQos(u8),
+    /// A PUBLISH at quality of service 1 with packet identifier 0 (§2.3.1).
+    ZeroPacketId,
     /// A remaining length whose fourth byte has its continuation bit (§2.2.3).
     RemainingLengthTooLong,
     /// A remaining length in more bytes than its value takes (specification 32 §10).
@@ -240,8 +255,12 @@ impl fmt::Display for DecodeError {
                 write!(formatter, "{packet} with fixed-header flags {flags:#06b}")
             }
             Self::UnexpectedQos(qos) => {
-                write!(formatter, "PUBLISH at QoS {qos} on a QoS 0 subscription")
+                write!(
+                    formatter,
+                    "PUBLISH at QoS {qos}, above the QoS 1 the client subscribes at"
+                )
             }
+            Self::ZeroPacketId => formatter.write_str("PUBLISH at QoS 1 with packet identifier 0"),
             Self::RemainingLengthTooLong => {
                 formatter.write_str("remaining length longer than four bytes")
             }
@@ -366,6 +385,9 @@ pub fn encode_connect(connect: &Connect<'_>) -> Result<Vec<u8>, EncodeError> {
     }
     if let Some(will) = &connect.will {
         flags |= 0x04;
+        if will.at_least_once {
+            flags |= 0x08;
+        }
         if will.retain {
             flags |= 0x20;
         }
@@ -422,6 +444,24 @@ pub fn encode_publish(topic: &str, payload: &[u8]) -> Result<Vec<u8>, EncodeErro
 /// [`EncodeError`] for packet identifier 0, and a topic filter that is empty, holds U+0000 or is
 /// longer than 65,535 bytes.
 pub fn encode_subscribe(packet_id: u16, filter: &str) -> Result<Vec<u8>, EncodeError> {
+    subscribe(packet_id, filter, 0)
+}
+
+/// SUBSCRIBE with one topic filter at requested quality of service 1 (§3.8), as Sparkplug B's
+/// edge node subscribes to its NCMD topic.
+///
+/// # Errors
+///
+/// As [`encode_subscribe`].
+pub fn encode_subscribe_at_least_once(
+    packet_id: u16,
+    filter: &str,
+) -> Result<Vec<u8>, EncodeError> {
+    subscribe(packet_id, filter, 1)
+}
+
+/// SUBSCRIBE with one topic filter at requested quality of service `qos`.
+fn subscribe(packet_id: u16, filter: &str, qos: u8) -> Result<Vec<u8>, EncodeError> {
     if packet_id == 0 {
         return Err(EncodeError::ZeroPacketId);
     }
@@ -431,7 +471,7 @@ pub fn encode_subscribe(packet_id: u16, filter: &str) -> Result<Vec<u8>, EncodeE
     let mut body = Vec::with_capacity(filter.len().saturating_add(5));
     body.extend_from_slice(&packet_id.to_be_bytes());
     put_string(&mut body, filter, "topic filter")?;
-    body.push(0);
+    body.push(qos);
     packet(0x82, &body)
 }
 
@@ -515,7 +555,10 @@ pub fn decode(
     };
     let packet = match kind {
         Kind::ConnAck => connack(body)?,
-        Kind::Publish { retain } => publish(body, retain)?,
+        Kind::Publish {
+            retain,
+            at_least_once,
+        } => publish(body, retain, at_least_once)?,
         Kind::SubAck => suback(body)?,
         Kind::PingResp => {
             if !body.is_empty() {
@@ -535,7 +578,7 @@ pub fn decode(
 #[derive(Clone, Copy)]
 enum Kind {
     ConnAck,
-    Publish { retain: bool },
+    Publish { retain: bool, at_least_once: bool },
     SubAck,
     PingResp,
 }
@@ -562,15 +605,22 @@ fn without_flags(flags: u8, packet: &'static str, kind: Kind) -> Result<Kind, De
     }
 }
 
-/// A PUBLISH with the flags `flags`: quality of service 0 without DUP; RETAIN as it comes.
+/// A PUBLISH with the flags `flags`: quality of service 0 without DUP, or 1 with or without it;
+/// RETAIN as it comes.
 fn publish_kind(flags: u8) -> Result<Kind, DecodeError> {
     let qos = (flags >> 1) & 0x03;
     let dup = flags & 0x08 != 0;
+    let retain = flags & 0x01 != 0;
     match qos {
         0 if !dup => Ok(Kind::Publish {
-            retain: flags & 0x01 != 0,
+            retain,
+            at_least_once: false,
         }),
-        1 | 2 => Err(DecodeError::UnexpectedQos(qos)),
+        1 => Ok(Kind::Publish {
+            retain,
+            at_least_once: true,
+        }),
+        2 => Err(DecodeError::UnexpectedQos(qos)),
         _ => Err(DecodeError::InvalidFlags {
             packet: "PUBLISH",
             flags,
@@ -624,20 +674,32 @@ fn connack(body: &[u8]) -> Result<Incoming<'_>, DecodeError> {
     })
 }
 
-/// A PUBLISH at quality of service 0 (§3.3): the topic name, a non-empty string without
-/// wildcards, and the rest of the packet as its message.
-fn publish(body: &[u8], retain: bool) -> Result<Incoming<'_>, DecodeError> {
-    let (topic, payload) = take_string(body, "PUBLISH")?;
+/// A PUBLISH (§3.3): the topic name, a non-empty string without wildcards, at quality of service
+/// 1 the packet identifier, not 0, and the rest of the packet as its message.
+fn publish(body: &[u8], retain: bool, at_least_once: bool) -> Result<Incoming<'_>, DecodeError> {
+    let (topic, rest) = take_string(body, "PUBLISH")?;
     if topic.is_empty() {
         return Err(DecodeError::EmptyTopicName);
     }
     if topic.contains(['+', '#']) {
         return Err(DecodeError::WildcardInTopicName);
     }
+    let (packet_id, payload) = if at_least_once {
+        let Some((id, payload)) = rest.split_first_chunk::<2>() else {
+            return Err(DecodeError::FieldPastEnd("PUBLISH"));
+        };
+        match u16::from_be_bytes(*id) {
+            0 => return Err(DecodeError::ZeroPacketId),
+            id => (Some(id), payload),
+        }
+    } else {
+        (None, rest)
+    };
     Ok(Incoming::Publish {
         topic,
         payload,
         retain,
+        packet_id,
     })
 }
 

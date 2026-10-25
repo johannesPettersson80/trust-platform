@@ -422,6 +422,22 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
     Wi-Fi has about 22 KiB: a bigger board, or the owner's decision) and symbolic `mappings` (the
     build must lower the tags to typed points, and an unbound variable needs the MQTT tag links of
     spec 44 §13.3 in the chip's cycle).
+  - 26 Oct: committed `234ceefe4` (C6 MQTT, computer Modbus on the shared exchange) and `25c02b466`
+    (public-API baselines regenerated with nightly-2026-10-14). Bench `s7m/run1` on the C6 over
+    Wi-Fi against `s7m/mqtt-broker.py` on the Pi: CONNECT `trust-runtime-c6` clean, SUBSCRIBE
+    `bench/in/level`, echo = level + 1 every 100 ms (113 publishes in 11 s, task 0.036 ms avg, no
+    overrun), two PINGREQs during a 12 s stop, degraded and recovered with the broker, DISCONNECT
+    when replaced; but the second install failed the memory check (old socket still closing), and
+    `run2` then found no 16,300 B block for the checkpoint buffer. Fixed (spec 34 0.71): dropped
+    network drivers wait up to 200 ms for their connection to close and give the socket back
+    (`ClientLink::holds_connection`, `Network::release_client`); the chip takes the checkpoint
+    buffer once at boot and lends it to each program (`CheckpointBuffer`). The computer's `mqtt`
+    driver runs the shared exchange (agent; 36 old tests kept, 11 added); the Sparkplug B profile
+    follows Sparkplug 3.0's edge-node rules (spec 32 §9 rewritten with the tck-ids). Open: rerun the
+    bench (run3) with the combined check's firmware; the verification catalogs still name the old
+    MQTT and Modbus test paths (release prep); `rumqttc` is only used by
+    `tests/device_in_the_loop.rs` (dev-dependency); `control/comm_handlers/apply/validation.rs`
+    keeps its own copy of the MQTT TLS rules, a duplicate of the shared rules to remove.
 - [ ] S8 Web pages and HMI.
 - [ ] S9 Modbus RTU (owner, 16 October 2026): the `modbus-rtu` driver of specification 11, built-in
   driver 6, on Linux, macOS and Windows serial ports and on the chips' UARTs, sharing the Modbus

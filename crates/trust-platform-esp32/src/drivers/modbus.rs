@@ -174,9 +174,11 @@ impl ChipDriver for ModbusDriver {
 }
 
 impl Drop for ModbusDriver {
-    /// Closes the connection; the network gives its socket back once no driver holds the link.
+    /// Closes the connection in order and gives its socket back once it has ended, for at most
+    /// 200 ms.
     fn drop(&mut self) {
         self.link.close();
+        super::finish_link(&self.network, &self.link, now_ms());
     }
 }
 

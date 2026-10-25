@@ -214,13 +214,6 @@ impl MqttParams {
         let sparkplug = sparkplug::params(&root)?;
         if sparkplug.is_some() {
             sparkplug::check_profile(&root, &input_points, &output_points)?;
-            if client_id.as_deref() == Some("") {
-                return Err(root.refuse(
-                    "client_id",
-                    "must not be empty with Sparkplug, whose session is not clean \
-                     (MQTT 3.1.1, MQTT-3.1.3-7)",
-                ));
-            }
         }
         Ok(Self {
             broker,
@@ -524,7 +517,8 @@ fn credentials(root: &Table<'_>) -> Result<Option<Credentials>, ParamsError> {
     }
 }
 
-/// `client_id`, when the key is given: an MQTT string, which may be empty without Sparkplug.
+/// `client_id`, when the key is given: an MQTT string, which may be empty: the session is clean,
+/// so a broker that takes an empty identifier gives the client one (MQTT-3.1.3-6).
 fn client_id(root: &Table<'_>) -> Result<Option<SmolStr>, ParamsError> {
     match root.get("client_id") {
         None => Ok(None),

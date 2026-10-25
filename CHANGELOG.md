@@ -6,6 +6,27 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Fixed: installing a program again on a chip no longer fails for memory. The chip takes its
+  checkpoint buffer once at boot and lends it to each program that keeps retained values, where
+  each start asked the heap for 16,300 bytes in one block, which a heap fragmented by the programs
+  before had lost; and a dropped `modbus-tcp` or `mqtt` driver closes its connection in order and
+  gives its socket back before the next program claims its drivers.
+- Fixed: the `mqtt` driver's Sparkplug B profile follows Sparkplug 3.0's rules for an edge node:
+  a clean session; the NDEATH will at QoS 1 and without a sequence number; `bdSeq` an `Int64`
+  that counts the connections from `birth_death_seq` (now 0 to 255) and wraps after 255; the
+  NCMD subscription before the NBIRTH; a `Node Control/Rebirth` metric in the NBIRTH, whose
+  metrics carry the newest image's values or null; and a rebirth when a host asks for one in
+  NCMD. A broker's delivery at QoS 1 is acknowledged, and an empty `client_id` is allowed with
+  Sparkplug, as its session is clean.
+- Changed: the computer's `mqtt` driver runs on the shared implementation of the chips, so both
+  apply spec 32 alike. Refusals read `mqtt: <key>: <reason>`; unknown `sparkplug` keys, scaling on
+  a Boolean point, topics that are not exact, a broker with user info or an unknown scheme, an
+  empty `username` and strings with U+0000 are refused, and bad TLS files are refused when the
+  driver starts rather than at each connect. The connection opens when the driver starts; a read
+  without a new message reports `mqtt input not fresh` at once; a write while the session starts
+  waits at most 40 ms and reports `mqtt connecting`; typed inputs write only their own bytes of
+  the image, where they overwrote other drivers' bytes; a dropped driver sends DISCONNECT (and
+  with Sparkplug B its NDEATH first); health names the transport's reason.
 - Added: the `mqtt` driver on a chip with a network: the ESP32-C6 runs the computer's MQTT 3.1.1
   session, typed points, raw mode and Sparkplug B from one shared implementation, keeps the session
   alive between the scans and while the program is stopped, and ends it in order when the program is

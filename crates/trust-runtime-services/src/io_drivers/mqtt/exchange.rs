@@ -58,8 +58,8 @@ pub const MAX_PACKET_BYTES: usize = 10 * 1024;
 pub const INCOMING_QUEUE_LIMIT: usize = 256;
 
 /// The bounds of an exchange's packets, of its incoming queue and of its outgoing bytes
-/// (specification 34 §11.1): a computer's are [`MqttLimits::COMPUTER`], trust-runtime's client's; a
-/// chip gives the smaller ones its memory holds, which its appendix of specification 34 names.
+/// (specification 34 §11.1): a computer's are [`MqttLimits::COMPUTER`], trust-runtime's client's;
+/// a chip gives the smaller ones its memory holds, which its appendix of specification 34 names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MqttLimits {
     /// The largest packet from the broker and to it.
@@ -158,6 +158,13 @@ pub struct MqttExchange {
     snapshot: Snapshot,
     /// The Sparkplug B sequence number of the next payload, wrapping after 255.
     sparkplug_seq: u8,
+    /// The Sparkplug B `bdSeq` of the session, its CONNECT's will's.
+    bd_seq: u64,
+    /// The `bdSeq` of the next CONNECT: one more than the last, from 255 to 0.
+    next_bd_seq: u64,
+    /// With Sparkplug B, the output image last handed off, whose values a rebirth's NBIRTH
+    /// carries.
+    last_image: Option<Vec<u8>>,
     /// The monotonic time and the milliseconds since the Unix epoch it was set at.
     clock: Option<(u64, u64)>,
     paths: Paths,
@@ -243,7 +250,15 @@ impl MqttExchange {
             .client_id
             .clone()
             .unwrap_or_else(|| SmolStr::new(default_client_id));
-        let subscriptions = params.subscribe_topics();
+        // With Sparkplug B the node takes its commands, and the topics are inputs' otherwise.
+        let subscriptions = match &params.sparkplug {
+            Some(sparkplug) => alloc::vec![SmolStr::new(sparkplug.ncmd_topic())],
+            None => params.subscribe_topics(),
+        };
+        let next_bd_seq = params
+            .sparkplug
+            .as_ref()
+            .map_or(0, |sparkplug| sparkplug.birth_death_seq);
         let snapshot = if params.input_points.is_empty() {
             Snapshot::Raw(None)
         } else {
@@ -285,6 +300,9 @@ impl MqttExchange {
             dropped: 0,
             snapshot,
             sparkplug_seq: 0,
+            bd_seq: next_bd_seq,
+            next_bd_seq,
+            last_image: None,
             clock: None,
             paths,
         }
@@ -398,22 +416,27 @@ impl MqttExchange {
     }
 
     /// The stream that [`MqttPoll::Open`] asked for is open at `now_ms`: CONNECT goes out, with the
-    /// keep alive, the credentials, a clean session except with Sparkplug, and with Sparkplug its
+    /// keep alive, the credentials, a clean session, and with Sparkplug, its next `bdSeq` and its
     /// NDEATH as the will. A stream the exchange no longer wants is closed at the next poll.
     pub fn opened(&mut self, now_ms: u64) {
         match self.link {
-            Link::Opening { since_ms } => match self.connect_packet(now_ms) {
-                Ok(packet) => {
-                    self.clear_session_bytes();
-                    if self.queue_bytes(now_ms, &packet) {
-                        self.link = Link::AwaitingConnAck { since_ms };
-                    } else {
-                        let text = self.no_room("CONNECT", packet.len());
+            Link::Opening { since_ms } => {
+                self.next_bd_seq();
+                match self.connect_packet(now_ms) {
+                    Ok(packet) => {
+                        self.clear_session_bytes();
+                        if self.queue_bytes(now_ms, &packet) {
+                            self.link = Link::AwaitingConnAck { since_ms };
+                        } else {
+                            let text = self.no_room("CONNECT", packet.len());
+                            self.end_session(now_ms, format!("mqtt connect failed: {text}"), true);
+                        }
+                    }
+                    Err(text) => {
                         self.end_session(now_ms, format!("mqtt connect failed: {text}"), true);
                     }
                 }
-                Err(text) => self.end_session(now_ms, format!("mqtt connect failed: {text}"), true),
-            },
+            }
             Link::Down { .. } | Link::Stopped => self.close_pending = true,
             Link::AwaitingConnAck { .. } | Link::Connected(_) | Link::Stopping => {}
         }
@@ -634,23 +657,34 @@ impl MqttExchange {
         }
     }
 
-    /// The CONNECT of the session at `now_ms`.
+    /// Takes the Sparkplug B `bdSeq` of a new connection: the first connection's is
+    /// `birth_death_seq`, and each later one's one more than the last, from 255 to 0
+    /// (`tck-id-message-flow-edge-node-birth-publish-will-message-payload-bdSeq`).
+    fn next_bd_seq(&mut self) {
+        self.bd_seq = self.next_bd_seq;
+        self.next_bd_seq = (self.bd_seq + 1) % 256;
+    }
+
+    /// The CONNECT of the session at `now_ms`: a clean session, as Sparkplug B requires of its
+    /// edge nodes too (`tck-id-principles-persistence-clean-session-311`), and with Sparkplug B the
+    /// NDEATH as the will, at quality of service 1 and not retained.
     fn connect_packet(&self, now_ms: u64) -> Result<Vec<u8>, String> {
         let death = self.params.sparkplug.as_ref().map(|sparkplug| {
             (
                 sparkplug.ndeath_topic(),
-                sparkplug::encode_ndeath(sparkplug, self.utc_ms(now_ms)),
+                sparkplug::encode_ndeath(self.bd_seq, self.utc_ms(now_ms)),
             )
         });
         let credentials = self.params.credentials.as_ref();
         let connect = Connect {
             client_id: &self.client_id,
             keep_alive_s: self.params.keep_alive_s,
-            clean_session: self.params.sparkplug.is_none(),
+            clean_session: true,
             will: death.as_ref().map(|(topic, message)| Will {
                 topic: topic.as_str(),
                 message: message.as_slice(),
                 retain: false,
+                at_least_once: true,
             }),
             username: credentials.map(|credentials| credentials.username.as_str()),
             // An empty password is not sent, as trust-runtime's client does not send one.
@@ -693,8 +727,25 @@ impl MqttExchange {
                 ),
                 true,
             ),
-            (Phase::Connected, Incoming::Publish { topic, payload, .. }) => {
-                self.enqueue(topic, payload);
+            (
+                Phase::Connected,
+                Incoming::Publish {
+                    topic,
+                    payload,
+                    packet_id,
+                    ..
+                },
+            ) => {
+                if let Some(packet_id) = packet_id {
+                    self.queue_bytes(now_ms, &codec::encode_puback(packet_id));
+                }
+                if self.params.sparkplug.is_none() {
+                    self.enqueue(topic, payload);
+                } else if self.subscriptions.first().is_some_and(|ncmd| ncmd == topic)
+                    && sparkplug::is_rebirth_request(payload)
+                {
+                    self.rebirth(now_ms);
+                }
             }
             (
                 Phase::Connected,
@@ -717,14 +768,22 @@ impl MqttExchange {
         }
     }
 
-    /// Starts the session at `now_ms`: a SUBSCRIBE per topic, with Sparkplug the NBIRTH, and then
-    /// the newest output image that waited.
+    /// Starts the session at `now_ms`: a SUBSCRIBE per topic, with Sparkplug B to the NCMD topic at
+    /// quality of service 1 before the NBIRTH (`tck-id-message-flow-edge-node-ncmd-subscribe`),
+    /// and then the newest output image that waited.
     fn session_up(&mut self, now_ms: u64) {
+        let sparkplug = self.params.sparkplug.is_some();
         let subscribe = self
             .subscriptions
             .iter()
             .enumerate()
-            .map(|(index, topic)| codec::encode_subscribe(packet_id(index), topic))
+            .map(|(index, topic)| {
+                if sparkplug {
+                    codec::encode_subscribe_at_least_once(packet_id(index), topic)
+                } else {
+                    codec::encode_subscribe(packet_id(index), topic)
+                }
+            })
             .collect::<Result<Vec<_>, _>>();
         let packets = match subscribe {
             Ok(packets) => packets,
@@ -771,15 +830,19 @@ impl MqttExchange {
         }
     }
 
-    /// The NBIRTH of a Sparkplug session at `now_ms`, which takes the next sequence number.
+    /// The NBIRTH of a Sparkplug session at `now_ms`, which takes the next sequence number, with
+    /// the session's `bdSeq` and the values of the newest output image, the one that waits for the
+    /// session or the one last handed off.
     fn birth_packet(&mut self, now_ms: u64) -> Result<Option<Vec<u8>>, String> {
         let Some(sparkplug) = &self.params.sparkplug else {
             return Ok(None);
         };
         let seq = self.sparkplug_seq;
+        let image = self.pending.as_deref().or(self.last_image.as_deref());
         let payload = sparkplug::encode_nbirth(
-            sparkplug,
             &self.params.output_points,
+            image,
+            self.bd_seq,
             u64::from(seq),
             self.utc_ms(now_ms),
         );
@@ -792,10 +855,32 @@ impl MqttExchange {
         Ok(Some(packet))
     }
 
+    /// A rebirth at `now_ms`, which a host asked for with `Node Control/Rebirth` in NCMD: a new
+    /// NBIRTH of the session, with its `bdSeq`, ahead of any later NDATA
+    /// (`tck-id-operational-behavior-data-commands-rebirth-action-1` to `-3`). An NBIRTH that the
+    /// outgoing bound has no room for ends the session instead, and the next one begins with its
+    /// birth.
+    fn rebirth(&mut self, now_ms: u64) {
+        match self.birth_packet(now_ms) {
+            Ok(Some(packet)) => {
+                if !self.queue_bytes(now_ms, &packet) {
+                    let text = self.no_room("the rebirth's NBIRTH", packet.len());
+                    self.end_session(now_ms, format!("mqtt disconnected: {text}"), true);
+                }
+            }
+            Ok(None) => {}
+            Err(text) => self.end_session(
+                now_ms,
+                format!("mqtt disconnected: Sparkplug NBIRTH: {text}"),
+                true,
+            ),
+        }
+    }
+
     /// The NDEATH that an orderly end publishes with Sparkplug, as the will would.
     fn death_packet(&self, now_ms: u64) -> Option<Vec<u8>> {
         let sparkplug = self.params.sparkplug.as_ref()?;
-        let payload = sparkplug::encode_ndeath(sparkplug, self.utc_ms(now_ms));
+        let payload = sparkplug::encode_ndeath(self.bd_seq, self.utc_ms(now_ms));
         publish_packet(
             &sparkplug.ndeath_topic(),
             &payload,

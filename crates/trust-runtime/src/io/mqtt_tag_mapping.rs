@@ -1,9 +1,17 @@
-use serde::Deserialize;
+//! The startup adapter from a compiled program's symbols to the typed points of the `mqtt` driver
+//! (specification 32 §5): it lowers each symbolic mapping to an input or an output point before the
+//! driver starts, so that the driver, whose logic is the shared exchange of every runtime, takes
+//! typed points only and never sees the program's storage. The mappings themselves are read by the
+//! driver's shared rules (`tag`, `topic` and `direction`, specification 32 §5); this module holds
+//! what needs the program: resolving each tag, choosing its process-image address, and the links
+//! that copy an unbound variable at the scan's boundaries.
+
 use smol_str::SmolStr;
 use toml::Value as TomlValue;
 use trust_runtime_core::io_image::IoValueCodec;
 use trust_runtime_core::native::image::type_kind;
 use trust_runtime_core::native::memory::TypeShape;
+use trust_runtime_services::io_drivers::mqtt::{Mapping, MappingDirection};
 
 use crate::error::RuntimeError;
 use crate::memory::IoArea;
@@ -11,34 +19,20 @@ use crate::CompiledRuntime;
 
 use super::{IoAddress, IoSize, MqttIoDriver};
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct MqttTagMappingToml {
-    tag: String,
-    topic: String,
-    direction: MqttTagDirection,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-enum MqttTagDirection {
-    Read,
-    Write,
-}
-
-impl MqttTagDirection {
-    fn area(self) -> IoArea {
-        match self {
-            Self::Read => IoArea::Input,
-            Self::Write => IoArea::Output,
-        }
+/// The process image a mapping of `direction` uses: a `read` mapping takes the broker's value into
+/// the input image, a `write` mapping publishes the output image's value (specification 32 §5).
+fn direction_area(direction: MappingDirection) -> IoArea {
+    match direction {
+        MappingDirection::Read => IoArea::Input,
+        MappingDirection::Write => IoArea::Output,
     }
+}
 
-    fn points_key(self) -> &'static str {
-        match self {
-            Self::Read => "input_points",
-            Self::Write => "output_points",
-        }
+/// The list of the driver's parameters that the point of a mapping of `direction` joins.
+fn points_key(direction: MappingDirection) -> &'static str {
+    match direction {
+        MappingDirection::Read => "input_points",
+        MappingDirection::Write => "output_points",
     }
 }
 
@@ -51,7 +45,7 @@ struct MqttScalarLayout {
 
 #[derive(Debug, Clone)]
 struct PlannedMapping {
-    mapping: MqttTagMappingToml,
+    mapping: Mapping,
     layout: MqttScalarLayout,
     address: IoAddress,
 }
@@ -114,7 +108,7 @@ pub fn resolve_compiled_mqtt_tag_mappings(
                 .into(),
             )
         })?;
-        let area = mapping.direction.area();
+        let area = direction_area(mapping.direction);
         let bound = program
             .bound_addresses(variable.symbol)
             .into_iter()
@@ -192,40 +186,31 @@ fn lowered_params(
     Ok(lowered)
 }
 
-fn parse_mappings(params: &TomlValue) -> Result<Vec<MqttTagMappingToml>, RuntimeError> {
-    let table = params
-        .as_table()
-        .ok_or_else(|| RuntimeError::InvalidConfig("io.params must be a table".into()))?;
-    let Some(value) = table.get("mappings") else {
-        return Ok(Vec::new());
-    };
-    value
-        .clone()
-        .try_into()
-        .map_err(|error| RuntimeError::InvalidConfig(format!("io.params.mappings: {error}").into()))
+/// The symbolic mappings of `params`, read with the whole table by the driver's shared rules, so
+/// that a mapping is exactly `tag`, `topic` and `direction` on every runtime; none without
+/// `mappings`.
+fn parse_mappings(params: &TomlValue) -> Result<Vec<Mapping>, RuntimeError> {
+    Ok(MqttIoDriver::read_params(params)?
+        .mappings
+        .unwrap_or_default())
 }
 
 fn append_point(params: &mut TomlValue, plan: &PlannedMapping) -> Result<(), RuntimeError> {
     let table = params
         .as_table_mut()
         .ok_or_else(|| RuntimeError::InvalidConfig("io.params must be a table".into()))?;
+    let key = points_key(plan.mapping.direction);
     let points = table
-        .entry(plan.mapping.direction.points_key())
+        .entry(key)
         .or_insert_with(|| TomlValue::Array(Vec::new()))
         .as_array_mut()
         .ok_or_else(|| {
-            RuntimeError::InvalidConfig(
-                format!(
-                    "io.params.{} must be an array",
-                    plan.mapping.direction.points_key()
-                )
-                .into(),
-            )
+            RuntimeError::InvalidConfig(format!("io.params.{key} must be an array").into())
         })?;
     let mut point = toml::map::Map::new();
     point.insert(
         "topic".to_string(),
-        TomlValue::String(plan.mapping.topic.clone()),
+        TomlValue::String(plan.mapping.topic.to_string()),
     );
     point.insert(
         "image_offset".to_string(),

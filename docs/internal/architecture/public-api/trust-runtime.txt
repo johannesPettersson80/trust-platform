@@ -3666,6 +3666,8 @@ pub struct trust_runtime::io::MqttIoDriver
 impl trust_runtime::io::MqttIoDriver
 pub fn trust_runtime::io::MqttIoDriver::from_params(value: &toml::value::Value) -> core::result::Result<Self, trust_runtime_core::error::RuntimeError>
 pub fn trust_runtime::io::MqttIoDriver::validate_params(value: &toml::value::Value) -> core::result::Result<(), trust_runtime_core::error::RuntimeError>
+impl core::ops::drop::Drop for trust_runtime::io::MqttIoDriver
+pub fn trust_runtime::io::MqttIoDriver::drop(&mut self)
 impl trust_runtime::io::IoDriver for trust_runtime::io::MqttIoDriver
 pub fn trust_runtime::io::MqttIoDriver::health(&self) -> trust_runtime_services::status::IoDriverHealth
 pub fn trust_runtime::io::MqttIoDriver::output_health(&self) -> trust_runtime_services::status::IoDriverHealth

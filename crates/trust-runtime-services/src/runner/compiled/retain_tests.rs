@@ -34,7 +34,7 @@ use trust_runtime_core::watchdog::{FaultPolicy, RetainMode, WatchdogPolicy};
 use super::CompiledCycle;
 use crate::runner::cycle::{CycleSettings, ResourceCycle, RetainSource};
 use crate::runner::process_io::ProcessIo;
-use crate::runner::{newest_checkpoint, RetainConfig};
+use crate::runner::{newest_checkpoint, CheckpointBuffer, RetainConfig};
 use crate::status::IoDriverStatus;
 
 const MS: i64 = 1_000_000;
@@ -306,6 +306,17 @@ fn power_on<'i>(
     flash: &RamFlash,
     save_interval: Duration,
 ) -> CompiledCycle<'i, Still, NoLines, Module> {
+    start_with(bytes, flash, save_interval, None).expect("the checkpoint log opens")
+}
+
+/// The program started cold with the checkpoint store over `flash`, a save every `save_interval`,
+/// and the payload buffer `buffer` lent to it, or one of its own without.
+fn start_with<'i>(
+    bytes: &'i [u8],
+    flash: &RamFlash,
+    save_interval: Duration,
+    buffer: Option<CheckpointBuffer>,
+) -> Result<CompiledCycle<'i, Still, NoLines, Module>, RuntimeError> {
     let device = Device {
         target: Target::this_cpu().unwrap_or(Target::X86_64),
         program_memory: 1_000,
@@ -341,8 +352,8 @@ fn power_on<'i>(
             },
             save_interval,
             image_bytes: 256,
+            buffer,
         })
-        .expect("the checkpoint log opens")
 }
 
 /// The scans at `times` milliseconds, each followed by the persister steps a loop makes between
@@ -414,4 +425,53 @@ fn a_due_save_survives_a_power_cut() {
     next.restart(RestartMode::Warm, RetainSource::Checkpoint)
         .expect("the warm start restores");
     assert_eq!(batches(&next), Some(Value::USInt(5)));
+}
+
+/// A chip lends its one checkpoint buffer, taken at boot, to the program that keeps retained
+/// values, and the program's end gives it back for the next (specification 34 MEM-12): while the
+/// first program holds it a second cannot start with it and says why, and after the first ends the
+/// next takes it and restores the checkpoint the first saved. Catches a buffer lost with its
+/// program, which left the next one to ask a fragmented heap for 16,300 bytes (S7 bench
+/// `s7m/run2`), and two programs writing into one buffer.
+#[test]
+fn a_lent_checkpoint_buffer_goes_back_when_its_program_ends() {
+    let bytes = image();
+    let flash = RamFlash::new(slots());
+    let buffer = CheckpointBuffer::reserve(256).expect("room for the buffer");
+    let mut cycle = start_with(
+        &bytes,
+        &flash,
+        Duration::from_secs(3600),
+        Some(buffer.clone()),
+    )
+    .expect("the first program takes the buffer");
+    assert!(buffer.is_lent());
+    assert_eq!(
+        start_with(
+            &bytes,
+            &flash,
+            Duration::from_secs(3600),
+            Some(buffer.clone())
+        )
+        .err(),
+        Some(RuntimeError::RetainStore(
+            "the checkpoint buffer is held by another program".into()
+        ))
+    );
+    scans(&mut cycle, &[0, 10, 20, 30]);
+    cycle.save_retain().expect("the stop saves");
+    drop(cycle);
+    assert!(!buffer.is_lent(), "the end of the program gives it back");
+
+    let mut next = start_with(
+        &bytes,
+        &flash,
+        Duration::from_secs(3600),
+        Some(buffer.clone()),
+    )
+    .expect("the next program takes it");
+    assert!(buffer.is_lent());
+    next.restart(RestartMode::Warm, RetainSource::Checkpoint)
+        .expect("the warm start restores");
+    assert_eq!(batches(&next), Some(Value::USInt(6)));
 }

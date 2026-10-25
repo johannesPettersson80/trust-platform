@@ -263,7 +263,7 @@ impl ChipDriver for MqttDriver {
 impl Drop for MqttDriver {
     /// Ends the session in order, as a computer's driver does when it stops: with Sparkplug B its
     /// NDEATH, then DISCONNECT, for at most [`STOP_WAIT_MS`]; the link sends what it queued before
-    /// its FIN.
+    /// its FIN, and its socket is given back once the connection has ended.
     fn drop(&mut self) {
         let deadline = now_ms().saturating_add(STOP_WAIT_MS);
         if let Ok(mut session) = self.session.try_borrow_mut() {
@@ -287,6 +287,7 @@ impl Drop for MqttDriver {
         }
         if let Ok(session) = self.session.try_borrow() {
             session.link.close();
+            super::finish_link(&self.network, &session.link, now_ms());
         }
     }
 }

@@ -31,7 +31,9 @@ use esp_hal::gpio::interconnect::InputSignal;
 use esp_hal::ledc::Ledc;
 use esp_hal::peripherals::{ADC1, LEDC, PCNT, TWAI0, TWAI1};
 use esp_hal::twai::AnyTwai;
+use trust_platform_net::ClientLink;
 use trust_runtime_core::deployment::Configuration;
+use trust_runtime_services::chip::network::ChipNetwork;
 use trust_runtime_services::chip::process_io::{unsupported_driver, ChipDriver, DriverRequest};
 
 #[cfg(feature = "bench-loopback")]
@@ -39,6 +41,7 @@ use crate::driver_plans::LoopbackPads;
 use crate::driver_plans::PeripheralSlot;
 use crate::process_io::GpioBank;
 
+use crate::hardware::clock::now_us;
 use crate::hardware::C6Net;
 
 /// The peripherals the drivers claim, taken from `esp_hal::init` with the board and kept for the life
@@ -109,5 +112,24 @@ pub(crate) fn claim_driver(
         modbus::NAME => modbus::claim(request.params, network),
         mqtt::NAME => mqtt::claim(request.params, network),
         other => Err(unsupported_driver(other, "C6")),
+    }
+}
+
+/// How long a dropped network driver waits for its connection to close in order.
+const CLOSE_WAIT_MS: u64 = 200;
+
+/// Lets a dropped network driver's `link`, which it closed, finish its connection while
+/// `network` moves the bytes, for at most [`CLOSE_WAIT_MS`] from `since_ms`, then gives its socket
+/// back, so that the program loaded next finds the memory free rather than a socket still closing.
+fn finish_link(network: &Rc<RefCell<C6Net>>, link: &ClientLink, since_ms: u64) {
+    let deadline = since_ms.saturating_add(CLOSE_WAIT_MS);
+    while link.holds_connection() && now_us() / 1_000 < deadline {
+        match network.try_borrow_mut() {
+            Ok(mut network) => network.poll(),
+            Err(_) => break,
+        }
+    }
+    if let Ok(mut network) = network.try_borrow_mut() {
+        network.release_client(link);
     }
 }

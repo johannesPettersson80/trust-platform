@@ -1564,13 +1564,6 @@
         "split_plan": "Split helper tests into ads/{route,netid,symbols}.rs when ADS flow work resumes."
       },
       {
-        "path": "crates/trust-runtime/src/io/mqtt/tests.rs",
-        "owner": "runtime/MQTT tests",
-        "rationale": "MQTT I/O tests keep worker, freshness, write, and error-policy cases together while the protocol form acceptance evidence is still active",
-        "review_date": "2026-07-08",
-        "split_plan": "Split into mqtt/tests/{worker,freshness,write,error_policy}.rs after J-14 acceptance."
-      },
-      {
         "path": "crates/trust-runtime/src/bin/trust-runtime/run/tests.rs",
         "owner": "runtime CLI tests",
         "rationale": "Runtime launch tests keep command-validation and lifecycle contracts in one compatibility module",
@@ -3474,7 +3467,7 @@
       },
       {
         "path": "crates/trust-platform-esp32/src/compiled_loader.rs",
-        "line": 322,
+        "line": 351,
         "owner": "native execution (specification 44)",
         "invariant": "The heap image's bytes build the candidate's program alone, whose code takes the ChangedImage (place_change), so they are freed with that program; on a refusal before that, the image is dropped after every value built from the bytes (specification 44 \u00a712.3).",
         "test_evidence": "The pasteurizer changed online on ESP32-C6-DevKitC-1 with fw22 (24 October 2026, N4 bench n4-session-fw22-rel): bytecode.reload of the release image v2 replied reloaded in 53 ms, the module copied over the running one, the plant's values carried and the lamps unchanged; a refused second change and a warm restart after it left the running program intact.",

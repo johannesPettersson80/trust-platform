@@ -338,3 +338,33 @@ fn a_closed_link_sends_what_it_queued_before_its_fin() {
         "the server sees the FIN after the bytes"
     );
 }
+
+/// A link its driver closed holds its connection until the connection has closed both ways: while
+/// the server has not closed its side the link still holds it, and once the server's FIN came it
+/// does not. Released then, the link stays idle. Catches a driver that gives its link back while the
+/// connection still sends its last bytes, and one that waits for a connection that has ended, which
+/// left the program loaded next without the socket's memory (S7 bench `s7m/run1`).
+#[test]
+fn a_closed_link_holds_its_connection_until_both_sides_closed() {
+    let mut bench = Bench::fixed();
+    let link = bench.chip.client(Server::Address(SERVER), MODBUS, QUEUE);
+    assert!(!link.holds_connection(), "no connection before the open");
+    link.open();
+    bench.run(20);
+    assert!(link.holds_connection());
+    link.send(b"bye").expect("an open link takes bytes");
+    link.close();
+    bench.run(20);
+    assert_eq!(server_received(&mut bench), b"bye");
+    assert!(
+        link.holds_connection(),
+        "the server has not closed its side"
+    );
+    bench.server_socket().close();
+    bench.run(20);
+    assert!(!link.holds_connection(), "both sides closed");
+    bench.chip.release_client(&link);
+    bench.run(5);
+    assert_eq!(link.status(), LinkStatus::Idle);
+    assert!(!link.holds_connection());
+}
