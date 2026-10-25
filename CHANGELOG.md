@@ -18,8 +18,9 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   `[control]` section it serves the control protocol on TCP port 9901 (`[control] port`), so
   `trust-runtime ctl --endpoint tcp://<address>:9901 --token <token>` reaches it as it reaches a
   computer, installs included. The token is then required on every link. One client holds the
-  network connection at a time; a second is told that the device is busy. `capabilities` reports
-  the chip's network, its address and the reason a radio did not start. The radio's code takes 80
+  network connection at a time; a second is told that the device is busy. The chip answers ping on
+  its address. `capabilities` reports the chip's network, its address and the reason a radio did
+  not start. The radio's code takes 80
   KiB of the C6's program region, now 112 KiB; a chip without Wi-Fi settings starts no radio and
   keeps its heap whole.
 - Added: a chip keeps its own settings, `device.toml` (specification 34 TARGET-02): its name, its

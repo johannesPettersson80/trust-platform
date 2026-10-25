@@ -15,15 +15,16 @@ pub trait ChipNetwork {
     /// its sockets queued. It must not wait.
     fn poll(&mut self);
 
-    /// When the network's work is next due, on the loop's clock; none while only an arriving frame,
-    /// which wakes the loop, gives it work.
+    /// When the network's work is next due, on the loop's clock; none while only an arriving frame
+    /// or a change of the link, which wake the loop, give it work.
     fn poll_due(&mut self) -> Option<MonotonicInstant>;
 
     /// The network as it stands, for `capabilities`.
     fn facts(&self) -> NetworkFacts;
 
     /// The chip is about to reset: the network withdraws what it announced (specification 11,
-    /// runtime discovery). The default does nothing.
+    /// runtime discovery) and leaves its network, so that the access point or switch does not hold
+    /// the chip's old connection (specification 34 PORT-06). The default does nothing.
     fn leave(&mut self) {}
 }
 

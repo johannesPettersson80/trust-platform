@@ -176,6 +176,43 @@ fn ctl_over_a_serial_stream_sends_the_actions_request_and_returns_the_whole_resp
 }
 
 #[test]
+fn ctl_checks_the_version_and_sends_the_request_over_one_connection() {
+    // Specification 34 PORT-06 and TARGET-05: a chip serves one control connection at a time, so
+    // the version check and the action's request travel over one connection, the check first, and
+    // the response is the request's, with its id. Wrong behaviour: the request opens a second
+    // connection, which a chip still closing the first answers with `server busy`.
+    let replies = concat!(
+        r#"{"id":1,"ok":true,"result":{"version":"0.24.75"}}"#,
+        "\n",
+        r#"{"id":2,"ok":true,"result":{"ok":true}}"#
+    );
+    let (stream, written) = Canned::answering(replies);
+    let mut client = ControlClient::from_stream(stream, Some("secret"));
+    let request = build_request(&ControlAction::Health, Some("secret"));
+
+    let response = checked_exchange(&mut client, &request)
+        .unwrap_or_else(|error| panic!("the chip answers both: {error:#}"));
+
+    assert_eq!(
+        response,
+        json!({"id": 2, "ok": true, "result": {"ok": true}})
+    );
+    let sent = written.lock().expect("the lock is not poisoned").clone();
+    let lines: Vec<JsonValue> = sent
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_slice(line).expect("each request is JSON"))
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            json!({"id": 1, "type": "status", "auth": "secret"}),
+            json!({"id": 2, "type": "health", "auth": "secret"}),
+        ]
+    );
+}
+
+#[test]
 fn ctl_over_a_serial_stream_refuses_a_response_without_the_requests_id() {
     // Specification 11 6.8.1: a missing response id is a protocol failure, on a serial
     // endpoint as on a socket. Wrong behaviour: the shared client takes an answer without an

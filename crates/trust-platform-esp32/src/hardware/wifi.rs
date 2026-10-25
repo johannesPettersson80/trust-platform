@@ -31,8 +31,8 @@ use esp_hal::timer::systimer::Alarm;
 use esp_radio::wifi::sta::{ConnectedInfo, StationConfig};
 use esp_radio::wifi::{
     AuthenticationMethodConfig, Config as WifiConfig, ConnectionError, ControllerConfig,
-    Interface as Station, Password, PowerSaveMode, Ssid, WifiController, WifiError, WifiRxToken,
-    WifiTxToken,
+    DisconnectReason, Interface as Station, Password, PowerSaveMode, Ssid, WifiController,
+    WifiError, WifiRxToken, WifiTxToken,
 };
 use trust_platform_memory::memory::MeasuredHeap;
 use trust_platform_net::smoltcp::phy::{self, DeviceCapabilities, Medium};
@@ -61,6 +61,9 @@ const LINK_TOO_LONG: u16 = 2;
 const LINK_DEVICE: u16 = 1;
 /// How long the radio gets to send the chip's goodbye before a reset, in microseconds.
 const LEAVE_US: u64 = 20_000;
+/// How long the station waits for its access point to take its leave before a reset, in
+/// microseconds.
+const DISCONNECT_US: u64 = 200_000;
 
 /// What the radio takes from the board: the scheduler's timer and software interrupt, and the
 /// Wi-Fi radio.
@@ -116,10 +119,13 @@ pub fn bring_up(
         .with_dynamic_rx_buf_num(12)
         .with_dynamic_tx_buf_num(12)
         .with_rx_ba_win(4)
-        .with_sta_disconnected_pm(false)
+        // The radio sleeps while the station has no network: it then does not answer an access
+        // point that still holds the chip's association from before a reset without leaving, which
+        // drops that association only when its checks go unanswered (specification 34 PORT-06).
+        .with_sta_disconnected_pm(true)
         .with_initial_config(WifiConfig::Station(station_config));
     let mut controller = WifiController::new(radio, config).map_err(RadioFailure::Radio)?;
-    // No modem sleep, which would delay every frame by a beacon interval.
+    // No modem sleep while joined, which would delay every frame by a beacon interval.
     controller
         .set_power_saving(PowerSaveMode::None)
         .map_err(RadioFailure::Radio)?;
@@ -215,7 +221,7 @@ impl C6Net {
             Phase::Joined => {
                 self.failure = Some("the station lost its Wi-Fi network".to_string());
                 Phase::Idle {
-                    retry_at_us: now.saturating_add(retry::wait_us(1)),
+                    retry_at_us: now.saturating_add(retry::wait_us(1, false)),
                     failures: 1,
                 }
             }
@@ -250,8 +256,9 @@ impl C6Net {
     }
 }
 
-/// Polls an attempt: joined, failed (the next attempt after the wait its failures give), given up at
-/// its deadline, or still running. A failure's reason goes to `failure`.
+/// Polls an attempt: joined, failed (the next attempt after the wait its failures give, longer when
+/// the access point did not answer), given up at its deadline, or still running. A failure's reason
+/// goes to `failure`.
 fn poll_attempt(
     mut attempt: Attempt,
     deadline_us: u64,
@@ -260,11 +267,11 @@ fn poll_attempt(
     cx: &mut Context<'_>,
     failure: &mut Option<String>,
 ) -> Phase {
-    let mut failed = |failures: u32, reason: String| {
+    let mut failed = |failures: u32, unanswered: bool, reason: String| {
         *failure = Some(reason);
         let failures = failures.saturating_add(1);
         Phase::Idle {
-            retry_at_us: now.saturating_add(retry::wait_us(failures)),
+            retry_at_us: now.saturating_add(retry::wait_us(failures, unanswered)),
             failures,
         }
     };
@@ -273,6 +280,7 @@ fn poll_attempt(
         Poll::Ready(Ok(_)) => Phase::Joined,
         Poll::Ready(Err(ConnectionError::Failed(info))) => failed(
             failures,
+            info.reason == DisconnectReason::AuthenticationExpired,
             format!(
                 "joining the Wi-Fi network failed after {elapsed_ms} ms, attempt {}: {:?} from \
                  {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x} (signal {} dBm)",
@@ -289,10 +297,12 @@ fn poll_attempt(
         ),
         Poll::Ready(Err(error)) => failed(
             failures,
+            false,
             format!("the radio refused to join the Wi-Fi network: {error:?}"),
         ),
         Poll::Pending if now >= deadline_us => failed(
             failures,
+            false,
             "the Wi-Fi network did not answer within 20 seconds".to_string(),
         ),
         Poll::Pending => Phase::Connecting {
@@ -347,7 +357,9 @@ impl ChipNetwork for C6Net {
         }
     }
 
-    /// Withdraws the chip's announcement and gives the radio the time to send it before the reset.
+    /// Withdraws the chip's announcement and leaves the Wi-Fi network before the reset, with the
+    /// time the radio needs to send both: an access point that still held the chip's association
+    /// could ignore its next attempt to join until the access point's own timeout ran out.
     fn leave(&mut self) {
         let waker = self.waker.clone();
         let mut cx = Context::from_waker(&waker);
@@ -358,6 +370,19 @@ impl ChipNetwork for C6Net {
         let start = now_us();
         self.network.leave(start, &mut device);
         while now_us().saturating_sub(start) < LEAVE_US {
+            core::hint::spin_loop();
+        }
+        // An attempt to join holds the controller: it ends here, and the disconnection cancels it.
+        self.phase = Phase::Idle {
+            retry_at_us: u64::MAX,
+            failures: 0,
+        };
+        let controller = Rc::clone(&self.controller);
+        let mut leaving = Box::pin(async move { controller.borrow_mut().disconnect_async().await });
+        let start = now_us();
+        while now_us().saturating_sub(start) < DISCONNECT_US
+            && leaving.as_mut().poll(&mut cx).is_pending()
+        {
             core::hint::spin_loop();
         }
     }

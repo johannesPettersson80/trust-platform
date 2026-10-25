@@ -554,7 +554,7 @@ impl<C: ChipProfile, W: HardwareWatchdog + CycleWatchdog> RunnerPlatform for Chi
     }
 
     /// The chip resets after the reply to a `firmware.install` or a `device.reset`; its network
-    /// withdraws its announcement first.
+    /// withdraws its announcement and leaves the network first.
     fn reset_device(&mut self) {
         if let Some(mut network) = self
             .network

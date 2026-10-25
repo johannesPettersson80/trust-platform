@@ -222,8 +222,12 @@ impl Network {
     }
 
     /// When the stack's work is next due, a retransmission or a lease, in microseconds on the
-    /// chip's clock.
+    /// chip's clock. None while the link is down: no frame can leave then, and the link's coming
+    /// up wakes the loop.
     pub fn poll_due(&mut self, now_us: u64) -> Option<u64> {
+        if !self.link_up {
+            return None;
+        }
         let stack = self
             .iface
             .poll_at(instant(now_us), &self.sockets)

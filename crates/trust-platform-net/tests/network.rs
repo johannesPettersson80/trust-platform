@@ -9,10 +9,12 @@ use std::net::SocketAddr;
 
 use support::{cable, End};
 use trust_platform_net::smoltcp::iface::{Config, Interface, SocketHandle, SocketSet};
-use trust_platform_net::smoltcp::socket::tcp;
+use trust_platform_net::smoltcp::phy::ChecksumCapabilities;
+use trust_platform_net::smoltcp::socket::{icmp, tcp};
 use trust_platform_net::smoltcp::time::Instant;
 use trust_platform_net::smoltcp::wire::{
-    EthernetAddress, HardwareAddress, IpAddress, IpCidr, Ipv4Address, Ipv4Cidr,
+    EthernetAddress, HardwareAddress, Icmpv4Packet, Icmpv4Repr, IpAddress, IpCidr, Ipv4Address,
+    Ipv4Cidr,
 };
 use trust_platform_net::{Addressing, Network, NetworkSettings, BUSY_ERROR};
 use trust_runtime_core::ports::{LinkFrame, PeerClass};
@@ -255,6 +257,71 @@ fn without_a_token_no_control_connection_is_served() {
     bench.run(20);
     assert!(!bench.socket(first).is_open(), "the connection was refused");
     assert_eq!(bench.frame(), None);
+}
+
+/// The chip answers ping on its address, as every networked PLC does (specification 34 PORT-06).
+/// Catches a chip that a commissioning engineer's `ping` reports unreachable while it serves its
+/// control connection.
+#[test]
+fn the_chip_answers_ping() {
+    let mut bench = Bench::new(Some(PORT));
+    let mut socket = icmp::Socket::new(
+        icmp::PacketBuffer::new(vec![icmp::PacketMetadata::EMPTY; 2], vec![0; 256]),
+        icmp::PacketBuffer::new(vec![icmp::PacketMetadata::EMPTY; 2], vec![0; 256]),
+    );
+    socket
+        .bind(icmp::Endpoint::Ident(0x1234))
+        .expect("the client binds");
+    let handle = bench.sockets.add(socket);
+    let checksums = ChecksumCapabilities::default();
+    let request = Icmpv4Repr::EchoRequest {
+        ident: 0x1234,
+        seq_no: 1,
+        data: b"truST",
+    };
+    let mut bytes = vec![0; request.buffer_len()];
+    request.emit(&mut Icmpv4Packet::new_unchecked(&mut bytes), &checksums);
+    bench
+        .sockets
+        .get_mut::<icmp::Socket>(handle)
+        .send_slice(&bytes, IpAddress::Ipv4(CHIP))
+        .expect("the request is sent");
+    bench.run(20);
+    let (reply, from) = bench
+        .sockets
+        .get_mut::<icmp::Socket>(handle)
+        .recv()
+        .expect("the chip replies");
+    assert_eq!(from, IpAddress::Ipv4(CHIP));
+    let packet = Icmpv4Packet::new_checked(reply).expect("an ICMP message");
+    assert_eq!(
+        Icmpv4Repr::parse(&packet, &checksums).expect("a valid message"),
+        Icmpv4Repr::EchoReply {
+            ident: 0x1234,
+            seq_no: 1,
+            data: b"truST",
+        }
+    );
+}
+
+/// While the link is down the network asks for no poll; when it comes up, DHCP asks at once
+/// (specification 34 PORT-06, "The loop"). Catches a chip that wakes its loop every millisecond for
+/// a link that cannot send, and one whose DHCP waits for a timer after the link comes up.
+#[test]
+fn no_poll_is_due_while_the_link_is_down() {
+    let (mut chip_end, _) = cable();
+    let mut dhcp = settings(Some(PORT));
+    dhcp.addressing = Addressing::Dhcp;
+    let mut chip = Network::new(dhcp, &mut chip_end, 1, 0);
+    chip.poll(1_000, &mut chip_end);
+    assert_eq!(chip.poll_due(2_000), None);
+    chip.set_link(true);
+    let due = chip
+        .poll_due(2_000)
+        .expect("DHCP is due once the link is up");
+    assert!(due <= 2_000, "due at once, not after a timer: {due}");
+    chip.set_link(false);
+    assert_eq!(chip.poll_due(3_000), None);
 }
 
 /// A fixed address holds from the link going up and stays while the link is down. Catches a chip

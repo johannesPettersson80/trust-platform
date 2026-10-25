@@ -220,6 +220,12 @@ impl ControlClient {
             .map_err(|error| ControlError::Transport(error.to_string()))
     }
 
+    /// The id of the next request: the client numbers the requests of its connection from 1.
+    #[must_use]
+    pub fn next_id(&self) -> u64 {
+        self.seq
+    }
+
     /// Sends one request of operation `kind` and waits for its answer.
     ///
     /// # Errors

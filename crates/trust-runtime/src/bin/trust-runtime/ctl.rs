@@ -132,19 +132,39 @@ fn send_control_request(
     target: &ResolvedControlTarget,
     action: &ControlAction,
 ) -> anyhow::Result<()> {
-    advise_version(target);
     let request = build_request(action, target.auth_token.as_deref());
-    let response = send_request(&target.endpoint, &request)?;
+    let response = match &target.endpoint {
+        CtlEndpoint::Socket(socket) => {
+            let status = json!({"id": 0, "type": "status", "auth": target.auth_token});
+            advise_version(send_control_request_value(socket, &status));
+            send_control_request_value(socket, &request)?
+        }
+        CtlEndpoint::Serial(endpoint) => checked_exchange(
+            &mut connect_client(endpoint, &request, SERIAL_IO_TIMEOUT)?,
+            &request,
+        )?,
+        CtlEndpoint::Network(endpoint) => checked_exchange(
+            &mut connect_client(endpoint, &request, NETWORK_IO_TIMEOUT)?,
+            &request,
+        )?,
+    };
     ensure_control_response_ok(&response)?;
     print_control_response(action, &response)
 }
 
-/// Says which update is needed when the runtime's truST version is not these tools'
-/// (specification 34 TARGET-05). A runtime that does not answer `status` is left to the request
-/// itself, which reports why.
-fn advise_version(target: &ResolvedControlTarget) {
-    let request = json!({"id": 0, "type": "status", "auth": target.auth_token});
-    let Ok(response) = send_request(&target.endpoint, &request) else {
+/// The version check and then `request`, over one connection to a chip: a chip serves one control
+/// connection at a time, and a second connection opened while it still closes the first is told
+/// that the chip is busy (specification 34 PORT-06).
+fn checked_exchange(client: &mut ControlClient, request: &JsonValue) -> anyhow::Result<JsonValue> {
+    advise_version(client.exchange("status", None).map_err(anyhow::Error::from));
+    exchange_with(client, request)
+}
+
+/// Says which update is needed when the runtime's truST version, in its answer to `status`, is not
+/// these tools' (specification 34 TARGET-05). A runtime that does not answer `status` is left to
+/// the request itself, which reports why.
+fn advise_version(status: anyhow::Result<JsonValue>) {
+    let Ok(response) = status else {
         return;
     };
     if let Some(version) = response
@@ -177,20 +197,27 @@ fn send_client_request(
     request: &JsonValue,
     wait: Duration,
 ) -> anyhow::Result<JsonValue> {
-    let auth = request.get("auth").and_then(JsonValue::as_str);
-    let mut client = ControlClient::connect(endpoint, auth, wait)?
-        .with_response_limit(MAX_CONTROL_RESPONSE_BYTES);
-    exchange_with(&mut client, request)
+    exchange_with(&mut connect_client(endpoint, request, wait)?, request)
 }
 
-/// Sends `request`, a request of the command's shape (`id`, `type`, and `params` when the action
-/// has any), through `client` and returns the whole response object. The command checks the
-/// response's id as it does for a socket.
+/// The shared client connected to a chip at `endpoint` with the token of `request`, waiting at
+/// most `wait` for the connection and for each reply.
+fn connect_client(
+    endpoint: &ClientEndpoint,
+    request: &JsonValue,
+    wait: Duration,
+) -> anyhow::Result<ControlClient> {
+    let auth = request.get("auth").and_then(JsonValue::as_str);
+    Ok(ControlClient::connect(endpoint, auth, wait)?
+        .with_response_limit(MAX_CONTROL_RESPONSE_BYTES))
+}
+
+/// Sends `request`, a request of the command's shape (`type`, and `params` when the action has
+/// any), through `client` and returns the whole response object. The client numbers the requests
+/// of its connection, and the command checks that the response carries this request's id, as it
+/// does for a socket.
 fn exchange_with(client: &mut ControlClient, request: &JsonValue) -> anyhow::Result<JsonValue> {
-    let request_id = request
-        .get("id")
-        .and_then(JsonValue::as_u64)
-        .context("control request missing numeric 'id'")?;
+    let request_id = client.next_id();
     let kind = request
         .get("type")
         .and_then(JsonValue::as_str)
