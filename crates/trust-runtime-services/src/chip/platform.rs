@@ -553,8 +553,16 @@ impl<C: ChipProfile, W: HardwareWatchdog + CycleWatchdog> RunnerPlatform for Chi
         self.token_required
     }
 
-    /// The chip resets after the reply to a `firmware.install` or a `device.reset`.
+    /// The chip resets after the reply to a `firmware.install` or a `device.reset`; its network
+    /// withdraws its announcement first.
     fn reset_device(&mut self) {
+        if let Some(mut network) = self
+            .network
+            .as_ref()
+            .and_then(|network| network.try_borrow_mut().ok())
+        {
+            network.leave();
+        }
         C::reset();
     }
 }

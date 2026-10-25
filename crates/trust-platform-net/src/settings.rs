@@ -8,6 +8,8 @@ use alloc::vec::Vec;
 use smoltcp::wire::{Ipv4Address, Ipv4Cidr};
 use trust_runtime_services::device_settings::{ipv4, AddressSettings, DeviceSettings};
 
+use crate::discovery::Identity;
+
 /// How the interface gets its IPv4 address.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Addressing {
@@ -71,13 +73,23 @@ pub struct NetworkSettings {
     /// The TCP port of the control connection, none while the settings set no control token: a
     /// chip serves its control connection over a network only with a token (ARCH-12).
     pub control_port: Option<u16>,
+    /// What the chip announces of itself, none for a chip that announces nothing.
+    pub identity: Option<Identity>,
+    /// The time server of the settings (`[time] server`, TARGET-06), a host name or an IPv4
+    /// address.
+    pub time_server: Option<String>,
 }
 
 impl NetworkSettings {
     /// The network of the interface `interface` of the device `settings`, with the MAC address
-    /// `mac`.
+    /// `mac`, announced as `identity`.
     #[must_use]
-    pub fn new(settings: &DeviceSettings, interface: &AddressSettings, mac: [u8; 6]) -> Self {
+    pub fn new(
+        settings: &DeviceSettings,
+        interface: &AddressSettings,
+        mac: [u8; 6],
+        identity: Option<Identity>,
+    ) -> Self {
         let host_name = settings
             .device
             .name
@@ -92,6 +104,8 @@ impl NetworkSettings {
                 .token
                 .as_ref()
                 .map(|_| settings.control.port()),
+            identity,
+            time_server: settings.time.server.clone(),
         }
     }
 }
@@ -152,7 +166,7 @@ mod tests {
     fn the_name_and_the_control_port_follow_the_settings() {
         let mut settings = DeviceSettings::default();
         let dhcp = interface(None, None, &[]);
-        let unnamed = NetworkSettings::new(&settings, &dhcp, MAC);
+        let unnamed = NetworkSettings::new(&settings, &dhcp, MAC, None);
         assert_eq!(unnamed.host_name, "trust-1704c0");
         assert_eq!(unnamed.control_port, None);
         settings.device.name = Some("line-3".to_string());
@@ -160,7 +174,7 @@ mod tests {
             token: Some("sixteen-chars-ab".to_string()),
             port: None,
         };
-        let named = NetworkSettings::new(&settings, &dhcp, MAC);
+        let named = NetworkSettings::new(&settings, &dhcp, MAC, None);
         assert_eq!(named.host_name, "line-3");
         assert_eq!(named.control_port, Some(9901));
     }

@@ -256,6 +256,7 @@ fn start_network(
                 control_port: None,
                 error: Some(format!("the Wi-Fi radio did not start: {failure:?}")),
                 driver_memory: None,
+                time: None,
             });
             (platform, None)
         }

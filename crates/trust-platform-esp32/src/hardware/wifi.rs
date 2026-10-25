@@ -37,9 +37,11 @@ use esp_radio::wifi::{
 use trust_platform_memory::memory::MeasuredHeap;
 use trust_platform_net::smoltcp::phy::{self, DeviceCapabilities, Medium};
 use trust_platform_net::smoltcp::time::Instant;
-use trust_platform_net::{retry, Network, NetworkSettings};
-use trust_runtime_core::ports::{ControlLink, LinkFrame, MonotonicInstant, PortError, WakeSignal};
-use trust_runtime_services::chip::network::{ChipNetwork, DriverMemory, NetworkFacts};
+use trust_platform_net::{retry, Identity, Network, NetworkSettings, TimeResult};
+use trust_runtime_core::ports::{
+    ControlLink, LinkFrame, MonotonicInstant, PortError, WakeSignal, WallClock,
+};
+use trust_runtime_services::chip::network::{ChipNetwork, DriverMemory, NetworkFacts, TimeFacts};
 use trust_runtime_services::device_settings::{DeviceSettings, WifiSettings};
 use trust_runtime_services::link::{ReplyRefused, DEVICE_FRAME_LEN};
 
@@ -57,6 +59,8 @@ const LINK_BUSY: u16 = 1;
 const LINK_TOO_LONG: u16 = 2;
 /// The `PortError` device number of the network link, after the USB link's 0.
 const LINK_DEVICE: u16 = 1;
+/// How long the radio gets to send the chip's goodbye before a reset, in microseconds.
+const LEAVE_US: u64 = 20_000;
 
 /// What the radio takes from the board: the scheduler's timer and software interrupt, and the
 /// Wi-Fi radio.
@@ -124,8 +128,14 @@ pub fn bring_up(
     let seed = (u64::from(rng.random()) << 32) | u64::from(rng.random());
     let waker = Waker::from(Arc::new(LoopWaker));
     let mut cx = Context::from_waker(&waker);
+    let mac = station.mac_address();
+    let identity = Identity {
+        runtime_id: crate::profile::runtime_id(mac).to_string(),
+        version: env!("CARGO_PKG_VERSION"),
+        platform: crate::profile::PLATFORM,
+    };
     let network_settings =
-        NetworkSettings::new(settings, &wifi.address_settings(), station.mac_address());
+        NetworkSettings::new(settings, &wifi.address_settings(), mac, Some(identity));
     let network = Network::new(
         network_settings,
         &mut WifiDevice {
@@ -134,7 +144,8 @@ pub fn bring_up(
         },
         seed,
         now_us(),
-    );
+    )
+    .with_clock(Box::new(Calendar));
     let mut net = C6Net {
         controller: Rc::new(RefCell::new(controller)),
         station,
@@ -322,6 +333,32 @@ impl ChipNetwork for C6Net {
                     failures: failures as u64,
                 }
             }),
+            time: self.network.time_result().map(|(server, last)| TimeFacts {
+                server: server.to_string(),
+                offset_ms: match last {
+                    Some(TimeResult::Taken { offset_ms }) => Some(*offset_ms),
+                    _ => None,
+                },
+                error: match last {
+                    Some(TimeResult::Failed(reason)) => Some(reason.clone()),
+                    _ => None,
+                },
+            }),
+        }
+    }
+
+    /// Withdraws the chip's announcement and gives the radio the time to send it before the reset.
+    fn leave(&mut self) {
+        let waker = self.waker.clone();
+        let mut cx = Context::from_waker(&waker);
+        let mut device = WifiDevice {
+            station: &mut self.station,
+            cx: &mut cx,
+        };
+        let start = now_us();
+        self.network.leave(start, &mut device);
+        while now_us().saturating_sub(start) < LEAVE_US {
+            core::hint::spin_loop();
         }
     }
 
@@ -458,5 +495,19 @@ struct TxToken(WifiTxToken);
 impl phy::TxToken for TxToken {
     fn consume<R, F: FnOnce(&mut [u8]) -> R>(self, len: usize, write: F) -> R {
         self.0.consume_token(len, write)
+    }
+}
+
+/// The C6's wall clock, which the time server of its settings sets (specification 34 TARGET-06).
+struct Calendar;
+
+impl WallClock for Calendar {
+    fn utc_ms(&self) -> Option<u64> {
+        super::calendar::utc_ms()
+    }
+
+    fn set_utc_ms(&self, utc_ms: u64) -> bool {
+        super::calendar::set(utc_ms);
+        true
     }
 }

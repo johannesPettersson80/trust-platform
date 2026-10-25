@@ -91,6 +91,7 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
             control_port: Some(9901),
             error: None,
             driver_memory: None,
+            time: None,
         }),
         ..TestPlatform::default()
     };
@@ -139,6 +140,7 @@ fn capabilities_answers_the_chips_descriptor_and_its_last_reset() {
                 "control_port": 9901,
                 "error": null,
                 "driver_memory": null,
+                "time": null,
             },
         }),
         "the chip's reply names the device's descriptor fields and its watchdog reset"

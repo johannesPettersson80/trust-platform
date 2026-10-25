@@ -8,11 +8,13 @@ use smoltcp::phy::Device;
 use smoltcp::socket::dhcpv4;
 use smoltcp::time::Instant;
 use smoltcp::wire::{DhcpOption, EthernetAddress, HardwareAddress, IpCidr, Ipv4Address, Ipv4Cidr};
-use trust_runtime_core::ports::{LinkFrame, MonotonicInstant};
+use trust_runtime_core::ports::{LinkFrame, MonotonicInstant, WallClock};
 use trust_runtime_services::link::ReplyRefused;
 
 use crate::control::ControlServer;
+use crate::discovery::Discovery;
 use crate::settings::{Addressing, NetworkSettings};
+use crate::time::{TimeResult, TimeService};
 
 /// Frames one poll moves through the stack at most, so that a flood of frames cannot hold back a
 /// due scan; the rest wait in the interface's receive queue for the next poll.
@@ -21,13 +23,20 @@ pub const FRAMES_PER_POLL: usize = 4;
 /// The DHCP option that carries the device's name (RFC 2132, option 12).
 const HOST_NAME_OPTION: u8 = 12;
 
-/// A chip's network: the interface, its sockets, its address and the control connection.
+/// A chip's network: the interface, its sockets, its address, the control connection, the
+/// announcement that discovery finds and the time server.
 pub struct Network {
     iface: Interface,
     sockets: SocketSet<'static>,
     addressing: Addressing,
     dhcp: Option<SocketHandle>,
     control: Option<ControlServer>,
+    discovery: Option<Discovery>,
+    time: Option<TimeService>,
+    /// The time server of the settings, which [`Self::time_result`] reports.
+    time_server: Option<alloc::string::String>,
+    /// The chip's wall clock, which the time server sets.
+    clock: Option<Box<dyn WallClock>>,
     link_up: bool,
     /// The name servers of the address in use.
     dns: Vec<Ipv4Address>,
@@ -49,7 +58,8 @@ impl Network {
         let dhcp = matches!(settings.addressing, Addressing::Dhcp).then(|| {
             let mut socket = dhcpv4::Socket::new();
             // The option borrows its bytes for as long as the socket lives, the whole boot.
-            let name: &'static [u8] = Box::leak(settings.host_name.into_bytes().into_boxed_slice());
+            let name: &'static [u8] =
+                Box::leak(settings.host_name.clone().into_bytes().into_boxed_slice());
             let options: &'static [DhcpOption<'static>] = Box::leak(Box::new([DhcpOption {
                 kind: HOST_NAME_OPTION,
                 data: name,
@@ -60,15 +70,58 @@ impl Network {
         let control = settings
             .control_port
             .map(|port| ControlServer::new(&mut sockets, port));
+        // The chip is announced while it serves its control connection, which a runtime that finds
+        // it can then use at once (ARCH-12).
+        let discovery = settings
+            .identity
+            .zip(settings.control_port)
+            .map(|(identity, port)| {
+                Discovery::new(&mut sockets, identity, &settings.host_name, port)
+            });
+        let time = settings
+            .time_server
+            .as_deref()
+            .map(|server| TimeService::new(&mut sockets, server));
         Self {
             iface,
             sockets,
             addressing: settings.addressing,
             dhcp,
             control,
+            discovery,
+            time,
+            time_server: settings.time_server,
+            clock: None,
             link_up: false,
             dns: Vec::new(),
         }
+    }
+
+    /// Sets `clock`, the chip's wall clock, from the time server of the settings (TARGET-06).
+    #[must_use]
+    pub fn with_clock(mut self, clock: Box<dyn WallClock>) -> Self {
+        self.clock = Some(clock);
+        self
+    }
+
+    /// The time server of the settings and what its last request gave, none before the first.
+    #[must_use]
+    pub fn time_result(&self) -> Option<(&str, Option<&TimeResult>)> {
+        let server = self.time_server.as_deref()?;
+        Some((
+            server,
+            self.time.as_ref().and_then(|time| time.last.as_ref()),
+        ))
+    }
+
+    /// Withdraws the chip's announcement and sends it, before a reset the chip starts.
+    pub fn leave(&mut self, now_us: u64, device: &mut (impl Device + ?Sized)) {
+        if let Some(discovery) = &mut self.discovery {
+            discovery.goodbye(&mut self.sockets);
+        }
+        let _ = self
+            .iface
+            .poll_egress(instant(now_us), device, &mut self.sockets);
     }
 
     /// The link went up or down: the chip joined its Wi-Fi network or left it, or its Ethernet
@@ -143,6 +196,21 @@ impl Network {
             }
         }
         self.poll_dhcp();
+        let address = self.address();
+        if let Some(discovery) = &mut self.discovery {
+            discovery.set_address(&mut self.iface, address, now_us);
+            discovery.poll(&mut self.sockets, now_us);
+        }
+        if let (Some(time), Some(clock)) = (&mut self.time, &self.clock) {
+            time.poll(
+                &mut self.iface,
+                &mut self.sockets,
+                &self.dns,
+                address.is_some(),
+                clock.as_ref(),
+                now_us,
+            );
+        }
         if let Some(control) = &mut self.control {
             control.pump(&mut self.sockets);
         }
@@ -156,9 +224,17 @@ impl Network {
     /// When the stack's work is next due, a retransmission or a lease, in microseconds on the
     /// chip's clock.
     pub fn poll_due(&mut self, now_us: u64) -> Option<u64> {
-        self.iface
+        let stack = self
+            .iface
             .poll_at(instant(now_us), &self.sockets)
-            .map(|due| u64::try_from(due.total_micros()).unwrap_or(0))
+            .map(|due| u64::try_from(due.total_micros()).unwrap_or(0));
+        let announcing = self.discovery.as_ref().and_then(Discovery::due_us);
+        let time = self
+            .time
+            .as_ref()
+            .filter(|_| self.clock.is_some() && self.address().is_some())
+            .map(TimeService::due_us);
+        [stack, announcing, time].into_iter().flatten().min()
     }
 
     /// The next request of the control connection, with its frame at the start of `buffer`.

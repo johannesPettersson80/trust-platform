@@ -8,9 +8,10 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# The TCP/IP stack, without std: Ethernet frames (Wi-Fi stations carry them too), IPv4 with DHCP and
-# the multicast groups of discovery, and TCP and UDP sockets. Pinned, as the chips' firmware is.
-smoltcp = { version = "=0.14.0", default-features = false, features = ["alloc", "medium-ethernet", "proto-ipv4", "proto-dhcpv4", "multicast", "socket-tcp", "socket-udp", "socket-dhcpv4"] }
+# The TCP/IP stack, without std: Ethernet frames (Wi-Fi stations carry them too), IPv4 with DHCP, the
+# multicast group of discovery and the name lookup of a time server, and TCP and UDP sockets. Pinned,
+# as the chips' firmware is.
+smoltcp = { version = "=0.14.0", default-features = false, features = ["alloc", "medium-ethernet", "proto-ipv4", "proto-dhcpv4", "proto-dns", "multicast", "socket-tcp", "socket-udp", "socket-dhcpv4", "socket-dns"] }
 # The `id` of a second client's request, which the busy reply answers; without std.
 serde = { version = "1.0.229", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.152", default-features = false, features = ["alloc"] }

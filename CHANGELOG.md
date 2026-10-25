@@ -6,6 +6,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Added: a chip on a network is found by the same discovery as every truST runtime (specification
+  34 PORT-06): it announces `_trust._plc._tcp.local.` over mDNS with its runtime ID, version,
+  platform and control endpoint when it takes an address, answers browses, and withdraws itself
+  before a reset it makes. A chip whose `device.toml` names a time server sets its clock from it
+  with SNTP once it has an address and every hour (TARGET-06); `capabilities` reports the server,
+  the last correction and why a request took no time.
 - Added: a chip joins its network and serves its control connection over it (specification 34
   PORT-06). An ESP32-C6 whose `device.toml` names a Wi-Fi network joins it at boot, takes its
   address from DHCP or the settings, and joins again after a loss; with a control token in the new

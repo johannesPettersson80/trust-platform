@@ -126,6 +126,7 @@ fn the_c6_capabilities_report_its_network() {
                     peak_bytes: 51_200,
                     failures: 0,
                 }),
+                time: None,
             }
         }
     }
@@ -136,7 +137,8 @@ fn the_c6_capabilities_report_its_network() {
         reply["result"]["network"],
         json!({"interface": "wifi", "link": "up", "address": "192.168.4.23/24",
             "control_port": 9901, "error": null,
-            "driver_memory": {"bytes": 65_536, "peak_bytes": 51_200, "failures": 0}})
+            "driver_memory": {"bytes": 65_536, "peak_bytes": 51_200, "failures": 0},
+            "time": null})
     );
     let mut failed = platform();
     failed.set_network_failure(NetworkFacts {
@@ -146,12 +148,13 @@ fn the_c6_capabilities_report_its_network() {
         control_port: None,
         error: Some("the radio did not start".to_string()),
         driver_memory: None,
+        time: None,
     });
     let reply = serde_json::to_value(capabilities::capabilities(9, &failed)).expect("a reply");
     assert_eq!(
         reply["result"]["network"],
         json!({"interface": "wifi", "link": "down", "address": null, "control_port": null,
-            "error": "the radio did not start", "driver_memory": null})
+            "error": "the radio did not start", "driver_memory": null, "time": null})
     );
 }
 

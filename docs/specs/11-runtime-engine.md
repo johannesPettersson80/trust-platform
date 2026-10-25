@@ -3345,6 +3345,7 @@ Its result is the same shape on every runtime, a computer or a device without an
 | `control_port` | integer or null | The TCP port of the control connection over the network, or null while the chip serves none (its device settings set no control token) |
 | `error` | string or null | Why the interface did not start, for example `the Wi-Fi radio did not start: ...`, or, until the chip joins its network, why its last attempt to join failed, for example `joining the Wi-Fi network failed: ...` or `the Wi-Fi network did not answer within 20 seconds`; null otherwise |
 | `driver_memory` | object or null | The memory the network's driver has of its own, where it has some (the ESP32-C6's radio arena, specification 34 D.2): `bytes`, `peak_bytes`, the most it has held at once since boot, and `failures`, the allocations it refused since boot; null otherwise |
+| `time` | object or null | The time server of the device settings (specification 34 TARGET-06): `server`, `offset_ms`, how far behind the server the clock was when the last request set it (negative when ahead), null before a request set it, and `error`, why the last request took no time, null otherwise; null without a time server |
 
 ###### Device settings contract
 

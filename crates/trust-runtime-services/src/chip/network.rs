@@ -21,6 +21,10 @@ pub trait ChipNetwork {
 
     /// The network as it stands, for `capabilities`.
     fn facts(&self) -> NetworkFacts;
+
+    /// The chip is about to reset: the network withdraws what it announced (specification 11,
+    /// runtime discovery). The default does nothing.
+    fn leave(&mut self) {}
 }
 
 /// What `capabilities` reports of a chip's network as `network` (specification 11, the runtime
@@ -39,6 +43,21 @@ pub struct NetworkFacts {
     pub error: Option<String>,
     /// The memory of the network's driver, where it has its own (the ESP32-C6's radio arena).
     pub driver_memory: Option<DriverMemory>,
+    /// The time server of the device settings and what its last request gave, none without one
+    /// (specification 34 TARGET-06).
+    pub time: Option<TimeFacts>,
+}
+
+/// The time server of a chip's settings and what its last request gave.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TimeFacts {
+    /// The server, a host name or an IPv4 address.
+    pub server: String,
+    /// How far behind the server the chip's clock was when the last request set it, in
+    /// milliseconds, negative when ahead; none before a request set it.
+    pub offset_ms: Option<i64>,
+    /// Why the last request took no time, none when it took one or before the first.
+    pub error: Option<String>,
 }
 
 /// The memory a network's driver has of its own: its size, the most it has held and the
@@ -67,6 +86,11 @@ impl NetworkFacts {
                 "bytes": memory.bytes,
                 "peak_bytes": memory.peak_bytes,
                 "failures": memory.failures,
+            })),
+            "time": self.time.as_ref().map(|time| json!({
+                "server": time.server,
+                "offset_ms": time.offset_ms,
+                "error": time.error,
             })),
         })
     }

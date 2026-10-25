@@ -345,6 +345,14 @@ Whether the chips run their services as embassy tasks is measured in S1: Include
   in the M5 request context, or both.
 - [ ] S6 Discovery and mesh: a runtime on the network, a board included, is found and can be used at
   once (ARCH-12).
+  - 25 Oct, discovery written (spec 34 PORT-06 Discovery; spec 11 network `time`): mDNS responder
+    in `trust-platform-net` (`mdns.rs`: answers PTR/SRV/TXT/A/ANY, legacy and unicast replies,
+    compression read with a hop limit, 26 unit tests with the time module; `discovery.rs`: two
+    announcements a second apart at a new address, link-local queries only, one multicast a
+    second, goodbye before the chip's own reset via `ChipNetwork::leave`). TXT `id`, `name`,
+    `version`, `platform`, `auth=token`, `control=tcp://<address>:<port>`. Host test over the cable:
+    the announcement and a browse's answer name the control endpoint. Open: the bench (needs the
+    network of L3), the computer's browse finding the chip, and the mesh part.
 - [ ] S7 Communication services: the `io.toml` drivers (Modbus TCP, MQTT and the others) and
   Bluetooth devices where the chip has Bluetooth.
 - [ ] S8 Web pages and HMI.
@@ -478,6 +486,11 @@ T — Targets (spec 34 §11.4):
   views still expected the STM32F407 that N11 deleted (6 tests failing since then); moved to the
   STM32U5A9, fixtures rewritten by their own command (246 passed).
 - [ ] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
+  - 25 Oct, written (spec 34 TARGET-06): SNTP v4 client in `trust-platform-net` (`sntp.rs` RFC 4330
+    codec with era handling, `time.rs` schedule: at an address, hourly, a minute after a failure;
+    host names looked up at the address's name servers), sets the C6's calendar. Host tests: a
+    server's reply sets the clock to its time; a named server without a name server is reported.
+    Open: the bench against a real time server (needs the network of L3).
 - [x] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
   Gap analysis 25 Oct (read-only, against spec 34 and the code): `faults` and `events.tail` done on
   the C6 (the U5A9 refused replies over the frame until its transfer session, 25 Oct); missing:
