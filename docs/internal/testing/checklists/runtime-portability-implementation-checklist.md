@@ -430,7 +430,7 @@ T — Targets (spec 34 §11.4):
   canvas (TARGET-04).
 - [ ] T5 Versions: the tools read the runtime's version and name the update needed (TARGET-05).
 - [ ] T6 Time: the clock from the time server of `device.toml` (TARGET-06).
-- [ ] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
+- [x] T7 Diagnostics: the fault log, events and log levels of trust-runtime (TARGET-07).
   Gap analysis 25 Oct (read-only, against spec 34 and the code): `faults` and `events.tail` done on
   the C6 (the U5A9 refused replies over the frame until its transfer session, 25 Oct); missing:
   `config.get`/`config.set` on chips (the platform answers `unsupported request`;
@@ -454,7 +454,14 @@ T — Targets (spec 34 §11.4):
     over JTAG); 70,000 ms refused (72 s > 60 s), `web.enabled` unknown; a token set, `status`
     without it refused `missing_auth_token`, `config.get` with it length 13; a USB reset forgets
     the token and the changes, MWDT0 back to 4 s.
-  - [ ] Replace the computer/chip reply comparison for compiled programs.
+  - [x] The computer/chip reply comparison for compiled programs (25 Oct): `crates/trust-runtime/
+    tests/runner_transcript_parity.rs` and `runner_transcript_support/mod.rs`, restored from
+    before N11 and run on the board probe compiled for this computer (`native::build`) on both
+    sides: trust-runtime's threaded composition (`CompiledRuntime` on a `ResourceRunner` scan
+    thread, `ControlState`) and the chip's runner (`CompiledCycle` over the same image's module).
+    Every reply of the transcript equal after the normalised timing values: status, health,
+    tasks.stats, events.tail, faults, the Live Values requests, pause, resume, warm and cold
+    restarts, shutdown; the stopped device starts again (builder, 2 passed, `--features full`).
 - [x] T8 Outputs on a fault: `[[io.safe_state]]`, `[runtime.fault]` and `[runtime.watchdog]`
   (TARGET-08).
   Gap analysis 25 Oct: safe state on stop and fault done on the C6 (bench); `halt`/`safe_halt`/
