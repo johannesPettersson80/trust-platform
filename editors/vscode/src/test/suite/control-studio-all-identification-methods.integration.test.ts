@@ -141,7 +141,8 @@ suite("Control Studio all identification methods", () => {
         await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'reopened';");
         const label = await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');");
         // Gaps G2 and G3 (closed by the opened identification): the reopened chart draws the applied input beside the response.
-        await reportedGap(gaps, "G2/G3 reopened applied input", () => assert.match(label, /Applied input/));
+        // Named by its role on its axis, as in its legend (Specification 35 B9.9).
+        await reportedGap(gaps, "G2/G3 reopened applied input", () => assert.match(label, /Model prediction, Output\. .*Output \(/));
         await resetStudy();
         assert.deepStrictEqual(gaps, [], REPORTED_GAPS);
       }, { loop: value => { loop = value; loop.experiment.durationSeconds = 30; loop.experiment.relayDirection = "positive"; if (method === "relay") { loop.experiment.kind = "relay"; loop.experiment.amplitude = clippedRelay ? 10 : 1; } } });

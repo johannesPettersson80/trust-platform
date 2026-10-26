@@ -106,6 +106,7 @@ pub(crate) fn completion_kind_label(kind: trust_ide::CompletionKind) -> &'static
         trust_ide::CompletionKind::Constant => "constant",
         trust_ide::CompletionKind::Type => "type",
         trust_ide::CompletionKind::EnumValue => "enum_value",
+        trust_ide::CompletionKind::Namespace => "namespace",
         trust_ide::CompletionKind::Snippet => "snippet",
     }
 }

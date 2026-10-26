@@ -27,7 +27,8 @@ export function healthStatusLabel(health: string): string {
     case "pending":
       return "Pending";
     case "simulate":
-      return "Simulator";
+      // Only a runtime that answers reports it: it runs, and its Mode row names the simulation.
+      return "Running";
     case "unknown":
       return "Unknown";
     default:

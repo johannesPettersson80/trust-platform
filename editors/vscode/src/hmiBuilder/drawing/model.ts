@@ -330,6 +330,9 @@ export interface AlarmFrame {
   stale?: boolean;
   /** Each list's view, by object id. */
   views?: Record<string, ListView>;
+  /** Where the alarms show, when the drawing has no alarm source (§11, item 6): an alarm list
+   * says this instead of drawing tabs, counts, filters or rows. */
+  unavailable?: string;
 }
 
 /** A command's outcome as a control shows it (§12.5). */

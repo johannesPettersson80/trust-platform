@@ -51,12 +51,15 @@ export type NetworkCanvasFailureKind =
   | "port_conflict"
   | "workspace_permission"
   | "failed_spawn"
-  | "stale_runtime";
+  | "stale_runtime"
+  | "debug_disabled";
 
 export interface NetworkCanvasFailure {
   readonly kind: NetworkCanvasFailureKind;
   readonly message: string;
   readonly detail?: string;
+  // The control endpoint of the runtime a Connect failure belongs to; its node shows the failure.
+  readonly endpoint?: string;
 }
 
 export interface NetworkRuntimeEvidence {

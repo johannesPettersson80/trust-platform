@@ -506,6 +506,32 @@ suite("New project command (VS Code)", function () {
     await deleteTreeIfExists(targetUri);
   });
 
+  test("the name box opens with a selected suggestion and no message", async () => {
+    // Acceptance finding F10: the box said "Project name is required." before anything was typed, because VS Code checks
+    // the initial value as soon as the box opens.
+    const originalInput = vscode.window.showInputBox;
+    const shown: vscode.InputBoxOptions[] = [];
+    vscode.window.showInputBox = async (options?: vscode.InputBoxOptions) => {
+      shown.push(options ?? {});
+      return undefined;
+    };
+    try {
+      const created = await vscode.commands.executeCommand<boolean>(NEW_PROJECT_COMMAND, {
+        baseUri: fixturesRoot,
+        openWorkspace: false,
+      });
+      assert.strictEqual(created, false, "a cancelled name box creates nothing");
+    } finally {
+      vscode.window.showInputBox = originalInput;
+    }
+    assert.strictEqual(shown.length, 1, "the command asks for the name once");
+    const [box] = shown;
+    assert.strictEqual(box.value, "my-st-project");
+    assert.deepStrictEqual(box.valueSelection, [0, "my-st-project".length], "the first key replaces the suggestion");
+    assert.strictEqual(await box.validateInput?.(box.value ?? ""), undefined, "the box opens without a message");
+    assert.strictEqual(await box.validateInput?.(""), "Project name is required.", "an emptied box still says why");
+  });
+
   test("cancel at each prompt stage leaves filesystem unchanged", async () => {
     const cancelAtFolderTarget = vscode.Uri.joinPath(
       fixturesRoot,

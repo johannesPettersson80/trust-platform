@@ -12,6 +12,7 @@ type NewLadderArgs = {
 };
 
 export const NEW_LADDER_COMMAND = "trust-lsp.ladder.new";
+const LADDER_EDITOR_VIEW_TYPE = "trust-lsp.ladder.editor";
 
 const LADDER_TEMPLATE = `{
   "schemaVersion": 2,
@@ -41,12 +42,16 @@ const LADDER_TEMPLATE = `{
           }
         }
       ],
-      "connections": [
+      "edges": [
         {
-          "from": "contact_1",
-          "to": "coil_1"
+          "id": "edge_1",
+          "fromNodeId": "contact_1",
+          "toNodeId": "coil_1"
         }
-      ]
+      ],
+      "layout": {
+        "y": 100
+      }
     }
   ],
   "variables": [
@@ -202,21 +207,27 @@ export async function newLadderCommand(
 
     outputChannel.appendLine(`Created Ladder file: ${fileUri.fsPath}`);
 
-    // Sync companion ST file if enabled
+    // Open the program in its visual editor
+    await vscode.commands.executeCommand(
+      "vscode.openWith",
+      fileUri,
+      LADDER_EDITOR_VIEW_TYPE,
+      { preview: false }
+    );
+
+    // Sync companion ST file if enabled and open it beside the visual editor
     if (openCompanionOnCreateEnabled(fileUri)) {
       try {
-        await syncVisualCompanionFromUri(fileUri);
-        await openCompanionForVisualSource(fileUri);
+        const companionUri = await syncVisualCompanionFromUri(fileUri);
+        if (companionUri) {
+          await openCompanionForVisualSource(fileUri, { beside: true });
+        }
       } catch (error) {
         outputChannel.appendLine(
           `Warning: Failed to create companion ST file: ${error}`
         );
       }
     }
-
-    // Open the file
-    const document = await vscode.workspace.openTextDocument(fileUri);
-    await vscode.window.showTextDocument(document);
 
     vscode.window.showInformationMessage(
       `Ladder Logic program "${ladderName}" created successfully.`

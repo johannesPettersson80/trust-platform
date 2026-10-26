@@ -170,6 +170,9 @@ if (root) {
       case "validate": select("verify", true); root.querySelector<HTMLButtonElement>("[data-engineer-verify]")?.focus(); return;
       // Restore previous settings asks the engine for the Restore review, which the Apply area on the Validate page shows and confirms (B6.4).
       case "restore": select("verify", true); application.restore(); return;
+      // Resume asks the engine for the reattach of the interrupted operation it names (A8.6, B3.9): the engine follows, completes or ends
+      // that operation, and starts no new one.
+      case "resume": select("model", true); post("control-studio.identify.resume"); return;
       default: return;
     }
   };

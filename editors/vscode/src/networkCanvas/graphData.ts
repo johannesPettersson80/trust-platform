@@ -8,6 +8,7 @@ import type {
 } from "./fleetTopology";
 import type {
   NetworkCanvasDevice,
+  NetworkCanvasFailure,
   NetworkCanvasModel,
   NetworkDeviceStatus,
 } from "./model";
@@ -394,7 +395,37 @@ export function buildCanvasGraph(
   injectManagedRuntimes(graph, managed);
   annotateAttached(graph, attachedEndpoint);
   annotateRunTarget(graph, selectedRunTargetId);
+  showConnectFailure(graph, model.failure);
   return graph;
+}
+
+// A failed Connect stays on the runtime it was for (spec 25 §5.1): that runtime's node shows the failure,
+// so its inspector offers the matching recovery (the token action after a missing or rejected token), and
+// the issue focuses that node. A runtime with debugging disabled answered Connect, so it keeps its own
+// health; only the issue points at it.
+function showConnectFailure(graph: NCGraph, failure: NetworkCanvasFailure | undefined): void {
+  const endpoint = failure?.endpoint;
+  if (!failure || !endpoint) {
+    return;
+  }
+  const runtime = graph.hosts
+    .flatMap((host) => [
+      ...host.runtimes,
+      ...host.containers.flatMap((container) => container.runtimes),
+    ])
+    .find((candidate) => candidate.controlEndpoint === endpoint);
+  if (!runtime) {
+    return;
+  }
+  if (failure.kind !== "debug_disabled") {
+    runtime.health = "error";
+    runtime.detail = failure.message;
+  }
+  for (const fault of graph.faults) {
+    if (fault.id === `runtime:${failure.kind}`) {
+      fault.targetNodeId = runtime.id;
+    }
+  }
 }
 
 // Surface managed local runtimes (fleet.toml projects we own) so Start/Stop/Logs live ON the Devices &

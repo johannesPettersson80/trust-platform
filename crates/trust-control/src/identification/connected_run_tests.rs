@@ -853,7 +853,7 @@ fn identify_is_refused_while_the_loops_journal_holds_an_operation() {
     );
     assert_eq!(
         (refusal.cause, refusal.next_action),
-        (Cause::Unclassified, NextAction::Wait)
+        (Cause::Unclassified, NextAction::Resume)
     );
 }
 

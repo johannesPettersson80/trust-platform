@@ -381,6 +381,16 @@ pub fn mode_program_changed(changed_on: &str, now: &str) -> String {
     )
 }
 
+/// The end of an interrupted identification whose simulator restarted or reloaded its program since it was journaled (A2.2, A8.6,
+/// E11.5; B3.9): the new program revision ended every operation bound to the one it ran on, so its recording was not kept and the
+/// loop's mode was not returned. It names both revisions (A11.1).
+#[must_use]
+pub fn ended_with_restarted_simulator(journaled: &str, now: &str) -> String {
+    format!(
+        "The interrupted identification ended when the simulator restarted or reloaded its program. It ran on program revision {journaled}, and the simulator now runs {now}. Its recording was not kept and the loop's mode was not returned. Check the loop's mode, then identify the plant again."
+    )
+}
+
 /// The refusal of a Cancel of a journaled Apply (§0.1b `cancel`, B6.4): Cancel ends identification operations, and an Apply is
 /// ended by Restore previous settings, which returns the settings and the mode the loop had before it.
 #[must_use]

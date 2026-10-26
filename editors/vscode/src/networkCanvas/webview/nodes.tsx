@@ -65,6 +65,7 @@ const ICONS = {
 export function healthColor(health: string): string {
   switch (health) {
     case "connected":
+    case "simulate": // a runtime that answers while it simulates is live (it reports its mode apart)
       return t.ok;
     case "degraded":
       return t.warn;
@@ -72,7 +73,7 @@ export function healthColor(health: string): string {
     case "runtime_unreachable":
       return t.danger;
     default:
-      return t.idle; // not_configured / configured_policy / pending / simulate / unknown
+      return t.idle; // not_configured / configured_policy / pending / unknown
   }
 }
 
@@ -498,21 +499,23 @@ export const EndpointNode = memo(({ data }: NodeProps) => {
       </NodeToolbar>
       {isComm && <Handle type="source" position={Position.Bottom} style={PORT_STYLE} />}
       <div style={{ position: "relative", flex: hasSlaves ? "0 0 30px" : 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, padding: "3px 7px" }}>
+        {/* Up to two lines, so a name such as "Simulated I/O" is not cut to "Simulated …"; the hover text keeps a longer one. */}
         <strong
-          title={d.kind === "plant" ? d.name : undefined}
+          title={d.kind === "plant" ? d.name : protocolName(d.protocol)}
           style={{
             boxSizing: "border-box",
-            display: "block",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
             width: "100%",
             minWidth: 0,
             padding: "0 8px",
             textAlign: "center",
             fontSize: 11,
             fontWeight: 700,
+            lineHeight: 1.2,
             color: t.text,
-            whiteSpace: "nowrap",
             overflow: "hidden",
-            textOverflow: "ellipsis",
           }}
         >
           {d.kind === "plant" ? d.name : protocolName(d.protocol)}

@@ -498,6 +498,7 @@ export interface Failure {
     | "validate"
     | "approve"
     | "restore"
+    | "resume"
     | "wait"
     | "none";
   /**

@@ -258,6 +258,20 @@ suite("HMI drawing: alarm list", () => {
     });
     assert.strictEqual(cells(rows(withoutUnit)[0]).value, "91.5 > 90.0 m");
   });
+  test("a reading that its decimals round onto its limit gets the decimals that tell them apart", () => {
+    // Specification 39 §5.9 item 2: the tag shows one decimal, and 2.53 against 2.5 must not read "2.5 > 2.5".
+    const high = { ...LEVEL, raised: { value: 2.53, limit: 2.5, high: true, source: "Main.LT.Value" } };
+    const node = draw({ summary: summary({ active: [high] }) }, WIDE, { "main.lt.value": { unit: "m", decimals: 1 } });
+    assert.strictEqual(cells(rows(node)[0]).value, "2.53 > 2.50 m");
+  });
+
+  test("the sign compares the two numbers shown, not the alarm's direction", () => {
+    // An alarm already active when the display first read it keeps that reading, which may be back inside the deadband:
+    // a high alarm read at 2.4 against 2.5 must not say "2.4 > 2.5".
+    const high = { ...LEVEL, raised: { value: 2.4, limit: 2.5, high: true } };
+    assert.strictEqual(cells(rows(draw({ summary: summary({ active: [high] }) }, WIDE))[0]).value, "2.4 < 2.5");
+  });
+
   test("the value column makes room for its engineering unit instead of truncating the reading", () => {
     const row = {
       ...LEVEL,
@@ -357,6 +371,19 @@ suite("HMI drawing: alarm list", () => {
     );
     const away = draw({ summary: summary({ active: [OVERFLOW] }), views: { alarms: { tab: "out_of_service" } } });
     assert.ok(textsOf(away).includes("No alarms out of service"), textsOf(away).join("|"));
+  });
+
+  test("without an alarm source a narrow list says where alarms show in lines that keep the whole sentence", () => {
+    // §11 item 6. The sentence is about 521 px wide at 15 px, more than the 328 px a 360 px list
+    // leaves inside its padding. Caught: the sentence cut with "…", or tabs with counts beside it.
+    const sentence = "Alarms show in the runtime display of a runtime with its HMI web server.";
+    const narrow = draw({ unavailable: sentence }, [360, 376]);
+    const [said] = parts(narrow, "alarm-unavailable");
+    assert.ok(said, textsOf(narrow).join("|"));
+    const lines = textsOf(said);
+    assert.ok(lines.length > 1, lines.join("|"));
+    assert.strictEqual(lines.join(" "), sentence);
+    assert.deepStrictEqual(parts(narrow, "alarm-tab"), []);
   });
 });
 

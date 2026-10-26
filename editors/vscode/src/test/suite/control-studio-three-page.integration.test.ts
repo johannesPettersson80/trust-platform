@@ -615,7 +615,8 @@ suite("Control Studio three-page workflow", () => {
       // Gap G2: engineIdentify.ts showPlot forwards only the measured and predicted traces, so the applied input is not drawn yet. Both
       // checks of it are reported gaps, so that the journey goes on to the reset on this live page.
       await reportedGap(gaps, "G2 applied input on the Identify plot", async () => assert.strictEqual(await inner("return d.querySelector('[data-control-studio-chart]').dataset.seriesCount;"), "3", "Plot applied input, measured output and model prediction together"));
-      await reportedGap(gaps, "G2 applied input in the plot description", async () => assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Applied input.*%/));
+      // Specification 35 B9.9: the applied input is named by its role on its axis too, "Output (%)", not "Applied input".
+      await reportedGap(gaps, "G2 applied input in the plot description", async () => assert.match(await inner("return d.querySelector('[data-control-studio-chart]').getAttribute('aria-label');"), /Model prediction, Output\. .*Output \(%\)/));
 
       await inner("d.querySelector('[data-engineer-stage-tab=model]').click();return 'inspect identified model';");
       assert.strictEqual(await inner("return String(d.querySelector('[data-studio-model-result]').checkVisibility());"), "true");

@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 
+use mdns_sd::RecvTimeoutError;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -8,12 +9,14 @@ use super::super::{ControlResponse, ControlState};
 use super::discovery_probe::{
     probe_modbus_tcp, probe_mqtt, ModbusDiscoveryProbe, ModbusSafeReadProbe,
 };
+use crate::discovery::DiscoveryEntry;
 
 #[cfg(feature = "ads-wire")]
 mod ads_discovery_target;
 
 const DISCOVER_SCHEMA_VERSION: u32 = 1;
 const DEFAULT_TIMEOUT_MS: u64 = 150;
+const DEFAULT_MDNS_BROWSE_WINDOW_MS: u64 = 2_000;
 const MAX_TIMEOUT_MS: u64 = 2_000;
 const MODBUS_PORT: u16 = 502;
 const MQTT_PORT: u16 = 1883;
@@ -543,10 +546,10 @@ fn discover_trust_runtimes(
     let entries = if request.origin == DiscoverOrigin::Runtime {
         match state {
             Some(state) => state.discovery.snapshot(),
-            None => browse_trust_mdns(timeout(&request.scope), warnings)?,
+            None => browse_trust_mdns(mdns_browse_window(&request.scope), warnings)?,
         }
     } else {
-        browse_trust_mdns(timeout(&request.scope), warnings)?
+        browse_trust_mdns(mdns_browse_window(&request.scope), warnings)?
     };
     Ok(entries
         .into_iter()
@@ -584,34 +587,29 @@ fn discover_trust_runtimes(
 }
 
 fn browse_trust_mdns(
-    timeout: Duration,
+    window: Duration,
     warnings: &mut Vec<String>,
-) -> Result<Vec<crate::discovery::DiscoveryEntry>, String> {
+) -> Result<Vec<DiscoveryEntry>, String> {
     use mdns_sd::{ServiceDaemon, ServiceEvent};
 
     let daemon =
         ServiceDaemon::new().map_err(|error| format!("mDNS daemon start failed: {error}"))?;
-    let receiver = daemon
-        .browse(TRUST_MDNS_SERVICE_TYPE)
-        .map_err(|error| format!("mDNS browse failed: {error}"))?;
-    let started = std::time::Instant::now();
-    let mut entries = Vec::new();
-    while started.elapsed() < timeout {
-        let remaining = timeout.saturating_sub(started.elapsed());
-        match receiver.recv_timeout(remaining.min(Duration::from_millis(100))) {
-            Ok(ServiceEvent::ServiceResolved(info)) => {
-                let entry = mdns_info_to_entry(info.as_ref());
-                if !entries
-                    .iter()
-                    .any(|existing: &crate::discovery::DiscoveryEntry| existing.id == entry.id)
-                {
-                    entries.push(entry);
-                }
-            }
-            Ok(_) => {}
-            Err(_) => break,
-        }
-    }
+    let browsed = daemon.browse(TRUST_MDNS_SERVICE_TYPE).map(|receiver| {
+        let started = std::time::Instant::now();
+        collect_resolved_runtimes(
+            window,
+            || started.elapsed(),
+            |wait| {
+                receiver.recv_timeout(wait).map(|event| match event {
+                    ServiceEvent::ServiceResolved(info) => Some(mdns_info_to_entry(info.as_ref())),
+                    _ => None,
+                })
+            },
+        )
+    });
+    // The daemon thread keeps its own command sender, so it runs until it is shut down.
+    let _ = daemon.shutdown();
+    let entries = browsed.map_err(|error| format!("mDNS browse failed: {error}"))?;
     if entries.is_empty() {
         warnings
             .push("No truST runtimes answered mDNS discovery in the timeout window.".to_string());
@@ -619,7 +617,31 @@ fn browse_trust_mdns(
     Ok(entries)
 }
 
-fn mdns_info_to_entry(info: &mdns_sd::ResolvedService) -> crate::discovery::DiscoveryEntry {
+// Collects each runtime resolved before the window ends. A receive that times out is only a quiet
+// interval: a responder may delay its answer (RFC 6762 §6) and the querier repeats its first query
+// after one second (§5.2). Only a closed channel ends the browse early.
+fn collect_resolved_runtimes(
+    window: Duration,
+    elapsed: impl Fn() -> Duration,
+    mut receive: impl FnMut(Duration) -> Result<Option<DiscoveryEntry>, RecvTimeoutError>,
+) -> Vec<DiscoveryEntry> {
+    let mut entries: Vec<DiscoveryEntry> = Vec::new();
+    while elapsed() < window {
+        let remaining = window.saturating_sub(elapsed());
+        match receive(remaining.min(Duration::from_millis(100))) {
+            Ok(Some(entry)) => {
+                if !entries.iter().any(|existing| existing.id == entry.id) {
+                    entries.push(entry);
+                }
+            }
+            Ok(None) | Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    entries
+}
+
+fn mdns_info_to_entry(info: &mdns_sd::ResolvedService) -> DiscoveryEntry {
     let id = info
         .get_property_val_str("id")
         .map(str::to_string)
@@ -628,7 +650,7 @@ fn mdns_info_to_entry(info: &mdns_sd::ResolvedService) -> crate::discovery::Disc
         .get_property_val_str("name")
         .map(str::to_string)
         .unwrap_or_else(|| info.get_fullname().to_string());
-    crate::discovery::DiscoveryEntry {
+    DiscoveryEntry {
         id: smol_str::SmolStr::new(id),
         name: smol_str::SmolStr::new(name),
         addresses: info
@@ -673,6 +695,13 @@ fn timeout(scope: &DiscoverScope) -> Duration {
             .unwrap_or(DEFAULT_TIMEOUT_MS)
             .clamp(1, MAX_TIMEOUT_MS),
     )
+}
+
+fn mdns_browse_window(scope: &DiscoverScope) -> Duration {
+    match scope.timeout_ms {
+        Some(_) => timeout(scope),
+        None => Duration::from_millis(DEFAULT_MDNS_BROWSE_WINDOW_MS),
+    }
 }
 
 fn canonical_protocol(protocol: &str) -> String {

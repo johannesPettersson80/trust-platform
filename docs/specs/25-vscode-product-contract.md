@@ -270,6 +270,10 @@ package, or end-to-end evidence.
 - BOOL rows use a compact TRUE/FALSE chooser for Write and Force. A forced BOOL
   row shows Release, hides the editable value, and explains that release is
   required before Write. Row controls remain aligned.
+- A numeric row's write box starts empty and shows the current value as its
+  placeholder: the operator types the value to write or force, as the prepared
+  value of a CODESYS or TwinCAT watch list. Write or Force with an empty box
+  sends nothing and asks for a value.
 - The header identifies the selected target, current scan, and DEC/HEX/BIN
   format. The table identifies `Name`, `Value`, `Type`, `State`, and `Actions`.
 - Standard target labels are `Simulator`, `Connected runtime`,
@@ -346,6 +350,37 @@ package, or end-to-end evidence.
   ID repairs missing fallback copies.
 - Successful Connect also selects the runtime. `Set as run target` selects
   without connecting.
+- Connect changes nothing until it succeeds. It probes the runtime's control
+  endpoint and requests `status` with the token stored for that endpoint; it
+  succeeds when the runtime answers and then either opens an attach session or
+  reports debugging disabled. Only a successful Connect points the runtime
+  settings at the runtime and selects it. A failed Connect (runtime not
+  reachable, missing or rejected token, failed status request, failed attach)
+  leaves the previous target, runtime settings and status bar as they were.
+- After a successful Connect the sidebar Target, its Target picker and the
+  status bar name that runtime, also when it is not a configured additional
+  endpoint. Its node in the graph offers Disconnect and `Set as run target`
+  for that endpoint: a runtime does not know the address it was reached at, so
+  the graph gives its live node the endpoint that answered. `Set as run target`
+  on a remote node without a control endpoint selects nothing and says why; it
+  never selects the Simulator.
+- A failed Connect keeps the runtime's node in the graph and shows the failure
+  on that node. After a missing or rejected token the node's primary control
+  stores a token for that endpoint, and Connect stays available on the node as
+  the retry.
+- A runtime that answers Connect but reports debugging disabled becomes the
+  selected target without an attach session. Live Values then says that
+  debugging is disabled on that runtime and names `debug_enabled` under
+  `[runtime.control]` in its `runtime.toml`; the graph's issue gives the same
+  reason and does not direct the user to Devices & Connections.
+- Selecting a run target, in the sidebar Target or with `Set as run target`,
+  makes it the target that Start, the status bar, Live Values and HMI Live act
+  on. A session with another target ends first, as Disconnect or Stop ends it,
+  and a failure reported for another target is cleared. The runtime settings
+  then name the selected runtime's control endpoint in online mode, or leave
+  online mode for a target without one (the Simulator, a stopped managed
+  runtime). Selecting opens no session. When the previous session does not end,
+  the selection stays as it was and a warning says why.
 - Managed Start/Stop uses fleet lifecycle. Successful managed Start attaches
   through the shared helper with the reached endpoint and friendly label,
   selects the target, and makes Live Values usable. A static fake local-runtime
@@ -879,6 +914,16 @@ The HMI Builder editor and its pages are specified in
 - Retained editor-specific execution engines are non-primary component models.
   They MUST NOT weaken generated Structured Text semantics, including
   divide-by-zero faults.
+- Creating a Ladder, Blockly, Statechart, or SFC program opens the new file in
+  its visual editor, in the active editor group and with focus. With
+  `trust.visual.openStructuredTextCompanionOnCreate` on, the generated
+  Structured Text companion opens beside it without taking focus; with it off,
+  no companion opens.
+- While `trust.visual.openVisualEditorsAutomatically` is on, a `.ladder.json`,
+  `.statechart.json`, `.sfc.json`, or `.blockly.json` file opened as text also
+  opens in its visual editor. A file already shown in its visual editor in the
+  current window session stays in the text editor, so `Open as text`
+  (section 8.3) keeps working.
 
 #### 11.4.1 Retained component-model locks
 

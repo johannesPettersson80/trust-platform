@@ -16,6 +16,7 @@ import {
   fetchFleetTopology,
   mergeFleetTopologies,
   type FleetTopologyResponse,
+  type FleetTopologyRuntime,
 } from "./fleetTopology";
 import { offlineCommSchema, offlineCommTopology } from "./offlineComm";
 
@@ -41,10 +42,12 @@ export async function loadNetworkCanvasRefreshData(options: {
   readonly context?: vscode.ExtensionContext;
   readonly projectDir?: string;
   readonly runtime: RuntimeTarget;
+  /** The endpoint the target settings reached the runtime at; none for the extension's own simulator. */
+  readonly reachedEndpoint?: string;
   readonly loadPeerTopology: () => Promise<FleetTopologyConnectorMergeResult>;
 }): Promise<NetworkCanvasRefreshData> {
   const offlinePromise = loadOfflineData(options.context, options.projectDir);
-  const livePromise = loadLiveData(options.runtime);
+  const livePromise = loadLiveData(options.runtime, options.reachedEndpoint);
   const managedPromise = options.context
     ? listManagedRuntimes(options.context)
     : Promise.resolve([]);
@@ -101,7 +104,7 @@ async function loadOfflineData(
   return { schema, topology };
 }
 
-async function loadLiveData(runtime: RuntimeTarget): Promise<LiveRefreshData> {
+async function loadLiveData(runtime: RuntimeTarget, reachedEndpoint: string | undefined): Promise<LiveRefreshData> {
   if (runtime.status !== "online_reachable" || !runtime.endpoint) {
     return {};
   }
@@ -118,7 +121,7 @@ async function loadLiveData(runtime: RuntimeTarget): Promise<LiveRefreshData> {
       fetchFleetTopology(runtime),
       fetchConnectorStatus(runtime).catch(() => undefined),
     ]).then(([fleet, connectors]) =>
-      mergeConnectorStatusIntoTopology(fleet, connectors)
+      withReachedEndpoint(mergeConnectorStatusIntoTopology(fleet, connectors), reachedEndpoint)
     ),
   ]);
 
@@ -133,6 +136,28 @@ async function loadLiveData(runtime: RuntimeTarget): Promise<LiveRefreshData> {
       topology.status === "rejected"
         ? `Fleet topology unavailable: ${errorMessage(topology.reason)}`
         : undefined,
+  };
+}
+
+// A runtime does not know the address it was reached at, so its own topology names no control endpoint. The runtime that
+// answered at `endpoint` is that one: its node then offers Connect, Disconnect and Set as run target for that endpoint
+// (specification 25, section 5.1).
+export function withReachedEndpoint(
+  topology: FleetTopologyResponse | undefined,
+  endpoint: string | undefined,
+): FleetTopologyResponse | undefined {
+  if (!topology || !endpoint) {
+    return topology;
+  }
+  const stamp = (runtime: FleetTopologyRuntime): FleetTopologyRuntime =>
+    runtime.source === "self" && !runtime.control_endpoint ? { ...runtime, control_endpoint: endpoint } : runtime;
+  return {
+    ...topology,
+    hosts: topology.hosts.map((host) => ({
+      ...host,
+      runtimes: host.runtimes.map(stamp),
+      containers: host.containers.map((container) => ({ ...container, runtimes: container.runtimes.map(stamp) })),
+    })),
   };
 }
 

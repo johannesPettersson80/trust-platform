@@ -19,8 +19,8 @@ import {
 import {
   getSelectedRuntimeId,
   onDidChangeSelectedRuntime,
-  setSelectedRuntimeId,
 } from "./selectedRuntime";
+import { selectRunTarget } from "./runTargetSelection";
 import { CHECK_PROGRAM_COMMAND, onDidCheckProgram } from "./checkProgram";
 import { onDidDebugReload } from "./debug";
 import {
@@ -163,12 +163,13 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private storedSelectedId(
     remotes: RemoteRuntime[],
-    managed: ManagedRuntime[]
+    managed: ManagedRuntime[],
+    snapshot: RuntimeModelSnapshot
   ): string {
     // Read the ONE shared store (§0.5.11) — written by this dropdown AND by graph nodes (Connect / Set
     // as run target). Fall back to the simulator if the stored target is no longer in the inventory.
     const stored = getSelectedRuntimeId();
-    const valid = runtimeOptions(remotes, managed).some(
+    const valid = runtimeOptions(remotes, managed, snapshot).some(
       (option) => option.id === stored
     );
     return valid ? stored : SIMULATOR_RUNTIME_ID;
@@ -179,11 +180,12 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     remotes: RemoteRuntime[],
     managed: ManagedRuntime[]
   ): SelectedRuntime {
+    const modelSnapshot = toModelSnapshot(snapshot);
     return selectedRuntime({
-      snapshot: toModelSnapshot(snapshot),
+      snapshot: modelSnapshot,
       remotes,
       managed,
-      selectedId: this.storedSelectedId(remotes, managed),
+      selectedId: this.storedSelectedId(remotes, managed, modelSnapshot),
     });
   }
 
@@ -196,7 +198,7 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const snapshot = await runtimeLifecycleService.snapshot();
     const remotes = this.readRemotes();
     const managed = await listManagedRuntimes(this.context);
-    const options = runtimeOptions(remotes, managed);
+    const options = runtimeOptions(remotes, managed, toModelSnapshot(snapshot));
     const selectedRaw = this.resolveSelected(snapshot, remotes, managed);
     const diagnostics = validityLine();
     const primaryGate = primaryActionGateReason(
@@ -217,8 +219,10 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
     const updateGate = canApply
       ? compileGateReason(this.compileState, diagnostics, "update")
       : undefined;
+    // A connected runtime that keeps debugging disabled is not a failed simulator Start.
     const lifecycleFailureMessage =
       snapshot.failure &&
+      snapshot.failure.kind !== "debug_disabled" &&
       selected.kind === "simulator" &&
       selected.status === "stopped"
         ? actionFailureMessage(selected, { ok: false, failure: snapshot.failure })
@@ -352,7 +356,11 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
 
   private async onSelect(id: string): Promise<void> {
     if (id) {
-      await setSelectedRuntimeId(id);
+      // A remote's id is its endpoint; a managed runtime has one while it runs; the Simulator has none.
+      const managed = (await listManagedRuntimes(this.context)).find((local) => local.name === id);
+      const endpoint =
+        id === SIMULATOR_RUNTIME_ID ? undefined : managed ? (managed.state === "running" ? managed.controlEndpoint : undefined) : id;
+      await selectRunTarget(id, endpoint);
     }
     this.applyMessage = "";
     this.applyMessageKind = "";
@@ -360,15 +368,17 @@ class TrustHomeProvider implements vscode.WebviewViewProvider {
   }
 
   private async chooseTarget(): Promise<void> {
+    const snapshot = await runtimeLifecycleService.snapshot();
     const remotes = this.readRemotes();
     const managed = await listManagedRuntimes(this.context);
-    const options = runtimeOptions(remotes, managed);
+    const options = runtimeOptions(remotes, managed, toModelSnapshot(snapshot));
     const currentId = getSelectedRuntimeId() || SIMULATOR_RUNTIME_ID;
     const items: Array<vscode.QuickPickItem & { id?: string }> = [];
     for (const group of [
       { label: "Simulator", kind: "simulator" },
       { label: "Managed on this computer", kind: "local" },
-      { label: "Runtime on another computer", kind: "remote" },
+      // A runtime we connect to may run on this computer too (started outside VS Code).
+      { label: "Runtime you connect to", kind: "remote" },
     ] as const) {
       const groupOptions = options.filter((option) => option.kind === group.kind);
       if (!groupOptions.length) {

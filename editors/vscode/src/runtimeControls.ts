@@ -144,7 +144,8 @@ export function registerRuntimeControls(context: vscode.ExtensionContext): void 
   void refresh();
 }
 
-async function statusText(
+/** What the status bar shows for a lifecycle snapshot and the shared target selection. */
+export async function statusText(
   context: vscode.ExtensionContext,
   snapshot: RuntimeLifecycleSnapshot
 ): Promise<StatusBarView> {
@@ -178,18 +179,22 @@ async function statusText(
   return selectedStatusView(selected, speed);
 }
 
-/** The selected target's status, with the simulator's speed while it runs (specification 35, B9.2: "Simulator ×10"). The words
- * and the behind flag are the runtime's. */
-export function selectedStatusView(selected: SelectedRuntime, speed?: Pick<SimulatorStatusRead, "speedText" | "speedBehind">): StatusBarView {
+/** The selected target's status, with the simulator's speed while it runs (specification 35, B9.2: "Simulator ×10"). The words,
+ * the behind flag and the paused state are the runtime's: a scan held at a breakpoint is "paused", not behind. */
+export function selectedStatusView(
+  selected: SelectedRuntime,
+  speed?: Pick<SimulatorStatusRead, "speedText" | "speedBehind" | "paused">
+): StatusBarView {
   const running = isRunningSimulator(selected);
   if (!running || speed === undefined) {
     return { text: selectedStatusText(selected), simulatorRunning: running, speedBehind: false };
   }
   const text = speed.speedText;
+  const [icon, state] = speed.paused ? ["$(debug-pause)", "paused"] : ["$(circle-filled)", "running"];
   return {
-    text: `$(circle-filled) truST: ${statusTargetLabel(selected)}${text ? ` ${text}` : ""} running`,
+    text: `${icon} truST: ${statusTargetLabel(selected)}${text ? ` ${text}` : ""} ${state}`,
     simulatorRunning: true,
-    speedBehind: speed.speedBehind,
+    speedBehind: !speed.paused && speed.speedBehind,
   };
 }
 

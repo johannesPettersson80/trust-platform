@@ -435,7 +435,12 @@ function liveValuesUnavailableMessage(
   status: RuntimeStatusPayload | undefined
 ): string {
   if (status?.runtimeMode === "online" && status.runtimeState !== "connected") {
-    return "Connect to the selected runtime to see live values.";
+    // A runtime that answered Connect but keeps debugging disabled has no session to read: say why
+    // instead of asking for another Connect (spec 25 §5.1).
+    return (
+      runtimeLifecycleService.debugDisabledFailure(status.endpoint)?.message ??
+      "Connect to the selected runtime to see live values."
+    );
   }
   return "Start the runtime to see live values.";
 }
@@ -693,6 +698,14 @@ async function sendRuntimeStatus(): Promise<void> {
     type: "runtimeStatus",
     payload,
   });
+  // Connect can learn that the runtime keeps debugging disabled while this panel is open: say so now.
+  const debugDisabled =
+    payload.runtimeMode === "online" && payload.runtimeState !== "connected"
+      ? runtimeLifecycleService.debugDisabledFailure(payload.endpoint)
+      : undefined;
+  if (debugDisabled) {
+    panel?.webview.postMessage({ type: "status", payload: debugDisabled.message });
+  }
 }
 
 async function requestIoState(): Promise<void> {

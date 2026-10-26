@@ -92,7 +92,9 @@ pub enum IdentifyAction {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         outputs: Option<Vec<String>>,
     },
-    /// Follows the journaled identification campaign to its end (A8.5, A8.6). The answer is the operation's identifier.
+    /// Reattaches the loop's journaled operations (A8.5, A8.6): follows a campaign's dispatched step to its end, completes a journal
+    /// without one, or ends an identification whose simulator restarted or reloaded its program since. The answer is the operation's
+    /// identifier.
     Resume,
     /// Starts a new working identification study; the previous one moves to history (A8.4). Refused while an operation of the
     /// loop runs or is unconfirmed. The answer is at once, as [`ResetResult`].

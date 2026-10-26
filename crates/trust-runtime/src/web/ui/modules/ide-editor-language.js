@@ -80,7 +80,7 @@ function monacoCompletionKind(kind) {
   if (value.includes("function")) return monaco.languages.CompletionItemKind.Function;
   if (value.includes("method")) return monaco.languages.CompletionItemKind.Method;
   if (value.includes("class")) return monaco.languages.CompletionItemKind.Class;
-  if (value.includes("module")) return monaco.languages.CompletionItemKind.Module;
+  if (value.includes("module") || value.includes("namespace")) return monaco.languages.CompletionItemKind.Module;
   if (value.includes("field")) return monaco.languages.CompletionItemKind.Field;
   if (value.includes("property")) return monaco.languages.CompletionItemKind.Property;
   if (value.includes("variable")) return monaco.languages.CompletionItemKind.Variable;

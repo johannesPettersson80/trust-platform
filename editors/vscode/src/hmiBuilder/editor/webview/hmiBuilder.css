@@ -101,6 +101,15 @@ body {
     color: var(--trust-action-primary-fg);
 }
 
+/* High contrast themes give buttons the page's own background, so the active part is outlined, as VS Code marks its own. */
+body.vscode-high-contrast .hb-mode button[aria-pressed="true"],
+body[data-vscode-theme-kind="vscode-high-contrast"] .hb-mode button[aria-pressed="true"],
+body.vscode-high-contrast-light .hb-mode button[aria-pressed="true"],
+body[data-vscode-theme-kind="vscode-high-contrast-light"] .hb-mode button[aria-pressed="true"] {
+    outline: 1px solid var(--trust-accent);
+    outline-offset: -3px;
+}
+
 .hb-live-status {
     max-width: 420px;
     overflow: hidden;

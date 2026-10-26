@@ -4,6 +4,7 @@ import { renderThreePageStudioHtml } from "../../controlStudio/threePageTemplate
 import { selectedStatusView } from "../../runtimeControls";
 import {
   applyLiveSimulationSpeed,
+  readRuntimeSpeed,
   savedSimulationSpeed,
   SIMULATION_SPEEDS,
   speedChoices,
@@ -207,6 +208,26 @@ suite("Simulation speed", () => {
     const stopped = selectedStatusView(selectTarget(simulatorSnapshot("stopped"), ""), { speedText: "×10", speedBehind: false });
     assert.strictEqual(stopped.text, "$(circle-outline) truST: Simulator stopped");
     assert.strictEqual(stopped.simulatorRunning, false);
+  });
+
+  test("a simulator held at a breakpoint is paused in the status bar, not running", async () => {
+    // Acceptance finding F4: the bar said "Simulator ×10 running" while the call stack said "PAUSED ON BREAKPOINT". The
+    // runtime's status says `state: "paused"` during a debugger hold (status_handlers.rs); the bar shows that state.
+    const report = {
+      state: "paused", simulated: true, simulation_enabled: true, simulation_time_scale: 10,
+      simulation_speed_text: "×10", simulation_speed_behind: true,
+    };
+    const held = await readRuntimeSpeed(SIMULATOR_ENDPOINT, undefined, async () => report);
+    assert.strictEqual(held?.paused, true);
+    const running = selectTarget(simulatorSnapshot("running"), "");
+    const paused = selectedStatusView(running, held);
+    assert.strictEqual(paused.text, "$(debug-pause) truST: Simulator ×10 paused");
+    assert.strictEqual(paused.speedBehind, false, "a held scan is not behind its speed");
+    assert.strictEqual(paused.simulatorRunning, true, "the bar keeps reading, so Continue shows running again");
+    const resumed = await readRuntimeSpeed(SIMULATOR_ENDPOINT, undefined, async () => ({
+      ...report, state: "running", simulation_speed_behind: false,
+    }));
+    assert.strictEqual(selectedStatusView(running, resumed).text, "$(circle-filled) truST: Simulator ×10 running");
   });
 
   test("the Control Studio page shows its target label only when one is given", () => {

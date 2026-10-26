@@ -3,7 +3,8 @@
 // filters, saying how many rows it shows; a row per alarm in the runtime's order, or sorted by a
 // column's heading; columns for the priority, time, tag, message and state, the narrowest list
 // keeping the priority and the message; an Acknowledge button on unacknowledged rows, and pages
-// for rows that do not fit.
+// for rows that do not fit. Without an alarm source it says only where the alarms show (§11,
+// item 6).
 
 import { alarmPriority, blinking, priorityMark, priorityName, rowStateName } from "../alarms";
 import { formatPath } from "../valueFormats";
@@ -52,11 +53,14 @@ const ROW = 50;
 /** The pager's row, when the tab row has no room for it. */
 const FOOTER = 48;
 const BUTTON = { width: 128, height: 40 };
+/** The distance between the lines of the sentence a list without an alarm source says. */
+const LINE = 22;
 /** Average character widths of 15 px semibold and 14 px text. */
 
 export function drawAlarmList(object: HmiObjectModel, frame: DrawFrame): SvgNode {
   const [width, height] = object.size;
   const alarms = frame.alarms;
+  if (alarms?.unavailable !== undefined) return drawUnavailable(width, height, alarms.unavailable);
   const view = alarms?.views?.[object.id] ?? {};
   const tab = view.tab ?? "active";
   const stale = alarms?.stale === true;
@@ -72,19 +76,7 @@ export function drawAlarmList(object: HmiObjectModel, frame: DrawFrame): SvgNode
     ? Math.max(152, ...rows.map((row) => Math.ceil(textWidth(valueText(row, frame.formats), 14, 600)) + 16))
     : 0;
   const columns = placed(width, tab === "active", stateWidth, valueWidth);
-  const children: SvgNode[] = [
-    el("rect", {
-      "data-part": "card",
-      x: 0.5,
-      y: 0.5,
-      width: Math.max(0, width - 1),
-      height: Math.max(0, height - 1),
-      rx: 14,
-      fill: token("surface"),
-      stroke: stale ? token("stale") : token("border"),
-      "stroke-dasharray": stale ? "6 4" : undefined,
-    }),
-  ];
+  const children: SvgNode[] = [card(width, height, stale)];
 
   let x = PAD;
   for (const { tab: name, label } of TABS) {
@@ -157,6 +149,53 @@ export function drawAlarmList(object: HmiObjectModel, frame: DrawFrame): SvgNode
   });
 
   return el("g", { class: "hmi-object hmi-alarm-list", "data-stale": stale ? "true" : undefined }, children);
+}
+
+/** The list's card, its edge dashed while the data is stale (§13.6, item 8). */
+function card(width: number, height: number, stale: boolean): SvgNode {
+  return el("rect", {
+    "data-part": "card",
+    x: 0.5,
+    y: 0.5,
+    width: Math.max(0, width - 1),
+    height: Math.max(0, height - 1),
+    rx: 14,
+    fill: token("surface"),
+    stroke: stale ? token("stale") : token("border"),
+    "stroke-dasharray": stale ? "6 4" : undefined,
+  });
+}
+
+/**
+ * A list without an alarm source (§11, item 6): its card and the sentence saying where the alarms
+ * show, broken between words into lines that fit, with nothing that reads as data.
+ */
+function drawUnavailable(width: number, height: number, sentence: string): SvgNode {
+  const room = Math.max(0, width - 2 * PAD);
+  const lines: string[] = [];
+  for (const word of sentence.split(" ")) {
+    const last = lines.length - 1;
+    if (last >= 0 && textWidth(`${lines[last]} ${word}`, 15, 550) <= room) lines[last] += ` ${word}`;
+    else lines.push(word);
+  }
+  const top = height / 2 - ((lines.length - 1) * LINE) / 2 + 5;
+  return el("g", { class: "hmi-object hmi-alarm-list" }, [
+    card(width, height, false),
+    el(
+      "g",
+      { "data-part": "alarm-unavailable" },
+      lines.map((line, index) =>
+        text(fitWidth(line, room, 15, 550), {
+          x: width / 2,
+          y: top + index * LINE,
+          fill: token("muted"),
+          "font-size": 15,
+          "font-weight": 550,
+          "text-anchor": "middle",
+        }),
+      ),
+    ),
+  ]);
 }
 
 /** A column where it is drawn. */
@@ -319,15 +358,18 @@ function filterRow(filter: AlarmFilter | undefined, shown: number, total: number
   return nodes;
 }
 
-/** A limit alarm's value against its limit, with the same decimals, at most three: "91.5 > 90.0". */
+/** A limit alarm's value against its limit, with the same decimals, at most three: "91.5 > 90.0". Two different numbers
+ *  that those decimals show alike get more decimals, up to six, and the sign compares the two numbers. */
 function valueText(row: AlarmRowModel, formats?: DrawFrame["formats"]): string {
   if (!row.raised) return "";
-  const { value, limit, high, source } = row.raised;
+  const { value, limit, source } = row.raised;
   const format = source ? formats?.[formatPath(source)] : undefined;
   const unit = row.raised.unit ?? format?.unit;
   const decimals = (number: number): number => (String(Number(number.toFixed(3))).split(".")[1] ?? "").length;
-  const places = format?.decimals ?? Math.max(decimals(value), decimals(limit));
-  return `${value.toFixed(places)} ${high ? ">" : "<"} ${limit.toFixed(places)}${unit ? ` ${unit}` : ""}`;
+  let places = format?.decimals ?? Math.max(decimals(value), decimals(limit));
+  while (places < 6 && value !== limit && value.toFixed(places) === limit.toFixed(places)) places += 1;
+  const sign = value > limit ? ">" : value < limit ? "<" : "=";
+  return `${value.toFixed(places)} ${sign} ${limit.toFixed(places)}${unit ? ` ${unit}` : ""}`;
 }
 
 /** The tag of an alarm's equipment: the last name of the instance that holds it (§13.6 item 9). */

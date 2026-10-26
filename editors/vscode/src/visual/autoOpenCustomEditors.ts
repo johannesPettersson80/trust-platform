@@ -10,6 +10,7 @@ const VISUAL_EDITOR_BINDINGS: VisualEditorBinding[] = [
   { suffix: ".ladder.json", viewType: "trust-lsp.ladder.editor" },
   { suffix: ".statechart.json", viewType: "trust-lsp.statechartEditor" },
   { suffix: ".blockly.json", viewType: "trust-lsp.blockly.editor" },
+  { suffix: ".sfc.json", viewType: "trust-lsp.sfc.editor" },
 ];
 
 function viewTypeForUri(uri: vscode.Uri): string | undefined {

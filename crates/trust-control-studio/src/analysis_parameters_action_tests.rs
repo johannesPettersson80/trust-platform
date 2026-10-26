@@ -652,7 +652,7 @@ fn a_project_test_whose_restoration_is_not_confirmed_keeps_the_settings_frozen_u
         panic!("an unfinished operation freezes the settings");
     };
     assert_eq!(refusal.message, "This loop has an unfinished operation.");
-    assert_eq!(refusal.next_action, NextAction::Wait);
+    assert_eq!(refusal.next_action, NextAction::Resume);
     assert!(
         refusal
             .detail

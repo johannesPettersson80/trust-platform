@@ -88,6 +88,6 @@ fn a_project_test_whose_start_cannot_be_reconciled_keeps_the_settings_frozen_unt
         panic!("an experiment of unknown state freezes the settings");
     };
     assert_eq!(frozen.message, "This loop has an unfinished operation.");
-    assert_eq!(frozen.next_action, NextAction::Wait);
+    assert_eq!(frozen.next_action, NextAction::Resume);
     fs::remove_dir_all(&folder).expect("clean up");
 }

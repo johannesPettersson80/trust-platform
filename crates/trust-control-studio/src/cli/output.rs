@@ -23,7 +23,7 @@ pub const NOT_WRITTEN_TEXT: &str = "Nothing was written to the controller.";
 pub(super) const MISSING: &str = "—";
 
 /// Every next action (A11.2), to read the action of a failure that a method answered as JSON.
-const NEXT_ACTIONS: [NextAction; 14] = [
+const NEXT_ACTIONS: [NextAction; 15] = [
     NextAction::ConnectRuntime,
     NextAction::StartSimulator,
     NextAction::OpenLoopSetup,
@@ -36,6 +36,7 @@ const NEXT_ACTIONS: [NextAction; 14] = [
     NextAction::Validate,
     NextAction::Approve,
     NextAction::Restore,
+    NextAction::Resume,
     NextAction::Wait,
     NextAction::None,
 ];
@@ -498,6 +499,7 @@ mod tests {
                 | NextAction::Validate
                 | NextAction::Approve
                 | NextAction::Restore
+                | NextAction::Resume
                 | NextAction::Wait
                 | NextAction::None => {}
             }

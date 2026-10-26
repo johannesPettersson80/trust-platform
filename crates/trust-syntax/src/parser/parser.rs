@@ -376,6 +376,28 @@ impl<'t, 'src> Parser<'t, 'src> {
         self.is_sync_point() && !self.current().can_start_statement()
     }
 
+    /// Returns true when the current token ends or delimits the construct around an
+    /// expression. Recovery from a missing expression leaves such a token to its owner.
+    pub(crate) fn at_expression_boundary(&self) -> bool {
+        self.is_sync_point()
+            || matches!(
+                self.current(),
+                TokenKind::RParen
+                    | TokenKind::RBracket
+                    | TokenKind::Comma
+                    | TokenKind::KwThen
+                    | TokenKind::KwDo
+                    | TokenKind::KwOf
+                    | TokenKind::KwTo
+                    | TokenKind::KwBy
+                    | TokenKind::KwElse
+                    | TokenKind::KwElsif
+                    | TokenKind::KwUntil
+                    | TokenKind::KwEndStep
+                    | TokenKind::KwEndTransition
+            )
+    }
+
     /// Recover at statement level - skip to next statement or block end.
     pub(crate) fn recover_statement(&mut self) {
         while !self.at_end() {

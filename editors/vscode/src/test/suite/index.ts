@@ -200,6 +200,7 @@ export function run(): Promise<void> {
   require("./ladder-editor-ops.test");
   require("./ladder-runtime-io-panel.test");
   require("./visual-companion.test");
+  require("./visual-new-program-editor.test");
   require("./visual-runtime-controller.test");
   require("./visual-runtime-panel-bridge.test");
   require("./visual-right-pane-resize.test");
@@ -218,6 +219,7 @@ export function run(): Promise<void> {
   require("./control-studio-recorded-validation-presentation.test");
   require("./control-studio-process-dynamics.integration.test");
   require("./runtime-lifecycle-observation.test");
+  require("./runtime-connect-target.test");
   require("./control-studio-stage-availability.test");
   require("./runtime-target.test");
   require("./network-canvas.test");

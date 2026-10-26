@@ -107,5 +107,5 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px s
 .trust-compact-editor-more > summary { cursor: pointer; color: var(--trust-accent); margin-bottom: 8px; }
 .trust-compact-editor-requirements.trust-compact-editor-no-signal .trust-field,
 .trust-compact-editor-no-signal .trust-compact-editor-columns { grid-template-columns: minmax(0, 1.6fr) minmax(70px, 1fr); }
-@media (max-width: 650px) { .studio-setup-found { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .studio-setup-found { grid-template-columns: 1fr; } .studio-setup-found > .studio-link { justify-self: start; } }
 `;

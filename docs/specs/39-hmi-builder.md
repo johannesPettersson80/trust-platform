@@ -775,8 +775,10 @@ Planned with the user on 3 October 2026.
        `LimitAlarm` has them too) at each `Hmi.Display` call and keeps the reading of the call
        that raised the alarm, the first call's for an alarm already active; a row carries it as
        `raised: { value, limit, high }`. The list shows it in a Value column, "91.5 > 90.0", the
-       two numbers with the same decimals, at most three; the message column already names what
-       is measured, and the unit follows item 4. The column is there only while a row of the tab
+       two numbers with the same decimals, at most three, and the sign that compares the two
+       numbers; when those decimals would show two different numbers alike ("2.5 > 2.5" for 2.53
+       against 2.5), it adds decimals, up to six, until they differ ("2.53 > 2.50"). The message
+       column already names what is measured, and the unit follows item 4. The column is there only while a row of the tab
        has a reading, and a narrow list leaves it out first.
        For an equipment limit alarm, the raised reading also records its physical value's
        `source` path and the block's `unit` at that instant. Later unit changes must not relabel
@@ -1294,9 +1296,16 @@ declaration's real values.
      out. An in-flight response from an ended connection cannot restore its cookie.
      Operating uses the deployed bundle, with its normal confirmations. The project must be
      saved and match that bundle before opening the operating view. A simulator or target with
-     no HMI web endpoint remains read-only with an explanation. In the operating view, design
-     zoom/translation preview and editing panels are hidden; Design remains available above the
-     runtime display.
+     no HMI web endpoint remains read-only with an explanation that names the target: the
+     simulator has no HMI web server, and the page is operated, with its alarms, on a runtime
+     selected or connected in Devices & Connections; a runtime without one needs `[runtime.web]`
+     enabled in its `runtime.toml`. Such a target has no alarm source: alarms reach the HMI only
+     through a runtime's web server (specification 40, §5.1), and Live mode reads values only
+     until the operating view opens. Until then an alarm list says that alarms show in the
+     runtime display of a runtime with its HMI web server, instead of counts or "No active
+     alarms" (refined on 26 October 2026, when Live mode on the simulator showed "Active 0"
+     while the program's alarm was active). In the operating view, design zoom/translation
+     preview and editing panels are hidden; Design remains available above the runtime display.
    - Without a running target, Live mode says so and every value is unknown.
 ### 11.1 Runtime display
 

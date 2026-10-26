@@ -85,10 +85,12 @@ export interface RuntimeModelInput {
 }
 
 // The dropdown is SELECT-ONLY (§0.5.3): Simulator (default) → managed local runtimes → configured
-// remotes. There is NO "Add…/Connect…" entry — adding/connecting happens in Devices & Connections.
+// remotes → the runtime the extension is online with (a successful Connect, spec 25 §5.1) when no entry
+// names it yet. There is NO "Add…/Connect…" entry — adding/connecting happens in Devices & Connections.
 export function runtimeOptions(
   remotes: ReadonlyArray<RemoteRuntime>,
-  managed: ReadonlyArray<ManagedRuntime>
+  managed: ReadonlyArray<ManagedRuntime>,
+  online?: Pick<RuntimeModelSnapshot, "runtimeMode" | "endpoint">
 ): RuntimeOption[] {
   const options: RuntimeOption[] = [
     {
@@ -107,13 +109,21 @@ export function runtimeOptions(
   for (const remote of remotes) {
     options.push({ id: remote.id, label: remote.label, kind: "remote" });
   }
+  const endpoint = online?.runtimeMode === "online" ? online.endpoint.trim() : "";
+  if (
+    endpoint &&
+    !options.some((option) => option.id === endpoint) &&
+    !managed.some((local) => local.controlEndpoint === endpoint)
+  ) {
+    options.push({ id: endpoint, label: remoteLabelFromEndpoint(endpoint), kind: "remote" });
+  }
   return options;
 }
 
 // Resolve the selected runtime + its single state-specific action. Falls back to the simulator if the
 // stored selection is no longer in the inventory (removed/stale).
 export function selectedRuntime(input: RuntimeModelInput): SelectedRuntime {
-  const options = runtimeOptions(input.remotes, input.managed);
+  const options = runtimeOptions(input.remotes, input.managed, input.snapshot);
   const chosen =
     options.find((option) => option.id === input.selectedId) ?? options[0];
   switch (chosen.kind) {

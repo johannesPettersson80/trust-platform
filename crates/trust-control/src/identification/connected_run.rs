@@ -664,14 +664,14 @@ pub fn stored_fit_window(request: &ConnectedRequest) -> FitWindow {
 
 /// The refusal of Identify plant, Open recording and Reset while the loop's journal holds the operations `operation_ids`
 /// (A8.4, A8.5; Identify page specification, Reset), or `None` when it holds none. The refusal names the operations and
-/// offers to wait for them (B3.9).
+/// offers to resume them, the reattach that completes them or ends them with a runtime that restarted (A8.6, B3.9).
 #[must_use]
 pub fn unfinished_operation_refusal(operation_ids: &[&str]) -> Option<Failure> {
     (!operation_ids.is_empty()).then(|| {
         Failure::new(
             &format!("{UNFINISHED_TEXT} Journaled: {}.", operation_ids.join(", ")),
             Cause::Unclassified,
-            NextAction::Wait,
+            NextAction::Resume,
         )
     })
 }

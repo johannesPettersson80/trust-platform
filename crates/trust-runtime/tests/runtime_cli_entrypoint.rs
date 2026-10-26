@@ -136,6 +136,45 @@ fn deprecated_bundle_alias_warns_and_missing_project_gets_creation_tip() {
 }
 
 #[test]
+fn json_output_leaves_the_command_line_tip_to_a_person() {
+    // Acceptance finding F12: VS Code runs `plcopen export --json` and showed "Tip: run `trust-runtime` in an empty
+    // folder or `trust-runtime wizard ...`", commands its user never types (specification 11, 6.8.1d).
+    let project = unique_missing_project("plcopen-json-error");
+    std::fs::create_dir_all(&project).expect("create a folder without src/");
+    let project_arg = project.to_str().expect("utf-8 temporary path").to_string();
+    let output_arg = project
+        .join("export.xml")
+        .to_str()
+        .expect("utf-8 temporary path")
+        .to_string();
+    let export = [
+        "plcopen",
+        "export",
+        "--project",
+        &project_arg,
+        "--output",
+        &output_arg,
+    ];
+    let json = run_runtime(&[&export[..], &["--json"]].concat());
+    let human = run_runtime(&export);
+    std::fs::remove_dir_all(&project).expect("remove the temporary folder");
+
+    assert_eq!(json.status.code(), Some(1));
+    let json_error = stderr(&json);
+    assert!(
+        json_error.contains("invalid project folder"),
+        "stderr was:\n{json_error}"
+    );
+    assert!(!json_error.contains("Tip:"), "stderr was:\n{json_error}");
+    assert_eq!(human.status.code(), Some(1));
+    let human_error = stderr(&human);
+    assert!(
+        human_error.contains("Tip: run `trust-runtime` in an empty folder"),
+        "a person at the command line keeps the tip; stderr was:\n{human_error}"
+    );
+}
+
+#[test]
 fn ci_mode_classifies_an_invalid_validate_project() {
     let project = unique_missing_project("ci-validate");
     let output = Command::new(

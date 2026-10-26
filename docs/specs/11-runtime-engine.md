@@ -1161,6 +1161,13 @@ limits cannot silently disappear. A requested non-passive scan still performs
 connect/read-only operations and returns the stable warning that active write
 probes are unsupported. Timeout defaults to 150 ms and is clamped to the
 closed 1 through 2,000 ms range; malformed timeout types are request errors.
+For truST runtime discovery (`discovery`), the timeout is the mDNS browse
+window instead: it defaults to 2,000 ms and is clamped to the same range. The
+browse collects every resolved service until the window ends. An interval in
+which nothing arrives does not end it, because a responder may delay a shared
+answer by 20 to 120 ms (RFC 6762 §6) and the querier repeats its first query
+after one second (RFC 6762 §5.2); only the mDNS service stopping the browse
+ends it before the window does.
 
 Protocol aliases are deterministic: Modbus hyphen/underscore forms select
 `modbus_tcp`; OPC UA server and client aliases remain distinct; MQTT broker
@@ -3968,6 +3975,13 @@ unclassified message uses the parsed command as a fallback: `build` and `check`
 map to 11, `test` to 12, `validate` to 10, and other or absent commands to 20.
 This CLI and process-exit policy is a truST product contract rather than IEC
 61131-3 language behavior.
+
+A failing command writes `Error: <message>` to stderr. For a person at the
+command line, a recognised failure adds a `Tip:` naming the command that
+resolves it, such as `trust-runtime wizard --path <project-folder>` for an
+invalid project folder. A command run with `--json` is read by a program, which
+words its own guidance (the VS Code extension names its own commands), so its
+error carries no tip; the exit code is the same as without `--json`.
 
 ##### 6.8.1e Standalone Web IDE contract
 

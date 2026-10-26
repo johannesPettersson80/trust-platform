@@ -168,7 +168,9 @@ an action is allowed, what Apply and Restore do), the runtime clients and the st
   experiments, campaigns and isolated jobs that the journal holds unfinished. A journaled checkpoint is
   no operation and is not listed: an Apply's checkpoint is answered as Restore availability, and a
   mode checkpoint is returned to its mode by the campaign's resume (A6.2, A8.6). So reopening shows
-  them. The answer also holds `stageEvidence`, the evidence its stages are computed from, which the page
+  them, and when the answer lists journaled operations and none of them runs in this engine, the page asks for their
+  reattach (`controlStudio/identify` with `resume` and the runtime connection, A8.6) as soon as a runtime is connected,
+  and follows it as it follows an identification it started. The answer also holds `stageEvidence`, the evidence its stages are computed from, which the page
   gates its actions on (B9.4, A8.6); its `stages` carry the block of an Apply's checkpoint that waits for its Restore (B6.4); and `identification`, the study's current Identify result as Identify
   answers it, absent without a current model and after Reset (A8.6), and `tune`, the study's current candidate as
   Tune answers it (B4.5), rebuilt from its Tune section and absent without a current candidate (A8.4), which is `candidate` for a `Control.PID`, `projectCandidate` for a program's own law (C2) and `searchCandidate` for a finite search (C5), exactly one of them; its `response`
@@ -456,8 +458,10 @@ is the same: a verb adds none and drops none.
   - `open`: lists the project's loops, or opens one with `--loop`: its stages and journaled
     operations;
   - `identify` (B3): a live campaign with the loop's method, or `--method <method>`;
-    `--recording <id>` fits a kept recording without excitation (B3.6); `--resume` follows a
-    journaled campaign to its end (A8.5); `--reset` starts a new working identification study;
+    `--recording <id>` fits a kept recording without excitation (B3.6); `--resume` makes the
+    reattach of A8.6: it follows a journaled campaign to its end, completes a journal without a
+    dispatched step, or ends an identification whose simulator restarted (A8.5); `--reset` starts a new
+    working identification study;
   - `cancel`: cancels a journaled operation: it reattaches by the journaled identifier (E11.5),
     ends a running experiment through its restoration path (E5.5) and clears the owner once the
     outcome is kept (E11.6);
@@ -968,7 +972,25 @@ closed; reopening shows its progress and, once it has ended, its result.
 tuning, validation or write. It reattaches the journaled operations (A8.5) and
 completes them as they would have completed, including returning a mode that an
 interrupted identification changed (A6.2); that completion is part of the
-journaled operation, not a new one. Closing the panel releases only its client,
+journaled operation, not a new one. The reattach (the engine's `resume`, which the
+unfinished-operation refusal of B3.9 offers as **Resume**) decides by what the
+journal holds and what the runtime runs now:
+
+- On a simulated target whose program revision is no longer the one the journaled
+  recording, experiment or mode change ran on, the simulator restarted or reloaded
+  its program since, which ended those operations (A2.2, annex E9.3, E11.5). Their
+  entries are cleared; nothing is kept, since the recording ended with the old
+  session, and nothing is restored or returned, since that program no longer runs.
+  The answer says so with both revisions and offers Identify plant (B3.9). A
+  physical target's operation is never ended this way: it stays unresolved until a
+  fresh review (annex E11.5).
+- A campaign whose step was dispatched is followed to the end of its hold and
+  completed as an uninterrupted campaign completes (A8.5).
+- A journal without a dispatched step is completed by the identification's
+  recovery, which keeps the recording and returns the mode without aborting an
+  experiment that still runs (annex E11.5), and any other unfinished operation is
+  cancelled as the command line's `cancel` cancels it (§0.1b); the answer then
+  says that no experiment was left to resume and offers Identify plant. Closing the panel releases only its client,
 as closing VS Code does (A10.4): the runtime keeps the operation, and reopening
 reattaches to it at once instead of waiting for it to end. The engine names the
 operations it still runs for the loop (`running` in `controlStudio/open`), and the
@@ -1412,7 +1434,8 @@ the output's unit per the input's unit per second (numerical annex N0.3).
 | Response still a ramp: a slow process cannot yet be told from an integrating one (numerical annex N2.3a) | Open **Limits…** for a longer hold; or a setpoint step in Auto |
 | No adequate model (each form's reason) | Choose another method, a larger step or a longer duration |
 | No input change: the recording holds no nonzero step (numerical annex N2.6) | Choose another method; for a project-scripted loop, open loop setup to check the project's scenario (C12) |
-| Another operation of this loop is running, or journaled and unresolved (named) | Wait; or resume or cancel it |
+| Another operation of this loop is running, or journaled and unresolved (named) | Resume (the reattach of A8.6); or wait for it to end |
+| The interrupted identification ended when the simulator restarted or reloaded its program (both revisions, A2.2, A8.6) | Identify plant, once the loop's mode is checked |
 | Identified gain sign contradicts the controller action | Open loop setup and check the signals and the action |
 
 ### B4. Tune

@@ -286,9 +286,9 @@ class RuntimeLifecycleService {
     return this.startLocalSimulator();
   }
 
-  // Connect (attach) to a configured remote runtime by its control endpoint. Points the runtime at
-  // that endpoint, switches to online mode, then attaches. Honest: this is a "Connect", never a remote
-  // "Start" — we attach to a runtime we don't own.
+  // Connect (attach) to a runtime by its control endpoint. Honest: this is a "Connect", never a remote
+  // "Start" — we attach to a runtime we don't own. The runtime is asked first; the runtime settings point
+  // at it only after a successful Connect (see startOnlineRuntime).
   async connectRemote(
     endpoint: string,
     targetLabel?: string
@@ -300,14 +300,16 @@ class RuntimeLifecycleService {
         failure: { kind: "failed_spawn", message: "Runtime endpoint not set." },
       };
     }
-    const target = this.runtimeConfigTarget();
-    const config = getTrustConfiguration(target);
-    const scope = this.runtimeConfigScope(target);
-    await config.update("runtime.controlEndpoint", trimmed, scope);
-    await config.update("runtime.controlEndpointEnabled", true, scope);
-    await config.update("runtime.mode", "online", scope);
-    this.emitChanged();
-    return this.startRuntime(targetLabel);
+    return this.startOnlineRuntime({ endpoint: trimmed, endpointConfigured: true }, targetLabel);
+  }
+
+  // The reason an online target has no session, when the lifecycle reported it for `endpoint`: the
+  // runtime answered Connect but keeps debugging disabled.
+  debugDisabledFailure(endpoint: string): RuntimeStartFailure | undefined {
+    const failure = this.failure;
+    return failure?.kind === "debug_disabled" && failure.endpoint === endpoint.trim()
+      ? failure
+      : undefined;
   }
 
   async startLocalSimulator(): Promise<RuntimeLifecycleResult> {
@@ -395,12 +397,15 @@ class RuntimeLifecycleService {
     return this.markStopped("Runtime already stopped.");
   }
 
+  // Connect changes nothing until it succeeds (specification 25, section 5.1): the runtime must be
+  // reachable and answer `status` with the endpoint's stored token, and then either open an attach
+  // session or report debugging disabled (it is then the target without Live Values). Only a successful
+  // Connect points the runtime settings at it; a failed one leaves the previous target, settings and
+  // status bar as they were, and its failure names the endpoint so the runtime's node can show it.
   private async startOnlineRuntime(
-    status: RuntimeStatusPayload,
+    status: Pick<RuntimeStatusPayload, "endpoint" | "endpointConfigured">,
     targetLabel?: string
   ): Promise<RuntimeLifecycleResult> {
-    const target = this.runtimeConfigTarget();
-    const config = getTrustConfiguration(target);
     if (!status.endpointConfigured) {
       return {
         ok: false,
@@ -411,14 +416,6 @@ class RuntimeLifecycleService {
       };
     }
 
-    if (!status.endpointEnabled) {
-      await config.update(
-        "runtime.controlEndpointEnabled",
-        true,
-        this.runtimeConfigScope(target)
-      );
-    }
-
     const reachable = await probeEndpointReachable(status.endpoint);
     if (!reachable) {
       return {
@@ -427,6 +424,7 @@ class RuntimeLifecycleService {
           kind: "stale_runtime",
           message: runtimeNotReachableMessage(status.endpoint),
           detail: status.endpoint,
+          endpoint: status.endpoint,
         },
       };
     }
@@ -449,6 +447,7 @@ class RuntimeLifecycleService {
               authKind === "missing" || !authToken
                 ? "No auth token provided — this runtime requires one."
                 : "Auth token rejected — check it and try again.",
+            endpoint: status.endpoint,
           },
         };
       }
@@ -459,18 +458,21 @@ class RuntimeLifecycleService {
           message: `Runtime status check failed: ${
             err instanceof Error ? err.message : String(err)
           }`,
+          endpoint: status.endpoint,
         },
       };
     }
     if (runtimeDebugDisabled(runtimeInfo)) {
-      return {
-        ok: false,
-        failure: {
-          kind: "failed_spawn",
-          message:
-            "Remote debugging is disabled for this runtime. Open Devices & Connections or ask the runtime owner to enable debugging, then connect again.",
-        },
+      // The runtime answered, so it is the target; Live Values says why it has no session.
+      const failure: RuntimeStartFailure = {
+        kind: "debug_disabled",
+        message:
+          "Remote debugging is disabled for this runtime. Set debug_enabled = true under [runtime.control] in its runtime.toml, restart the runtime, then connect again.",
+        endpoint: status.endpoint,
       };
+      this.failure = failure;
+      await this.useOnlineEndpoint(status.endpoint);
+      return { ok: true, message: failure.message };
     }
     const runtimeOptions = runtimeSourceOptionsForTarget();
     const folder = vscode.workspace.workspaceFolders?.[0];
@@ -492,10 +494,32 @@ class RuntimeLifecycleService {
       if (!started) {
         throw new Error("Attach failed to start.");
       }
-      return { ok: true, message: "Attached to runtime." };
     } catch (err) {
-      return { ok: false, failure: classifyRuntimeStartFailure(err) };
+      return {
+        ok: false,
+        failure: { ...classifyRuntimeStartFailure(err), endpoint: status.endpoint },
+      };
     }
+    await this.useOnlineEndpoint(status.endpoint);
+    return { ok: true, message: "Attached to runtime." };
+  }
+
+  // A successful Connect, or selecting a runtime as the run target, points the runtime settings at it: its
+  // endpoint, in use, in online mode. Only values that differ are written.
+  async useOnlineEndpoint(endpoint: string): Promise<void> {
+    const target = this.runtimeConfigTarget();
+    const config = getTrustConfiguration(target);
+    const scope = this.runtimeConfigScope(target);
+    if (config.get<string>("runtime.controlEndpoint", "").trim() !== endpoint) {
+      await config.update("runtime.controlEndpoint", endpoint, scope);
+    }
+    if (!config.get<boolean>("runtime.controlEndpointEnabled", true)) {
+      await config.update("runtime.controlEndpointEnabled", true, scope);
+    }
+    if (config.get<string>("runtime.mode", "simulate") !== "online") {
+      await config.update("runtime.mode", "online", scope);
+    }
+    this.emitChanged();
   }
 
   private async waitForStructuredTextSessionOrCommand(
@@ -579,6 +603,14 @@ class RuntimeLifecycleService {
   private untrackStructuredTextSession(session: vscode.DebugSession): void {
     this.sessions.delete(structuredTextSessionKey(session));
     this.ioStates.delete(structuredTextSessionKey(session));
+  }
+
+  // A failure belongs to the target it was reported for; selecting another target forgets it.
+  clearFailure(): void {
+    if (this.failure) {
+      this.failure = undefined;
+      this.emitChanged();
+    }
   }
 
   private markStopped(message: string): RuntimeLifecycleResult {

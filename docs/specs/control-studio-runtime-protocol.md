@@ -1020,7 +1020,7 @@ Studio journals the identity, then dispatches the request. An experiment is disp
 
 - After a panel close, an Extension Host restart or a restart of the Control Studio engine, Studio MUST reattach to every journaled operation by its identifier, show its state through its status operation, and continue the study (A8.5).
 - Closing a panel MUST NOT cancel a running experiment. A long experiment keeps running in the runtime while VS Code is closed (A8.5, A10.4). Closing during Apply's observation follows E11.11.
-- If the program revision, the binding revision or the session epoch differs from the journaled one, or if no terminal status is available, the operation is unresolved. Dependent work stays blocked until a fresh review (A2.2).
+- If the program revision, the binding revision or the session epoch differs from the journaled one, or if no terminal status is available, the operation is unresolved. Dependent work stays blocked until a fresh review (A2.2). On a simulated target the new program revision ended the identification operations bound to the old one (A2.2, E9.3): nothing of them can be read, kept or restored any more, so reopening clears them and says so (specification 35, A8.6); this never applies to a physical target.
 - Studio MUST discard any reply that carries another session epoch. A new epoch starts a new time origin and a new sample window. Studio never draws a continuous response across it.
 - Reopening a loop MUST NOT start a test, a tuning, a validation or a write (A8.6). After a runtime restart, Studio reads the actual controller values before it reports anything as active (A8.6).
 - Studio resolves the new identity before any further live action (A6.7).

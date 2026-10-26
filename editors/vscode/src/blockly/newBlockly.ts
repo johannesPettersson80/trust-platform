@@ -13,6 +13,7 @@ type NewBlocklyArgs = {
 };
 
 export const NEW_BLOCKLY_COMMAND = "trust-lsp.blockly.new";
+const BLOCKLY_EDITOR_VIEW_TYPE = "trust-lsp.blockly.editor";
 
 const BLOCKLY_TEMPLATE = `{
   "blocks": {
@@ -142,10 +143,14 @@ export async function newBlocklyCommand(
       showErrors: true,
     });
 
+    await vscode.commands.executeCommand(
+      "vscode.openWith",
+      fileUri,
+      BLOCKLY_EDITOR_VIEW_TYPE,
+      { preview: false }
+    );
     if (openCompanionOnCreateEnabled(fileUri) && companionUri) {
-      await openCompanionForVisualSource(fileUri);
-    } else {
-      await vscode.commands.executeCommand("vscode.open", fileUri);
+      await openCompanionForVisualSource(fileUri, { beside: true });
     }
 
     return fileUri;

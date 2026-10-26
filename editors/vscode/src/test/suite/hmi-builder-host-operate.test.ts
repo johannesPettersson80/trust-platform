@@ -16,6 +16,7 @@ suite("HMI Builder host: named Live operation", function () {
     const { panel, webview } = await openBuilder(file, undefined, undefined, undefined, {
       dirty: () => false,
       bundle: async () => ({ ok: true, version: "v1" }),
+      runTarget: async () => ({ label: "Cell", simulator: false }),
       session: {
         target: async () => ({ url: "http://plc:8080", endpoint: "tcp://plc:9000", label: "Cell" }),
         request: async (_target, _method, route) => {

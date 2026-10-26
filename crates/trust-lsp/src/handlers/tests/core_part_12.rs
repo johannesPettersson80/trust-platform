@@ -416,6 +416,54 @@ END_FUNCTION_BLOCK
     );
 }
 
+// A namespace is sent with the LSP module kind and resolves to the "namespace" detail.
+// Catches the namespace sent as VARIABLE and resolved as "variable".
+#[test]
+pub(super) fn lsp_completion_namespace_uses_module_kind() {
+    let source = r#"
+NAMESPACE Control
+FUNCTION Clamp : INT
+END_FUNCTION
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    Level : INT;
+END_VAR
+    Level := C
+END_PROGRAM
+"#;
+    let state = ServerState::new();
+    let uri = tower_lsp::lsp_types::Url::parse("file:///namespace-completion.st").unwrap();
+    state.open_document(uri.clone(), 1, source.to_string());
+
+    let params = tower_lsp::lsp_types::CompletionParams {
+        text_document_position: tower_lsp::lsp_types::TextDocumentPositionParams {
+            text_document: tower_lsp::lsp_types::TextDocumentIdentifier { uri },
+            position: position_at(source, "C\nEND_PROGRAM"),
+        },
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+        context: None,
+    };
+
+    let response = completion(&state, params).expect("completion response");
+    let items = match response {
+        tower_lsp::lsp_types::CompletionResponse::Array(items) => items,
+        tower_lsp::lsp_types::CompletionResponse::List(list) => list.items,
+    };
+    let control = items
+        .into_iter()
+        .find(|item| item.label.eq_ignore_ascii_case("Control"))
+        .expect("Control completion");
+    assert_eq!(
+        control.kind,
+        Some(tower_lsp::lsp_types::CompletionItemKind::MODULE)
+    );
+    let resolved = completion_resolve(&state, control);
+    assert_eq!(resolved.detail.as_deref(), Some("namespace"));
+}
+
 #[test]
 pub(super) fn lsp_hover_constant_parameter_mentions_constant_and_array_star() {
     let source = r#"

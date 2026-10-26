@@ -29,6 +29,7 @@ import {
 } from "../runtimeLifecycle";
 import type { IoState } from "../io-panel/types";
 import { getSelectedRuntimeId, setSelectedRuntimeId } from "../selectedRuntime";
+import { selectRunTarget } from "../runTargetSelection";
 import { SIMULATOR_RUNTIME_ID } from "../trustHomeModel";
 import {
   onDidChangeManagedRuntimes,
@@ -343,6 +344,8 @@ async function refreshNetworkCanvasPanelOnce(
   // endpoint so the add-device flow (comm.schema/comm.apply) + fleet.topology work zero-config.
   // Probe-gated via resolveRuntimeTargetFromSettings — only adopted when the socket actually
   // answers with the token, so reachability stays honest (never green from "a session exists").
+  // A runtime the target settings reach, not the simulator adopted below: its live node gets the endpoint it answered at.
+  const reachedEndpoint = runtime.status === "online_reachable" ? runtime.endpoint : undefined;
   if (
     runtime.status !== "online_reachable" &&
     runtimeLifecycleService.getStructuredTextSession()
@@ -372,6 +375,7 @@ async function refreshNetworkCanvasPanelOnce(
     context: extensionContext,
     projectDir: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
     runtime,
+    reachedEndpoint,
     loadPeerTopology: async () => {
       const peers = (await resolveFleetTargets(runtime)).filter(
         (target) => target.endpoint && target.endpoint !== runtime.endpoint
@@ -823,7 +827,8 @@ async function handleWebviewMessage(value: unknown): Promise<void> {
       debugChannel().show(true);
       break;
     case "runtimeConnect":
-      // Connect (attach) to a remote runtime by its control endpoint — never a remote "Start".
+      // Connect (attach) to a remote runtime by its control endpoint — never a remote "Start". A failed
+      // Connect changed nothing; its failure stays on this runtime's node (spec 25 §5.1).
       {
         const endpoint =
           typeof message.endpoint === "string" ? message.endpoint : "";
@@ -864,12 +869,16 @@ async function handleWebviewMessage(value: unknown): Promise<void> {
           typeof message.managedName === "string" ? message.managedName : "";
         const endpoint =
           typeof message.endpoint === "string" ? message.endpoint : "";
-        const target = managedName
-          ? managedName
-          : message.isLocal || !endpoint
-            ? SIMULATOR_RUNTIME_ID
-            : endpoint;
-        await setSelectedRuntimeId(target);
+        // A remote node without a control endpoint cannot be selected; it is never the Simulator.
+        if (!managedName && !message.isLocal && !endpoint) {
+          void vscode.window.showWarningMessage(
+            "This runtime has no control endpoint, so it cannot be selected as the run target."
+          );
+          break;
+        }
+        const target = managedName ? managedName : message.isLocal ? SIMULATOR_RUNTIME_ID : endpoint;
+        // The target everything acts on from now (spec 25 §5.1): a session with another target ends.
+        await selectRunTarget(target, target === SIMULATOR_RUNTIME_ID ? undefined : endpoint || undefined);
       }
       await refreshNetworkCanvasPanel();
       break;
@@ -1079,6 +1088,7 @@ function asNetworkFailure(
     kind: failure.kind,
     message: failure.message,
     detail: failure.detail,
+    endpoint: failure.endpoint,
   };
 }
 

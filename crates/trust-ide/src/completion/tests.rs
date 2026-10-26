@@ -372,4 +372,37 @@ END_PROGRAM
             .map(|doc| doc.contains("USING Lib"))
             .unwrap_or(false));
     }
+
+    // A namespace name completes in a statement under its own kind. Catches the namespace
+    // listed as a variable, which VS Code showed with the variable icon.
+    #[test]
+    fn namespace_completes_as_a_namespace() {
+        let source = r#"
+NAMESPACE Control
+FUNCTION Clamp : INT
+END_FUNCTION
+END_NAMESPACE
+
+PROGRAM Main
+VAR
+    Level : INT;
+END_VAR
+    Level := |;
+END_PROGRAM
+"#;
+        let cursor = source.find('|').expect("cursor");
+        let mut cleaned = source.to_string();
+        cleaned.remove(cursor);
+
+        let mut db = Database::new();
+        let file_id = FileId(0);
+        db.set_source_text(file_id, cleaned);
+
+        let items = complete(&db, file_id, TextSize::from(cursor as u32));
+        let control = items
+            .iter()
+            .find(|item| item.label.eq_ignore_ascii_case("Control"))
+            .expect("Control completion");
+        assert_eq!(control.kind, CompletionKind::Namespace);
+    }
 }

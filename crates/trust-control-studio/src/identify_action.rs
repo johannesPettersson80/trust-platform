@@ -30,6 +30,7 @@ use trust_control::failure::{Cause, Failure, NextAction};
 use trust_control::identification::acquisition_settings::{
     configured_acquisition, unreadable_duration_failure, AcquisitionMethod, AcquisitionSettings,
 };
+use trust_control::identification::campaign::journal::NO_RUNNING_EXPERIMENT_TEXT;
 use trust_control::identification::campaign::{campaign_maximum_ms, require_campaign_limits};
 use trust_control::identification::campaign_review::campaign_settings;
 use trust_control::identification::connected_run::{
@@ -70,7 +71,10 @@ use crate::workflow::identify::{
     identify_plant, record_for_manual_check, IdentifyOutcome, IdentifyPorts,
     IdentifyRequest as RunRequest, IdentifyResult as RunResult,
 };
-use crate::workflow::identify_recovery::{cancel_operation, resume_identification};
+use crate::workflow::identify_reattach::end_with_restarted_simulator;
+use crate::workflow::identify_recovery::{
+    cancel_identification_recovery, cancel_operation, resume_identification,
+};
 use crate::{loops, storage};
 
 /// The command of the operations that `identify`, `openRecording` and `resume` start (§0.1a).
@@ -189,11 +193,7 @@ pub fn answer(
         }
         IdentifyAction::Resume => {
             let connection = connection.ok_or_else(runtime_required)?;
-            // The campaign's method is read before the resume clears the journal.
-            let kind = journaled_kind(&journal);
-            started(operations, claim, move |context| {
-                run_resume(context, &work, &connection, kind)
-            })
+            reattach(operations, claim, work, &journal, connection)
         }
         // Reset answers at once; the loop's claim ends when this answer returns.
         IdentifyAction::Reset => reset(&work, &journal),
@@ -553,6 +553,96 @@ fn test_outcome(
     project_scripted(loop_definition).map(|_| project_test_outcome(restoration))
 }
 
+/// Starts the reattach of the loop's journaled operations ([`run_reattach`]) as an operation holding the loop's `claim`. The
+/// campaign's method and whether it dispatched a step are read before the reattach clears the journal.
+fn reattach(
+    operations: &Operations,
+    claim: LoopClaim,
+    work: LoopWork,
+    journal: &Journal,
+    connection: RuntimeConnection,
+) -> Result<Value, Failure> {
+    let kind = journaled_kind(journal);
+    let resumable = holds_resumable_step(journal, &work.loop_definition.revision);
+    started(operations, claim, move |context| {
+        run_reattach(context, &work, &connection, kind, resumable)
+    })
+}
+
+/// The reattach of the journaled operations that reopening asks for (A8.5, A8.6, E11.5), by what the journal holds. An
+/// identification whose simulator restarted or reloaded its program since ended with it (A2.2): its entries are cleared and the
+/// answer says so. A dispatched step (`resumable`) is followed to its end and fitted ([`run_resume`]). A journal without one is
+/// completed: the identification's own recovery keeps its recording and returns the loop to the mode it was found in, never
+/// aborting an experiment that still runs, and what is left (a lone recording, a Test's experiment, a validation job) is
+/// cancelled as the command line's `cancel` cancels it (§0.1b), so that Identify plant can start again; the answer then says that
+/// no experiment was left to resume.
+fn run_reattach(
+    context: &OperationContext,
+    work: &LoopWork,
+    connection: &RuntimeConnection,
+    kind: Option<ControlExperimentKind>,
+    resumable: bool,
+) -> Result<Value, Failure> {
+    let loop_definition = &work.loop_definition;
+    if let Some(ended) =
+        end_with_restarted_simulator(connection, &work.storage_folder, loop_definition)?
+    {
+        return Err(ended);
+    }
+    if resumable {
+        return run_resume(context, work, connection, kind);
+    }
+    let source = runtime_source(connection)?;
+    let mut retention = StudyRetention::new(
+        &work.project_root,
+        &loop_definition.id,
+        source,
+        working_study(work)?,
+    );
+    cancel_identification_recovery(
+        context,
+        connection,
+        &work.pending,
+        &work.storage_folder,
+        loop_definition,
+        &mut retention,
+    )?;
+    let journal = Journal::open(
+        &work.storage_folder,
+        &loop_definition.project_id,
+        &loop_definition.id,
+    )?;
+    for operation_id in unfinished_operations(&journal) {
+        cancel_operation(
+            connection,
+            &work.pending,
+            &work.storage_folder,
+            loop_definition,
+            &operation_id,
+            &mut retention,
+        )?;
+    }
+    Err(Failure::new(
+        NO_RUNNING_EXPERIMENT_TEXT,
+        Cause::Unclassified,
+        NextAction::Identify,
+    ))
+}
+
+/// The operations of the journal that are unfinished and that a Cancel ends: every one but an Apply's checkpoint, which Restore
+/// previous settings ends (B6.4).
+fn unfinished_operations(journal: &Journal) -> Vec<String> {
+    journal
+        .entries()
+        .iter()
+        .filter(|entry| {
+            entry.holds_unfinished_operation()
+                && !matches!(entry, JournalEntry::Commissioning { .. })
+        })
+        .map(|entry| entry.operation_id().to_string())
+        .collect()
+}
+
 /// The journaled campaign followed to its end (A8.5, A8.6), its model qualified for the loop as an identified model is, then
 /// the Identify section the study keeps. `kind` is the experiment the journal named before the resume.
 fn run_resume(
@@ -696,6 +786,14 @@ fn journaled_ids(journal: &Journal) -> Vec<&str> {
         .filter(|entry| entry.holds_unfinished_operation())
         .map(JournalEntry::operation_id)
         .collect()
+}
+
+/// Whether the journal holds a campaign whose step was dispatched for the loop's revision, which a resume follows to its end.
+fn holds_resumable_step(journal: &Journal, loop_revision: &str) -> bool {
+    journal.entries().iter().any(|entry| {
+        matches!(entry, JournalEntry::IdentificationCampaign { campaign }
+            if campaign.resumable_step(loop_revision).is_ok())
+    })
 }
 
 /// The experiment kind of the step the loop's journal holds: the method of the campaign a resume follows (B3.3).

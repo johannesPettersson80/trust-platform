@@ -4116,9 +4116,11 @@ var TrustHmiDrawing = (() => {
   var ROW = 50;
   var FOOTER = 48;
   var BUTTON2 = { width: 128, height: 40 };
+  var LINE2 = 22;
   function drawAlarmList(object, frame) {
     const [width, height] = object.size;
     const alarms = frame.alarms;
+    if (alarms?.unavailable !== void 0) return drawUnavailable(width, height, alarms.unavailable);
     const view = alarms?.views?.[object.id] ?? {};
     const tab = view.tab ?? "active";
     const stale = alarms?.stale === true;
@@ -4131,19 +4133,7 @@ var TrustHmiDrawing = (() => {
     );
     const valueWidth = rows.some((row) => row.raised) ? Math.max(152, ...rows.map((row) => Math.ceil(textWidth(valueText(row, frame.formats), 14, 600)) + 16)) : 0;
     const columns = placed(width, tab === "active", stateWidth, valueWidth);
-    const children = [
-      el("rect", {
-        "data-part": "card",
-        x: 0.5,
-        y: 0.5,
-        width: Math.max(0, width - 1),
-        height: Math.max(0, height - 1),
-        rx: 14,
-        fill: token("surface"),
-        stroke: stale ? token("stale") : token("border"),
-        "stroke-dasharray": stale ? "6 4" : void 0
-      })
-    ];
+    const children = [card2(width, height, stale)];
     let x = PAD;
     for (const { tab: name, label } of TABS) {
       const content = `${say(label)} ${listed(name).length}`;
@@ -4211,6 +4201,46 @@ var TrustHmiDrawing = (() => {
       children.push(drawRow(row, tab, ROWS_TOP + index * ROW, width, stale, frame.nowMs ?? 0, columns, frame.formats));
     });
     return el("g", { class: "hmi-object hmi-alarm-list", "data-stale": stale ? "true" : void 0 }, children);
+  }
+  function card2(width, height, stale) {
+    return el("rect", {
+      "data-part": "card",
+      x: 0.5,
+      y: 0.5,
+      width: Math.max(0, width - 1),
+      height: Math.max(0, height - 1),
+      rx: 14,
+      fill: token("surface"),
+      stroke: stale ? token("stale") : token("border"),
+      "stroke-dasharray": stale ? "6 4" : void 0
+    });
+  }
+  function drawUnavailable(width, height, sentence) {
+    const room = Math.max(0, width - 2 * PAD);
+    const lines = [];
+    for (const word of sentence.split(" ")) {
+      const last = lines.length - 1;
+      if (last >= 0 && textWidth(`${lines[last]} ${word}`, 15, 550) <= room) lines[last] += ` ${word}`;
+      else lines.push(word);
+    }
+    const top = height / 2 - (lines.length - 1) * LINE2 / 2 + 5;
+    return el("g", { class: "hmi-object hmi-alarm-list" }, [
+      card2(width, height, false),
+      el(
+        "g",
+        { "data-part": "alarm-unavailable" },
+        lines.map(
+          (line, index) => text(fitWidth(line, room, 15, 550), {
+            x: width / 2,
+            y: top + index * LINE2,
+            fill: token("muted"),
+            "font-size": 15,
+            "font-weight": 550,
+            "text-anchor": "middle"
+          })
+        )
+      )
+    ]);
   }
   function placed(width, acknowledge, stateWidth, valueWidth) {
     const button = acknowledge ? BUTTON2.width + 12 : 0;
@@ -4340,12 +4370,14 @@ var TrustHmiDrawing = (() => {
   }
   function valueText(row, formats) {
     if (!row.raised) return "";
-    const { value, limit, high, source } = row.raised;
+    const { value, limit, source } = row.raised;
     const format = source ? formats?.[formatPath(source)] : void 0;
     const unit = row.raised.unit ?? format?.unit;
     const decimals = (number2) => (String(Number(number2.toFixed(3))).split(".")[1] ?? "").length;
-    const places = format?.decimals ?? Math.max(decimals(value), decimals(limit));
-    return `${value.toFixed(places)} ${high ? ">" : "<"} ${limit.toFixed(places)}${unit ? ` ${unit}` : ""}`;
+    let places = format?.decimals ?? Math.max(decimals(value), decimals(limit));
+    while (places < 6 && value !== limit && value.toFixed(places) === limit.toFixed(places)) places += 1;
+    const sign = value > limit ? ">" : value < limit ? "<" : "=";
+    return `${value.toFixed(places)} ${sign} ${limit.toFixed(places)}${unit ? ` ${unit}` : ""}`;
   }
   function tagOf(row) {
     return row.equipment?.split(".").pop() ?? "";

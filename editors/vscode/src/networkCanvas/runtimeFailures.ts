@@ -3,12 +3,17 @@ export type NetworkCanvasRuntimeFailureKind =
   | "port_conflict"
   | "workspace_permission"
   | "failed_spawn"
-  | "stale_runtime";
+  | "stale_runtime"
+  // The runtime answered Connect but keeps debugging disabled: it is the target, without Live Values.
+  | "debug_disabled";
 
 export type NetworkCanvasRuntimeFailure = {
   readonly kind: NetworkCanvasRuntimeFailureKind;
   readonly message: string;
   readonly detail?: string;
+  // The control endpoint of the runtime a Connect failure belongs to. Devices & Connections shows the
+  // failure on that runtime's node (specification 25, section 5.1).
+  readonly endpoint?: string;
 };
 
 export function classifyRuntimeStartFailure(

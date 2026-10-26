@@ -144,7 +144,8 @@ pub struct IdentifyArgs {
     /// Fits a kept recording of the study again, without live excitation.
     #[arg(long, value_name = "ID", conflicts_with_all = ["resume", "reset"])]
     pub recording: Option<String>,
-    /// Follows the journaled identification campaign to its end.
+    /// Reattaches the journaled operations (A8.6): follows a campaign's step to its end, completes a journal without one, or ends
+    /// an identification whose simulator restarted since.
     #[arg(long, conflicts_with = "reset")]
     pub resume: bool,
     /// Starts a new working identification study; the previous one is kept as history.

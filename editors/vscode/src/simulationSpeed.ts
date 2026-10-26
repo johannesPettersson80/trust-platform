@@ -48,6 +48,8 @@ export interface SimulatorStatusRead extends SimulationSpeed {
   readonly simulated: boolean;
   readonly speedText: string;
   readonly speedBehind: boolean;
+  /** The runtime holds its scan for the debugger, at a breakpoint or a pause: its status `state` is `paused`. */
+  readonly paused?: boolean;
 }
 
 /** A status read as announced: the runtime it came from, then what it reported. */
@@ -220,6 +222,7 @@ export async function readRuntimeSpeed(
       ...simulationSpeed(target),
       speedText: target.speedText,
       speedBehind: target.speedBehind,
+      paused: typeof report === "object" && report !== null && (report as { state?: unknown }).state === "paused",
     };
   } catch {
     return undefined;

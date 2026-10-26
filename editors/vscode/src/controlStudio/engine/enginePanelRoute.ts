@@ -328,6 +328,20 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
     }
   }
 
+  /**
+   * The reattach of the loop's journaled operations (`controlStudio/identify` with `resume`, A8.6): sent when the panel opens a loop
+   * whose journal holds operations that no operation of this engine runs, once a runtime is connected, and when the engineer presses
+   * the refusal's Resume (B3.9), which goes without a connection too so that the engine's refusal says what to start. Its operation
+   * is followed as an identification the page started.
+   */
+  async function reattach(loop: EngineLoop, scope: EngineScope, pressed: boolean): Promise<void> {
+    const connection = await connectionOf();
+    if (!connection && !pressed) return;
+    const request = identifyRequest(loop, { action: "resume" });
+    const reply = await ask(scope, "identify", () => client.identify(connection ? { ...request, connection } : request));
+    if (reply) await answerIdentify(scope, undefined, reply);
+  }
+
   /** The runtime connection of a live request; a connection that cannot be made is none, and the engine refuses the request. */
   function connectionOf(): Promise<RuntimeConnection | undefined> {
     return options.connection ? options.connection().catch(() => undefined) : Promise.resolve(undefined);
@@ -561,6 +575,9 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       // The page shows the fit when it shows that method; the updates of an operation that runs follow it and replace it.
       if (kept) await showManual(scope, kept as ManualIdentificationAnswer);
       await showRunning(result.running, scope, result.projectTest === true);
+      // Journaled operations that no operation of this engine runs are reattached as soon as a runtime is connected (A8.6): the
+      // engine decides whether the reattach follows, completes or ends them, and the page follows it as an identification.
+      if (result.reattached.length > 0 && result.running.length === 0) await reattach(loop, scope, false);
       // The analysis the Tune page showed last, with its inputs, as the open answer names it (`pageAnalysis`, B9.9, A8.6).
       await analysis.opened(loop, scope, (result.pageAnalysis ?? undefined) as AnalysisPage | undefined);
       return true;
@@ -614,6 +631,10 @@ export function createEnginePanelRoute(options: EnginePanelRouteOptions): Engine
       if (!value || typeof value.kind !== "string" || !sameScope(value, scope)) return false;
       if (!loop) return answerRefusal(scope, value);
       if (value.kind === "control-studio.identify.cancel") return cancelIdentification(scope);
+      if (value.kind === "control-studio.identify.resume") {
+        await reattach(loop, scope, true);
+        return true;
+      }
       if (MANUAL_IDENTIFY_COMMANDS.has(value.kind)) return manualIdentify(loop, value, scope);
       // A refit names the recording the route holds, if any; the engine fits the study's last kept recording otherwise, or refuses (B3.6).
       const action = engineIdentifyAction(value.kind, record(value.payload) ?? {}, recordingId);

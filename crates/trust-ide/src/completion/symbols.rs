@@ -25,10 +25,10 @@ fn symbols_in_scope(
                 SymbolKind::Property { .. } => CompletionKind::Property,
                 SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
                 SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
+                SymbolKind::Namespace => CompletionKind::Namespace,
                 SymbolKind::Program
                 | SymbolKind::ProgramInstance
                 | SymbolKind::Parameter { .. }
-                | SymbolKind::Namespace
                 | SymbolKind::Configuration
                 | SymbolKind::Resource
                 | SymbolKind::Task => CompletionKind::Variable,
@@ -467,10 +467,10 @@ fn using_scope_symbol_completions(
                         SymbolKind::Property { .. } => CompletionKind::Property,
                         SymbolKind::Interface | SymbolKind::Type => CompletionKind::Type,
                         SymbolKind::EnumValue { .. } => CompletionKind::EnumValue,
+                        SymbolKind::Namespace => CompletionKind::Namespace,
                         SymbolKind::Program
                         | SymbolKind::ProgramInstance
                         | SymbolKind::Parameter { .. }
-                        | SymbolKind::Namespace
                         | SymbolKind::Configuration
                         | SymbolKind::Resource
                         | SymbolKind::Task => CompletionKind::Variable,

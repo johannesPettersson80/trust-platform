@@ -308,7 +308,9 @@ impl Parser<'_, '_> {
             _ => {
                 let marker = self.start();
                 self.error("expected expression");
-                if !self.at_end() {
+                // A `;`, `)` or `THEN` here closes the enclosing construct; consuming it
+                // would turn one missing expression into a second error.
+                if !self.at_end() && !self.at_expression_boundary() {
                     self.bump();
                 }
                 marker.complete(self, SyntaxKind::Error)

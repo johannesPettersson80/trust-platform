@@ -440,12 +440,22 @@ export async function syncVisualCompanionFromDocument(
   });
 }
 
+/**
+ * Opens the Structured Text companion of a visual source. With `beside`, it opens in the group
+ * beside the active one and leaves the focus where it is, so the visual editor stays in front.
+ */
 export async function openCompanionForVisualSource(
-  sourceUri: vscode.Uri
+  sourceUri: vscode.Uri,
+  options?: { beside?: boolean }
 ): Promise<void> {
   const companionUri = companionStUriFor(sourceUri);
   const companionDocument = await vscode.workspace.openTextDocument(companionUri);
-  await vscode.window.showTextDocument(companionDocument, { preview: false });
+  await vscode.window.showTextDocument(
+    companionDocument,
+    options?.beside
+      ? { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true, preview: false }
+      : { preview: false }
+  );
 }
 
 export function registerVisualCompanionSync(): vscode.Disposable {

@@ -10,6 +10,7 @@ suite("HMI Builder: deployed Live connection", () => {
       {
         dirty: () => false,
         bundle: async () => ({ ok: true, version: "0123456789abcdef".repeat(4) }),
+        runTarget: async () => ({ label: "Cell runtime", simulator: false }),
         session: {
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
           request: async (_target, _method, path) => {
@@ -37,6 +38,7 @@ suite("HMI Builder: deployed Live connection", () => {
         {
           dirty: () => dirty,
           bundle: async () => ({ ok: true, version: "local" }),
+          runTarget: async () => ({ label: "Cell runtime", simulator: false }),
           session: {
             target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell runtime" }),
             request: async () => {
@@ -54,6 +56,38 @@ suite("HMI Builder: deployed Live connection", () => {
       assert.strictEqual(reads, dirty ? 0 : 1);
     }
   });
+
+  test("live read-only explanation names the simulator", async () => {
+    // §11 item 6: a run target without an HMI web server stays read-only, and the explanation
+    // names it. Caught: the simulator told to enable [runtime.web], which only a runtime has.
+    const explanation = async (selected: { label: string; simulator: boolean }): Promise<string> => {
+      const messages: HostToWebview[] = [];
+      const operator = new LiveOperator(
+        {
+          dirty: () => false,
+          bundle: async () => ({ ok: true, version: "v1" }),
+          runTarget: async () => selected,
+          session: {
+            target: async () => undefined,
+            request: async () => assert.fail("a target without an HMI web server is never asked for the page"),
+          },
+        },
+        (message) => messages.push(message),
+      );
+      await operator.handle({ type: "operateOpen", id: "one", page: "overview" });
+      const reply = messages[0];
+      assert.ok(reply.type === "operateReady" && reply.reason, "Live mode stays read-only with an explanation");
+      return reply.reason;
+    };
+    const simulator = await explanation({ label: "Simulator", simulator: true });
+    assert.match(simulator, /^The simulator has no HMI web server\./);
+    assert.match(simulator, /with its alarms, on a runtime/);
+    assert.match(simulator, /Devices & Connections/);
+    assert.doesNotMatch(simulator, /\[runtime\.web\]/);
+    const runtime = await explanation({ label: "Cell runtime", simulator: false });
+    assert.match(runtime, /^Cell runtime has no HMI web server\. Enable \[runtime\.web\]/);
+  });
+
   test("a selected-target change ends operation before any new command", async () => {
     const messages: HostToWebview[] = [];
     let endpoint = "tcp://first:9000";
@@ -62,6 +96,7 @@ suite("HMI Builder: deployed Live connection", () => {
       {
         dirty: () => false,
         bundle: async () => ({ ok: true, version: "v1" }),
+        runTarget: async () => ({ label: "Cell", simulator: false }),
         session: {
           target: async () => ({ endpoint, url: "http://plc:8080", label: "Cell" }),
           request: async () => {
@@ -89,6 +124,7 @@ suite("HMI Builder: deployed Live connection", () => {
       {
         dirty: () => false,
         bundle: async () => ({ ok: true, version: "v1" }),
+        runTarget: async () => ({ label: "Cell", simulator: false }),
         session: {
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
           request: async () => ({ status: 200, body: { bundle: version, page: { name: "overview" } } }),
@@ -125,6 +161,7 @@ suite("HMI Builder: deployed Live connection", () => {
           new Promise((done) => {
             resolve = done;
           }),
+        runTarget: async () => ({ label: "Cell", simulator: false }),
         session: {
           target: async () => ({ endpoint: "tcp://plc:9000", url: "http://plc:8080", label: "Cell" }),
           request: async () => {

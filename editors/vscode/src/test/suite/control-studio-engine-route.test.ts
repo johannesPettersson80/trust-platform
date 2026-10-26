@@ -422,6 +422,64 @@ suite("Control Studio engine route", () => {
     assert.strictEqual((answers[answers.length - 1].result as { primaryActionLabel: string }).primaryActionLabel, "Open validation recording");
   });
 
+  test("a reopened loop whose journal holds operations that no engine operation runs asks for their reattach once a runtime is connected, and follows it (A8.6)", async () => {
+    // Caught: after VS Code (and the engine with it) restarted during an identification, the page never asked for the reattach, so
+    // the loop stayed blocked by its journal (acceptance finding F7, 26 October 2026).
+    const loop = { id: "tank", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: loop.id, loopRevision: "revision-test" };
+    const fake = fakeEngine({
+      "controlStudio/open": openedAnswer([], ["recording-7"]),
+      "controlStudio/identify": { result: { kind: "operationStarted", operationId: "operation-reattach" } },
+    });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      connection: async () => ({ endpoint: "tcp://127.0.0.1:1", runtimeId: "simulator" }),
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    posted = [];
+    assert.strictEqual(await current.open(loop, scope), true);
+    const identify = fake.requests.filter((request) => request.method === "controlStudio/identify");
+    assert.strictEqual(identify.length, 1, "the reopened loop asks for one reattach");
+    const params = identify[0].params as { action: { action: string }; connection?: { endpoint: string } };
+    assert.deepStrictEqual(params.action, { action: "resume" }, "the reattach is the engine's resume");
+    assert.strictEqual(params.connection?.endpoint, "tcp://127.0.0.1:1", "the reattach carries the runtime connection");
+    fake.notify({ operationId: "operation-reattach", command: "identify", state: "running", progress: "Following the interrupted step…" });
+    assert.ok(posted.some((message) => message.kind === "control-studio.engine.update" && message.operationId === "operation-reattach"),
+      "the page follows the reattach as an identification");
+  });
+
+  test("a reopened loop without a runtime asks for no reattach, and the refusal's Resume asks for it so the engine can say what to start (A8.6, B3.9)", async () => {
+    const loop = { id: "tank", runtimeId: "simulator" };
+    const scope: LoopMessageScope = { projectId: "project-test", editorSessionId: "editor-session-test", loopId: loop.id, loopRevision: "revision-test" };
+    const refusal = { failure: { message: "Start the runtime before running a live action.", cause: "runtime", nextAction: "start-simulator", nextActionLabel: "Start simulator" } };
+    const fake = fakeEngine({ "controlStudio/open": openedAnswer([], ["recording-7"]), "controlStudio/identify": refusal });
+    const current = createEnginePanelRoute({
+      engine: fake.engine,
+      projectRoot: folder,
+      storageFolder: "",
+      post: (message) => {
+        posted.push(message);
+      },
+    });
+    route = current;
+    posted = [];
+    assert.strictEqual(await current.open(loop, scope), true);
+    assert.strictEqual(fake.requests.filter((request) => request.method === "controlStudio/identify").length, 0,
+      "without a runtime the open asks for nothing");
+    assert.strictEqual(await current.identify(commandMessage(scope, "control-studio.identify.resume", {}), scope), true);
+    const identify = fake.requests.filter((request) => request.method === "controlStudio/identify");
+    assert.strictEqual(identify.length, 1, "Resume asks for the reattach");
+    assert.deepStrictEqual((identify[0].params as { action: unknown }).action, { action: "resume" });
+    const failures = posted.filter((message) => message.kind === "control-studio.engine.failure");
+    assert.strictEqual((failures[failures.length - 1].failure as { nextAction: string }).nextAction, "start-simulator",
+      "the page shows the engine's refusal with what to start");
+  });
+
   test("answers a recording the engine keeps but cannot yet check as recording-needed, with its reason and channels (B3.6)", async function () {
     this.timeout(30_000);
     const { current, scope } = await servedWith({ result: { kind: "importedRecording", status: "recording-needed", recordingId: "rec-1", source: "Simulation", samples: 3,

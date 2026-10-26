@@ -9,6 +9,7 @@ pub mod commissioning_journal;
 pub mod identify;
 pub mod identify_campaign;
 pub mod identify_mode;
+pub mod identify_reattach;
 pub mod identify_recovery;
 pub mod keep;
 pub mod reconcile;

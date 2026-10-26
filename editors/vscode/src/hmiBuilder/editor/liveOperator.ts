@@ -4,6 +4,9 @@ import type { HostToWebview, WebviewToHost } from "./messages";
 import { LiveSession, LiveSessionDeps } from "./liveSession";
 export interface LiveOperatorDeps {
   session: LiveSessionDeps;
+  /** The selected run target, also when it has no HMI web server: the read-only explanation names
+   * it (§11, item 6). */
+  runTarget(): Promise<{ label: string; simulator: boolean } | undefined>;
   dirty(): boolean;
   bundle(): Promise<{ ok?: boolean; version?: string }>;
 }
@@ -12,6 +15,14 @@ interface Connection {
   bundle?: string;
   session: LiveSession;
   sockets: Map<number, SocketLike>;
+}
+
+/** Why Live mode stays read-only on a run target without an HMI web server, naming it (§11, item 6). */
+function withoutWebServer(target: { label: string; simulator: boolean } | undefined): string {
+  if (target?.simulator)
+    return "The simulator has no HMI web server. Operate the page, with its alarms, on a runtime: select or connect one in Devices & Connections.";
+  if (target) return `${target.label} has no HMI web server. Enable [runtime.web] in its runtime.toml.`;
+  return "The selected target has no HMI web server. Start a runtime with [runtime.web] enabled.";
 }
 
 export class LiveOperator {
@@ -113,7 +124,7 @@ export class LiveOperator {
       const target = await this.deps.session.target();
       if (this.current !== current) return;
       if (!target) {
-        refuse("The selected target has no HMI web server. Start a runtime with [runtime.web] enabled.");
+        refuse(withoutWebServer(await this.deps.runTarget()));
         return;
       }
       const answer = await current.session.request("GET", `/api/hmi/page?name=${encodeURIComponent(page)}`);

@@ -531,20 +531,6 @@ export function mountStRuntimePanel(
     return undefined;
   };
 
-  const defaultNumericValue = (value: string): string => {
-    const trimmed = String(value || "").trim();
-    if (!trimmed) {
-      return "";
-    }
-    const numericLiteral =
-      /^(?:0x[0-9a-fA-F_]+|[0-9][0-9_]*|[28]#[0-9A-Fa-f_]+|16#[0-9A-Fa-f_]+)$/;
-    if (numericLiteral.test(trimmed)) {
-      return trimmed;
-    }
-    const match = trimmed.match(/\(([-\d]+)\)/);
-    return match ? match[1] : "";
-  };
-
   const defaultWriteValue = (
     entry: IoEntry,
     display: { value: string; type: string }
@@ -556,11 +542,6 @@ export function mountStRuntimePanel(
       return booleanValue ? "TRUE" : "FALSE";
     }
 
-    const numericValue = defaultNumericValue(display.value || entry.value);
-    if (numericValue) {
-      return numericValue;
-    }
-
     if (
       display.type === "BOOL" ||
       /^%[IQM]X/i.test(String(entry.address || "").trim())
@@ -568,7 +549,9 @@ export function mountStRuntimePanel(
       return "TRUE";
     }
 
-    return "0";
+    // A numeric box starts empty, as in Live Values: the operator types the value to write or force, and the
+    // placeholder shows the current one (specification 25, section 4.3).
+    return "";
   };
 
   const splitDisplayValue = (value: string): { value: string; type: string } => {

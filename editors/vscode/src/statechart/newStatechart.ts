@@ -13,6 +13,7 @@ type NewStatechartArgs = {
 };
 
 export const NEW_STATECHART_COMMAND = "trust-lsp.statechart.new";
+const STATECHART_EDITOR_VIEW_TYPE = "trust-lsp.statechartEditor";
 
 const STATECHART_TEMPLATE = `{
   "id": "{{name}}",
@@ -168,10 +169,14 @@ export function registerNewStatechartCommand(
             showErrors: true,
           });
 
+          await vscode.commands.executeCommand(
+            "vscode.openWith",
+            targetUri,
+            STATECHART_EDITOR_VIEW_TYPE,
+            { preview: false }
+          );
           if (openCompanionOnCreateEnabled(targetUri) && companionUri) {
-            await openCompanionForVisualSource(targetUri);
-          } else {
-            await vscode.commands.executeCommand("vscode.open", targetUri);
+            await openCompanionForVisualSource(targetUri, { beside: true });
           }
 
           vscode.window.showInformationMessage(

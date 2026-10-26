@@ -30,6 +30,9 @@ import { TranslationField } from "./TranslationField";
 const HANDLES: Handle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 /** A handle's size on screen, in pixels, whatever the zoom. */
 const HANDLE_PX = 8;
+/** What an alarm list says in Live mode, which reads values only: alarms reach the HMI through a
+ * runtime's web server (§11, item 6). */
+const LIVE_ALARMS = "Alarms show in the runtime display of a runtime with its HMI web server.";
 
 interface Drag {
     kind: "move" | "resize" | "bend";
@@ -221,6 +224,7 @@ export function Canvas({
             placed: live ? placed : buildPlacements(placed, formats),
             // Live mode observes; the controls send nothing from the editor (§11, item 6).
             readOnly: live !== undefined,
+            alarms: live ? { unavailable: LIVE_ALARMS } : undefined,
             asset: (path: string) => (assetBase ? `${assetBase}/${path}` : path),
             problems,
             warnings,

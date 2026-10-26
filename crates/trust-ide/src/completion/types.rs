@@ -19,6 +19,8 @@ pub enum CompletionKind {
     Type,
     /// An enum value.
     EnumValue,
+    /// A namespace.
+    Namespace,
     /// A snippet.
     Snippet,
 }

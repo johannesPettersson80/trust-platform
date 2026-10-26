@@ -195,9 +195,13 @@ async function promptForBaseFolder(): Promise<vscode.Uri | undefined> {
 }
 
 async function promptForProjectName(): Promise<string | undefined> {
+  // VS Code checks the box as soon as it opens, so an empty box would say "required" before anything is typed; a selected
+  // suggestion opens without a message and is replaced by the first key.
   return vscode.window.showInputBox({
     prompt: "Enter a name for the new Structured Text project",
     placeHolder: "my-st-project",
+    value: "my-st-project",
+    valueSelection: [0, "my-st-project".length],
     validateInput: validateProjectName,
   });
 }

@@ -85,6 +85,7 @@ fn completion_with_ticket(
                 trust_ide::CompletionKind::Constant => CompletionItemKind::CONSTANT,
                 trust_ide::CompletionKind::Type => CompletionItemKind::CLASS,
                 trust_ide::CompletionKind::EnumValue => CompletionItemKind::ENUM_MEMBER,
+                trust_ide::CompletionKind::Namespace => CompletionItemKind::MODULE,
                 trust_ide::CompletionKind::Snippet => CompletionItemKind::SNIPPET,
             };
 
@@ -167,6 +168,7 @@ pub fn completion_resolve(_state: &ServerState, mut item: CompletionItem) -> Com
                 CompletionItemKind::CONSTANT => "constant",
                 CompletionItemKind::CLASS => "type",
                 CompletionItemKind::ENUM_MEMBER => "enum",
+                CompletionItemKind::MODULE => "namespace",
                 _ => "symbol",
             };
             item.detail = Some(detail.to_string());

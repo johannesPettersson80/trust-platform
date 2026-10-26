@@ -964,22 +964,6 @@ function parseBooleanValue(value) {
   return undefined;
 }
 
-function defaultNumericValue(value) {
-  const trimmed = String(value || "").trim();
-  if (!trimmed) {
-    return "";
-  }
-  const numericLiteral = /^(?:0x[0-9a-fA-F_]+|[0-9][0-9_]*|[28]#[0-9A-Fa-f_]+|16#[0-9A-Fa-f_]+)$/;
-  if (numericLiteral.test(trimmed)) {
-    return trimmed;
-  }
-  const match = trimmed.match(/\((-?\d+)\)/);
-  if (match) {
-    return match[1];
-  }
-  return "";
-}
-
 function defaultWriteValue(entry, display) {
   const addressType = typeFromAddress(entry.address);
   const resolvedType = String(display.type || addressType || "").toUpperCase();
@@ -991,10 +975,10 @@ function defaultWriteValue(entry, display) {
     const booleanValue = parseBooleanValue(entry.value || display.value);
     return booleanValue ? "TRUE" : "FALSE";
   }
-  // Numeric (BYTE/WORD/DWORD/INT/REAL): never offer a boolean literal as the default; pre-fill with
-  // the current numeric value so the write box is type-consistent with the row.
-  const numericValue = defaultNumericValue(display.value || entry.value);
-  return numericValue || String(display.value || "").trim();
+  // Numeric (BYTE/WORD/DWORD/INT/REAL): the box starts empty and the operator types the value, a prepared value as
+  // in CODESYS and TwinCAT watch lists; its placeholder shows the current value, so a REAL with 17 digits never
+  // fills the compact box (specification 25, section 4.3).
+  return "";
 }
 
 function splitDisplayValue(value) {

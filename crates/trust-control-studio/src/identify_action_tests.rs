@@ -335,6 +335,11 @@ impl Project {
 
     /// Journals a recording of the loop, as a start journals its owner before it is dispatched (E11.2).
     fn journal_an_operation(&self) {
+        self.journal_an_operation_at(None);
+    }
+
+    /// Journals a recording of the loop started on the simulator at program revision `revision`, when it names one (E11.2).
+    fn journal_an_operation_at(&self, revision: Option<&str>) {
         let loop_definition = self.loop_definition();
         let owner = RecordingRecoveryOwner {
             schema_version: 1,
@@ -344,7 +349,7 @@ impl Project {
             loop_id: loop_definition.id.clone(),
             loop_revision: loop_definition.revision.clone(),
             source: ControlEvidenceSource::Simulation,
-            program_revision: None,
+            program_revision: revision.map(str::to_string),
             start_acknowledgement_unconfirmed: None,
             bindings: vec![RecordingRecoveryBinding {
                 id: "processVariable".to_string(),
@@ -452,7 +457,7 @@ fn identify_and_open_recording_are_refused_at_once_while_the_loop_has_an_unfinis
         let answer = identify(&studio, project.request(action));
         assert_eq!(
             refusal(&answer),
-            ("This loop has an unfinished operation.", "wait"),
+            ("This loop has an unfinished operation.", "resume"),
             "{answer}"
         );
         assert_eq!(
@@ -617,7 +622,7 @@ fn reset_is_refused_while_the_loop_has_a_running_or_unconfirmed_operation() {
     let answer = identify(&studio, project.request(json!({ "action": "reset" })));
     assert_eq!(
         refusal(&answer),
-        ("This loop has an unfinished operation.", "wait"),
+        ("This loop has an unfinished operation.", "resume"),
         "{answer}"
     );
     let kept = project.working_study().section::<IdentifySection>();
@@ -735,6 +740,69 @@ fn cancel_starts_an_operation_of_this_engine_on_the_loops_journal() {
         project.journaled(),
         [JOURNALED],
         "without the runtime the journal stays"
+    );
+}
+
+/// A2.2, A8.6 and E11.5: the simulator restarted while VS Code was closed, so the journaled recording belongs to a program revision
+/// the simulator no longer runs and can never complete. The resume ends the identification with the simulator: the journal is
+/// cleared, the failure says why and offers Identify plant, and Identify is no longer refused for an unfinished operation. Caught:
+/// a loop that stays blocked after a restart, with no way out on the page (acceptance finding F7, 26 October 2026).
+#[test]
+fn a_resume_after_the_simulator_restarted_ends_the_identification_and_frees_the_loop() {
+    let project = Project::new("restarted");
+    project.journal_an_operation_at(Some("program-before-restart"));
+    let (studio, updates) = engine();
+    let mut request = project.request(json!({ "action": "resume" }));
+    request["connection"] = json!({ "endpoint": simulated_runtime() });
+    let resumed = identify(&studio, request);
+    assert_eq!(resumed["result"]["operationId"], "operation-1", "{resumed}");
+    let update = final_update(&updates);
+    assert_eq!(update.state, OperationState::Failed);
+    let Some(failure) = update.failure else {
+        panic!("the identification ended with the simulator");
+    };
+    assert_eq!(
+        failure.message,
+        "The interrupted identification ended when the simulator restarted or reloaded its program."
+    );
+    assert_eq!(
+        failure.detail.as_deref(),
+        Some("The interrupted identification ended when the simulator restarted or reloaded its program. It ran on program revision program-before-restart, and the simulator now runs program. Its recording was not kept and the loop's mode was not returned. Check the loop's mode, then identify the plant again.")
+    );
+    assert_eq!(
+        (failure.cause, failure.next_action),
+        (Cause::Runtime, NextAction::Identify)
+    );
+    assert_eq!(
+        project.journaled(),
+        Vec::<String>::new(),
+        "the ended identification leaves nothing journaled"
+    );
+    let again = identify(&studio, project.request(live(automatic())));
+    assert_ne!(
+        again["failure"]["message"], "This loop has an unfinished operation.",
+        "Identify plant is no longer refused: {again}"
+    );
+}
+
+/// E11.5: on the simulator that still runs the revision the recording was journaled at, the resume follows the journal as before and
+/// ends nothing by itself: the runtime refuses the recording's stop here, so the owner stays journaled. Caught: a journal cleared
+/// under an experiment that may still hold its step.
+#[test]
+fn a_resume_on_the_same_simulator_revision_ends_nothing_by_itself() {
+    let project = Project::new("same-revision");
+    project.journal_an_operation_at(Some("program"));
+    let (studio, updates) = engine();
+    let mut request = project.request(json!({ "action": "resume" }));
+    request["connection"] = json!({ "endpoint": simulated_runtime() });
+    let resumed = identify(&studio, request);
+    assert_eq!(resumed["result"]["operationId"], "operation-1", "{resumed}");
+    let update = final_update(&updates);
+    assert_eq!(update.state, OperationState::Failed);
+    assert_eq!(
+        project.journaled(),
+        [JOURNALED],
+        "the owner stays journaled"
     );
 }
 

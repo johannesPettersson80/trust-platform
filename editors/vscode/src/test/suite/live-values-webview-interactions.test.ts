@@ -237,6 +237,44 @@ suite("Live Values rendered interactions", function () {
     }
   });
 
+  test("a numeric row's write box starts empty, with the current value as its hint", () => {
+    // Acceptance finding F6: a REAL filled the 46-pixel write box with "1.5116941978474925", cut off. As the prepared value
+    // of a CODESYS or TwinCAT watch list, the box starts empty (specification 25, section 4.3).
+    const harness = createHarness();
+    try {
+      harness.window.dispatchEvent(
+        new harness.window.MessageEvent("message", {
+          data: {
+            type: "ioState",
+            payload: {
+              scan: 1,
+              inputs: [{ name: "Tank.Level", address: "%IL0", value: "LREAL(1.5116941978474925)", writable: true }],
+              outputs: [],
+              memory: [],
+              ads: [],
+            },
+          },
+        }),
+      );
+      const box = harness.document.querySelector("input.value-input");
+      assert.ok(box, "the row has a write box");
+      assert.strictEqual(box.value, "");
+      assert.strictEqual(box.placeholder, "1.5116941978474925");
+      actionButton(harness.document, "Write").click();
+      assert.ok(!harness.posted.some((message) => message.type === "writeInput"), "an empty box writes nothing");
+      box.value = "2.5";
+      box.dispatchEvent(new harness.window.Event("input", { bubbles: true }));
+      actionButton(harness.document, "Write").click();
+      // The webview's objects come from its own window, so they are compared by value.
+      assert.deepStrictEqual(
+        JSON.parse(JSON.stringify(harness.posted.filter((message) => message.type === "writeInput"))),
+        [{ type: "writeInput", address: "%IL0", value: "2.5" }],
+      );
+    } finally {
+      harness.close();
+    }
+  });
+
   test("a live scan preserves the highlight of the row under the pointer", () => {
     const harness = createHarness();
     try {

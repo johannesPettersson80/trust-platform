@@ -8,6 +8,47 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 - Security: tokio 1.53.3 (RUSTSEC-2026-0386), rustls-webpki 0.103.16 (RUSTSEC-2026-0382), webpki-roots 1.0.10
   (RUSTSEC-2026-0381) and ctutils 0.4.4 (RUSTSEC-2026-0385).
+- Control Studio reattaches an interrupted operation when it reopens after VS Code restarted: it follows a
+  dispatched identification step to its end, completes a journal without one, and ends an identification whose
+  simulator restarted or reloaded its program since, saying so with both program revisions. The refusal
+  "This loop has an unfinished operation" now offers **Resume**; before, the loop stayed blocked with no way
+  out on the page (specification 35, A8.6; acceptance test, 26 October 2026). `trust-control-studio identify
+  --resume` makes the same reattach.
+- Discover truST runtimes listens for its whole mDNS browse window, 2,000 ms by default, instead of ending at
+  the first quiet 100 ms, so runtimes that answer a little later are found (specification 11).
+- A new Ladder, SFC, Statechart or Blockly program opens in its visual editor, with its Structured Text
+  companion beside it, instead of as JSON text or only the companion; a `.sfc.json` opened as text also opens in
+  the SFC editor. The new-Ladder template is valid schema version 2 (specification 25, §11.4).
+- HMI Live mode on the simulator says where alarms show instead of showing zero alarm counts, and its read-only
+  explanation names the simulator (specification 39, §11).
+- Connect changes nothing until the runtime answers: a refused Connect (unreachable, missing or rejected token)
+  leaves the target, the runtime settings and the status bar as they were, and the runtime's node in Devices &
+  Connections keeps its place with the failure and a **Set auth token** action. After a successful Connect the side
+  panel's Target, its picker and the status bar name the runtime. A runtime that answers with debugging disabled
+  becomes the target, and Live Values says how to enable debugging (specification 25, §5.1).
+- Choosing another run target in the side panel or with **Set as run target** ends the session with the previous
+  one; the status bar, Live Values and HMI Live follow the side panel's Target instead of staying on the runtime
+  that was connected before (specification 25, §5.1).
+- Devices & Connections gives a connected runtime's node its endpoint, so it offers **Disconnect** and **Set as run
+  target** for that runtime; before, Connect was disabled on it and **Set as run target** selected the Simulator. A
+  running simulator's node is drawn live (green, "Running") instead of grey, and a card name such as "Simulated I/O"
+  wraps instead of ending in an ellipsis.
+- The status bar says "Simulator ×10 paused" while the program is held at a breakpoint, as the runtime reports it,
+  instead of "running".
+- Live Values starts a numeric row's write box empty, with the current value as its hint, as the prepared value of
+  a CODESYS or TwinCAT watch list; a REAL no longer fills the box with 17 cut-off digits (specification 25, §4.3).
+- Completion lists a namespace as a namespace (LSP Module kind), not as a variable.
+- A missing expression (`Level := ;`) gives one error; the statement keeps its `;`, so no second "expected ';'"
+  follows.
+- The alarm list's Value column never reads "2.5 > 2.5": when the tag's decimals round a reading onto its limit, it
+  shows more decimals ("2.53 > 2.50"), and its sign compares the two numbers shown (specification 39, §5.9).
+- High contrast themes mark the active part of the HMI Builder's Build/Live switch.
+- Control Studio names a plotted plant input "Output" on its axis, as in its legend, instead of "Applied input"
+  (specification 35, B9.9). In the narrow loop setup form, each **Change** link stays at the start of its row.
+- Create project opens its name box with a selected suggestion instead of "Project name is required." before
+  anything is typed.
+- `trust-runtime` commands run with `--json` report an error without the command-line tip, so VS Code no longer
+  suggests `trust-runtime wizard` after a failed PLCopen export (specification 11, 6.8.1d).
 - The HMI Builder, Control Studio, simulated plants and `Comm.Link` blocks run on the shared execution
   engine. The screens are served at the end of each scan in which the program called `Hmi.Display`, after
   that scan's outputs are published, instead of directly after the calling task, so a command reaches every

@@ -69,6 +69,8 @@ use cli::{Cli, Command};
 fn main() -> anyhow::Result<()> {
     let raw_args: Vec<String> = std::env::args().collect();
     let ci_mode = raw_args.iter().any(|arg| arg == "--ci");
+    // A program that asked for JSON words its own guidance; the command-line tip is for a person (specification 11, 6.8.1d).
+    let json_mode = raw_args.iter().any(|arg| arg == "--json");
     let ci_command = raw_args
         .iter()
         .skip(1)
@@ -76,7 +78,9 @@ fn main() -> anyhow::Result<()> {
         .map(|arg| arg.as_str());
     if let Err(err) = run() {
         let message = format_error_with_tip(&err);
-        eprintln!("{}", style::error(format!("Error: {message}")));
+        let plain = err.to_string();
+        let shown = if json_mode { &plain } else { &message };
+        eprintln!("{}", style::error(format!("Error: {shown}")));
         let exit_code = if ci_mode {
             ci::classify_error_with_command(&message, ci_command)
         } else {

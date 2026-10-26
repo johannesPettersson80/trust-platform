@@ -15,6 +15,7 @@ import {
 import { ensureAdsRuntimeEnabled } from "../../networkCanvas/offlineComm";
 import { mergeConnectorStatusIntoTopology } from "../../networkCanvas/connectorsStatus";
 import { buildCanvasGraph } from "../../networkCanvas/graphData";
+import { withReachedEndpoint } from "../../networkCanvas/refreshData";
 import { buildGraph } from "../../networkCanvas/webview/layout";
 import type { EndpointNodeData } from "../../networkCanvas/webview/types";
 import type { RuntimeTarget } from "../../runtimeTarget";
@@ -2372,6 +2373,38 @@ function fleetTopology(): FleetTopologyResponse {
 
 // F-043/S-09: the Add picker presents backend protocols as first-user choices, not raw
 // Field/Supervisory/Peer schema categories.
+suite("Network Canvas — the endpoint a live runtime answered at", function () {
+  // Specification 25, section 5.1. A runtime's own topology names no control endpoint (it does not know the address it
+  // was reached at), so its node had Connect disabled and "Set as run target" selected the Simulator (found while fixing
+  // acceptance finding F20).
+  const runtime = (runtime_id: string, source: string, control_endpoint?: string) => ({
+    runtime_id, name: runtime_id, mode: "online", cycle_ms: 100, health: "connected", detail: "", endpoints: [], source,
+    ...(control_endpoint ? { control_endpoint } : {}),
+  });
+  const topology = {
+    schema_version: 1,
+    hosts: [{
+      host_id: "host:cell", hostname: "cell", arch: "x86_64", os: "linux", ips: [],
+      runtimes: [runtime("runtime:self", "self"), runtime("runtime:peer", "mesh", "tcp://10.0.0.9:9100")],
+      containers: [{ container_id: "c1", name: "c1", image: "trust", status: "running", runtimes: [runtime("runtime:boxed", "self")] }],
+    }],
+    links: [], shared: [], external: [],
+  };
+
+  test("the runtime that answered gets the endpoint it answered at; a peer keeps its own", () => {
+    const stamped = withReachedEndpoint(topology, "tcp://127.0.0.1:9100");
+    assert.ok(stamped);
+    assert.strictEqual(stamped.hosts[0].runtimes[0].control_endpoint, "tcp://127.0.0.1:9100");
+    assert.strictEqual(stamped.hosts[0].runtimes[1].control_endpoint, "tcp://10.0.0.9:9100", "a mesh peer names its own");
+    assert.strictEqual(stamped.hosts[0].containers[0].runtimes[0].control_endpoint, "tcp://127.0.0.1:9100");
+    assert.strictEqual(topology.hosts[0].runtimes[0].control_endpoint, undefined, "the answer itself is not changed");
+  });
+
+  test("the extension's own simulator gets no endpoint, so its node stays the Simulator with Start and Stop", () => {
+    assert.deepStrictEqual(withReachedEndpoint(topology, undefined), topology);
+  });
+});
+
 suite("Network Canvas — add picker taxonomy", function () {
   type P = { id: string; title: string; purpose?: string; category?: string };
   const p = (id: string, category?: string): P => ({ id, title: id, purpose: `${id} purpose`, category });

@@ -54,6 +54,8 @@ pub enum NextAction {
     Approve,
     /// Restore the previous settings.
     Restore,
+    /// Resume the interrupted operation the loop's journal holds: the reattach that reopening makes (A8.5, A8.6).
+    Resume,
     /// Wait: the condition clears by itself.
     Wait,
     /// Nothing to do from here.
@@ -77,6 +79,7 @@ impl NextAction {
             Self::Validate => "Validate controller",
             Self::Approve => "Approve…",
             Self::Restore => "Restore previous settings",
+            Self::Resume => "Resume",
             Self::Wait | Self::None => "",
         }
     }
@@ -327,6 +330,7 @@ mod tests {
     #[test]
     fn every_action_with_a_button_has_a_label() {
         assert_eq!(NextAction::Restore.label(), "Restore previous settings");
+        assert_eq!(NextAction::Resume.label(), "Resume");
         assert_eq!(NextAction::Wait.label(), "");
         assert_eq!(NextAction::None.label(), "");
     }

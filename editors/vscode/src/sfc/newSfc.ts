@@ -12,6 +12,7 @@ type NewSfcArgs = {
 };
 
 export const NEW_SFC_COMMAND = "trust-lsp.sfc.new";
+const SFC_EDITOR_VIEW_TYPE = "trust-lsp.sfc.editor";
 
 const SFC_TEMPLATE = `{
   "name": "{{name}}",
@@ -171,21 +172,27 @@ export async function newSfcCommand(
 
     outputChannel.appendLine(`Created SFC file: ${fileUri.fsPath}`);
 
-    // Sync companion ST file if enabled
+    // Open the program in its visual editor
+    await vscode.commands.executeCommand(
+      "vscode.openWith",
+      fileUri,
+      SFC_EDITOR_VIEW_TYPE,
+      { preview: false }
+    );
+
+    // Sync companion ST file if enabled and open it beside the visual editor
     if (openCompanionOnCreateEnabled(fileUri)) {
       try {
-        await syncVisualCompanionFromUri(fileUri);
-        await openCompanionForVisualSource(fileUri);
+        const companionUri = await syncVisualCompanionFromUri(fileUri);
+        if (companionUri) {
+          await openCompanionForVisualSource(fileUri, { beside: true });
+        }
       } catch (error) {
         outputChannel.appendLine(
           `Warning: Failed to create companion ST file: ${error}`
         );
       }
     }
-
-    // Open the file
-    const document = await vscode.workspace.openTextDocument(fileUri);
-    await vscode.window.showTextDocument(document);
 
     vscode.window.showInformationMessage(
       `SFC program "${sfcName}" created successfully.`

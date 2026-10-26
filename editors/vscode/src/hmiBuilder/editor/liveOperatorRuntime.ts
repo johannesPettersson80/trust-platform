@@ -18,6 +18,7 @@ export function runtimeLiveOperatorDeps(root: string, allowSimulator = false): L
           document.uri.fsPath.startsWith(path.join(root, "hmi") + path.sep),
       ),
     bundle: () => runtimeDeployDeps.bundle(root),
+    runTarget: () => runtimeDeployDeps.target(),
     session: {
       async target() {
         const selected = await runtimeDeployDeps.target();

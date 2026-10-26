@@ -216,13 +216,16 @@ if (host) {
   new MutationObserver(render).observe(document.body, { attributes: true, attributeFilter: ["class", "style", "data-vscode-theme-kind"] });
 }
 
-/** The applied inputs of an experiment, one group for each unit: the plant input it held, drawn beside the measurement and the prediction (B9.6). */
+/** The applied inputs of an experiment, one group for each unit: the plant input it held, drawn beside the measurement and the prediction (B9.6).
+ *  Its axis names it by its role in the loop, as its legend does (B9.9); plant inputs of one unit share the axis as "Output". */
 function appliedInputs(traces: readonly ExperimentTrace[], sides: LiveSides | null | undefined): ResponseGroup[] {
   const groups = new Map<string, ResponseGroup>();
   for (const trace of traces) {
-    const group = groups.get(trace.unit) ?? { name: "Applied input", unit: trace.unit, series: [] };
     const applied = experimentInputBinding(sides?.plotSignals ?? [], trace.id);
-    group.series.push({ signalId: applied?.id, name: applied ? signalRoleName(sides, applied.symbol) ?? applied.symbol : `${trace.id} · Applied input`, points: trace.points.map(point => [point.timeSeconds, point.value]) });
+    const name = applied ? signalRoleName(sides, applied.symbol) ?? applied.symbol : `${trace.id} · Applied input`;
+    const shared = groups.get(trace.unit);
+    const group: ResponseGroup = shared ? { ...shared, name: "Output" } : { name, unit: trace.unit, series: [] };
+    group.series.push({ signalId: applied?.id, name, points: trace.points.map(point => [point.timeSeconds, point.value]) });
     groups.set(trace.unit, group);
   }
   return [...groups.values()];
