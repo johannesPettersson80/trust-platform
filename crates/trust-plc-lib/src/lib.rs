@@ -42,9 +42,9 @@ pub use bistables::{rs, sr, Rs, Sr};
 pub use bits::{rol, ror, shift_bool, shift_count, shl, shr, Bits};
 pub use convert::{
     bits_to_real32, bits_to_real64, code_to_char, code_to_wchar, dword_to_time, from_bcd,
-    real32_to_real, real64_to_real32, real_to_int, round_ties_to_even, sint_to, sint_to_real32,
-    sint_to_real64, time_to_dword, to_bcd, uint_to, uint_to_real32, uint_to_real64, wide_to,
-    IntTarget, Rounding,
+    real32_to_real, real64_to_real32, real_to_int, real_to_int_wrapping, round_ties_to_even,
+    sint_to, sint_to_real32, sint_to_real64, time_to_dword, to_bcd, uint_to, uint_to_real32,
+    uint_to_real64, wide_to, IntTarget, Rounding,
 };
 pub use counters::{
     ctd_dint, ctd_int, ctd_lint, ctd_udint, ctd_ulint, ctu_dint, ctu_int, ctu_lint, ctu_udint,

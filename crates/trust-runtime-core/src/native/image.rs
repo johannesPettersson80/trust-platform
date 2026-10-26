@@ -17,7 +17,11 @@ mod writer;
 use core::fmt;
 use core::marker::PhantomData;
 
+use smol_str::SmolStr;
 use trust_plc_abi as abi;
+
+use crate::error::RuntimeError;
+use crate::stdlib::conversions::ConversionProfile;
 
 pub use records::{
     type_kind, AreaRecord, EntryKind, EntryRecord, FileRecord, IoBindRecord, MemberDetail,
@@ -44,6 +48,11 @@ pub const FLAG_RELEASE: u32 = 1;
 /// deployment record requires a device that has one (specification 44 §5.2; specification 34
 /// §5.2).
 pub const FLAG_WALL_CLOCK: u32 = 2;
+/// Bit 2 of the header's flags: the program converts with the CODESYS conversion rules that its
+/// project's `vendor_profile` selects (specification 07 §2.10), not with the IEC rules
+/// (specification 44 §5.2). A running program keeps its rules: an online change to an image
+/// built with the other rules is refused ([`same_conversion_rules`]).
+pub const FLAG_CODESYS_CONVERSIONS: u32 = 4;
 /// The bytes of a section table entry.
 pub const SECTION_ENTRY_BYTES: usize = 16;
 /// The bytes before a table's records: its count and a reserved word.
@@ -298,6 +307,17 @@ impl Header {
         self.flags & FLAG_WALL_CLOCK != 0
     }
 
+    /// The conversion rules the program was built with (specification 07 §2.10): the CODESYS
+    /// rules when [`FLAG_CODESYS_CONVERSIONS`] is set, else the IEC rules.
+    #[must_use]
+    pub const fn conversion_profile(&self) -> ConversionProfile {
+        if self.flags & FLAG_CODESYS_CONVERSIONS != 0 {
+            ConversionProfile::Codesys
+        } else {
+            ConversionProfile::Iec
+        }
+    }
+
     /// The compiler version as text, without its padding.
     #[must_use]
     pub fn rustc_version(&self) -> &str {
@@ -308,6 +328,28 @@ impl Header {
             .unwrap_or(self.rustc.len());
         core::str::from_utf8(self.rustc.get(..end).unwrap_or(&[])).unwrap_or("")
     }
+}
+
+/// Refuses the online change from the program of header `running` to the program of header
+/// `changed` when the two convert with other rules: a running runtime keeps the conversion rules it
+/// started with, and an online change does not switch them (specification 07 §2.10; specification
+/// 44 §5.2, §12.1).
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidConfig`] naming both rules.
+pub fn same_conversion_rules(running: &Header, changed: &Header) -> Result<(), RuntimeError> {
+    let (from, to) = (running.conversion_profile(), changed.conversion_profile());
+    if from == to {
+        return Ok(());
+    }
+    Err(RuntimeError::InvalidConfig(SmolStr::new(alloc::format!(
+        "the changed program converts with the {} conversion rules and the running program with \
+         the {} rules: an online change does not switch them (specification 07 §2.10); restart \
+         the runtime with the changed program",
+        to.name(),
+        from.name()
+    ))))
 }
 
 /// One section of the section table.

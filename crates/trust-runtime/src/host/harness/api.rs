@@ -44,37 +44,47 @@ impl Declarations {
     }
 }
 
-/// The sources of a project and how their errors are labelled.
+/// The sources of a project, how their errors are labelled, and the conversion rules its program
+/// is built with.
 #[derive(Debug, Clone)]
 pub struct CompileSession {
     sources: Vec<SourceFile>,
+    /// The sources as written, before the OpenOT authoring is compiled into them, which a build of
+    /// the program image instruments itself.
+    written: Vec<SourceFile>,
     label_errors: bool,
     extra_program_instances: Vec<SmolStr>,
     instrumentation_errors: Vec<String>,
+    conversion_profile: crate::stdlib::conversions::ConversionProfile,
 }
 
 impl CompileSession {
     /// Build a compile session from a single source.
     pub fn from_source(source: impl Into<String>) -> Self {
-        let sources = vec![SourceFile::new(source)];
-        let (sources, instrumentation_errors) = instrument_sources_for_compile(sources);
+        let written = vec![SourceFile::new(source)];
+        let (sources, instrumentation_errors) = instrument_sources_for_compile(written.clone());
         Self {
             sources,
+            written,
             label_errors: false,
             extra_program_instances: Vec::new(),
             instrumentation_errors,
+            conversion_profile: Default::default(),
         }
     }
 
     /// Build a compile session from multiple sources.
     pub fn from_sources(sources: Vec<SourceFile>) -> Self {
         let label_errors = sources.len() > 1;
+        let written = sources.clone();
         let (sources, instrumentation_errors) = instrument_sources_for_compile(sources);
         Self {
             sources,
+            written,
             label_errors,
             extra_program_instances: Vec::new(),
             instrumentation_errors,
+            conversion_profile: Default::default(),
         }
     }
 
@@ -98,9 +108,50 @@ impl CompileSession {
         self
     }
 
+    /// Use the given conversion rules (docs/specs/07-standard-functions.md 2.10).
+    #[must_use]
+    pub fn with_conversion_profile(
+        mut self,
+        profile: crate::stdlib::conversions::ConversionProfile,
+    ) -> Self {
+        self.conversion_profile = profile;
+        self
+    }
+
+    /// The conversion rules of the session.
+    #[must_use]
+    pub fn conversion_profile(&self) -> crate::stdlib::conversions::ConversionProfile {
+        self.conversion_profile
+    }
+
     /// Access the registered sources.
     pub fn sources(&self) -> &[SourceFile] {
         &self.sources
+    }
+
+    /// The sources as written, which a build of the program image compiles (specification 44
+    /// §3), the program instances registered at build time and the conversion rules: what
+    /// [`TestHarness::from_session`](super::TestHarness::from_session) builds.
+    ///
+    /// # Errors
+    ///
+    /// The [`CompileError`] of sources whose OpenOT authoring does not validate.
+    pub(super) fn build_inputs(
+        &self,
+    ) -> Result<
+        (
+            &[SourceFile],
+            &[SmolStr],
+            crate::stdlib::conversions::ConversionProfile,
+        ),
+        CompileError,
+    > {
+        self.ensure_instrumented()?;
+        Ok((
+            &self.written,
+            &self.extra_program_instances,
+            self.conversion_profile,
+        ))
     }
 
     /// The declared program in its starting state (specification 44 §6.7), which the tools read

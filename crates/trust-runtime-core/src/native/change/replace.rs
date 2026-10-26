@@ -20,13 +20,15 @@ impl<C: ModuleCode> NativeProgram<'_, C> {
     ///
     /// # Errors
     ///
-    /// The fault of the cold-init entry, or the error of a table of either image that does not
-    /// read. `old` is only read; this program is dropped then.
+    /// The refusal of a program built with other conversion rules than `old`, which a running
+    /// runtime keeps (specification 07 §2.10), the fault of the cold-init entry, or the error of a
+    /// table of either image that does not read. `old` is only read; this program is dropped then.
     pub fn change_from<D: ModuleCode>(
         &mut self,
         old: &NativeProgram<'_, D>,
         now: Duration,
     ) -> Result<Vec<CarriedValueEvent>, RuntimeError> {
+        crate::native::image::same_conversion_rules(old.image().header(), self.image().header())?;
         self.start_as_replacement(now)?;
         let events = super::carry(old, self)?;
         self.take_over(old, now);

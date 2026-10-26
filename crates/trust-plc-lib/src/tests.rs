@@ -103,6 +103,46 @@ fn reals_round_to_even_integers() {
     assert!(round_ties_to_even(-0.5).is_sign_negative());
 }
 
+/// The CODESYS conversion rules (specification 07 §2.10), worked by hand from its table: a real
+/// rounds half away from zero, `REAL_TO_INT(2.5) = 3` and `REAL_TO_INT(-1.5) = -2`, where the IEC
+/// rules give 2 and -2; a value outside the target keeps the low-order bits of its width, two's
+/// complement: `REAL_TO_BYTE(300.0) = 44` (300 is `16#12C`), 70,000.4 as an `INT` is 4,464 (70,000 is
+/// `16#1_1170`) and `REAL_TO_DWORD(3.7) = 4`; `TRUNC` still cuts toward zero; a real beyond 128 bits
+/// is taken as the nearest 128-bit integer first, so 1E40 as an `INT` is -1. A value that is not
+/// finite still overflows. The integer forms keep the low-order bits too: `DINT_TO_SINT(128) =
+/// -128`, `INT_TO_UINT(-1) = 65535`. Catches ties rounded to even, a saturated or faulting
+/// out-of-range value, and a non-finite value turned into a number.
+#[test]
+fn the_codesys_rules_round_half_away_and_keep_the_low_order_bits() {
+    let mut cx = cx();
+    let to_int =
+        |cx: &mut Cx, value: f64| real_to_int_wrapping::<i16>(cx, value, Rounding::HalfAway);
+    assert_eq!(to_int(&mut cx, 2.5), Ok(3));
+    assert_eq!(to_int(&mut cx, -1.5), Ok(-2));
+    assert_eq!(to_int(&mut cx, 2.4), Ok(2));
+    assert_eq!(to_int(&mut cx, 70_000.4), Ok(4_464));
+    assert_eq!(to_int(&mut cx, 1.0e40), Ok(-1));
+    assert_eq!(code(to_int(&mut cx, f64::INFINITY)), OVERFLOW);
+    assert_eq!(code(to_int(&mut cx, f64::NAN)), OVERFLOW);
+    assert_eq!(
+        real_to_int_wrapping::<u8>(&mut cx, 300.0, Rounding::HalfAway),
+        Ok(44)
+    );
+    assert_eq!(
+        real_to_int_wrapping::<u32>(&mut cx, 3.7, Rounding::HalfAway),
+        Ok(4)
+    );
+    assert_eq!(
+        real_to_int_wrapping::<i32>(&mut cx, -2.7, Rounding::Truncate),
+        Ok(-2)
+    );
+    assert_eq!(<i8 as IntTarget>::wrapping_from_i128(128), -128);
+    assert_eq!(<u16 as IntTarget>::wrapping_from_i128(-1), 65_535);
+    // The IEC rules round the tie to even, and the CODESYS rules' rounding alone gives 3.
+    assert_eq!(real_to_int::<i16>(&mut cx, 2.5, Rounding::Nearest), Ok(2));
+    assert_eq!(real_to_int::<i16>(&mut cx, 2.5, Rounding::HalfAway), Ok(3));
+}
+
 /// An integer converts when its value fits the destination, else it overflows; an integer becomes a
 /// `REAL` through binary64, as the runtime converts: 2^60 + 2^36 + 1 rounds to 2^60 + 2^36 in
 /// binary64, a tie in binary32 that goes to the even 2^60, where one direct rounding would give

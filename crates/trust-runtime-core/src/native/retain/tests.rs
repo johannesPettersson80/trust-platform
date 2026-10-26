@@ -33,7 +33,7 @@ use trust_plc_abi::kernel::{Entry, WITHOUT_DEBUGGER};
 use trust_plc_abi::module::run;
 use trust_plc_abi::Cx;
 
-use super::{check, payload_bound, stage, Kept};
+use super::{check, payload_bound, stage, symbol_path, Kept};
 use crate::collections::OrderedMap;
 use crate::error::RuntimeError;
 use crate::native::image::{
@@ -697,4 +697,36 @@ fn live_values_reach_a_retained_variable_by_its_key_and_a_member_by_its_instance
     );
     assert_eq!(program.value("MAIN.TIMER.Q"), Some(Value::Bool(true)));
     assert_eq!(program.value("MAIN.SPEED"), Some(int(4)));
+}
+
+/// The checkpoint keys of specification 11 §6.7 and the symbol paths through which a restore finds
+/// the variable a key names, retained or not: a program's own variable, a variable of an instance a
+/// program's variable holds, through an element's subscript and a nested instance, one of an
+/// instance a global holds, and a global by its name. An instance's variable is no program
+/// variable, so `@PROGRAM/MAIN/ONE.HOURS` names nothing and its value is reported as an orphan, as
+/// a key without a member path is. Catches a key whose holder and member are joined wrongly, and an
+/// old-form key of an instance's variable that a restore drops without a word.
+#[test]
+fn checkpoint_keys_name_their_variables_through_the_symbol_table() {
+    assert_eq!(
+        symbol_path("@PROGRAM/MAIN/TOTAL").as_deref(),
+        Some("MAIN.TOTAL")
+    );
+    assert_eq!(
+        symbol_path("@PROGRAM-INSTANCE/P1/CELLS[1]/INNER.TOTAL").as_deref(),
+        Some("P1.CELLS[1].INNER.TOTAL")
+    );
+    assert_eq!(
+        symbol_path("@GLOBAL-INSTANCE/LINE[2]/TOTAL").as_deref(),
+        Some("LINE[2].TOTAL")
+    );
+    assert_eq!(
+        symbol_path("@GLOBAL-INSTANCE/PLANT/INNER.TOTAL").as_deref(),
+        Some("PLANT.INNER.TOTAL")
+    );
+    assert_eq!(symbol_path("COUNT").as_deref(), Some("COUNT"));
+    assert_eq!(symbol_path("@PROGRAM/MAIN/ONE.HOURS"), None);
+    assert_eq!(symbol_path("@PROGRAM-INSTANCE/MAIN/ONE"), None);
+    assert_eq!(symbol_path("@GLOBAL-INSTANCE/LINE"), None);
+    assert_eq!(symbol_path("@OTHER/X"), None);
 }

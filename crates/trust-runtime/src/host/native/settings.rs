@@ -1,6 +1,7 @@
 //! The project's build settings in its settings file, `trust-lsp.toml` (specification 14): `[build]
-//! debug`, which chooses the image it compiles into (specification 44 §13.2), and `[signing] key`,
-//! the key a deployed image is signed with (§5.11).
+//! debug`, which chooses the image it compiles into (specification 44 §13.2), `[signing] key`, the
+//! key a deployed image is signed with (§5.11), and `[project] vendor_profile`, which chooses the
+//! conversion rules the program is compiled with (specification 07 §2.10).
 
 use std::path::{Path, PathBuf};
 
@@ -8,6 +9,7 @@ use serde::Deserialize;
 
 use super::NativeError;
 use crate::bundle_builder::PROJECT_SETTINGS_FILES;
+use crate::stdlib::conversions::{ConversionProfile, VENDOR_PROFILES};
 
 /// The part of the settings file this reads; every other section and key is the language server's.
 #[derive(Default, Deserialize)]
@@ -16,6 +18,13 @@ struct SettingsFile {
     build: BuildSection,
     #[serde(default)]
     signing: SigningSection,
+    #[serde(default)]
+    project: ProjectSection,
+}
+
+#[derive(Default, Deserialize)]
+struct ProjectSection {
+    vendor_profile: Option<String>,
 }
 
 #[derive(Default, Deserialize)]
@@ -28,13 +37,17 @@ struct SigningSection {
     key: Option<PathBuf>,
 }
 
-/// The settings file of the project in folder `root`, or the defaults without one.
-fn settings_file(root: &Path) -> Result<SettingsFile, NativeError> {
-    let Some(path) = PROJECT_SETTINGS_FILES
+/// The settings file of the project in folder `root`, the first of its names that is a file.
+fn settings_path(root: &Path) -> Option<PathBuf> {
+    PROJECT_SETTINGS_FILES
         .iter()
         .map(|name| root.join(name))
         .find(|path| path.is_file())
-    else {
+}
+
+/// The settings file of the project in folder `root`, or the defaults without one.
+fn settings_file(root: &Path) -> Result<SettingsFile, NativeError> {
+    let Some(path) = settings_path(root) else {
         return Ok(SettingsFile::default());
     };
     let settings = |error: &dyn std::fmt::Display| {
@@ -54,6 +67,35 @@ fn settings_file(root: &Path) -> Result<SettingsFile, NativeError> {
 /// that is not a Boolean.
 pub fn debug_hooks(root: &Path) -> Result<bool, NativeError> {
     Ok(settings_file(root)?.build.debug.unwrap_or(true))
+}
+
+/// The conversion rules the project in folder `root` is compiled with (specification 07 §2.10): the
+/// CODESYS rules for its `[project] vendor_profile` `codesys`, `beckhoff` or `twincat`, the IEC rules
+/// for `iec`, `siemens`, `mitsubishi` or `gxworks3`, and without a settings file, a
+/// `vendor_profile` or with an empty one. Names compare without regard to case or the white space
+/// around them.
+///
+/// # Errors
+///
+/// [`NativeError::Settings`] when the settings file cannot be read or is not TOML, and for a
+/// `vendor_profile` that is no vendor profile, with the file and the names it may take, so that a
+/// misspelled profile never builds the program with other conversion rules.
+pub fn conversion_profile(root: &Path) -> Result<ConversionProfile, NativeError> {
+    let Some(name) = settings_file(root)?.project.vendor_profile else {
+        return Ok(ConversionProfile::Iec);
+    };
+    if name.trim().is_empty() {
+        return Ok(ConversionProfile::Iec);
+    }
+    ConversionProfile::from_vendor_profile(&name).ok_or_else(|| {
+        let path = settings_path(root).unwrap_or_else(|| root.join(PROJECT_SETTINGS_FILES[0]));
+        NativeError::Settings(format!(
+            "{}: unknown vendor_profile '{}' (supported: {})",
+            path.display(),
+            name.trim(),
+            VENDOR_PROFILES.join(", ")
+        ))
+    })
 }
 
 /// The key file `[signing] key` names for the project in folder `root`, relative to it; `None`
@@ -114,6 +156,66 @@ mod tests {
         for root in [none, absent, release, debug] {
             let _ = std::fs::remove_dir_all(root);
         }
+    }
+
+    #[test]
+    fn the_vendor_profile_chooses_the_conversion_rules() {
+        // Specification 07 §2.10: `codesys`, `beckhoff` and `twincat` choose the CODESYS rules;
+        // `iec`, `siemens`, `mitsubishi`, `gxworks3`, an empty value, no `vendor_profile` and no
+        // settings file the IEC rules; names compare without case or surrounding white space; any
+        // other name is refused with the file and the supported names. Catches a profile that
+        // falls back to the IEC rules for a misspelling, and a case-sensitive comparison.
+        let cases = [
+            (
+                "codesys",
+                Some("[project]\nvendor_profile = \"codesys\"\n"),
+                ConversionProfile::Codesys,
+            ),
+            (
+                "beckhoff",
+                Some("[project]\nvendor_profile = \" Beckhoff \"\n"),
+                ConversionProfile::Codesys,
+            ),
+            (
+                "twincat",
+                Some("[project]\nvendor_profile = \"TWINCAT\"\n"),
+                ConversionProfile::Codesys,
+            ),
+            (
+                "siemens",
+                Some("[project]\nvendor_profile = \"siemens\"\n"),
+                ConversionProfile::Iec,
+            ),
+            (
+                "empty",
+                Some("[project]\nvendor_profile = \"\"\n"),
+                ConversionProfile::Iec,
+            ),
+            (
+                "unset",
+                Some("[build]\ndebug = true\n"),
+                ConversionProfile::Iec,
+            ),
+            ("nofile", None, ConversionProfile::Iec),
+        ];
+        for (name, text, expected) in cases {
+            let root = project(&format!("profile-{name}"), text);
+            assert_eq!(conversion_profile(&root).expect(name), expected, "{name}");
+            let _ = std::fs::remove_dir_all(root);
+        }
+        let root = project(
+            "profile-typo",
+            Some("[project]\nvendor_profile = \"codesis\"\n"),
+        );
+        let error = conversion_profile(&root).expect_err("a misspelled profile");
+        let text = error.to_string();
+        assert!(text.contains("trust-lsp.toml"), "{text}");
+        assert!(text.contains("unknown vendor_profile 'codesis'"), "{text}");
+        assert!(
+            text.contains("beckhoff, codesys, gxworks3, iec, mitsubishi, siemens, twincat"),
+            "{text}"
+        );
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

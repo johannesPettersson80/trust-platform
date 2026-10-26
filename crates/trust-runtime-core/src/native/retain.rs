@@ -4,8 +4,10 @@
 //!
 //! A capture visits the retain map in its order and writes each variable under the key the map
 //! names, specification 11 §6.7's: a global by its declared name, a program variable as
-//! `@program/<program>/<variable>` and a variable of a function block or class instance by its
-//! path, with the bytes the STRN v3 payload codec writes for the same value: a scalar's tag and its
+//! `@program/<program>/<variable>` and a variable of a function block or class instance as
+//! `@global-instance/<global path>/<member path>` or
+//! `@program-instance/<program>/<variable path>/<member path>`, with the bytes the STRN v3 payload
+//! codec writes for the same value: a scalar's tag and its
 //! bytes, a text as UTF-8, an enumeration by its type and value names, an array with its bounds, a
 //! structure with its type and member names. No `Value` is built, so a capture into a reserved
 //! payload allocates nothing (specification 34 MEM-04). A variable whose type holds an instance or
@@ -20,6 +22,7 @@
 
 use alloc::collections::BTreeMap;
 use alloc::format;
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -301,20 +304,15 @@ fn starting_bytes(image: &Image<'_>, id: u8) -> Result<Vec<u8>, RuntimeError> {
 }
 
 /// Whether `key` names a variable that `image` declares, retained or not: a global by its name, a
-/// program's variable as `@program/<program>/<variable>`, or a variable of an instance by its path,
-/// followed through the symbol table and, past an array element, through the type table. A restore
-/// leaves a variable declared without `RETAIN` alone and reports no orphan for it, as the
-/// interpreter does (specification 11 §6.7).
+/// program's variable as `@program/<program>/<variable>`, or a variable of an instance as
+/// `@global-instance/<global path>/<member path>` or
+/// `@program-instance/<program>/<variable path>/<member path>`, followed through the symbol table
+/// and, past an array element, through the type table. A restore leaves a variable declared without
+/// `RETAIN` alone and reports no orphan for it, as for a program's variable (specification 11
+/// §6.7).
 fn names_variable(image: &Image<'_>, types: &Types<'_>, key: &str) -> bool {
-    let folded = key.to_ascii_uppercase();
-    let path = match folded.strip_prefix("@PROGRAM/") {
-        Some(rest) => match rest.split_once('/') {
-            Some((program, variable)) if !variable.contains('/') => {
-                format!("{program}.{variable}")
-            }
-            _ => return false,
-        },
-        None => folded,
+    let Some(path) = symbol_path(&key.to_ascii_uppercase()) else {
+        return false;
     };
     let (head, mut rest) = path.split_at(path.find('[').unwrap_or(path.len()));
     let Some((_, symbol)) = image.find_symbol(head) else {
@@ -367,6 +365,34 @@ fn names_variable(image: &Image<'_>, types: &Types<'_>, key: &str) -> bool {
         }
     }
     true
+}
+
+/// The path through the symbol table of the variable the capitalized checkpoint key `folded` names
+/// (specification 11 §6.7): `PROGRAM.VARIABLE` for `@PROGRAM/PROGRAM/VARIABLE`, a program's own
+/// variable by its name alone; the holder's path and the member path joined by `.` for a variable
+/// of an instance; and a global's name as it is. `None` for a key of none of these forms.
+fn symbol_path(folded: &str) -> Option<String> {
+    let nonempty = |part: &str| !part.is_empty();
+    if let Some(rest) = folded.strip_prefix("@PROGRAM/") {
+        let (program, variable) = rest.split_once('/')?;
+        return (nonempty(program) && nonempty(variable) && !variable.contains(['/', '.', '[']))
+            .then(|| format!("{program}.{variable}"));
+    }
+    if let Some(rest) = folded.strip_prefix("@PROGRAM-INSTANCE/") {
+        let mut parts = rest.splitn(3, '/');
+        let (program, variable, member) = (parts.next()?, parts.next()?, parts.next()?);
+        return (nonempty(program)
+            && nonempty(variable)
+            && nonempty(member)
+            && !member.contains('/'))
+        .then(|| format!("{program}.{variable}.{member}"));
+    }
+    if let Some(rest) = folded.strip_prefix("@GLOBAL-INSTANCE/") {
+        let (global, member) = rest.split_once('/')?;
+        return (nonempty(global) && nonempty(member) && !member.contains('/'))
+            .then(|| format!("{global}.{member}"));
+    }
+    (!folded.starts_with('@')).then(|| String::from(folded))
 }
 
 /// The sum of `values`, or [`RuntimeError::Overflow`].

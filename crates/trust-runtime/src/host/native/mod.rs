@@ -34,8 +34,9 @@ mod types;
 use std::path::Path;
 
 use crate::harness::SourceFile;
+use crate::stdlib::conversions::ConversionProfile;
 pub use run::{load, load_kept, HostCode};
-pub use settings::{debug_hooks, signing_key_setting};
+pub use settings::{conversion_profile, debug_hooks, signing_key_setting};
 pub use signing::{
     computer_trusted_keys, config_folder, create_key, project_key, read_key, sign, trusted_keys_in,
     user_key,
@@ -230,10 +231,26 @@ pub struct Build {
 ///
 /// [`NativeError`] for sources with errors or a construct the generator does not compile.
 pub fn generate_source(sources: &[SourceFile], options: &Options) -> Result<String, NativeError> {
+    generate_source_with_conversions(sources, options, ConversionProfile::Iec)
+}
+
+/// The generated crate of `sources` as [`generate_source`] writes it, with the conversion rules
+/// `conversions`, the project's `vendor_profile` (specification 07 §2.10).
+///
+/// # Errors
+///
+/// As [`generate_source`].
+pub fn generate_source_with_conversions(
+    sources: &[SourceFile],
+    options: &Options,
+    conversions: ConversionProfile,
+) -> Result<String, NativeError> {
     let front = front::Front::analyze(sources, &[])?;
+    init::check_declared_conversions(&front, conversions)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry, &[], &front.direct_addresses()?)?;
+    model.conversions = conversions;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     Ok(generated.source)
 }
@@ -286,15 +303,42 @@ pub fn build_with_tests(
     toolchain: &Toolchain,
     work: &Path,
 ) -> Result<Build, NativeError> {
+    build_with_conversions(
+        sources,
+        tests,
+        options,
+        ConversionProfile::Iec,
+        toolchain,
+        work,
+    )
+}
+
+/// Builds the program image of `sources` as [`build_with_tests`] does, with the conversion rules
+/// `conversions`, the project's `vendor_profile` (specification 07 §2.10), which the image's header
+/// records (specification 44 §5.2).
+///
+/// # Errors
+///
+/// [`NativeError`] naming the step that failed.
+pub fn build_with_conversions(
+    sources: &[SourceFile],
+    tests: &[smol_str::SmolStr],
+    options: &Options,
+    conversions: ConversionProfile,
+    toolchain: &Toolchain,
+    work: &Path,
+) -> Result<Build, NativeError> {
     // The OpenOT authoring of annotated variables is compiled with the program, and a build whose
     // authoring does not validate fails (specification 27 §10.3, §10.4); the header's hash is of
     // the sources as written.
     let instrumented = crate::openot_authoring::try_instrument_source_files(sources)
         .map_err(|error| NativeError::Compile(format!("OpenOT authoring: {error}")))?;
     let front = front::Front::analyze(&instrumented, tests)?;
+    init::check_declared_conversions(&front, conversions)?;
     let ids = front.statement_ids();
     let registry = front.lowered.builder.registry().clone();
     let mut model = model::Model::new(&front.lowered, registry, tests, &front.direct_addresses()?)?;
+    model.conversions = conversions;
     let generated = recursion::generate(&front, &mut model, &ids, options.target, options.hooks)?;
     let memory = init::starting_memory(&front.lowered, &mut model)?;
     let symbols: Vec<String> = generated
@@ -320,6 +364,8 @@ pub fn build_with_tests(
     writer.release = !options.hooks;
     // A program that reads the wall clock needs a device that has one (§5.2).
     writer.wall_clock = model.wall_clock;
+    // The conversion rules the program was built with, which a running program keeps (§5.2).
+    writer.conversion_profile = model.conversions;
     writer.build_time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());

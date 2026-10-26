@@ -10,7 +10,8 @@ use crate::boundary::BoundaryError;
 use crate::error::RuntimeError;
 use crate::io::IoAddress;
 use crate::memory::IoArea;
-use crate::native::{build, Options, Target, Toolchain};
+use crate::native::{build_with_conversions, Options, Target, Toolchain};
+use crate::stdlib::conversions::ConversionProfile;
 use crate::value::{read_partial_access, write_partial_access, Duration, Value};
 use crate::CompiledRuntime;
 
@@ -27,6 +28,9 @@ const RESOURCE_NAME: &str = "RESOURCE";
 pub struct TestHarness {
     runtime: CompiledRuntime,
     cycle_count: u64,
+    /// The conversion rules the program is built with, which a reload keeps (specification 07
+    /// §2.10).
+    conversions: ConversionProfile,
     /// The program's `VAR_ACCESS` declarations (specification 10 §4.1.2).
     access: Vec<NamedAccess>,
     /// The variables bound to process-image addresses with [`Self::bind_direct`].
@@ -75,11 +79,29 @@ impl TestHarness {
         Self::from_source_files(&files)
     }
 
-    /// The program of `sources`, started as `trust-runtime` starts a program it loads: a cold
-    /// restart gives every variable its starting value (specification 44 §6.7), and the tasks count
-    /// their activations from time zero.
+    /// Creates a new test harness from a compile session: its sources, its program instances
+    /// registered at build time and its conversion rules (docs/specs/07-standard-functions.md
+    /// 2.10), which a reload keeps.
+    pub fn from_session(session: CompileSession) -> Result<Self, CompileError> {
+        let (sources, tests, conversions) = session.build_inputs()?;
+        Self::built(sources, tests, conversions)
+    }
+
+    /// The program of `sources`, built with the IEC conversion rules.
     fn from_source_files(sources: &[SourceFile]) -> Result<Self, CompileError> {
-        let built = build_image(sources)?;
+        Self::built(sources, &[], ConversionProfile::Iec)
+    }
+
+    /// The program of `sources`, with the program instances `tests` and the conversion rules
+    /// `conversions`, started as `trust-runtime` starts a program it loads: a cold restart gives
+    /// every variable its starting value (specification 44 §6.7), and the tasks count their
+    /// activations from time zero.
+    fn built(
+        sources: &[SourceFile],
+        tests: &[smol_str::SmolStr],
+        conversions: ConversionProfile,
+    ) -> Result<Self, CompileError> {
+        let built = build_image(sources, tests, conversions)?;
         // A program's `RESOURCE` is the runtime's identity (specification 10 §11.1.3).
         let resource = built.resource.unwrap_or_else(|| RESOURCE_NAME.into());
         let mut runtime = CompiledRuntime::load(built.image, resource)
@@ -91,6 +113,7 @@ impl TestHarness {
         Ok(Self {
             runtime,
             cycle_count: 0,
+            conversions,
             access: access_declarations(sources)?,
             direct: Vec::new(),
         })
@@ -296,7 +319,8 @@ impl TestHarness {
     }
 
     /// Changes the running program online to the program of `source` (specification 44 §12): the
-    /// new program takes the running program's values, its task schedule and its logical time.
+    /// new program takes the running program's values, its task schedule and its logical time, and
+    /// is built with the running program's conversion rules (specification 07 §2.10).
     pub fn reload_source(&mut self, source: &str) -> Result<(), CompileError> {
         self.reload_source_files(&[SourceFile::new(source)])
     }
@@ -313,7 +337,7 @@ impl TestHarness {
     }
 
     fn reload_source_files(&mut self, sources: &[SourceFile]) -> Result<(), CompileError> {
-        let image = build_image(sources)?.image;
+        let image = build_image(sources, &[], self.conversions)?.image;
         let access = access_declarations(sources)?;
         self.runtime
             .apply_online_change_bytes(&image)
@@ -375,9 +399,14 @@ fn bound_place(program: &CompiledRuntime, binding: &DirectBinding) -> Result<Pla
         .map_err(|_| RuntimeError::UndefinedVariable(binding.name.as_str().into()))
 }
 
-/// The program image of `sources`, built for this computer with statement hooks, with the toolchain
-/// of specification 44 §4.6.
-fn build_image(sources: &[SourceFile]) -> Result<crate::native::Build, CompileError> {
+/// The program image of `sources` with the program instances `tests` and the conversion rules
+/// `conversions`, built for this computer with statement hooks, with the toolchain of
+/// specification 44 §4.6.
+fn build_image(
+    sources: &[SourceFile],
+    tests: &[smol_str::SmolStr],
+    conversions: ConversionProfile,
+) -> Result<crate::native::Build, CompileError> {
     static BUILDS: AtomicU64 = AtomicU64::new(0);
     let toolchain = Toolchain::find().map_err(|error| CompileError::new(error.to_string()))?;
     let target = Target::this_cpu()
@@ -387,12 +416,14 @@ fn build_image(sources: &[SourceFile]) -> Result<crate::native::Build, CompileEr
         std::process::id(),
         BUILDS.fetch_add(1, Ordering::Relaxed)
     ));
-    let built = build(
+    let built = build_with_conversions(
         sources,
+        tests,
         &Options {
             target,
             hooks: true,
         },
+        conversions,
         &toolchain,
         &work,
     );

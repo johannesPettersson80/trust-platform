@@ -241,6 +241,18 @@ impl<'a> Types<'a> {
         &self.entries[ty.0 as usize]
     }
 
+    /// Whether a value of `ty` holds an instance of a function block or a class: is one, or an
+    /// array or a structure that holds one (IEC 61131-3 Table 11 features 5 and 7). Such a value is
+    /// no value of its own: it is never copied as a whole.
+    pub(super) fn holds_instance(&self, ty: Ty) -> bool {
+        match &self.info(ty).kind {
+            Kind::Fb { .. } | Kind::StdFb(_) => true,
+            Kind::Array { elem, .. } => self.holds_instance(*elem),
+            Kind::Struct { members } => members.iter().any(|member| self.holds_instance(member.ty)),
+            _ => false,
+        }
+    }
+
     pub(super) fn all(&self) -> impl Iterator<Item = (Ty, &TypeInfo)> {
         (0u32..)
             .zip(self.entries.iter())
@@ -736,9 +748,9 @@ impl<'a> Types<'a> {
 
     /// The variables of `owner` as the members of its instances, after its base (or its class id)
     /// as `first`: the inputs, outputs and in-outs, then the variables. A `RETAIN` variable is a
-    /// member like the others: the runtime keeps no member of an instance across a warm restart and
-    /// writes none into a checkpoint (specification 11 §6.7), and a compiled program does the same
-    /// (specification 44 §11).
+    /// member like the others and lies with its instance; the retain map names each member that is
+    /// retained (IEC 61131-3 §6.5.6.2), so that a warm restart, an online change and a power loss
+    /// keep it (specification 11 §6.7; specification 44 §5.10, §11).
     pub(super) fn own_members(
         &mut self,
         owner: Owner<'a>,

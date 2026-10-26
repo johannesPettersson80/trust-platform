@@ -1,9 +1,23 @@
 //! The retain map of a compiled program (specification 44 §5.10; specification 11 §6.7): each
-//! retained variable with its checkpoint key, its area, its offset in the area and its type, in the
-//! order the interpreter writes its checkpoint: the retained globals, the programs' retained
-//! variables, and then the retained variables of the function block and class instances that the
-//! globals and the programs hold, depth first. A variable whose type holds an instance, a reference
-//! or an interface is never retained, so it has no record.
+//! retained variable with its checkpoint key, its area, its offset in the area and its type, in
+//! checkpoint order: the retained globals, the programs' retained variables, and then the retained
+//! variables of the function block and class instances that the globals and the programs hold,
+//! depth first. A variable whose type holds an instance, a reference or an interface is never
+//! retained, so it has no record.
+//!
+//! Which variables of an instance are retained follows IEC 61131-3 §6.5.6.2 as specification 11
+//! §6.7 reads it (`docs/IEC_DECISIONS.md`, 2026-10-23): an instance declared `RETAIN` is kept as a
+//! whole, all its variables except those its type declares `NON_RETAIN`; a variable that is itself
+//! an instance, or holds instances, is kept as a whole when it is declared `RETAIN`, or when it is
+//! not qualified and its enclosing instance is kept as a whole; in every instance a variable its
+//! type declares `RETAIN` is kept and one it declares `NON_RETAIN` is not.
+//!
+//! A retained variable of an instance has the key of specification 11 §6.7:
+//! `@global-instance/<global path>/<member path>` for an instance a global holds and
+//! `@program-instance/<program>/<variable path>/<member path>` for one a program's variable holds,
+//! the path to the instance with each element's subscript (`Pumps[2]`) and the member path below
+//! it, a nested instance by its name and a `.` (`Inner.Total`), a base's variables at the derived
+//! instance's level.
 
 use smol_str::SmolStr;
 use trust_plc_abi as abi;
@@ -84,7 +98,8 @@ pub(super) fn retain_map(model: &mut Model<'_>) -> Vec<Retained> {
                 offset,
                 holder: *kept,
             };
-            value(model, &mut map, name.to_string(), place, *ty);
+            let path = Path::holder(format!("{GLOBAL_INSTANCE}{name}"));
+            value(model, &mut map, &path, place, *ty);
         }
     }
     // The instances the programs hold, in registration order, each one's variables in declaration
@@ -121,21 +136,22 @@ pub(super) fn retain_map(model: &mut Model<'_>) -> Vec<Retained> {
                     offset: base + offset,
                     holder: retained(policy) || in_retain,
                 };
-                value(
-                    model,
-                    &mut map,
-                    format!("@program/{name}/{member_name}"),
-                    place,
-                    ty,
-                );
+                let path = Path::holder(format!("{PROGRAM_INSTANCE}{name}/{member_name}"));
+                value(model, &mut map, &path, place, ty);
             }
         }
     }
     map
 }
 
-/// Where a value lies, and whether the declaration that holds its instances is `RETAIN` or
-/// `PERSISTENT` (IEC 61131-3 §6.5.6.2).
+/// The key prefix of a variable of an instance a global holds (specification 11 §6.7).
+const GLOBAL_INSTANCE: &str = "@global-instance/";
+/// The key prefix of a variable of an instance a program's variable holds (specification 11 §6.7).
+const PROGRAM_INSTANCE: &str = "@program-instance/";
+
+/// Where a value lies, and whether the instances it holds are kept as a whole: the declaration
+/// that holds them is `RETAIN` or `PERSISTENT`, or it is not qualified and lies in an instance kept
+/// as a whole (IEC 61131-3 §6.5.6.2; specification 11 §6.7).
 #[derive(Clone, Copy)]
 struct Place {
     area: u8,
@@ -143,29 +159,62 @@ struct Place {
     holder: bool,
 }
 
+/// The key of a value that holds instances: the text so far, and whether it lies inside an
+/// instance already, so that the first instance on the way ends the holder's path with `/` and a
+/// nested one adds its name with `.`.
+#[derive(Clone)]
+struct Path {
+    text: String,
+    inside: bool,
+}
+
+impl Path {
+    /// The path of the global or the program's variable `text` names, outside every instance.
+    fn holder(text: String) -> Self {
+        Self {
+            text,
+            inside: false,
+        }
+    }
+
+    /// The path `suffix` further on: an element's subscript or a structure member's `.` and name.
+    fn then(&self, suffix: &str) -> Self {
+        Self {
+            text: format!("{}{suffix}", self.text),
+            inside: self.inside,
+        }
+    }
+
+    /// The prefix of the keys of the variables of the instance this path names.
+    fn members(&self) -> String {
+        let separator = if self.inside { '.' } else { '/' };
+        format!("{}{separator}", self.text)
+    }
+}
+
 /// The retained variables of the instances that the value of type `ty` at `place` holds, under the
 /// path `path`: an instance itself, the elements of an array in index order (the last index
 /// fastest), the members of a structure in declaration order.
-fn value(model: &mut Model<'_>, map: &mut Vec<Retained>, path: String, place: Place, ty: Ty) {
-    if !holds_instances(model, ty) {
+fn value(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &Path, place: Place, ty: Ty) {
+    if !model.types.holds_instance(ty) {
         return;
     }
     match model.types.info(ty).kind.clone() {
-        Kind::Fb { .. } | Kind::StdFb(_) => instance(model, map, &path, place, ty),
+        Kind::Fb { .. } | Kind::StdFb(_) => instance(model, map, &path.members(), place, ty),
         Kind::Array { elem, dims } => {
             let stride = model.types.info(elem).size;
             let mut indexes: Vec<i64> = dims.iter().map(|(lower, _)| *lower).collect();
             let mut offset = place.offset;
             loop {
-                let element = format!(
-                    "{path}[{}]",
+                let element = path.then(&format!(
+                    "[{}]",
                     indexes
                         .iter()
                         .map(i64::to_string)
                         .collect::<Vec<_>>()
                         .join(",")
-                );
-                value(model, map, element, Place { offset, ..place }, elem);
+                ));
+                value(model, map, &element, Place { offset, ..place }, elem);
                 offset += stride;
                 // The next index, the last dimension fastest.
                 let mut dimension = dims.len();
@@ -188,29 +237,25 @@ fn value(model: &mut Model<'_>, map: &mut Vec<Retained>, path: String, place: Pl
                     offset: place.offset + member.offset,
                     ..place
                 };
-                value(
-                    model,
-                    map,
-                    format!("{path}.{}", member.name),
-                    place,
-                    member.ty,
-                );
+                let member_path = path.then(&format!(".{}", member.name));
+                value(model, map, &member_path, place, member.ty);
             }
         }
         _ => {}
     }
 }
 
-/// The variables of the instance of type `ty` at `place`, under the path `path`: its inputs,
-/// outputs and in-outs, then its other variables, each in declaration order, an instance a variable
-/// holds where that variable lies, and then its base's variables.
-fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &str, place: Place, ty: Ty) {
+/// The variables of the instance of type `ty` at `place`, each under the key prefix `members`: its
+/// inputs, outputs and in-outs, then its other variables, each in declaration order, an instance a
+/// variable holds where that variable lies, and then its base's variables, at the same level.
+fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, members: &str, place: Place, ty: Ty) {
     match model.types.info(ty).kind.clone() {
         Kind::StdFb(fb) => {
             // A library block's own state (`__LAST`) is no variable the program declares, but the
             // hidden trigger of a retained edge-qualified input keeps its memory with the input, so
             // that a warm restart fabricates no edge (IEC §6.5.2.2).
-            let trigger = path
+            let trigger = members
+                .trim_end_matches(['.', '/'])
                 .rsplit(['.', '/'])
                 .next()
                 .is_some_and(|last| last.starts_with("__TRIG_"));
@@ -220,7 +265,7 @@ fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &str, place: P
                 if !(declared || trigger) || !place.holder {
                     continue;
                 }
-                let key = format!("{path}.{}", member.name);
+                let key = format!("{members}{}", member.name);
                 push(
                     model,
                     map,
@@ -232,7 +277,10 @@ fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &str, place: P
             }
         }
         Kind::Fb {
-            def, members, base, ..
+            def,
+            members: fields,
+            base,
+            ..
         } => {
             let Some(owner) = model.types.owner(&def) else {
                 return;
@@ -250,28 +298,34 @@ fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &str, place: P
                 )
                 .collect();
             for (name, policy) in declared {
-                let Some(member) = members.iter().find(|member| {
+                let Some(member) = fields.iter().find(|member| {
                     member.via.is_empty() && member.name.eq_ignore_ascii_case(&name)
                 }) else {
                     continue;
                 };
-                let key = format!("{path}.{}", member.name);
+                let key = format!("{members}{}", member.name);
                 let offset = place.offset + member.offset;
-                if holds_instances(model, member.ty) {
-                    // A variable that is an instance follows its own type's declarations; its own
-                    // qualifier is its instances' holder (IEC 61131-3 §6.5.6.2).
+                if model.types.holds_instance(member.ty) {
+                    // A variable that holds instances keeps them as a whole when a variable of its
+                    // declaration would be kept: declared `RETAIN`, or not qualified in an instance
+                    // kept as a whole; each one's own type still decides the variables it
+                    // qualifies (IEC 61131-3 §6.5.6.2; specification 11 §6.7).
                     let place = Place {
                         area: place.area,
                         offset,
-                        holder: retained(policy),
+                        holder: kept(policy, place.holder),
                     };
-                    value(model, map, key, place, member.ty);
+                    let path = Path {
+                        text: key,
+                        inside: true,
+                    };
+                    value(model, map, &path, place, member.ty);
                 } else if kept(policy, place.holder) {
                     push(model, map, key, place.area, offset, member.ty);
                 }
                 // An edge-qualified input's hidden trigger follows it, retained as it is.
                 let trigger = super::types::edge_trigger_name(&name);
-                if let Some(member) = members.iter().find(|member| {
+                if let Some(member) = fields.iter().find(|member| {
                     member.via.is_empty() && member.name.eq_ignore_ascii_case(&trigger)
                 }) {
                     let place = Place {
@@ -279,18 +333,17 @@ fn instance(model: &mut Model<'_>, map: &mut Vec<Retained>, path: &str, place: P
                         offset: place.offset + member.offset,
                         holder: kept(policy, place.holder),
                     };
-                    value(
-                        model,
-                        map,
-                        format!("{path}.{}", member.name),
-                        place,
-                        member.ty,
-                    );
+                    let path = Path {
+                        text: format!("{members}{}", member.name),
+                        inside: true,
+                    };
+                    value(model, map, &path, place, member.ty);
                 }
             }
             if let Some(base) = base {
-                // The base lies first in its instance (specification 44 §6.4).
-                instance(model, map, path, place, base);
+                // The base lies first in its instance (specification 44 §6.4), and its variables
+                // stand at the derived instance's level.
+                instance(model, map, members, place, base);
             }
         }
         _ => {}
@@ -316,18 +369,6 @@ fn push(model: &Model<'_>, map: &mut Vec<Retained>, key: String, area: u8, offse
             offset,
             ty,
         });
-    }
-}
-
-/// Whether a value of type `ty` holds a function block or class instance.
-fn holds_instances(model: &Model<'_>, ty: Ty) -> bool {
-    match &model.types.info(ty).kind {
-        Kind::Fb { .. } | Kind::StdFb(_) => true,
-        Kind::Array { elem, .. } => holds_instances(model, *elem),
-        Kind::Struct { members } => members
-            .iter()
-            .any(|member| holds_instances(model, member.ty)),
-        _ => false,
     }
 }
 

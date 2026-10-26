@@ -451,6 +451,13 @@ impl<'a> Lowerer<'_, 'a> {
                     destination.reference(),
                     place.reference()
                 )),
+                // An instance, or a value that holds one, is no value to copy.
+                _ if self.model.types.holds_instance(place.ty) => {
+                    return Err(self.unsupported(
+                        &target,
+                        "an output that holds a function block or class instance",
+                    ));
+                }
                 _ if place.ty == destination.ty => self.line(&format!(
                     "Assign::assign({}, {});",
                     destination.reference(),

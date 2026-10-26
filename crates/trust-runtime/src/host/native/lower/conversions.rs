@@ -2,6 +2,13 @@
 //! specification 44 §6.8): between the numbers, the bit strings, the characters, the texts and the
 //! date and time types, and to and from BCD, each with the runtime's rounding, spelling and faults
 //! through the library.
+//!
+//! A program built with the CODESYS conversion rules, which its project's `vendor_profile` selects
+//! (specification 07 §2.10), converts as the CODESYS Development System does: a real to an integer
+//! or a bit string rounds half away from zero, a value outside the target keeps the low-order bits
+//! of the target's width, two's complement, `REAL_TO_DWORD`, `LREAL_TO_LWORD`, `DWORD_TO_REAL` and
+//! `LWORD_TO_LREAL` convert the number, and a bit string to `BOOL` tests for zero. Every other
+//! conversion is the same under both rules.
 
 use trust_syntax::syntax::SyntaxNode;
 
@@ -10,6 +17,7 @@ use super::text::Text;
 use super::Lowerer;
 use crate::native::types::{Elem, Kind, Ty};
 use crate::native::NativeError;
+use crate::stdlib::conversions::ConversionProfile;
 
 /// The room of the text of a number: 20 bytes for an integer, `lib::REAL_TEXT` for a real.
 const INTEGER_TEXT: u32 = 20;
@@ -72,6 +80,7 @@ impl Lowerer<'_, '_> {
         }
         let rust = dst.rust();
         let truncate = name == "TRUNC";
+        let codesys = self.model.conversions == ConversionProfile::Codesys;
         let character = |elem: Elem| matches!(elem, Elem::Char | Elem::WChar);
         let converted = if src == dst || (src.is_duration() && dst.is_duration()) {
             source
@@ -98,8 +107,19 @@ impl Lowerer<'_, '_> {
         {
             // A character by its code, cut to the bit string; a `BOOL` as 0 or 1.
             format!("({source} as {rust})")
+        } else if src.is_bits() && dst == Elem::Bool {
+            // IEC Table 24 transfers the rightmost bit (specification 07 §2.2); the CODESYS rules
+            // test the bit string for zero (§2.10).
+            if codesys {
+                format!("(({source}) != 0)")
+            } else {
+                format!("((({source}) & 1) != 0)")
+            }
         } else if src.is_integer() && dst.is_integer() {
-            if src.is_signed() {
+            if codesys {
+                // The low-order bits of the target's width, two's complement (§2.10).
+                format!("({source} as {rust})")
+            } else if src.is_signed() {
                 self.bind(&format!("lib::sint_to::<{rust}>(cx, i64::from({source}))?"))
             } else {
                 self.bind(&format!("lib::uint_to::<{rust}>(cx, u64::from({source}))?"))
@@ -113,10 +133,14 @@ impl Lowerer<'_, '_> {
             let bits = if dst == Elem::Real { 32 } else { 64 };
             format!("lib::{function}_to_real{bits}({wide}::from({source}))")
         } else if src.is_real() && dst.is_integer() {
-            let rounding = if truncate { "Truncate" } else { "Nearest" };
-            self.bind(&format!(
-                "lib::real_to_int::<{rust}>(cx, f64::from({source}), lib::Rounding::{rounding})?"
-            ))
+            if codesys {
+                self.wrapping(&source, rust, truncate)
+            } else {
+                let rounding = if truncate { "Truncate" } else { "Nearest" };
+                self.bind(&format!(
+                    "lib::real_to_int::<{rust}>(cx, f64::from({source}), lib::Rounding::{rounding})?"
+                ))
+            }
         } else if src == Elem::Real && dst == Elem::LReal {
             self.bind(&format!("lib::real32_to_real::<f64>(cx, {source})?"))
         } else if src == Elem::LReal && dst == Elem::Real {
@@ -126,13 +150,27 @@ impl Lowerer<'_, '_> {
             // zeros, read with the destination's sign (specification 07 §2).
             format!("({source} as {rust})")
         } else if src == Elem::DWord && dst == Elem::Real {
-            self.bind(&format!("lib::bits_to_real32(cx, {source})?"))
+            if codesys {
+                // The number of the bit string (§2.10).
+                format!("lib::uint_to_real32(u64::from({source}))")
+            } else {
+                self.bind(&format!("lib::bits_to_real32(cx, {source})?"))
+            }
         } else if src == Elem::LWord && dst == Elem::LReal {
-            self.bind(&format!("lib::bits_to_real64(cx, {source})?"))
+            if codesys {
+                format!("lib::uint_to_real64({source})")
+            } else {
+                self.bind(&format!("lib::bits_to_real64(cx, {source})?"))
+            }
         } else if src == Elem::Real && dst == Elem::DWord
             || src == Elem::LReal && dst == Elem::LWord
         {
-            format!("{source}.to_bits()")
+            if codesys {
+                // The number, rounded and kept to the bit string's width (§2.10).
+                self.wrapping(&source, rust, truncate)
+            } else {
+                format!("{source}.to_bits()")
+            }
         } else if src.is_duration() && dst == Elem::DWord {
             self.bind(&format!("lib::time_to_dword(cx, {source})?"))
         } else if src == Elem::DWord && dst.is_duration() {
@@ -141,6 +179,16 @@ impl Lowerer<'_, '_> {
             return Err(self.unsupported(node, format!("{name}: {} to {}", src.name(), dst.name())));
         };
         Ok(Called::Scalar(converted))
+    }
+
+    /// The real `source` as the integer or bit string of Rust type `rust` by the CODESYS rules
+    /// (specification 07 §2.10): rounded half away from zero, or toward zero for `TRUNC`, with the
+    /// low-order bits of the target's width; a value that is not finite is an overflow.
+    fn wrapping(&mut self, source: &str, rust: &str, truncate: bool) -> String {
+        let rounding = if truncate { "Truncate" } else { "HalfAway" };
+        self.bind(&format!(
+            "lib::real_to_int_wrapping::<{rust}>(cx, f64::from({source}), lib::Rounding::{rounding})?"
+        ))
     }
 
     /// `SRC_TO_STRING(source)`: the text of a number, a bit string or a character, in a

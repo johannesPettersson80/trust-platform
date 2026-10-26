@@ -78,7 +78,11 @@ pub(super) fn starting_bytes(
     initializer: Option<&Expr>,
     name: &str,
 ) -> Result<Vec<u8>, NativeError> {
-    if holds_instance(model, ty, initializer.is_some()) {
+    // A standard function block's instance takes its starting state from the build only when an
+    // initial value is given to it, its variable's own or the one its array type declares.
+    let initialized =
+        initializer.is_some() || super::init::type_declares_initial_value(model, type_id);
+    if holds_instance(model, ty, initialized) {
         return super::init::instance_bytes(model, ty, type_id, initializer, name);
     }
     let builder = model.builder;

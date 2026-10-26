@@ -541,6 +541,11 @@ impl<'m, 'a> Lowerer<'m, 'a> {
                 self.line(&format!("{}.set({reference});", place.expr));
                 Ok(())
             }
+            // An instance, or an array or a structure that holds one, is no value to copy.
+            _ if self.model.types.holds_instance(place.ty) => Err(self.unsupported(
+                value,
+                "an assignment of a value that holds a function block or class instance",
+            )),
             Kind::Array { .. }
             | Kind::Struct { .. }
             | Kind::Overlap { .. }

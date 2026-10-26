@@ -228,11 +228,11 @@ fn a_compiled_program_and_the_runtime_write_and_read_one_checkpoint() {
             "@program/Main/Total",
             "@program/Main/History",
             "@program/Main/Flag",
-            "@program/Main/Timer.IN",
-            "@program/Main/Timer.PT",
-            "@program/Main/Timer.Q",
-            "@program/Main/Timer.ET",
-            "@program/Main/Cal.Offset",
+            "@program-instance/Main/Timer/IN",
+            "@program-instance/Main/Timer/PT",
+            "@program-instance/Main/Timer/Q",
+            "@program-instance/Main/Timer/ET",
+            "@program-instance/Main/Cal/Offset",
         ]
     );
 
@@ -298,10 +298,10 @@ fn a_retained_variable_of_a_function_block_keeps_its_value_at_a_warm_restart() {
 
 /// Every rule of IEC §6.5.6.2 for the variables of instances: a `RETAIN` variable and a `RETAIN`
 /// input of the type are retained in every instance; an unqualified one only in an instance
-/// declared `RETAIN`; a `NON_RETAIN` one never; an instance a variable holds follows its own type,
-/// in an array too, a derived type's base variables with its own, a global's instance as a
-/// program's; and a configured program's `RETAIN` qualifies its unqualified variables but not its
-/// instances.
+/// declared `RETAIN`; a `NON_RETAIN` one never; an instance that a variable not kept as a whole
+/// holds follows its own type, in an array too, a derived type's base variables with its own, a
+/// global's instance as a program's; and a configured program's `RETAIN` qualifies its unqualified
+/// variables but not its instances.
 const INSTANCES: &str = "
 FUNCTION_BLOCK Counter
 VAR_INPUT RETAIN
@@ -432,22 +432,22 @@ fn the_variables_of_instances_are_retained_as_iec_6_5_6_says_in_both_engines() {
         decode_snapshot_payload_v3(&interpreted).expect("the runtime's payload decodes");
     let expected = [
         ("@program/Main/Plain", 3),
-        ("Shared.Preset", 4),
-        ("Shared.Hours", 3),
-        ("@program/Main/One.Preset", 5),
-        ("@program/Main/One.Hours", 3),
-        ("@program/Main/Many[1].Preset", 6),
-        ("@program/Main/Many[1].Hours", 3),
-        ("@program/Main/Many[2].Preset", 7),
-        ("@program/Main/Many[2].Hours", 3),
-        ("@program/Main/Kept.Pump.Preset", 2),
-        ("@program/Main/Kept.Pump.Hours", 3),
-        ("@program/Main/Derived.Extra", 30),
-        ("@program/Main/Derived.Preset", 0),
-        ("@program/Main/Derived.Hours", 300),
-        ("@program/Main/Whole.Preset", 9),
-        ("@program/Main/Whole.Hours", 3),
-        ("@program/Main/Whole.Scratch", 3),
+        ("@global-instance/Shared/Preset", 4),
+        ("@global-instance/Shared/Hours", 3),
+        ("@program-instance/Main/One/Preset", 5),
+        ("@program-instance/Main/One/Hours", 3),
+        ("@program-instance/Main/Many[1]/Preset", 6),
+        ("@program-instance/Main/Many[1]/Hours", 3),
+        ("@program-instance/Main/Many[2]/Preset", 7),
+        ("@program-instance/Main/Many[2]/Hours", 3),
+        ("@program-instance/Main/Kept/Pump.Preset", 2),
+        ("@program-instance/Main/Kept/Pump.Hours", 3),
+        ("@program-instance/Main/Derived/Extra", 30),
+        ("@program-instance/Main/Derived/Preset", 0),
+        ("@program-instance/Main/Derived/Hours", 300),
+        ("@program-instance/Main/Whole/Preset", 9),
+        ("@program-instance/Main/Whole/Hours", 3),
+        ("@program-instance/Main/Whole/Scratch", 3),
     ];
     let entries = |checkpoint: &Checkpoint| -> Vec<(String, Value)> {
         checkpoint
@@ -617,7 +617,7 @@ fn a_retained_program_instance_retains_its_variables_but_not_into_its_instances(
         entries,
         vec![
             ("@program/Main/Plain", Value::DInt(3)),
-            ("@program/Main/Pump.Hours", Value::DInt(3)),
+            ("@program-instance/Main/Pump/Hours", Value::DInt(3)),
         ]
     );
     program

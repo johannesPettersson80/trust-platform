@@ -6,6 +6,27 @@ Authoritative location:
 
 This file tracks implementation decisions made where IEC 61131-3 leaves room for interpretation.
 
+## 2026-10-23 - Unqualified variables of a nested instance in a RETAIN instance
+
+- Area: warm restart and the retain store (function-block and class instances)
+- IEC context:
+  - IEC 61131-3 Ed.3 §6.5.6.2: declaring an instance `RETAIN` treats all its
+    variables as `RETAIN`, except one its type qualifies itself, and except a
+    variable that is itself an instance, for which "the retain declaration of
+    the used function block type or class is applied".
+  - §6.5.6.1 (Figure 9): on a warm restart a variable with neither `RETAIN`
+    nor `NON_RETAIN` gets an implementer-specific value.
+- Decision:
+  - An unqualified variable of a nested instance inside an instance kept as a
+    whole keeps its value: the nested instance is kept as a whole unless it is
+    declared `NON_RETAIN`. A `RETAIN` or `NON_RETAIN` in the nested instance's
+    own type still decides its variables (specification 10 §4.8).
+- Reason:
+  - A standard counter or timer inside a retained block (`CTU`, `TON`) has no
+    qualifiers of its own; keeping the block's whole tree is what an engineer
+    who declares the block `RETAIN` expects, and it matches the retained-object
+    transfer of a warm restart of the running runtime.
+
 ## 2026-10-23 - A derived instance with additional inputs or outputs in a base's VAR_IN_OUT
 
 - Area: calls of function blocks, methods and functions whose `VAR_IN_OUT` is of a function block
@@ -80,6 +101,26 @@ This file tracks implementation decisions made where IEC 61131-3 leaves room for
     n bytes of memory on every target.
   - 65,535 is the largest capacity the 16-bit `max_length` of an STBC type
     records (specification 12).
+
+## 2026-09-28 - Repeated aggregate element initializers
+
+- Area: array initializers, including arrays of function block instances
+- IEC context:
+  - IEC 61131-3 Ed.3 Table 11 feature 5b initializes an array of `TON`
+    instances with `[50(PT:=T#100ms)]`.
+  - The Annex A productions `Array_Elem_Init : Array_Elem_Init_Value |
+    Unsigned_Int '(' Array_Elem_Init_Value? ')'` and `Struct_Init : '('
+    Struct_Elem_Init (',' Struct_Elem_Init)* ')'` write the same repeated
+    element as `50((PT:=T#100ms))`.
+- Decision:
+  - truST accepts both spellings. A repetition whose parentheses begin with
+    `name :=` repeats one aggregate initializer made of the elements inside
+    them, exactly as the parenthesized Annex A form does. Any other repetition
+    content remains a list of repeated element values.
+- Reason:
+  - The table example and the grammar disagree; accepting both keeps the
+    standard's example and every grammatical program valid, and both spellings
+    denote the same repeated element.
 
 ## 2026-07-30 - POU call evaluation, execution control, and output transfer
 

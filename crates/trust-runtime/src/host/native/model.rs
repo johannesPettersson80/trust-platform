@@ -187,6 +187,9 @@ pub(super) struct Model<'a> {
     pub(super) stack: u32,
     /// Whether a body reads the platform's wall clock, `CURRENT_DT` (specification 44 §5.2).
     pub(super) wall_clock: bool,
+    /// The conversion rules the program is built with, its project's `vendor_profile`
+    /// (specification 07 §2.10); the image's header records them (specification 44 §5.2).
+    pub(super) conversions: crate::stdlib::conversions::ConversionProfile,
     /// The access paths the configuration declares (`VAR_ACCESS`, IEC §6.5.2.2), which a body may
     /// name as the variables they name (specification 03 §2).
     pub(super) access: Vec<crate::harness::AccessDecl>,
@@ -287,6 +290,7 @@ impl<'a> Model<'a> {
             images,
             stack: 0,
             wall_clock: false,
+            conversions: crate::stdlib::conversions::ConversionProfile::Iec,
             access: configuration.access.clone(),
             program_access: lowered.program_access.clone(),
         })

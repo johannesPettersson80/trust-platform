@@ -5,14 +5,17 @@
 //! evaluator of initial values on the engineering computer and no program constructed or run: a
 //! variable's initial value, else its type's default; an instance's variables the same way from
 //! its type's declarations, its base's first, an initial value given to the instance's variable
-//! (`(PT := T#1s)`) in place of a declared one, and its class id. The constants are worked out
-//! first, in declaration order, so that an initial value may name one.
+//! (`(PT := T#1s)`) in place of a declared one, also for a variable it inherits, and its class id;
+//! each element of an array of instances with the initial value the array's gives it (`elements`).
+//! The constants are worked out first, in declaration order, so that an initial value may name one.
+
+mod elements;
 
 use smol_str::SmolStr;
 use trust_hir::TypeId;
 
 use super::model::{AreaLayout, Model};
-use super::types::{Elem, Kind, Ty};
+use super::types::{Elem, Kind, Member, Ty};
 use super::NativeError;
 use crate::harness::{AccessPart, AccessPath, LoweredApplication};
 use crate::memory::VariableStorage;
@@ -320,6 +323,62 @@ pub(super) fn instance_bytes(
     Ok(bytes)
 }
 
+/// Refuses a program built with the CODESYS conversion rules whose declarations call a type
+/// conversion outside a body: in an initial value, a bound or the configuration. The build works
+/// such values out with the runtime's evaluator, which converts by the IEC rules, so it computes
+/// them only for a program built with those (specification 07 §2.10; specification 44 §6.7,
+/// NX-09); a body converts by the program's rules.
+///
+/// # Errors
+///
+/// [`NativeError::Unsupported`] naming the conversion and where it is.
+pub(super) fn check_declared_conversions(
+    front: &super::front::Front,
+    conversions: crate::stdlib::conversions::ConversionProfile,
+) -> Result<(), NativeError> {
+    use trust_syntax::syntax::SyntaxKind;
+    if conversions == crate::stdlib::conversions::ConversionProfile::Iec {
+        return Ok(());
+    }
+    for source in &front.sources {
+        let calls = source
+            .root
+            .descendants()
+            .filter(|node| node.kind() == SyntaxKind::CallExpr);
+        for call in calls {
+            if call
+                .ancestors()
+                .any(|ancestor| ancestor.kind() == SyntaxKind::StmtList)
+            {
+                continue;
+            }
+            let Some(target) = call.children().next() else {
+                continue;
+            };
+            if target.kind() != SyntaxKind::NameRef {
+                continue;
+            }
+            let name = super::lower::ident_of(&target).to_ascii_uppercase();
+            if crate::stdlib::conversions::is_conversion_name(&name) {
+                return Err(NativeError::Unsupported {
+                    construct: format!(
+                        "{name} in a declaration of a program built with the CODESYS conversion \
+                         rules"
+                    ),
+                    at: source.at(&call),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Whether trust-hir's type `type_id` is a named type that declares an initial value of its own,
+/// as an array type of instances may (`TYPE TONS : ARRAY[1..50] OF TON := [50(PT := T#100ms)]`).
+pub(super) fn type_declares_initial_value(model: &Model<'_>, type_id: TypeId) -> bool {
+    elements::type_default(model.builder, type_id).is_some()
+}
+
 impl Start {
     /// The value a variable of trust-hir's type `type_id`, named `name`, starts at: its initial
     /// value `initializer`, else its type's default.
@@ -382,33 +441,15 @@ impl Start {
             },
             Kind::Fb { .. } => self.instance(model, bytes, offset, ty, initializer, name),
             Kind::StdFb(_) => self.standard_instance(model, bytes, offset, ty, initializer, name),
-            Kind::Array { elem, dims } if model.types.info(elem).kind.is_instance() => {
-                if initializer.is_some() {
-                    return Err(NativeError::unsupported(format!(
-                        "the initial value of the array of instances {name}"
-                    )));
-                }
-                let size = model.types.info(elem).size as usize;
-                let count: usize = dims
-                    .iter()
-                    .map(|(lower, upper)| usize::try_from(upper - lower + 1).unwrap_or(0))
-                    .product();
-                for index in 0..count {
-                    let element = format!("{name}[{index}]");
-                    self.write(
-                        model,
-                        bytes,
-                        offset + index * size,
-                        elem,
-                        type_id,
-                        None,
-                        &element,
-                    )?;
-                }
-                Ok(())
+            Kind::Array { elem, dims } if model.types.holds_instance(elem) => {
+                let place = ArrayPlace { offset, elem, dims };
+                self.instance_array(model, bytes, &place, type_id, initializer, name)
             }
-            _ if holds_instance(model, ty) => Err(NativeError::unsupported(format!(
-                "the starting value of {name}, a structure that holds an instance"
+            Kind::Struct { members } if model.types.holds_instance(ty) => {
+                self.structure(model, bytes, offset, &members, type_id, initializer, name)
+            }
+            _ if model.types.holds_instance(ty) => Err(NativeError::unsupported(format!(
+                "the starting value of {name}, a value of its type that holds an instance"
             ))),
             _ => {
                 let value = self.evaluate(model, type_id, initializer, name)?;
@@ -417,9 +458,133 @@ impl Start {
         }
     }
 
+    /// Writes the elements of the array at `place`, of trust-hir's type `type_id`, whose elements
+    /// hold instances (an array of instances, or of structures that hold one), in row-major order:
+    /// each with the initial value that the array's initial value `initializer` gives it, or,
+    /// without one, that the array's named type declares (IEC 61131-3 Table 11 features 5a and 5b;
+    /// specification 02 §3.4); an element past the list keeps its type's declarations.
+    fn instance_array(
+        &self,
+        model: &mut Model<'_>,
+        bytes: &mut [u8],
+        place: &ArrayPlace,
+        type_id: TypeId,
+        initializer: Option<&Expr>,
+        name: &str,
+    ) -> Result<(), NativeError> {
+        let size = model.types.info(place.elem).size as usize;
+        let count: usize = place
+            .dims
+            .iter()
+            .map(|(lower, upper)| usize::try_from(upper - lower + 1).unwrap_or(0))
+            .product();
+        let builder = model.builder;
+        let element_type = elements::element_type(builder.registry(), type_id).unwrap_or(type_id);
+        let declared = match initializer {
+            Some(expr) => Some(expr.clone()),
+            None => elements::type_default(builder, type_id),
+        };
+        let given = match &declared {
+            Some(Expr::ArrayInitializer(entries)) => {
+                elements::element_initializers(entries, count, name)?
+            }
+            Some(_) => {
+                return Err(NativeError::unsupported(format!(
+                    "the initial value of the array of instances {name}, which lists no elements"
+                )));
+            }
+            None => vec![None; count],
+        };
+        for (position, element_initializer) in given.iter().enumerate() {
+            let element = format!("{name}{}", elements::subscripts(&place.dims, position));
+            self.write(
+                model,
+                bytes,
+                place.offset + position * size,
+                place.elem,
+                element_type,
+                element_initializer.as_ref(),
+                &element,
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Writes the members of a structure that holds an instance (IEC 61131-3 Table 11 feature 7a)
+    /// at `offset`, of trust-hir's type `type_id`: each member at the value the structure's initial
+    /// value `initializer` gives it, else the one its named type's initial value gives it, else its
+    /// declared initial value, else its type's default; an instance member as the starting memory
+    /// lays an instance out.
+    #[allow(clippy::too_many_arguments)]
+    fn structure(
+        &self,
+        model: &mut Model<'_>,
+        bytes: &mut [u8],
+        offset: usize,
+        members: &[Member],
+        type_id: TypeId,
+        initializer: Option<&Expr>,
+        name: &str,
+    ) -> Result<(), NativeError> {
+        let builder = model.builder;
+        let Some(fields) = struct_fields(builder.registry(), type_id) else {
+            return Err(NativeError::Compile(format!(
+                "{name} has no structure type"
+            )));
+        };
+        let given = given_values(initializer, name)?;
+        let declared = match elements::type_default(builder, type_id) {
+            Some(default) => given_values(Some(&default), name)?,
+            None => Vec::new(),
+        };
+        for (variable, _) in given.iter().chain(&declared) {
+            if !members
+                .iter()
+                .any(|member| member.name.eq_ignore_ascii_case(variable))
+            {
+                return Err(NativeError::Compile(format!(
+                    "{name} has no member {variable}"
+                )));
+            }
+        }
+        for member in members {
+            let Some(field) = fields
+                .iter()
+                .find(|field| field.name.eq_ignore_ascii_case(&member.name))
+            else {
+                return Err(NativeError::Compile(format!(
+                    "{name} has no member {}",
+                    member.name
+                )));
+            };
+            let named = |list: &[(SmolStr, Expr)]| {
+                list.iter()
+                    .find(|(variable, _)| variable.eq_ignore_ascii_case(&member.name))
+                    .map(|(_, value)| value.clone())
+            };
+            let value = named(&given).or_else(|| named(&declared)).or_else(|| {
+                field
+                    .default_initializer
+                    .and_then(|id| builder.initializer_catalog().initializer(id).cloned())
+            });
+            let path = format!("{name}.{}", member.name);
+            self.write(
+                model,
+                bytes,
+                offset + member.offset as usize,
+                member.ty,
+                field.type_id,
+                value.as_ref(),
+                &path,
+            )?;
+        }
+        Ok(())
+    }
+
     /// Writes the variables of the instance of a user function block or class at `offset`: its
     /// base's, then its class id in the first field of its hierarchy's root, which lies first
-    /// (specification 44 §6.4), then its own; a `VAR_IN_OUT` starts `NULL`.
+    /// (specification 44 §6.4), then its own; a `VAR_IN_OUT` starts `NULL`. An initial value
+    /// given to a variable the type inherits reaches its base's part (IEC §6.6.5.3).
     fn instance(
         &self,
         model: &mut Model<'_>,
@@ -439,17 +604,34 @@ impl Start {
         else {
             return Ok(());
         };
-        let given = given_values(initializer, name)?;
-        if let Some(base) = base {
-            self.instance(model, bytes, offset, base, None, name)?;
-        }
-        if class != 0 {
-            put(bytes, offset, &class.to_le_bytes())?;
-        }
         let owner = model
             .types
             .owner(&def)
             .ok_or_else(|| NativeError::Compile(format!("{def} has no declaration")))?;
+        // The values given to variables the type declares itself, and those given to the
+        // variables its base declares, which the base's part takes.
+        let (given, inherited): (Vec<_>, Vec<_>) = given_values(initializer, name)?
+            .into_iter()
+            .partition(|(variable, _)| {
+                members.iter().any(|member| {
+                    member.via.is_empty() && member.name.eq_ignore_ascii_case(variable)
+                })
+            });
+        match (base, inherited.first()) {
+            (Some(base), _) => {
+                let inherited = (!inherited.is_empty()).then(|| Expr::StructInitializer(inherited));
+                self.instance(model, bytes, offset, base, inherited.as_ref(), name)?;
+            }
+            (None, Some((variable, _))) => {
+                return Err(NativeError::Compile(format!(
+                    "{name} has no variable {variable}"
+                )));
+            }
+            (None, None) => {}
+        }
+        if class != 0 {
+            put(bytes, offset, &class.to_le_bytes())?;
+        }
         let declared: Vec<(SmolStr, TypeId, Option<Expr>)> = owner
             .params()
             .iter()
@@ -552,6 +734,13 @@ impl Start {
     }
 }
 
+/// Where an array of instances lies: its offset, its element type and each dimension's bounds.
+struct ArrayPlace {
+    offset: usize,
+    elem: Ty,
+    dims: Vec<(i64, i64)>,
+}
+
 /// The values an instance's variable's initial value gives the instance's variables, by name.
 fn given_values(
     initializer: Option<&Expr>,
@@ -566,16 +755,20 @@ fn given_values(
     }
 }
 
-/// Whether a value of `ty` holds an instance of a function block or a class.
-fn holds_instance(model: &Model<'_>, ty: Ty) -> bool {
-    match &model.types.info(ty).kind {
-        Kind::Fb { .. } | Kind::StdFb(_) => true,
-        Kind::Array { elem, .. } => holds_instance(model, *elem),
-        Kind::Struct { members } => members
-            .iter()
-            .any(|member| holds_instance(model, member.ty)),
-        _ => false,
+/// The fields of the structure type `type_id` of trust-hir's registry, through its aliases.
+fn struct_fields(
+    registry: &trust_hir::types::TypeRegistry,
+    type_id: TypeId,
+) -> Option<Vec<trust_hir::types::StructField>> {
+    let mut current = type_id;
+    for _ in 0..64 {
+        match registry.get(current)? {
+            trust_hir::Type::Alias { target, .. } => current = *target,
+            trust_hir::Type::Struct { fields, .. } => return Some(fields.clone()),
+            _ => return None,
+        }
     }
+    None
 }
 
 fn put(bytes: &mut [u8], offset: usize, data: &[u8]) -> Result<(), NativeError> {

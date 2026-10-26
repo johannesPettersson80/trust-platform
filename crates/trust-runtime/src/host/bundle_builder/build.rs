@@ -2,7 +2,8 @@
 /// The image for this computer, `for_this_computer`, is the project's program, `program.tpi` with
 /// its deployment record `deployment-record.bin` (NX-15); an image for another target goes into the
 /// build folder as `program.<triple>.tpi` with `deployment-record.<triple>.bin`. The project's
-/// `[build] debug` chooses a debug or a release image (§13.2), the image is signed with the
+/// `[build] debug` chooses a debug or a release image (§13.2), its `[project] vendor_profile` the
+/// conversion rules (specification 07 §2.10), the image is signed with the
 /// project's key or the user's own (§5.11) before its record names its bytes (§10.1), and
 /// `build/build.json` gets the report. The generated crate stays in the build folder with
 /// `emit_source`. A source set that declares OpenOT data gets its hash-bound
@@ -15,7 +16,9 @@ pub fn build_program_image(
     emit_source: bool,
     for_this_computer: bool,
 ) -> anyhow::Result<BundleBuildReport> {
-    use crate::native::{build, debug_hooks, project_key, sign, triple, Options};
+    use crate::native::{
+        build_with_conversions, conversion_profile, debug_hooks, project_key, sign, triple, Options,
+    };
     let layout = inspect_project_layout(bundle_root, sources_root)?;
     let files = collect_project_sources_labelled(bundle_root, sources_root)?;
     if files.is_empty() {
@@ -25,14 +28,17 @@ pub fn build_program_image(
         );
     }
     let debug = debug_hooks(bundle_root)?;
+    let conversions = conversion_profile(bundle_root)?;
     let build_folder = bundle_root.join("build");
     let work = build_folder.join("native").join(triple(target));
-    let mut built = build(
+    let mut built = build_with_conversions(
         &files,
+        &[],
         &Options {
             target,
             hooks: debug,
         },
+        conversions,
         toolchain,
         &work,
     )?;
@@ -170,7 +176,8 @@ fn write_openot_definition(
 }
 
 /// Checks the project's sources without the toolchain: the build's front and its generator run for
-/// this computer's CPU, as a build for it would (specification 44 §4.1), and nothing is written.
+/// this computer's CPU with the project's conversion rules, as a build for it would (specification
+/// 44 §4.1; specification 07 §2.10), and nothing is written.
 pub fn check_program(
     bundle_root: &Path,
     sources_root: Option<&Path>,
@@ -185,12 +192,14 @@ pub fn check_program(
     }
     let target = crate::native::Target::this_cpu()
         .ok_or_else(|| anyhow::anyhow!("this computer's CPU runs no program image"))?;
-    crate::native::generate_source(
+    let conversions = crate::native::conversion_profile(bundle_root)?;
+    crate::native::generate_source_with_conversions(
         &files,
         &crate::native::Options {
             target,
             hooks: false,
         },
+        conversions,
     )?;
     Ok(layout)
 }

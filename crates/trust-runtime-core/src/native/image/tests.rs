@@ -14,6 +14,7 @@ struct Sample {
     sorted: bool,
     without: Option<SectionId>,
     release: bool,
+    codesys: bool,
 }
 
 impl Default for Sample {
@@ -24,6 +25,7 @@ impl Default for Sample {
             sorted: true,
             without: None,
             release: false,
+            codesys: false,
         }
     }
 }
@@ -47,6 +49,9 @@ fn sample(spec: &Sample) -> Vec<u8> {
     let mut writer = ImageWriter::new(Target::X86_64, 1);
     writer.rustc = "1.99.0".into();
     writer.release = spec.release;
+    if spec.codesys {
+        writer.conversion_profile = ConversionProfile::Codesys;
+    }
     writer.module(CodeImage {
         code: vec![0xC3; 32],
         rodata: vec![0x11; 16],
@@ -292,6 +297,49 @@ fn an_image_reads_back_as_written() {
 #[test]
 fn an_image_is_written_deterministically() {
     assert_eq!(sample(&Sample::default()), sample(&Sample::default()));
+}
+
+/// Bit 2 of the header flags says that the program converts with the CODESYS rules of specification
+/// 07 §2.10 (specification 44 §5.2); an image without it converts with the IEC rules. An online
+/// change between images of other rules is refused with both rules named, one between images of
+/// the same rules is not (specification 07 §2.10: "an online change does not switch them").
+/// Catches the flag at another bit, the rules read from another flag, and a change that switches
+/// the rules of a running program.
+#[test]
+fn the_conversion_rules_are_bit_2_of_the_header_flags() {
+    let iec = sample(&Sample::default());
+    let codesys = sample(&Sample {
+        codesys: true,
+        ..Sample::default()
+    });
+    assert_eq!(&iec[120..124], &[0; 4]);
+    assert_eq!(&codesys[120..124], &[4, 0, 0, 0]);
+    let (iec, codesys) = (Image::parse(&iec).unwrap(), Image::parse(&codesys).unwrap());
+    assert_eq!(iec.header().conversion_profile(), ConversionProfile::Iec);
+    assert_eq!(
+        codesys.header().conversion_profile(),
+        ConversionProfile::Codesys
+    );
+    assert_eq!(same_conversion_rules(iec.header(), iec.header()), Ok(()));
+    assert_eq!(
+        same_conversion_rules(codesys.header(), codesys.header()),
+        Ok(())
+    );
+    for (running, changed, to, from) in [
+        (&iec, &codesys, "codesys", "iec"),
+        (&codesys, &iec, "iec", "codesys"),
+    ] {
+        let Err(RuntimeError::InvalidConfig(reason)) =
+            same_conversion_rules(running.header(), changed.header())
+        else {
+            panic!("a change from the {from} rules to the {to} rules is refused");
+        };
+        assert!(
+            reason.contains(&alloc::format!("with the {to} conversion rules"))
+                && reason.contains(&alloc::format!("running program with the {from} rules")),
+            "{reason}"
+        );
+    }
 }
 
 /// A release image says so in bit 0 of the header flags at offset 120, and a debug image leaves the

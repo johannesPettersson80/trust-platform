@@ -94,6 +94,9 @@ pub struct ImageWriter {
     pub release: bool,
     /// Whether the program reads the platform's wall clock (`CURRENT_DT`); its header flags say so.
     pub wall_clock: bool,
+    /// The conversion rules the program was built with (specification 07 §2.10); its header flags
+    /// say when they are the CODESYS rules.
+    pub conversion_profile: crate::stdlib::conversions::ConversionProfile,
     /// The offset plus one in `STRINGS` of the `RESOURCE` name the program's `CONFIGURATION`
     /// declares, or zero when it declares none (§5.2).
     pub resource: u32,
@@ -122,6 +125,7 @@ impl ImageWriter {
             ),
             release: false,
             wall_clock: false,
+            conversion_profile: crate::stdlib::conversions::ConversionProfile::Iec,
             resource: 0,
             module: CodeImage::default(),
             sections: BTreeMap::new(),
@@ -200,6 +204,9 @@ impl ImageWriter {
         let mut flags = if self.release { super::FLAG_RELEASE } else { 0 };
         if self.wall_clock {
             flags |= super::FLAG_WALL_CLOCK;
+        }
+        if self.conversion_profile == crate::stdlib::conversions::ConversionProfile::Codesys {
+            flags |= super::FLAG_CODESYS_CONVERSIONS;
         }
         image[120..124].copy_from_slice(&flags.to_le_bytes());
         image[124..128].copy_from_slice(&self.resource.to_le_bytes());

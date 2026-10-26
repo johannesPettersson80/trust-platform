@@ -2146,23 +2146,33 @@ Program-variable entries participate in the same full-snapshot validation,
 migration, orphan reporting, and atomic apply boundary as retained globals.
 
 The variables of function block and class instances are retentive as IEC
-61131-3 §6.5.6.2 says. A variable of an instance is retained when its type
-declares it `RETAIN` or `PERSISTENT`, or declares it without a retention
-qualifier and the declaration that holds the instance (the variable, or the
-array or structure the instance lies in) is `RETAIN` or `PERSISTENT`. A
-`NON_RETAIN` variable is not retained, and a variable that is itself an
-instance follows its own type's declarations whatever its holder declares; so
-does an instance that a configured program instance's qualifier would reach
-(`PROGRAM RETAIN P : T` qualifies the program's other unqualified variables).
-A retained variable of an instance is written under its path from the global
-or the program that holds the instance: `<path>` for an instance a global holds
-and `@program/<program-identity>/<path>` for one a program holds. The path is
-the identity of the holding variable followed, segment by segment, by each
-member or field on the way, written `.` and its identity, and each array
-element, written as its indexes in brackets separated by commas, down to the
-retained variable (`@program/Main/Line.Pumps[2].Hours`, `Fleet[1,3].Count`). A
-variable that an instance inherits from its base adds no segment for the base.
-These entries follow the retained globals and the programs' own retained
+61131-3 §6.5.6.1 and §6.5.6.2 say, with the reading of `docs/IEC_DECISIONS.md`
+(2026-10-23) for the unqualified variables of a nested instance. An instance
+declared `RETAIN` or `PERSISTENT` (a global or a program's variable, alone, as
+an element of an array of instances or as a member of a structure) is kept as a
+whole: it keeps all its variables, those its base declares included, except
+those its type declares `NON_RETAIN`. A variable that is itself an instance, or
+holds instances, is kept as a whole when it is declared `RETAIN` or
+`PERSISTENT`, or when it is not qualified and its enclosing instance is kept as
+a whole; declared `NON_RETAIN`, it is not. In every instance a variable its type
+declares `RETAIN` or `PERSISTENT`, whether a local, an input or an output, is
+kept, and one it declares `NON_RETAIN` starts over, also in an instance kept as
+a whole. A configured program instance's qualifier (`PROGRAM RETAIN P : T`)
+qualifies the program's other unqualified variables but keeps no instance it
+holds as a whole. A retained variable of an instance is written under the key
+`@global-instance/<holder>/<member path>` for an instance a global holds and
+`@program-instance/<program-identity>/<holder>/<member path>` for one a
+program's variable holds. `<holder>` is the identity of the holding variable
+followed by each field on the way to the instance, written `.` and its
+identity, and by each array element, written as its indexes in brackets
+separated by commas (`Pumps[2]`, `Grid[1,0]`); `<member path>` names the
+retained variable inside the instance, through each nested instance by its
+identity, the indexes of its element and a `.` (`Inner.Total`,
+`Cells[1].Inner.Total`). A variable that an instance inherits from its base
+stands at the derived instance's level and adds no segment for the base (IEC
+61131-3 §6.6.5.3 forbids redeclaring an inherited name, so the paths stay
+unique): `@program-instance/Main/Line/Pumps[2].Hours`,
+`@global-instance/Fleet[1,3]/Count`. These entries follow the retained globals and the programs' own retained
 variables, in one depth-first walk: the globals in declaration order, then the
 programs in registration order, each one's variables in declaration order; an
 instance's inputs, outputs and in-outs in declaration order, then its other

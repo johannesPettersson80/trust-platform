@@ -397,13 +397,12 @@ fn types(source: &mut String, model: &Model<'_>) {
                             },
                         ))
                         .collect();
-                structure(
-                    source,
-                    &info.rust,
-                    &fields,
-                    info.size,
-                    matches!(info.kind, Kind::Struct { .. }),
-                );
+                // A structure that holds an instance is never copied as a whole.
+                let assign = matches!(info.kind, Kind::Struct { .. })
+                    && !members
+                        .iter()
+                        .any(|member| model.types.holds_instance(member.ty));
+                structure(source, &info.rust, &fields, info.size, assign);
             }
             // A `STRUCT OVERLAP` is its byte backing, which the views of its members read and write
             // (specification 44 §6.2).

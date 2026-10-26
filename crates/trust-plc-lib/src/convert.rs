@@ -1,7 +1,9 @@
 //! Type conversions (IEC §6.6.2.5.2 to §6.6.2.5.7; specification 07 §2), with the runtime's
 //! results and faults: a real is rounded to the nearest integer with ties to even (`TRUNC`
 //! truncates), an integer outside its destination is an overflow, a bit string converts by its
-//! bits, and a `TIME` converts to a `DWORD` of whole milliseconds.
+//! bits, and a `TIME` converts to a `DWORD` of whole milliseconds. Under the CODESYS conversion
+//! rules (specification 07 §2.10) a real rounds half away from zero and keeps the low-order bits
+//! of its destination's width ([`real_to_int_wrapping`]).
 
 use trust_plc_abi::module::fault;
 use trust_plc_abi::{Cx, Fault, FaultCode};
@@ -15,6 +17,9 @@ pub enum Rounding {
     Nearest,
     /// Toward zero: `TRUNC`.
     Truncate,
+    /// To the nearest integer, a tie away from zero: `REAL_TO_INT` under the CODESYS conversion
+    /// rules (specification 07 §2.10), `REAL_TO_INT(2.5) = 3`, `REAL_TO_INT(-1.5) = -2`.
+    HalfAway,
 }
 
 /// An integer type a conversion can produce.
@@ -25,6 +30,8 @@ pub trait IntTarget: Copy {
     fn from_i64(value: i64) -> Option<Self>;
     /// `value` in the type, or `None` outside it.
     fn from_u64(value: u64) -> Option<Self>;
+    /// The low-order bits of `value` of the type's width, two's complement.
+    fn wrapping_from_i128(value: i128) -> Self;
 }
 
 macro_rules! int_target {
@@ -36,6 +43,10 @@ macro_rules! int_target {
             }
             fn from_u64(value: u64) -> Option<Self> {
                 Self::try_from(value).ok()
+            }
+            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            fn wrapping_from_i128(value: i128) -> Self {
+                value as Self
             }
         }
     )*};
@@ -82,10 +93,7 @@ pub fn real_to_int<T: IntTarget>(cx: &mut Cx, value: f64, rounding: Rounding) ->
     if !value.is_finite() {
         return Err(overflow(cx, 0));
     }
-    let rounded = match rounding {
-        Rounding::Nearest => round_ties_to_even(value),
-        Rounding::Truncate => libm::trunc(value),
-    };
+    let rounded = rounded(value, rounding);
     let converted = if T::SIGNED {
         if (-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&rounded) {
             T::from_i64(rounded as i64)
@@ -98,6 +106,36 @@ pub fn real_to_int<T: IntTarget>(cx: &mut Cx, value: f64, rounding: Rounding) ->
         None
     };
     converted.ok_or_else(|| overflow(cx, rounded as i64))
+}
+
+/// `value` rounded to an integer by `rounding`.
+fn rounded(value: f64, rounding: Rounding) -> f64 {
+    match rounding {
+        Rounding::Nearest => round_ties_to_even(value),
+        Rounding::Truncate => libm::trunc(value),
+        Rounding::HalfAway => libm::round(value),
+    }
+}
+
+/// The real `value`, in binary64, rounded by `rounding` and kept to the low-order bits of the
+/// integer type `T`'s width, two's complement, as the CODESYS conversion rules convert a real to an
+/// integer or a bit string (specification 07 §2.10): `REAL_TO_INT(2.5)` is 3, `REAL_TO_BYTE(300.0)`
+/// is 44 and `REAL_TO_DWORD(3.7)` is 4. A value beyond 128 bits is first taken as the nearest
+/// 128-bit integer, as the runtime takes it.
+///
+/// # Errors
+///
+/// `Overflow` for a value that is not finite.
+#[allow(clippy::cast_possible_truncation)]
+pub fn real_to_int_wrapping<T: IntTarget>(
+    cx: &mut Cx,
+    value: f64,
+    rounding: Rounding,
+) -> Result<T, Fault> {
+    if !value.is_finite() {
+        return Err(overflow(cx, 0));
+    }
+    Ok(T::wrapping_from_i128(rounded(value, rounding) as i128))
 }
 
 /// The signed integer `value` as the integer type `T`: `DINT_TO_INT`, `INT_TO_UDINT`.

@@ -18,6 +18,61 @@ use crate::value::Value;
 
 pub use spec::ConversionSpec;
 
+/// The rules of the type conversion functions (docs/specs/07-standard-functions.md 2.10).
+/// `Iec` is truST's IEC 61131-3 behaviour; `Codesys` follows CODESYS.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ConversionProfile {
+    /// truST's IEC 61131-3 conversion rules.
+    #[default]
+    Iec,
+    /// The conversion rules of CODESYS, Beckhoff and TwinCAT projects.
+    Codesys,
+}
+
+/// The accepted `vendor_profile` names: the vendor profiles of `trust-lsp.toml`
+/// (docs/public/reference/config/vendor-profiles.md) and `iec`.
+pub const VENDOR_PROFILES: [&str; 7] = [
+    "beckhoff",
+    "codesys",
+    "gxworks3",
+    "iec",
+    "mitsubishi",
+    "siemens",
+    "twincat",
+];
+
+impl ConversionProfile {
+    /// The conversion rules of a `vendor_profile` name (trimmed, any case): `codesys`,
+    /// `beckhoff` and `twincat` (TwinCAT is built on CODESYS) select the CODESYS rules;
+    /// `iec`, `siemens`, `mitsubishi` and `gxworks3` select the IEC rules; `None` for a name
+    /// that is not in [`VENDOR_PROFILES`].
+    #[must_use]
+    pub fn from_vendor_profile(name: &str) -> Option<Self> {
+        let name = name.trim();
+        let named = |candidates: &[&str]| {
+            candidates
+                .iter()
+                .any(|candidate| name.eq_ignore_ascii_case(candidate))
+        };
+        if named(&["codesys", "beckhoff", "twincat"]) {
+            Some(Self::Codesys)
+        } else if named(&["iec", "siemens", "mitsubishi", "gxworks3"]) {
+            Some(Self::Iec)
+        } else {
+            None
+        }
+    }
+
+    /// The name of the rules: `iec` or `codesys`.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Iec => "iec",
+            Self::Codesys => "codesys",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 enum ConversionMode {
     Round,

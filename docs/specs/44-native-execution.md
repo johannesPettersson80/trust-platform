@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.30 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.31 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -29,7 +29,10 @@
   program region to the Wi-Fi radio's RAM code, §10.3, for the network the owner had decided on 25
   October 2026, "do whats professional"; 0.29 counts in the memory figure what a load really keeps,
   which the C6 bench found the figure left out, §10.4; 0.30 signs with Ed25519ph, so that a chip
-hashes an upload as its parts arrive, §5.11),
+hashes an upload as its parts arrive, §5.11; 0.31 compiles the initial values of arrays of
+instances, structures that hold an instance and the CODESYS conversion rules of specification 07
+§2.10, and keeps the variables of instances as IEC 61131-3 §6.5.6.2 and the decision of 23
+October 2026 say, Appendix B),
   with the six
   decisions of its report: `NEW` and `__DELETE` outside this profile (§1), Ed25519 (Ed25519ph since 0.30) with unsigned
   images accepted on an empty trust list (§5.11), interface calls by `match` (§6.4), the
@@ -360,7 +363,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 96 | 16 | Program library hash: the first 16 bytes of the SHA-256 of `<library> <triple>`, the program library the module linked as the toolchain's `LIBRARY` file names it (`trust-plc-lib <version>`, §4.6) and the target triple of §4.4 |
 | 112 | 4 | Section count |
 | 116 | 4 | Offset of the section table |
-| 120 | 4 | Flags: bit 0 set when the image has no statement hooks, a release image (§13.2); bit 1 set when the program reads the platform's wall clock (`CURRENT_DT`, §8.2), so its deployment record requires the capability (§10.1; specification 34 §5.2); the other bits zero |
+| 120 | 4 | Flags: bit 0 set when the image has no statement hooks, a release image (§13.2); bit 1 set when the program reads the platform's wall clock (`CURRENT_DT`, §8.2), so its deployment record requires the capability (§10.1; specification 34 §5.2); bit 2 set when the program converts with the CODESYS conversion rules that its project's `vendor_profile` selects (specification 07 §2.10), clear for the IEC rules, which a running program keeps (§12.1); the other bits zero |
 | 124 | 4 | The offset plus one in `STRINGS` of the `RESOURCE` name the program's `CONFIGURATION` declares; zero when it declares none. A computer refuses to run the image, at `play` and `validate`, for a `runtime.toml` that names another resource, compared without regard to case, as specification 10 §4.7 selects resources; a program without a `CONFIGURATION`, or with the placeholder resource `RESOURCE`, runs under the name it is given |
 
 ### 5.3 Sections
@@ -510,11 +513,12 @@ reports them. The table is what specification 13's "one resolver on every runtim
 One 16-byte record per retained variable, in the order of specification 11 §6.7: the offset of its
 checkpoint key in the string pool (4), its area (4), its offset in the area (4) and the index of its
 type (4). The key is the variable's identity of specification 11 §6.7 in its declared spelling: a
-global's name, `@program/<program>/<variable>` for a program's variable, and the path of a retained
-variable of a function block or class instance, `@program/<program>/<path>` or `<path>`. A retained
-global or program variable lies in the retain area; a retained variable of an instance lies with its
-instance, in the globals, retain or instance area. So a checkpoint written by the runtime restores
-into the kernel and one written by the kernel restores into the runtime.
+global's name, `@program/<program>/<variable>` for a program's variable, and for a retained variable
+of a function block or class instance `@global-instance/<holder>/<member path>` or
+`@program-instance/<program>/<holder>/<member path>`. A retained global or program variable lies in
+the retain area; a retained variable of an instance lies with its instance, in the globals, retain
+or instance area. So a checkpoint written by the runtime restores into the kernel and one written by
+the kernel restores into the runtime.
 
 ### 5.11 Signature
 
@@ -723,6 +727,11 @@ leaves an instance as it was, gives its declared type's default and writes `FALS
 `FALSE`, and reaches a connected `ENO` as an output does. Direct addresses (IEC §6.5.5) are offsets into the input, output and marker
 areas, computed at build; an address outside the configured process image is a build error.
 
+A structure may hold a function block or class instance (IEC Table 11 feature 7a), which its
+variable's member path calls and reads (`Line.Feed(Increment := 5)`, `Line.Feed.Total`). A value
+that holds an instance (an instance, or an array or a structure that holds one) is not copied as a
+whole: an assignment of such a value, and an output of such a type, are not compiled yet (NX-09).
+
 ### 6.7 Initialization (IEC §6.5.1, §6.5.6)
 
 The build computes the starting memory of the globals, retain and instance areas from the
@@ -751,10 +760,21 @@ initial values on the engineering computer and without constructing or running t
 variable's initial value, evaluated as a constant expression that may name a
 constant, which the build works out first in declaration order, else its type's default; an
 instance's variables from its type's declarations, its base's first, an initial value given to the
-instance's variable (IEC Table 14, `T1 : TON := (PT := T#1s)`) in place of a declared one, and its
-class id. It writes each value at the place the program's layout gives it. An initial value that
-names a variable other than a constant, or that calls a function block, a method or a user function,
-is the cold-init entry's to compute; until that entry carries it, the build refuses it (NX-09).
+instance's variable (IEC Table 14, `T1 : TON := (PT := T#1s)`) in place of a declared one, also to a
+variable the instance inherits (IEC §6.6.5.3), and its class id; each element of an array of
+instances from the array's initial value (IEC Table 11 feature 5a, `[(PT := T#1s), 2((PT :=
+T#2s))]`), or, when the variable gives none, from the initial value its named array type declares
+(feature 5b), in row-major order, `n(...)` repeating what its parentheses hold, an element past the
+list at its type's declarations and an entry past the last element ignored (specification 02 §3.4;
+`docs/IEC_DECISIONS.md`, 2026-09-28); each member of a structure that holds an instance (feature 7a)
+from the structure's initial value, else its type's, else the member's declaration. It writes each
+value at the place the program's layout gives it. An initial value that names a variable other than
+a constant, or that calls a function block, a method or a user function, is the cold-init entry's to
+compute; until that entry carries it, the build refuses it (NX-09). A program built with the CODESYS
+conversion rules of specification 07 §2.10 converts in its bodies by those rules; a type conversion
+that its declarations call outside a body (an initial value, a bound, the configuration) would be
+worked out by the runtime's evaluator, which converts by the IEC rules, so the build refuses it for
+such a program (NX-09).
 
 A frame starts at each call (IEC §6.5.1, §6.5.2.1, Table 13 3d): a function's or a method's result,
 outputs and locals and a program's or a function block's `VAR_TEMP` take their declared initial
@@ -762,8 +782,9 @@ value, else their type's default (an enumeration's first value, a subrange's low
 structure's members' initial values), as the runtime gives them, and an input a call leaves out
 takes its default. A frame variable is declared zero; the build computes its starting value at the
 program's layout with the runtime's own initialization, and the call sets the parts of it that are
-not zero, equal array elements in a row by one loop. A starting value that holds an instance of a
-user function block, or an initial value that names a variable, is refused at build (NX-09).
+not zero, equal array elements in a row by one loop; a frame variable that holds an instance starts
+as the starting memory lays the instance out, element initial values included. An initial value
+that names a variable is refused at build (NX-09).
 
 ### 6.8 Standard functions and function blocks (IEC §6.6.2.5, §6.6.3.5)
 
@@ -816,6 +837,14 @@ How the library carries the runtime's rules over, function by function:
   kernel's `read_real`, the runtime's own reader (§8.2; an overflow for one that is not finite); a
   text that spells nothing is a type mismatch. The library reads a text in a copy the size of its
   capacity on the stack.
+- A bit string converts to `BOOL` by its rightmost bit (IEC Table 24 rows 4, 8, 12 and 16). Under
+  the CODESYS conversion rules of specification 07 §2.10, which the project's `vendor_profile`
+  selects and bit 2 of the header records (§5.2), the generated code converts as that section's
+  table says: a real to an integer or a bit string through the library's `real_to_int_wrapping`,
+  rounded half away from zero (`TRUNC` toward zero) and kept to the low-order bits of the target's
+  width; an integer to an integer by its low-order bits; `REAL_TO_DWORD` and `LREAL_TO_LWORD` the
+  number so rounded; `DWORD_TO_REAL` and `LWORD_TO_LREAL` the number; a bit string to `BOOL` TRUE
+  when it is not zero. A non-finite real is still an overflow.
 - A character converts by its code: a number or a bit string to a `CHAR` or `WCHAR` by its value,
   a negative one by its bits, an overflow above the type; a `CHAR` to a number by its code and to a
   text as its character in UTF-8; a text to a `CHAR` when it holds exactly one character (a type
@@ -1359,9 +1388,15 @@ values:
   checkpoint into a fresh start of the new image in the same way, before anything is written, and
   refuses the install with the restore's reason.
 
-A retained variable of a function block or class instance (specification 11 §6.7, IEC §6.5.6.2) is
-laid with its instance and has its record in the retain map, which names its area; the capture, the
-restore and the warm restart treat it as any other retained variable.
+A retained variable of a function block or class instance (specification 11 §6.7, IEC §6.5.6.1 and
+§6.5.6.2) is laid with its instance and has its record in the retain map, which names its area, under
+the key `@global-instance/<holder>/<member path>` or `@program-instance/<program>/<holder>/<member
+path>`; the capture, the restore and the warm restart treat it as any other retained variable. An
+instance declared `RETAIN` keeps its whole tree, its nested instances that are not qualified
+included, but not the variables and nested instances its types declare `NON_RETAIN`
+(`docs/IEC_DECISIONS.md`, 2026-10-23). A variable that is not kept takes its starting memory at a
+warm restart, which holds the value an instance's initial value gives it, so a warm restart
+initializes it as IEC §6.5.6.2 orders.
 
 The checkpoint's identity is the record's (specification 34 §5.1): the image's SHA-256 and its
 retain-schema identity (§10.1).
@@ -1376,7 +1411,10 @@ five-second withdrawal on a chip, the lines, the settings, the events, the gener
 debugger; and above all: every variable the new program declares at the same place and by the
 same name keeps its value, retained or not, instances and timers included; a changed declaration
 keeps what fits; references name the same variable or become `NULL`; a change never fails because
-of a value; the outputs never change at the boundary (decisions OC-1, OC-2).
+of a value; the outputs never change at the boundary (decisions OC-1, OC-2). A running runtime keeps
+the conversion rules it started with (specification 07 §2.10): a change to an image built with other
+rules (§5.2, bit 2) is refused before the new program starts, naming both rules, and the running
+program goes on.
 
 ### 12.2 The copy plan, worked out by the device
 
@@ -1755,6 +1793,7 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
 | 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner approved on 25 October 2026 (§14.4: "if its professional and according to iec then i trust you"): each records an IEC 61131-3 construct whose representation IEC leaves to the implementer (the resource of §6.8.1, the direct and hierarchical addresses of §6.5.5 and Table 16, `STRUCT OVERLAP` of §6.4.4.6, the variable-length arrays of §6.5.3) or the truST function `CURRENT_DT` (specification 07). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
+| 0.31 | 26 October 2026 | What the language features that the bytecode engine gained after the lines split need natively (the native gaps lane). §6.7: the initial values of arrays of function block and class instances, element by element in row-major order with repetitions, and of a named array type (IEC Table 11 features 5a and 5b; specification 02 §3.4), an initial value given to an inherited variable, and structures that hold an instance (feature 7a) are compiled; a frame variable that holds an instance starts as the starting memory lays it out; §6.6: a value that holds an instance is not copied as a whole. §5.2, §6.8, §12.1: the CODESYS conversion rules of specification 07 §2.10 that a project's `vendor_profile` selects are compiled into the program, bit 2 of the header flags records them, and an online change to an image of other rules is refused; a program of those rules whose declarations call a conversion outside a body is refused at build (§6.7). §5.10, §11: the variables of instances are kept as IEC §6.5.6.2 and the decision of 23 October 2026 say, a `RETAIN` instance with its whole tree, under the keys `@global-instance/…` and `@program-instance/…` of specification 11 §6.7. The image format version is unchanged. |
 | 0.30 | 25 October 2026 | Signatures that a chip checks as the parts arrive (§5.11; the portability checklist's S5, which the owner's "do whats professional ... you decide" of 25 October 2026 leaves to this specification). `SIGN`'s algorithm 2 is Ed25519ph of RFC 8032 with the context `truST program image`, over the SHA-512 of the image less `SIGN`, so that a device hashes an upload part by part and the check at an install or online change costs only the signature's arithmetic, where the pure Ed25519 of 0.20 hashed a 90 KB image in 0.85 s in one block on the ESP32-C6. Algorithm 1 is refused. A chip reads its trusted keys from its device settings at boot. The chips build the signature code for speed, with the base point's tables. |
 | 0.29 | 25 October 2026 | The memory figure counts what a load keeps (§10.4; the portability checklist's L3). The bookkeeping now also holds the cycle's copies of the process images (the last scan's inputs, outputs and markers, and the outputs the drivers last took) and, for a debug image, the debugger's line table: 28 bytes per statement and the file labels; the Live Values and services take the device's reserve. The C6 bench found a debug image of the reference workload whose figure was 10,300 bytes keep 19,772 bytes beside the checkpoint store's buffer: its line table, built entry by entry, had room for 256 entries for its 168 statements, and with Wi-Fi the chip admitted a program its heap could not load. The line table is now built with exactly its entries. |
 | 0.28 | 25 October 2026 | The ESP32-C6's program region shrinks from 192 KiB to 112 KiB (specification 34 PORT-06, D.2; the portability checklist's L3; the owner, 25 October 2026, "do whats professional"): the Wi-Fi radio's driver keeps about 81 KB of code and data in RAM, which the link places there whether or not the chip uses Wi-Fi, and the program region gave 80 KiB, so that the main stack keeps its 82 KiB and the heap its 180,160 bytes. 112 KiB still hold the reference workload's running module and its changed release image at once; a changed image beyond the region's room is held in the heap and its module copied into the region (§10.3, §12.3). |
