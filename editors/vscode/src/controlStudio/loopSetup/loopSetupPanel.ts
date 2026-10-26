@@ -70,4 +70,3 @@ export function formModelOf(answer: SetupDiscoverResult): SetupPageModel {
   const estimatorModels = answer.estimatorModels ?? [];
   return { ...answer.formModel, ...(estimatorModels.length ? { estimatorModels } : {}) };
 }
-

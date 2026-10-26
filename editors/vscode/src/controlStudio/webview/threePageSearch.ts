@@ -99,4 +99,3 @@ function parameterLabel(loop: LoopDefinition, symbol: string): string {
   const unit = loop.parameterBinding?.parameters.find(parameter => parameter.symbol === symbol)?.unit;
   return unit ? `${symbol} (${displayEngineeringUnit(unit)})` : symbol;
 }
-

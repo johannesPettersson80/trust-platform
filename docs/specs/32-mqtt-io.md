@@ -246,6 +246,16 @@ input image unchanged. `warn` and `ignore` retain their documented degraded
 success behavior. A timed-out queued output may later publish, but that does not
 retroactively make the timed-out scan call successful.
 
+For its communication link (specification 42, §4 item 9 and §5 item 4) the driver
+also describes its session in words, beside its health: the broker as
+`<host>:<port>`, then `connected`; `connecting` while a session waits for its
+first acknowledgement; `disconnected: <reason>` with the last session error or
+connection failure; or `not connected` before the first attempt. Behind the worker
+the link gives the description the worker recorded last. The driver names the
+input bytes it fills, so that values located there turn stale while the link
+exchanges no data: the bytes of each input point; with a raw input topic and no
+input points, the whole input image from its start; with neither, none.
+
 ## 9. Sparkplug B outbound profile
 
 The optional Sparkplug B node profile applies to typed `output_points` and uses

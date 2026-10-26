@@ -55,4 +55,3 @@ and baseline limitations are defined in
 [`docs/specs/45-control-pid.md`](../../docs/specs/45-control-pid.md). The
 baseline intentionally does not include validation, safe/fault modes,
 identification, tuning, or performance monitoring.
-

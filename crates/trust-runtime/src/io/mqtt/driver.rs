@@ -388,7 +388,6 @@ impl IoDriver for MqttIoDriver {
         }
     }
 
-    /// The broker and the session's state: connected, or why not (specification 42, §4 item 9).
     fn input_bytes(&self) -> Vec<std::ops::Range<usize>> {
         // Input points fill their own bytes; a raw input topic fills the image from its start.
         if !self.config.input_points.is_empty() {
@@ -401,6 +400,7 @@ impl IoDriver for MqttIoDriver {
         }
     }
 
+    /// The broker and the session's state: connected, or why not (specification 42, §4 item 9).
     fn detail(&self) -> Option<SmolStr> {
         if let Some(worker) = &self.worker {
             return worker.detail();
