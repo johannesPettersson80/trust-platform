@@ -17,6 +17,7 @@ pub mod live;
 pub mod memory;
 pub mod program;
 mod record;
+pub mod reflect;
 pub mod retain;
 pub mod signature;
 mod start;

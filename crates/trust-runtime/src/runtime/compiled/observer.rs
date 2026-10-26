@@ -261,7 +261,10 @@ impl CycleHooks for HostedCompiledScan<'_> {
                 self.ads.capture_outputs_compiled(variables, now_ms)?;
                 self.opcua.capture_outputs_compiled(variables, now_ms)
             }
-            CompiledAccessPoint::CycleStart | CompiledAccessPoint::HoldEnd => Ok(()),
+            CompiledAccessPoint::CycleStart
+            | CompiledAccessPoint::HoldEnd
+            | CompiledAccessPoint::TaskStart(_)
+            | CompiledAccessPoint::TaskEnd(_) => Ok(()),
         }
     }
 }

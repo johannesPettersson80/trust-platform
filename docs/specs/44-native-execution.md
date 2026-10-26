@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.30 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.32 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -351,7 +351,7 @@ pool at an offset, every offset is relative to the start of the image.
 | 0 | 8 | Magic `TRSTI001` |
 | 8 | 4 | CRC-32 (ISO-HDLC) of bytes 12 to the end of the section table |
 | 12 | 4 | Total length L of the image |
-| 16 | 2 | Image format version, 2 (0.13: the 16-byte retain map of §5.10) |
+| 16 | 2 | Image format version, 3 (0.13: the 16-byte retain map of §5.10; 0.32: a function block's or class's base and interfaces in the type table, §5.8) |
 | 18 | 2 | Kernel interface version (§8.2) the module was built against |
 | 20 | 4 | Target id (§4.4: 1 rv32imac, 2 thumbv8m.main-hf, 3 x86-64, 4 aarch64) |
 | 24 | 8 | Build time, Unix seconds (informational, excluded from NX-07) |
@@ -461,7 +461,13 @@ name in capital letters, so a lookup is one binary search), one 32-byte record p
 
 Every variable the program declares has a symbol, members of structures and instances included,
 so that Live Values, the HMI, OPC UA, Modbus and the debugger find any `a.b.c` by one lookup of its
-canonical name, and browse by parent. The private state of a library block, which no program
+canonical name, and browse by parent. A path with indices (`Main.Pumps[2, 1].Running`) is found
+by the longest part of it that the symbol table names and then through the type table: each further
+name a member of a structure, union, function block, class or program instance (a derived block's
+inherited members included, its hidden `__BASE` and `__CLASS` not), and each index list an element
+of an array in row-major order within its declared bounds; a path outside the program is refused
+with its reason. A walk of the type table finds every function block and class instance where it is
+declared, the elements of an array of instances in row-major order. The private state of a library block, which no program
 declares (a timer's start time, the memory of `R_TRIG`, IEC §6.6.3.5.3), is in the type table's
 member list, for its layout, and has no symbol, as the runtime does not name it either. Frame variables (`VAR` of functions and methods, `VAR_TEMP`)
 have symbols with area 7 (stack) and the offset in their frame, for the debugger only.
@@ -489,7 +495,13 @@ or 0), size (4), alignment (4), detail offset (4, into a type detail list), coun
 list holds, per kind: an enumeration's values (name offset, value i64); a subrange's base type and
 bounds (i64, i64); an array's element type and dimensions (lower, upper i64 each); a structure's,
 union's, FB's or class's members (name offset, type index, byte offset, flags); a string's
-capacity; a reference's target type; an alias's base type. A `STRUCT OVERLAP` lists its members at
+capacity; a reference's target type; an alias's base type. A function block's or class's members
+are followed by the type it extends (4, its index, or `0xFFFF_FFFF` without a base), the number of
+interfaces it implements (4) and each interface's declared name (string offset, 4 each): every
+interface it implements itself, through a base or through an interface that extends one (IEC
+61131-3 §6.6.6.4), so that a tool finds the instances of a block and of the blocks derived from it,
+and the instances that implement an interface, without the sources; a standard function block has
+no base and no interface. A `STRUCT OVERLAP` lists its members at
 the byte offsets their relative addresses name, so that members share bytes, and a `BOOL` member
 that takes one bit of its byte has a `BOOL` record whose count is that bit plus one (any other
 record's count of an elementary type is 0); a type with named values of an integer type is its
@@ -1220,7 +1232,7 @@ pack-project` packs a program that starts with `TRSTI001` as an image.
 Before an image runs, on every device, in this order, and the first failure names its reason:
 
 1. The container (specification 34 §5.1) and the record (§5.1.1).
-2. The image header: magic, CRC, length inside the slot, format version 2, target id equal to the
+2. The image header: magic, CRC, length inside the slot, format version 3, target id equal to the
    device's, kernel interface version equal to the kernel's (`kernel interface <n> required, this
    runtime has <m>: rebuild the project`), program library hash known to this kernel: the hash of
    the program library of the kernel's own release for the device's CPU, so that a program is
@@ -1581,6 +1593,17 @@ program does not hold or of another generation is refused with a `WriteRejected`
 bytecode engine refuses it, and a refused force is withdrawn. A debugger's expression write
 (`setExpression`) waits for the debugger of compiled programs and is refused.
 
+A computer's services also reach the program at each task's boundaries: when a task starts, before
+its first program runs, and when it has ended, after its last program and before any later task
+runs or the outputs are written; the programs outside every task have the same two boundaries. At
+both the kernel gives the scan's hooks the program's variables (the access points `TaskStart` and
+`TaskEnd`, with the task's number among the resource's tasks, none for the programs outside every
+task), and a hook writes there by symbol with the checks of a Live Values write. That is where
+Control Studio commits a parameter set or a controller transfer to the task that runs the
+controller and confirms or reverts it once the task has run (specification 35, A6.3 and A6.8). An
+error a hook returns there ends the scan as a fault of the program does. Live Values do not apply
+at a task's boundary.
+
 ## 14. Verification and acceptance
 
 ### 14.1 The reference workload
@@ -1755,6 +1778,7 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.20 | 24 October 2026 | The checks at install complete (the one list's N6), within the approved design. §10.2 step 2: the program library's hash is the first 16 bytes of the SHA-256 of `trust-plc-lib <version> <target triple>`, which the toolchain bundle names in a `LIBRARY` file (§4.6), so that an image built with another release's bundle is refused with its reason; §5.2: the sources' hash is the SHA-256 of each source's label and text in the order of the labels. Step 5: every I/O binding inside its process image, and the record requests the process images' bytes. §5.11 (the owner's "do what's most professional for a plc runtime", 22 October 2026): the build reserves `SIGN` unsigned and the tools that deploy sign it in place; the user's own key in truST's configuration folder signs unless the project names a key, because 0.1's key created on first use in the project would lie in a folder that is shared; a computer's trusted keys are in its `device.toml` in that folder; a device without a list checks no signature, because it proves nothing there and costs the ESP32-C6 0.85 s for a 90 KB image; `status` reports `signature`. |
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
 | 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner approved on 25 October 2026 (§14.4: "if its professional and according to iec then i trust you"): each records an IEC 61131-3 construct whose representation IEC leaves to the implementer (the resource of §6.8.1, the direct and hierarchical addresses of §6.5.5 and Table 16, `STRUCT OVERLAP` of §6.4.4.6, the variable-length arrays of §6.5.3) or the truST function `CURRENT_DT` (specification 07). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
+| 0.32 | 26 October 2026 | What the control and HMI line's services need of a compiled program on a computer, now that both lines are one (the owner, 26 October 2026: "it must work with our new runtimes"). §13.3: a computer's services reach the program at each task's start and end, the programs outside every task included (the access points `TaskStart` and `TaskEnd`), where Control Studio commits and confirms a parameter set or a controller transfer (specification 35, A6.3, A6.8); a path with indices (`Main.Pumps[2, 1].Running`) resolves through the symbol and type tables, and a walk finds every function block and class instance where it is declared. §5.8: a function block's or class's members are followed by its base and every interface it implements, by name; §5.2: image format version 3. |
 | 0.30 | 25 October 2026 | Signatures that a chip checks as the parts arrive (§5.11; the portability checklist's S5, which the owner's "do whats professional ... you decide" of 25 October 2026 leaves to this specification). `SIGN`'s algorithm 2 is Ed25519ph of RFC 8032 with the context `truST program image`, over the SHA-512 of the image less `SIGN`, so that a device hashes an upload part by part and the check at an install or online change costs only the signature's arithmetic, where the pure Ed25519 of 0.20 hashed a 90 KB image in 0.85 s in one block on the ESP32-C6. Algorithm 1 is refused. A chip reads its trusted keys from its device settings at boot. The chips build the signature code for speed, with the base point's tables. |
 | 0.29 | 25 October 2026 | The memory figure counts what a load keeps (§10.4; the portability checklist's L3). The bookkeeping now also holds the cycle's copies of the process images (the last scan's inputs, outputs and markers, and the outputs the drivers last took) and, for a debug image, the debugger's line table: 28 bytes per statement and the file labels; the Live Values and services take the device's reserve. The C6 bench found a debug image of the reference workload whose figure was 10,300 bytes keep 19,772 bytes beside the checkpoint store's buffer: its line table, built entry by entry, had room for 256 entries for its 168 statements, and with Wi-Fi the chip admitted a program its heap could not load. The line table is now built with exactly its entries. |
 | 0.28 | 25 October 2026 | The ESP32-C6's program region shrinks from 192 KiB to 112 KiB (specification 34 PORT-06, D.2; the portability checklist's L3; the owner, 25 October 2026, "do whats professional"): the Wi-Fi radio's driver keeps about 81 KB of code and data in RAM, which the link places there whether or not the chip uses Wi-Fi, and the program region gave 80 KiB, so that the main stack keeps its 82 KiB and the heap its 180,160 bytes. 112 KiB still hold the reference workload's running module and its changed release image at once; a changed image beyond the region's room is held in the heap and its module copied into the region (§10.3, §12.3). |

@@ -268,6 +268,9 @@ impl DebugControl {
                         &mut sink,
                     )
                 }),
+                // Live Values reach the program at the cycle's boundaries only (specification 44
+                // §13.3); a task's boundaries belong to the services that commit there.
+                CompiledAccessPoint::TaskStart(_) | CompiledAccessPoint::TaskEnd(_) => Ok(()),
             }
         };
         // The refusals are reported after the state lock is released, through the normal event

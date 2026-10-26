@@ -302,4 +302,11 @@ pub enum CompiledAccessPoint {
     /// queued during the hold and the variable forces, as at a cycle start (specification 44
     /// §13.2).
     HoldEnd,
+    /// A task starts, before its first program runs: what a computer's services commit at a task's
+    /// boundary is written here, through the runtime's checks (specification 44 §13.3). The task's
+    /// number among the resource's tasks; `None` for the programs outside every task.
+    TaskStart(Option<usize>),
+    /// The same task ended, after its last program, before any later task runs and before the
+    /// outputs are written: what was committed at its start is confirmed or reverted here.
+    TaskEnd(Option<usize>),
 }

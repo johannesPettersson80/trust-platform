@@ -32,8 +32,9 @@ pub use writer::{CodeImage, ImageWriter, StringPool, WriteError};
 
 /// The image's magic.
 pub const MAGIC: [u8; 8] = *b"TRSTI001";
-/// The format version this reader reads.
-pub const FORMAT_VERSION: u16 = 2;
+/// The format version this reader reads: 3 since a function block's or class's type record names its
+/// base and its interfaces (specification 44 §5.8).
+pub const FORMAT_VERSION: u16 = 3;
 /// The bytes of the header.
 pub const HEADER_BYTES: usize = 128;
 

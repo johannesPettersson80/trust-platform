@@ -24,6 +24,7 @@ use super::image::{
 use super::memory::{read_place, retained_place, symbol_place, write_by_symbol, write_place};
 use super::retain;
 use super::stop::{arm_bits, HeldScan, Stop};
+use super::variables::CompiledVariables;
 use super::values::{AreaBytes, Types};
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
@@ -173,6 +174,21 @@ pub trait ScanHooks {
     fn program_started(&mut self, _entry: usize) {}
     /// The body of entry `entry` ended, also when it faulted.
     fn program_finished(&mut self, _entry: usize) {}
+    /// Task `task` starts (`start`) or ended, the background task too, with the program's
+    /// variables, which a hook may write through the runtime's checks (specification 44 §13.3).
+    /// The default does nothing.
+    ///
+    /// # Errors
+    ///
+    /// The error that ends the scan, as a fault of the program does.
+    fn task_boundary(
+        &mut self,
+        _task: usize,
+        _start: bool,
+        _variables: &mut dyn CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        Ok(())
+    }
     /// A statement whose breakpoint bit is set stops, in a debug image (specification 44 §13.2):
     /// the debugger decides here and may hold the scan before the statement runs. The default
     /// runs on.
@@ -707,6 +723,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         let mut result = Ok(());
         'tasks: for entry in &ready {
             hooks.task_started(entry.index);
+            if let Err(error) = hooks.task_boundary(entry.index, true, self) {
+                result = Err(error);
+                break 'tasks;
+            }
             for position in 0..self.tasks[entry.index].programs.len() {
                 let program = self.tasks[entry.index].programs[position];
                 let task = u32::try_from(entry.index).unwrap_or(u32::MAX);
@@ -717,6 +737,10 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                     result = Err(error);
                     break 'tasks;
                 }
+            }
+            if let Err(error) = hooks.task_boundary(entry.index, false, self) {
+                result = Err(error);
+                break 'tasks;
             }
             hooks.task_finished(entry.index);
         }
@@ -729,6 +753,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 continue;
             }
             hooks.task_started(index);
+            hooks.task_boundary(index, true, self)?;
             for position in 0..self.tasks[index].programs.len() {
                 let program = self.tasks[index].programs[position];
                 hooks.program_started(program);
@@ -736,6 +761,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 hooks.program_finished(program);
                 called?;
             }
+            hooks.task_boundary(index, false, self)?;
             hooks.task_finished(index);
         }
         self.publish()

@@ -371,6 +371,8 @@ impl<C: MonotonicClock> CycleHooks for LiveValuesHooks<'_, '_, C> {
                             self,
                         )?;
                     }
+                    // The task boundaries belong to the computer's services, not to Live Values.
+                    CompiledAccessPoint::TaskStart(_) | CompiledAccessPoint::TaskEnd(_) => {}
                 }
             }
         }

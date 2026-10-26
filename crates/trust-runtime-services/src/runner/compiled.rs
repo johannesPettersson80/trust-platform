@@ -33,7 +33,7 @@ use trust_runtime_core::memory::Generation;
 use trust_runtime_core::native::image::BACKGROUND_PRIORITY;
 use trust_runtime_core::native::program::{ModuleCode, NativeProgram, NoHooks, ScanHooks};
 use trust_runtime_core::native::stop::Stop;
-use trust_runtime_core::native::variables::CompiledAccessPoint;
+use trust_runtime_core::native::variables::{CompiledAccessPoint, CompiledVariables};
 use trust_runtime_core::ports::{MonotonicClock, MonotonicInstant, TimeSpan};
 use trust_runtime_core::retain::RetainApplyEvent;
 use trust_runtime_core::retain::{RestartMode, RetainSnapshot};
@@ -716,6 +716,37 @@ impl<H: CompiledHold> ScanHooks for TaskPhases<'_, '_, H> {
 
     fn program_finished(&mut self, entry: usize) {
         self.report(CyclePhase::ProgramEnd(entry));
+    }
+
+    /// A task's boundary reaches the observer as the access point `TaskStart` or `TaskEnd` of the
+    /// task's number among the cycle's tasks, `None` for the image's background task (specification
+    /// 44 §13.3), unless an earlier phase failed the scan; the observer's allocations are counted
+    /// apart from the program's.
+    fn task_boundary(
+        &mut self,
+        task: usize,
+        start: bool,
+        variables: &mut dyn CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        if self.error.is_some() {
+            return Ok(());
+        }
+        let Some(index) = self.task_index.get(task).copied() else {
+            return Ok(());
+        };
+        let point = if start {
+            CompiledAccessPoint::TaskStart(index)
+        } else {
+            CompiledAccessPoint::TaskEnd(index)
+        };
+        let before = self.operations.map(|operations| operations());
+        let result = self.observer.on_compiled_access(point, self.now, variables);
+        if let Some((before, after)) = before.zip(self.operations.map(|operations| operations())) {
+            self.observer_operations = self
+                .observer_operations
+                .wrapping_add(after.wrapping_sub(before));
+        }
+        result
     }
 
     /// A statement whose bit is set stops (specification 44 §13.2): the debugger decides there,

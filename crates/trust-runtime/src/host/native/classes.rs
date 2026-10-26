@@ -107,6 +107,11 @@ impl<'a> Defs<'a> {
         false
     }
 
+    /// The declared names of the project's interfaces.
+    fn interface_names(&self) -> impl Iterator<Item = &'a SmolStr> + '_ {
+        self.interfaces.values().map(|def| &def.name)
+    }
+
     /// Whether `interface` is `wanted` or extends it.
     fn interface_is_a(&self, interface: &str, wanted: &str) -> bool {
         let mut current = self.interface(interface);
@@ -366,6 +371,20 @@ impl<'a> Types<'a> {
             self.class_ids.push(ty);
         }
         Ok(ty)
+    }
+
+    /// Every interface that the function block or class `def` implements, itself, through a base or
+    /// through an interface that extends one (IEC §6.6.6.4), by their declared names: what its type
+    /// record lists for the tools (specification 44 §5.8).
+    pub(super) fn implemented_interfaces(&self, def: &str) -> Vec<SmolStr> {
+        let Some(owner) = self.defs.owner(def) else {
+            return Vec::new();
+        };
+        self.defs
+            .interface_names()
+            .filter(|name| self.defs.implements(owner, name))
+            .cloned()
+            .collect()
     }
 
     /// The type of a variable of interface `name`: a reference to an instance (specification 44

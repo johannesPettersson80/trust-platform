@@ -542,6 +542,21 @@ fn member_detail(
     offset
 }
 
+/// What follows a function block's or class's members in the detail (specification 44 §5.8): the
+/// type it extends (`NONE` without one), the number of interfaces it implements and each one's name.
+fn class_detail(
+    pool: &mut StringPool,
+    details: &mut Vec<u8>,
+    extends: Option<Ty>,
+    interfaces: &[SmolStr],
+) {
+    details.extend_from_slice(&extends.map_or(NONE, |ty| ty.0).to_le_bytes());
+    details.extend_from_slice(&u32::try_from(interfaces.len()).unwrap_or(0).to_le_bytes());
+    for name in interfaces {
+        details.extend_from_slice(&pool.add(name).to_le_bytes());
+    }
+}
+
 /// The record of one type and its detail.
 fn type_record(
     pool: &mut StringPool,
@@ -619,24 +634,31 @@ fn type_record(
         // A `BOOL` that takes bit n of its byte counts n + 1 (specification 44 §5.8).
         Kind::Bit(bit) => (type_kind::BOOL, 0, u32::from(*bit) + 1),
         Kind::Fb {
-            members, is_class, ..
-        } => (
-            if *is_class {
-                type_kind::CLASS
-            } else {
-                type_kind::FUNCTION_BLOCK
-            },
-            member_detail(pool, details, base, members),
-            count(members.len()),
-        ),
+            def,
+            members,
+            base: extends,
+            is_class,
+            ..
+        } => {
+            let detail = member_detail(pool, details, base, members);
+            let interfaces = model.types.implemented_interfaces(def);
+            class_detail(pool, details, *extends, &interfaces);
+            (
+                if *is_class {
+                    type_kind::CLASS
+                } else {
+                    type_kind::FUNCTION_BLOCK
+                },
+                detail,
+                count(members.len()),
+            )
+        }
         Kind::Interface => (type_kind::INTERFACE, 0, 0),
         Kind::StdFb(fb) => {
             let members = model.types.std_fb_members(*fb);
-            (
-                type_kind::FUNCTION_BLOCK,
-                member_detail(pool, details, base, &members),
-                count(members.len()),
-            )
+            let detail = member_detail(pool, details, base, &members);
+            class_detail(pool, details, None, &[]);
+            (type_kind::FUNCTION_BLOCK, detail, count(members.len()))
         }
         // A reference's or a pointer's detail is its target type (specification 44 §5.8).
         Kind::Ref { target, pointer } => {

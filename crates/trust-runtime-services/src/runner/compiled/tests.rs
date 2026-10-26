@@ -522,7 +522,7 @@ fn live_values_reach_a_compiled_scan_at_the_cycle_start_after_the_inputs_and_bef
     assert_eq!(driven.borrow().outputs, [vec![0], vec![0b10], vec![0b10]]);
     assert_eq!(live.1, [vec![0], vec![0b10], vec![0b10]]);
     assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(42)));
-    let last = &live.0[live.0.len() - 12..];
+    let last = &live.0[live.0.len() - 14..];
     assert_eq!(
         last,
         [
@@ -531,13 +531,77 @@ fn live_values_reach_a_compiled_scan_at_the_cycle_start_after_the_inputs_and_bef
             "BeforeInputSample",
             "access AfterInputs",
             "TaskStart(0)",
+            "access TaskStart(Some(0))",
             "ProgramStart(0)",
             "ProgramEnd(0)",
+            "access TaskEnd(Some(0))",
             "TaskEnd(0)",
             "access BeforeOutputs",
             "BeforeOutputSample",
             "AfterOutputSample",
             "CycleEnd",
+        ]
+    );
+}
+
+/// An observer that writes at a task's boundaries as a computer's services commit there: `MAIN.COUNT`
+/// := 41 when the task starts in the scan at 10 ms, and `MAIN.OUT` := 0 when it ends in the scan at
+/// 20 ms.
+#[derive(Default)]
+struct BoundaryWrites(Vec<String>);
+
+impl CycleHooks for BoundaryWrites {
+    fn on_compiled_access(
+        &mut self,
+        point: CompiledAccessPoint,
+        now: Duration,
+        variables: &mut dyn CompiledVariables,
+    ) -> Result<(), RuntimeError> {
+        self.0.push(format!("{point:?}"));
+        match (point, now.as_nanos() / MS) {
+            (CompiledAccessPoint::TaskStart(Some(0)), 10) => {
+                variables.write_named("MAIN.COUNT", &Value::USInt(41))
+            }
+            (CompiledAccessPoint::TaskEnd(Some(0)), 20) => {
+                variables.write_named("MAIN.OUT", &Value::USInt(0))
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+#[test]
+fn a_task_boundary_writes_what_the_task_reads_and_what_its_outputs_publish() {
+    // Specification 44 §13.3: a computer's services write a program's variables when a task starts,
+    // before its first program runs, and when it ended, before the outputs are written. The task's
+    // first activation is the scan at 10 ms; the scan at 0 ms runs no task and has no task
+    // boundary. The count starts at 5: the write of 41 at the task's start at 10 ms makes it 42
+    // (`%QX0.1` clear), and 43 at 20 ms, where without the write it would end at 7. At 20 ms the
+    // count of 43 sets `MAIN.OUT`, and the write of 0 at the task's end clears it before the outputs
+    // are published, where without it the bit would be driven (0b10). Catches a write at the start
+    // that the task does not read, a write at the end that the outputs do not carry, and a boundary
+    // reported in the wrong place among the access points.
+    let bytes = image(0);
+    let (mut cycle, driven, _) = cycle(&bytes, Vec::new());
+    let mut boundaries = BoundaryWrites::default();
+    for time in [0, 10, 20] {
+        cycle
+            .run_scan(Duration::from_millis(time), None, &mut boundaries)
+            .expect("the scan runs");
+    }
+    assert_eq!(driven.borrow().outputs, [vec![0], vec![0], vec![0]]);
+    assert_eq!(cycle.program().value("MAIN.COUNT"), Some(Value::USInt(43)));
+    assert_eq!(
+        &boundaries.0[..8],
+        [
+            "CycleStart",
+            "AfterInputs",
+            "BeforeOutputs",
+            "CycleStart",
+            "AfterInputs",
+            "TaskStart(Some(0))",
+            "TaskEnd(Some(0))",
+            "BeforeOutputs",
         ]
     );
 }
