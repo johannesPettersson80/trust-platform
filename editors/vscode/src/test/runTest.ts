@@ -302,8 +302,10 @@ async function main(): Promise<void> {
         { recursive: true }
       );
       fs.mkdirSync(path.join(renderedUserDataDir, "User"), { recursive: true });
+      // VS Code opens its Chat side bar by default. On the CI screen (xvfb-run's 1280x1024) that leaves the editor narrower
+      // than the desktop layout these journeys check, so the test profile keeps the side bar closed.
       fs.writeFileSync(path.join(renderedUserDataDir, "User", "settings.json"),
-        JSON.stringify({ "files.enableTrash": false }));
+        JSON.stringify({ "files.enableTrash": false, "workbench.secondarySideBar.defaultVisibility": "hidden" }));
       if (studioCase) {
         const settingsFile = path.join(renderedWorkspacePath, ".vscode", "settings.json");
         fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
