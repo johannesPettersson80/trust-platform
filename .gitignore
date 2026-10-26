@@ -177,13 +177,6 @@ docs/internal/testing/evidence/*
 !docs/internal/testing/checklists/control-engineering-curriculum-implementation-checklist.md
 !docs/internal/testing/evidence/plcopen-motion-library-implementation-*.md
 !docs/internal/testing/evidence/plcopen-motion-library-post-parity-reconciliation-*.md
-!docs/internal/testing/evidence/vscode-plant-simulation-ui/
-!docs/internal/testing/evidence/vscode-plant-simulation-ui/**
-!docs/internal/testing/evidence/vscode-control-studio/
-!docs/internal/testing/evidence/vscode-control-studio/**
-# Extension Development Host user data is reproducible runner state, not proof.
-docs/internal/testing/evidence/vscode-plant-simulation-ui/**/runner-output/**/ud/
-docs/internal/testing/evidence/vscode-control-studio/**/runner-output/**/ud/
 !docs/internal/testing/evidence/vscode-ui-ux-acceptance/
 docs/internal/testing/evidence/vscode-ui-ux-acceptance/*
 !docs/internal/testing/evidence/vscode-ui-ux-acceptance/control-engineering-acceptance-board.md
