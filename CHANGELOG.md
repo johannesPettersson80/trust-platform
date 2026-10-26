@@ -8,6 +8,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- PLCopen GVL import: members that a dropped same-named `constant="true"`
+  mirror list re-declares keep constant-ness — the merged list renders a
+  separate `VAR_GLOBAL CONSTANT` section for them (`PLCO226` info)
+  instead of flattening them to plain variables, so mirror semantics
+  match the vendor project (PLCOPEN_DECISIONS 2026-10-26).
 - Enumerated values convert to their declared integer base in assignments,
   comparisons, call arguments, and CASE labels — including base-less
   enums (`INT` base) — and dotted enum member access accepts any namespace
