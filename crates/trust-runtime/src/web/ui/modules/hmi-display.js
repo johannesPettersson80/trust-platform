@@ -716,7 +716,7 @@
       menu.hidden = !open;
       button2.setAttribute("aria-expanded", String(open));
     };
-    button2.addEventListener("click", () => show(menu.hidden));
+    button2.addEventListener("click", () => show(menu.hidden !== false));
     const outside = (event) => {
       const target = event.target;
       if (!menu.hidden && target && !menu.contains(target) && !button2.contains(target)) show(false);

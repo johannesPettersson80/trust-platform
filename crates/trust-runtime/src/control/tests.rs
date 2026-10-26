@@ -53,6 +53,8 @@ include!("tests/control_studio_experiment_symbol.rs");
 include!("tests/control_studio_isolated_run.rs");
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_isolated_live_inputs.rs");
+// The delayed integrator runs as an isolated run, with the search fixture and the run's channel readers above.
+#[cfg(target_os = "linux")]
 include!("tests/control_studio_delayed_integrator.rs");
 
 include!("tests/control_studio_experiment_abort.rs");

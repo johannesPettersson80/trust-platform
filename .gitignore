@@ -27,7 +27,7 @@
 
 # VS Code Extension
 /.vscode-test/
-editors/vscode/node_modules/
+editors/vscode/node_modules
 editors/vscode/out/
 editors/vscode/*.vsix
 editors/vscode/.vscode-test/

@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+- Security: tokio 1.53.3 (RUSTSEC-2026-0386), rustls-webpki 0.103.16 (RUSTSEC-2026-0382), webpki-roots 1.0.10
+  (RUSTSEC-2026-0381) and ctutils 0.4.4 (RUSTSEC-2026-0385).
 - The HMI Builder, Control Studio, simulated plants and `Comm.Link` blocks run on the shared execution
   engine. The screens are served at the end of each scan in which the program called `Hmi.Display`, after
   that scan's outputs are published, instead of directly after the calling task, so a command reaches every
