@@ -242,9 +242,16 @@ END_TYPE
 - Qualified access: `TrafficLight#Red` resolves ambiguity
 - Qualified member access (CODESYS parity, vendor extension): `TrafficLight.Red`
   resolves to the value in initializers, expressions, and CASE labels,
-  optionally namespace-qualified (`Ns.TrafficLight.Red`); an unknown member is
-  rejected. The base name resolves through the enclosing scope chain, so
-  enums declared inside namespaces are reachable by their bare type name
+  optionally namespace-qualified to any depth (`Ns.TrafficLight.Red`); an
+  unknown member is rejected. The base name resolves through the enclosing
+  scope chain, so enums declared inside namespaces are reachable by their
+  bare type name
+- Value position (CODESYS parity, vendor extension, IEC_DEVIATIONS
+  2026-10-26): an enumerated value converts to its declared integer base in
+  assignments, comparisons, and call arguments — including base-less
+  enums, whose base is `INT`. Integer assignment INTO an enum stays
+  rejected for base-less ("closed") enums; explicit-base named-value types
+  follow §3.2. Cross-enum assignment stays rejected
 - Error if enumerated literal cannot be unambiguously determined
 
 ### 3.2 Data Types with Named Values (Section 6.4.4.3)

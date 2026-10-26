@@ -8,6 +8,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- Enumerated values convert to their declared integer base in assignments,
+  comparisons, call arguments, and CASE labels — including base-less
+  enums (`INT` base) — and dotted enum member access accepts any namespace
+  depth (`WagoTypesLog.eSysLogPriority.LOG_ERR`), closing the E202
+  "cannot be used as a value" class on real CODESYS projects. Integer
+  assignment into base-less ("closed") enums, cross-enum assignment, and
+  unknown members stay rejected (IEC_DEVIATIONS 2026-10-26).
 - Qualified type references resolve case-insensitively through the
   cross-file project type catalog: a consumer spelling a namespace-
   qualified function-block type with different casing than the declaring

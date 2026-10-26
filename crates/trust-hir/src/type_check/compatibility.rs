@@ -136,16 +136,21 @@ impl<'a> TypeChecker<'a> {
                 return self.is_assignable(*base, source);
             }
         }
-        if self.symbols.is_named_value_type(source) {
+        // CODESYS treats an enum as its base type freely in value position
+        // (E202 enum-as-value parity): any enum source converts to its base
+        // integer, not only explicit-base "named value" enums. The target
+        // side above keeps closed (base-less) enums rejecting integer
+        // assignment.
+        if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(source)
+            && (self.symbols.is_named_value_type(source) || self.symbols.dialect().is_codesys())
+        {
             if self.is_generic_type(target) {
                 return matches!(
                     self.symbols.type_by_id(target),
                     Some(Type::Any | Type::AnyDerived)
                 );
             }
-            if let Some(Type::Enum { base, .. }) = self.symbols.type_by_id(source) {
-                return self.is_assignable(target, *base);
-            }
+            return self.is_assignable(target, *base);
         }
 
         if target == TypeId::UNKNOWN || source == TypeId::UNKNOWN {
