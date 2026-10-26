@@ -13,6 +13,7 @@ use super::memory::{
     ProgramMemory,
 };
 use super::program::{ModuleCode, NativeProgram};
+use super::reflect::Located;
 use crate::error::RuntimeError;
 use crate::io_address::IoAddress;
 use crate::io_image::{read_flat_image, write_flat_image};
@@ -191,6 +192,26 @@ pub trait CompiledVariables {
     ///
     /// As [`NativeProgram::write_address`].
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError>;
+
+    /// The image of the program whose variables these are, whose tables a computer's service
+    /// resolves a path with ([`resolve_path`](super::reflect::resolve_path)).
+    fn program_image(&self) -> Image<'_>;
+
+    /// The value of the variable, member or element at `at`.
+    ///
+    /// # Errors
+    ///
+    /// The error of a place that holds no value, an instance.
+    fn read_located(&self, at: &Located) -> Result<Value, RuntimeError>;
+
+    /// Writes `value` at `at`, a variable, member or element a path resolved, converted as a Live
+    /// Values write converts it (specification 44 §13.3); the place keeps its value when the write
+    /// is refused.
+    ///
+    /// # Errors
+    ///
+    /// The error of a value the place's type refuses.
+    fn write_located(&mut self, at: &Located, value: &Value) -> Result<(), RuntimeError>;
 }
 
 impl<C: ModuleCode> ProgramMemory for NativeProgram<'_, C> {
@@ -252,6 +273,18 @@ impl<M: ProgramMemory + ?Sized> CompiledVariables for M {
     fn write_image(&mut self, address: &IoAddress, value: Value) -> Result<(), RuntimeError> {
         let value = literal::for_address(&self.image(), address, value)?;
         ProgramMemory::write_image(self, address, value)
+    }
+
+    fn program_image(&self) -> Image<'_> {
+        self.image()
+    }
+
+    fn read_located(&self, at: &Located) -> Result<Value, RuntimeError> {
+        read_place(self, at.place, at.type_index)
+    }
+
+    fn write_located(&mut self, at: &Located, value: &Value) -> Result<(), RuntimeError> {
+        write_admitted(self, at.place, at.type_index, value)
     }
 }
 

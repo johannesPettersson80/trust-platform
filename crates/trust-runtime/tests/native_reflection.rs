@@ -5,9 +5,10 @@
 use trust_runtime::harness::TestHarness;
 use trust_runtime::runtime_core::native::memory::{read_place, ProgramMemory};
 use trust_runtime::runtime_core::native::reflect::{
-    resolve_path, type_base, type_implements, type_interfaces, type_is_a, walk_instances,
-    PathError, Walk,
+    element_of, member_of, resolve_path, type_base, type_implements, type_interfaces, type_is_a,
+    walk_instances, PathError, Walk,
 };
+use trust_runtime::runtime_core::native::variables::CompiledVariables;
 use trust_runtime::value::Value;
 use trust_runtime::CompiledState;
 
@@ -188,3 +189,25 @@ fn the_walk_visits_every_instance_in_declaration_order_and_stops_when_told() {
     assert_eq!(first, ["Main.Pumps[1,0]", "Main.Pumps[1,1]"]);
 }
 
+#[test]
+fn a_found_instance_reaches_its_members_and_elements_and_the_published_copy_takes_no_write() {
+    // Specification 44 §13.3: a service that found an instance reads its members and the elements
+    // of its arrays from there, as a path would reach them, and the scan's published copy is for
+    // reading: a write reaches the program at an access point, never through the copy. Catches a
+    // member or element lookup that disagrees with the path's, and a copy that takes a write.
+    let state = scanned();
+    let image = state.image();
+    let line = resolve_path(&image, "Main.Line").expect("an instance");
+    let levels = member_of(&image, &line, "LEVELS")
+        .unwrap()
+        .expect("Station declares Levels");
+    let third = element_of(&image, &levels, &[3]).unwrap().expect("Levels[3]");
+    assert_eq!(third, resolve_path(&image, "Main.Line.Levels[3]").unwrap());
+    assert_eq!(state.read_located(&third).unwrap(), Value::Int(7));
+    assert_eq!(member_of(&image, &line, "Nothing").unwrap(), None);
+    assert_eq!(element_of(&image, &levels, &[4]).unwrap(), None);
+    assert_eq!(element_of(&image, &line, &[1]).unwrap(), None);
+    let mut copy = state.clone();
+    assert!(copy.write_located(&third, &Value::Int(9)).is_err());
+    assert_eq!(copy.read_located(&third).unwrap(), Value::Int(7));
+}

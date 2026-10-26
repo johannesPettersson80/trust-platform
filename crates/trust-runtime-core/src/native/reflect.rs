@@ -191,6 +191,35 @@ fn indices_text(indices: &[i64]) -> String {
     text
 }
 
+/// The member `name` of the value at `at`, compared without case: of a structure, union, function
+/// block, class or program instance, a derived block's inherited members included; `None` for a
+/// value without such a member.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidBundle`] for a type table that does not read.
+pub fn member_of(
+    image: &Image<'_>,
+    at: &Located,
+    name: &str,
+) -> Result<Option<Located>, RuntimeError> {
+    member(&Types::of(image)?, *at, name)
+}
+
+/// The element `indices` of the array at `at`, in row-major order; `None` for a value that is no
+/// array, another number of indices than its dimensions, or an index outside its bounds.
+///
+/// # Errors
+///
+/// [`RuntimeError::InvalidBundle`] for a type table that does not read.
+pub fn element_of(
+    image: &Image<'_>,
+    at: &Located,
+    indices: &[i64],
+) -> Result<Option<Located>, RuntimeError> {
+    element(&Types::of(image)?, *at, indices)
+}
+
 /// The type `type_index` names, through its aliases.
 fn unaliased(types: &Types<'_>, type_index: u32) -> Result<(u32, TypeRecord), RuntimeError> {
     let mut index = type_index;
