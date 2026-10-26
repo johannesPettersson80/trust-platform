@@ -390,3 +390,53 @@ END_PROGRAM
         DiagnosticCode::InvalidIdentifier,
     );
 }
+
+// FB instance invocation where the consumer's spelling of the
+// namespace-qualified FB type differs in case from the declaring file's
+// (vendor stubs spell `Fb_...`, project code writes `FB_...`). The type
+// reference itself resolves case-insensitively; the instance call must
+// too (found via the s4 fbJsonWriter2 E103 class).
+#[test]
+fn fb_instance_call_resolves_with_case_mismatched_qualified_type() {
+    let mut db = Database::new();
+    db.set_source_text(
+        FileId(0),
+        r#"
+NAMESPACE WagoAppJSON
+FUNCTION_BLOCK Fb_JSON_Writer_02
+VAR_INPUT
+    sFrame : STRING[16];
+END_VAR
+VAR_OUTPUT
+    xError : BOOL;
+END_VAR
+END_FUNCTION_BLOCK
+END_NAMESPACE
+"#
+        .to_string(),
+    );
+    db.set_source_text(
+        FileId(1),
+        r#"
+FUNCTION_BLOCK fbHost
+VAR
+    fbWriter : WagoAppJSON.FB_JSON_Writer_02;
+    xErr : BOOL;
+END_VAR
+fbWriter(sFrame := 'x', xError => xErr);
+END_FUNCTION_BLOCK
+"#
+        .to_string(),
+    );
+
+    let errors = db
+        .diagnostics(FileId(1))
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+        .map(|diagnostic| diagnostic.code)
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "case-mismatched qualified FB instance call must resolve, got {errors:?}"
+    );
+}

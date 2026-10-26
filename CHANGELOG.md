@@ -6,6 +6,18 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [Unreleased]
 
+### Fixed
+
+- Qualified type references resolve case-insensitively through the
+  cross-file project type catalog: a consumer spelling a namespace-
+  qualified function-block type with different casing than the declaring
+  file (`WagoAppJSON.FB_JSON_Writer_02` over a stub declaring
+  `Fb_JSON_Writer_02`) now resolves the type and can invoke the instance
+  (`fbInst(...)`), instead of silently failing the type lookup and
+  reporting "not callable" at the call site. ST identifiers are
+  case-insensitive; the catalog now keys and matches like the symbol
+  table.
+
 ### Changed
 
 - Releases follow `main`'s CI instead of a hand-pushed tag. When CI passes on a commit whose version has no complete
