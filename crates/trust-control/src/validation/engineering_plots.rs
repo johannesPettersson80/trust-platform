@@ -5,15 +5,15 @@
 //! the uncertainty envelope of the model's uncertainty, the margins with their crossovers, and the comparison
 //! context that says which model, baseline and conditions the evidence belongs to (B9.6).
 //!
-//! The curves are read on the grid of the candidate's loop, so the margins and the curves agree. Phase is wrapped
-//! on the plotted curves (N4.3); the margins are read on the unwrapped loop by the library. Only the drawing is in
-//! TypeScript.
+//! The curves are read on the grid of the candidate's loop, so the margins and the curves agree. The plotted phase is
+//! unwrapped, with the model's delay in closed form, and a crossover marker lies on its curve (N4.3); the margins are
+//! read on the loop's response by the library. Only the drawing is in TypeScript.
 
 #![allow(clippy::module_name_repetitions)] // `EngineeringPlots` names the plots of this module; the precedent is `model.rs`.
 
 use schemars::JsonSchema;
 use serde::Serialize;
-use trust_control_math::frequency::{phase_degrees, sensitivity, FrequencyModel};
+use trust_control_math::frequency::{plotted_phase_degrees, sensitivity, FrequencyModel};
 use trust_control_math::identify::ParameterInterval;
 use trust_control_math::linalg::ComplexValue;
 use trust_control_math::model::TransferFunction;
@@ -107,7 +107,7 @@ pub struct EvaluationMarks {
     pub error_band: Band,
 }
 
-/// One point of a frequency curve: its frequency, its magnitude in dB and its wrapped phase in degrees (N4.3).
+/// One point of a frequency curve: its frequency, its magnitude in dB and its plotted phase in degrees (N4.3).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FrequencyPoint {
@@ -115,7 +115,7 @@ pub struct FrequencyPoint {
     pub frequency_rad_per_second: f64,
     /// The magnitude in dB.
     pub magnitude_db: f64,
-    /// The phase in degrees, wrapped to the principal value.
+    /// The plotted phase in degrees: unwrapped along the frequencies, with the model's delay in closed form (N4.3).
     pub phase_degrees: f64,
 }
 
@@ -367,8 +367,16 @@ pub fn build_engineering_plots(inputs: &PlotInputs<'_>) -> Result<EngineeringPlo
         open_loop_bode: frequency_points(&loop_.open_loop, &loop_.frequencies)?,
         nyquist: nyquist_points(&loop_.open_loop, &loop_.frequencies)?,
         sensitivity: sensitivity_points(&loop_.open_loop, &loop_.controller, &loop_.frequencies)?,
-        gain_crossover: crossover_point(&loop_.open_loop, margins.gain_crossover_rad_per_second)?,
-        phase_crossover: crossover_point(&loop_.open_loop, margins.phase_crossover_rad_per_second)?,
+        gain_crossover: crossover_point(
+            &loop_.open_loop,
+            &loop_.frequencies,
+            margins.gain_crossover_rad_per_second,
+        )?,
+        phase_crossover: crossover_point(
+            &loop_.open_loop,
+            &loop_.frequencies,
+            margins.phase_crossover_rad_per_second,
+        )?,
         margins,
         root_locus: root_locus(inputs.model, inputs.candidate, inputs.sweep),
         uncertainty,
@@ -420,22 +428,63 @@ fn magnitude_db(value: ComplexValue) -> f64 {
     20.0 * magnitude(value).max(SMALLEST_MAGNITUDE).log10()
 }
 
-/// The magnitude and the wrapped phase of a model at each frequency (N4.3).
+/// The magnitude and the plotted phase of a model at each frequency (N4.3).
 fn frequency_points(
     model: &FrequencyModel,
     frequencies: &[f64],
 ) -> Result<Vec<FrequencyPoint>, Refusal> {
-    frequencies
+    let phases = plotted_phases(model, frequencies)?;
+    let mut points = Vec::with_capacity(frequencies.len());
+    for (&frequency, phase_degrees) in frequencies.iter().zip(phases) {
+        points.push(FrequencyPoint {
+            frequency_rad_per_second: frequency,
+            magnitude_db: magnitude_db(loop_value(model, frequency)?),
+            phase_degrees,
+        });
+    }
+    Ok(points)
+}
+
+/// The plotted phase of a model on increasing frequencies, in degrees (N4.3): the unwrapped phase of the model without its
+/// delay, plus the delay's phase `−ω·L` in closed form.
+fn plotted_phases(model: &FrequencyModel, frequencies: &[f64]) -> Result<Vec<f64>, Refusal> {
+    let (delay_free_model, delay_seconds) = without_delay(model);
+    let delay_free = frequencies
         .iter()
-        .map(|&frequency| -> Result<FrequencyPoint, Refusal> {
-            let value = loop_value(model, frequency)?;
-            Ok(FrequencyPoint {
-                frequency_rad_per_second: frequency,
-                magnitude_db: magnitude_db(value),
-                phase_degrees: phase_degrees(value),
-            })
-        })
-        .collect()
+        .map(|&frequency| loop_value(&delay_free_model, frequency))
+        .collect::<Result<Vec<ComplexValue>, Refusal>>()?;
+    let phases = plotted_phase_degrees(&delay_free, frequencies, delay_seconds);
+    Ok(phases)
+}
+
+/// A model without its pure delay, and that delay in seconds (N4.3).
+fn without_delay(model: &FrequencyModel) -> (FrequencyModel, f64) {
+    match model {
+        FrequencyModel::Transfer {
+            transfer,
+            timing,
+            delay_seconds,
+        } => (
+            FrequencyModel::Transfer {
+                transfer: transfer.clone(),
+                timing: *timing,
+                delay_seconds: 0.0,
+            },
+            *delay_seconds,
+        ),
+        FrequencyModel::StateSpace {
+            system,
+            timing,
+            delay_seconds,
+        } => (
+            FrequencyModel::StateSpace {
+                system: system.clone(),
+                timing: *timing,
+                delay_seconds: 0.0,
+            },
+            *delay_seconds,
+        ),
+    }
 }
 
 /// The Nyquist curve of the open loop: the positive frequencies, then their mirror image below the real axis.
@@ -486,20 +535,30 @@ fn sensitivity_points(
         .collect()
 }
 
-/// The open loop's point at a crossover frequency: its magnitude (0 dB at the gain crossover) and its phase.
+/// The open loop's point at a crossover frequency: its magnitude (0 dB at the gain crossover) and its phase on the plotted
+/// curve, which is the plotted phase of the grid's frequencies below the crossover followed by the crossover itself (N4.3).
 fn crossover_point(
     open_loop: &FrequencyModel,
+    frequencies: &[f64],
     frequency: Option<f64>,
 ) -> Result<Option<FrequencyPoint>, Refusal> {
     let Some(frequency) = frequency else {
         return Ok(None);
     };
     let value = loop_value(open_loop, frequency)?;
-    Ok(Some(FrequencyPoint {
-        frequency_rad_per_second: frequency,
-        magnitude_db: magnitude_db(value),
-        phase_degrees: phase_degrees(value),
-    }))
+    let mut path: Vec<f64> = frequencies
+        .iter()
+        .copied()
+        .take_while(|&grid_frequency| grid_frequency < frequency)
+        .collect();
+    path.push(frequency);
+    Ok(plotted_phases(open_loop, &path)?
+        .pop()
+        .map(|phase_degrees| FrequencyPoint {
+            frequency_rad_per_second: frequency,
+            magnitude_db: magnitude_db(value),
+            phase_degrees,
+        }))
 }
 
 /// The product of two complex values.

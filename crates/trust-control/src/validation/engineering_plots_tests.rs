@@ -1,5 +1,7 @@
 #![allow(clippy::float_cmp)] // The window and band edges are compared with tolerances; the enum variants and the counts are exact.
 
+use std::f64::consts::PI;
+
 use trust_control_math::identify::{LowOrderModelKind, ParameterInterval};
 use trust_control_math::margins::MarginValue;
 
@@ -240,6 +242,70 @@ fn finite_margin(value: MarginValue) -> f64 {
         MarginValue::Finite(number) => number,
         other => panic!("the margin is finite, not {other:?}"),
     }
+}
+
+#[test]
+fn the_plotted_phase_and_its_crossover_markers_are_continuous_with_the_delay_in_closed_form() {
+    // N4.3 and N7.7: K = 1.5, T = 4 s, L = 0.5 s with Kp = 0.8 and Ki = 0.2. The PI zero at Ki/Kp = 0.25 rad/s cancels the
+    // plant's pole at 1/T, so L(s) = 1.5·(0.8s + 0.2)/(s·(4s + 1))·e^(−0.5s) = 0.3·e^(−0.5s)/s: magnitude 0.3/ω and phase
+    // −90° − 0.5ω rad. The grid runs from 0.01/T = 0.0025 rad/s to 2π/L = 4π rad/s.
+    // - At 4π rad/s the plant's phase is −atan(16π) − 2π rad = −88.860287° − 360° = −448.860287°, and the loop's is
+    //   −90° − 360° = −450°: one turn of the delay below the principal values −88.86° and −90°.
+    // - The gain crossover is 0.3/ω = 1 at ω = 0.3 rad/s, where the phase is −90° − 0.15 rad = −98.594367°: the phase margin
+    //   is 81.405633°, and the marker lies on the curve there.
+    // - The phase crossover is −90° − 0.5ω rad = −180° at ω = π rad/s, where |L| = 0.3/π: the gain margin is
+    //   20·log10(π/0.3) = 20.400572 dB, and the marker lies at −180° on the curve.
+    // Catches a wrapped curve (−88.86° and −90° at 4π rad/s), and a marker read off the wrapped phase, which sits at +180° or
+    // −180° by the sign of a rounding error in Im L.
+    let plant = model(
+        LowOrderModelKind::FirstOrderDeadTime,
+        1.5,
+        Some(4.0),
+        Some(0.5),
+    );
+    let candidate = PredictedGains::parallel(0.8, 0.2, 0.0);
+    let plots = plots_of(&plant, &candidate, &candidate, &conditions(0.05, 45.0))
+        .expect("the plots are valid");
+    let plant_last = plots.plant_bode.last().expect("the plant curve has points");
+    assert!((plant_last.frequency_rad_per_second - 4.0 * PI).abs() < 1e-9);
+    assert!(
+        (plant_last.phase_degrees + 448.860_287_028_922).abs() < 1e-9,
+        "{}",
+        plant_last.phase_degrees
+    );
+    let loop_last = plots
+        .open_loop_bode
+        .last()
+        .expect("the loop curve has points");
+    assert!(
+        (loop_last.phase_degrees + 450.0).abs() < 1e-9,
+        "{}",
+        loop_last.phase_degrees
+    );
+    for curve in [&plots.plant_bode, &plots.open_loop_bode] {
+        for pair in curve.windows(2) {
+            let step = pair[1].phase_degrees - pair[0].phase_degrees;
+            assert!(step.abs() < 180.0, "a step of {step}°");
+        }
+    }
+    assert!((finite_margin(plots.margins.phase_margin_degrees) - 81.405_633_073_038).abs() < 1e-6);
+    assert!((finite_margin(plots.margins.gain_margin_db) - 20.400_572_359_489).abs() < 1e-6);
+    let gain = plots.gain_crossover.expect("the loop crosses 0 dB");
+    assert!((gain.frequency_rad_per_second - 0.3).abs() < 1e-9);
+    assert!(
+        (gain.phase_degrees + 98.594_366_926_962).abs() < 1e-6,
+        "{}",
+        gain.phase_degrees
+    );
+    let phase = plots
+        .phase_crossover
+        .expect("the loop's phase crosses −180°");
+    assert!((phase.frequency_rad_per_second - PI).abs() < 1e-9);
+    assert!(
+        (phase.phase_degrees + 180.0).abs() < 1e-6,
+        "{}",
+        phase.phase_degrees
+    );
 }
 
 #[test]

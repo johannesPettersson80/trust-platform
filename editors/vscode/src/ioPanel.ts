@@ -74,6 +74,8 @@ type RuntimeStatusPayload = {
   endpointReachable: boolean;
   access?: RuntimeAccessPayload;
   ads?: AdsStatusSummary;
+  /** The online runtime answered Connect but keeps debugging disabled (specification 25, section 4.4). */
+  debugDisabled?: boolean;
 };
 
 type RuntimeAccessPayload = {
@@ -479,7 +481,7 @@ function postUnavailableLiveValues(
     if (status) {
       panel?.webview.postMessage({
         type: "runtimeStatus",
-        payload: status,
+        payload: withDebugState(status),
       });
     }
     postEmptyIoState();
@@ -689,20 +691,30 @@ async function runtimeStatusPayload(): Promise<RuntimeStatusPayload> {
   return (await runtimeLifecycleService.snapshot()).status;
 }
 
+/** The failure Connect recorded when the online runtime it reached keeps debugging disabled, if any. */
+function debugDisabledFailureOf(status: RuntimeStatusPayload) {
+  return status.runtimeMode === "online" && status.runtimeState !== "connected"
+    ? runtimeLifecycleService.debugDisabledFailure(status.endpoint)
+    : undefined;
+}
+
+/** The status as every runtime status message carries it: with the state "debugging disabled" when Connect found it, so
+ * no later message names the runtime "Not connected" instead (specification 25, section 4.4). */
+function withDebugState(status: RuntimeStatusPayload): RuntimeStatusPayload {
+  return debugDisabledFailureOf(status) ? { ...status, debugDisabled: true } : status;
+}
+
 async function sendRuntimeStatus(): Promise<void> {
   if (!panel) {
     return;
   }
-  const payload = await runtimeStatusPayload();
+  const status = await runtimeStatusPayload();
+  // Connect can learn that the runtime keeps debugging disabled while this panel is open: say so now.
+  const debugDisabled = debugDisabledFailureOf(status);
   panel.webview.postMessage({
     type: "runtimeStatus",
-    payload,
+    payload: withDebugState(status),
   });
-  // Connect can learn that the runtime keeps debugging disabled while this panel is open: say so now.
-  const debugDisabled =
-    payload.runtimeMode === "online" && payload.runtimeState !== "connected"
-      ? runtimeLifecycleService.debugDisabledFailure(payload.endpoint)
-      : undefined;
   if (debugDisabled) {
     panel?.webview.postMessage({ type: "status", payload: debugDisabled.message });
   }

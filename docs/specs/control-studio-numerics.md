@@ -384,7 +384,9 @@ an integrator has no finite final change, so N2.3 gives no fraction for it.
 At every requested tone the fit MUST retain the input and output spectra, the
 complex response, the magnitude, the phase, the segmentation and the coherence.
 Tones are listed in ascending frequency. The phase is unwrapped from the lowest
-tone, so each tone's phase lies within 180° of the previous tone's.
+tone by the rule of N4.3 for a response without a known delay: the lowest tone keeps
+its principal phase, and each further tone's step from the previous tone lies in
+(−180°, 180°].
 
 A tone whose coherence is below the minimum coherence (0.8 unless the analysis declares a higher minimum) is retained. It
 disqualifies the response from transfer-function fitting. A transfer function
@@ -607,7 +609,30 @@ A singular frequency rejects the request. It never produces a nonfinite point. A
 frequency request has 2 to 512 points, a positive increasing range, and at most
 16,384 channel-frequency points in total.
 
-Plotted phase is wrapped. Tone tables are unwrapped as N2.8 requires.
+A plotted phase is unwrapped: it is continuous along the increasing frequencies of its
+series, and it is never wrapped to ±180°. It has two parts:
+
+1. *Delay-free phase.* The response without its delay gives the first part. Its first
+   point takes the principal phase, in (−180°, 180°]. Each further point is moved by
+   whole turns of 360°, so that its step from the previous point lies in
+   (−180°, 180°].
+2. *Delay phase.* A known delay `L` adds `−ω·L` (in degrees, `−ω·L·180°/π`) in closed
+   form, so a coarse grid can neither lose nor add a turn of the delay. A discrete
+   model's delay of whole samples is such a delay. So is the delay of a loop: the
+   plant's delay plus the controller's (N4.4).
+
+A measured response has no known delay, so the first part alone gives its phase. Tone
+tables are unwrapped in this way (N2.8). A point that carries its phase in radians and
+in degrees gives the same angle in both, and its real part, imaginary part and
+magnitude are those of the response. A marker on a plotted curve, such as a crossover,
+takes the phase that the curve would give one more point at the marker's frequency. The
+plotted phase does not change a stability margin: the margins are read on the loop's
+response, as N7.7 and N7.8 define them.
+
+*Example (labeled as an example).* For `G(s) = e^(−s)/(s + 1)` (`K = 1`, `T = 1 s`,
+`L = 1 s`) at `ω = 10 rad/s`, the delay-free phase is `−atan(10) = −84.289°`, and the
+delay adds `−10 rad = −572.958°`: the plotted phase is −657.247°. The principal phase
+of the same point is 62.753°.
 
 An integrating model has the response `Kprime / (jω)`: magnitude `|Kprime| / ω`,
 phase −90° for `Kprime > 0` and +90° for `Kprime < 0`. This applies before delay and

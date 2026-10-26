@@ -12,9 +12,9 @@ use trust_runtime::debug::{DebugBreakpoint, DebugControl, HitCondition, LogFragm
 #[cfg(test)]
 use trust_runtime::harness::TestHarness;
 use trust_runtime::harness::{CompileError, CompileSession, SourceFile as HarnessSourceFile};
-use trust_runtime::io::IoDriverRegistry;
+use trust_runtime::io::{IoDriverRegistry, IoDriverStatus};
 use trust_runtime::scheduler::SimulationSpeed;
-use trust_runtime::simulation::{SimulationConfig, SimulationController};
+use trust_runtime::simulation::{file_content_revision, SimulationConfig, SimulationController};
 use trust_runtime::stdlib::conversions::ConversionProfile;
 use trust_runtime::{Runtime, RuntimeMetadata};
 
@@ -125,6 +125,7 @@ pub struct DebugSession {
     source_options: SourceOptions,
     simulation_facts: SimulationFacts,
     simulation_speed: SimulationSpeed,
+    io_health: Arc<Mutex<Vec<IoDriverStatus>>>,
 }
 
 impl DebugSession {
@@ -133,6 +134,8 @@ impl DebugSession {
         let mut runtime = runtime;
         let control = DebugControl::new();
         runtime.set_debug_control(control.clone());
+        let io_health = Arc::new(Mutex::new(Vec::new()));
+        runtime.set_io_health_sink(Some(io_health.clone()));
         let metadata = runtime.metadata_snapshot();
         Self {
             runtime: Arc::new(Mutex::new(runtime)),
@@ -146,6 +149,7 @@ impl DebugSession {
             source_options: SourceOptions::default(),
             simulation_facts: SimulationFacts::default(),
             simulation_speed: SimulationSpeed::new(1),
+            io_health,
         }
     }
 
@@ -153,6 +157,8 @@ impl DebugSession {
     pub fn with_control(runtime: Runtime, control: DebugControl) -> Self {
         let mut runtime = runtime;
         runtime.set_debug_control(control.clone());
+        let io_health = Arc::new(Mutex::new(Vec::new()));
+        runtime.set_io_health_sink(Some(io_health.clone()));
         let metadata = runtime.metadata_snapshot();
         Self {
             runtime: Arc::new(Mutex::new(runtime)),
@@ -166,6 +172,7 @@ impl DebugSession {
             source_options: SourceOptions::default(),
             simulation_facts: SimulationFacts::default(),
             simulation_speed: SimulationSpeed::new(1),
+            io_health,
         }
     }
 
@@ -250,17 +257,24 @@ impl DebugSession {
         let compile = CompileSession::from_sources(source_files).with_conversion_profile(profile);
         let mut runtime = compile.build_runtime()?;
         let physical_io = apply_project_io_config(&mut runtime, &path, &self.source_options)?;
+        // The reloaded runtime reports its drivers' health to the list the control server reads (fleet.topology).
+        runtime.set_io_health_sink(Some(self.io_health.clone()));
         apply_project_ads_config(&mut runtime, &path, &self.source_options)?;
         let simulation_file = load_project_simulation(&path, &self.source_options)?;
         let facts = SimulationFacts::for_io(
             physical_io,
             simulation_file
                 .as_ref()
-                .map_or(1, |config| config.time_scale),
+                .map_or(1, |(config, _)| config.time_scale),
         );
-        let simulation = simulation_file
-            .filter(|config| config.enabled)
-            .map(SimulationController::new);
+        // The active revision of `simulation.toml`, as the runtime binary gives it, so `plant.status` answers for the
+        // running plants (specification 47) instead of "active revision unavailable".
+        let simulation =
+            simulation_file
+                .filter(|(config, _)| config.enabled)
+                .map(|(config, revision)| {
+                    SimulationController::new(config).with_active_configuration_revision(revision)
+                });
         // The runtime reports the same simulation fact from its first cycle on (specification 46, §6.1).
         runtime.set_simulation_enabled(facts.enabled);
         runtime.set_debug_control(self.control.clone());
@@ -437,6 +451,10 @@ impl DebugRuntime for DebugSession {
         self.simulation_speed.clone()
     }
 
+    fn io_health(&self) -> Arc<Mutex<Vec<IoDriverStatus>>> {
+        self.io_health.clone()
+    }
+
     fn control_sources(&self) -> Vec<ControlSourceFile> {
         self.sources
             .iter()
@@ -449,20 +467,27 @@ impl DebugRuntime for DebugSession {
     }
 }
 
-/// The project's `simulation.toml`, if it exists. Its speed applies even when its plants are disabled, because the
-/// debug simulator always simulates (specification 46, §6.1 item 2).
+/// The project's `simulation.toml`, if it exists, with the revision of its content. Its speed applies even when its
+/// plants are disabled, because the debug simulator always simulates (specification 46, §6.1 item 2).
 fn load_project_simulation(
     program_path: &str,
     options: &SourceOptions,
-) -> Result<Option<SimulationConfig>, CompileError> {
+) -> Result<Option<(SimulationConfig, String)>, CompileError> {
     let root = options
         .root
         .as_deref()
         .map(PathBuf::from)
         .or_else(|| Path::new(program_path).parent().map(Path::to_path_buf))
         .ok_or_else(|| CompileError::new("program path has no project root"))?;
-    SimulationConfig::load_optional(root.join("simulation.toml"))
-        .map_err(|error| CompileError::new(error.to_string()))
+    let path = root.join("simulation.toml");
+    let Some(config) = SimulationConfig::load_optional(&path)
+        .map_err(|error| CompileError::new(error.to_string()))?
+    else {
+        return Ok(None);
+    };
+    let revision =
+        file_content_revision(&path).map_err(|error| CompileError::new(error.to_string()))?;
+    Ok(Some((config, revision)))
 }
 
 fn display_path(path: &Path) -> String {
@@ -479,6 +504,9 @@ fn display_path(path: &Path) -> String {
 
 #[cfg(test)]
 mod mqtt_install_reload_tests;
+
+#[cfg(test)]
+mod simulator_live_evidence_tests;
 
 include!("session/breakpoint_manager.rs");
 include!("session/source_and_parse_helpers.rs");

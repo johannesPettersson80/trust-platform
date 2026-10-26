@@ -6,6 +6,7 @@ use crate::analysis::declared::DeclaredControlAnalysis;
 use crate::analysis::feedback_declared::declared_feedback_definition;
 use crate::analysis::feedback_margins::report;
 use trust_control_math::classical::{Sweep, Transfer};
+use trust_control_math::frequency::logarithmic_grid;
 use trust_control_math::nyquist::nyquist_stability;
 
 fn channel(id: &str, unit: &str) -> Value {
@@ -610,5 +611,158 @@ fn a_siso_continuous_state_space_plant_closes_with_the_declared_law_on_its_full_
         ClosedLoop::Unavailable { reason } => {
             panic!("the closed loop is unavailable: {reason}")
         }
+    }
+}
+
+/// The plant 1/(s + 1) from `torque` to `angle` with a delay of one second.
+fn delayed_first_order_plant() -> Value {
+    json!({
+        "revision": "model-1", "source": "provided", "validation": "unvalidated", "evidence": [], "delaySeconds": 1.0,
+        "kind": "transfer-function", "inputs": [channel("torque", "Nm")], "outputs": [channel("angle", "rad")],
+        "numerator": [1.0], "denominator": [1.0, 1.0]
+    })
+}
+
+/// The PI controller 0.5·(s + 1)/s, that is Kp = 0.5 and Ti = 1 s, from `error` to `command`.
+fn pi_controller() -> Value {
+    json!({
+        "revision": "model-1", "source": "provided", "validation": "unvalidated", "evidence": [], "delaySeconds": 0.0,
+        "kind": "transfer-function", "inputs": [channel("error", "rad")], "outputs": [channel("command", "Nm")],
+        "numerator": [0.5, 0.5], "denominator": [1.0, 0.0]
+    })
+}
+
+#[test]
+fn a_delayed_loop_plots_a_continuous_phase_and_keeps_its_margins() {
+    // N4.3, N7.7 and N7.8: the plant e^(−s)/(s + 1) with the PI controller 0.5·(s + 1)/s, whose zero cancels the plant's pole:
+    // L(s) = 0.5·e^(−s)/s, with magnitude 0.5/ω and phase −90° − ω rad. On 64 points from 0.01 to 10 rad/s:
+    // - the plotted phase at 10 rad/s is −90° − 10 rad = −90° − 572.957795° = −662.957795°, and no step reaches 180° (the
+    //   widest step, 1.04 rad/s, turns it by about 60°);
+    // - the gain crossover is 0.5/ω = 1 at ω = 0.5 rad/s, where the phase is −90° − 0.5 rad = −118.647890°, so the phase
+    //   margin is 61.352110°;
+    // - the phase crossover is −90° − ω rad = −180° at ω = π/2 rad/s, where |L| = 1/π, so the gain margin is
+    //   20·log10(π) = 9.942997 dB.
+    // The margins are read on the loop's response, not on the plotted phase. The bounded estimate interpolates between its
+    // samples, 100 to the decade, which keeps it within about 0.001° and 0.001 dB of these values. Catches a wrapped loop phase,
+    // and a margin that moves with the plotted phase.
+    let frequencies = logarithmic_grid(0.01, 10.0, 64).expect("the grid");
+    let result = analyze_general_feedback(
+        &definition(&delayed_first_order_plant(), &pi_controller()),
+        &frequencies,
+    )
+    .expect("the analysis");
+    let last = result.open_loop.last().expect("the loop has points");
+    assert!(
+        (last.phase_degrees + 662.957_795_130_823).abs() < 1e-9,
+        "{}",
+        last.phase_degrees
+    );
+    for pair in result.open_loop.windows(2) {
+        let step = pair[1].phase_degrees - pair[0].phase_degrees;
+        assert!(
+            step.abs() < 180.0,
+            "a step of {step}° at {} rad/s",
+            pair[1].frequency_rad_per_second
+        );
+    }
+    for point in &result.open_loop {
+        let omega = point.frequency_rad_per_second;
+        assert!(
+            (point.phase_degrees - (-90.0 - omega.to_degrees())).abs() < 1e-9,
+            "{omega}: {}",
+            point.phase_degrees
+        );
+        assert!((point.phase_radians - point.phase_degrees.to_radians()).abs() < 1e-12);
+    }
+    match result.margins {
+        Margins::Estimated {
+            gain_crossover_rad_per_second,
+            phase_margin_degrees,
+            gain_margin_db,
+            ..
+        } => {
+            assert!(
+                (gain_crossover_rad_per_second - 0.5).abs() < 1e-6,
+                "{gain_crossover_rad_per_second}"
+            );
+            assert!(
+                (phase_margin_degrees - 61.352_110_243_459).abs() < 0.01,
+                "{phase_margin_degrees}"
+            );
+            let gain_margin = gain_margin_db.expect("the phase crosses −180° in range");
+            assert!(
+                (gain_margin - 9.942_997_453_883).abs() < 0.01,
+                "{gain_margin}"
+            );
+        }
+        Margins::Unavailable { reason } => panic!("the margins estimate: {reason}"),
+    }
+}
+
+#[test]
+fn on_a_coarse_grid_the_loop_delay_phase_is_added_in_closed_form() {
+    // N4.3: the same loop on 0.1, 1 and 10 rad/s has the plotted phase −90° − ω rad: −95.729578°, −147.295780° and
+    // −662.957795°. Catches a plain unwrap of the loop's response: its principal phase at 10 rad/s is 57.04°, which that unwrap
+    // reads as −302.96°, a turn above the plotted phase.
+    let result = analyze_general_feedback(
+        &definition(&delayed_first_order_plant(), &pi_controller()),
+        &[0.1, 1.0, 10.0],
+    )
+    .expect("the analysis");
+    let phases: Vec<f64> = result
+        .open_loop
+        .iter()
+        .map(|point| point.phase_degrees)
+        .collect();
+    let expected = [
+        -95.729_577_951_308,
+        -147.295_779_513_082,
+        -662.957_795_130_823,
+    ];
+    assert_eq!(phases.len(), expected.len());
+    for (phase, expected) in phases.iter().zip(expected) {
+        assert!((phase - expected).abs() < 1e-9, "{phases:?}");
+    }
+}
+
+#[test]
+fn a_declared_law_on_a_delayed_plant_plots_the_delay_in_closed_form() {
+    // N4.3 and N7.6: the law Kp = 2 on the selected plant 2·e^(−s)/(s + 2) gives L(s) = 4·e^(−s)/(s + 2), with the plotted
+    // phase −atan(ω/2) − ω rad. On 1, √10 and 10 rad/s: −26.565051° − 57.295780° = −83.860831°, −57.688467° − 181.185164° =
+    // −238.873630°, and −78.690068° − 572.957795° = −651.647863°. Catches a declared loop whose delay is unwrapped with its
+    // response: the principal phases −83.86°, 121.13° and 68.35° unwrap to −83.86°, −238.87° and −291.65°, a turn above the
+    // plotted phase at 10 rad/s.
+    let analysis: DeclaredControlAnalysis = crate::json::decode_value(json!({
+        "plant": { "kind": "transfer-function", "numerator": [1.0], "denominator": [1.0, 2.0], "delaySeconds": 0.0,
+            "inputUnit": "V", "outputUnit": "rpm", "revision": "declared-plant", "source": "provided", "validation": "validated" },
+        "controller": { "numerator": [{ "parameter": "Kp" }], "denominator": [1.0],
+            "parameters": { "Kp": { "value": 2.0, "minimum": 0.0, "maximum": 10.0, "unit": "V/rpm" } } },
+        "rootLocus": { "parameter": "Kp", "values": [0.0, 2.0, 4.0], "selectedValue": 2.0 }
+    }))
+    .expect("the declared analysis");
+    let delayed_drive = model(&json!({
+        "revision": "m", "source": "provided", "validation": "unvalidated", "evidence": [], "delaySeconds": 1.0,
+        "kind": "transfer-function",
+        "inputs": [channel("drive", "V")], "outputs": [channel("speed", "rpm")],
+        "numerator": [2.0], "denominator": [1.0, 2.0]
+    }));
+    let definition = declared_feedback_definition(&analysis, &delayed_drive)
+        .expect("the delayed plant and the declared law give a feedback definition");
+    let result = analyze_general_feedback(&definition, &[1.0, 10f64.sqrt(), 10.0])
+        .expect("the declared loop is analysed");
+    assert_eq!(result.controller_source, ControllerSource::DeclaredLaw);
+    let phases: Vec<f64> = result
+        .open_loop
+        .iter()
+        .map(|point| point.phase_degrees)
+        .collect();
+    let expected = [
+        -83.860_830_690_16,
+        -238.873_630_338_73,
+        -651.647_862_656_803,
+    ];
+    assert_eq!(phases.len(), expected.len());
+    for (phase, expected) in phases.iter().zip(expected) {
+        assert!((phase - expected).abs() < 1e-9, "{phases:?}");
     }
 }

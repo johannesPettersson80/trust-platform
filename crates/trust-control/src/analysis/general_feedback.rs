@@ -9,14 +9,13 @@
 // The exact comparisons are deliberate: a sample time must match exactly, and a denominator is zero or not.
 #![allow(clippy::float_cmp)]
 
-use std::f64::consts::PI;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use trust_control_math::classical::Transfer;
+use trust_control_math::classical::{transfer_value, Transfer};
 use trust_control_math::feedback_poles::{
     algebraic_loop_is_singular, closed_loop_poles, Realization,
 };
+use trust_control_math::frequency::plotted_phase_degrees;
 use trust_control_math::linalg::ComplexValue;
 use trust_control_math::polynomial::convolve;
 
@@ -24,6 +23,7 @@ use crate::analysis::feedback_declared::analyze_declared;
 use crate::analysis::feedback_margins::{
     closed_loop_result, contour_count_for, estimate_margins, report,
 };
+use crate::analysis::frequency::without_delay;
 use crate::analysis::frequency_points::{channel_points, grid_of, position};
 use crate::analysis::{limits, texts};
 use crate::failure::{Cause, Failure, NextAction};
@@ -94,9 +94,9 @@ pub struct FeedbackPoint {
     pub magnitude: f64,
     /// The magnitude in dB, with a magnitude of zero read as the smallest positive number (N4.3).
     pub magnitude_db: f64,
-    /// The phase in radians.
+    /// The plotted phase in radians: the same angle as the phase in degrees (N4.3).
     pub phase_radians: f64,
-    /// The phase in degrees, unwrapped to the principal value of `atan2` (N4.3).
+    /// The plotted phase in degrees (N4.3): unwrapped along the frequencies, with the loop's delay in closed form.
     pub phase_degrees: f64,
 }
 
@@ -276,7 +276,9 @@ pub fn analyze_general_feedback(
     check_grid(frequencies)?;
     let plant_points = channel_points(&definition.plant, &definition.plant_channel, frequencies)?;
     if let Some(declared) = &definition.declared_controller {
-        return analyze_declared(definition, declared, frequencies, &plant_points);
+        let mut result = analyze_declared(definition, declared, frequencies, &plant_points)?;
+        put_delay_phase(&mut result.open_loop, definition, frequencies)?;
+        return Ok(result);
     }
     let plant = &definition.plant;
     let controller = &definition.controller;
@@ -327,7 +329,7 @@ pub fn analyze_general_feedback(
     } else {
         texts::FEEDBACK_NYQUIST_SAMPLED_SCOPE
     };
-    Ok(finish(FeedbackResult {
+    let mut result = finish(FeedbackResult {
         open_loop: open_loop_points(&open_loop, frequencies),
         nyquist_scope: nyquist_scope.to_string(),
         sensitivity: Some(sensitivity),
@@ -340,7 +342,9 @@ pub fn analyze_general_feedback(
         controller_source: ControllerSource::Model,
         summary: Vec::new(),
         details: Vec::new(),
-    }))
+    });
+    put_delay_phase(&mut result.open_loop, definition, frequencies)?;
+    Ok(result)
 }
 
 /// Checks a stored general feedback analysis against its loop: the same frequencies at every point, and no
@@ -546,15 +550,19 @@ pub(crate) fn multiply_points(
     Ok(product)
 }
 
-/// The points of the open loop with their magnitude and phase.
+/// The points of the open loop with their magnitude and phase. The phase is the plotted phase of `open_loop` read as a
+/// response without a delay (N4.3); `analyze_general_feedback` then puts the delay of a loop that has one in closed form
+/// (`put_delay_phase`).
 pub(crate) fn open_loop_points(
     open_loop: &[ComplexValue],
     frequencies: &[f64],
 ) -> Vec<FeedbackPoint> {
+    let phases = plotted_phase_degrees(open_loop, frequencies, 0.0);
     open_loop
         .iter()
         .zip(frequencies)
-        .map(|(value, &frequency)| FeedbackPoint {
+        .zip(phases)
+        .map(|((value, &frequency), phase_degrees)| FeedbackPoint {
             frequency_rad_per_second: frequency,
             real: value.real,
             imaginary: value.imaginary,
@@ -565,10 +573,66 @@ pub(crate) fn open_loop_points(
                     .hypot(value.imaginary)
                     .max(f64::from_bits(1))
                     .log10(),
-            phase_radians: value.imaginary.atan2(value.real),
-            phase_degrees: value.imaginary.atan2(value.real) * 180.0 / PI,
+            phase_radians: phase_degrees.to_radians(),
+            phase_degrees,
         })
         .collect()
+}
+
+/// The plotted phase of a loop with a delay (N4.3): the unwrapped phase of the loop without its delays, the plant's channel
+/// times the controller's channel or the declared law, plus the delay's phase `−ω·L` in closed form. A loop without a delay
+/// keeps the phase of `open_loop_points`, which is its plotted phase already. The real and imaginary parts and the magnitudes
+/// are not changed, and the margins never read this phase.
+fn put_delay_phase(
+    points: &mut [FeedbackPoint],
+    definition: &FeedbackDefinition,
+    frequencies: &[f64],
+) -> Result<(), FeedbackRefusal> {
+    let delay_seconds = loop_delay_seconds(definition);
+    if delay_seconds <= 0.0 {
+        return Ok(());
+    }
+    let plant = channel_points(
+        &without_delay(&definition.plant),
+        &definition.plant_channel,
+        frequencies,
+    )?;
+    let controller: Vec<ComplexValue> = match &definition.declared_controller {
+        Some(declared) => {
+            let law = Transfer {
+                numerator: declared.numerator.clone(),
+                denominator: declared.denominator.clone(),
+                delay_seconds: 0.0,
+            };
+            frequencies
+                .iter()
+                .map(|&frequency| transfer_value(&law, frequency))
+                .collect()
+        }
+        None => channel_points(
+            &without_delay(&definition.controller),
+            &definition.controller_channel,
+            frequencies,
+        )?,
+    };
+    let delay_free = multiply_points(&plant, &controller, frequencies)?;
+    let phases = plotted_phase_degrees(&delay_free, frequencies, delay_seconds);
+    for (point, phase_degrees) in points.iter_mut().zip(phases) {
+        point.phase_degrees = phase_degrees;
+        point.phase_radians = phase_degrees.to_radians();
+    }
+    Ok(())
+}
+
+/// The known delay of a loop in seconds (N4.3, N4.4): the plant's delay plus the controller's, or the plant's alone when a
+/// declared law, which has no delay, closes the loop.
+fn loop_delay_seconds(definition: &FeedbackDefinition) -> f64 {
+    let controller_delay = if definition.declared_controller.is_some() {
+        0.0
+    } else {
+        delay_of(&definition.controller)
+    };
+    delay_of(&definition.plant) + controller_delay
 }
 
 /// The sensitivities `S = 1/(1 + L)`, `T = L·S` and `C·S`, in dB at each frequency of the grid (N7.7). A

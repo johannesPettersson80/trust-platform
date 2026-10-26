@@ -31,12 +31,22 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
   that was connected before (specification 25, §5.1).
 - Devices & Connections gives a connected runtime's node its endpoint, so it offers **Disconnect** and **Set as run
   target** for that runtime; before, Connect was disabled on it and **Set as run target** selected the Simulator. A
-  running simulator's node is drawn live (green, "Running") instead of grey, and a card name such as "Simulated I/O"
-  wraps instead of ending in an ellipsis.
+  running simulator is drawn live: its node green ("Running"), and its simulated I/O and plants with their live state,
+  because the VS Code simulator now reports its I/O drivers' health and its simulation's active configuration revision
+  as the runtime binary does (specification 47, §20.4). A card name such as "Simulated I/O" wraps instead of ending in
+  an ellipsis.
+- A runtime that answers Connect with debugging disabled reads "debugging disabled" in the status bar and in Live
+  Values' state, instead of "connected" in one and "Not connected" in the other (specification 25, §4.4).
 - The status bar says "Simulator ×10 paused" while the program is held at a breakpoint, as the runtime reports it,
   instead of "running".
-- Live Values starts a numeric row's write box empty, with the current value as its hint, as the prepared value of
-  a CODESYS or TwinCAT watch list; a REAL no longer fills the box with 17 cut-off digits (specification 25, §4.3).
+- Live Values starts a numeric row's write box empty, as the prepared value of a CODESYS or TwinCAT watch list; a REAL
+  no longer fills the box with 17 cut-off digits, and the current value stays in the Value column (specification 25,
+  §4.3).
+- Control Studio's Bode plots draw the phase unwrapped, as MATLAB and python-control do: the Frequency tool, the
+  feedback result, the engineering plots and the measured response keep the phase continuous instead of jumping
+  between −180° and +180°, and a delay adds its −ω·L exactly, so `e^(−s)/(s + 1)` reads −657.25° at 10 rad/s
+  instead of 62.75°. The phase axis ticks every 45°, 90°, 180° or 360°, whichever gives at most eight steps, and
+  the crossover markers sit on their curves. The margins are unchanged (numerical annex N4.3).
 - Completion lists a namespace as a namespace (LSP Module kind), not as a variable.
 - A missing expression (`Level := ;`) gives one error; the statement keeps its `;`, so no second "expected ';'"
   follows.

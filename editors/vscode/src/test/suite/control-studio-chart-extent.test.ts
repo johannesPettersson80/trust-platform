@@ -124,6 +124,32 @@ suite("Control Studio populated chart extents", () => {
       for (const tick of ["-135", "-90", "-45", "0"]) assert.ok(rendered.includes(`>${tick}<`), `phase tick ${tick} is labelled`);
     } finally { chart.dispose(); }
   });
+  test("a phase axis that spans several turns doubles its tick until it has at most eight steps", () => {
+    // The engine plots an unwrapped phase (numerical annex N4.3): e^(−s)/(s + 1) falls from −1.15° at 0.01 rad/s to −657.25°
+    // at 10 rad/s. A 45° tick needs 15 steps (−675 to 0) and a 90° tick 8 (−720 to 0), so the axis takes 90°.
+    const delayed = [-1.15, -84.29, -657.25];
+    assert.deepStrictEqual(phaseAxisRange(delayed), { minimum: -720, maximum: 0 });
+    // A reverse-acting delayed loop from 175° down to −900°: 45° and 90° need 24 and 12 steps, 180° needs 6 (−900 to 180).
+    assert.deepStrictEqual(phaseAxisRange([175, -200, -900]), { minimum: -900, maximum: 180 });
+    // Eight 45° steps are still drawn at 45°: −350° to 0° spans −360 to 0.
+    assert.deepStrictEqual(phaseAxisRange([-350, 0]), { minimum: -360, maximum: 0 });
+    const theme = { foreground: "#eee", muted: "#aaa", border: "#333", background: "#111",
+      sp: "green", pv: "blue", mv: "red", auxiliaryOrange: "orange", auxiliaryPurple: "purple", auxiliaryYellow: "yellow" };
+    assert.strictEqual(phaseAxis("Phase (°)", theme, [-350, 0]).interval, 45);
+    assert.strictEqual(phaseAxis("Phase (°)", theme, [175, -200, -900]).interval, 180);
+    const yAxis = phaseAxis("Phase (°)", theme, delayed);
+    assert.strictEqual(yAxis.interval, 90);
+    const chart = echarts.init(null, null, { renderer: "svg", ssr: true, width: 640, height: 400 });
+    try {
+      chart.setOption({ animation: false, xAxis: { type: "value" }, yAxis,
+        series: [{ type: "line", data: delayed.map((value, index) => [index, value]) }] });
+      const rendered: string = chart.renderToSVGString();
+      const [minimum, maximum] = chart.getModel().getComponent("yAxis").axis.scale.getExtent();
+      assert.deepStrictEqual([minimum, maximum], [-720, 0]);
+      for (const tick of ["-720", "-630", "-360", "-90", "0"]) assert.ok(rendered.includes(`>${tick}<`), `phase tick ${tick} is labelled`);
+      assert.ok(!rendered.includes(">-675<") && !rendered.includes(">-45<"), "no 45° tick between the 90° ticks");
+    } finally { chart.dispose(); }
+  });
   test("a phase in a result table is shown to 0.01 degree, and a value that rounds to zero shows 0", () => {
     assert.strictEqual(formatPhaseDegrees(1.9e-16), "0");
     assert.strictEqual(formatPhaseDegrees(-0.004), "0");

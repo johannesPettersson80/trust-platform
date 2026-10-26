@@ -47,3 +47,22 @@ fn a_jump_of_more_than_180_degrees_is_unwrapped_and_a_smaller_one_is_kept() {
     let unwrapped = measured_frequency_rows(&[point(1.0, 0.0), point(2.0, 181.0)]);
     assert!((unwrapped[1].phase_degrees + 179.0).abs() < 1e-9);
 }
+
+#[test]
+fn a_phase_that_falls_through_a_whole_turn_stays_continuous() {
+    // N2.8 and N4.3: five tones whose phase falls by 110° from each tone to the next: 10°, −100°, −210°, −320° and −430°. The
+    // estimate gives their principal phases, 10°, −100°, 150°, 40° and −70°. Unwrapped from the lowest tone, each step is the one
+    // in (−180°, 180°], −110°, so the rows read the falling phase again. Catches a wrapped table (150° after −100°, a jump of
+    // +250°) and an unwrap that loses the turn at −360°.
+    let rows = measured_frequency_rows(&[
+        point(1.0, 10.0),
+        point(2.0, -100.0),
+        point(3.0, 150.0),
+        point(4.0, 40.0),
+        point(5.0, -70.0),
+    ]);
+    let phases: Vec<f64> = rows.iter().map(|row| row.phase_degrees).collect();
+    for (phase, expected) in phases.iter().zip([10.0, -100.0, -210.0, -320.0, -430.0]) {
+        assert!((phase - expected).abs() < 1e-9, "{phases:?}");
+    }
+}

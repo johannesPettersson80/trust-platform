@@ -155,6 +155,20 @@ export async function statusText(
   const connected = connectedRuntimeStatusText(snapshot.status);
   if (connected) {
     const label = snapshot.status.targetLabel?.trim();
+    // A runtime that answered Connect but keeps debugging disabled is the target without a session: the bar says so,
+    // as Live Values does (specification 25, section 4.4).
+    const failure = snapshot.failure;
+    const debugDisabled =
+      snapshot.status.runtimeState !== "connected" &&
+      failure?.kind === "debug_disabled" &&
+      failure.endpoint === snapshot.status.endpoint.trim();
+    if (debugDisabled) {
+      return {
+        text: `$(plug) truST: ${label || connectedEndpointLabel(snapshot.status.endpoint)} · debugging disabled`,
+        simulatorRunning: false,
+        speedBehind: false,
+      };
+    }
     return {
       text: label ? `$(plug) truST: ${label} connected` : connected,
       simulatorRunning: false,

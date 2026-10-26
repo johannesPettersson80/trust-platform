@@ -751,7 +751,9 @@ function applyRuntimeStatus(payload) {
         : runtimeState === "running"
           ? "Running"
           : payload.runtimeMode === "online"
-            ? "Not connected"
+            ? payload.debugDisabled
+              ? "Debugging disabled"
+              : "Not connected"
             : "Stopped";
     runtimeStatusText.textContent = label;
     runtimeStatusText.classList.toggle("running", isRunning);
@@ -976,8 +978,7 @@ function defaultWriteValue(entry, display) {
     return booleanValue ? "TRUE" : "FALSE";
   }
   // Numeric (BYTE/WORD/DWORD/INT/REAL): the box starts empty and the operator types the value, a prepared value as
-  // in CODESYS and TwinCAT watch lists; its placeholder shows the current value, so a REAL with 17 digits never
-  // fills the compact box (specification 25, section 4.3).
+  // in CODESYS and TwinCAT watch lists; the current value stays in the Value column (specification 25, section 4.3).
   return "";
 }
 
@@ -1263,7 +1264,6 @@ function renderRows(entries, options = {}) {
         input.type = "text";
         input.dataset.key = key;
         input.value = defaultValue;
-        input.placeholder = display.value || entry.value || "";
         input.disabled = !(canWrite || canForce);
         input.addEventListener("input", () => {
           editCache.set(key, input.value);

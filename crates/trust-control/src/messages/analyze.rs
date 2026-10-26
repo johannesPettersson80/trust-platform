@@ -416,7 +416,7 @@ pub struct ChannelRef {
 }
 
 /// One point of a channel's frequency response (N4.3): the complex value, its magnitude in dB and its phase in radians and degrees.
-/// The phase is the principal value in `(−180°, 180°]` (N4.3: plotted phase is wrapped).
+/// The phase is the plotted phase of N4.3: unwrapped along the frequencies, with the model's delay in closed form.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FrequencyPoint {
@@ -430,9 +430,9 @@ pub struct FrequencyPoint {
     pub magnitude: f64,
     /// The magnitude in dB, `20·log10` of the magnitude, floored at the smallest positive number.
     pub magnitude_db: f64,
-    /// The phase in radians, principal value.
+    /// The plotted phase in radians: the same angle as the phase in degrees (N4.3).
     pub phase_radians: f64,
-    /// The phase in degrees, principal value.
+    /// The plotted phase in degrees (N4.3).
     pub phase_degrees: f64,
 }
 

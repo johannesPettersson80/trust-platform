@@ -2233,9 +2233,11 @@ page of settings. These rules follow the user's direction of 8 October 2026.
   or `response-duration`). The engine writes a duration below 1 ms in plain decimal seconds, never with an exponent, which its reader refuses. Reopening shows the tool last
   shown with its inputs (`controlStudio/page`). The measured MIMO path is one of these
   tools on a loop the engine serves (C7, **Measured paths** on the Tune page); a loop the engine refuses shows its refusal (§0.1a). Every Bode view, the feedback result's
-  included, draws magnitude and phase, the phase on a second axis that spans whole
-  45° steps around its data with a tick every 45°; a phase in a table or a tooltip is
-  shown to 0.01°, so a value that rounds to zero reads 0.
+  included, draws magnitude and phase. The phase is the engine's unwrapped phase
+  (numerical annex N4.3), drawn on a second axis that spans whole ticks around its
+  data. The tick is the smallest of 45°, 90°, 180°, 360°, 720° and so on (each double
+  the one before) that divides the axis into at most eight steps. A phase in a table or
+  a tooltip is shown to 0.01°, so a value that rounds to zero reads 0.
 - **Requirements.** The Requirements editor shows maximum settling time, maximum
   overshoot and maximum steady-state error, each with the band it needs, and an
   optional input disturbance. A collapsed **More…** holds the test design: the test

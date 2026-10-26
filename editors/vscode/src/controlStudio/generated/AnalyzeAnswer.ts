@@ -1103,7 +1103,7 @@ export interface ChannelRef1 {
 }
 /**
  * One point of a channel's frequency response (N4.3): the complex value, its magnitude in dB and its phase in radians and degrees.
- * The phase is the principal value in `(−180°, 180°]` (N4.3: plotted phase is wrapped).
+ * The phase is the plotted phase of N4.3: unwrapped along the frequencies, with the model's delay in closed form.
  */
 export interface FrequencyPoint {
   /**
@@ -1123,11 +1123,11 @@ export interface FrequencyPoint {
    */
   magnitudeDb: number;
   /**
-   * The phase in degrees, principal value.
+   * The plotted phase in degrees (N4.3).
    */
   phaseDegrees: number;
   /**
-   * The phase in radians, principal value.
+   * The plotted phase in radians: the same angle as the phase in degrees (N4.3).
    */
   phaseRadians: number;
   /**
@@ -1534,11 +1534,11 @@ export interface FeedbackPoint {
    */
   magnitudeDb: number;
   /**
-   * The phase in degrees, unwrapped to the principal value of `atan2` (N4.3).
+   * The plotted phase in degrees (N4.3): unwrapped along the frequencies, with the loop's delay in closed form.
    */
   phaseDegrees: number;
   /**
-   * The phase in radians.
+   * The plotted phase in radians: the same angle as the phase in degrees (N4.3).
    */
   phaseRadians: number;
   /**

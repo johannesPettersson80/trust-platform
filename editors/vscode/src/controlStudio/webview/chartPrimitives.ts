@@ -29,27 +29,42 @@ export function axis(
     splitLine: { lineStyle: { color: theme.border, opacity: 0.18 } } };
 }
 
-/** Degrees between the ticks of a phase axis. */
+/** The smallest tick of a phase axis in degrees; a wider axis doubles it (90, 180, 360, 720, …). */
 const PHASE_STEP_DEGREES = 45;
 
-/** The span of a phase axis in degrees: the finite values widened outward to multiples of 45 degrees, and at least one step
- * wide. Floating-point noise around a zero phase (a pure gain) therefore spans −45 to 45, or 0 to 45 when all the noise is
- * positive, instead of scaling the axis to 2.5e-16 degrees. With no finite value, the span is that of a zero phase. Drawing only:
- * the engine's phases are not changed. */
-export function phaseAxisRange(values: readonly (number | null | undefined)[] = []): { minimum: number; maximum: number } {
+/** The most tick steps a phase axis spans. */
+const MAXIMUM_PHASE_STEPS = 8;
+
+/** The span and the tick of a phase axis in degrees. The tick is the smallest of 45, 90, 180, 360, 720, … degrees for which
+ * the finite values, widened outward to multiples of the tick and at least one tick wide, span at most eight ticks, so the
+ * engine's unwrapped phase keeps a readable axis however many turns it falls through, and a span of up to eight 45-degree
+ * steps keeps its 45-degree ticks. Floating-point noise around a zero phase (a pure gain) spans −45 to 45, or 0 to 45 when
+ * all the noise is positive, instead of scaling the axis to 2.5e-16 degrees. With no finite value, the span is that of a
+ * zero phase. A bound of −0 reads as 0. Drawing only: the engine's phases are not changed. */
+function phaseAxisSpan(values: readonly (number | null | undefined)[] = []): { minimum: number; maximum: number; step: number } {
   const finite = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
   const least = finite.length > 0 ? Math.min(...finite) : 0;
   const most = finite.length > 0 ? Math.max(...finite) : 0;
-  const minimum = Math.floor(least / PHASE_STEP_DEGREES) * PHASE_STEP_DEGREES;
-  const maximum = Math.ceil(most / PHASE_STEP_DEGREES) * PHASE_STEP_DEGREES;
-  return { minimum, maximum: maximum > minimum ? maximum : minimum + PHASE_STEP_DEGREES };
+  for (let step = PHASE_STEP_DEGREES; ; step *= 2) {
+    const minimum = Math.floor(least / step) * step + 0;
+    const ceiling = Math.ceil(most / step) * step + 0;
+    const maximum = ceiling > minimum ? ceiling : minimum + step;
+    // A finite span always fits eight ticks of some doubled step; the step stops doubling before it overflows.
+    if ((maximum - minimum) / step <= MAXIMUM_PHASE_STEPS || !Number.isFinite(step * 2)) return { minimum, maximum, step };
+  }
 }
 
-/** A phase axis in degrees for the frequency-response and loop Bode charts: the axis over phaseAxisRange, with a tick every
- * 45 degrees. */
+/** The span of a phase axis in degrees ({@link phaseAxisSpan}). */
+export function phaseAxisRange(values: readonly (number | null | undefined)[] = []): { minimum: number; maximum: number } {
+  const { minimum, maximum } = phaseAxisSpan(values);
+  return { minimum, maximum };
+}
+
+/** A phase axis in degrees for the frequency-response and loop Bode charts: the axis over its span, with a tick every 45
+ * degrees, or every 90, 180, 360, … degrees where the phase spans more than eight 45-degree steps ({@link phaseAxisSpan}). */
 export function phaseAxis(name: string, theme: ReturnType<typeof chartTheme>, values?: readonly (number | null | undefined)[]) {
-  const { minimum, maximum } = phaseAxisRange(values);
-  return { ...axis(name, "value", theme), min: minimum, max: maximum, interval: PHASE_STEP_DEGREES };
+  const { minimum, maximum, step } = phaseAxisSpan(values);
+  return { ...axis(name, "value", theme), min: minimum, max: maximum, interval: step };
 }
 
 export function engineeringLine(name: string, yAxisIndex: number, data: (number | null)[][], style: "solid" | "dashed" | "dotted") {

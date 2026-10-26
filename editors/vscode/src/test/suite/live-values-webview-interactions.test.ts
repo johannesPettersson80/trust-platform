@@ -237,9 +237,10 @@ suite("Live Values rendered interactions", function () {
     }
   });
 
-  test("a numeric row's write box starts empty, with the current value as its hint", () => {
-    // Acceptance finding F6: a REAL filled the 46-pixel write box with "1.5116941978474925", cut off. As the prepared value
-    // of a CODESYS or TwinCAT watch list, the box starts empty (specification 25, section 4.3).
+  test("a numeric row's write box starts empty, with no cut-off hint", () => {
+    // Acceptance finding F6: a REAL filled the 46-pixel write box with "1.5116941978474925", cut off, and in the re-run its
+    // dim hint was cut off the same way. As the prepared value of a CODESYS or TwinCAT watch list, the box starts empty;
+    // the current value stays in the Value column (specification 25, section 4.3).
     const harness = createHarness();
     try {
       harness.window.dispatchEvent(
@@ -259,7 +260,8 @@ suite("Live Values rendered interactions", function () {
       const box = harness.document.querySelector("input.value-input");
       assert.ok(box, "the row has a write box");
       assert.strictEqual(box.value, "");
-      assert.strictEqual(box.placeholder, "1.5116941978474925");
+      assert.strictEqual(box.placeholder, "", "the value is not repeated, cut off, inside the box");
+      assert.strictEqual(harness.document.querySelector(".row .value")?.textContent, "1.5116941978474925");
       actionButton(harness.document, "Write").click();
       assert.ok(!harness.posted.some((message) => message.type === "writeInput"), "an empty box writes nothing");
       box.value = "2.5";

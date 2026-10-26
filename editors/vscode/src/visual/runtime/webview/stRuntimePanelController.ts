@@ -549,8 +549,8 @@ export function mountStRuntimePanel(
       return "TRUE";
     }
 
-    // A numeric box starts empty, as in Live Values: the operator types the value to write or force, and the
-    // placeholder shows the current one (specification 25, section 4.3).
+    // A numeric box starts empty, as in Live Values: the operator types the value to write or force, and the current
+    // value stays in the Value column (specification 25, section 4.3).
     return "";
   };
 
@@ -742,7 +742,6 @@ export function mountStRuntimePanel(
           input.type = "text";
           input.dataset.key = key;
           input.value = defaultValue;
-          input.placeholder = entry.value || "";
           input.disabled = !(canWrite || canForce) || operationPending;
           input.addEventListener("input", () => {
             editCache.set(key, input.value);

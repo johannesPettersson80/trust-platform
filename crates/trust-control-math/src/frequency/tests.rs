@@ -258,3 +258,69 @@ fn sensitivity_of_the_precision_drive_loop_matches_the_test_suite_values() {
     let high_complementary = complementary_sensitivity(high).expect("complementary");
     assert_close(modulus(high_complementary), 0.04202, 1e-4);
 }
+
+/// The unit response at the angle `degrees`.
+fn at_angle(degrees: f64) -> ComplexValue {
+    ComplexValue {
+        real: degrees.to_radians().cos(),
+        imaginary: degrees.to_radians().sin(),
+    }
+}
+
+#[test]
+fn a_plotted_phase_starts_at_the_principal_phase_and_moves_each_point_by_whole_turns() {
+    // N4.3: the principal phases 170°, −170°, −10° and 100° at increasing frequencies. The first point keeps 170°; −170° is
+    // moved up one turn to 190° (a step of +20°, not −340°), −10° to 350° (+160°) and 100° to 460° (+110°). Catches a wrapped
+    // series, which jumps from 170° to −170°.
+    let values = [170.0, -170.0, -10.0, 100.0].map(at_angle);
+    let phases = plotted_phase_degrees(&values, &[1.0, 2.0, 3.0, 4.0], 0.0);
+    assert_eq!(phases.len(), 4);
+    for (phase, expected) in phases.iter().zip([170.0, 190.0, 350.0, 460.0]) {
+        assert_close(*phase, expected, 1e-9);
+    }
+}
+
+#[test]
+fn a_half_turn_step_is_taken_forward_and_a_negative_zero_imaginary_part_reads_180_degrees() {
+    // N4.3: a step lies in (−180°, 180°], so 90° (the value j) followed by −90° (−j), a step of exactly −180°, becomes 90° and
+    // 270°. Catches an unwrap that keeps the half turn backward (90°, −90°). The first value −2 − 0j, which atan2 reads as
+    // −180°, takes the principal phase 180°: catches a first point outside (−180°, 180°].
+    let quarter_turns = [
+        ComplexValue {
+            real: 0.0,
+            imaginary: 1.0,
+        },
+        ComplexValue {
+            real: 0.0,
+            imaginary: -1.0,
+        },
+    ];
+    let half_turn = plotted_phase_degrees(&quarter_turns, &[1.0, 2.0], 0.0);
+    assert_close(half_turn[0], 90.0, 1e-12);
+    assert_close(half_turn[1], 270.0, 1e-12);
+    let negative_zero = ComplexValue {
+        real: -2.0,
+        imaginary: -0.0,
+    };
+    assert_close(
+        plotted_phase_degrees(&[negative_zero], &[1.0], 0.0)[0],
+        180.0,
+        1e-12,
+    );
+}
+
+#[test]
+fn the_delay_phase_is_added_in_closed_form_however_coarse_the_grid() {
+    // N4.3: a delay-free phase of 0° at 0.1, 10 and 1000 rad/s with a delay of L = 1 s: the plotted phase is −ω·L·180°/π,
+    // −5.729578°, −572.957795° and −57,295.779513°. The full response e^(−jωL) has the principal phases −5.73°, 147.04° and
+    // −55.78° there, which a plain unwrap reads as −5.73°, 147.04° and 304.22°. Catches an unwrap of the full response, which
+    // loses the turns of the delay between sparse points.
+    let one = ComplexValue {
+        real: 1.0,
+        imaginary: 0.0,
+    };
+    let phases = plotted_phase_degrees(&[one, one, one], &[0.1, 10.0, 1000.0], 1.0);
+    assert_close(phases[0], -5.729_577_951_308_23, 1e-9);
+    assert_close(phases[1], -572.957_795_130_823, 1e-9);
+    assert_close(phases[2], -57_295.779_513_082_3, 1e-8);
+}

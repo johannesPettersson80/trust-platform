@@ -1080,6 +1080,13 @@ active uncertainties/dropouts, pending-event count, substep information, and
 current fault when present. Numeric vectors shall retain full runtime
 precision and declared channel order.
 
+The VS Code simulator answers `plant.status` and `fleet.topology` as the runtime
+binary does: its simulation carries the content revision of the project's
+`simulation.toml` as its active configuration revision, and its control server
+reports the health of the I/O drivers the program loaded, after every reload. A
+running simulator's plants and simulated I/O are therefore shown live, not as
+configured.
+
 If the runtime, active revision, or requested plant cannot be observed,
 `plant.status` shall return `status_unavailable` with a stable reason code. The
 unavailable result shall contain no numeric values, samples, sample timestamps,

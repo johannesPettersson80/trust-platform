@@ -1,5 +1,6 @@
 //! Frequency response of linear models (N4.3), of a selected-channel loop `L = G·C` and its
-//! sensitivities (N4.4, N7.7), and the logarithmic grids the frequency results are read on.
+//! sensitivities (N4.4, N7.7), the logarithmic grids the frequency results are read on, and the
+//! plotted phase of a response series (N4.3).
 //!
 //! A continuous model is evaluated at `s = jω`; a discrete model at `z = exp(jωTs)`. A pure delay
 //! `L` multiplies the response by `exp(−jωL)`. A discrete model's delay must be a whole number of
@@ -165,11 +166,50 @@ pub fn magnitude_db(value: ComplexValue) -> f64 {
     20.0 * value.real.hypot(value.imaginary).log10()
 }
 
-/// The principal phase in degrees, `atan2(Im H, Re H)` in `(−180, 180]`, of a response value. Plotted
-/// phase is wrapped (N4.3); the margins unwrap it where they need a continuous phase.
+/// The principal phase in degrees, `atan2(Im H, Re H)`, of a response value. A plotted phase is
+/// continuous instead ([`plotted_phase_degrees`], N4.3); the margins read the response itself.
 #[must_use]
 pub fn phase_degrees(value: ComplexValue) -> f64 {
     value.imaginary.atan2(value.real).to_degrees()
+}
+
+/// The plotted phase of a response series in degrees, one value per frequency (N4.3).
+///
+/// `delay_free` holds the response without its pure delay at each of the increasing
+/// `frequencies`, and `delay_seconds` is that delay `L`; a response without a known delay, such as
+/// a measured one, passes zero. The first value takes its principal phase, in `(−180°, 180°]`.
+/// Each further value is moved by whole turns, so that its step from the previous value lies in
+/// `(−180°, 180°]`. The delay's phase `−ω·L` is then added in closed form, so a coarse grid can
+/// neither lose nor add a turn of the delay.
+#[must_use]
+pub fn plotted_phase_degrees(
+    delay_free: &[ComplexValue],
+    frequencies: &[f64],
+    delay_seconds: f64,
+) -> Vec<f64> {
+    let mut phases = Vec::with_capacity(delay_free.len());
+    let mut previous: Option<f64> = None;
+    for (&value, &omega) in delay_free.iter().zip(frequencies) {
+        let principal = principal_degrees(value);
+        // `n = ⌊(last − principal + 180°) / 360°⌋` turns put the step from `last` in (−180°, 180°].
+        let continuous = previous.map_or(principal, |last| {
+            principal + 360.0 * ((last - principal + 180.0) / 360.0).floor()
+        });
+        previous = Some(continuous);
+        phases.push(continuous - (omega * delay_seconds).to_degrees());
+    }
+    phases
+}
+
+/// The principal phase in degrees, in `(−180°, 180°]`. `atan2` reads −180° for a negative real
+/// part with an imaginary part of −0, which is the angle 180°.
+fn principal_degrees(value: ComplexValue) -> f64 {
+    let phase = phase_degrees(value);
+    if phase <= -180.0 {
+        phase + 360.0
+    } else {
+        phase
+    }
 }
 
 /// The response matrix of a model at `omega`, outputs by inputs, as complex numbers.

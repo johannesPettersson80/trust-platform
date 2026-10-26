@@ -56,6 +56,9 @@ export type RuntimeStatusPayload = {
   endpointReachable: boolean;
   access?: RuntimeAccessPayload;
   ads?: AdsStatusSummary;
+  /** The online runtime answered Connect but keeps debugging disabled, as the lifecycle reported it (specification 25,
+   * section 4.4): the panel names that state instead of "Not connected". */
+  debugDisabled?: boolean;
 };
 
 export type RuntimeAccessPayload = {

@@ -825,11 +825,11 @@ export interface FeedbackPoint {
    */
   magnitudeDb: number;
   /**
-   * The phase in degrees, unwrapped to the principal value of `atan2` (N4.3).
+   * The plotted phase in degrees (N4.3): unwrapped along the frequencies, with the loop's delay in closed form.
    */
   phaseDegrees: number;
   /**
-   * The phase in radians.
+   * The plotted phase in radians: the same angle as the phase in degrees (N4.3).
    */
   phaseRadians: number;
   /**

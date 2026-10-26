@@ -270,9 +270,9 @@ package, or end-to-end evidence.
 - BOOL rows use a compact TRUE/FALSE chooser for Write and Force. A forced BOOL
   row shows Release, hides the editable value, and explains that release is
   required before Write. Row controls remain aligned.
-- A numeric row's write box starts empty and shows the current value as its
-  placeholder: the operator types the value to write or force, as the prepared
-  value of a CODESYS or TwinCAT watch list. Write or Force with an empty box
+- A numeric row's write box starts empty: the operator types the value to write
+  or force, as the prepared value of a CODESYS or TwinCAT watch list, and the
+  current value stays in the Value column. Write or Force with an empty box
   sends nothing and asks for a value.
 - The header identifies the selected target, current scan, and DEC/HEX/BIN
   format. The table identifies `Name`, `Value`, `Type`, `State`, and `Actions`.
@@ -304,7 +304,10 @@ package, or end-to-end evidence.
   normalized to those product states.
 - An attached session is `Connected`; its endpoint comes from the debug
   session. A reachable online target without an attached session is
-  `Not connected`, not `Running`.
+  `Not connected`, not `Running`. When that runtime answered Connect but keeps
+  debugging disabled, Live Values' state is `Debugging disabled` and the status
+  bar reads `<runtime> · debugging disabled`, so neither says `connected` while
+  the other says it is not.
 - The lifecycle pill contains only lifecycle state and MUST NOT append ADS or
   other protocol commentary.
 - Debug termination or active-session loss immediately clears stale rows,

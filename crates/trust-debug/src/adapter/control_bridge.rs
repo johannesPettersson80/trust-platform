@@ -16,7 +16,6 @@ use trust_runtime::control::{
 use trust_runtime::debug::{DebugControl, DebugSnapshot, DebugVariableHandles, RuntimeEvent};
 use trust_runtime::discovery::DiscoveryState;
 use trust_runtime::error::RuntimeError;
-use trust_runtime::io::IoDriverStatus;
 use trust_runtime::linux_rt::{LinuxRtConfig, LinuxRtRuntimeStatus};
 use trust_runtime::mesh::MeshTopologyEvidence;
 use trust_runtime::metrics::RuntimeMetrics;
@@ -87,7 +86,8 @@ impl DebugControlServer {
             web_listener_bound: Arc::new(AtomicBool::new(false)),
             opcua_server_bound: Arc::new(AtomicBool::new(false)),
             resource_name: SmolStr::new("RESOURCE"),
-            io_health: Arc::new(Mutex::new(Vec::<IoDriverStatus>::new())),
+            // The session's driver health, which every reloaded runtime reports to (fleet.topology, specification 47).
+            io_health: session.io_health(),
             realtime_status: Arc::new(Mutex::new(LinuxRtRuntimeStatus::from_config(
                 LinuxRtConfig::default(),
             ))),

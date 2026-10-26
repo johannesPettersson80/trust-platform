@@ -1,17 +1,18 @@
 //! The Bode frequency response of a model (specification 35, B9.9; numerical annex N4.2 and N4.3; draft §2.3 `frequency`). The
 //! response of every input-output pair on a logarithmic grid, the model's poles and zeros, and their stability (N4.2). The phase is
-//! the principal value, as N4.3 requires for a plotted phase. The response of a channel is `channel_points`, shared with `feedback`.
+//! the plotted phase of N4.3: the unwrapped phase of the response without the model's delay, plus the delay's phase in closed form.
+//! The response of a channel is `channel_points`, shared with `feedback`.
 
 use std::f64::consts::PI;
 
 use trust_control_math::classical::roots_of_real_polynomial;
-use trust_control_math::frequency::logarithmic_grid;
+use trust_control_math::frequency::{logarithmic_grid, plotted_phase_degrees};
 use trust_control_math::linalg::{eigenvalues, ComplexValue, NumericalTolerance};
 use trust_control_math::model::Timing;
 
 use crate::analysis::budget::Budget;
 use crate::analysis::frequency_points::channel_points;
-use crate::analysis::general_feedback::ChannelPair;
+use crate::analysis::general_feedback::{ChannelPair, FeedbackRefusal};
 use crate::analysis::tool::{
     channel_count, channel_ref, default_grid, input_failure, GRID_POINTS,
     MAXIMUM_CHANNEL_FREQUENCY_POINTS,
@@ -154,6 +155,12 @@ pub fn frequency_answer(
     let (poles, zeros) = model_poles_and_zeros(model)?;
     let stable = is_stable(model, &poles);
     let identity = model.identity();
+    // The plotted phase unwraps the response without the delay and adds the delay's phase in closed form (N4.3).
+    let delay_seconds = identity.delay_seconds;
+    let delay_free_model = (delay_seconds > 0.0).then(|| without_delay(model));
+    let refused = |refusal: FeedbackRefusal| {
+        Failure::new(&refusal.reason(), Cause::ModelOrData, NextAction::None)
+    };
     let mut channels = Vec::new();
     for output in &identity.outputs {
         for input in &identity.inputs {
@@ -162,16 +169,24 @@ pub fn frequency_answer(
                 input_id: input.id.clone(),
                 output_id: output.id.clone(),
             };
-            let values = channel_points(model, &pair, &frequencies).map_err(|refusal| {
-                Failure::new(&refusal.reason(), Cause::ModelOrData, NextAction::None)
-            })?;
+            let values = channel_points(model, &pair, &frequencies).map_err(refused)?;
+            let delay_free = match &delay_free_model {
+                Some(delay_free_model) => {
+                    channel_points(delay_free_model, &pair, &frequencies).map_err(refused)?
+                }
+                None => values.clone(),
+            };
+            let phases = plotted_phase_degrees(&delay_free, &frequencies, delay_seconds);
             channels.push(FrequencyChannel {
                 input: channel_ref(&input.id, &input.unit),
                 output: channel_ref(&output.id, &output.unit),
                 points: frequencies
                     .iter()
                     .zip(&values)
-                    .map(|(frequency, value)| point(*frequency, *value))
+                    .zip(phases)
+                    .map(|((frequency, value), phase_degrees)| {
+                        point(*frequency, *value, phase_degrees)
+                    })
                     .collect(),
             });
         }
@@ -192,19 +207,30 @@ pub fn frequency_answer(
     })
 }
 
-/// One point of a response: the complex value, its magnitude in dB and its principal phase (N4.3).
-fn point(frequency_rad_per_second: f64, value: ComplexValue) -> FrequencyPoint {
+/// One point of a response: the complex value, its magnitude in dB, and its plotted phase (N4.3) in degrees and in radians.
+fn point(frequency_rad_per_second: f64, value: ComplexValue, phase_degrees: f64) -> FrequencyPoint {
     let magnitude = value.real.hypot(value.imaginary);
-    let phase = value.imaginary.atan2(value.real);
     FrequencyPoint {
         frequency_rad_per_second,
         real: value.real,
         imaginary: value.imaginary,
         magnitude,
         magnitude_db: 20.0 * magnitude.max(MINIMUM_MAGNITUDE).log10(),
-        phase_radians: phase,
-        phase_degrees: phase.to_degrees(),
+        phase_radians: phase_degrees.to_radians(),
+        phase_degrees,
     }
+}
+
+/// The model without its delay: the same model with a delay of zero, whose response the plotted phase unwraps before it adds
+/// the delay's phase (N4.3). The general feedback analysis takes its loop's ends without their delays the same way.
+pub(crate) fn without_delay(model: &GeneralModel) -> GeneralModel {
+    let mut delay_free = model.clone();
+    match &mut delay_free {
+        GeneralModel::TransferFunction { identity, .. }
+        | GeneralModel::ContinuousStateSpace { identity, .. }
+        | GeneralModel::DiscreteStateSpace { identity, .. } => identity.delay_seconds = 0.0,
+    }
+    delay_free
 }
 
 fn roots_failure() -> Failure {

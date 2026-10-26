@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use trust_runtime::control::SourceFile as ControlSourceFile;
 use trust_runtime::debug::DebugControl;
 use trust_runtime::harness::CompileError;
+use trust_runtime::io::IoDriverStatus;
 use trust_runtime::scheduler::SimulationSpeed;
 use trust_runtime::simulation::SimulationController;
 use trust_runtime::{Runtime, RuntimeMetadata};
@@ -29,6 +30,10 @@ pub trait DebugRuntime: Send {
     fn control_sources(&self) -> Vec<ControlSourceFile>;
     /// Whether the loaded program is simulated, and its configured speed (specification 35, A2.4).
     fn simulation_facts(&self) -> SimulationFacts;
+    /// The health of the program's I/O drivers after each cycle, the same list for every reload: the control server reports
+    /// it in `fleet.topology`, as the runtime binary does (specification 47; Devices & Connections shows the simulator's I/O
+    /// live).
+    fn io_health(&self) -> Arc<Mutex<Vec<IoDriverStatus>>>;
     /// The speed of the simulator loop, which `config.set` changes (specification 46, §6.1 item 5).
     fn simulation_speed(&self) -> SimulationSpeed;
 }

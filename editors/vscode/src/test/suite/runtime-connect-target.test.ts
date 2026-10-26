@@ -427,7 +427,7 @@ function openSidebar(): {
 }
 
 /** Renders what Live Values posted in its real webview script. */
-function renderLiveValues(posted: readonly unknown[]): { status: string; target: string } {
+function renderLiveValues(posted: readonly unknown[]): { status: string; target: string; state: string } {
   const dom = new JSDOM(
     `<!doctype html><html><body>
       <span id="runtimeStatusText"></span><span id="targetLabel"></span>
@@ -445,6 +445,7 @@ function renderLiveValues(posted: readonly unknown[]): { status: string; target:
     return {
       status: document.getElementById("status").textContent,
       target: document.getElementById("targetLabel").textContent,
+      state: document.getElementById("runtimeStatusText").textContent,
     };
   } finally {
     dom.window.close();
@@ -656,6 +657,11 @@ suite("Connect and the run target (spec 25 section 5.1)", function () {
     const rendered = renderLiveValues(live.posted);
     assert.strictEqual(rendered.status, reason, "the panel shows the reason");
     assert.strictEqual(rendered.target, `Runtime at ${fake.hostPort}`, "beside the runtime it is about");
+    // The re-run of 26 October: the status bar said "connected" while Live Values said "Not connected". Both name the
+    // state instead (specification 25, section 4.4).
+    assert.strictEqual(rendered.state, "Debugging disabled");
+    const statusBar = (await statusText(STATUS_CONTEXT, await runtimeLifecycleService.snapshot())).text;
+    assert.ok(statusBar.endsWith("· debugging disabled") && !/connected/.test(statusBar), `the status bar names the state: ${statusBar}`);
 
     // Devices & Connections gives the same reason without sending the user to itself.
     const issue = await waitFor("the reason in Devices & Connections", () =>
