@@ -13,6 +13,8 @@ use smol_str::SmolStr;
 use trust_runtime_core::error::RuntimeError;
 use trust_runtime_core::io_address::IoAddress;
 use trust_runtime_core::memory::{FrameId, Generation, InstanceId, IoArea};
+use trust_runtime_core::native::image::Image;
+use trust_runtime_core::native::reflect::Located;
 use trust_runtime_core::native::variables::CompiledVariables;
 use trust_runtime_core::value::{Duration, Value};
 
@@ -78,6 +80,18 @@ impl CompiledVariables for Program {
         }
         self.written.push((format!("{address:?}"), value));
         Ok(())
+    }
+
+    fn program_image(&self) -> Image<'_> {
+        unreachable!("the stand-in holds its variables by name, without a program image")
+    }
+
+    fn read_located(&self, _at: &Located) -> Result<Value, RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
+    }
+
+    fn write_located(&mut self, _at: &Located, _value: &Value) -> Result<(), RuntimeError> {
+        Err(RuntimeError::InvalidExecutionState)
     }
 }
 

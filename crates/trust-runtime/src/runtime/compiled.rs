@@ -7,6 +7,7 @@
 
 mod clients;
 mod debugger;
+mod methods;
 mod named;
 mod observer;
 mod process_io;

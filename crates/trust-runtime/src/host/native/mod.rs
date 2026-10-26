@@ -29,6 +29,7 @@ mod stack;
 mod std_blocks;
 mod tables;
 mod toolchain;
+mod tools;
 mod types;
 
 use std::path::Path;

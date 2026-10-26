@@ -47,6 +47,8 @@ pub(crate) mod test_support {
     use std::collections::BTreeMap;
 
     use trust_runtime_core::io_address::IoAddress;
+    use trust_runtime_core::native::image::Image;
+    use trust_runtime_core::native::reflect::Located;
     use trust_runtime_core::native::variables::CompiledVariables;
 
     use crate::error::RuntimeError;
@@ -87,6 +89,18 @@ pub(crate) mod test_support {
         }
 
         fn write_image(&mut self, _address: &IoAddress, _value: Value) -> Result<(), RuntimeError> {
+            Err(RuntimeError::InvalidExecutionState)
+        }
+
+        fn program_image(&self) -> Image<'_> {
+            unreachable!("the stand-in holds globals by name, without a program image")
+        }
+
+        fn read_located(&self, _at: &Located) -> Result<Value, RuntimeError> {
+            Err(RuntimeError::InvalidExecutionState)
+        }
+
+        fn write_located(&mut self, _at: &Located, _value: &Value) -> Result<(), RuntimeError> {
             Err(RuntimeError::InvalidExecutionState)
         }
     }

@@ -114,15 +114,42 @@ fn a_path_that_names_nothing_says_why() {
     // dimensions that is read anyway, a member of a value without members, and a malformed path.
     let state = scanned();
     let image = state.image();
-    assert!(matches!(resolve_path(&image, "Main.Pumps[3, 0]"), Err(PathError::Index(_))));
-    assert!(matches!(resolve_path(&image, "Main.Pumps[1, 2]"), Err(PathError::Index(_))));
-    assert!(matches!(resolve_path(&image, "Main.Pumps[1]"), Err(PathError::Index(_))));
-    assert!(matches!(resolve_path(&image, "Main.Count[1]"), Err(PathError::Index(_))));
-    assert!(matches!(resolve_path(&image, "Main.Count.Bit"), Err(PathError::NoMember(_))));
-    assert!(matches!(resolve_path(&image, "Main.Nothing"), Err(PathError::NoMember(_))));
-    assert!(matches!(resolve_path(&image, "Nothing"), Err(PathError::Unknown(_))));
-    assert!(matches!(resolve_path(&image, "Main..Count"), Err(PathError::Syntax(_))));
-    assert!(matches!(resolve_path(&image, "Main.Pumps[x]"), Err(PathError::Syntax(_))));
+    assert!(matches!(
+        resolve_path(&image, "Main.Pumps[3, 0]"),
+        Err(PathError::Index(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Main.Pumps[1, 2]"),
+        Err(PathError::Index(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Main.Pumps[1]"),
+        Err(PathError::Index(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Main.Count[1]"),
+        Err(PathError::Index(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Main.Count.Bit"),
+        Err(PathError::NoMember(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Main.Nothing"),
+        Err(PathError::NoMember(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Nothing"),
+        Err(PathError::Unknown(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Main..Count"),
+        Err(PathError::Syntax(_))
+    ));
+    assert!(matches!(
+        resolve_path(&image, "Main.Pumps[x]"),
+        Err(PathError::Syntax(_))
+    ));
 }
 
 #[test]
@@ -135,18 +162,24 @@ fn a_block_type_names_its_base_and_every_interface_it_implements() {
     // depends on case.
     let state = scanned();
     let image = state.image();
-    let pump = resolve_path(&image, "Main.Pumps[1, 1]").expect("an element").type_index;
+    let pump = resolve_path(&image, "Main.Pumps[1, 1]")
+        .expect("an element")
+        .type_index;
     assert!(type_is_a(&image, pump, "Pump").unwrap());
     assert!(type_is_a(&image, pump, "device").unwrap());
     assert!(!type_is_a(&image, pump, "Station").unwrap());
     assert!(type_implements(&image, pump, "Lib.IRunMore").unwrap());
     assert!(type_implements(&image, pump, "LIB.IRUN").unwrap());
     assert_eq!(type_interfaces(&image, pump).unwrap().len(), 2);
-    let device = type_base(&image, pump).unwrap().expect("Pump extends a base");
+    let device = type_base(&image, pump)
+        .unwrap()
+        .expect("Pump extends a base");
     assert!(type_is_a(&image, device, "Device").unwrap());
     assert_eq!(type_base(&image, device).unwrap(), None);
     assert!(!type_implements(&image, device, "Lib.IRun").unwrap());
-    let station = resolve_path(&image, "Main.Line").expect("an instance").type_index;
+    let station = resolve_path(&image, "Main.Line")
+        .expect("an instance")
+        .type_index;
     assert_eq!(type_base(&image, station).unwrap(), None);
     assert!(type_interfaces(&image, station).unwrap().is_empty());
 }
@@ -201,7 +234,9 @@ fn a_found_instance_reaches_its_members_and_elements_and_the_published_copy_take
     let levels = member_of(&image, &line, "LEVELS")
         .unwrap()
         .expect("Station declares Levels");
-    let third = element_of(&image, &levels, &[3]).unwrap().expect("Levels[3]");
+    let third = element_of(&image, &levels, &[3])
+        .unwrap()
+        .expect("Levels[3]");
     assert_eq!(third, resolve_path(&image, "Main.Line.Levels[3]").unwrap());
     assert_eq!(state.read_located(&third).unwrap(), Value::Int(7));
     assert_eq!(member_of(&image, &line, "Nothing").unwrap(), None);

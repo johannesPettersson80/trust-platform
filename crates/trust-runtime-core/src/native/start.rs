@@ -182,6 +182,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
             depth,
             breakpoints,
             armed: false,
+            scanning: false,
             inputs,
             outputs,
             hierarchical,

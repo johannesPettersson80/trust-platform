@@ -1,6 +1,6 @@
 # 44 — Native execution: compiled programs and the kernel
 
-- **Status:** 0.32 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
+- **Status:** 0.33 (0.1 approved by the owner on 22 October 2026, "implement the checklist"; 0.2 to
   0.9 make exact what the implementation of milestones M1 and M2 decided within that design,
   Appendix B; the kernel interface version 2 of 0.7 approved by the owner on 23 October 2026; the
   release images of 0.10 and the M5 request context chosen by the owner on 23 October 2026; the
@@ -398,7 +398,8 @@ section's start: the task table's program list (4-byte entry indexes) and the ty
 ### 5.4 Entry table
 
 One 16-byte record per entry point: kind (4: 1 program body, 2 cold-init, 3 warm-init, 4 method for
-tools), index (4: the program instance's number in the configuration, or 0), code offset (4,
+tools), index (4: the program instance's number in the configuration for a program body, the
+index of its tool symbol (§5.7) for a method for tools, or 0), code offset (4,
 relative to `CODE`, with the Thumb bit on a Thumb target), reserved (4). A task's record lists the
 program bodies it runs, in order, so that the kernel observes each program's call as today's
 runtime does. Each program instance has its own program-body entry, also when several share one
@@ -406,6 +407,25 @@ program type, whose body takes the instance's variables; the entry makes the ins
 connections to globals and constants around the body (specification 18 §2.4). The
 kernel calls an entry point by its offset through the calling convention of §8.3 and never jumps
 anywhere else in `CODE`.
+
+A method for tools, a tool entry, is the call of one method of an interface on a live instance
+between scans (§13.3). Release and debug images alike have one for each method `M` of each interface
+`I` that a laid-out function block or class type implements, itself, through a base or through an
+interface that extends one (IEC §6.6.6.4), `M` declared in `I` or in an interface `I` extends, whose
+parameters are inputs only (`VAR_INPUT`; no `VAR_OUTPUT`, no `VAR_IN_OUT`) and none of them a
+function block instance or an `ARRAY[*]`, which a call passes as the caller's own variable (§6.4);
+with or without a result, a property's `GET` and `SET` among them (§6.4). An `EN` input is no input
+of the call: it reads TRUE whenever the method runs (specification 10 §7.5). The entry reads the
+call block that its tool symbol names at the start of the stack area (§5.7, §7.1): `THIS`, the
+instance as a value of `I`, the reference of kind instance that a variable of `I` holds (§7.3); the
+mask `__GIVEN` of the inputs given; and each input. It gives each input that the mask does not mark
+the initial value the interface's declaration of `M` gives it, as a call through `I` that leaves the
+input out gives it (IEC §6.6.1: a method's inputs start from their initial values at each call);
+calls `M` through `I`'s dispatcher on the instance, so that the instance's class binds the call as a
+call through an interface reference binds it (§6.4), a derived type's override included; and writes
+`M`'s result, when it has one, into the block. No function block body runs. Its records follow the
+initializations' in the entry table, in the order of the interfaces' declarations and of each
+interface's methods, its own first.
 
 ### 5.5 Area table
 
@@ -482,6 +502,24 @@ method, its result, its inputs and its locals, follow as symbols named `@` and t
 name and their own (`@SUMTO.N`), whose parent is the POU symbol, whose POU id is the POU's, and
 whose offsets are those of the POU's frame, which the generated function lays out as a
 `#[repr(C)]` structure in a debug image. A release image has neither, as no debugger reads it.
+
+Release and debug images alike have a tool symbol for each method `M` of each interface `I` that a
+laid-out function block or class type implements (§5.4), a tool entry's or not. Its canonical name
+is `@TOOL.` followed by `I`'s canonical name, a dot and `M`'s (`@TOOL.LIB.IRUN.START` for
+`Lib.IRun.Start`), which no variable's name can be; its display name is `I`'s and `M`'s declared
+names (`Lib.IRun.Start`), its area 0, its type `I`'s, its size the bytes of its call block (0
+without one), its parent and its POU id `0xFFFF_FFFF`. When `M` has a tool entry, the entry's index
+is the tool symbol's, and the tool symbol's children name the parts of the call block, with area 7,
+their offsets in the block and their types: `THIS`; `__GIVEN`, the mask, an array of bytes from
+index 0, one bit per input and at least one byte, bit k mod 8 of its byte k div 8 marking the k-th
+input in the order of the inputs' offsets, which is their declaration order; each input by its name,
+flagged as an input; and the result by `M`'s name. The block is laid out as a structure of these
+parts in this order (§7.2), a structure the generated code asserts as it asserts every other (§6.3).
+The mask's name begins with `__`, as no identifier does, so that no input's name is it; `THIS` is a
+keyword, and the result's name no input's. A method without a tool entry has its tool symbol without
+children: a tool's call of it is refused (§13.3). A build in which another symbol has the name of a
+tool symbol or of one of its parts, as a debug image's POU symbols of a namespace or a block named
+`TOOL` could, fails and names the symbol, since a tool's call writes the parts its symbol names.
 
 ### 5.8 Type table
 
@@ -867,7 +905,7 @@ the module through `Cx` (§8.3):
 | 4 | `G` globals | `VAR_GLOBAL` without `RETAIN` | `INIT` |
 | 5 | `R` retain | every `RETAIN` variable: globals and program variables (IEC §6.5.6) | the checkpoint at warm restart, `INIT` at cold restart |
 | 6 | `P` instances | each program's instance with its variables and nested FB instances, non-retained | `INIT` |
-| 7 | stack | the texts a failed assertion of two texts lays there for the kernel (Appendix A); the build gives it the length of the largest such pair, 0 without one. Function and method frames, `VAR_TEMP` and temporaries lie on the task's stack (§8.5) | zero |
+| 7 | stack | the texts a failed assertion of two texts lays there for the kernel (Appendix A), and between scans the call block of a tool's method call (§5.4, §5.7, §13.3); the build gives it the length of the largest such pair and of the largest call block, 0 without either. Function and method frames, `VAR_TEMP` and temporaries lie on the task's stack (§8.5) | zero |
 
 `RETAIN` members of a program or FB instance lie in `R`, the rest of the instance in `P`: the
 generator splits such an instance into two structs, one in each area, and its code reaches each
@@ -1604,6 +1642,37 @@ controller and confirms or reverts it once the task has run (specification 35, A
 error a hook returns there ends the scan as a fault of the program does. Live Values do not apply
 at a task's boundary.
 
+**A tool's method call between scans** (specification 39 §21.2: an HMI command that calls a
+method). Between scans a tool calls a method of a live function block or class instance through
+the kernel, alike on every device (`NativeProgram::call_method`): it names the instance by its
+path, resolved as a path is above (`Main.Pumps[2].Feed`), the interface `I` by its qualified name
+(`Plant.IRunDevice`), the method `M`, the inputs by their names, and an allowance of statements and
+loop passes; it receives `M`'s result, `NULL` for a method without one, and the statements and
+loop passes the call used. A computer's runtime makes the call at the program's logical time
+(`CompiledRuntime::call_method`), and refuses it while a fault is latched.
+
+- The kernel refuses the call and leaves the program as it was: an allowance of 0; a path that
+  names nothing; an instance whose type does not implement `I` (§5.8); a method `I` has no tool
+  symbol of; a method whose tool symbol no entry names (`a host method call accepts only input
+  parameters`, §5.4); an input `M` does not have, or one given twice; a value its input refuses,
+  each value converted as a Live Values write converts it, and a `REAL` or `LREAL` NaN or infinity
+  refused as an engineering write refuses it (specification 34 §4.3.1); and a call while a scan
+  runs, whose memory and context are in use.
+- Otherwise it writes the call block of `M`'s tool symbol (§5.7): `THIS`, the reference of kind
+  instance to the instance, of its type's extent and generation 1 (§7.3); the mask of the given
+  inputs; and each given input. It then calls the tool entry as a program body runs, with no task
+  (`cx.task` is `u32::MAX`), the program's logical time, an activation's call depth (§8.5) and the
+  allowance as the statement budget (NX-10): a debug image counts each statement and each pass of
+  a loop, a release image the passes only. No statement stops at a breakpoint: the debugger holds
+  scans, not the calls between them. A tool entry is an entry point of the module, so the stack
+  bound counts its deepest chain as it counts every other entry's (§8.5).
+- A call that uses its allowance up is refused and undone: the kernel copies every area but the
+  stack before the call and copies the copy back, so that nothing of an unfinished call stays. The
+  allowance bounds a tool's work, and a tool that gives too small a one does not fault the program.
+- A fault of `M` is the program's: the stores of the statements that ran stay, and the resource
+  faults as at a faulted scan (§8.6; specification 11 §6.6): the fault is latched and reported,
+  the fault policy's output action applies, and no scan and no call runs until a restart.
+
 ## 14. Verification and acceptance
 
 ### 14.1 The reference workload
@@ -1779,6 +1848,7 @@ finds no depth left, §6.4) is reported as the bytecode engine's call beyond its
 | 0.21 | 24 October 2026 | The toolchain bundle made exact (the one list's N10), within the approved design. §4.6: the archive `trust-toolchain-<platform>.tar.gz` for each platform the release builds the tools for, its files (the pinned compiler with its libraries, the `core` and `compiler_builtins` of each module target, the program libraries) and its `manifest.json`; written by `trust-runtime toolchain bundle` on each platform and published with the release's `SHA256SUMS`; `TRUST_TOOLCHAIN` names a development toolchain, else the tools use the bundle in truST's data folder, `toolchains/<version>/`, which the extension and `trust-runtime` share, where 0.1 said the extension's private folder (one download serves both); `trust-runtime toolchain install` downloads it, checks it against `SHA256SUMS` and its manifest and moves it into place only then, `--from` installs a bundle file; `trust-runtime build` and the commands that build as it does install it on the first build that needs it, and the extension before a debug launch. |
 | 0.23 | 25 October 2026 | What the deletion of the engine (N11) needed: every construct the engine ran is compiled (NX-05, NX-09), with the format additions below, which the owner approved on 25 October 2026 (§14.4: "if its professional and according to iec then i trust you"): each records an IEC 61131-3 construct whose representation IEC leaves to the implementer (the resource of §6.8.1, the direct and hierarchical addresses of §6.5.5 and Table 16, `STRUCT OVERLAP` of §6.4.4.6, the variable-length arrays of §6.5.3) or the truST function `CURRENT_DT` (specification 07). Compiled now: `EN`/`ENO`; outputs given by position; `RETURN expr`; `JMP` and labels, a body with labels running as a loop over its segments, each pass taking one from the statement budget (§6.6, NX-10); `VAR_STAT`; `UNION`; `STRUCT OVERLAP` with elementary members, each a view of the structure's bytes, a `BOOL` one bit (§6.2); `POINTER TO`, `ADR` in both its forms, `?=`; `WSTRING` and its functions; `IS_VALID`; edge-qualified inputs, whose hidden trigger is retained with a retained input; function blocks a task runs; located structures and arrays, a `TIME` on the wire a double word of milliseconds, `DATE`, `TOD` and `DT` refused by name with their long forms; hierarchical addresses, each in a slot of the kernel's hierarchical image, and an enumeration's input checked against its declared values (§5.6); incomplete locations completed by `VAR_CONFIG`, by path or, when unambiguous, by the variable's name (specification 03 §2), and `VAR_CONFIG` initial values; `VAR_ACCESS` names in bodies; `CURRENT_DT`; `ARRAY[*]` parameters and pointers with `LOWER_BOUND`/`UPPER_BOUND`, an input only read (specification 03 §6); a type with named values of an integer type, which the type table lists as its base (§5.8); a function's own function block instance with its initial values; a structure that refers to itself. Format additions: header word 124, the `RESOURCE` name, checked at `play` and `validate` (§5.2); an `IOBIND` record's kind byte, 1 for a hierarchical address whose text it names (§5.6); header flag bit 1, the program reads the wall clock, which its deployment record then requires (§5.2, §10.1); the kernel interface version 5 with `wall_clock` (§8.2); an `IOBIND` record's flags, its codec in bits 0 to 7 (0 raw, 1 `TIME` as milliseconds) and the leaf's offset in its variable from bit 8 (§5.6); in the type table a `BOOL` whose count is its bit plus one, a member of a `STRUCT OVERLAP` (§5.8), an open array with the sentinel bounds `(0, i64::MAX)`, and a reference to one of 16 + 16 × rank bytes, its bounds after the `RefValue` (`abi::OpenRef`, §7.3). Runtime: a loaded program starts at its starting values in the first generation (§6.7); the kernel reports each program body to the scan's hooks, so that every runtime records program calls (specification 11); the marker and output forces apply again after the scan (§13.3; specification 11 §6.9.2); attaching a debug control keeps its queue. A text whose later part reads a string is concatenated into a temporary, so that `S := CONCAT('0', S)` stores the expression's value (specification 07 §8). Removed with the engine: its `RuntimeError` variants, its stable codes and its fault details, which nothing produces any more (specification 10 §10.2). |
 | 0.32 | 26 October 2026 | What the control and HMI line's services need of a compiled program on a computer, now that both lines are one (the owner, 26 October 2026: "it must work with our new runtimes"). §13.3: a computer's services reach the program at each task's start and end, the programs outside every task included (the access points `TaskStart` and `TaskEnd`), where Control Studio commits and confirms a parameter set or a controller transfer (specification 35, A6.3, A6.8); a path with indices (`Main.Pumps[2, 1].Running`) resolves through the symbol and type tables, and a walk finds every function block and class instance where it is declared. §5.8: a function block's or class's members are followed by its base and every interface it implements, by name; §5.2: image format version 3. |
+| 0.33 | 26 October 2026 | A tool's call of a method of a live instance between scans, which the control and HMI line's method commands need of a compiled program (specification 39 §21.2; the owner, 26 October 2026: "it must work with our new runtimes"). §5.4: the entry of kind 4, reserved since 0.1, is a tool entry: one for each method of each interface a laid-out function block or class implements whose parameters are inputs only, which reads its call block, gives each input not given its initial value, calls the method through the interface's dispatcher and writes the result into the block; its index is its tool symbol's. §5.7: a tool symbol `@TOOL.<interface>.<method>` for each such method, release and debug images alike, whose children name the block's parts in the stack area (`THIS`, `__GIVEN`, the inputs, the result); a method with an output, an in-out, a function block instance or an `ARRAY[*]` has its symbol without children and no entry. §7.1: the stack area also holds the largest call block. §13.3: the kernel's call between scans, its refusals, an allowance used up undone, a fault of the method the resource's. The image format and the kernel interface are unchanged. |
 | 0.30 | 25 October 2026 | Signatures that a chip checks as the parts arrive (§5.11; the portability checklist's S5, which the owner's "do whats professional ... you decide" of 25 October 2026 leaves to this specification). `SIGN`'s algorithm 2 is Ed25519ph of RFC 8032 with the context `truST program image`, over the SHA-512 of the image less `SIGN`, so that a device hashes an upload part by part and the check at an install or online change costs only the signature's arithmetic, where the pure Ed25519 of 0.20 hashed a 90 KB image in 0.85 s in one block on the ESP32-C6. Algorithm 1 is refused. A chip reads its trusted keys from its device settings at boot. The chips build the signature code for speed, with the base point's tables. |
 | 0.29 | 25 October 2026 | The memory figure counts what a load keeps (§10.4; the portability checklist's L3). The bookkeeping now also holds the cycle's copies of the process images (the last scan's inputs, outputs and markers, and the outputs the drivers last took) and, for a debug image, the debugger's line table: 28 bytes per statement and the file labels; the Live Values and services take the device's reserve. The C6 bench found a debug image of the reference workload whose figure was 10,300 bytes keep 19,772 bytes beside the checkpoint store's buffer: its line table, built entry by entry, had room for 256 entries for its 168 statements, and with Wi-Fi the chip admitted a program its heap could not load. The line table is now built with exactly its entries. |
 | 0.28 | 25 October 2026 | The ESP32-C6's program region shrinks from 192 KiB to 112 KiB (specification 34 PORT-06, D.2; the portability checklist's L3; the owner, 25 October 2026, "do whats professional"): the Wi-Fi radio's driver keeps about 81 KB of code and data in RAM, which the link places there whether or not the chip uses Wi-Fi, and the program region gave 80 KiB, so that the main stack keeps its 82 KiB and the heap its 180,160 bytes. 112 KiB still hold the reference workload's running module and its changed release image at once; a changed image beyond the region's room is held in the heap and its module copied into the region (§10.3, §12.3). |

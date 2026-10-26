@@ -112,6 +112,11 @@ impl<'a> Defs<'a> {
         self.interfaces.values().map(|def| &def.name)
     }
 
+    /// The project's interfaces, in the order of their declarations.
+    pub(in crate::native) fn interfaces(&self) -> impl Iterator<Item = &'a InterfaceDef> + '_ {
+        self.interfaces.values()
+    }
+
     /// Whether `interface` is `wanted` or extends it.
     fn interface_is_a(&self, interface: &str, wanted: &str) -> bool {
         let mut current = self.interface(interface);

@@ -1494,6 +1494,25 @@ impl CompiledVariables for FixtureStorage {
     ) -> Result<(), crate::error::RuntimeError> {
         Err(crate::error::RuntimeError::InvalidExecutionState)
     }
+
+    fn program_image(&self) -> trust_runtime_core::native::image::Image<'_> {
+        unreachable!("the fixture holds globals by name, without a program image")
+    }
+
+    fn read_located(
+        &self,
+        _at: &trust_runtime_core::native::reflect::Located,
+    ) -> Result<Value, crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
+
+    fn write_located(
+        &mut self,
+        _at: &trust_runtime_core::native::reflect::Located,
+        _value: &Value,
+    ) -> Result<(), crate::error::RuntimeError> {
+        Err(crate::error::RuntimeError::InvalidExecutionState)
+    }
 }
 
 fn connection_with_points(points: Vec<AdsPointConfig>) -> AdsConnectionConfig {

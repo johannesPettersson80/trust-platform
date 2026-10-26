@@ -150,6 +150,16 @@ fn initializer_place(
     walk(model, scope, target).map(|(place, _)| place)
 }
 
+/// The calling convention of an entry point on `target` (specification 44 §8.3): `sysv64` on
+/// x86-64, whatever the computer's operating system, `C` elsewhere.
+pub(super) fn entry_abi(target: Target) -> &'static str {
+    if target == Target::X86_64 {
+        "sysv64"
+    } else {
+        "C"
+    }
+}
+
 /// The entry points of the module for `target`, written to `source`, the initializations setting
 /// `references`.
 ///
@@ -162,11 +172,7 @@ pub(super) fn entries(
     target: Target,
     references: &[String],
 ) -> Result<Vec<Entry>, NativeError> {
-    let abi = if target == Target::X86_64 {
-        "sysv64"
-    } else {
-        "C"
-    };
+    let abi = entry_abi(target);
     let mut entries = Vec::new();
     for (index, instance) in model.instances.iter().enumerate() {
         let program = &model.program_types[instance.program];

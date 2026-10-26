@@ -319,8 +319,8 @@ fn class_detail<'i>(
         after + 8 + count.checked_mul(4).ok_or(RuntimeError::Overflow)?,
     )?;
     let mut interfaces = Vec::with_capacity(count);
-    for name in all[after + 8..].chunks_exact(4) {
-        interfaces.push(types.string(u32::from_le_bytes([name[0], name[1], name[2], name[3]]))?);
+    for name in all[after + 8..].as_chunks::<4>().0 {
+        interfaces.push(types.string(u32::from_le_bytes(*name))?);
     }
     Ok((base, interfaces))
 }
@@ -500,11 +500,7 @@ impl Walker<'_, '_> {
                 let (_, element_record) = unaliased(self.types, element)?;
                 if !matches!(
                     element_record.kind,
-                    kind::FUNCTION_BLOCK
-                        | kind::CLASS
-                        | kind::STRUCT
-                        | kind::UNION
-                        | kind::ARRAY
+                    kind::FUNCTION_BLOCK | kind::CLASS | kind::STRUCT | kind::UNION | kind::ARRAY
                 ) {
                     return Ok(());
                 }

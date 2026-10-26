@@ -24,8 +24,8 @@ use super::image::{
 use super::memory::{read_place, retained_place, symbol_place, write_by_symbol, write_place};
 use super::retain;
 use super::stop::{arm_bits, HeldScan, Stop};
-use super::variables::CompiledVariables;
 use super::values::{AreaBytes, Types};
+use super::variables::CompiledVariables;
 use crate::cycle::{sort_ready_tasks_by_priority, ReadyTask};
 use crate::error::{ExecutionLimitKind, RuntimeError};
 use crate::io_address::IoAddress;
@@ -278,6 +278,9 @@ pub struct NativeProgram<'i, C> {
     pub(super) breakpoints: Vec<Cell<u8>>,
     /// Whether any statement stops.
     pub(super) armed: bool,
+    /// Whether a scan runs: its memory and context are in use, and a tool's call of a method
+    /// waits for the scan's end (specification 44 §13.3).
+    pub(super) scanning: bool,
     /// The input image the drivers fill (`%I`).
     pub inputs: Vec<u8>,
     /// The output image the drivers drive (`%Q`).
@@ -698,6 +701,14 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
     ///
     /// The fault of the program that faulted; the scan ends there and publishes nothing.
     pub fn scan(&mut self, now: Duration, hooks: &mut dyn ScanHooks) -> Result<(), RuntimeError> {
+        self.scanning = true;
+        let result = self.scan_tasks(now, hooks);
+        self.scanning = false;
+        result
+    }
+
+    /// The scan of [`Self::scan`], from the input sample to the publication.
+    fn scan_tasks(&mut self, now: Duration, hooks: &mut dyn ScanHooks) -> Result<(), RuntimeError> {
         self.check_declared()?;
         self.sample();
         let mut ready = core::mem::take(&mut self.ready);
@@ -776,6 +787,18 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         now: Duration,
         hooks: Option<&mut dyn ScanHooks>,
     ) -> Result<(), RuntimeError> {
+        self.call_within(entry, task, now, self.budget, hooks)
+    }
+
+    /// [`Self::call`] with the statement budget `budget` (specification 44 §8.4).
+    pub(super) fn call_within(
+        &mut self,
+        entry: usize,
+        task: u32,
+        now: Duration,
+        budget: u32,
+        hooks: Option<&mut dyn ScanHooks>,
+    ) -> Result<(), RuntimeError> {
         let Some(function) = self.entries.get(entry).copied() else {
             return Err(RuntimeError::InvalidExecutionState);
         };
@@ -787,7 +810,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
         }
         self.cx.task = task;
         self.cx.now_ns = now.as_nanos();
-        self.cx.budget = self.budget;
+        self.cx.budget = budget;
         self.cx.depth = self.depth;
         self.cx.fault = FaultRecord::default();
         self.cx.breakpoints = self.breakpoints.as_ptr().cast::<u8>();
@@ -823,7 +846,7 @@ impl<'i, C: ModuleCode> NativeProgram<'i, C> {
                 assertions::message(&types, &self.cx.fault, code, &self.areas[STACK]).into(),
             ))
         } else {
-            Err(fault_error(&self.cx.fault, code, self.budget))
+            Err(fault_error(&self.cx.fault, code, budget))
         }
     }
 

@@ -9,6 +9,7 @@ use super::init::StartingMemory;
 use super::model::Model;
 use super::module::Module;
 use super::stack::StackFigure;
+use super::tools::Tool;
 use super::types::{Kind, Member, Ty, TypeInfo};
 use super::NativeError;
 use trust_plc_abi as abi;
@@ -21,6 +22,7 @@ use trust_runtime_core::native::image::{
     SYMBOL_INSTANCE, SYMBOL_PROGRAM, SYMBOL_RETAINED, TABLE_PREFIX_BYTES,
 };
 use trust_runtime_core::native::retain::payload_bound;
+use trust_runtime_core::native::tool::TOOL_SYMBOL_PREFIX;
 
 /// A symbol before the table is sorted.
 struct Pending {
@@ -255,6 +257,41 @@ impl Symbols<'_, '_> {
             }
         }
     }
+
+    /// The tool symbols, each named `@TOOL.` and its interface's and its method's canonical names,
+    /// of the interface's type and the size of its call block, and the parts of each block at their
+    /// offsets in the stack area: `THIS`, `__GIVEN`, each input, flagged as one, and the result by
+    /// the method's name (§5.7, §13.3).
+    fn tools(&mut self, tools: &[Tool]) {
+        for tool in tools {
+            self.pending.push(Pending {
+                canonical: tool.canonical.clone(),
+                display: tool.display.clone(),
+                type_index: tool.interface.0,
+                area: 0,
+                flags: 0,
+                offset: 0,
+                size: tool.block.as_ref().map_or(0, |block| block.size),
+                parent: None,
+                pou: NONE,
+            });
+            let Some(block) = &tool.block else {
+                continue;
+            };
+            for part in &block.parts {
+                self.add(Variable {
+                    canonical: format!("{}.{}", tool.canonical, part.name.to_ascii_uppercase()),
+                    display: format!("{}.{}", tool.display, part.name),
+                    ty: part.ty,
+                    area: abi::AREA_STACK,
+                    offset: part.offset,
+                    flags: part.flags,
+                    parent: Some(tool.canonical.clone()),
+                    pou: NONE,
+                });
+            }
+        }
+    }
 }
 
 /// The sorted symbols and the lookup of a canonical name's index.
@@ -284,8 +321,13 @@ fn align8(value: usize) -> usize {
     value.div_ceil(8) * 8
 }
 
-/// The entry table, in the order of the generated entries: the program bodies by instance first.
-fn entries(writer: &mut ImageWriter, inputs: &Inputs<'_>) -> Result<(), NativeError> {
+/// The entry table, in the order of the generated entries: the program bodies by instance first;
+/// a tool entry's index is its tool symbol's in `sorted` (§5.4).
+fn entries(
+    writer: &mut ImageWriter,
+    inputs: &Inputs<'_>,
+    sorted: &Sorted,
+) -> Result<(), NativeError> {
     let mut entries = Vec::with_capacity(inputs.generated.entries.len());
     for entry in &inputs.generated.entries {
         let Some(offset) = inputs.module.entries.get(&entry.symbol) else {
@@ -294,9 +336,29 @@ fn entries(writer: &mut ImageWriter, inputs: &Inputs<'_>) -> Result<(), NativeEr
                 entry.symbol
             )));
         };
+        let index = if entry.kind == EntryKind::Method {
+            inputs
+                .generated
+                .tools
+                .iter()
+                .find(|tool| {
+                    tool.block
+                        .as_ref()
+                        .is_some_and(|block| block.entry == entry.symbol)
+                })
+                .and_then(|tool| sorted.index(&tool.canonical))
+                .ok_or_else(|| {
+                    NativeError::Image(format!(
+                        "the tool entry {} has no tool symbol",
+                        entry.symbol
+                    ))
+                })?
+        } else {
+            entry.index
+        };
         entries.push(EntryRecord {
             kind: entry.kind as u32,
-            index: entry.index,
+            index,
             code_offset: *offset,
         });
     }
@@ -356,20 +418,37 @@ fn areas(
 
 /// The symbol table, sorted by canonical name, and the retain map in the order of specification 11
 /// §6.7 (specification 44 §5.10).
+///
+/// # Errors
+///
+/// [`NativeError::Compile`] for a tool symbol or one of its parts whose name another symbol has.
 fn symbols(
     writer: &mut ImageWriter,
     pool: &mut StringPool,
     model: &mut Model<'_>,
     pous: &[PouFrame],
-) -> Sorted {
+    tools: &[Tool],
+) -> Result<Sorted, NativeError> {
     let mut symbols = Symbols {
         model,
         pending: Vec::new(),
     };
     symbols.collect();
     symbols.pous(pous);
+    symbols.tools(tools);
     let Symbols { mut pending, .. } = symbols;
     pending.sort_by(|a, b| a.canonical.cmp(&b.canonical));
+    // A tool's call writes the parts its tool symbol names, so no other symbol may share a name
+    // with them, as a POU's symbols could under a namespace or a block named `TOOL` (§5.7).
+    if let Some(pair) = pending.windows(2).find(|pair| {
+        pair[0].canonical == pair[1].canonical && pair[0].canonical.starts_with(TOOL_SYMBOL_PREFIX)
+    }) {
+        return Err(NativeError::Compile(format!(
+            "the symbol {} names a tool's call of a method and another symbol (specification 44 \
+             §5.7)",
+            pair[0].canonical
+        )));
+    }
     pending.dedup_by(|a, b| a.canonical == b.canonical);
     let sorted = Sorted(pending);
     let records: Vec<SymbolRecord> = sorted
@@ -402,7 +481,7 @@ fn symbols(
         })
         .collect();
     writer.table(&retain, &[]);
-    sorted
+    Ok(sorted)
 }
 
 /// The I/O bindings, each to its variable's symbol.
@@ -751,9 +830,15 @@ pub(super) fn write(
     inputs: &Inputs<'_>,
 ) -> Result<MemoryFigure, NativeError> {
     let mut pool = StringPool::new();
-    entries(writer, inputs)?;
     let (area_records, init_bytes) = areas(writer, model, inputs.memory);
-    let sorted = symbols(writer, &mut pool, model, &inputs.generated.pous);
+    let sorted = symbols(
+        writer,
+        &mut pool,
+        model,
+        &inputs.generated.pous,
+        &inputs.generated.tools,
+    )?;
+    entries(writer, inputs, &sorted)?;
     bindings(writer, &mut pool, model, &sorted)?;
     tasks(writer, &mut pool, model, inputs, &sorted);
     types(writer, &mut pool, model);

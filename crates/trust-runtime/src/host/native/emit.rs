@@ -28,6 +28,9 @@ pub(super) struct Generated {
     /// The POUs of a debug image with their frames, by POU id, which its POU symbols and frame
     /// variable symbols name (specification 44 §5.7); empty for a release image.
     pub(super) pous: Vec<PouFrame>,
+    /// The methods a tool may call between scans, which the tool symbols name (specification 44
+    /// §5.7, §13.3).
+    pub(super) tools: Vec<super::tools::Tool>,
 }
 
 /// One POU of a debug image: its name, the type its instance has, and its frame's variables at
@@ -111,7 +114,11 @@ pub(super) fn generate<'a>(
         }
         let Some(item) = work.get(index) else {
             // A dispatcher calls the method of every type that can be there, and those are known
-            // once every body is generated; a method it needs may need more.
+            // once every body is generated; a method it needs may need more. A tool's call of a
+            // method goes through its interface's dispatcher (specification 44 §13.3).
+            for need in super::tools::needs(model)? {
+                need.add_to(&mut dispatchers);
+            }
             let mut added = false;
             for need in super::dispatch::targets(model, &dispatchers)? {
                 added |= queue(model, need, &mut queued, &mut work)?;
@@ -161,6 +168,7 @@ pub(super) fn generate<'a>(
             }
         }
     }
+    let tools = super::tools::tools(model)?;
     functions.push_str(&super::dispatch::emit(model, &dispatchers, &mut graph)?);
     connections::connections(front, ids, model, target.pointer_bytes(), &mut functions)?;
 
@@ -185,7 +193,8 @@ pub(super) fn generate<'a>(
     areas(&mut source, model, images);
     source.push_str(&functions);
     let references = reference_initializers(front, model)?;
-    let entries = entries(&mut source, model, target, &references)?;
+    let mut entries = entries(&mut source, model, target, &references)?;
+    entries.extend(super::tools::emit(&mut source, model, &tools, target));
     source.push_str(
         "\n#[panic_handler]\nfn panic(_: &core::panic::PanicInfo<'_>) -> ! {\n    loop {}\n}\n",
     );
@@ -195,6 +204,7 @@ pub(super) fn generate<'a>(
             entries,
             statement_pous,
             pous: pou_frames,
+            tools,
         },
         graph,
     ))
@@ -336,7 +346,7 @@ pub(super) fn signature(
 
 /// Writes a `plain_struct!` of `fields`, its offset assertions and, for a structure that is
 /// assigned as a whole, its `Assign`.
-fn structure(
+pub(super) fn structure(
     source: &mut String,
     name: &str,
     fields: &[(String, String, u32)],
