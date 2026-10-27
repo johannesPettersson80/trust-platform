@@ -3016,75 +3016,147 @@
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 87,
+        "line": 90,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
-      },
-      {
-        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 88,
-        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
         "line": 91,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
         "line": 94,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
         "line": 97,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
         "line": 100,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
         "line": 103,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
         "line": 106,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
-        "line": 109,
+        "line": 110,
         "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
-        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result; the count touches only an atomic and a const-initialized thread-local Cell, so it never allocates, blocks or unwinds.",
-        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same allocator in the test binary: each operation counted once, the engine's count of a scalar program zero); the trust-runtime program builds.",
-        "review_date": "2026-10-20"
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-runtime/src/bin/trust-runtime.rs",
+        "line": 113,
+        "owner": "trust-runtime program allocator, C1-19f (the allocation count)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the count and the budget touch only atomics and a const-initialized thread-local Cell, so they never allocate, block or unwind.",
+        "test_evidence": "cargo test -p trust-runtime --test allocation_count (the same counting in the test binary: each operation counted once, the engine's count of a scalar program zero); cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); the trust-runtime program builds.",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 14,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 15,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 17,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 20,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 22,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 25,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 27,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 31,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
+      },
+      {
+        "path": "crates/trust-debug/src/main.rs",
+        "line": 33,
+        "owner": "trust-debug program allocator, protocol annex E8.1 (the isolated worker's memory budget)",
+        "invariant": "The program's global allocator forwards each operation's unchanged layout, pointer and new size to System and returns its result, or refuses an allocation beyond the isolated worker's memory budget with null; the budget touches only atomics, so it never allocates, blocks or unwinds.",
+        "test_evidence": "cargo test -p trust-runtime --lib memory_budget (refused, failed, grown and shrunk allocations held to the budget); cargo test -p trust-debug --test control_search_worker (the worker reads back its 1 GiB limit on every platform).",
+        "review_date": "2026-10-27"
       },
       {
         "path": "crates/trust-runtime/tests/allocation_count.rs",

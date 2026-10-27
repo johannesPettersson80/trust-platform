@@ -18,6 +18,11 @@ pub use trust_runtime_core as runtime_core;
 #[path = "host/allocation_count.rs"]
 pub mod allocation_count;
 
+/// The memory budget of an isolated worker where the operating system sets none, which the
+/// program's allocator keeps.
+#[path = "host/memory_budget.rs"]
+pub mod memory_budget;
+
 /// Beckhoff ADS client integration contracts.
 #[cfg(feature = "full")]
 #[path = "host/ads/mod.rs"]

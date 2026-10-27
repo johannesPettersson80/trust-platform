@@ -67,10 +67,7 @@ pub(super) fn digest(value: impl std::fmt::Debug) -> String {
 }
 pub(super) fn load(state: &ControlState) -> Result<Snapshot, String> {
     if !super::limits::available() {
-        return Err(
-            "bounded search requires a native process-memory-limit adapter; currently Linux only"
-                .into(),
-        );
+        return Err(crate::memory_budget::NO_LIMIT.into());
     }
     let root = state
         .project_root

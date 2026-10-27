@@ -19,8 +19,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - uses: actions/setup-node@v6
         with:
           node-version: '20'

@@ -1497,6 +1497,9 @@ backend change, delivered with its own tests in milestone 1B.
 4. **No replay:** after a reconnection, commands are never resent automatically.
 5. **Readback:** a write-value command shows the value read back from the program, not the value
    that was requested.
+6. **Following outcomes:** a page remembers the newest 1,024 commands it sent, its controls' commands
+   and its alarm actions alike, so that each later outcome reaches what sent it. A page that stays
+   open does not grow with every command; a later outcome of an older command is not shown.
 
 ### 12.6 Pulses and interlocks
 

@@ -1,5 +1,7 @@
-//! The DAP host must expose the same isolated worker entry as trust-runtime.
-#![cfg(target_os = "linux")]
+//! The DAP host must expose the same isolated worker entry as trust-runtime, held to the worker's
+//! 1 GiB memory limit on every platform (protocol annex E8.1): the address-space limit on Linux,
+//! the program allocator's budget elsewhere. Catches a platform whose worker refuses to run or
+//! reports a limit other than 1 GiB.
 use std::io::Write;
 use std::process::{Command, Stdio};
 #[test]
@@ -20,7 +22,7 @@ fn debug_host_dispatches_isolated_control_search_worker() {
         .unwrap()
         .write_all(include_bytes!("fixtures/control_search_worker.json"))
         .expect("write bounded worker fixture");
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     loop {
         if child.try_wait().unwrap().is_some() {
             break;

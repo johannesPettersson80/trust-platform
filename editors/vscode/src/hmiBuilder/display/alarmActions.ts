@@ -12,6 +12,7 @@ import { CommandEvent, commandId } from "./commands";
 import { button, element, Overlay } from "./overlay";
 import type { DisplayHost } from "./runtimeDisplay";
 import type { SessionControl } from "./session";
+import { SentCommands } from "./sentCommands";
 import { say, translate } from "../drawing/speech";
 import type { Word } from "../drawing/words";
 import { equipmentDestination } from "./equipmentNavigation";
@@ -51,8 +52,8 @@ function outcomeSaid(outcome: string, reason?: string): string {
 const TABS: AlarmTab[] = ["active", "shelved", "suppressed", "out_of_service"];
 
 export class AlarmActions {
-  /** What each action in flight was, by command id, for its later outcome. */
-  private readonly sent = new Map<string, string>();
+  /** What each of the newest actions was, by command id, for its later outcome. */
+  private readonly sent = new SentCommands<string>();
 
   constructor(
     private readonly host: DisplayHost,
@@ -189,9 +190,8 @@ export class AlarmActions {
 
   /** A later outcome from the stream; whether it was one of the actions sent here. */
   receive(command: CommandEvent): boolean {
-    const what = this.sent.get(command.id);
+    const what = this.sent.from(command.id);
     if (what === undefined) return false;
-    if (command.outcome !== "applied" && command.outcome !== "pending") this.sent.delete(command.id);
     if (command.outcome === "timed-out" || command.outcome === "unknown" || command.outcome === "refused") {
       this.overlay.notice(`${what}: ${outcomeSaid(command.outcome, command.reason)}`);
     }
@@ -207,7 +207,7 @@ export class AlarmActions {
     const id = commandId();
     const named = ACTIONS[action];
     const what = `${named ? say(named) : action} ${translate(message || alarm)}`;
-    this.sent.set(id, what);
+    this.sent.add(id, what);
     const body: Record<string, unknown> = { id, alarm, action };
     if (value !== undefined) body.value = value;
     let answer: { status: number; body: unknown };
@@ -215,18 +215,15 @@ export class AlarmActions {
       answer = await this.host.postJson("/api/hmi/alarm", body);
     } catch {
       // The outcome is unknown and never assumed; the action is not sent again (§12.5).
-      this.sent.delete(id);
       this.overlay.notice(`${what}: ${say("The connection was lost before the outcome was known.")}`);
       return;
     }
     const reply = answer.body as { outcome?: string; reason?: string; error?: string } | null;
     if (answer.status !== 200 || !reply?.outcome) {
-      this.sent.delete(id);
       this.overlay.notice(
         `${what}: ${reply?.error ?? say("The runtime answered {status}.", { status: answer.status })}`,
       );
     } else if (reply.outcome === "refused" || reply.outcome === "timed-out") {
-      this.sent.delete(id);
       this.overlay.notice(`${what}: ${outcomeSaid(reply.outcome, reply.reason)}`);
     }
   }

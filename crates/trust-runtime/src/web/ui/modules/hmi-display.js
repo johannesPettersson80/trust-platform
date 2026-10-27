@@ -1574,6 +1574,26 @@
     return input;
   }
 
+  // src/hmiBuilder/display/sentCommands.ts
+  var REMEMBERED_COMMANDS = 1024;
+  var SentCommands = class {
+    constructor() {
+      this.sent = /* @__PURE__ */ new Map();
+    }
+    /** Remembers that `from` sent the command `id`. */
+    add(id, from) {
+      this.sent.set(id, from);
+      if (this.sent.size > REMEMBERED_COMMANDS) {
+        const oldest = this.sent.keys().next();
+        if (!oldest.done) this.sent.delete(oldest.value);
+      }
+    }
+    /** What sent the command `id`, while it is remembered. */
+    from(id) {
+      return this.sent.get(id);
+    }
+  };
+
   // src/hmiBuilder/display/commands.ts
   var BUTTONS = ["button", "pulse-button"];
   var ENTRIES = ["setpoint", "numeric-input"];
@@ -1590,8 +1610,8 @@
       this.liveAt = liveAt;
       /** The latest outcome on each control, by object id. */
       this.outcomes = /* @__PURE__ */ new Map();
-      /** The control each command came from, by command id. */
-      this.sentFrom = /* @__PURE__ */ new Map();
+      /** The control each of the newest commands came from, by command id. */
+      this.sentFrom = new SentCommands();
       /** Values being entered on controls, by object id, until they are sent (§5.8). */
       this.entered = /* @__PURE__ */ new Map();
       /** What the gestures of §5.8 use. */
@@ -1639,7 +1659,7 @@
     }
     /** A later outcome from the stream; whether it was one of this surface's commands. */
     receive(command) {
-      const from = this.sentFrom.get(command.id);
+      const from = this.sentFrom.from(command.id);
       if (!from) return false;
       this.setOutcome(from, { outcome: command.outcome, reason: command.reason });
       return true;
@@ -1743,7 +1763,7 @@
     }
     async send(object, action, value) {
       const id = commandId();
-      this.sentFrom.set(id, object.id);
+      this.sentFrom.add(id, object.id);
       this.setOutcome(object.id, { outcome: "pending" });
       this.redraw();
       const body = {
@@ -1898,8 +1918,8 @@
       this.session = session;
       this.overlay = overlay;
       this.mark = mark;
-      /** What each action in flight was, by command id, for its later outcome. */
-      this.sent = /* @__PURE__ */ new Map();
+      /** What each of the newest actions was, by command id, for its later outcome. */
+      this.sent = new SentCommands();
     }
     /**
      * A click in a drawn surface: a tab, a page, an action button or a row of the alarm list with
@@ -2019,9 +2039,8 @@
     }
     /** A later outcome from the stream; whether it was one of the actions sent here. */
     receive(command) {
-      const what = this.sent.get(command.id);
+      const what = this.sent.from(command.id);
       if (what === void 0) return false;
-      if (command.outcome !== "applied" && command.outcome !== "pending") this.sent.delete(command.id);
       if (command.outcome === "timed-out" || command.outcome === "unknown" || command.outcome === "refused") {
         this.overlay.notice(`${what}: ${outcomeSaid(command.outcome, command.reason)}`);
       }
@@ -2036,25 +2055,22 @@
       const id = commandId();
       const named = ACTIONS[action];
       const what = `${named ? say(named) : action} ${translate(message || alarm)}`;
-      this.sent.set(id, what);
+      this.sent.add(id, what);
       const body = { id, alarm, action };
       if (value !== void 0) body.value = value;
       let answer;
       try {
         answer = await this.host.postJson("/api/hmi/alarm", body);
       } catch {
-        this.sent.delete(id);
         this.overlay.notice(`${what}: ${say("The connection was lost before the outcome was known.")}`);
         return;
       }
       const reply = answer.body;
       if (answer.status !== 200 || !reply?.outcome) {
-        this.sent.delete(id);
         this.overlay.notice(
           `${what}: ${reply?.error ?? say("The runtime answered {status}.", { status: answer.status })}`
         );
       } else if (reply.outcome === "refused" || reply.outcome === "timed-out") {
-        this.sent.delete(id);
         this.overlay.notice(`${what}: ${outcomeSaid(reply.outcome, reply.reason)}`);
       }
     }

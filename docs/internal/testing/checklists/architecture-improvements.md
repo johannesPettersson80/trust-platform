@@ -611,7 +611,9 @@ Issue #51 init benchmark baseline evidence (2026-04-28):
   execution; do not introduce a substitute PID simulation for arbitrary ST.
 - [x] One disposable process per trial resets controller/plant state; supervisor
   bounds concurrency, wall time and retained result payload.
-- [ ] Add equivalent native process-memory-limit adapters beyond Linux.
+- [x] Limit isolated workers beyond Linux (27 October 2026): on macOS and Windows the trust-runtime
+  and trust-debug allocators hold the worker to the same 1 GiB (`host/memory_budget.rs`, protocol
+  annex E8.1).
 
 ### Focused Routh–Hurwitz analysis (2026-09-07)
 

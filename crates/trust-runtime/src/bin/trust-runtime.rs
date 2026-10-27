@@ -74,39 +74,45 @@ mod wizard;
 use clap::error::ErrorKind;
 use clap::Parser;
 use std::alloc::{GlobalAlloc, Layout, System};
+use trust_runtime::memory_budget;
 
 use cli::{Cli, Command};
 
 /// The program's allocator: the system's, counting each thread's allocator operations for the
-/// allocation count the runtime reports with its scans (specification 34, "The allocation count").
+/// allocation count the runtime reports with its scans (specification 34, "The allocation count"),
+/// and keeping an isolated worker's memory budget (protocol annex E8.1).
 struct CountingAllocator;
 
 // SAFETY: every operation forwards the caller's unchanged layout, pointer and new size to
-// `System` and returns its result; the counting touches only an atomic and a const-initialized
-// thread-local `Cell`, so it allocates nothing and cannot unwind.
+// `System` and returns its result, or refuses an allocation beyond the memory budget with null,
+// as an allocator may; the counting and the budget touch only atomics and a const-initialized
+// thread-local `Cell`, so they allocate nothing and cannot unwind.
 unsafe impl GlobalAlloc for CountingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         trust_runtime::allocation_count::count_operation();
         // SAFETY: the caller's valid layout of non-zero size, unchanged.
-        unsafe { System.alloc(layout) }
+        memory_budget::allocate(layout.size(), || unsafe { System.alloc(layout) })
     }
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         trust_runtime::allocation_count::count_operation();
         // SAFETY: the caller's valid layout of non-zero size, unchanged.
-        unsafe { System.alloc_zeroed(layout) }
+        memory_budget::allocate(layout.size(), || unsafe { System.alloc_zeroed(layout) })
     }
 
     unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
         trust_runtime::allocation_count::count_operation();
         // SAFETY: the caller returns a pointer/layout pair that `System` produced.
-        unsafe { System.dealloc(pointer, layout) }
+        unsafe { System.dealloc(pointer, layout) };
+        memory_budget::release(layout.size());
     }
 
     unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         trust_runtime::allocation_count::count_operation();
         // SAFETY: the caller's pair from `System` and its valid new size, unchanged.
-        unsafe { System.realloc(pointer, layout, new_size) }
+        memory_budget::resize(layout.size(), new_size, || unsafe {
+            System.realloc(pointer, layout, new_size)
+        })
     }
 }
 

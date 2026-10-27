@@ -82,11 +82,17 @@ mod limit_contract_tests;
 
 #[cfg(test)]
 mod tests {
+    /// Protocol annex E8.1: off Linux only the program's allocator limits a worker, and this test
+    /// program's allocator is the system's, so it runs no worker. Catches a worker that claims a
+    /// memory limit nothing enforces.
     #[cfg(not(target_os = "linux"))]
     #[test]
-    fn finite_search_requires_native_memory_limit_adapter() {
+    fn a_program_without_a_worker_memory_limit_runs_no_worker() {
         assert!(!super::limits::available());
-        assert!(super::limits::apply().is_err());
+        assert_eq!(
+            super::limits::apply(),
+            Err(String::from(crate::memory_budget::NO_LIMIT))
+        );
     }
     #[test]
     fn finite_search_worker_entry() {

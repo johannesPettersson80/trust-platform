@@ -786,7 +786,8 @@ An isolated simulation runs the project's actual Structured Text against the con
 
 - The run executes on the target's host only when the host is simulated. The host is simulated when its simulation is active and `simulation_only_io` is true. The runtime does not compare a program revision for this check.
 - A host that is not simulated reports the run as not ready. A start on it is refused. The text is `Isolated simulations do not run on a physical target's host; use a local analysis runtime.`
-- When the target is physical, the run MUST execute on a local analysis runtime loaded from the workspace project. Its program revision MUST equal the target's (A2.6).- Isolated simulations run only on Linux. Elsewhere the status reports the run as not ready, with the reason `bounded search requires a native process-memory-limit adapter; currently Linux only`.
+- When the target is physical, the run MUST execute on a local analysis runtime loaded from the workspace project. Its program revision MUST equal the target's (A2.6).
+- Isolated simulations run on Linux, macOS and Windows alike. Each worker is limited to 1 GiB of memory (E12) and reads the limit back. On Linux the operating system limits the worker's address space, and the compiler processes of the worker's build inherit that limit. On macOS and Windows the program's allocator refuses an allocation that would hold more than 1 GiB, and the worker stops as it stops on Linux; the compiler processes of the build are not limited there. A program that sets neither limit, such as a program embedding the runtime with its own allocator, reports the run as not ready with the reason `isolated runs need a worker memory limit, which this program does not set`.
 - An isolated run has no connection to any runtime. It receives no physical setting, no credential and no physical driver. Its environment is cleared. Live process values of the simulated target MAY be carried into it as values before its first scan (E8.3).
 - Admission never depends on a debug session.
 
@@ -1126,7 +1127,7 @@ Every quantity in Part A7 applies in full, in every component. Each component ac
 | Events per isolated run | 1,024. |
 | Observed channels per isolated run | 64. |
 | Scan deadline in an isolated run | 100 ms, or the run's wall budget when that is smaller. |
-| Address space per isolated worker | 1 GiB. The worker reads the limit back. |
+| Memory per isolated worker | 1 GiB: its address space on Linux, its allocations on macOS and Windows (E8.1). The worker reads the limit back. |
 | Isolated workers per runtime | 1. |
 | Source snapshot | 64 source files, 1,048,576 bytes of source text, and 262,144 bytes of simulation configuration. |
 | Search grid axes; values per axis | 1 to 4 axes; 1 to 16 values per axis. |

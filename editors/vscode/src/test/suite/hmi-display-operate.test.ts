@@ -1,6 +1,7 @@
 import * as assert from "assert";
 
 import type { PageData } from "../../hmiBuilder/display/runtimeDisplay";
+import { SentCommands } from "../../hmiBuilder/display/sentCommands";
 import {
   ANNA,
   ERIK,
@@ -257,6 +258,17 @@ suite("HMI display: operating", () => {
     host.sockets[0].send({ command: { id: sent[0].id, outcome: "confirmed" } });
     await settle(host);
     assert.strictEqual(object(root, "start").getAttribute("data-outcome"), "confirmed");
+  });
+
+  test("a page that stays open remembers only its newest 1,024 commands for their later outcomes", () => {
+    // §12.5 item 6: the 1,025th command forgets the first, while the second and the newest still
+    // reach what sent them. Catches a page whose record grows with every command, and one that
+    // forgets a command still among its newest.
+    const sent = new SentCommands<string>();
+    for (let index = 0; index <= 1024; index += 1) sent.add(`c${index}`, `control ${index}`);
+    assert.strictEqual(sent.from("c0"), undefined, "the oldest command is forgotten");
+    assert.strictEqual(sent.from("c1"), "control 1");
+    assert.strictEqual(sent.from("c1024"), "control 1024");
   });
 
   test("a control that calls a method sends invoke with its identity, never the method or its inputs", async () => {

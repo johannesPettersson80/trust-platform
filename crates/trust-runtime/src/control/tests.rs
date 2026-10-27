@@ -54,6 +54,9 @@ include!("tests/control_studio_parameters.rs");
 include!("tests/control_studio_transfer.rs");
 include!("tests/control_studio_transfer_formulas.rs");
 
+// The isolated runs below use this test program as their worker. Its allocator is the system's,
+// so only Linux limits that worker (protocol annex E8.1); the trust-runtime and trust-debug
+// programs run their workers on every platform.
 #[cfg(target_os = "linux")]
 include!("tests/control_studio_search.rs");
 

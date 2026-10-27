@@ -1907,6 +1907,12 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Fixed
 
+- An HMI page left open no longer keeps a record of every command it sends. It remembers the newest
+  1,024 commands and alarm actions for their later outcomes (specification 39, §12.5).
+- Control Studio's isolated runs and searches (validate, test runs, finite search) work on macOS and
+  Windows. They ran only on Linux, which limits a worker's address space; on macOS and Windows the
+  trust-runtime and trust-debug allocators now hold each worker to the same 1 GiB (protocol annex
+  E8.1).
 - Stopping or stepping in a compiled program shows the program's file again. The debugger named the
   file by its path relative to the project, which VS Code could not open ("Could not load source
   'src/Main.st': unsupported command"); it now names the project's file, for stack frames and

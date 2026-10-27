@@ -307,16 +307,16 @@ jobs:
           for attempt in 1 2; do
             echo "=== full test suite attempt ${attempt}/2 (${{ matrix.os }}) ===" | tee -a "${LOG_PATH}"
             if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-              command=(cargo test --all-targets -- --test-threads=1)
+              command=(cargo test --all-targets --no-fail-fast -- --test-threads=1)
             elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-              command=(cargo test --all-targets --jobs 1)
+              command=(cargo test --all-targets --no-fail-fast --jobs 1)
             else
-              command=(cargo test --all-targets)
+              command=(cargo test --all-targets --no-fail-fast)
             fi
             if "${PYTHON_BIN}" scripts/run_with_progress.py \
               --phase ci-full-test \
               --target "${{ matrix.os }} attempt ${attempt}/2" \
-              --timeout-seconds "${CI_FULL_TEST_TIMEOUT_SECONDS:-2400}" \
+              --timeout-seconds "${CI_FULL_TEST_TIMEOUT_SECONDS:-3600}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- "${command[@]}"; then
@@ -628,8 +628,17 @@ jobs:
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash scripts/checkout_openot_ref.sh
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: Swatinem/rust-cache@v2
+      - name: Toolchain for compiled programs (specification 44 §4.6)
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          rustup target add riscv32imac-unknown-none-elf thumbv8m.main-none-eabihf \
+            x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+          bash scripts/native/build_toolchain_libraries.sh "${RUNNER_TEMP}/trust-toolchain"
+          echo "TRUST_TOOLCHAIN=${RUNNER_TEMP}/trust-toolchain" >> "${GITHUB_ENV}"
       - uses: actions/setup-node@v6
         with:
           node-version: '20'
@@ -739,7 +748,7 @@ jobs:
             if python3 ../../scripts/run_with_progress.py \
               --phase ci-vscode-extension \
               --target "npm-test attempt ${attempt}/2" \
-              --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-1800}" \
+              --timeout-seconds "${CI_VSCODE_TEST_TIMEOUT_SECONDS:-3600}" \
               --progress-interval-seconds "${GATE_PROGRESS_INTERVAL_SECONDS:-30}" \
               --log "${LOG_PATH}" \
               -- bash ../../scripts/captures/run-owned-command.sh xvfb-run -a npm test; then

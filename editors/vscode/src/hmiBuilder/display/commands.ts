@@ -13,6 +13,7 @@ import type { SessionControl } from "./session";
 import { formatValue } from "../drawing/format";
 import { say, translate } from "../drawing/speech";
 import { roleWord } from "../drawing/components/controls";
+import { SentCommands } from "./sentCommands";
 
 /** Controls that send a command when pressed. */
 const BUTTONS = ["button", "pulse-button"];
@@ -35,8 +36,8 @@ export interface CommandEvent {
 export class CommandSurface {
   /** The latest outcome on each control, by object id. */
   private readonly outcomes = new Map<string, CommandState>();
-  /** The control each command came from, by command id. */
-  private readonly sentFrom = new Map<string, string>();
+  /** The control each of the newest commands came from, by command id. */
+  private readonly sentFrom = new SentCommands<string>();
   /** Values being entered on controls, by object id, until they are sent (§5.8). */
   private readonly entered = new Map<string, number>();
   /** The slider being dragged. */
@@ -85,7 +86,7 @@ export class CommandSurface {
 
   /** A later outcome from the stream; whether it was one of this surface's commands. */
   receive(command: CommandEvent): boolean {
-    const from = this.sentFrom.get(command.id);
+    const from = this.sentFrom.from(command.id);
     if (!from) return false;
     this.setOutcome(from, { outcome: command.outcome, reason: command.reason });
     return true;
@@ -222,7 +223,7 @@ export class CommandSurface {
 
   private async send(object: HmiObjectModel, action: string, value?: unknown): Promise<void> {
     const id = commandId();
-    this.sentFrom.set(id, object.id);
+    this.sentFrom.add(id, object.id);
     this.setOutcome(object.id, { outcome: "pending" });
     this.redraw();
     const body: Record<string, unknown> = {

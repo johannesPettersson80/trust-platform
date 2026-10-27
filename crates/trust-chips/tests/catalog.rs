@@ -274,7 +274,7 @@ fn a_chip_file_gives_the_event_store_default_and_maximum() {
     // default_capacity <= max_capacity <= 1,000,000. The C6 keeps 200 and admits at most 200
     // until a measurement of the heap a program leaves on the bench allows more. Catches a
     // missing or swapped pair, and a range the rule refuses.
-    let file = include_str!("../../../chips/esp32c6.toml");
+    let file = include_str!("../../../chips/esp32c6.toml").replace("\r\n", "\n");
     let chip = chip("esp32c6");
     assert_eq!(chip.events.default_capacity, 200);
     assert_eq!(chip.events.max_capacity, 200);

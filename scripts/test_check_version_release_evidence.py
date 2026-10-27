@@ -49,7 +49,7 @@ class VersionReleaseEvidenceParserTests(unittest.TestCase):
         self.assertNotIn("ci_run_id", release_workflow)
         self.assertNotIn("gh run download", release_workflow)
         self.assertNotRegex(release_workflow, r"(?m)^  release-conformance:$")
-        self.assertIn("name: Runtime VM Validation", release_workflow)
+        self.assertIn("name: Runtime Validation", release_workflow)
         self.assertIn("name: release-conformance", release_workflow)
 
     def test_release_preflight_has_no_ci_api_contract(self) -> None:
