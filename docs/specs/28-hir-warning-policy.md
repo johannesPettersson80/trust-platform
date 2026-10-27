@@ -16,7 +16,12 @@ following references count:
 - use of a FUNCTION_BLOCK as a declared type;
 - a program instance selected by a configuration;
 - a `VAR_CONFIG` access path;
-- a resolved type reference.
+- a resolved type reference;
+- a qualified value access chain (`GVals.Member`, dotted declaration sizes):
+  the chain resolves to its terminal member and marks that member used —
+  the leftmost segment alone never marks anything used;
+- an `EXTENDS` or `IMPLEMENTS` target of a POU, class, or DUT declaration:
+  inheritance is a use of the base.
 
 Imported declarations, declarations without a source range, members of a
 FUNCTION_BLOCK, CLASS, or INTERFACE, interface-method parameters, non-input

@@ -94,6 +94,36 @@ pub(in crate::db) fn collect_used_symbols(
             used.insert(symbol_id);
         }
     }
+    // Inheritance clauses (EXTENDS/IMPLEMENTS on POUs, classes, and DUTs):
+    // the target is an inheritance reference and marks the base used. The
+    // parser models the clause target as a plain Name (dotted targets as a
+    // QualifiedName), not a TypeRef, so the type-reference pass above never
+    // sees it (measured 2026-10-27: fbChild EXTENDS fbBase left fbBase
+    // flagged W009; s4's fbLight/fbMqttPayloadBase are pure base classes).
+    for node in root.descendants().filter(|n| {
+        matches!(
+            n.kind(),
+            SyntaxKind::ExtendsClause | SyntaxKind::ImplementsClause
+        )
+    }) {
+        let Some((parts, _)) = qualified_name_parts(&node) else {
+            continue;
+        };
+        let segments: Vec<SmolStr> = parts.iter().map(|(name, _)| name.clone()).collect();
+        let symbol_id = if segments.len() == 1 {
+            symbols
+                .resolve(
+                    segments[0].as_str(),
+                    expression_context(symbols, &node).scope_id,
+                )
+                .or_else(|| symbols.lookup(segments[0].as_str()))
+        } else {
+            symbols.resolve_qualified(&segments)
+        };
+        if let Some(symbol_id) = symbol_id {
+            used.insert(symbol_id);
+        }
+    }
     for config_init in root
         .descendants()
         .filter(|n| n.kind() == SyntaxKind::ConfigInit)

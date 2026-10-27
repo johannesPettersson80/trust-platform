@@ -392,3 +392,117 @@ END_PROGRAM
     assert_eq!(u32::from(warning.range.start()), expected);
     assert_eq!(warning.message, "unused variable 'Forgotten'");
 }
+
+         "genuinely unreferenced constant must still warn: {unused:?}"
+     );
+ }
+
+#[test]
+fn extends_base_is_used_by_the_inheriting_declaration() {
+    // RED pin 2026-10-27: an EXTENDS/IMPLEMENTS target is an inheritance
+    // reference - the base FB was flagged W009 although the child declares
+    // the only (relationship) use. Measured on s4: fbLight and
+    // fbMqttPayloadBase are pure base classes and were reported unused.
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+FUNCTION_BLOCK fbBase
+VAR_INPUT
+    iIn : INT;
+END_VAR
+END_FUNCTION_BLOCK
+"#,
+            r#"
+FUNCTION_BLOCK fbChild EXTENDS fbBase
+VAR
+    x : INT;
+END_VAR
+    x := x;
+END_FUNCTION_BLOCK
+"#,
+        ],
+        0,
+    );
+    let base_unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedPou)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !base_unused.iter().any(|message| message.contains("fbBase")),
+        "EXTENDS target must count as used: {base_unused:?}"
+    );
+
+    // The child itself is never instantiated - it still warns, but in ITS
+    // declaring file.
+    let child_diagnostics = diagnostics_for(
+        &[
+            r#"
+FUNCTION_BLOCK fbBase
+VAR_INPUT
+    iIn : INT;
+END_VAR
+END_FUNCTION_BLOCK
+"#,
+            r#"
+FUNCTION_BLOCK fbChild EXTENDS fbBase
+VAR
+    x : INT;
+END_VAR
+    x := x;
+END_FUNCTION_BLOCK
+"#,
+        ],
+        1,
+    );
+    let child_unused: Vec<String> = child_diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedPou)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+    assert!(
+        child_unused
+            .iter()
+            .any(|message| message.contains("fbChild")),
+        "the never-instantiated child still warns in its own file: {child_unused:?}"
+    );
+    assert!(
+        !child_unused
+            .iter()
+            .any(|message| message.contains("fbBase")),
+        "the EXTENDS target must not warn from the child's file either: {child_unused:?}"
+    );
+}
+
+#[test]
+fn implements_interface_is_used_by_the_implementing_class() {
+    let diagnostics = diagnostics_for(
+        &[
+            r#"
+INTERFACE itfThing
+METHOD mDo : INT;
+END_METHOD
+END_INTERFACE
+"#,
+            r#"
+CLASS cThing IMPLEMENTS itfThing
+METHOD mDo : INT
+    mDo := 1;
+END_METHOD
+END_CLASS
+"#,
+        ],
+        0,
+    );
+    let unused: Vec<String> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.code == DiagnosticCode::UnusedPou)
+        .map(|diagnostic| diagnostic.message.clone())
+        .collect();
+
+    assert!(
+        !unused.iter().any(|message| message.contains("itfThing")),
+        "IMPLEMENTS target must count as used: {unused:?}"
+    );
+}
