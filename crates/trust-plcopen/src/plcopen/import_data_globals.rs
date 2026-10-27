@@ -426,6 +426,22 @@ fn import_global_var_lists_to_sources(
                 let type_name = format!("{list_identifier}_TYPE");
                 let configuration_name = format!("{list_identifier}_Globals");
 
+                // The configuration-level instance rides the LAST
+                // non-empty VAR_GLOBAL section (original shape: one block
+                // holding the members plus the list instance).
+                let instance_decl = GlobalVarVariableDecl {
+                    name: list_identifier.clone(),
+                    type_expr: type_name.clone(),
+                    initial_value: None,
+                };
+                let mut plain_variables = plain_variables;
+                let mut constant_variables = constant_variables;
+                if !constant_variables.is_empty() {
+                    constant_variables.push(&instance_decl);
+                } else {
+                    plain_variables.push(&instance_decl);
+                }
+
                 let mut rendered = String::new();
                 rendered.push_str("TYPE\n");
                 rendered.push_str(&format!("{type_name} : STRUCT\n"));
@@ -443,7 +459,6 @@ fn import_global_var_lists_to_sources(
                     &constant_header_suffix,
                     &constant_variables,
                 );
-                rendered.push_str(&format!("    {list_identifier} : {type_name};\n"));
                 rendered.push_str("END_CONFIGURATION\n");
 
                 warnings.push(format!(
